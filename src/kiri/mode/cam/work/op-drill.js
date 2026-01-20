@@ -13,8 +13,7 @@ class OpDrill extends CamOp {
 
     async slice(progress) {
         let { op, state } = this;
-        let { settings, addSlices, widget, updateToolDiams } = state;
-        let { color } = state;
+        let { color, settings, addSlices, widget, updateToolDiams, zBottom } = state;
         let { drills } = op
 
         let drillTool = new Tool(settings, op.tool),
@@ -39,6 +38,10 @@ class OpDrill extends CamOp {
             }
 
             drill.zBottom = drill.z - drill.depth;
+
+            // honor zBottom when set
+            if (zBottom) drill.zBottom = Math.max(zBottom, drill.zBottom);
+
             // for thru holes, follow z thru when set
             if ((op.thru > 0)) {
                 drill.zBottom -= op.thru;
