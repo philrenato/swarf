@@ -178,7 +178,7 @@ class OpArea extends CamOp {
                 for (let z of zs) {
                     let slice = newLayer(z);
                     let layers = slice.output();
-                    let shadow = await shadowAt(z);
+                    let shadow = await shadowAt(z + 0.01);
                     let tool_shadow = [
                         ...POLY.offset(shadow, [  ts_off ], { count: 1, z, ...offopt }),
                         ...POLY.offset(shadow, [ -ts_off ], { count: 1, z, ...offopt }),
