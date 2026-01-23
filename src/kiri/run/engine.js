@@ -84,7 +84,16 @@ class Engine {
      * @returns {Engine} this
      */
     setMode(mode) {
-        this.settings.mode = mode;
+        let lmode = mode.toLowerCase();
+        Object.assign(this.settings, {
+            mode: mode,
+            controller: {},
+            render: false,
+            filter: { [mode]: "internal" },
+            device: conf.defaults[lmode].d,
+            process: conf.defaults[lmode].p,
+        });
+        console.log({ settings: this.settings });
         return this;
     }
 
