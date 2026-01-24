@@ -38,6 +38,7 @@ class Engine {
                 new load.STL().load(url, vertices => {
                     this.listener({ loaded: url, vertices });
                     this.widget.loadVertices(vertices).center();
+                    this.setTopOffset(0);
                     accept(this);
                 });
             } catch (error) {
@@ -93,7 +94,6 @@ class Engine {
             device: conf.defaults[lmode].d,
             process: conf.defaults[lmode].p,
         });
-        console.log({ settings: this.settings });
         return this;
     }
 
@@ -130,17 +130,24 @@ class Engine {
         process.camStockX = stock.x;
         process.camStockY = stock.y;
         process.camStockZ = stock.z;
-        if (this.origin) settings.stock.center = origin;
+        settings.stock.center = {
+            x: stock.x / 2,
+            y: stock.y / 2,
+            z: stock.z / 2
+        };
         return this;
     }
 
     setTopOffset(offset = 0) {
         this.topOffset = offset;
+        let wbb = this.widget.getBoundingBox();
+        this.widget.setTopZ(wbb.max.z - offset);
+        return this;
     }
 
     setOrigin(x, y, z) {
         this.origin = { x, y, z };
-        if (this.settings.stock) this.settings.stock.center = { x, y, z };
+        this.settings.origin = this.origin;
         return this;
     }
 
@@ -165,7 +172,6 @@ class Engine {
     }
 
     slice() {
-        this.widget.setTopZ((this.settings?.stock?.z || 0) - (this.topOffset || 0));
         return new Promise((accept, reject) => {
             client.clear();
             client.sync([this.widget]);
