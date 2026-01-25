@@ -6,6 +6,7 @@ import { api } from './api.js';
 import { MODES } from './consts.js';
 import { colorSchemeRegistry } from './color/schemes.js';
 import { load as file_load } from '../../load/file.js';
+import { load_url as url_load } from '../../load/url.js';
 import { newBounds } from '../../geo/bounds.js';
 import { Packer } from './pack.js';
 import { space } from '../../moto/space.js';
@@ -491,7 +492,7 @@ function load_stl(url, onload, formdata, credentials, headers) {
  */
 function load_url(url, options = {}) {
     platform.group();
-    file_load.URL.load(url, options).then(objects => {
+    url_load(url, options).then(objects => {
         let widgets = [];
         for (let object of objects) {
             let widget = newWidget(undefined, options.group).loadVertices(object.mesh);

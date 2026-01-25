@@ -2,11 +2,9 @@
 
 'use strict';
 
-import { STL } from './stl.js';
-import { OBJ } from './obj.js';
-import { TMF } from './3mf.js';
-import { SVG } from './svg.js';
+import { load_file } from './file.js';
 
+const { STL, OBJ, TMF, SVG } = load_file;
 const CDH = 'Content-Disposition';
 
 export function load_url(url, options = {}) {

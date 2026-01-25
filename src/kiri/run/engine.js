@@ -19,7 +19,8 @@ class Engine {
             filter: { FDM: "internal" },
             device: conf.defaults.fdm.d, // device profile
             process: conf.defaults.fdm.p, // slicing settings
-            widget: { [this.widget.id]: {} }
+            widget: { [this.widget.id]: {} },
+            time: Date.now()
         };
         this.listener = () => { };
         try {
@@ -49,6 +50,10 @@ class Engine {
 
     clear() {
         api.platform.clear();
+    }
+
+    workspace() {
+        return api.settings.export({ engine: this.settings });
     }
 
     parse(data) {

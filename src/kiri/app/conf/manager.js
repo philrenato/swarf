@@ -526,7 +526,7 @@ function settingsExport(opts = {}) {
     const shot = opts.work || opts.screen ? space.screenshot() : undefined;
     const work = opts.work ? codec.encode(widgets,{_json_:true}) : undefined;
     const view = opts.work ? space.view.save() : undefined;
-    const setn = Object.clone(settings);
+    const setn = Object.clone(opts.engine ?? settings);
     // stuff in legacy annotations for re-import
     for (let w of widgets) {
         setn.widget[w.id] = w.anno;
@@ -539,7 +539,7 @@ function settingsExport(opts = {}) {
         note: note,
         work: work,
         view: view,
-        moto: moto.id,
+        moto: self.moto?.id,
         init: local.getItem('kiri-init'),
         time: Date.now()
     };
