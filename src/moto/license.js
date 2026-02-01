@@ -3,7 +3,7 @@
 const terms = {
     COPYRIGHT: "Copyright (C) Stewart Allen <sa@grid.space> - All Rights Reserved",
     LICENSE: "See the license.md file included with the source distribution",
-    VERSION: "4.6.1"
+    VERSION: "4.6.2"
 };
 
 export const beta = 0;
