@@ -193,8 +193,10 @@ async function preloadBundle() {
     const res = await fetch(BUNDLE_URL, { cache: 'no-store' });
     const buf = await res.arrayBuffer();
     const files = await unpackBundle(buf);
+    const total = Object.keys(files).length;
     await Promise.all(
         Object.entries(files).map(([path, blob]) => {
+            broadcast({ progress: loaded/total });
             const ext = path.split('.').pop();
             const type =
                 ext === 'html' ? 'text/html' :
