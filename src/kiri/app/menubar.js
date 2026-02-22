@@ -80,7 +80,7 @@ const MENUBAR_HTML = `
             </div>
         </span>
         <span>
-            <label lk="re_menu">sender</label>
+            <label lk="re_menu">render</label>
             <div class="top-menu-drop top-menu-left">
                 <div class="content">
                     <div id="render-solid">
@@ -137,10 +137,10 @@ const MENUBAR_HTML = `
         <div class="menubar-separator"></div>
         <div class="f-row top-menu">
             <span id="tool-nozzle"><i class="fas fa-location-pin" title="extruder"></i>
-                <div id="ft-nozzle" class="f-col pop hide"></div>
+                <div id="ft-nozzle" class="f-col pop"></div>
             </span>
             <span id="tool-rotate"><i class="fas fa-rotate-right" title="rotate selection"></i>
-                <div id="ft-rotate" class="grid pop hide">
+                <div id="ft-rotate" class="grid pop">
                     <div id="rot_x_lt"><i class="fas fa-chevron-left"></i></div>
                     <label>X</label>
                     <div id="rot_x_gt"><i class="fas fa-chevron-right"></i></div>
@@ -159,7 +159,7 @@ const MENUBAR_HTML = `
                 </div>
             </span>
             <span id="tool-scale"><i class="fas fa-expand" title="scale or resize selection"></i>
-                <div id="ft-scale" class="grid pop hide">
+                <div id="ft-scale" class="grid pop">
                     <div><label>X</label><input id="lock_x" type="checkbox" checked></div>
                     <div><label>Y</label><input id="lock_y" type="checkbox" checked></div>
                     <div><label>Z</label><input id="lock_z" type="checkbox" checked></div>

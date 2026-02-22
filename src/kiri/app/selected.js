@@ -6,6 +6,7 @@ import { THREE } from '../../ext/three.js';
 import { tool as MeshTool } from '../../mesh/tool.js';
 import { encode as objEncode } from '../../load/obj.js';
 import { encode as stlEncode } from '../../load/stl.js';
+import { $ } from '../../moto/webui.js';
 
 /**
  * Array of currently selected widget meshes.
@@ -546,12 +547,12 @@ function parse_as_float(e) {
 function input_binding(ui) {
     // on enter but not on blur
     space.event.onEnterKey([
-        // ui.scale.X,        (e) => input_scale(e, ui),
-        // ui.scale.Y,        (e) => input_scale(e, ui),
-        // ui.scale.Z,        (e) => input_scale(e, ui),
-        // ui.size.X,         (e) => input_resize(e, ui),
-        // ui.size.Y,         (e) => input_resize(e, ui),
-        // ui.size.Z,         (e) => input_resize(e, ui),
+        ui.scale.X,        (e) => input_scale(e, ui),
+        ui.scale.Y,        (e) => input_scale(e, ui),
+        ui.scale.Z,        (e) => input_scale(e, ui),
+        ui.size.X,         (e) => input_resize(e, ui),
+        ui.size.Y,         (e) => input_resize(e, ui),
+        ui.size.Z,         (e) => input_resize(e, ui),
     ]);
     // on enter and blur
     space.event.onEnterKey([
@@ -563,9 +564,9 @@ function input_binding(ui) {
         ui.toolShaftLen,   updateTool,
         ui.toolTaperTip,   updateTool,
         ui.toolTaperAngle, updateTool,
-        // $('rot_x'),        parse_as_float,
-        // $('rot_y'),        parse_as_float,
-        // $('rot_z'),        parse_as_float
+        $('rot_x'),        parse_as_float,
+        $('rot_y'),        parse_as_float,
+        $('rot_z'),        parse_as_float
     ], true);
 }
 

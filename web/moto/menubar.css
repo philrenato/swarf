@@ -60,6 +60,44 @@
     display: flex;
 }
 
+#menubar .top-menu > span > .pop {
+    display: none;
+    position: absolute;
+    top: 100%;
+    left: 0;
+    z-index: 90;
+    margin-top: 3px;
+    border: 1px solid var(--border-gray);
+    border-radius: 6px;
+    background: var(--menubar-back);
+    color: var(--menubar-fore);
+    padding: 4px;
+}
+
+#menubar .top-menu > span > .pop::before {
+    content: "";
+    position: absolute;
+    top: -6px;
+    left: 0;
+    right: 0;
+    height: 6px;
+    background: transparent;
+}
+
+#menubar .top-menu > span:hover > .pop {
+    display: flex;
+}
+
+#menubar #ft-rotate.pop,
+#menubar #ft-scale.pop {
+    display: none;
+}
+
+#menubar #tool-rotate:hover #ft-rotate.pop,
+#menubar #tool-scale:hover #ft-scale.pop {
+    display: grid;
+}
+
 #menubar .top-menu label,
 #menubar .top-menu svg {
     color: inherit;
