@@ -56,8 +56,14 @@
     <!-- top menu bar -->
     <div id="menubar" class="f-row"></div>
 
-    <!-- line betwwen menu bar and main application windows -->
-    <div id="progress"><div id="progbar"></div><div id="progtxt">loading</div></div>
+    <!-- modal progress overlay -->
+    <div id="progress-overlay" class="hide">
+        <div id="progress-indicator">
+            <div id="progress-ring"></div>
+            <div id="progress-pct"></div>
+            <div id="progtxt"></div>
+        </div>
+    </div>
 
     <!-- toolbar with mesh and rendering options -->
     <div id="mode-tools"></div>

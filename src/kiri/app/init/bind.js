@@ -105,8 +105,10 @@ export function bind() {
             range:          $('slider-center'),
         },
 
-        loading:            $('progress').style,
-        progress:           $('progbar').style,
+        loading:            $('progress-overlay')?.style,
+        progressOverlay:    $('progress-overlay'),
+        progress:           $('progress-ring'),
+        progressPct:        $('progress-pct'),
         prostatus:          $('progtxt'),
         selection:          $('selection'),
 
