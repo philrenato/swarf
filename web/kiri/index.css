@@ -1179,6 +1179,10 @@ details[open] summary::after {
     border-color: var(--appname-blue);
     background-color: rgba(0,0,0,0.4);
 }
+#mode-tools > span.selected {
+    border-color: var(--appname-blue);
+    background-color: rgba(0,0,0,0.4);
+}
 /** fdm extruder drop-down */
 #ft-nozzle .splat {
     width: 10px;

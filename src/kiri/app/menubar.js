@@ -217,12 +217,42 @@ function content(actions) {
     ];
 }
 
+function modeTools(actions) {
+    const t = (key, fallback) => tr(key, fallback);
+    return [
+        span({ id: 'view-arrange', ...on(actions, 'view-arrange') }, [
+            span([icon('fas fa-shapes')]),
+            span({ lk: 'arrange', _: t('arrange', 'arrange') })
+        ]),
+        span({ id: 'act-slice', ...on(actions, 'act-slice') }, [
+            span([icon('fas fa-bars')]),
+            label({ id: 'label-slice', title: 'generate layer slices', lk: 'slice', _: t('slice', 'slice') })
+        ]),
+        span({ id: 'act-preview', ...on(actions, 'act-preview') }, [
+            span([icon('fas fa-layer-group')]),
+            label({ id: 'label-preview', title: 'show routing and paths', lk: 'preview', _: t('preview', 'preview') })
+        ]),
+        span({ id: 'act-animate', ...on(actions, 'act-animate') }, [
+            span([icon('fas fa-film')]),
+            label({ id: 'label-animate', title: 'render routing on a mesh', lk: 'animate', _: t('animate', 'animate') })
+        ]),
+        span({ id: 'act-export', ...on(actions, 'act-export') }, [
+            span([icon('fas fa-file-download')]),
+            label({ id: 'label-export', title: 'generate gcode', lk: 'export', _: t('export', 'export') })
+        ])
+    ];
+}
+
 export const menubar = {
     build(actions = {}) {
-        const node = $('menubar');
-        if (!node) {
+        const menubarNode = $('menubar');
+        const modeToolsNode = $('mode-tools');
+        if (!menubarNode) {
             return;
         }
-        h.bind(node, content(actions));
+        h.bind(menubarNode, content(actions));
+        if (modeToolsNode) {
+            h.bind(modeToolsNode, modeTools(actions));
+        }
     }
 };

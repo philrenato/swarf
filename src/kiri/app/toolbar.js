@@ -1,10 +1,22 @@
 /** Copyright Stewart Allen <sa@grid.space> -- All Rights Reserved */
 
 import { menubar } from './menubar.js';
+import { api } from './api.js';
 
 const toolbar = {
-    build(actions) {
-        menubar.build(actions);
+    build(actions = {}) {
+        const stop = (fn) => (ev) => {
+            ev?.stopPropagation?.();
+            return fn?.(ev);
+        };
+        menubar.build({
+            ...actions,
+            'view-arrange': stop(() => api.platform.layout()),
+            'act-slice': stop(() => api.function.slice()),
+            'act-preview': stop(() => api.function.print()),
+            'act-animate': stop(() => api.function.animate()),
+            'act-export': stop(() => api.function.export())
+        });
     }
 };
 

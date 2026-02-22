@@ -223,10 +223,6 @@ function setup_keybd_nav() {
     ui.acct.don8.onclick = (ev) => { ev.stopPropagation(); api.modal.show('don8') };
     ui.acct.export.onclick = (ev) => { ev.stopPropagation(); settingsOps.export_profile() };
     ui.acct.export.title = LANG.acct_xpo;
-    ui.func.slice.onclick = (ev) => { ev.stopPropagation(); api.function.slice() };
-    ui.func.preview.onclick = (ev) => { ev.stopPropagation(); api.function.print() };
-    ui.func.animate.onclick = (ev) => { ev.stopPropagation(); api.function.animate() };
-    ui.func.export.onclick = (ev) => { ev.stopPropagation(); api.function.export() };
     // prevent modal input from propagating to parents
     ui.modalBox.onclick = (ev) => { ev.stopPropagation() };
 
@@ -247,7 +243,6 @@ function setup_keybd_nav() {
     $('file-new').onclick = (ev) => { ev.stopPropagation(); settingsOps.new_workspace() };
     $('file-recent').onclick = () => { api.modal.show('files') };
     $('file-import').onclick = (ev) => { api.event.import(ev); };
-    $('view-arrange').onclick = api.platform.layout;
     $('view-top').onclick = space.view.top;
     $('view-home').onclick = space.view.home;
 
