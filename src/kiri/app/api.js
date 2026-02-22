@@ -238,6 +238,12 @@ export const api = {
     settings,
     show: {
         alert() { return alerts.show(...arguments) },
+        busy(msg) {
+            if (msg === false || msg === null || msg === 0 || msg === '') {
+                return visuals.set_progress(0);
+            }
+            return visuals.set_progress(-1, typeof msg === 'string' ? msg : undefined);
+        },
         controls() { console.trace('deprecated') },
         devices: showDevices,
         import() { api.ui.import.style.display = '' },
