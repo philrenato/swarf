@@ -6,8 +6,10 @@
 :root {
     --appname-blue: #5a9fd4;
     --menubar-vsep: rgba(0,0,0,0.2);
-    --menubar-back: rgba(128,128,128,0.5);
+    --menubar-back: rgba(255,255,255,1);
     --menubar-fore: rgba(20,20,20,1.0);
+    --menu-hover-bg: rgba(0,0,0,0.1);
+    --menu-active-bg: rgba(90,159,212,0.22);
     --border-gray:  rgba(128,128,128,0.5);
 }
 
@@ -17,5 +19,7 @@
     --menubar-vsep: rgba(255,255,255,0.2);
     --menubar-back: rgba(35,35,35,1);
     --menubar-fore: rgba(250,250,250,1.0);
+    --menu-hover-bg: rgba(0,0,0,0.4);
+    --menu-active-bg: rgba(90,159,212,0.32);
     --border-gray:  rgba(128,128,128,0.5);
 }

@@ -53,7 +53,7 @@
 
 #menubar .top-menu > span:hover {
     border-color: var(--appname-blue);
-    background-color: rgba(0,0,0,0.4);
+    background-color: var(--menu-hover-bg);
 }
 
 #menubar .top-menu > span:hover .top-menu-drop {
@@ -156,9 +156,13 @@
     min-width: 16px;
 }
 
-#menubar .top-menu-drop .content > div:hover,
+#menubar .top-menu-drop .content > div:hover {
+    border-color: var(--appname-blue);
+    background-color: var(--menu-hover-bg);
+}
+
 #menubar .top-menu-drop .content > div.selected,
 #menubar .top-menu > span.selected {
     border-color: var(--appname-blue);
-    background-color: rgba(0,0,0,0.4);
+    background-color: var(--menu-active-bg);
 }

@@ -1177,11 +1177,11 @@ details[open] summary::after {
 }
 #mode-tools > span:hover {
     border-color: var(--appname-blue);
-    background-color: rgba(0,0,0,0.4);
+    background-color: var(--menu-hover-bg);
 }
 #mode-tools > span.selected {
     border-color: var(--appname-blue);
-    background-color: rgba(0,0,0,0.4);
+    background-color: var(--menu-active-bg);
 }
 /** fdm extruder drop-down */
 #ft-nozzle .splat {
