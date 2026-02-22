@@ -129,8 +129,8 @@ function content(actions) {
             topMenu(actions, {
                 text: 'Align', lk: 'al_menu', items: [
                     menuItem(actions, { id: 'context-setfocus', lk: 'focus', text: 'focal point', iconClass: 'fas fa-eye' }),
-                    menuItem(actions, { id: 'context-layflat', lk: 'face-down', text: 'face down', iconClass: 'fas fa-home' }),
-                    menuItem(actions, { id: 'context-lefty', lk: 'face-left', text: 'face left', iconClass: 'fas fa-maximize' })
+                    menuItem(actions, { id: 'context-layflat', lk: 'face-down', text: 'face down', iconClass: 'fas fa-angle-double-down' }),
+                    menuItem(actions, { id: 'context-lefty', lk: 'face-left', text: 'face left', iconClass: 'fas fa-angle-double-left' })
                 ]
             }),
             topMenu(actions, {
