@@ -11,6 +11,29 @@
     --menu-hover-bg: rgba(0,0,0,0.1);
     --menu-active-bg: rgba(90,159,212,0.22);
     --border-gray:  rgba(128,128,128,0.5);
+    --ui-text: #222;
+    --ui-text-muted: #888;
+    --ui-border: #bbb;
+    --ui-border-strong: #777;
+    --ui-hr: #ddd;
+    --ui-input-bg: #f8f8ff;
+    --ui-input-fg: #222;
+    --ui-input-disabled-bg: #ddd;
+    --ui-input-disabled-fg: #000;
+    --ui-select-bg: rgba(255,255,255,0.5);
+    --ui-option-selected-bg: var(--appname-blue);
+    --ui-textarea-bg: #fff;
+    --ui-textarea-fg: #222;
+    --ui-button-bg: #eee;
+    --ui-button-fg: #222;
+    --ui-button-border: #ccc;
+    --ui-button-hover-bg: #5a9fd4;
+    --ui-button-hover-fg: #fff;
+    --ui-button-disabled-fg: #999;
+    --ui-dialog-bg: rgba(255,255,255,0.85);
+    --ui-dialog-fg: #222;
+    --ui-dialog-border-top: rgba(180,180,180,1);
+    --ui-dialog-border-bottom: rgba(180,180,180,1);
 }
 
 :root.dark,
@@ -22,4 +45,27 @@
     --menu-hover-bg: rgba(0,0,0,0.4);
     --menu-active-bg: rgba(90,159,212,0.32);
     --border-gray:  rgba(128,128,128,0.5);
+    --ui-text: #fff;
+    --ui-text-muted: #888;
+    --ui-border: #888;
+    --ui-border-strong: #666;
+    --ui-hr: #555;
+    --ui-input-bg: #333;
+    --ui-input-fg: #fff;
+    --ui-input-disabled-bg: #444;
+    --ui-input-disabled-fg: #888;
+    --ui-select-bg: #333;
+    --ui-option-selected-bg: var(--blue-1, #5a9fd4);
+    --ui-textarea-bg: #333;
+    --ui-textarea-fg: #fff;
+    --ui-button-bg: #555;
+    --ui-button-fg: #fff;
+    --ui-button-border: #777;
+    --ui-button-hover-bg: var(--blue-2, #7e99b7);
+    --ui-button-hover-fg: #000;
+    --ui-button-disabled-fg: #888;
+    --ui-dialog-bg: rgba(60,60,60,0.85);
+    --ui-dialog-fg: #fff;
+    --ui-dialog-border-top: rgba(100,100,100,1);
+    --ui-dialog-border-bottom: rgba(100,100,100,1);
 }
