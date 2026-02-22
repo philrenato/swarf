@@ -1,6 +1,7 @@
 /** Copyright Stewart Allen <sa@grid.space> -- All Rights Reserved */
 
 import { $, h } from '../../moto/webui.js';
+import { api } from './api.js';
 
 const { div, span, label, input, button, i, hr } = h;
 
@@ -10,6 +11,10 @@ function icon(cls) {
 
 function on(actions, id) {
     return actions && typeof actions[id] === 'function' ? { onclick: actions[id] } : {};
+}
+
+function tr(key, fallback) {
+    return api.language?.current?.[key] || fallback || key;
 }
 
 function menuItem(actions, { id, lk, xlk, text, title, iconClass, className, children }) {
@@ -23,8 +28,9 @@ function menuItem(actions, { id, lk, xlk, text, title, iconClass, className, chi
         ...(lk ? { lk } : {}),
         ...(xlk ? { xlk } : {})
     };
+    const resolved = lk ? tr(lk, text) : xlk ? tr(xlk, text) : text;
     return div(attr, [
-        text !== undefined ? label({ ...lblAttr, _: text }) : undefined,
+        resolved !== undefined ? label({ ...lblAttr, _: resolved }) : undefined,
         iconClass ? span([icon(iconClass)]) : undefined,
         children
     ].filter(v => v !== undefined));
@@ -37,8 +43,9 @@ function dropMenu(actions, side, items) {
 }
 
 function topMenu(actions, { text, lk, iconClass, side = 'left', right = false, items }) {
+    const resolved = lk ? tr(lk, text) : text;
     return span({ class: right ? 'menu-right' : undefined }, [
-        text !== undefined ? label({ ...(lk ? { lk } : {}), _: text }) : undefined,
+        resolved !== undefined ? label({ ...(lk ? { lk } : {}), _: resolved }) : undefined,
         iconClass ? icon(iconClass) : undefined,
         dropMenu(actions, side, items)
     ]);
