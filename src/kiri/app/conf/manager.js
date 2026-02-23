@@ -172,9 +172,6 @@ function updateSettings(opt = {}) {
             same = false;
         }
     }
-
-    $('mode-device').innerText = device.deviceName;
-    $('mode-profile').innerText = `${cproc[mode]}${same ? '' : ' *'}`;
 }
 
 function updateSettingsFromFields(setrec, uirec = api.ui, changes) {
@@ -279,6 +276,7 @@ function updateFieldsFromSettings(setrec, uirec = api.ui, opt = {}) {
                 let opt = document.createElement('option');
                 opt.appendChild(document.createTextNode(el.name));
                 opt.setAttribute('value', ev);
+                if (id === '#') opt.setAttribute('disabled', true);
                 uie.appendChild(opt);
             });
             if (chosen) {

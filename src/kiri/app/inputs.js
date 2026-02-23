@@ -889,7 +889,7 @@ function newSelect(label, options = {}, source) {
     } else {
         row.setAttribute("source", source || "tools");
     }
-    row.setAttribute("class", "var-row");
+    row.classList.add('var-row');
     row.style.display = hide ? 'none' : '';
     if (options.id) ip.setAttribute("id", options.id);
     if (options.convert) ip.convert = options.convert.bind(ip);

@@ -209,6 +209,10 @@ export function init_input() {
     // api augmentation with local functions
     api.device.export = settingsOps.export_device;
 
+    let driven = true,
+        hideable = true,
+        separator = true;
+
     Object.assign(ui, {
         tracker:            tracker,
         container:          container,
@@ -317,6 +321,10 @@ export function init_input() {
         webGPU:           newBoolean(LANG.pt_wgpu_s, preferences.booleanSave, {title: LANG.pt_wgpu_l, modes:THREED}),
 
         prefadd:          uc.checkpoint($('prefs-add')),
+
+        _____:            newGroup('Machine Profile', $('all-devpro'), { driven, hideable, separator, group: "devpro" }),
+        modeDevice:       newSelect('machine', {title: 'device', class: "tiny"}, "_"),
+        modeProfile:      newSelect('profile', {title: 'profile', class: "tiny"}, "_"),
 
         /** FDM Settings */
         ...menuFDM(),

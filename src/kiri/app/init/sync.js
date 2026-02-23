@@ -227,8 +227,6 @@ function setup_keybd_nav() {
     ui.modalBox.onclick = (ev) => { ev.stopPropagation() };
 
     $('export-support-a').onclick = (ev) => { ev.stopPropagation(); api.modal.show('don8') };
-    $('mode-device').onclick = api.show.devices;
-    $('mode-profile').onclick = settingsOps.settings_load;
     $('mode-fdm').onclick = () => api.mode.set('FDM');
     $('mode-cam').onclick = () => api.mode.set('CAM');
     $('mode-sla').onclick = () => api.mode.set('SLA');
