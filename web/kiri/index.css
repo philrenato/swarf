@@ -844,47 +844,6 @@ details[open] summary::after {
     text-transform: none !important;
 }
 
-.slideshow #panel-left .settings {
-    transform: translateX(-100%);
-    transition: transform 0.1s ease-in-out;
-    transition-delay: 0.3s;
-}
-.slideshow #panel-left:hover .settings {
-    transform: translateX(0);
-    transition-delay: 0.0s;
-}
-.slideshow #panel-left:hover #slide-show {
-    transform: translateX(-100%);
-    transition-delay: 0.0s;
-}
-.slideshow #slide-show {
-    transition-delay: 0.5s;
-    transform: translateX(-80%);
-    /* transform: translateX(0); */
-    position: absolute;
-    top: 5px;
-    left: 0;
-    bottom: 5px;
-    width: 25px;
-    background-color: var(--slide-bg);
-    border-top: 1px solid var(--blue-1);
-    border-right: 1px solid var(--blue-1);
-    border-bottom: 1px solid var(--blue-1);
-    border-bottom-right-radius: 4px;
-    border-top-right-radius: 4px;
-    z-index: -1;
-}
-.slideshow #slide-show span {
-    display: flex;
-}
-#slide-show {
-    flex-direction: row;
-    align-items: center;
-    justify-content: center;;
-}
-#slide-show span {
-    display: none;
-}
 #panel-right {
     overflow: unset;
 }
@@ -896,6 +855,19 @@ details[open] summary::after {
 }
 #panel-left {
     padding-right: 5px;
+}
+.slideshow #panel-slide {
+    padding-right: 1px;
+    border-right: 20px solid rgba(128,128,128,0.3);
+    border-top-right-radius: 5px;
+    border-bottom-right-radius: 5px;
+    transform: translateX(calc(-100% + 20px));
+    transition: transform 0.15s ease-in-out, border 0.15s ease-in-out;
+}
+.slideshow #panel-slide:hover {
+    transition: transform 0.15s ease-in-out, border 0.15s ease-in-out;
+    transform: translateX(0);
+    border-right: 0px solid rgba(128,128,128,0.3);
 }
 #panel-left, #panel-right {
     max-height: 100%;
@@ -1601,10 +1573,6 @@ details[open] summary::after {
     font-weight: bold;
     font-size: larger;
     padding-bottom: 10px;
-}
-#kiri-version {
-    font-family: monospace;
-    padding-top: 5px;
 }
 #export-support {
     padding-top: 10px;

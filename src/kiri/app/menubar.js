@@ -168,8 +168,12 @@ function content(actions) {
                 toolbarToolScale(actions)
             ]),
             div({ class: 'grow' }),
-            div({ class: 'menubar-mode', id: 'app-mode' }),
-            div({ class: 'menubar-separator' }),
+            topMenu(actions, {
+                text: 'info', lk: 'info', side: 'right', right: true, items: [
+                    menuItem(actions, { id: 'app-help', lk: 'help', text: 'help' }),
+                    menuItem(actions, { id: 'app-don8', lk: 'donate', text: 'donate' }),
+                ]
+            }),
             topMenu(actions, {
                 text: 'mode', lk: 'mo_menu', side: 'right', right: true, items: [
                     menuItem(actions, { id: 'mode-fdm', text: 'FDM', title: '3D Additive Printing Processes', iconClass: 'fas fa-layer-group' }),
@@ -180,14 +184,6 @@ function content(actions) {
                     menuItem(actions, { id: 'mode-wjet', text: 'Water', title: 'WaterJet Cutting', iconClass: 'fas fa-location-pin' }),
                     menuItem(actions, { id: 'mode-wedm', text: 'Wire', title: 'Wire EDM Cutting', iconClass: 'fas fa-ellipsis-vertical' }),
                     menuItem(actions, { id: 'mode-drag', text: 'Drag', title: 'Drag Knife Cutting', iconClass: 'fas fa-caret-left' })
-                ]
-            }),
-            topMenu(actions, {
-                text: 'info', lk: 'info', side: 'right', right: true, items: [
-                    menuItem(actions, { id: 'app-help', lk: 'help', text: 'help' }),
-                    menuItem(actions, { id: 'app-don8', lk: 'donate', text: 'donate' }),
-                    hr(),
-                    menuItem(actions, { children: label({ id: 'app-info', _: 'version' }) })
                 ]
             }),
             topMenu(actions, {

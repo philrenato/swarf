@@ -323,7 +323,4 @@ function setup_keybd_nav() {
     } catch (e) {
         console.log('iOS remediation fail', e);
     }
-
-    // add app name hover info
-    $('app-info').innerText = version;
 }

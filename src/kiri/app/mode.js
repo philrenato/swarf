@@ -63,7 +63,7 @@ function setMode(mode, lock, then) {
     // change mode constants
     current.mode = mode;
     MODE = MODES[mode];
-    $('app-mode').innerText = mode;
+    document.title = 'Kiri:Moto | ' + mode;
     // gcode edit area for any non-SLA mode
     api.uc.setVisible($('gcode-edit'), mode !== 'SLA');
     // highlight selected mode menu item
