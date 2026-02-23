@@ -209,135 +209,186 @@ details[open] summary::after {
 }
 
 /** dark conversion */
-:root[data-theme="dark"] #alert-border:hover {
-    background-color: rgba(255,255,255,0.7);
-}
-:root[data-theme="dark"] #mesh-info label,
-:root[data-theme="dark"] #mesh-info span,
-:root[data-theme="dark"] #oplist div .del {
-    color: #aaa;
-}
-:root[data-theme="dark"] #oplist div:hover .del {
-    color: #333 !important;
-}
-:root[data-theme="dark"] .mod-top, :root[data-theme="dark"] .mod-end {
-    background-color: var(--blue-00);
-}
-:root[data-theme="dark"] .pop-sep,
-:root[data-theme="dark"] .set-sep
-{
-    background-color: #555 !important;
-}
-:root[data-theme="dark"] #render-tools .pop,
-:root[data-theme="dark"] #render-tools svg,
-:root[data-theme="dark"] .pop-tics > div,
-:root[data-theme="dark"] #menubar.content,
-:root[data-theme="dark"] #app-name,
-:root[data-theme="dark"] .set2-group,
-:root[data-theme="dark"] .set2-group .var-row,
-:root[data-theme="dark"] .set2-sep,
-:root[data-theme="dark"] .var-row,
-:root[data-theme="dark"] #layers .var-row,
-:root[data-theme="dark"] #slider-zero,
-:root[data-theme="dark"] #slider-max,
-:root[data-theme="dark"] .mdialog,
-:root[data-theme="dark"] .t-body,
-:root[data-theme="dark"] .cam-pop-op,
-:root[data-theme="dark"] .mod-print,
-:root[data-theme="dark"] .mod-print .header label
-{
-    background-color: #282828;
-    color: white;
-}
-:root[data-theme="dark"] #dev-list:hover {
-    background-color: var(--blue-1);
-}
-:root[data-theme="dark"] #render-tools .pop,
-:root[data-theme="dark"] #render-tools svg,
-:root[data-theme="dark"] .cam-pop-op {
-    border-color: #555;
-}
-:root[data-theme="dark"] .btn-sel,
-:root[data-theme="dark"] .txt-sel button {
-    /* color: #fff; */
-    background-color: var(--blue-1);
-}
-:root[data-theme="dark"] .t-body,
-:root[data-theme="dark"] .set2-group .var-row:hover,
-:root[data-theme="dark"] .var-row:hover
-{
-    border-right: 3px solid var(--blue-3);
-    background-color: var(--blue-1) !important;
-}
-:root[data-theme="dark"] #slider-line {
-    background-color: #444;
-}
-:root[data-theme="dark"] .set-header {
-    background-color: var(--blue-00);
-}
-:root[data-theme="dark"] #oplist > div,
-:root[data-theme="dark"] .opdiv
-{
-    background-color: #333;
-    border: 1px solid #888;
-}
-:root[data-theme="dark"] #oplist > div:hover,
-:root[data-theme="dark"] #op-add:hover {
-    background-color: var(--blue-1);
-}
-:root[data-theme="dark"] #oplist div:hover .del {
-    color: #777;
-}
-:root[data-theme="dark"] #menubar.content > div:hover {
-    background-color: var(--blue-1);
-}
-:root[data-theme="dark"] .top-menu label {
-    color: var(--dark-menu-text)
-}
-:root[data-theme="dark"] #render-tools svg:hover {
-    background-color: var(--blue-1);
-    border-color: var(--blue-3);
-}
-:root[data-theme="dark"] .top-menu > span:hover {
-    background-color: var(--blue-1);
-}
-:root[data-theme="dark"] .top-menu > span:hover label,
-:root[data-theme="dark"] .top-menu > span:hover svg
-{
-    color: var(--dark-menu-text) !important;
-}
-:root[data-theme="dark"] .top-menu > span.selected,
-:root[data-theme="dark"] .top-menu > span.selected svg,
-:root[data-theme="dark"] .top-menu-drop div.selected
-{
-    background-color: var(--blue-1);
-    color: #fff;
-}
-:root[data-theme="dark"] #slider-hold {
-    background-color: var(--blue-0);
-}
-:root[data-theme="dark"] #stats {
-    color: #888;
-}
-:root[data-theme="dark"] #rnfo {
-    color: #aaa;
-    border: 1px solid rgba(255,255,255,0.25);
-    background-color: rgba(0,0,0,0.75);
-}
-:root[data-theme="dark"] #rnfo label {
-    color: #ada;
-}
-:root[data-theme="dark"] #slider-hold .handle {
-    background-color: #999;
-}
-:root[data-theme="dark"] #speedbar label {
-    color: black;
-}
-:root[data-theme="dark"] .widopt {
-    background-color: #222;
-}
-:root[data-theme="dark"] #camops summary {
-    background-color: var(--blue-0);
+:root[data-theme="dark"] {
+    /* global alerts / labels */
+    #alert-border:hover {
+        background-color: rgba(255,255,255,0.7);
+    }
+    #mesh-info label,
+    #mesh-info span,
+    #oplist div .del {
+        color: #aaa;
+    }
+    /* shared panels */
+    .mod-top, .mod-end {
+        background-color: var(--blue-00);
+    }
+    .pop-sep,
+    .set-sep {
+        background-color: #555 !important;
+    }
+    .t-body {
+        border: 1px solid #555;
+    }
+    #render-tools .pop,
+    #render-tools svg,
+    .pop-tics > div,
+    #menubar.content,
+    #app-name,
+    .set2-group,
+    .set2-group .var-row,
+    .set2-sep,
+    .var-row,
+    #layers .var-row,
+    #slider-zero,
+    #slider-max,
+    .mdialog,
+    .t-body,
+    .cam-pop-op,
+    .mod-print,
+    .mod-print .header label {
+        background-color: #282828;
+        color: white;
+    }
+    /* borders + emphasis */
+    #dev-list:hover {
+        background-color: var(--blue-1);
+    }
+    #render-tools .pop,
+    #render-tools svg,
+    .cam-pop-op {
+        border-color: #555;
+    }
+    .btn-sel,
+    .txt-sel button {
+        /* color: #fff; */
+        background-color: var(--blue-1);
+    }
+    /* lists / rows */
+    .set2-group .var-row:hover,
+    .var-row:hover {
+        border-right: 3px solid var(--blue-3);
+        background-color: var(--blue-1) !important;
+    }
+    #slider-line {
+        background-color: #444;
+    }
+    .set-header {
+        background-color: var(--blue-00);
+    }
+    #oplist > div,
+    .opdiv {
+        background-color: #333;
+        border: 1px solid #888;
+    }
+    #oplist > div:hover,
+    #op-add:hover {
+        background-color: var(--blue-1);
+    }
+    #oplist div:hover .del {
+        color: #777 !important;
+    }
+    /* menu states */
+    #menubar.content > div:hover {
+        background-color: var(--blue-1);
+    }
+    .top-menu label {
+        color: var(--dark-menu-text)
+    }
+    #render-tools svg:hover {
+        background-color: var(--blue-1);
+        border-color: var(--blue-3);
+    }
+    .top-menu > span:hover {
+        background-color: var(--blue-1);
+    }
+    .top-menu > span:hover label,
+    .top-menu > span:hover svg {
+        color: var(--dark-menu-text) !important;
+    }
+    .top-menu > span.selected,
+    .top-menu > span.selected svg,
+    .top-menu-drop div.selected {
+        background-color: var(--blue-1);
+        color: #fff;
+    }
+    /* status + side widgets */
+    #slider-hold {
+        background-color: var(--blue-0);
+    }
+    #stats {
+        color: #888;
+    }
+    #rnfo {
+        color: #aaa;
+        border: 1px solid rgba(255,255,255,0.25);
+        background-color: rgba(0,0,0,0.75);
+    }
+    #rnfo label {
+        color: #ada;
+    }
+    #slider-hold .handle {
+        background-color: #999;
+    }
+    #speedbar label {
+        color: black;
+    }
+    .widopt {
+        background-color: #222;
+    }
+    #camops summary {
+        background-color: var(--blue-0);
+    }
+    /* overlays */
+    #wassup {
+        background-color: rgba(0,255,0,0.2);
+    }
+    .blurb p:first-child,
+    .blurb p:last-child {
+        color: #fff;
+    }
+    #curtain {
+        color: white;
+        background-color: black;
+    }
+    /* dialogs + print */
+    #op-add-list > div:hover {
+        color: black;
+        background-color: var(--blue-2) !important;
+    }
+    .mod-x {
+        border-color: #555;
+        background-color: rgba(0,0,0,0.15);
+    }
+    #mod-help a:hover {
+        color: #333;
+    }
+    .mod-print .box {
+        background-color: rgba(0,0,0,0.15);
+        border-color: #555;
+    }
+    .mod-print button {
+        background-color: #555;
+        border-color: #777;
+    }
+    /* layer controls */
+    #layer-animate button {
+        border: 1px solid #555;
+        background-color: #444;
+    }
+    #layer-animate button:hover {
+        background-color: var(--main-color);
+    }
+    #layer-animate button svg {
+        color: #ddd;
+    }
+    #layer-animate label {
+        border: 1px solid #555;
+        background-color: #444;
+    }
+    #layer-animate input {
+        border: 1px solid #444;
+    }
 }
 
 /* top menu bar, drop menus */
@@ -346,16 +397,23 @@ details[open] summary::after {
     text-transform: capitalize;
     font-family: sans-serif;
     z-index: 15;
-    height: 36px;
+    color: var(--appname-blue);
+    font-weight: bold;
+    align-self: center;
+    justify-self: stretch;
+    height: 100%;
 }
 .top-menu {
     display: flex;
     gap: 0px;
-    align-items: center;
     white-space: nowrap;
     align-items: stretch;
 }
 .top-menu > span {
+    position: relative;
+    display: flex;
+    gap: 5px;
+    align-items: center;
     padding: 5px 9px 5px 9px;
     border-left: 1px solid transparent;
     border-right: 1px solid transparent;
@@ -373,12 +431,6 @@ details[open] summary::after {
 }
 .top-menu svg {
     color: var(--blue-1);
-}
-.top-menu > span {
-    position: relative;
-    display: flex;
-    gap: 5px;
-    align-items: center;
 }
 .top-menu > span:hover label {
     color: #000;
@@ -426,10 +478,11 @@ details[open] summary::after {
 }
 
 #menubar.content {
-    gap: 2px;
     display: flex;
-    align-items: center;
     flex-direction: column;
+    align-items: stretch;
+    gap: 2px;
+    padding: 2px;
     background-color: #fff;
     border-top: 1px dashed var(--blue-2);
     border-left: 1px solid var(--blue-2);
@@ -438,22 +491,9 @@ details[open] summary::after {
     border-bottom-right-radius: 4px;
     border-bottom-left-radius: 4px;
 }
-#menubar.content {
-    display: flex;
-    flex-direction: column;
-    align-items: stretch;
-    padding: 2px;
-}
 #menubar.content > div {
     display: flex;
     flex-direction: row;
-}
-#menubar.content > div > label {
-    text-align: left;
-    flex-grow: 1;
-}
-#menubar.content > div > span {
-    text-align: right;
 }
 #menubar.content > div > span {
     padding: 2px 7px 2px 7px;
@@ -461,6 +501,8 @@ details[open] summary::after {
     text-align: center;
 }
 #menubar.content > div > label {
+    text-align: left;
+    flex-grow: 1;
     padding: 2px 7px 2px 7px;
     justify-self: stretch;
     align-self: stretch;
@@ -468,14 +510,6 @@ details[open] summary::after {
 }
 #menubar.content > div:hover {
     background-color: var(--blue-4);
-}
-
-#app-name {
-    color: var(--appname-blue);
-    font-weight: bold;
-    align-self: center;
-    justify-self: stretch;
-    height: 100%;
 }
 
 #app,div {
@@ -696,9 +730,6 @@ details[open] summary::after {
     border-top: 5px solid rgba(0,255,100,0.5);
     border-bottom: 5px solid rgba(0,255,100,0.5);
 }
-:root[data-theme="dark"] #wassup {
-    background-color: rgba(0,255,0,0.2);
-}
 .blurb {
     max-width: 200px;
     align-items: flex-end;
@@ -710,9 +741,6 @@ details[open] summary::after {
 }
 .blurb p {
     margin: 0;
-}
-:root[data-theme="dark"] .blurb p:first-child, :root[data-theme="dark"] .blurb p:last-child {
-    color: #fff;
 }
 .blurb p:first-child, .blurb p:last-child {
     color: #000;
@@ -733,10 +761,6 @@ details[open] summary::after {
     z-index: 1000;
 }
 
-:root[data-theme="dark"] #curtain {
-    color: white;
-    background-color: black;
-}
 
 #tracker {
     top: 0;
@@ -864,12 +888,12 @@ details[open] summary::after {
 #panel-right {
     overflow: unset;
 }
-/* #panel-right {
-    direction: rtl;
+#ws-widgets, #camops, #fdm-ranges {
+    padding: 0 4px 0 4px;
 }
-#panel-right * {
-    direction: ltr;
-} */
+#camops {
+    padding-bottom: 2px;
+}
 #panel-left {
     padding-right: 5px;
 }
@@ -911,8 +935,6 @@ details[open] summary::after {
 }
 #top-sep {
     display: none;
-}
-#top-sep {
     z-index: 14;
     height: 1px;
     min-height: 1px;
@@ -1203,7 +1225,6 @@ details[open] summary::after {
 }
 #camops {
     display: flex;
-    padding: 0 0 0 0;
 }
 #oplist {
     max-height: calc(70vh - 200px);
@@ -1382,10 +1403,6 @@ details[open] summary::after {
     border-radius: 3px;
     text-align: center;
 }
-:root[data-theme="dark"] #op-add-list > div:hover {
-    color: black;
-    background-color: var(--blue-2) !important;
-}
 #op-add-list > div:hover {
     background-color: var(--blue-4);
 }
@@ -1518,10 +1535,6 @@ details[open] summary::after {
 #tool-cols {
     max-height: 350px;
 }
-:root[data-theme="dark"] .mod-x {
-    border-color: #555;
-    background-color: rgba(0,0,0,0.15);
-}
 .mod-x {
     border-radius: 5px;
     border: 2px solid rgba(255,255,255,0.5);
@@ -1578,9 +1591,6 @@ details[open] summary::after {
     align-items: center;
     justify-content: flex-start;
 }
-:root[data-theme="dark"] #mod-help a:hover {
-    color: #333;
-}
 #mod-help a:hover {
     background-color: #eee;
 }
@@ -1618,10 +1628,6 @@ details[open] summary::after {
     font-weight: normal;
     padding-top: 5px;
 }
-:root[data-theme="dark"] .mod-print .box {
-    background-color: rgba(0,0,0,0.15);
-    border-color: #555;
-}
 .mod-print .box {
     background-color: rgba(255,255,255,0.5);
     border: 1px solid #bbb;
@@ -1656,10 +1662,6 @@ details[open] summary::after {
     flex-grow: 1;
     font-weight: bold;
     padding-right: 10px;
-}
-:root[data-theme="dark"] .mod-print button {
-    background-color: #555;
-    border-color: #777;
 }
 .mod-print button {
     flex-direction: column;
@@ -1976,23 +1978,6 @@ details[open] summary::after {
     color: #335;
 }
 
-:root[data-theme="dark"] #layer-animate button {
-    border: 1px solid #555;
-    background-color: #444;
-}
-:root[data-theme="dark"] #layer-animate button:hover {
-    background-color: var(--main-color);
-}
-:root[data-theme="dark"] #layer-animate button svg {
-    color: #ddd;
-}
-:root[data-theme="dark"] #layer-animate label {
-    border: 1px solid #555;
-    background-color: #444;
-}
-:root[data-theme="dark"] #layer-animate input {
-    border: 1px solid #444;
-}
 #layer-animate {
     pointer-events: all;
     position: absolute;
@@ -2028,34 +2013,6 @@ details[open] summary::after {
 #layer-animate input {
     border-radius: 4px;
 }
-
-/* #layer-toolpos {
-    position: absolute;
-    right: 3px;
-    bottom: 3px;
-    z-index: 201;
-}
-#layer-toolpos label, #layer-toolpos input {
-    display: inline-flex;
-    height: 30px;
-    border-radius: 3px;
-    border: 1px solid #ccc;
-    justify-content: center;
-    align-items: center;
-    font-weight: bold;
-    background-color: #ddd;
-}
-#layer-toolpos label {
-    width: 30px;
-    padding: 1px 1px 1px 1px;
-    margin: 1px 1px 2px 6px;
-}
-#layer-toolpos input {
-    background-color: #eee;
-    font-family: monospace;
-    padding: 1px 4px 1px 4px;
-    margin: 1px 1px 2px 1px;
-} */
 
 #layer-slider {
     position: absolute;
