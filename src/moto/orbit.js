@@ -390,6 +390,15 @@ class Orbit extends EventDispatcher {
             if (scope.enabled === false) return;
             event.preventDefault();
 
+            // keep wheel as dolly, but treat middle-button drag like right-button drag
+            // in default orbit bindings.
+            const touchSynthesized = Boolean(event?.sourceCapabilities?.firesTouchEvents);
+            if (!touchSynthesized
+                && event.button === MOUSE.MIDDLE
+                && scope.mouseButtons.ZOOM === MOUSE.MIDDLE
+                && scope.mouseButtons.PAN === MOUSE.RIGHT) {
+                state = STATE.PAN;
+            } else {
             switch (event.button) {
                 case scope.mouseButtons.ORBIT:
                     state = event.metaKey ? STATE.PAN : STATE.ROTATE;
@@ -400,6 +409,7 @@ class Orbit extends EventDispatcher {
                 case scope.mouseButtons.PAN:
                     state = STATE.PAN;
                     break;
+            }
             }
 
             switch (state) {
