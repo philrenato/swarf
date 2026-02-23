@@ -90,8 +90,8 @@ self.lang['da-dk'] = {
     rc_xobj:        "eksporter OBJ",
     rc_xstl:        "eksporter STL",
     sb_info:        ["print hastighed","i mm/s"],
-    rc_merg:        "flet objekt meshes",
-    rc_splt:        "isoler legemer",
+    rc_merg:        "flet objekter",
+    rc_splt:        "isoler objekter",
 
     // DEVICE MENU and related dialogs
     dm_sldt:        "vælg en enhedstype",

@@ -22,13 +22,7 @@
         function setDarkLight(isDark) {
             const dde = document.documentElement;
             dde.setAttribute('data-theme', isDark ? 'dark' : 'light');
-            if (isDark) {
-                dde.classList.add('dark');
-                dde.style.background = '#000000';
-            } else {
-                dde.classList.remove('dark');
-                dde.style.background = '#ffffff';
-            }
+            dde.style.background = isDark ? '#000000' : '#ffffff';
         }
         setDarkLight(isDark);
     </script>

@@ -85,8 +85,8 @@ self.lang['zh'] = {
     rc_xobj:        "导出OBJ",
     rc_xstl:        "导出STL",
     sb_info:        ["打印速度","单位：毫米/秒"],
-    rc_merg:        "合并对象网格",
-    rc_splt:        "分离实体",
+    rc_merg:        "合并对象",
+    rc_splt:        "分离对象",
 
     // 设备菜单及相关对话框
     dm_sldt:        "选择设备类型",

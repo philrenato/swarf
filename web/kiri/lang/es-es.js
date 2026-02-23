@@ -91,8 +91,8 @@ self.lang['es-es'] = {
     rc_xobj:        "exportar OBJ",
     rc_xstl:        "exportar STL",
     sb_info:        ["velocidad de impresión","en mm/s"],
-    rc_merg:        "fusionar mallas de objeto",
-    rc_splt:        "aislar cuerpos",
+    rc_merg:        "fusionar objetos",
+    rc_splt:        "aislar objetos",
 
     // DEVICE MENU and related dialogs
     dm_sldt:        "seleccionar un tipo de dispositivo",

@@ -90,8 +90,8 @@ self.lang['pl-pl'] = {
     rc_xobj:        "eksportuj OBJ",
     rc_xstl:        "eksportuj STL",
     sb_info:        ["prędkość druku","w mm/s"],
-    rc_merg:        "połącz siatki obiektu",
-    rc_splt:        "wyizoluj bryły",
+    rc_merg:        "połącz obiekty",
+    rc_splt:        "wyizoluj obiekty",
 
     // DEVICE MENU and related dialogs
     dm_sldt:        "wybierz typ urządzenia",
