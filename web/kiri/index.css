@@ -2332,7 +2332,6 @@ details[open] summary::after {
     font-size: smaller;
 }
 .var-row {
-    font-size: 13px;
     white-space: nowrap;
     align-items: center;
     gap: 4px;
@@ -2358,12 +2357,13 @@ details[open] summary::after {
     padding-bottom: 1px;
     padding-top: 1px;
     border: 0;
-    border-bottom: 1px solid;
+    /* border-bottom: 1px solid; */
 }
 .var-row select {
     border: 0;
-    border-bottom: 1px solid;
+    /* border-bottom: 1px solid; */
     border-radius: 0;
+    text-align: right;
 }
 .var-row #tool-name {
     max-width: 15ch;
