@@ -1463,6 +1463,7 @@ details[open] summary::after {
 
 #dialog {
     position: fixed;
+    z-index: 310;
     outline: none;
     color: black;
     top: 100px;
@@ -1481,7 +1482,7 @@ details[open] summary::after {
 #modal {
     display: none;
     position: fixed;
-    z-index: 20;
+    z-index: 300;
     top: 50%;
     left: 0px;
     right: 0px;
