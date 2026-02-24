@@ -180,7 +180,7 @@ function content(actions) {
                     menuItem(actions, { id: 'mesh-split', lk: 'rc_splt', text: 'isolate meshes' }),
                 ]
             }),
-            div({ class: 'menubar-separator' }),
+            // div({ class: 'menubar-separator' }),
             div({ class: 'f-row top-menu' }, [
                 toolbarToolNozzle()
             ]),
