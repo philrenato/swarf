@@ -69,11 +69,13 @@ self.lang['pt-pt'] = {
     al_menu:        "alinhar",
     re_menu:        "renderizar",
     sx_menu:        "seleção",
+    ed_menu:        "editar",
     face_left:      "face esquerda",
     re_edgs:        "alternar arestas",
     al_menu:        "alinhar",
     re_menu:        "renderizar",
     sx_menu:        "seleção",
+    ed_menu:        "editar",
     face_left:      "face esquerda",
     re_edgs:        "alternar arestas",
 

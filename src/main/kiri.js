@@ -49,8 +49,10 @@ async function checkReady() {
         if (api.electron) {
             $('install').classList.add('hide');
             $('app-quit').classList.remove('hide');
-            $('app-name-text').innerText = "More Info";
-            $('top-sep').style.display = 'flex';
+            const appNameText = $('app-name-text') || document.querySelector('.menubar-appname');
+            if (appNameText) appNameText.innerText = "More Info";
+            const topSep = $('top-sep');
+            if (topSep) topSep.style.display = 'flex';
         } else if (bootctrl) {
             $('install').classList.add('hide');
             $('uninstall').classList.remove('hide');

@@ -68,11 +68,13 @@ self.lang['da-dk'] = {
     al_menu:        "juster",
     re_menu:        "render",
     sx_menu:        "markering",
+    ed_menu:        "rediger",
     face_left:      "venstre side",
     re_edgs:        "skift kanter",
     al_menu:        "juster",
     re_menu:        "render",
     sx_menu:        "markering",
+    ed_menu:        "rediger",
     face_left:      "venstre side",
     re_edgs:        "skift kanter",
 

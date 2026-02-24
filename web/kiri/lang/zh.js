@@ -68,6 +68,7 @@ self.lang['zh'] = {
     al_menu:        "对齐",
     re_menu:        "渲染",
     sx_menu:        "选择",
+    ed_menu:        "编辑",
     face_left:      "面朝左",
     re_edgs:        "切换边线",
 

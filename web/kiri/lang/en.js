@@ -70,11 +70,13 @@ self.lang['en-us'] = {
     al_menu:        "align",
     re_menu:        "render",
     sx_menu:        "selection",
+    ed_menu:        "edit",
     face_left:      "face left",
     re_edgs:        "toggle edges",
     al_menu:        "align",
     re_menu:        "render",
     sx_menu:        "selection",
+    ed_menu:        "edit",
     face_left:      "face left",
     re_edgs:        "toggle edges",
 

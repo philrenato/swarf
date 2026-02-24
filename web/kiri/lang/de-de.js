@@ -69,11 +69,13 @@ self.lang['de-de'] = {
     al_menu:        "ausrichten",
     re_menu:        "rendern",
     sx_menu:        "auswahl",
+    ed_menu:        "Bearbeiten",
     face_left:      "linke seite",
     re_edgs:        "kanten umschalten",
     al_menu:        "ausrichten",
     re_menu:        "rendern",
     sx_menu:        "auswahl",
+    ed_menu:        "Bearbeiten",
     face_left:      "linke seite",
     re_edgs:        "kanten umschalten",
 

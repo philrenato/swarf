@@ -53,7 +53,7 @@ function topMenu(actions, { text, lk, iconClass, side = 'left', right = false, i
 
 function toolbarToolNozzle() {
     return span({ id: 'tool-nozzle' }, [
-        i({ class: 'fas fa-location-pin', title: 'extruder' }),
+        label({ lk: 'tool', _: tr('tool', 'tool') }),
         div({ id: 'ft-nozzle', class: 'f-col pop' })
     ]);
 }
@@ -144,19 +144,29 @@ function content(actions) {
                 ]
             }),
             topMenu(actions, {
+                text: 'edit', lk: 'ed_menu', items: [
+                    menuItem(actions, { id: 'context-layflat', lk: 'rc_lafl', text: 'face down', iconClass: 'fas fa-angle-double-down' }),
+                    menuItem(actions, { id: 'context-lefty', lk: 'face_left', text: 'face left', iconClass: 'fas fa-angle-double-left' }),
+                    hr(),
+                    menuItem(actions, { id: 'context-mirror', lk: 'rc_mirr', text: 'mirror', iconClass: 'fas fa-arrows-left-right-to-line' }),
+                    menuItem(actions, { id: 'context-duplicate', lk: 'rc_dupl', text: 'duplicate', iconClass: 'fas fa-copy' }),
+                    hr(),
+                    menuItem(actions, { id: 'context-rotate-panel', text: 'rotate', iconClass: 'fas fa-rotate-right' }),
+                    menuItem(actions, { id: 'context-scale-panel', text: 'scale / size', iconClass: 'fas fa-expand' }),
+                    hr(),
+                    menuItem(actions, { id: 'mesh-merge', lk: 'rc_merg', text: 'merge meshes' }),
+                    menuItem(actions, { id: 'mesh-split', lk: 'rc_splt', text: 'isolate meshes' }),
+                ]
+            }),
+            topMenu(actions, {
                 text: 'view', lk: 'vu_menu', items: [
+                    menuItem(actions, { id: 'context-setfocus', lk: 'rc_focs', text: 'focal point', iconClass: 'fas fa-eye' }),
+                    hr(),
                     menuItem(actions, { id: 'view-fit', lk: 'contents', text: 'contents', iconClass: 'fas fa-arrows-to-circle' }),
                     menuItem(actions, { id: 'view-home', lk: 'home', text: 'home', iconClass: 'fas fa-home' }),
                     menuItem(actions, { id: 'view-top', lk: 'top', text: 'top', iconClass: 'fas fa-square' }),
                     hr(),
                     menuItem(actions, { id: 'app-xpnd', lk: 'fullscreen', text: 'fullscreen', iconClass: 'fas fa-maximize' })
-                ]
-            }),
-            topMenu(actions, {
-                text: 'Align', lk: 'al_menu', items: [
-                    menuItem(actions, { id: 'context-setfocus', lk: 'rc_focs', text: 'focal point', iconClass: 'fas fa-eye' }),
-                    menuItem(actions, { id: 'context-layflat', lk: 'rc_lafl', text: 'face down', iconClass: 'fas fa-angle-double-down' }),
-                    menuItem(actions, { id: 'context-lefty', lk: 'face_left', text: 'face left', iconClass: 'fas fa-angle-double-left' })
                 ]
             }),
             topMenu(actions, {
@@ -166,18 +176,6 @@ function content(actions) {
                     menuItem(actions, { id: 'render-ghost', lk: 'ghost', text: 'transparent', iconClass: 'fas fa-border-none' }),
                     hr(),
                     menuItem(actions, { id: 'render-edges', lk: 're_edgs', text: 'toggle edges', iconClass: 'fa-regular fa-square' })
-                ]
-            }),
-            topMenu(actions, {
-                text: 'selection', lk: 'sx_menu', items: [
-                    menuItem(actions, { id: 'context-mirror', lk: 'rc_mirr', text: 'mirror', iconClass: 'fas fa-arrows-left-right-to-line' }),
-                    menuItem(actions, { id: 'context-duplicate', lk: 'rc_dupl', text: 'duplicate', iconClass: 'fas fa-copy' }),
-                    hr(),
-                    menuItem(actions, { id: 'context-rotate-panel', text: 'rotate', iconClass: 'fas fa-rotate-right' }),
-                    menuItem(actions, { id: 'context-scale-panel', text: 'scale / size', iconClass: 'fas fa-expand' }),
-                    hr(),
-                    menuItem(actions, { id: 'mesh-merge', lk: 'rc_merg', text: 'merge meshes' }),
-                    menuItem(actions, { id: 'mesh-split', lk: 'rc_splt', text: 'isolate meshes' }),
                 ]
             }),
             // div({ class: 'menubar-separator' }),

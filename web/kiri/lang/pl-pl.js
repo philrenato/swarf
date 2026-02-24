@@ -68,11 +68,13 @@ self.lang['pl-pl'] = {
     al_menu:        "wyrównaj",
     re_menu:        "renderuj",
     sx_menu:        "zaznaczenie",
+    ed_menu:        "edytuj",
     face_left:      "lewa ściana",
     re_edgs:        "przełącz krawędzie",
     al_menu:        "wyrównaj",
     re_menu:        "renderuj",
     sx_menu:        "zaznaczenie",
+    ed_menu:        "edytuj",
     face_left:      "lewa ściana",
     re_edgs:        "przełącz krawędzie",
 
