@@ -1032,6 +1032,61 @@ details[open] summary::after {
     flex-direction: row;
     align-items: center;
 }
+
+/* draggable selection transform panels */
+.selection-panel {
+    position: fixed;
+    display: flex;
+    flex-direction: column;
+    z-index: 220;
+    min-width: 230px;
+    border: 1px solid var(--border-gray);
+    border-radius: 6px;
+    background-color: var(--menubar-back);
+    color: var(--menubar-fore);
+    box-shadow: 0 8px 22px rgba(0,0,0,0.25);
+    pointer-events: all;
+}
+#panel-rotate {
+    top: 92px;
+    right: 26px;
+}
+#panel-scale {
+    top: 270px;
+    right: 26px;
+}
+.selection-panel-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 7px 10px;
+    border-bottom: 1px solid var(--border-gray);
+    cursor: move;
+    user-select: none;
+}
+.selection-panel-head-title {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+.selection-panel-head label {
+    font-weight: 600;
+}
+.selection-panel-close {
+    border: none;
+    background: transparent;
+    color: inherit;
+    border-radius: 4px;
+    padding: 2px 6px;
+    cursor: pointer;
+}
+.selection-panel-close:hover {
+    background-color: var(--menu-hover-bg);
+}
+.selection-panel-body {
+    padding: 8px;
+}
+
 /** selection rotation */
 #ft-rotate {
     gap: 2px;

@@ -58,10 +58,18 @@ function toolbarToolNozzle() {
     ]);
 }
 
-function toolbarToolRotate(actions) {
-    return span({ id: 'tool-rotate' }, [
-        i({ class: 'fas fa-rotate-right', title: 'rotate selection' }),
-        div({ id: 'ft-rotate', class: 'grid pop' }, [
+function rotatePanel(actions) {
+    return div({ id: 'panel-rotate', class: 'selection-panel hide' }, [
+        div({ id: 'panel-rotate-head', class: 'selection-panel-head' }, [
+            div({ class: 'selection-panel-head-title' }, [
+                i({ class: 'fas fa-rotate-right' }),
+                label({ _: 'Rotate' })
+            ]),
+            button({ id: 'panel-rotate-close', class: 'selection-panel-close', title: 'close' }, [
+                i({ class: 'fas fa-times' })
+            ])
+        ]),
+        div({ id: 'ft-rotate', class: 'grid selection-panel-body' }, [
             div({ id: 'rot_x_lt', ...on(actions, 'rot_x_lt') }, icon('fas fa-chevron-left')),
             label({ _: 'X' }),
             div({ id: 'rot_x_gt', ...on(actions, 'rot_x_gt') }, icon('fas fa-chevron-right')),
@@ -81,10 +89,18 @@ function toolbarToolRotate(actions) {
     ]);
 }
 
-function toolbarToolScale(actions) {
-    return span({ id: 'tool-scale' }, [
-        i({ class: 'fas fa-expand', title: 'scale or resize selection' }),
-        div({ id: 'ft-scale', class: 'grid pop' }, [
+function scalePanel(actions) {
+    return div({ id: 'panel-scale', class: 'selection-panel hide' }, [
+        div({ id: 'panel-scale-head', class: 'selection-panel-head' }, [
+            div({ class: 'selection-panel-head-title' }, [
+                i({ class: 'fas fa-expand' }),
+                label({ _: 'Scale / Size' })
+            ]),
+            button({ id: 'panel-scale-close', class: 'selection-panel-close', title: 'close' }, [
+                i({ class: 'fas fa-times' })
+            ])
+        ]),
+        div({ id: 'ft-scale', class: 'grid selection-panel-body' }, [
             div([label({ _: 'X' }), input({ id: 'lock_x', type: 'checkbox', _checked: true })]),
             div([label({ _: 'Y' }), input({ id: 'lock_y', type: 'checkbox', _checked: true })]),
             div([label({ _: 'Z' }), input({ id: 'lock_z', type: 'checkbox', _checked: true })]),
@@ -157,15 +173,16 @@ function content(actions) {
                     menuItem(actions, { id: 'context-mirror', lk: 'rc_mirr', text: 'mirror', iconClass: 'fas fa-arrows-left-right-to-line' }),
                     menuItem(actions, { id: 'context-duplicate', lk: 'rc_dupl', text: 'duplicate', iconClass: 'fas fa-copy' }),
                     hr(),
+                    menuItem(actions, { id: 'context-rotate-panel', text: 'rotate', iconClass: 'fas fa-rotate-right' }),
+                    menuItem(actions, { id: 'context-scale-panel', text: 'scale / size', iconClass: 'fas fa-expand' }),
+                    hr(),
                     menuItem(actions, { id: 'mesh-merge', lk: 'rc_merg', text: 'merge meshes' }),
                     menuItem(actions, { id: 'mesh-split', lk: 'rc_splt', text: 'isolate meshes' }),
                 ]
             }),
             div({ class: 'menubar-separator' }),
             div({ class: 'f-row top-menu' }, [
-                toolbarToolNozzle(),
-                toolbarToolRotate(actions),
-                toolbarToolScale(actions)
+                toolbarToolNozzle()
             ]),
             div({ class: 'grow' }),
             topMenu(actions, {
@@ -209,7 +226,9 @@ function content(actions) {
                     menuItem(actions, { children: label({ id: 'lset-pt', _: 'português' }) })
                 ]
             })
-        ])
+        ]),
+        rotatePanel(actions),
+        scalePanel(actions)
     ];
 }
 
