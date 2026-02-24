@@ -30,6 +30,7 @@ function zAnchorSave() {
     api.platform.update_top_z();
 }
 
+const hideable = true;
 const bottom = true;
 const top = true;
 
@@ -118,7 +119,7 @@ export function menu() {
 
     /** Left Side Menu */
 
-    _____:               newGroup(LANG.ct_menu, $('cam-tabs'), { modes:CAM, marker:true, driven, separator }),
+    _____:               newGroup(LANG.ct_menu, $('cam-tabs'), { modes:CAM, marker:true, driven, separator, hideable, group:"cam-tabs" }),
     camTabsWidth:        newInput(LANG.ct_wdth_s, {title:LANG.ct_wdth_l, convert:toFloat, bound:bound(0.005,100), units}),
     camTabsHeight:       newInput(LANG.ct_hght_s, {title:LANG.ct_hght_l, convert:toFloat, bound:bound(0.005,100), units}),
     camTabsDepth:        newInput(LANG.ct_dpth_s, {title:LANG.ct_dpth_l, convert:toFloat, bound:bound(0.005,100), units}),
@@ -130,7 +131,7 @@ export function menu() {
         (ui.tabDun = newButton(undefined, onButtonClick, {icon:'<i class="fas fa-check"></i>'})),
         (ui.tabClr = newButton(undefined, onButtonClick, {icon:'<i class="fas fa-trash-alt"></i>'}))
     ], {class:"ext-buttons f-row"}),
-    _____:               newGroup(LANG.cs_menu, $('cam-stock'), { modes:CAM, driven, separator }),
+    _____:               newGroup(LANG.cs_menu, $('cam-stock'), { modes:CAM, driven, separator, hideable, group:"cam-stock" }),
     camStockX:           newInput(LANG.cs_wdth_s, {title:LANG.cs_wdth_l, convert:toFloat, bound:bound(0,9999), units}),
     camStockY:           newInput(LANG.cs_dpth_s, {title:LANG.cs_dpth_l, convert:toFloat, bound:bound(0,9999), units}),
     camStockZ:           newInput(LANG.cs_hght_s, {title:LANG.cs_hght_l, convert:toFloat, bound:bound(0,9999), units}),
@@ -142,7 +143,7 @@ export function menu() {
     // camStockManual: newRow([
     //     (ui.stockPlace = newButton('position', onButtonClick, { })),
     // ], {class:"ext-buttons f-row"}),
-    _____:               newGroup(LANG.cc_menu, $('cam-limits'), { modes:CAM, driven, separator }),
+    _____:               newGroup(LANG.cc_menu, $('cam-limits'), { modes:CAM, driven, separator, hideable, group:"cam-limits" }),
     camZAnchor:          newSelect(LANG.ou_zanc_s, {title: LANG.ou_zanc_l, action:zAnchorSave, show:() => !ui.camStockIndexed.checked}, "zanchor"),
     camZOffset:          newInput(LANG.ou_ztof_s, {title:LANG.ou_ztof_l, convert:toFloat, units}),
     camZTop:             newInput(LANG.ou_ztop_s, {title:LANG.ou_ztop_l, convert:toFloat, units, trigger, selector, top }),
@@ -151,7 +152,7 @@ export function menu() {
     separator:           newBlank({ class:"set-sep", driven }),
     camFastFeed:         newInput(LANG.cc_rapd_s, {title:LANG.cc_rapd_l, convert:toFloat, units}),
     camFastFeedZ:        newInput(LANG.cc_rzpd_s, {title:LANG.cc_rzpd_l, convert:toFloat, units}),
-    _____:               newGroup(LANG.ou_menu, $('cam-output'), { modes:CAM, driven, separator, group:"cam-output" }),
+    _____:               newGroup(LANG.ou_menu, $('cam-output'), { modes:CAM, driven, separator, hideable, group:"cam-output" }),
     camEaseDown:         newBoolean(LANG.cr_ease_s, onBooleanClick, {title:LANG.cr_ease_l}),
     camDepthFirst:       newBoolean(LANG.ou_depf_s, onBooleanClick, {title:LANG.ou_depf_l}),
     camInnerFirst:       newBoolean(LANG.ou_inrf_s, onBooleanClick, {title:LANG.ou_inrf_l}),
@@ -162,7 +163,7 @@ export function menu() {
     separator:           newBlank({ class:"set-sep", driven }),
     camEaseAngle:        newInput(LANG.ou_eang_s, {title:LANG.ou_eang_l, convert:toFloat, bound:bound(0.1,85), show:() => ui.camEaseDown.checked}),
     camFullEngage:       newInput(LANG.ou_feng_s, {title:LANG.ou_feng_l, convert:toFloat, bound:bound(0.1,1.0)}),
-    _____:               newGroup(LANG.or_menu, $('cam-origin'), { modes:CAM, driven, separator }),
+    _____:               newGroup(LANG.or_menu, $('cam-origin'), { modes:CAM, driven, separator, hideable, group:"cam-origin" }),
     camOriginTop:        newBoolean(LANG.or_topp_s, onBooleanClick, {title:LANG.or_topp_l}),
     camOriginCenter:     newBoolean(LANG.or_cntr_s, onBooleanClick, {title:LANG.or_cntr_l}),
     separator:           newBlank({ class:"set-sep", driven }),
@@ -174,7 +175,7 @@ export function menu() {
         newButton("select", originSelect),
         newButton("reset", originReset),
     ], { class: "ext-buttons f-row" }),
-    _____:               newGroup(LANG.op_xprt_s, $('cam-expert'), { group:"cam_expert", modes:CAM, marker: false, driven, separator }),
+    _____:               newGroup(LANG.op_xprt_s, $('cam-expert'), { group:"cam_expert", modes:CAM, marker: false, driven, separator, hideable }),
     camArcEnabled:       newBoolean(LANG.cx_arce_s, onBooleanClick, { title:LANG.cx_arce_l }),
     camArcTolerance:     newInput(LANG.cx_arct_s, {title:LANG.cx_arct_l, convert:toFloat, bound:bound(0,100), units, trigger, show:() => ui.camArcEnabled.checked}),
     camArcResolution:    newInput(LANG.cx_arcr_s, {title:LANG.cx_arcr_l, convert:toFloat, bound:bound(0,180), trigger, show:() => ui.camArcEnabled.checked}),
