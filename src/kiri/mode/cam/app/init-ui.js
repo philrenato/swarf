@@ -421,9 +421,10 @@ export function opRender() {
             const brect = ev.target.getBoundingClientRect();
             const prect = parent.getBoundingClientRect();
             const Prect = poprec.div.getBoundingClientRect();
-            const tdiff = prect.top - brect.top;
-            const botoff = innerHeight - (brect.top + Prect.height);
-            const offpx = -tdiff + (botoff < 0 ? botoff : -Prect.height/3);
+            const topmv = brect.top - prect.top - 20;
+            const topnu = prect.top + topmv;
+            const botof = innerHeight - (topnu + Prect.height);
+            const offpx = botof < 0 ? topmv + botof : topmv;
             poprec.div.style.transform = `translateY(${offpx}px)`;
             poprec.div.onmouseenter = () => { inside = true };
             poprec.div.onmouseleave = onLeave;

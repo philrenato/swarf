@@ -837,6 +837,10 @@ details[open] summary::after {
 #panel-right {
     overflow: unset;
 }
+#ws-widgets {
+    max-height: 250px;
+    overflow-y: auto;
+}
 #ws-widgets, #camops, #fdm-ranges {
     padding: 0 4px 0 4px;
 }
@@ -845,6 +849,10 @@ details[open] summary::after {
 }
 #panel-left {
     padding-right: 5px;
+}
+#panel-slide {
+    border-right: 1px solid var(--border-gray);
+    border-bottom: 1px solid var(--border-gray);
 }
 .slideshow #panel-slide {
     padding-right: 1px;
@@ -855,9 +863,12 @@ details[open] summary::after {
     transition: transform 0.15s ease-in-out, border 0.15s ease-in-out;
 }
 .slideshow #panel-slide:hover {
+    padding-right: 0px;
     transition: transform 0.15s ease-in-out, border 0.15s ease-in-out;
     transform: translateX(0);
-    border-right: 0px solid rgba(128,128,128,0.3);
+    border-right: 1px solid var(--border-gray);
+    border-top-right-radius: 0;
+    border-bottom-right-radius: 0;
 }
 #panel-left, #panel-right {
     max-height: 100%;
@@ -1196,7 +1207,7 @@ details[open] summary::after {
 }
 .cam-pop-op {
     top: 0;
-    right: calc(100% + 4px);
+    right: calc(100% - 4px);
     text-align: left;
     position: absolute;
     white-space: nowrap;
@@ -2300,19 +2311,15 @@ details[open] summary::after {
     justify-self: center;
 }
 .var-row input {
-    /* flex: 1 1 auto;   */
     min-width: 0;
     max-width: 7ch;
     margin-right: 0;
     margin-bottom: 1px;
     padding-bottom: 1px;
     padding-top: 1px;
-    border: 0;
-    /* border-bottom: 1px solid; */
 }
 .var-row select {
     border: 0;
-    /* border-bottom: 1px solid; */
     border-radius: 0;
     text-align: right;
 }
