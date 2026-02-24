@@ -339,7 +339,7 @@ export function opRender() {
             `<div id="${mark + i}" class="${clazz.join(' ')}"${title}>`,
             `<label class="label">${label}</label>`,
             clock ? '' :
-                `<label id="${mark + i}-x" class="del"><i class="fa fa-trash"></i></label>`,
+                `<label id="${mark + i}-x" class="del"><i class="fa-solid fa-xmark"></i></label>`,
             `</div>`
         ]);
         bind[mark + i] = rec;
