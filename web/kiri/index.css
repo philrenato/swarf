@@ -850,15 +850,8 @@ details[open] summary::after {
 #panel-left {
     padding-right: 5px;
 }
-#panel-right > div {
-    border-left: 1px solid var(--border-gray);
-}
 #panel-right > div.bottom, .set2-group.bottom {
     border-bottom: 1px solid var(--border-gray);
-}
-#panel-slide {
-    /* border-right: 1px solid var(--border-gray); */
-    /* border-bottom: 1px solid var(--border-gray); */
 }
 .slideshow #panel-slide {
     padding-right: 1px;
@@ -2222,11 +2215,17 @@ details[open] summary::after {
 #dev-list:hover {
     background-color: var(--blue-4);
 }
+#panel-left .set2-group {
+    border-right: 1px solid var(--border-gray);
+}
+#panel-right .set2-group {
+    border-left: 1px solid var(--border-gray);
+}
 .set2-group {
     background-color: var(--menubar-back);
     flex-flow: column;
     padding: 0 0 2px 0;
-    border-right: 1px solid var(--border-gray);
+    /* border-bottom: 1px solid var(--border-gray); */
 }
 .set2-group .var-row, .var-row {
     background: var(--menubar-back);
