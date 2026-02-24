@@ -1347,8 +1347,28 @@ details[open] summary::after {
     position: absolute;
     display: none;
     top: 50%;
-    right: 100%;
+    right: calc(100% - 4px);
     transform: translateY(-50%);
+    isolation: isolate;
+}
+#op-add-pop::before {
+    content: "";
+    position: absolute;
+    top: -50px;
+    left: -50px;
+    right: 0;
+    bottom: -50px;
+    /* background-color: red; */
+}
+#op-add-pop::after {
+    content: "";
+    position: absolute;
+    top: 50%;
+    left: -50px;
+    right: -100px;
+    bottom: -50px;
+    /* background-color: green; */
+    z-index: -1;
 }
 #op-add:hover #op-add-pop {
     display: flex;
