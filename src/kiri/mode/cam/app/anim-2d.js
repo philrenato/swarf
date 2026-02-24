@@ -36,7 +36,7 @@ export function animate_clear(api) {
 }
 
 export function animate(api, delay) {
-    let alert = api.alerts.show("building animation");
+    api.show.busy("building animation");
     let settings = api.conf.get();
     client.animate_setup(settings, data => {
         checkMeshCommands(data);
@@ -80,7 +80,7 @@ export function animate(api, delay) {
         button.pause.style.display = 'none';
 
         api.event.emit('animate', 'CAM');
-        api.alerts.hide(alert);
+        api.show.busy(false);
         space.platform.showGridBelow(false);
         toggleTrans(0,api.local.getBoolean('cam.anim.trans', true));
         toggleModel(0,api.local.getBoolean('cam.anim.model', false));

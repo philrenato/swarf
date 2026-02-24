@@ -35,7 +35,7 @@ export function animate_clear2(api) {
 }
 
 export function animate2(api, delay) {
-    let alert = api.alerts.show("building animation");
+    api.show.busy("building animation");
     let settings = api.conf.get();
     dark = settings.controller.dark;
     manifold = settings.controller.manifold;
@@ -92,7 +92,7 @@ export function animate2(api, delay) {
         button.pause.style.display = 'none';
 
         api.event.emit('animate', 'CAM');
-        api.alerts.hide(alert);
+        api.show.busy(false);
     });
 }
 
