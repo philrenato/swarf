@@ -865,7 +865,7 @@ details[open] summary::after {
     padding-right: 0px;
     transition: transform 0.15s ease-in-out, border 0.15s ease-in-out;
     transform: translateX(0);
-    border-right: 1px solid var(--border-gray);
+    border-right: 0;
     border-top-right-radius: 0;
     border-bottom-right-radius: 0;
 }

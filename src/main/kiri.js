@@ -46,6 +46,7 @@ async function checkReady() {
         }
         load = undefined;
         api.event.emit('load-done', stats);
+        api.event.emit('resize');
         if (api.electron) {
             $('install').classList.add('hide');
             $('app-quit').classList.remove('hide');

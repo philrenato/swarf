@@ -128,3 +128,5 @@ export const preferences = {
     booleanSave,
     updateDrawer
 };
+
+api.prefs = preferences;

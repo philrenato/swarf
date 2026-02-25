@@ -139,6 +139,11 @@ function onResize() {
     } else {
         ui.modalBox.classList.remove('mh85');
     }
+    if (WIN.innerWidth < 800) {
+        $('app').classList.add('slideshow');
+    } else {
+        api.prefs.updateDrawer();
+    }
     api.view.update_slider();
 }
 
