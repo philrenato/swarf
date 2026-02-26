@@ -50,10 +50,7 @@ async function checkReady() {
         if (api.electron) {
             $('install').classList.add('hide');
             $('app-quit').classList.remove('hide');
-            const appNameText = $('app-name-text') || document.querySelector('.menubar-appname');
-            if (appNameText) appNameText.innerText = "More Info";
-            const topSep = $('top-sep');
-            if (topSep) topSep.style.display = 'flex';
+            [...document.getElementsByClassName('el-app-hide')].forEach(el => el.classList.add('hide'));
         } else if (bootctrl) {
             $('install').classList.add('hide');
             $('uninstall').classList.remove('hide');
@@ -62,6 +59,7 @@ async function checkReady() {
                 location.reload();
             }
         } else {
+            [...document.getElementsByClassName('app-hide')].forEach(el => el.classList.add('hide'));
             $('install').onclick = () => {
                 location.replace('/boot');
             }

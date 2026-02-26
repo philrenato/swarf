@@ -17,11 +17,12 @@ function tr(key, fallback) {
     return api.language?.current?.[key] || fallback || key;
 }
 
-function menuItem(actions, { id, lk, xlk, text, title, iconClass, className, children }) {
+function menuItem(actions, { id, lk, xlk, text, title, iconClass, className, children, onclick }) {
     const attr = {
         ...(id ? { id } : {}),
         ...(title ? { title } : {}),
         ...(className ? { class: className } : {}),
+        ...(onclick ? { onclick } : {}),
         ...on(actions, id)
     };
     const lblAttr = {
@@ -122,8 +123,8 @@ function scalePanel(actions) {
 
 function content(actions) {
     return [
-        div({ class: 'menubar-appname', _: 'Kiri:Moto' }),
-        div({ class: 'menubar-separator' }),
+        div({ class: 'menubar-appname el-app-hide', _: 'Kiri:Moto' }),
+        div({ class: 'menubar-separator el-app-hide' }),
         div({ class: 'f-row top-menu grow' }, [
             topMenu(actions, {
                 text: 'files', lk: 'fe_menu', items: [
@@ -139,8 +140,8 @@ function content(actions) {
                     menuItem(actions, { id: 'mesh-export-stl', lk: 'export-stl', text: 'save as  STL', iconClass: 'fas fa-dice-d20' }),
                     hr(),
                     menuItem(actions, { id: 'app-export', lk: 'rc_xpws', text: 'export work', iconClass: 'fas fa-download' }),
-                    hr(),
-                    menuItem(actions, { id: 'app-quit', lk: 'quit', text: 'quit', className: 'hide' })
+                    hr({ class: "app-hide" }),
+                    menuItem(actions, { id: 'app-quit', lk: 'quit', text: 'quit', className: 'hide', onclick() { window.close() } })
                 ]
             }),
             topMenu(actions, {
@@ -178,7 +179,6 @@ function content(actions) {
                     menuItem(actions, { id: 'render-edges', lk: 're_edgs', text: 'toggle edges', iconClass: 'fa-regular fa-square' })
                 ]
             }),
-            // div({ class: 'menubar-separator' }),
             div({ class: 'f-row top-menu' }, [
                 toolbarToolNozzle()
             ]),
@@ -207,7 +207,7 @@ function content(actions) {
                     menuItem(actions, { id: 'set-profs', lk: 'profs', text: 'profiles', iconClass: 'fas fa-sliders-h' }),
                     menuItem(actions, { id: 'set-tools', lk: 'tools', text: 'tools', iconClass: 'fas fa-tools' }),
                     menuItem(actions, { id: 'set-prefs', lk: 'prefs', text: 'prefs', iconClass: 'fa-solid fa-square-check' }),
-                    hr(),
+                    hr({ class: "el-app-hide" }),
                     menuItem(actions, { id: 'install', lk: 'install', text: 'install' }),
                     menuItem(actions, { id: 'uninstall', lk: 'uninstall', text: 'uninstall', className: 'hide' })
                 ]

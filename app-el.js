@@ -78,12 +78,15 @@ function createWindow() {
         if (url.endsWith('/mesh') || url.endsWith('/mesh/')) {
             return;
         }
+        if (url.endsWith('/void') || url.endsWith('/void/')) {
+            return;
+        }
         event.preventDefault();
         shell.openExternal(url);
     });
 
     webContents.on('did-finish-load', () => {
-        mainWindow.webContents.executeJavaScript(`{ let x = document.getElementById('app-quit'); if (x) { x.onclick = () => window.close() } }; null;`);
+        // console.log('did finish load');
     });
 
     if (devel) {
