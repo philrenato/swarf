@@ -266,7 +266,7 @@ function exportGCodeDialog(gcode, sections, info, names) {
 
         if (proxy) {
             console.log('proxying request to', host);
-            host = '';
+            host = 'http://127.0.0.1:5309';
         }
 
         filename = $('print-filename').value + "." + fileext;

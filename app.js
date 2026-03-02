@@ -516,7 +516,7 @@ function ifModifiedDate(req) {
 
 function addCorsHeaders(req, res) {
     res.setHeader('Access-Control-Allow-Credentials', 'true');
-    res.setHeader('Access-Control-Allow-Headers', 'X-Moto-Ajax, Content-Type');
+    res.setHeader('Access-Control-Allow-Headers', 'X-Api-Key, X-Host, X-Moto-Ajax, Content-Type');
     res.setHeader('Access-Control-Allow-Origin', req.headers['origin'] || '*');
     if (req.headers['access-control-request-private-network'] === 'true') {
         res.setHeader('Access-Control-Allow-Private-Network', 'true');

@@ -1,6 +1,6 @@
 module.exports = async (server) => {
 
-    const { api, env, path, util } = server;
+    const { api, env, handler, path, util } = server;
 
     server.inject("kiri", "main.js");
 
@@ -17,6 +17,7 @@ module.exports = async (server) => {
 };
 
 function proxy_post(req, res, next) {
+    handler.addCORS(req, res);
     if (req.method === 'POST') {
         let { url, headers } = req;
         let chunks = [];
