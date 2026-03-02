@@ -248,14 +248,14 @@ function exportGCodeDialog(gcode, sections, info, names) {
             host = octo_host.value.toLowerCase(),
             apik = octo_apik.value,
             type = octo_type.value,
-            secure = api.const.SECURE,
+            secure = api.util.isSecure(host),
             proxy = !secure && api.feature.proxy ? host : undefined;
 
         if (host.indexOf("http") !== 0) {
             api.show.alert("host missing protocol (http:// or https://)");
             return;
         }
-        if (secure && !api.util.isSecure(host) && !proxy) {
+        if (api.const.SECURE && !secure && !proxy) {
             api.show.alert("host must begin with 'https' on a secure site");
             return;
         }
