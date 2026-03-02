@@ -67,6 +67,18 @@ function createSolidsApi(getApi) {
         return null;
     }
 
+    function normalizeProfileLoops(loops) {
+        if (!Array.isArray(loops) || !loops.length) return null;
+        const out = loops
+            .filter(loop => Array.isArray(loop) && loop.length >= 3)
+            .map(loop => loop.map(p => ({ x: Number(p?.x || 0), y: Number(p?.y || 0) })));
+        return out.length ? out : null;
+    }
+
+    function profileLoopsFromTarget(profileTarget = {}) {
+        return normalizeProfileLoops(profileTarget?.loops);
+    }
+
     function buildRebuildSnapshot(api) {
         const builtFeatures = api.features.listBuilt();
         const sketchPlanes = {};
@@ -82,7 +94,7 @@ function createSolidsApi(getApi) {
             for (const profileTarget of profiles) {
                 const { sketchId, profileId, key } = resolveProfileTargetRef(profileTarget);
                 if (!sketchId || !profileId) continue;
-                const loops = profileLoopsFromRuntime(api, profileTarget);
+                const loops = profileLoopsFromTarget(profileTarget) || profileLoopsFromRuntime(api, profileTarget);
                 if (!loops?.length) continue;
                 profileLoops[key] = loops;
             }

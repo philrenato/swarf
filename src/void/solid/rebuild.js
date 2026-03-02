@@ -31,15 +31,25 @@ function profileLoopsFromRuntime(api, profileTarget) {
     return null;
 }
 
+function normalizeProfileLoops(loops) {
+    if (!Array.isArray(loops) || !loops.length) return null;
+    const out = loops
+        .filter(loop => Array.isArray(loop) && loop.length >= 3)
+        .map(loop => loop.map(p => ({ x: Number(p?.x || 0), y: Number(p?.y || 0) })));
+    return out.length ? out : null;
+}
+
+function profileLoopsFromTarget(profileTarget = {}) {
+    return normalizeProfileLoops(profileTarget?.loops);
+}
+
 function profileLoopsFromSnapshot(snapshot, profileTarget) {
+    const direct = profileLoopsFromTarget(profileTarget);
+    if (direct?.length) return direct;
     const { sketchId, profileId, key } = resolveProfileTargetRef(profileTarget);
     if (!key || !sketchId || !profileId) return null;
     const map = snapshot?.profileLoops || {};
-    const loops = map[key];
-    if (!Array.isArray(loops) || !loops.length) return null;
-    return loops
-        .filter(loop => Array.isArray(loop) && loop.length >= 3)
-        .map(loop => loop.map(p => ({ x: Number(p?.x || 0), y: Number(p?.y || 0) })));
+    return normalizeProfileLoops(map[key]);
 }
 
 function makeBodyId(featureId, index) {
@@ -556,7 +566,7 @@ async function rebuildGeneratedSolids(api, options = {}) {
         for (const profileTarget of profiles) {
             const { sketchId, profileId, key } = resolveProfileTargetRef(profileTarget);
             if (!sketchId || !profileId) continue;
-            const loops = profileLoopsFromRuntime(api, profileTarget);
+            const loops = profileLoopsFromTarget(profileTarget) || profileLoopsFromRuntime(api, profileTarget);
             if (!loops?.length) continue;
             profileLoops[key] = loops;
         }

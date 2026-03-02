@@ -373,9 +373,24 @@ const toolbar = {
             if (!sketchId || !profileId) continue;
             const sketch = api.features.findById(sketchId);
             if (!sketch || sketch.type !== 'sketch') continue;
-            out.push({
+            const target = {
                 region_id: `profile:${sketchId}:${profileId}`
-            });
+            };
+            const rec = api.sketchRuntime?.getRecord?.(sketchId);
+            const view = rec?.entityViews?.get?.(profileId);
+            const rawLoops = view?.object?.userData?.sketchProfileLoops
+                || (view?.object?.userData?.sketchProfileLoop ? [view.object.userData.sketchProfileLoop] : null)
+                || view?.entity?.loops
+                || (view?.entity?.loop ? [view.entity.loop] : null);
+            const loops = Array.isArray(rawLoops)
+                ? rawLoops
+                    .filter(loop => Array.isArray(loop) && loop.length >= 3)
+                    .map(loop => loop.map(p => ({ x: Number(p?.x || 0), y: Number(p?.y || 0) })))
+                : [];
+            if (loops.length) {
+                target.loops = loops;
+            }
+            out.push(target);
         }
         return out;
     },
