@@ -102,7 +102,24 @@ function createSolidsApi(getApi) {
                 ? rec.indices
                 : new Uint32Array(rec.indices || []);
             if (!positions.length || !indices.length) continue;
-            map.set(id, { positions, indices });
+            const mesh = { positions, indices };
+            const optionalUint = ['mergeFromVert', 'mergeToVert', 'runIndex', 'runOriginalID', 'faceID'];
+            for (const key of optionalUint) {
+                if (!rec?.[key]?.length) continue;
+                mesh[key] = rec[key] instanceof Uint32Array ? rec[key] : new Uint32Array(rec[key]);
+            }
+            const optionalFloat = ['halfedgeTangent', 'runTransform'];
+            for (const key of optionalFloat) {
+                if (!rec?.[key]?.length) continue;
+                mesh[key] = rec[key] instanceof Float32Array ? rec[key] : new Float32Array(rec[key]);
+            }
+            if (rec?.run_source_solid_ids && typeof rec.run_source_solid_ids === 'object') {
+                mesh.run_source_solid_ids = rec.run_source_solid_ids;
+            }
+            if (Array.isArray(rec?.source_solid_ids)) {
+                mesh.source_solid_ids = rec.source_solid_ids.map(id => String(id || '')).filter(Boolean);
+            }
+            map.set(id, mesh);
         }
         return map;
     }
@@ -360,6 +377,7 @@ function edgeKey(a, b) {
 
             groups.set(groupId, {
                 id: groupId,
+                tris: tris.slice(),
                 geometry: faceGeom,
                 center,
                 normal,
@@ -635,6 +653,209 @@ function edgeKey(a, b) {
         const y = Math.round(Number(v?.y || 0) * q);
         const z = Math.round(Number(v?.z || 0) * q);
         return `${x}:${y}:${z}`;
+    }
+
+    function normalizeRegionIds(ids = [], fallback = []) {
+        const next = new Set();
+        for (const id of ids || []) {
+            const raw = String(id || '').trim();
+            if (raw) next.add(raw);
+        }
+        if (!next.size) {
+            for (const id of fallback || []) {
+                const raw = String(id || '').trim();
+                if (raw) next.add(raw);
+            }
+        }
+        if (!next.size) next.add('region:unknown');
+        return Array.from(next).sort();
+    }
+
+    function regionKey(ids = []) {
+        return normalizeRegionIds(ids).join('|');
+    }
+
+    function runResolver(meshData = null) {
+        const runIndex = meshData?.runIndex;
+        const runOriginalID = meshData?.runOriginalID;
+        if (!runIndex?.length || runIndex.length < 2 || !runOriginalID?.length) {
+            return null;
+        }
+        return (triIndex) => {
+            const tri = Number(triIndex);
+            if (!Number.isFinite(tri) || tri < 0) return null;
+            let lo = 0;
+            let hi = runIndex.length - 2;
+            while (lo <= hi) {
+                const mid = (lo + hi) >> 1;
+                const a = Number(runIndex[mid]);
+                const b = Number(runIndex[mid + 1]);
+                if (!Number.isFinite(a) || !Number.isFinite(b)) return null;
+                if (tri < a) {
+                    hi = mid - 1;
+                } else if (tri >= b) {
+                    lo = mid + 1;
+                } else {
+                    return Number(runOriginalID[mid]);
+                }
+            }
+            return null;
+        };
+    }
+
+    function facePatchesFromTriProvenance({
+        faceMeta = null,
+        mesh = null,
+        meshData = null,
+        sourceProfileKeys = [],
+        solidsById = new Map()
+    } = {}) {
+        const geometry = faceMeta?.geometry || null;
+        const indexAttr = geometry?.getIndex?.() || null;
+        const posAttr = geometry?.getAttribute?.('position') || null;
+        const triIndex = indexAttr?.array || null;
+        const triCount = Math.floor(Number(triIndex?.length || 0) / 3);
+        if (!posAttr || !triCount) return [];
+
+        const faceTris = Array.isArray(faceMeta?.tris) ? faceMeta.tris : [];
+        const resolveRun = runResolver(meshData);
+        const runSourceSolidIds = meshData?.run_source_solid_ids || {};
+        const fallbackSolidIds = Array.isArray(meshData?.source_solid_ids) ? meshData.source_solid_ids : [];
+
+        const triRegionIds = new Array(triCount);
+        const triRegionKeys = new Array(triCount);
+        const sourceRegionIdsSet = new Set();
+
+        for (let ti = 0; ti < triCount; ti++) {
+            const globalTri = Number(faceTris[ti]);
+            const sourceSolidIds = new Set();
+            const runOriginal = resolveRun ? resolveRun(globalTri) : null;
+            if (Number.isFinite(runOriginal)) {
+                const runSources = runSourceSolidIds[String(runOriginal)];
+                if (Array.isArray(runSources) && runSources.length) {
+                    for (const sid of runSources) {
+                        const id = String(sid || '').trim();
+                        if (id) sourceSolidIds.add(id);
+                    }
+                }
+            }
+            if (!sourceSolidIds.size) {
+                for (const sid of fallbackSolidIds) {
+                    const id = String(sid || '').trim();
+                    if (id) sourceSolidIds.add(id);
+                }
+            }
+            const fromSolids = [];
+            for (const sid of sourceSolidIds) {
+                const solid = solidsById.get(String(sid || ''));
+                const keys = Array.isArray(solid?.source?.profile_keys) ? solid.source.profile_keys : [];
+                for (const key of keys) {
+                    const kid = String(key || '').trim();
+                    if (kid) fromSolids.push(kid);
+                }
+            }
+            const ids = normalizeRegionIds(fromSolids, sourceProfileKeys);
+            triRegionIds[ti] = ids;
+            triRegionKeys[ti] = regionKey(ids);
+            for (const id of ids) sourceRegionIdsSet.add(id);
+        }
+
+        const triNeighbors = Array.from({ length: triCount }, () => []);
+        const firstByEdge = new Map();
+        for (let ti = 0; ti < triCount; ti++) {
+            const a = Number(triIndex[ti * 3]);
+            const b = Number(triIndex[ti * 3 + 1]);
+            const c = Number(triIndex[ti * 3 + 2]);
+            const edges = [[a, b], [b, c], [c, a]];
+            for (const [v0, v1] of edges) {
+                const key = edgeKey(v0, v1);
+                if (!firstByEdge.has(key)) {
+                    firstByEdge.set(key, ti);
+                } else {
+                    const other = firstByEdge.get(key);
+                    if (Number.isFinite(other) && other !== ti) {
+                        triNeighbors[ti].push(other);
+                        triNeighbors[other].push(ti);
+                    }
+                }
+            }
+        }
+
+        const localToWorld = new Map();
+        const worldVertex = (vi) => {
+            const key = Number(vi);
+            if (localToWorld.has(key)) return localToWorld.get(key);
+            const p = new THREE.Vector3().fromBufferAttribute(posAttr, key);
+            const out = mesh?.matrixWorld ? p.applyMatrix4(mesh.matrixWorld) : p;
+            localToWorld.set(key, out);
+            return out;
+        };
+
+        const visited = new Uint8Array(triCount);
+        const groups = [];
+        for (let seed = 0; seed < triCount; seed++) {
+            if (visited[seed]) continue;
+            const key = triRegionKeys[seed];
+            const queue = [seed];
+            const localTris = [];
+            visited[seed] = 1;
+            while (queue.length) {
+                const cur = queue.pop();
+                localTris.push(cur);
+                const nbs = triNeighbors[cur] || [];
+                for (const nb of nbs) {
+                    if (visited[nb]) continue;
+                    if (triRegionKeys[nb] !== key) continue;
+                    visited[nb] = 1;
+                    queue.push(nb);
+                }
+            }
+            groups.push({
+                key,
+                source_region_ids: triRegionIds[seed].slice(),
+                local_tris: localTris
+            });
+        }
+
+        const out = [];
+        for (const group of groups) {
+            const boundaryEdges = new Map();
+            const triIdsGlobal = [];
+            for (const localTri of group.local_tris) {
+                const i0 = Number(triIndex[localTri * 3]);
+                const i1 = Number(triIndex[localTri * 3 + 1]);
+                const i2 = Number(triIndex[localTri * 3 + 2]);
+                const globalTri = Number(faceTris[localTri]);
+                if (Number.isFinite(globalTri)) triIdsGlobal.push(globalTri);
+                const edges = [[i0, i1], [i1, i2], [i2, i0]];
+                for (const [a, b] of edges) {
+                    const ek = edgeKey(a, b);
+                    const rec = boundaryEdges.get(ek);
+                    if (!rec) {
+                        boundaryEdges.set(ek, { a, b, count: 1 });
+                    } else {
+                        rec.count++;
+                    }
+                }
+            }
+            const loopSegments = [];
+            for (const rec of boundaryEdges.values()) {
+                if (Number(rec?.count) !== 1) continue;
+                const a = worldVertex(rec.a);
+                const b = worldVertex(rec.b);
+                if (!a || !b || a.distanceToSquared?.(b) <= 1e-16) continue;
+                loopSegments.push({ a: a.clone(), b: b.clone() });
+            }
+            const loops = buildBoundaryLoopsFromSegments(loopSegments);
+            if (!loops.length) continue;
+            out.push({
+                key: group.key,
+                source_region_ids: group.source_region_ids.slice(),
+                tri_ids: triIdsGlobal,
+                loops
+            });
+        }
+        return out;
     }
 
     return {
@@ -935,7 +1156,18 @@ function edgeKey(a, b) {
                         this._debugGroup.add(lines);
                     }
                 } else {
-                    for (const boundary of boundaries) {
+                    const preferredBoundaryIds = new Set();
+                    for (const patch of patches) {
+                        const ids = Array.isArray(patch?.boundary_ids) ? patch.boundary_ids : [];
+                        for (const id of ids) {
+                            const bid = String(id || '').trim();
+                            if (bid) preferredBoundaryIds.add(bid);
+                        }
+                    }
+                    const toDraw = preferredBoundaryIds.size
+                        ? boundaries.filter(boundary => preferredBoundaryIds.has(String(boundary?.id || '')))
+                        : boundaries;
+                    for (const boundary of toDraw) {
                         const segmentIds = Array.isArray(boundary?.segment_ids) ? boundary.segment_ids : [];
                         if (!segmentIds.length) continue;
                         const positions = [];
@@ -1127,6 +1359,7 @@ function edgeKey(a, b) {
                 patch_to_tris: {},
                 tri_to_patch: {}
             };
+            const solidsById = new Map((this.list() || []).map(item => [String(item?.id || ''), item]));
 
             const getPointId = (p, role = 'boundary-vertex') => {
                 const key = quantPointKey(p);
@@ -1146,7 +1379,7 @@ function edgeKey(a, b) {
             };
 
             for (const [solidId, view] of this._meshViews.entries()) {
-                const solid = this.list().find(item => String(item?.id || '') === String(solidId)) || null;
+                const solid = solidsById.get(String(solidId)) || null;
                 const sourceProfileKeys = Array.isArray(solid?.source?.profile_keys)
                     ? solid.source.profile_keys.map(key => String(key || '')).filter(Boolean)
                     : [];
@@ -1189,6 +1422,31 @@ function edgeKey(a, b) {
                         }
                     });
                     this._geomSurfaceIdByFaceKey.set(faceKey, surfaceId);
+
+                    const meshData = this._meshCache?.get?.(String(solidId)) || null;
+                    const facePatches = facePatchesFromTriProvenance({
+                        faceMeta: meta,
+                        mesh,
+                        meshData,
+                        sourceProfileKeys,
+                        solidsById
+                    });
+                    const faceSourceRegionSet = new Set();
+                    for (const patch of facePatches) {
+                        for (const id of patch?.source_region_ids || []) {
+                            const rid = String(id || '').trim();
+                            if (rid) faceSourceRegionSet.add(rid);
+                        }
+                    }
+                    if (!faceSourceRegionSet.size) {
+                        for (const rid of normalizeRegionIds(sourceProfileKeys)) {
+                            faceSourceRegionSet.add(rid);
+                        }
+                    }
+                    const faceSourceRegionIds = Array.from(faceSourceRegionSet);
+                    const facePrimarySourceRegion = faceSourceRegionIds.length === 1
+                        ? faceSourceRegionIds[0]
+                        : (primarySourceRegion || null);
 
                     const surfaceSegmentIds = [];
                     for (let li = 0; li < loops.length; li++) {
@@ -1260,24 +1518,125 @@ function edgeKey(a, b) {
                                 loop_index: li
                             }
                         });
-                        const patchId = `surface-patch:${faceKey}:${li}`;
-                        const sourceRegionIds = sourceProfileKeys.slice();
-                        surface_patches.push({
-                            id: patchId,
-                            surface_id: surfaceId,
-                            boundary_ids: [boundaryId],
-                            source_region_id: primarySourceRegion,
-                            source_region_ids: sourceRegionIds,
-                            solid_id: solidId,
-                            face_id: faceId,
-                            status: 'seed',
-                            source: {
-                                type: 'solid-face-loop',
-                                face_key: faceKey,
-                                loop_index: li,
-                                feature_id: solid?.source?.feature_id || null
+                    }
+
+                    let emittedPatchCount = 0;
+                    if (facePatches.length) {
+                        for (let pi = 0; pi < facePatches.length; pi++) {
+                            const patch = facePatches[pi];
+                            const patchId = `surface-patch:${faceKey}:${pi}`;
+                            const patchBoundaryIds = [];
+                            const sourceRegionIds = normalizeRegionIds(patch?.source_region_ids, faceSourceRegionIds);
+                            const patchPrimarySourceRegion = sourceRegionIds.length === 1
+                                ? sourceRegionIds[0]
+                                : facePrimarySourceRegion;
+                            const patchLoops = Array.isArray(patch?.loops) ? patch.loops : [];
+                            for (let pli = 0; pli < patchLoops.length; pli++) {
+                                const loop = patchLoops[pli];
+                                const points = Array.isArray(loop?.points) ? loop.points : [];
+                                if (points.length < 2) continue;
+                                const boundaryId = `boundary:patch:${faceKey}:${pi}:${pli}`;
+                                const boundarySegmentIds = [];
+                                const closed = !!loop?.closed;
+                                const stepCount = closed ? points.length : (points.length - 1);
+                                for (let si = 0; si < stepCount; si++) {
+                                    const a = points[si];
+                                    const b = points[(si + 1) % points.length];
+                                    if (!a || !b || a.distanceToSquared?.(b) <= 1e-16) continue;
+                                    const segmentId = `segment:patch:${faceKey}:${pi}:${pli}:${si}`;
+                                    const aId = getPointId(a, 'patch-boundary-vertex');
+                                    const bId = getPointId(b, 'patch-boundary-vertex');
+                                    const mid = a.clone().add(b).multiplyScalar(0.5);
+                                    const midId = getPointId(mid, 'patch-boundary-midpoint');
+                                    segments.push({
+                                        id: segmentId,
+                                        boundary_id: boundaryId,
+                                        kind: 'line',
+                                        a: { x: Number(a.x || 0), y: Number(a.y || 0), z: Number(a.z || 0) },
+                                        b: { x: Number(b.x || 0), y: Number(b.y || 0), z: Number(b.z || 0) },
+                                        mid: { x: Number(mid.x || 0), y: Number(mid.y || 0), z: Number(mid.z || 0) },
+                                        point_ids: [aId, bId, midId],
+                                        source: {
+                                            type: 'surface-patch-boundary',
+                                            patch_id: patchId,
+                                            face_key: faceKey
+                                        }
+                                    });
+                                    boundarySegmentIds.push(segmentId);
+                                    surfaceSegmentIds.push(segmentId);
+                                    topology.segment_to_surfaces[segmentId] = [surfaceId];
+                                }
+                                if (!boundarySegmentIds.length) continue;
+                                boundaries.push({
+                                    id: boundaryId,
+                                    surface_id: surfaceId,
+                                    segment_ids: boundarySegmentIds,
+                                    closed,
+                                    source: {
+                                        type: 'surface-patch-loop',
+                                        patch_id: patchId,
+                                        face_key: faceKey,
+                                        loop_index: pli
+                                    }
+                                });
+                                patchBoundaryIds.push(boundaryId);
                             }
-                        });
+                            if (!patchBoundaryIds.length) continue;
+                            surface_patches.push({
+                                id: patchId,
+                                surface_id: surfaceId,
+                                boundary_ids: patchBoundaryIds,
+                                source_region_id: patchPrimarySourceRegion,
+                                source_region_ids: sourceRegionIds,
+                                solid_id: solidId,
+                                face_id: faceId,
+                                status: facePatches.length > 1 ? 'partitioned' : 'single-source',
+                                source: {
+                                    type: 'tri-provenance',
+                                    face_key: faceKey,
+                                    feature_id: solid?.source?.feature_id || null
+                                }
+                            });
+                            emittedPatchCount++;
+                            const patchTriIds = Array.isArray(patch?.tri_ids) ? patch.tri_ids : [];
+                            topology.patch_to_tris[patchId] = patchTriIds.slice();
+                            for (const triId of patchTriIds) {
+                                if (!Number.isFinite(Number(triId))) continue;
+                                topology.tri_to_patch[`${solidId}:${Number(triId)}`] = patchId;
+                            }
+                            regions.push({
+                                id: `region:patch:${faceKey}:${pi}`,
+                                surface_id: surfaceId,
+                                boundary_ids: patchBoundaryIds.slice(),
+                                source: {
+                                    type: 'surface-patch-region',
+                                    patch_id: patchId,
+                                    face_key: faceKey
+                                }
+                            });
+                        }
+                    }
+                    if (!emittedPatchCount) {
+                        for (let li = 0; li < loops.length; li++) {
+                            const boundaryId = `boundary:${faceKey}:${li}`;
+                            const patchId = `surface-patch:${faceKey}:${li}`;
+                            surface_patches.push({
+                                id: patchId,
+                                surface_id: surfaceId,
+                                boundary_ids: [boundaryId],
+                                source_region_id: facePrimarySourceRegion,
+                                source_region_ids: faceSourceRegionIds.slice(),
+                                solid_id: solidId,
+                                face_id: faceId,
+                                status: 'seed',
+                                source: {
+                                    type: 'solid-face-loop',
+                                    face_key: faceKey,
+                                    loop_index: li,
+                                    feature_id: solid?.source?.feature_id || null
+                                }
+                            });
+                        }
                     }
                     topology.surface_to_segments[surfaceId] = surfaceSegmentIds;
                 }
@@ -2539,7 +2898,7 @@ function edgeKey(a, b) {
                     Number(preferredFrame.x_axis.y || 0),
                     Number(preferredFrame.x_axis.z || 0)
                 )
-                : new THREE.Vector3(1, 0, 0);
+                : (meta?.xAxis?.clone?.() || new THREE.Vector3(1, 0, 0));
             if (xAxis.lengthSq() <= 1e-12) {
                 xAxis.set(1, 0, 0);
             }

@@ -24,6 +24,26 @@ function serializeMeshCache(meshCache) {
             : new Uint32Array(mesh.indices);
         meshes.push({ id, positions, indices });
         transfer.push(positions.buffer, indices.buffer);
+        const optionalUint = ['mergeFromVert', 'mergeToVert', 'runIndex', 'runOriginalID', 'faceID'];
+        for (const key of optionalUint) {
+            if (!mesh?.[key]?.length) continue;
+            const arr = mesh[key] instanceof Uint32Array ? mesh[key] : new Uint32Array(mesh[key]);
+            meshes[meshes.length - 1][key] = arr;
+            transfer.push(arr.buffer);
+        }
+        const optionalFloat = ['halfedgeTangent', 'runTransform'];
+        for (const key of optionalFloat) {
+            if (!mesh?.[key]?.length) continue;
+            const arr = mesh[key] instanceof Float32Array ? mesh[key] : new Float32Array(mesh[key]);
+            meshes[meshes.length - 1][key] = arr;
+            transfer.push(arr.buffer);
+        }
+        if (mesh?.run_source_solid_ids && typeof mesh.run_source_solid_ids === 'object') {
+            meshes[meshes.length - 1].run_source_solid_ids = mesh.run_source_solid_ids;
+        }
+        if (Array.isArray(mesh?.source_solid_ids)) {
+            meshes[meshes.length - 1].source_solid_ids = mesh.source_solid_ids;
+        }
     }
     return { meshes, transfer };
 }
@@ -56,4 +76,3 @@ self.onmessage = async (event) => {
         });
     }
 };
-

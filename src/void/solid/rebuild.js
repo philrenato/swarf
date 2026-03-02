@@ -343,6 +343,7 @@ async function rebuildGeneratedSolidsFromSnapshot(snapshot, options = {}) {
                         };
                         body.extrude = { depth, direction, symmetric };
                         if (meshWorld) {
+                            meshWorld.source_solid_ids = [id];
                             meshCache.set(id, meshWorld);
                             createdBodyIds.push(id);
                         }
@@ -358,8 +359,19 @@ async function rebuildGeneratedSolidsFromSnapshot(snapshot, options = {}) {
                     : [];
                 const createdSolids = createdBodyIds.map(id => solids.find(s => s?.id === id)).filter(Boolean);
                 const targetSolids = targetIds.map(id => solids.find(s => s?.id === id)).filter(Boolean);
-                const toolMeshes = createdSolids.map(s => meshCache.get(s.id)).filter(mesh => mesh?.positions?.length && mesh?.indices?.length);
-                const targetMeshes = targetSolids.map(s => meshCache.get(s.id)).filter(mesh => mesh?.positions?.length && mesh?.indices?.length);
+                const withSourceIds = (mesh, sid) => {
+                    if (!mesh) return null;
+                    const source = Array.isArray(mesh.source_solid_ids) && mesh.source_solid_ids.length
+                        ? mesh.source_solid_ids
+                        : [sid];
+                    return { ...mesh, source_solid_ids: source.map(id => String(id || '')).filter(Boolean) };
+                };
+                const toolMeshes = createdSolids
+                    .map(s => withSourceIds(meshCache.get(s.id), s.id))
+                    .filter(mesh => mesh?.positions?.length && mesh?.indices?.length);
+                const targetMeshes = targetSolids
+                    .map(s => withSourceIds(meshCache.get(s.id), s.id))
+                    .filter(mesh => mesh?.positions?.length && mesh?.indices?.length);
                 let merge = null;
                 if (operation === 'add') {
                     const meshes = [...targetMeshes, ...toolMeshes];
@@ -371,6 +383,7 @@ async function rebuildGeneratedSolidsFromSnapshot(snapshot, options = {}) {
                 }
                 if (merge?.mesh?.positions?.length && merge?.mesh?.indices?.length) {
                     const consumed = new Set([...targetSolids.map(s => s.id), ...createdSolids.map(s => s.id)]);
+                    const consumedSourceSolidIds = Array.from(consumed);
                     const sketchIds = new Set();
                     for (const solid of [...targetSolids, ...createdSolids]) {
                         for (const sid of getSketchIdsForSolid(solid)) {
@@ -411,6 +424,7 @@ async function rebuildGeneratedSolidsFromSnapshot(snapshot, options = {}) {
                         },
                         status: 'manifold_extrude_boolean_ready'
                     };
+                    merge.mesh.source_solid_ids = consumedSourceSolidIds;
                     meshCache.set(id, merge.mesh);
                     solids.push(body);
                 }
@@ -438,8 +452,19 @@ async function rebuildGeneratedSolidsFromSnapshot(snapshot, options = {}) {
             } else if (targetSolids.length < 2) {
                 continue;
             }
-            const targetMeshes = targetSolids.map(s => meshCache.get(s.id)).filter(mesh => mesh?.positions?.length && mesh?.indices?.length);
-            const toolMeshes = toolSolids.map(s => meshCache.get(s.id)).filter(mesh => mesh?.positions?.length && mesh?.indices?.length);
+            const withSourceIds = (mesh, sid) => {
+                if (!mesh) return null;
+                const source = Array.isArray(mesh.source_solid_ids) && mesh.source_solid_ids.length
+                    ? mesh.source_solid_ids
+                    : [sid];
+                return { ...mesh, source_solid_ids: source.map(id => String(id || '')).filter(Boolean) };
+            };
+            const targetMeshes = targetSolids
+                .map(s => withSourceIds(meshCache.get(s.id), s.id))
+                .filter(mesh => mesh?.positions?.length && mesh?.indices?.length);
+            const toolMeshes = toolSolids
+                .map(s => withSourceIds(meshCache.get(s.id), s.id))
+                .filter(mesh => mesh?.positions?.length && mesh?.indices?.length);
             if (mode === 'subtract') {
                 if (!targetMeshes.length || !toolMeshes.length) continue;
             } else if (targetMeshes.length < 2) {
@@ -489,6 +514,7 @@ async function rebuildGeneratedSolidsFromSnapshot(snapshot, options = {}) {
                     },
                     status: 'manifold_boolean_ready'
                 };
+                result.mesh.source_solid_ids = selectedIds.slice();
                 meshCache.set(id, result.mesh);
                 solids.push(body);
             }

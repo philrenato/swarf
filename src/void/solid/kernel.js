@@ -54,11 +54,19 @@ function toKernelMesh(inst, meshData) {
     const vertCount = Math.floor(positions.length / 3);
     const props = new Float32Array(vertCount * 3);
     props.set(positions);
-    return new inst.Mesh({
+    const rec = {
         numProp: 3,
         vertProperties: props,
         triVerts: Uint32Array.from(indices)
-    });
+    };
+    if (meshData?.mergeFromVert?.length) rec.mergeFromVert = Uint32Array.from(meshData.mergeFromVert);
+    if (meshData?.mergeToVert?.length) rec.mergeToVert = Uint32Array.from(meshData.mergeToVert);
+    if (meshData?.runIndex?.length) rec.runIndex = Uint32Array.from(meshData.runIndex);
+    if (meshData?.runOriginalID?.length) rec.runOriginalID = Uint32Array.from(meshData.runOriginalID);
+    if (meshData?.faceID?.length) rec.faceID = Uint32Array.from(meshData.faceID);
+    if (meshData?.halfedgeTangent?.length) rec.halfedgeTangent = Float32Array.from(meshData.halfedgeTangent);
+    if (meshData?.runTransform?.length) rec.runTransform = Float32Array.from(meshData.runTransform);
+    return new inst.Mesh(rec);
 }
 
 function fromKernelMesh(mesh) {
@@ -75,10 +83,18 @@ function fromKernelMesh(mesh) {
         positions[dst + 1] = Number(verts[src + 1] || 0);
         positions[dst + 2] = Number(verts[src + 2] || 0);
     }
-    return {
+    const out = {
         positions,
         indices: Uint32Array.from(triVerts)
     };
+    if (mesh?.mergeFromVert?.length) out.mergeFromVert = Uint32Array.from(mesh.mergeFromVert);
+    if (mesh?.mergeToVert?.length) out.mergeToVert = Uint32Array.from(mesh.mergeToVert);
+    if (mesh?.runIndex?.length) out.runIndex = Uint32Array.from(mesh.runIndex);
+    if (mesh?.runOriginalID?.length) out.runOriginalID = Uint32Array.from(mesh.runOriginalID);
+    if (mesh?.faceID?.length) out.faceID = Uint32Array.from(mesh.faceID);
+    if (mesh?.halfedgeTangent?.length) out.halfedgeTangent = Float32Array.from(mesh.halfedgeTangent);
+    if (mesh?.runTransform?.length) out.runTransform = Float32Array.from(mesh.runTransform);
+    return out;
 }
 
 async function booleanMeshes(input, mode = 'add') {
@@ -94,11 +110,27 @@ async function booleanMeshes(input, mode = 'add') {
     const targetMeshes = Array.isArray(options.targets) ? options.targets : null;
     const toolMeshes = Array.isArray(options.tools) ? options.tools : null;
     const manifolds = [];
+    const runSourceSolidIdsByOriginal = {};
     let result = null;
     try {
         const toManifold = meshData => {
             const kernelMesh = toKernelMesh(inst, meshData);
-            return kernelMesh ? new inst.Manifold(kernelMesh) : null;
+            const manifold = kernelMesh ? new inst.Manifold(kernelMesh) : null;
+            if (!manifold) return null;
+            try {
+                const infoMesh = manifold.getMesh?.();
+                const runOriginalID = Array.isArray(infoMesh?.runOriginalID)
+                    ? infoMesh.runOriginalID
+                    : (infoMesh?.runOriginalID ? Array.from(infoMesh.runOriginalID) : []);
+                const sourceIds = Array.isArray(meshData?.source_solid_ids)
+                    ? meshData.source_solid_ids.map(id => String(id || '')).filter(Boolean)
+                    : [];
+                const first = Number(runOriginalID?.[0]);
+                if (Number.isFinite(first) && sourceIds.length) {
+                    runSourceSolidIdsByOriginal[String(first)] = sourceIds;
+                }
+            } catch {}
+            return manifold;
         };
         const combine = (list, kind = 'add') => {
             if (!Array.isArray(list) || !list.length) return null;
@@ -137,7 +169,12 @@ async function booleanMeshes(input, mode = 'add') {
             }
         }
         const mesh = result?.getMesh?.();
-        return mesh ? { mesh: fromKernelMesh(mesh) } : null;
+        if (!mesh) return null;
+        const outMesh = fromKernelMesh(mesh);
+        if (Object.keys(runSourceSolidIdsByOriginal).length) {
+            outMesh.run_source_solid_ids = runSourceSolidIdsByOriginal;
+        }
+        return { mesh: outMesh };
     } catch (error) {
         console.warn('void.solid.kernel boolean failed', error);
         return null;

@@ -15,16 +15,21 @@ Completed:
 5. Segment/surface/region ID labels (overlay text).
 6. Fixed world/local debug overlay transform bug:
 7. GeometryStore points are world-space; line geometry parented under solids root must convert world -> root local because `space.WORLD` is rotated -90deg on X.
+8. Manifold relation passthrough wired through kernel/worker/rebuild (`runIndex`, `runOriginalID`, `faceID`, and source-run solid mapping).
+9. GeometryStore now emits provenance-partitioned `surface_patches` from per-face triangle run attribution (not just per-face-loop seeds).
+10. Topology now records `patch_to_tris` and `tri_to_patch` during snapshot build for downstream hover/selection cutover.
+11. Debug boundary rendering now prefers patch boundaries when present, so visualization aligns with sketch-derived/provenance splits.
 
 In progress:
 
-1. Converting this plan into code-level milestone execution with strict acceptance checks.
+1. Cut over hover/selection resolvers from face-loop heuristics to patch-first entities (`surface_patch_id` canonical path).
+2. Improve partition quality from triangle boundary approximation to robust boundary arrangement where needed.
 
 Next up:
 
-1. Add first `surface_patch_id` selection plumbing (read-only pass-through).
-2. Thread Manifold relation metadata through kernel adapters.
-3. Start mixed-face partition scaffold from seeded `surface_patches`.
+1. Add explicit `surface_patch_id` in hit/canonical selection entities.
+2. Bind extrude-profile hover/select directly to patch/source-region maps.
+3. Add regression fixtures for boolean unions/subtracts with mixed curved + planar outputs.
 
 ## Decisions
 
