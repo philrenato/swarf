@@ -1,0 +1,54 @@
+module.exports = async (server) => {
+
+    const { api, env, path, util } = server;
+
+    if (!(env.debug || env.electron)) {
+        util.log('not a valid context for proxy');
+        return;
+    }
+
+    path.full({
+        "/printer/print/start": proxy_post,
+        "/server/files/upload": proxy_post,
+        "/api/files/local": proxy_post,
+    });
+
+    server.inject("kiri", "main.js");
+};
+
+function proxy_post(req, res, next) {
+    if (req.method === 'POST') {
+        let { url, headers } = req;
+        let chunks = [];
+        let host = headers['x-host'];
+        let apik = headers['x-api-key'] ?? '';
+        let cont = headers['content-type']  ?? 'application/binary';
+        req
+            .on('data', data => chunks.push(data) )
+            .on('end', () => {
+                req.app.post = Buffer.concat(chunks);
+                if (host) {
+                    fetch(host + url, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': cont,
+                            'X-Api-Key': apik
+                        },
+                        body: req.app.post
+                    }).then(result => {
+                        console.log({ result });
+                        if (result.ok) {
+                            res.writeHead(200, 'OK');
+                        } else {
+                            res.writeHead(500, 'Failed to proxy');
+                        }
+                        res.end();
+                    });
+                } else {
+                    console.log('drop proxy due to lack of host');
+                }
+            });
+    } else {
+        next();
+    }
+}

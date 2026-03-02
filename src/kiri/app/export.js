@@ -247,7 +247,8 @@ function exportGCodeDialog(gcode, sections, info, names) {
             ajax = new XMLHttpRequest(),
             host = octo_host.value.toLowerCase(),
             apik = octo_apik.value,
-            type = octo_type.value;
+            type = octo_type.value,
+            proxy = api.feature.proxy ? host : undefined;
 
         if (host.indexOf("http") !== 0) {
             api.show.alert("host missing protocol (http:// or https://)");
@@ -261,6 +262,11 @@ function exportGCodeDialog(gcode, sections, info, names) {
         localSet('octo-host', host.trim());
         localSet('octo-apik', apik.trim());
         localSet('octo-type', type.trim());
+
+        if (proxy) {
+            console.log('proxying request to', host);
+            host = '';
+        }
 
         filename = $('print-filename').value + "." + fileext;
         form.append("file", getBlob(), filename);
@@ -296,6 +302,9 @@ function exportGCodeDialog(gcode, sections, info, names) {
             ajax.open("POST", host + "/server/files/upload");
         } else {
             ajax.open("POST", host + "/api/files/local");
+        }
+        if (proxy) {
+            ajax.setRequestHeader("X-Host", proxy);
         }
         if (apik) {
             ajax.setRequestHeader("X-Api-Key", apik);

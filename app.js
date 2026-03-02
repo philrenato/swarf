@@ -281,7 +281,7 @@ function initModule(mod, file, dir) {
     logger.log({ module: file, dir });
     require_fresh(file)({
         // express functions added here show up at "/api/" url root
-        api: api,
+        api,
         adm: {
             setver(ver) { oversion = ver },
             crossOrigin(bool) { crossOrigin = bool }
