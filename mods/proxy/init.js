@@ -2,6 +2,8 @@ module.exports = async (server) => {
 
     const { api, env, path, util } = server;
 
+    server.inject("kiri", "main.js");
+
     if (!(env.debug || env.electron)) {
         util.log('not a valid context for proxy');
         return;
@@ -12,8 +14,6 @@ module.exports = async (server) => {
         "/server/files/upload": proxy_post,
         "/api/files/local": proxy_post,
     });
-
-    server.inject("kiri", "main.js");
 };
 
 function proxy_post(req, res, next) {
