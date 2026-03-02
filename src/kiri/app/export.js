@@ -254,7 +254,7 @@ function exportGCodeDialog(gcode, sections, info, names) {
             api.show.alert("host missing protocol (http:// or https://)");
             return;
         }
-        if (api.const.SECURE && !api.util.isSecure(host)) {
+        if (api.const.SECURE && !api.util.isSecure(host) && !api.feature.proxy) {
             api.show.alert("host must begin with 'https' on a secure site");
             return;
         }
