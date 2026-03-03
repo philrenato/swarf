@@ -2063,7 +2063,9 @@ function refreshDerivedSketchGeometry(feature) {
     let changed = false;
 
     const updatePointFromSource = (point, source) => {
-        const world = api.solids?.resolvePointFromSource?.(source) || null;
+        const world = api.solids?.resolvePointFromSource?.(source, {
+            allowGlobalFallback: false
+        }) || null;
         if (!world) return;
         const local = this.worldToSketchLocal(world, basis);
         if (!local) return;
@@ -2078,7 +2080,9 @@ function refreshDerivedSketchGeometry(feature) {
         updatePointFromSource(point, point.source || null);
     }
     for (const line of derivedLines) {
-        const seg = api.solids?.resolveEdgeFromSource?.(line.source || null);
+        const seg = api.solids?.resolveEdgeFromSource?.(line.source || null, {
+            allowGlobalFallback: false
+        });
         if (!seg) continue;
         const p1 = byId.get(line.a);
         const p2 = byId.get(line.b);

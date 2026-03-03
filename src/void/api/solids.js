@@ -2307,8 +2307,9 @@ function edgeKey(a, b) {
             };
         },
 
-        resolveEdgeFromSource(source = {}) {
+        resolveEdgeFromSource(source = {}, options = {}) {
             if (source?.type !== 'solid-edge') return null;
+            const allowGlobalFallback = options?.allowGlobalFallback !== false;
             const targetSolidId = String(source?.solid_id || '');
             const targetFeatureId = String(source?.solid_feature_id || '');
             const sourceFaceId = Number(source?.face_id);
@@ -2380,11 +2381,13 @@ function edgeKey(a, b) {
                 }
                 if (byFeature.length) searchSets.push(byFeature);
             }
-            const all = [];
-            for (const solid of solids) {
-                if (solid?.id) all.push(String(solid.id));
+            if (allowGlobalFallback) {
+                const all = [];
+                for (const solid of solids) {
+                    if (solid?.id) all.push(String(solid.id));
+                }
+                if (all.length) searchSets.push(all);
             }
-            if (all.length) searchSets.push(all);
             let best = null;
             let bestScore = Infinity;
             const scanSet = (wanted = []) => {
@@ -2418,7 +2421,7 @@ function edgeKey(a, b) {
             return best;
         },
 
-        resolvePointFromSource(source = {}) {
+        resolvePointFromSource(source = {}, options = {}) {
             if (source?.type !== 'solid-edge') return null;
             const targetSolidId = String(source?.solid_id || '');
             const sourceFaceId = Number(source?.face_id);
@@ -2432,7 +2435,7 @@ function edgeKey(a, b) {
                     if (world) return world;
                 }
             }
-            const seg = this.resolveEdgeFromSource(source);
+            const seg = this.resolveEdgeFromSource(source, options);
             if (!seg) return null;
             const kind = source?.point_kind || 'mid';
             if (kind === 'a') return seg.aWorld;
@@ -2946,9 +2949,10 @@ function edgeKey(a, b) {
             };
         },
 
-        resolveSketchFrameForSource(source, preferredFrame = null) {
+        resolveSketchFrameForSource(source, preferredFrame = null, options = {}) {
             const sourceType = String(source?.type || '');
             if (sourceType !== 'solid-face' && sourceType !== 'face') return null;
+            const allowGlobalFallback = options?.allowGlobalFallback !== false;
             const solidId = String(source?.solid_id || '');
             const preferredSolidId = solidId || null;
             const view = solidId ? this._meshViews.get(solidId) : null;
@@ -3060,7 +3064,7 @@ function edgeKey(a, b) {
                         evalView(c.sid, c.meshView, 0.06);
                     }
                 }
-                if (!best) {
+                if (!best && allowGlobalFallback) {
                     for (const c of candidates) {
                         const bias = preferredSolidId && c.sid === preferredSolidId ? 0.02 : 0;
                         evalView(c.sid, c.meshView, bias);
@@ -3075,12 +3079,14 @@ function edgeKey(a, b) {
             };
         },
 
-        refreshSketchFaceAttachments() {
+        refreshSketchFaceAttachments(options = {}) {
             const api = getApi();
             const features = api.features.list() || [];
+            const eligible = options?.eligibleSketchIds instanceof Set ? options.eligibleSketchIds : null;
             let changed = false;
             for (const feature of features) {
                 if (feature?.type !== 'sketch') continue;
+                if (eligible && !eligible.has(String(feature?.id || ''))) continue;
                 const target = feature?.target || {};
                 let source = target?.source || null;
                 let resolved = null;
@@ -3134,7 +3140,11 @@ function edgeKey(a, b) {
                 }
                 if (source?.type !== 'solid-face' && source?.type !== 'face') continue;
                 if (!resolved) {
-                    resolved = this.resolveSketchFrameForSource(source, feature.plane || null);
+                    // Auto-refresh path must not drift to unrelated/newer solids when
+                    // the original source solid/face no longer exists.
+                    resolved = this.resolveSketchFrameForSource(source, feature.plane || null, {
+                        allowGlobalFallback: false
+                    });
                 }
                 if (!resolved?.frame) continue;
                 const frame = this.applyOffsetToFrame(resolved.frame, Number(feature?.target?.offset || 0));
@@ -3371,14 +3381,49 @@ function edgeKey(a, b) {
                     }
                     this._meshCache = result?.meshCache || new Map();
                     this.syncRuntime();
-                    let derivedChanged = false;
-                    for (const feature of (api.features.list() || [])) {
+                    const allFeatures = api.features.list() || [];
+                    const featureIndexById = new Map(allFeatures.map((f, i) => [String(f?.id || ''), i]));
+                    const eligibleSketchIds = new Set();
+                    const getFeatureIndex = (fid) => {
+                        const key = String(fid || '');
+                        if (!key) return -1;
+                        const idx = featureIndexById.get(key);
+                        return Number.isFinite(idx) ? Number(idx) : -1;
+                    };
+                    const hasFutureSourceDependency = (sketchFeature) => {
+                        const sketchIndex = getFeatureIndex(sketchFeature?.id);
+                        if (sketchIndex < 0) return false;
+                        const sourceFeatureIds = new Set();
+                        const targetSource = sketchFeature?.target?.source || null;
+                        const targetSourceFeatureId = String(targetSource?.solid_feature_id || '');
+                        if (targetSourceFeatureId) sourceFeatureIds.add(targetSourceFeatureId);
+                        const entities = Array.isArray(sketchFeature?.entities) ? sketchFeature.entities : [];
+                        for (const entity of entities) {
+                            if (!entity?.derived) continue;
+                            const src = entity?.source || null;
+                            const srcFeatureId = String(src?.solid_feature_id || '');
+                            if (srcFeatureId) sourceFeatureIds.add(srcFeatureId);
+                        }
+                        for (const srcId of sourceFeatureIds) {
+                            const srcIndex = getFeatureIndex(srcId);
+                            if (srcIndex > sketchIndex) return true;
+                        }
+                        return false;
+                    };
+                    for (const feature of allFeatures) {
                         if (feature?.type !== 'sketch') continue;
+                        if (hasFutureSourceDependency(feature)) continue;
+                        eligibleSketchIds.add(String(feature?.id || ''));
+                    }
+                    let derivedChanged = false;
+                    for (const feature of allFeatures) {
+                        if (feature?.type !== 'sketch') continue;
+                        if (!eligibleSketchIds.has(String(feature?.id || ''))) continue;
                         if (api.interact?.refreshDerivedSketchGeometry?.(feature)) {
                             derivedChanged = true;
                         }
                     }
-                    const rebound = this.refreshSketchFaceAttachments();
+                    const rebound = this.refreshSketchFaceAttachments({ eligibleSketchIds });
                     if (rebound || derivedChanged) {
                         if (persist) {
                             await api.document.save({
