@@ -8,6 +8,10 @@
     border-bottom: 1px solid var(--border-gray);
 }
 
+#menubar.top{
+    border-top: 1px solid var(--border-gray);
+}
+
 .menubar-separator {
     align-self: stretch;
     align-items: center;

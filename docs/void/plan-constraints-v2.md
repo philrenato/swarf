@@ -53,6 +53,7 @@ Move sketch solving to a clean planegcs-first architecture, remove dual-solver b
 3. Add deterministic logs for tangent constraint path selection.
 
 Exit Criteria:
+
 1. We can observe when and why fallback is invoked.
 
 ## Phase 2: Temporary Drag Constraints
@@ -62,6 +63,7 @@ Exit Criteria:
 3. Keep fallback only if planegcs solve fails or returns non-converged status.
 
 Exit Criteria:
+
 1. Drag no longer “snaps back” from dual-pass disagreement.
 2. Solver path during normal drag is planegcs-only.
 
@@ -73,6 +75,7 @@ Exit Criteria:
 3. Keep old tangent fallback path behind a temporary feature flag for rollback.
 
 Exit Criteria:
+
 1. Tangent drag corner cases no longer require tangent-specific fallback aggressiveness.
 2. Shared-endpoint tangent cases are stable under repeated edits/drag.
 
@@ -83,6 +86,7 @@ Exit Criteria:
 3. Keep compatibility switch (`constraints_v2_force_fallback`) for emergency rollback.
 
 Exit Criteria:
+
 1. Single primary solver behavior in normal operation.
 2. Fewer constraint jitter/regressions from solver disagreement.
 
@@ -93,6 +97,7 @@ Exit Criteria:
 3. Document canonical constraint mapping table and temporary-constraint rules.
 
 Exit Criteria:
+
 1. Constraint code paths are materially simpler and easier to reason about.
 
 ## Proposed Code Touchpoints

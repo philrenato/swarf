@@ -905,14 +905,6 @@ details[open] summary::after {
 .widopt button.disabled {
     background-color: var(--blue-3);
 }
-#top-sep {
-    display: none;
-    z-index: 14;
-    height: 1px;
-    min-height: 1px;
-    max-height: 1px;
-    background-image: var(--gradbar);
-}
 .line-sep2 {
     z-index: 14;
     height: 1px;

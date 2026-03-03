@@ -120,7 +120,9 @@ export async function init_sync() {
     setup_keybd_nav();
 
     // show topline separator when iframed
-    try { if (WIN.self !== WIN.top) $('top-sep').style.display = 'flex' } catch (e) { console.log(e) }
+    if (WIN.self !== WIN.top) {
+        $('menubar').classList.add('top');
+    }
 
     // warn users they are running a beta release
     if (beta && beta > 0 && sdb.kiri_beta != beta) {
