@@ -3384,6 +3384,13 @@ function edgeKey(a, b) {
                     const allFeatures = api.features.list() || [];
                     const featureIndexById = new Map(allFeatures.map((f, i) => [String(f?.id || ''), i]));
                     const eligibleSketchIds = new Set();
+                    const activeEditFeatureId = String(api.document?.getAtomicEditFeatureId?.() || '');
+                    const activeEditFeature = activeEditFeatureId
+                        ? (allFeatures.find(f => String(f?.id || '') === activeEditFeatureId) || null)
+                        : null;
+                    const activeSketchEditId = activeEditFeature?.type === 'sketch'
+                        ? String(activeEditFeature.id || '')
+                        : '';
                     const getFeatureIndex = (fid) => {
                         const key = String(fid || '');
                         if (!key) return -1;
@@ -3410,10 +3417,14 @@ function edgeKey(a, b) {
                         }
                         return false;
                     };
-                    for (const feature of allFeatures) {
-                        if (feature?.type !== 'sketch') continue;
-                        if (hasFutureSourceDependency(feature)) continue;
-                        eligibleSketchIds.add(String(feature?.id || ''));
+                    // Guardrail: do not auto-mutate historical sketches during solids
+                    // rebuilds triggered by other features. Only the actively edited
+                    // sketch may auto-refresh derived refs / face attachments.
+                    if (activeSketchEditId) {
+                        const feature = allFeatures.find(f => String(f?.id || '') === activeSketchEditId) || null;
+                        if (feature?.type === 'sketch' && !hasFutureSourceDependency(feature)) {
+                            eligibleSketchIds.add(activeSketchEditId);
+                        }
                     }
                     let derivedChanged = false;
                     for (const feature of allFeatures) {
