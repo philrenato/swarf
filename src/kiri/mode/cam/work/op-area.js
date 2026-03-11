@@ -471,7 +471,8 @@ class OpArea extends CamOp {
         while (areas?.length) {
             let min = {
                 dist: Infinity,
-                area: undefined
+                area: undefined,
+                point: undefined
             };
 
             for (let area of areas.filter(p => !p.used)) {
@@ -486,12 +487,14 @@ class OpArea extends CamOp {
                 if (find.distance < min.dist) {
                     min.area = area;
                     min.dist = find.distance;
+                    min.point = find.point
                 }
             }
 
             // if we have a next-closest top poly, pocket that
             if (min.area) {
                 min.area.used = true;
+                printPoint = min.point;
                 pocket({
                     cutdir: op.ov_conv,
                     depthFirst: process.camDepthFirst,
