@@ -1003,6 +1003,25 @@ function edgeKey(a, b) {
             world?.add?.(this._root);
         },
 
+        onDocumentHydrated(reason = 'document.hydrate', options = {}) {
+            clearTimeout(this._rebuildTimer);
+            this._pendingReason = null;
+            // Invalidate any in-flight rebuild response from prior document state.
+            this._rebuildSeq++;
+            this._meshCache = new Map();
+            this._selectedIds.clear();
+            this._hoveredIds.clear();
+            this._selectedFaceKeys.clear();
+            this._hoveredFaceKey = null;
+            this._selectedEdgeKeys.clear();
+            this._hoveredEdgeKey = null;
+            this._frozenChamferEdges = null;
+            this.syncRuntime();
+            if (options?.rebuild !== false) {
+                this.scheduleRebuild(reason, 0);
+            }
+        },
+
         getSketchDerivedBoundarySegmentsForSolid(solid) {
             const api = getApi();
             if (!solid || String(solid?.source?.feature_type || '') !== 'extrude') return [];

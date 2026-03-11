@@ -331,6 +331,7 @@ function createDocumentApi(getApi, cfg) {
         createAndSelect() {
             this.create();
             this.hydrateRuntimeState(this.current);
+            getApi().solids?.onDocumentHydrated?.('document.new');
             return this.save({
                 kind: 'major',
                 opType: 'snapshot',
@@ -360,6 +361,7 @@ function createDocumentApi(getApi, cfg) {
                     return null;
                 }
                 this._redoStack = [];
+                api.solids?.onDocumentHydrated?.('document.open');
                 return Promise.all([
                     api.db.admin.put(ADMIN_CURRENT_DOC_KEY, this.current.id),
                     api.db.admin.put(ADMIN_CURRENT_REV_KEY, this.current.head_rev || null)
@@ -427,7 +429,7 @@ function createDocumentApi(getApi, cfg) {
             this.current.head_rev = revision.rev_id || this.revisionKey(this.current.id, this.current.version);
             this.current.modified_at = revision.created_at || this.current.modified_at || Date.now();
             this.hydrateRuntimeState(this.current);
-            api.solids?.scheduleRebuild?.('document.hydrate');
+            api.solids?.onDocumentHydrated?.('document.hydrate');
             return Promise.all([
                 api.db.documents.put(this.current.id, this.current),
                 api.db.admin.put(ADMIN_CURRENT_DOC_KEY, this.current.id),
