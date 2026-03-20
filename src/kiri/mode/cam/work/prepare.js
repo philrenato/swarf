@@ -195,6 +195,7 @@ export async function prepare_one(widget, settings, print, firstPoint, update) {
     }
 
     function setSpindle(speed) {
+        // console.trace({ setSpindle: speed });
         spindle = Math.min(speed, spindleMax);
     }
 

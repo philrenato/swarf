@@ -25,11 +25,52 @@ export function parse(text, opt = { }) {
 
     // Parse DXF file - normalize line endings and split
     const lines = text.replace(/\r\n/g, '\n').replace(/\r/g, '\n').split('\n').map(l => l.trim());
+
+    // Parse header for units (informational, can be overridden by user)
+    const fileUnits = extractUnits(lines);
+    const inputUnits = opt.units || fileUnits; // user can override file's declared units
+    const scale = getScaleToMM(inputUnits); // convert to mm (Kiri:Moto's internal unit)
+
     const entities = extractEntities(lines);
 
-    // Convert entities to polygons
-    for (let entity of entities) {
-        if (entity.type === 'POLYLINE' || entity.type === 'LWPOLYLINE') {
+    // Scale all entities to mm BEFORE stitching
+    scaleEntities(entities, scale);
+
+    // Stitch together open paths that share endpoints (tolerance in mm now)
+    const tolerance = Math.max(0.001, segmentSize * 0.001); // 0.1% of segment size, min 0.001mm
+    const stitchedEntities = stitchPaths(entities, tolerance);
+
+    // Convert entities to polygons (no scaling needed, already in mm)
+    for (let entity of stitchedEntities) {
+        if (entity.type === 'STITCHED') {
+            // Convert stitched path parts into a single polyline
+            const points = [];
+            for (const part of entity.parts) {
+                const partPoints = convertEntityToPoints(part, segmentSize, minSegments);
+                if (partPoints.length > 0) {
+                    if (points.length === 0) {
+                        points.push(...partPoints);
+                    } else {
+                        // Skip first point if it's the same as our last point (avoid duplicates)
+                        points.push(...partPoints.slice(1));
+                    }
+                }
+            }
+
+            if (points.length < 2) continue;
+
+            let poly = newPolygon().addPoints(
+                points.map(p => newPoint(p.x, p.y, p.z || 0))
+            ).clean();
+
+            if (entity.closed && poly.appearsClosed()) {
+                poly.points.pop();
+            } else if (!entity.closed) {
+                poly.setOpen(true);
+            }
+
+            polys.push(poly);
+        } else if (entity.type === 'POLYLINE' || entity.type === 'LWPOLYLINE') {
             if (entity.points.length < 2) {
                 continue;
             }
@@ -56,7 +97,7 @@ export function parse(text, opt = { }) {
             polys.push(poly);
         } else if (entity.type === 'CIRCLE') {
             // Convert circle to polygon with points
-            // Calculate segments based on circumference and desired segment size
+            // Calculate segments based on circumference and desired segment size (already in mm)
             const circumference = 2 * Math.PI * entity.radius;
             const segments = Math.max(minSegments, Math.ceil(circumference / segmentSize));
             let points = [];
@@ -72,23 +113,47 @@ export function parse(text, opt = { }) {
             polys.push(poly);
         } else if (entity.type === 'ARC') {
             // Convert arc to polyline
-            // Calculate segments based on arc length and desired segment size
-            const arcLength = Math.abs(entity.endAngle - entity.startAngle) * entity.radius;
+            // DXF arcs always go counterclockwise. Handle angle wrapping.
+            let startAngle = entity.startAngle;
+            let endAngle = entity.endAngle;
+            let angleDiff = endAngle - startAngle;
+
+            // If endAngle < startAngle, arc wraps through 0/360
+            if (angleDiff < 0) {
+                angleDiff += Math.PI * 2;
+            }
+
+            const arcLength = angleDiff * entity.radius;
             const segments = Math.max(minSegments, Math.ceil(arcLength / segmentSize));
             let points = [];
-            for (let i = 0; i <= segments; i++) {
-                const angle = entity.startAngle + (i / segments) * (entity.endAngle - entity.startAngle);
-                points.push(newPoint(
-                    entity.center.x + Math.cos(angle) * entity.radius,
-                    entity.center.y + Math.sin(angle) * entity.radius,
-                    entity.center.z || 0
-                ));
+
+            if (entity.reversed) {
+                // Sample backwards from end to start
+                for (let i = 0; i <= segments; i++) {
+                    const angle = endAngle - (i / segments) * angleDiff;
+                    points.push(newPoint(
+                        entity.center.x + Math.cos(angle) * entity.radius,
+                        entity.center.y + Math.sin(angle) * entity.radius,
+                        entity.center.z || 0
+                    ));
+                }
+            } else {
+                // Sample forward from start to end
+                for (let i = 0; i <= segments; i++) {
+                    const angle = startAngle + (i / segments) * angleDiff;
+                    points.push(newPoint(
+                        entity.center.x + Math.cos(angle) * entity.radius,
+                        entity.center.y + Math.sin(angle) * entity.radius,
+                        entity.center.z || 0
+                    ));
+                }
             }
+
             let poly = newPolygon().addPoints(points);
             poly.setOpen(true);
             polys.push(poly);
         } else if (entity.type === 'SPLINE') {
-            // Convert NURBS spline to polyline by sampling
+            // Convert NURBS spline to polyline by sampling (already in mm)
             if (entity.controlPoints.length < 2) {
                 continue;
             }
@@ -433,7 +498,7 @@ function parseSpline(lines, start) {
     return { type: 'SPLINE', degree, closed, knots, controlPoints, endIndex: i };
 }
 
-// Evaluate NURBS B-spline curve to generate sample points
+// Evaluate NURBS B-spline curve to generate sample points (entities already scaled to mm)
 function evaluateSpline(entity, segmentSize, minSegments) {
     const { degree, controlPoints, knots, closed } = entity;
 
@@ -537,4 +602,330 @@ function evaluateNURBS(t, degree, controlPoints, knots) {
     }
 
     return { x, y, z };
+}
+
+// Scale all entity coordinates to millimeters
+function scaleEntities(entities, scale) {
+    if (scale === 1) return; // no scaling needed
+
+    for (let entity of entities) {
+        if (entity.type === 'LINE') {
+            entity.start.x *= scale;
+            entity.start.y *= scale;
+            entity.start.z = (entity.start.z || 0) * scale;
+            entity.end.x *= scale;
+            entity.end.y *= scale;
+            entity.end.z = (entity.end.z || 0) * scale;
+        } else if (entity.type === 'CIRCLE') {
+            entity.center.x *= scale;
+            entity.center.y *= scale;
+            entity.center.z = (entity.center.z || 0) * scale;
+            entity.radius *= scale;
+        } else if (entity.type === 'ARC') {
+            entity.center.x *= scale;
+            entity.center.y *= scale;
+            entity.center.z = (entity.center.z || 0) * scale;
+            entity.radius *= scale;
+        } else if (entity.type === 'POLYLINE' || entity.type === 'LWPOLYLINE') {
+            for (let point of entity.points) {
+                point.x *= scale;
+                point.y *= scale;
+                point.z = (point.z || 0) * scale;
+            }
+        } else if (entity.type === 'SPLINE') {
+            for (let point of entity.controlPoints) {
+                point.x *= scale;
+                point.y *= scale;
+                point.z = (point.z || 0) * scale;
+            }
+        }
+    }
+}
+
+// Extract units from DXF header
+function extractUnits(lines) {
+    let i = 0;
+    let inHeader = false;
+
+    while (i < lines.length - 1) {
+        const code = lines[i];
+        const value = lines[i + 1];
+
+        if (code === '0' && value === 'SECTION') {
+            if (i + 3 < lines.length && lines[i + 2] === '2' && lines[i + 3] === 'HEADER') {
+                inHeader = true;
+                i += 4;
+                continue;
+            }
+        }
+
+        if (code === '0' && value === 'ENDSEC' && inHeader) {
+            break;
+        }
+
+        if (inHeader && code === '9' && value === '$INSUNITS') {
+            // Next line should be 70, followed by the unit code
+            if (i + 3 < lines.length && lines[i + 2] === '70') {
+                const unitCode = parseInt(lines[i + 3]);
+                // DXF INSUNITS codes: 0=unitless, 1=inches, 2=feet, 4=mm, 5=cm, 6=meters
+                switch (unitCode) {
+                    case 1: return 'inch';
+                    case 2: return 'foot';
+                    case 4: return 'mm';
+                    case 5: return 'cm';
+                    case 6: return 'meter';
+                    default: return 'mm'; // default to mm for unitless
+                }
+            }
+        }
+
+        i += 2;
+    }
+
+    return 'mm'; // default to millimeters
+}
+
+// Get scale factor to convert from input units to millimeters
+function getScaleToMM(inputUnits) {
+    // Scale factors to convert to mm (Kiri:Moto's internal unit)
+    const toMM = {
+        'mm': 1,
+        'cm': 10,
+        'meter': 1000,
+        'inch': 25.4,
+        'foot': 304.8
+    };
+
+    return toMM[inputUnits] || 1;
+}
+
+// Stitch together open paths that share endpoints
+function stitchPaths(entities, tolerance = 0.01) {
+    const stitched = [];
+    const used = new Set();
+
+    // Helper to check if two points are within tolerance
+    const pointsMatch = (p1, p2) => {
+        const dx = p1.x - p2.x;
+        const dy = p1.y - p2.y;
+        const dz = (p1.z || 0) - (p2.z || 0);
+        return Math.sqrt(dx * dx + dy * dy + dz * dz) < tolerance;
+    };
+
+    // Helper to get endpoints of an entity
+    const getEndpoints = (entity) => {
+        if (entity.type === 'LINE') {
+            return { start: entity.start, end: entity.end };
+        } else if (entity.type === 'ARC') {
+            // Calculate actual arc endpoints
+            const startX = entity.center.x + Math.cos(entity.startAngle) * entity.radius;
+            const startY = entity.center.y + Math.sin(entity.startAngle) * entity.radius;
+            const endX = entity.center.x + Math.cos(entity.endAngle) * entity.radius;
+            const endY = entity.center.y + Math.sin(entity.endAngle) * entity.radius;
+            const start = { x: startX, y: startY, z: entity.center.z || 0 };
+            const end = { x: endX, y: endY, z: entity.center.z || 0 };
+            // If arc is reversed, swap the endpoints
+            if (entity.reversed) {
+                return { start: end, end: start };
+            }
+            return { start, end };
+        } else if (entity.type === 'POLYLINE' || entity.type === 'LWPOLYLINE') {
+            if (entity.closed || entity.points.length < 2) return null;
+            return {
+                start: entity.points[0],
+                end: entity.points[entity.points.length - 1]
+            };
+        }
+        return null;
+    };
+
+    // Helper to convert entity to points
+    const entityToPoints = (entity) => {
+        if (entity.type === 'LINE') {
+            return [entity.start, entity.end];
+        } else if (entity.type === 'POLYLINE' || entity.type === 'LWPOLYLINE') {
+            return [...entity.points];
+        }
+        // For ARC and other types, return null (will be converted later in main loop)
+        return null;
+    };
+
+    // First, identify stitchable entities (LINE, ARC, open POLYLINE)
+    const stitchable = [];
+    for (let i = 0; i < entities.length; i++) {
+        const entity = entities[i];
+        if (entity.type === 'LINE' || entity.type === 'ARC' ||
+            ((entity.type === 'POLYLINE' || entity.type === 'LWPOLYLINE') && !entity.closed)) {
+            stitchable.push({ entity, index: i });
+        }
+    }
+
+    // Try to stitch paths together
+    for (let i = 0; i < stitchable.length; i++) {
+        if (used.has(i)) continue;
+
+        const { entity, index } = stitchable[i];
+        const endpoints = getEndpoints(entity);
+        if (!endpoints) {
+            stitched.push(entity);
+            used.add(i);
+            continue;
+        }
+
+        // Start a new path
+        const path = [entity];
+        used.add(i);
+        let currentEnd = endpoints.end;
+        let currentStart = endpoints.start;
+        let foundMatch = true;
+
+        // Keep extending the path
+        while (foundMatch) {
+            foundMatch = false;
+
+            for (let j = 0; j < stitchable.length; j++) {
+                if (used.has(j)) continue;
+
+                const nextEndpoints = getEndpoints(stitchable[j].entity);
+                if (!nextEndpoints) continue;
+
+                // Check if this entity connects to current end
+                if (pointsMatch(currentEnd, nextEndpoints.start)) {
+                    path.push(stitchable[j].entity);
+                    currentEnd = nextEndpoints.end;
+                    used.add(j);
+                    foundMatch = true;
+                    break;
+                } else if (pointsMatch(currentEnd, nextEndpoints.end)) {
+                    // Need to reverse this entity
+                    const reversed = reverseEntity(stitchable[j].entity);
+                    path.push(reversed);
+                    // After reversing, the start becomes the new end
+                    const reversedEndpoints = getEndpoints(reversed);
+                    currentEnd = reversedEndpoints.end;
+                    used.add(j);
+                    foundMatch = true;
+                    break;
+                }
+                // Check if this entity connects to current start (prepend)
+                else if (pointsMatch(currentStart, nextEndpoints.end)) {
+                    path.unshift(stitchable[j].entity);
+                    currentStart = nextEndpoints.start;
+                    used.add(j);
+                    foundMatch = true;
+                    break;
+                } else if (pointsMatch(currentStart, nextEndpoints.start)) {
+                    // Need to reverse and prepend
+                    const reversed = reverseEntity(stitchable[j].entity);
+                    path.unshift(reversed);
+                    // After reversing, the end becomes the new start
+                    const reversedEndpoints = getEndpoints(reversed);
+                    currentStart = reversedEndpoints.start;
+                    used.add(j);
+                    foundMatch = true;
+                    break;
+                }
+            }
+        }
+
+        // Convert path to a single stitched entity
+        if (path.length === 1) {
+            stitched.push(path[0]);
+        } else {
+            // Combine into stitched polyline - mark for later conversion
+            const stitchedEntity = {
+                type: 'STITCHED',
+                parts: path,
+                closed: pointsMatch(currentStart, currentEnd)
+            };
+            stitched.push(stitchedEntity);
+        }
+    }
+
+    // Add non-stitchable entities (CIRCLE, SPLINE, closed POLYLINE)
+    for (let i = 0; i < entities.length; i++) {
+        const entity = entities[i];
+        if (entity.type === 'CIRCLE' || entity.type === 'SPLINE' ||
+            ((entity.type === 'POLYLINE' || entity.type === 'LWPOLYLINE') && entity.closed)) {
+            stitched.push(entity);
+        }
+    }
+
+    return stitched;
+}
+
+// Reverse an entity's direction
+function reverseEntity(entity) {
+    if (entity.type === 'LINE') {
+        return {
+            type: 'LINE',
+            start: entity.end,
+            end: entity.start
+        };
+    } else if (entity.type === 'ARC') {
+        // Mark the arc as reversed so it gets sampled in reverse
+        return {
+            type: 'ARC',
+            center: entity.center,
+            radius: entity.radius,
+            startAngle: entity.startAngle,
+            endAngle: entity.endAngle,
+            reversed: true
+        };
+    } else if (entity.type === 'POLYLINE' || entity.type === 'LWPOLYLINE') {
+        return {
+            type: entity.type,
+            points: [...entity.points].reverse(),
+            closed: entity.closed
+        };
+    }
+    return entity;
+}
+
+// Convert entity to array of points (entities already scaled to mm)
+function convertEntityToPoints(entity, segmentSize, minSegments) {
+    if (entity.type === 'LINE') {
+        return [entity.start, entity.end];
+    } else if (entity.type === 'POLYLINE' || entity.type === 'LWPOLYLINE') {
+        return [...entity.points];
+    } else if (entity.type === 'ARC') {
+        // DXF arcs always go counterclockwise. Handle angle wrapping.
+        let startAngle = entity.startAngle;
+        let endAngle = entity.endAngle;
+        let angleDiff = endAngle - startAngle;
+
+        // If endAngle < startAngle, arc wraps through 0/360
+        if (angleDiff < 0) {
+            angleDiff += Math.PI * 2;
+        }
+
+        const arcLength = angleDiff * entity.radius;
+        const segments = Math.max(minSegments, Math.ceil(arcLength / segmentSize));
+        const points = [];
+
+        if (entity.reversed) {
+            // Sample backwards from end to start
+            for (let i = 0; i <= segments; i++) {
+                const angle = endAngle - (i / segments) * angleDiff;
+                points.push({
+                    x: entity.center.x + Math.cos(angle) * entity.radius,
+                    y: entity.center.y + Math.sin(angle) * entity.radius,
+                    z: entity.center.z || 0
+                });
+            }
+        } else {
+            // Sample forward from start to end
+            for (let i = 0; i <= segments; i++) {
+                const angle = startAngle + (i / segments) * angleDiff;
+                points.push({
+                    x: entity.center.x + Math.cos(angle) * entity.radius,
+                    y: entity.center.y + Math.sin(angle) * entity.radius,
+                    z: entity.center.z || 0
+                });
+            }
+        }
+
+        return points;
+    }
+    return [];
 }
