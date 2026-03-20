@@ -1146,28 +1146,52 @@ function loadSVGDialog(doit) {
  * @private
  */
 function loadDXFDialog(doit) {
-    const opt = {pre: [
-        "<div class='f-col a-center' style='padding:5px 20px 5px 20px'>",
-        "  <h3>Import DXF</h3>",
-        "  <p class='t-just' style='width:300px;line-height:1.5em'>",
-        "  Extrude a 3D model from a 2D DXF.",
-        "  Supports POLYLINE, LWPOLYLINE, LINE, CIRCLE, ARC, and SPLINE entities.",
-        "  </p>",
-        "  <div class='f-row t-right'><table>",
-        "  <tr><th>z height in mm</th><td><input id='dxf-depth' value='5' size='3'></td></tr>",
-        "  <tr><th title='target length of each line segment when converting arcs and circles'>arc segment size in mm</th><td><input id='dxf-seg' value='1' size='3'></td></tr>",
-        "  <tr><th title='minimum number of segments for very small arcs to avoid degenerate geometry'>minimum arc segments</th><td><input id='dxf-min' value='4' size='3'></td></tr>",
-        "  <tr><th>nest shapes</th><td><input id='dxf-nest' value='1' type='checkbox' checked></td></tr>",
-        "  </table></div>",
-        "</div>"
-    ]};
-    api.uc.confirm(undefined, {convert:true, cancel:false}, undefined, opt).then((ok) => {
-        let depth = Math.max(0.1, parseFloat($('dxf-depth').value));
-        let segmentSize = Math.max(0.01, parseFloat($('dxf-seg').value));
-        let minSegments = Math.max(3, parseInt($('dxf-min').value));
-        let soup = $('dxf-nest').checked;
-        ok && doit({ soup, depth, segmentSize, minSegments });
-    });
+    const rnd = Date.now().toString(36);
+    const host = $('mod-any');
+    host.innerHTML = [
+        `<div class="image-convert-dialog f-col a-center">`,
+        `  <h3 class="image-convert-title">Import DXF</h3>`,
+        `  <p class="image-convert-copy t-just">`,
+        `  Extrude a 3D model from a 2D DXF.`,
+        `  Supports POLYLINE, LWPOLYLINE, LINE, CIRCLE, ARC, and SPLINE entities.`,
+        `  </p>`,
+        `  <div class="f-row t-right image-convert-fields"><table>`,
+        `  <tr><th>z height in mm</th><td><input id="dxf-depth-${rnd}" value="5" size="3"></td></tr>`,
+        `  <tr><th title="target length of each line segment when converting arcs and circles">arc segment size in mm</th><td><input id="dxf-seg-${rnd}" value="1" size="3"></td></tr>`,
+        `  <tr><th title="minimum number of segments for very small arcs to avoid degenerate geometry">minimum arc segments</th><td><input id="dxf-min-${rnd}" value="4" size="3"></td></tr>`,
+        `  <tr><th>nest shapes</th><td><input id="dxf-nest-${rnd}" type="checkbox" checked></td></tr>`,
+        `  </table></div>`,
+        `  <div class="f-row j-end image-convert-actions">`,
+        `    <button id="dxf-convert-ok-${rnd}">import</button>`,
+        `    <button id="dxf-convert-cancel-${rnd}">cancel</button>`,
+        `  </div>`,
+        `</div>`
+    ].join('');
+
+    const depth = $(`dxf-depth-${rnd}`);
+    const segmentSize = $(`dxf-seg-${rnd}`);
+    const minSegments = $(`dxf-min-${rnd}`);
+    const nest = $(`dxf-nest-${rnd}`);
+    const okBtn = $(`dxf-convert-ok-${rnd}`);
+    const cancelBtn = $(`dxf-convert-cancel-${rnd}`);
+
+    okBtn.onclick = () => {
+        api.modal.hide();
+        setTimeout(() => {
+            doit({
+                soup: nest.checked,
+                depth: Math.max(0.1, parseFloat(depth.value)),
+                segmentSize: Math.max(0.01, parseFloat(segmentSize.value)),
+                minSegments: Math.max(3, parseInt(minSegments.value))
+            });
+        }, 50);
+    };
+    cancelBtn.onclick = () => api.modal.hide();
+    depth.onkeypress = (ev) => {
+        if (ev.key === 'Enter' || ev.charCode === 13) okBtn.click();
+    };
+    api.modal.show('any');
+    setTimeout(() => depth.focus(), 0);
 }
 
 /**
