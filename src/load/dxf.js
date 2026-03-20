@@ -87,6 +87,27 @@ export function parse(text, opt = { }) {
             let poly = newPolygon().addPoints(points);
             poly.setOpen(true);
             polys.push(poly);
+        } else if (entity.type === 'SPLINE') {
+            // Convert NURBS spline to polyline by sampling
+            if (entity.controlPoints.length < 2) {
+                continue;
+            }
+
+            const points = evaluateSpline(entity, segmentSize, minSegments);
+            if (points.length < 2) {
+                continue;
+            }
+
+            let poly = newPolygon().addPoints(points);
+            if (entity.closed) {
+                // Remove duplicate end point if closed
+                if (poly.appearsClosed()) {
+                    poly.points.pop();
+                }
+            } else {
+                poly.setOpen(true);
+            }
+            polys.push(poly);
         }
     }
 
@@ -168,6 +189,13 @@ function extractEntities(lines) {
                 }
             } else if (value === 'ARC') {
                 const entity = parseArc(lines, i);
+                if (entity) {
+                    entities.push(entity);
+                    i = entity.endIndex;
+                    continue;
+                }
+            } else if (value === 'SPLINE') {
+                const entity = parseSpline(lines, i);
                 if (entity) {
                     entities.push(entity);
                     i = entity.endIndex;
@@ -356,4 +384,157 @@ function parseArc(lines, start) {
     }
 
     return { type: 'ARC', center, radius, startAngle, endAngle, endIndex: i };
+}
+
+function parseSpline(lines, start) {
+    let i = start + 2;
+    let degree = 3; // default cubic
+    let closed = false;
+    const controlPoints = [];
+    const knots = [];
+    let numKnots = 0;
+    let numControlPoints = 0;
+
+    while (i < lines.length - 1) {
+        const code = lines[i];
+        const value = lines[i + 1];
+
+        if (code === '70') {
+            // Spline flag: bit 0 (1) = closed
+            closed = (parseInt(value) & 1) === 1;
+        }
+        if (code === '71') degree = parseInt(value);
+        if (code === '72') numKnots = parseInt(value);
+        if (code === '73') numControlPoints = parseInt(value);
+        if (code === '40') {
+            // Knot value
+            knots.push(parseFloat(value));
+        }
+        if (code === '10') {
+            // Control point X - start new point
+            controlPoints.push({ x: parseFloat(value), y: 0, z: 0 });
+        }
+        if (code === '20' && controlPoints.length > 0) {
+            // Control point Y
+            controlPoints[controlPoints.length - 1].y = parseFloat(value);
+        }
+        if (code === '30' && controlPoints.length > 0) {
+            // Control point Z
+            controlPoints[controlPoints.length - 1].z = parseFloat(value);
+        }
+
+        if (code === '0') {
+            return { type: 'SPLINE', degree, closed, knots, controlPoints, endIndex: i };
+        }
+
+        i += 2;
+    }
+
+    return { type: 'SPLINE', degree, closed, knots, controlPoints, endIndex: i };
+}
+
+// Evaluate NURBS B-spline curve to generate sample points
+function evaluateSpline(entity, segmentSize, minSegments) {
+    const { degree, controlPoints, knots, closed } = entity;
+
+    if (controlPoints.length < degree + 1 || knots.length === 0) {
+        // Degenerate spline, just return control points
+        return controlPoints.map(p => newPoint(p.x, p.y, p.z));
+    }
+
+    // Estimate curve length by summing control point distances (rough approximation)
+    let estimatedLength = 0;
+    for (let i = 1; i < controlPoints.length; i++) {
+        const dx = controlPoints[i].x - controlPoints[i-1].x;
+        const dy = controlPoints[i].y - controlPoints[i-1].y;
+        estimatedLength += Math.sqrt(dx * dx + dy * dy);
+    }
+
+    // Calculate number of samples
+    const numSamples = Math.max(minSegments, Math.ceil(estimatedLength / segmentSize));
+    const points = [];
+
+    // Find parameter range (first and last non-repeated knot values)
+    const knotStart = knots[degree];
+    const knotEnd = knots[knots.length - degree - 1];
+
+    if (knotStart >= knotEnd) {
+        // Invalid knot vector, return control points
+        return controlPoints.map(p => newPoint(p.x, p.y, p.z));
+    }
+
+    // Sample the curve
+    for (let i = 0; i <= numSamples; i++) {
+        const t = knotStart + (i / numSamples) * (knotEnd - knotStart);
+        const point = evaluateNURBS(t, degree, controlPoints, knots);
+        points.push(newPoint(point.x, point.y, point.z));
+    }
+
+    return points;
+}
+
+// Evaluate a single point on a NURBS curve using De Boor's algorithm
+function evaluateNURBS(t, degree, controlPoints, knots) {
+    const n = controlPoints.length - 1;
+
+    // Clamp t to valid range
+    t = Math.max(knots[degree], Math.min(knots[n + 1], t));
+
+    // Find knot span (which segment t falls into)
+    let span = degree;
+    while (span <= n && knots[span + 1] <= t) {
+        span++;
+    }
+    if (span > n) span = n;
+
+    // Compute basis functions using Cox-de Boor recursion
+    const N = [];
+    for (let i = 0; i <= n; i++) {
+        N[i] = [];
+    }
+
+    // Initialize degree 0 basis functions
+    for (let i = 0; i <= n; i++) {
+        if (t >= knots[i] && t < knots[i + 1]) {
+            N[i][0] = 1.0;
+        } else {
+            N[i][0] = 0.0;
+        }
+    }
+    // Special case for last knot
+    if (t === knots[n + 1]) {
+        N[n][0] = 1.0;
+    }
+
+    // Compute higher degree basis functions
+    for (let k = 1; k <= degree; k++) {
+        for (let i = 0; i <= n; i++) {
+            let c1 = 0, c2 = 0;
+
+            if (N[i][k - 1] !== 0) {
+                if (knots[i + k] !== knots[i]) {
+                    c1 = ((t - knots[i]) / (knots[i + k] - knots[i])) * N[i][k - 1];
+                }
+            }
+
+            if (i + 1 <= n && N[i + 1][k - 1] !== 0) {
+                if (knots[i + k + 1] !== knots[i + 1]) {
+                    c2 = ((knots[i + k + 1] - t) / (knots[i + k + 1] - knots[i + 1])) * N[i + 1][k - 1];
+                }
+            }
+
+            N[i][k] = c1 + c2;
+        }
+    }
+
+    // Compute curve point as weighted sum of control points
+    let x = 0, y = 0, z = 0;
+    for (let i = 0; i <= n; i++) {
+        const weight = N[i][degree] || 0;
+        x += controlPoints[i].x * weight;
+        y += controlPoints[i].y * weight;
+        z += controlPoints[i].z * weight;
+    }
+
+    return { x, y, z };
 }

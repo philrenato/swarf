@@ -1147,11 +1147,11 @@ function loadSVGDialog(doit) {
  */
 function loadDXFDialog(doit) {
     const opt = {pre: [
-        "<div class='f-col a-center'>",
+        "<div class='f-col a-center' style='padding:5px 20px 5px 20px'>",
         "  <h3>Import DXF</h3>",
         "  <p class='t-just' style='width:300px;line-height:1.5em'>",
         "  Extrude a 3D model from a 2D DXF.",
-        "  Supports POLYLINE, LWPOLYLINE, LINE, CIRCLE, and ARC entities.",
+        "  Supports POLYLINE, LWPOLYLINE, LINE, CIRCLE, ARC, and SPLINE entities.",
         "  </p>",
         "  <div class='f-row t-right'><table>",
         "  <tr><th>z height in mm</th><td><input id='dxf-depth' value='5' size='3'></td></tr>",
