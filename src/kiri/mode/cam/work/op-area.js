@@ -207,7 +207,7 @@ class OpArea extends CamOp {
                     //everything else uses the tool stepover
                     offsets.push(-toolOver);
                     //actually offset the walls inwards
-                    POLY.offset(clip, [ firstOff, -finish_cut, -toolOver ], {
+                    POLY.offset(clip, offsets, {
                         count: op.walls ? 1 : (op.steps ?? 999), outs, flat: true, z: z - zMov, ...offopt
                     });
                     // if we see no offsets, re-check the mesh bottom Z then exit
