@@ -724,6 +724,10 @@ self.lang['da-dk'] = {
     ct_nabl_s: "auto",
     ct_nabl_l: ["auto generer radiale tapper","projekteret fra del center","ved brug af antal og vinkel forskydning"],
 
+    // CNC AREA OP
+    ca_fini_s: "efterbehandlings snit",
+    ca_fini_l: "skærebane der følger konturen af den endelige del. tillader præcis step over ved rydning af større område.",
+
     // OUTPUT
     ou_menu: "output",
 

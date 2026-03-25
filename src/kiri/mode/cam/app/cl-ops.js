@@ -806,7 +806,7 @@ export function createPopOps() {
         sr_angle: UC.newInput(LANG.ca_sang_s, { title: LANG.ca_sang_l, convert: toFloat, bound: UC.bound(0, 360), show: isSurfaceLinear }),
         over: UC.newInput(LANG.cc_sovr_s, { title: LANG.cc_sovr_l, convert: toFloat, bound: UC.bound(0.001, 100.0), show: () => isClear() || isSurface() }),
         down: UC.newInput(LANG.cc_sdwn_s, { title: LANG.cc_sdwn_l, convert: toFloat, bound: UC.bound(0, 100.0), units, show: () => isClear() || isTrace() }),
-        finish_cut: UC.newInput("finish cut", { title: "finish cut", convert: toFloat, bound: UC.bound(0, 2.0), units, show: () => isClear() }), //todo: needs to check camInnerFirst
+        finish_cut: UC.newInput(LANG.ca_fini_s, { title: LANG.ca_fini_l, convert: toFloat, bound: UC.bound(0, 10.0), units, show: () => isClear() }), //todo: needs to check camInnerFirst
         refine: UC.newInput(LANG.cp_refi_s, { title: LANG.cp_refi_l, convert: toInt, show: isSurface }),
         sr_alter: UC.newBoolean(LANG.ca_altr_s, undefined, { title: LANG.ca_altr_l, show: isSurfaceLinear }),
         dogbones: UC.newBoolean(LANG.co_dogb_s, undefined, { title: LANG.co_dogb_l, show: isTrace }),

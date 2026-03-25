@@ -725,6 +725,10 @@ self.lang['de-de'] = {
     ct_nabl_s:      "Auto",
     ct_nabl_l:      ["Radiale Haltestege automatisch generieren","projiziert von Teil-Mitte","mit Anzahl und Winkel-Offset"],
 
+    // CNC AREA OP
+    ca_fini_s:      "Schlichtwerkzeugweg",
+    ca_fini_l:      "Schneidpfad, der der Kontur des Endteils folgt. ermöglicht präzisen Vorschub beim Räumen größerer Bereiche.",
+
     // OUTPUT
     ou_menu:        "Ausgabe",
 

@@ -725,6 +725,10 @@ self.lang['pt-pt'] = {
     ct_nabl_s:      "automático",
     ct_nabl_l:      ["gerar automaticamente abas radiais","projectadas do centro da peça","usando número e desvio de ângulo"],
 
+    // CNC AREA OP
+    ca_fini_s:      "corte de acabamento",
+    ca_fini_l:      "caminho de corte que segue o contorno da peça final. permite passo preciso ao limpar uma área maior.",
+
     // OUTPUT
     ou_menu:        "saída",
 

@@ -724,6 +724,10 @@ self.lang['pl-pl'] = {
     ct_nabl_s:      "auto",
     ct_nabl_l:      ["automatycznie generuj wypustki promieniowe","rzutowane od środka części","używając liczby i przesunięcia kąta"],
 
+    // CNC AREA OP
+    ca_fini_s:      "cięcie wykończeniowe",
+    ca_fini_l:      "ścieżka cięcia podążająca za konturem ostatecznej części. pozwala na precyzyjny krok przy usuwaniu większego obszaru.",
+
     // OUTPUT
     ou_menu:        "wyjście",
 

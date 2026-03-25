@@ -725,6 +725,10 @@ self.lang['es-es'] = {
     ct_nabl_s:      "automático",
     ct_nabl_l:      ["generar automáticamente pestañas radiales","proyectadas desde el centro de la pieza","usando cantidad y desplazamiento de ángulo"],
 
+    // CNC AREA OP
+    ca_fini_s:      "corte de acabado",
+    ca_fini_l:      "trayectoria de corte que sigue el contorno de la pieza final. permite un paso preciso al limpiar un área más grande.",
+
     // OUTPUT
     ou_menu:        "salida",
 

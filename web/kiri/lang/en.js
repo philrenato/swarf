@@ -740,6 +740,8 @@ self.lang['en-us'] = {
     ca_sang_l:      "crossing angle on the XY plane for contour lines",
     ca_wall_s:      "walls",
     ca_wall_l:      ["perform a single pass along vertical faces. leave interior spaces. similar to outline operation"],
+    ca_fini_s:      "finish cut",
+    ca_fini_l:      "cutting path that follows the contour of the final part. allows for precise step over when clearing a larger area.",
 
     // OUTPUT
     ou_menu:        "output",
