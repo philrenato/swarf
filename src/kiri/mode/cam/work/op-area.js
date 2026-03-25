@@ -197,7 +197,17 @@ class OpArea extends CamOp {
                     } else {
                         POLY.subtract([ area ], shadow, clip, undefined, undefined, 0);
                     }
-                    POLY.offset(clip, [ firstOff, -toolOver ], {
+                    //generate offsets to use
+                    let offsets = [ firstOff ];
+                    //if we need a finish cut, add it
+                    let finish_cut = op.finish_cut ?? 0;
+                    if (finish_cut != 0) { //todo: this should check for camInnerFirst and warn if it is not true
+                        offsets.push(-finish_cut);
+                    }
+                    //everything else uses the tool stepover
+                    offsets.push(-toolOver);
+                    //actually offset the walls inwards
+                    POLY.offset(clip, offsets, {
                         count: op.walls ? 1 : (op.steps ?? 999), outs, flat: true, z: z - zMov, ...offopt
                     });
                     // if we see no offsets, re-check the mesh bottom Z then exit
