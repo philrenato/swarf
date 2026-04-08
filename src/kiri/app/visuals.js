@@ -315,17 +315,41 @@ function applyVisualState(widget) {
  * @param {string} [msg] - Optional status message to display
  */
 function setProgress(value = 0, msg) {
-    value = (value * 100).round(4);
-    api.ui.progress.width = value+'%';
-    if (self.debug) {
-        // console.log(msg, value.round(2));
-        api.ui.prostatus.style.display = 'flex';
-        if (msg) {
-            api.ui.prostatus.innerHTML = msg;
-        } else {
-            api.ui.prostatus.innerHTML = '';
-        }
+    const overlay = api.ui.progressOverlay;
+    const ring = api.ui.progress;
+    const pct = api.ui.progressPct;
+    const text = api.ui.prostatus;
+
+    if (!overlay || !ring || !text) {
+        return;
     }
+
+    const hasNumeric = typeof value === 'number' && Number.isFinite(value);
+    const indeterminate = !hasNumeric || (hasNumeric && value < 0);
+    const isHidden = hasNumeric && value === 0;
+
+    if (isHidden) {
+        overlay.classList.add('hide');
+        ring.classList.remove('indeterminate');
+        if (pct) pct.innerText = '';
+        text.innerText = '';
+        return;
+    }
+
+    overlay.classList.remove('hide');
+
+    if (!indeterminate) {
+        const clamped = Math.max(0, Math.min(1, value));
+        ring.classList.remove('indeterminate');
+        ring.style.setProperty('--progress-deg', `${(clamped * 360).toFixed(2)}deg`);
+        if (pct) pct.innerText = `${Math.round(clamped * 100)}%`;
+    } else {
+        ring.classList.add('indeterminate');
+        ring.style.removeProperty('--progress-deg');
+        if (pct) pct.innerText = '';
+    }
+
+    text.innerText = msg || '';
 }
 
 let statsTimer;

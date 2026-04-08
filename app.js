@@ -26,6 +26,7 @@ const mods = {};
 const load = [];
 const api = {};
 
+let lastTouchTime = {};
 let forceUseCache = false;
 let serviceWorker = true;
 let crossOrigin = false;
@@ -134,10 +135,12 @@ function init(mod) {
         "/boot"            : redir((pre??"") + "/boot/", 301),
         "/kiri"            : redir((pre??"") + "/kiri/", 301),
         "/mesh"            : redir((pre??"") + "/mesh/", 301),
-        "/meta"            : redir((pre??"") + "/meta/", 301),
+        "/void"            : redir((pre??"") + "/void/", 301),
+        "/form"            : redir((pre??"") + "/form/", 301),
         "/kiri/index.html" : redir((pre??"") + "/kiri/", 301),
         "/mesh/index.html" : redir((pre??"") + "/mesh/", 301),
-        "/meta/index.html" : redir((pre??"") + "/meta/", 301)
+        "/void/index.html" : redir((pre??"") + "/void/", 301),
+        "/form/index.html" : redir((pre??"") + "/form/", 301)
     }));
     mod.add(handleVersion);
     mod.add(fixedmap("/api/", api));
@@ -153,12 +156,15 @@ function init(mod) {
     mod.static("/lib/", "alt");
     mod.static("/lib/", "src");
     mod.static("/obj/", "web/obj");
-    mod.static("/font/", "web/font");
+    mod.static("/boot/", "web/boot");
     mod.static("/fon2/", "web/fon2");
+    mod.static("/font/", "web/font");
+    mod.static("/form/", "web/void");
+    mod.static("/icon/", "web/icon");
+    mod.static("/kiri/", "web/kiri");
     mod.static("/mesh/", "web/mesh");
     mod.static("/moto/", "web/moto");
-    mod.static("/kiri/", "web/kiri");
-    mod.static("/boot/", "web/boot");
+    mod.static("/void/", "web/void");
 
     // module loader
     function load_modules(root, force) {
@@ -186,10 +192,10 @@ function init(mod) {
         });
     }
 
-    // load development and 3rd party modules
+    // load development and app modules (onshape, thingiverse)
     load_modules('mod');
 
-    // load optional local modules
+    // load optional local modules (bambu)
     load_modules('mods');
 
     // run load functions injected by modules
@@ -208,9 +214,19 @@ function init(mod) {
         }
     }
 
-    // create alt artifacts with module extensions
+    // synthesize new main when applicable
+    createArtifacts();
+}
+
+// create alt artifacts with module extensions
+function createArtifacts() {
     if (dryrun || !isElectron) {
-        logger.log('creating artifacts', Object.keys(append));
+        if (debug) {
+            setTimeout(createArtifacts, 1000);
+        }
+        if (Object.keys(lastTouchTime).length === 0) {
+            logger.log('creating artifacts', Object.keys(append));
+        }
         for (let [ key, val ] of Object.entries(append)) {
             // append mains
             let src = `${dir}/src/main/${key}.js`;
@@ -218,6 +234,14 @@ function init(mod) {
                 logger.log('missing', src);
                 continue;
             }
+            let ltt = fs.statSync(src).mtimeMs;
+            if (lastTouchTime[src] === ltt) {
+                continue;
+            } else if (debug) {
+                logger.log('changed', src);
+            }
+            lastTouchTime[src] = ltt;
+            // console.log({ src, ltt });
             fs.mkdirSync(`${dir}/alt/main`, { recursive: true });
             let body = fs.readFileSync(src);
             fs.writeFileSync(`${dir}/alt/main/${key}.js`, body + val);
@@ -234,7 +258,7 @@ function init(mod) {
     } else {
         logger.log('skipping artifacts');
     }
-};
+}
 
 // either add module assets to path or require(init.js)
 function loadModule(mod, dir) {
@@ -257,7 +281,7 @@ function initModule(mod, file, dir) {
     logger.log({ module: file, dir });
     require_fresh(file)({
         // express functions added here show up at "/api/" url root
-        api: api,
+        api,
         adm: {
             setver(ver) { oversion = ver },
             crossOrigin(bool) { crossOrigin = bool }
@@ -329,8 +353,10 @@ function initModule(mod, file, dir) {
             const path = mod.dir + '/' + dir + '/' + file;
             try {
                 const body = fs.readFileSync(path);
-                if (debug && !single) logger.log({ inject: code, file, opt });
-                if (opt.first) {
+                if (debug && !single) {
+                    logger.log({ inject: code, file, opt });
+                }
+                if (opt.first && append[code]) {
                     append[code] = body.toString() + '\n' + append[code];
                 } else {
                     append[code] += body.toString() + '\n';
@@ -369,8 +395,11 @@ function handleSetup(req, res, next) {
 }
 
 const productionMap = {
-    '/lib/mesh/work.js' : '/lib/pack/mesh-work.js',
+    '/lib/main/void.js' : '/lib/pack/void-main.js',
+    '/lib/main/planegcs.wasm' : '/lib/void/solver/planegcs_dist/planegcs.wasm',
+    '/lib/worker/solids_worker.js' : '/lib/pack/void-work-solid.js',
     '/lib/main/mesh.js' : '/lib/pack/mesh-main.js',
+    '/lib/mesh/work.js' : '/lib/pack/mesh-work.js',
     '/lib/main/kiri.js' : '/lib/pack/kiri-main.js',
     '/lib/kiri/run/engine.js' : '/lib/pack/kiri-eng.js',
     '/lib/kiri/run/minion.js' : '/lib/pack/kiri-pool.js',
@@ -487,7 +516,7 @@ function ifModifiedDate(req) {
 
 function addCorsHeaders(req, res) {
     res.setHeader('Access-Control-Allow-Credentials', 'true');
-    res.setHeader('Access-Control-Allow-Headers', 'X-Moto-Ajax, Content-Type');
+    res.setHeader('Access-Control-Allow-Headers', 'X-Api-Key, X-Host, X-Moto-Ajax, Content-Type');
     res.setHeader('Access-Control-Allow-Origin', req.headers['origin'] || '*');
     if (req.headers['access-control-request-private-network'] === 'true') {
         res.setHeader('Access-Control-Allow-Private-Network', 'true');

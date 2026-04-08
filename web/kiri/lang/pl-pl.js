@@ -65,6 +65,18 @@ self.lang['pl-pl'] = {
     view:           "widok",        // left view pop menu
     wire:           "szkielet",     // left render pop menu
     volume:         "objętość",     // device build area
+    al_menu:        "wyrównaj",
+    re_menu:        "renderuj",
+    sx_menu:        "zaznaczenie",
+    ed_menu:        "edytuj",
+    face_left:      "lewa ściana",
+    re_edgs:        "przełącz krawędzie",
+    al_menu:        "wyrównaj",
+    re_menu:        "renderuj",
+    sx_menu:        "zaznaczenie",
+    ed_menu:        "edytuj",
+    face_left:      "lewa ściana",
+    re_edgs:        "przełącz krawędzie",
 
     acct_xpo:       ["zrób kopię zapasową urządzenia","i profilów urządzenia z","opcją dołączenia obiektów","w przestrzeni roboczej i ich pozycji"],
 
@@ -80,8 +92,8 @@ self.lang['pl-pl'] = {
     rc_xobj:        "eksportuj OBJ",
     rc_xstl:        "eksportuj STL",
     sb_info:        ["prędkość druku","w mm/s"],
-    rc_merg:        "połącz siatki obiektu",
-    rc_splt:        "wyizoluj bryły",
+    rc_merg:        "połącz obiekty",
+    rc_splt:        "wyizoluj obiekty",
 
     // DEVICE MENU and related dialogs
     dm_sldt:        "wybierz typ urządzenia",
@@ -711,6 +723,10 @@ self.lang['pl-pl'] = {
     ct_midl_l:      ["użyj linii środkowej wypustki","zamiast z dół","dla pracy dwustronnej"],
     ct_nabl_s:      "auto",
     ct_nabl_l:      ["automatycznie generuj wypustki promieniowe","rzutowane od środka części","używając liczby i przesunięcia kąta"],
+
+    // CNC AREA OP
+    ca_fini_s:      "cięcie wykończeniowe",
+    ca_fini_l:      "ścieżka cięcia podążająca za konturem ostatecznej części. pozwala na precyzyjny krok przy usuwaniu większego obszaru.",
 
     // OUTPUT
     ou_menu:        "wyjście",

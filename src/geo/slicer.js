@@ -41,6 +41,7 @@ export async function slice(points, options = {}) {
         zSum = 0.0,             // sanity check that points enclose non-zere volume
         buckets = [],           // banded/grouped faces to speed up slice/search
         overlapMax = options.overlap || 0.75,
+        bucketMin = options.bucketMin ?? 1,
         bucketMax = options.bucketMax || 100,
         onupdate = options.onupdate || function() {},
         sliceFn = dval(options.slicer, sliceZ),
@@ -138,7 +139,7 @@ export async function slice(points, options = {}) {
     let zSpan = zMax - zMin;
     let zSpanAvg = zSum / points.length;
     let bucketCount = options.bucket !== false ?
-        Math.min(bucketMax, Math.max(1, Math.floor(zSpan / zSpanAvg))) : 1;
+        Math.min(bucketMax, Math.max(bucketMin, Math.floor(zSpan / zSpanAvg))) : 1;
 
     zScale = 1 / (zMax / bucketCount);
 
@@ -211,7 +212,6 @@ export async function slice(points, options = {}) {
         let count = 0;
         let opt = { ...options, zMin, zMax, zIndexes };
         let ps = [];
-
         for (let i = 0, l = buckets.length; i < l; i++) {
             let bucket = buckets[i];
             let { points, slices } = bucket;

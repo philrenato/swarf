@@ -40,12 +40,14 @@ import { visuals } from './visuals.js';
 import { widgets } from './widgets.js';
 import { workspace } from './workspace.js';
 
+import { OPFS } from '../../moto/opfs.js';
+
 // environment setup
 let LOC = self.location,
     EVENT = broker,
     SETUP = utils.parseOpt(LOC.search.substring(1)),
     FILES = openFiles(new Index(SETUP.d ? SETUP.d[0] : 'kiri')),
-    LOCAL = self.debug && !SETUP.remote,
+    LOCAL = (LOC.host.startsWith('localhost') || self.debug) && !SETUP.remote,
     SECURE = isSecure(LOC.protocol);
 
 // todo: fix in widget.js b/c front-end and back-end do not share api
@@ -163,6 +165,7 @@ export const api = {
         alerts(clr) { alerts.update(clr) },
         bind(t,m,o) { return EVENT.bind(t,m,o) },
         emit(t,m,o) { return EVENT.publish(t,m,o) },
+        emitDefer(t,m,d) { setTimeout(() => EVENT.publish(t,m), d ?? 100) },
         import() { api.ui.load.click() },
         listeners(topic) { return EVENT.targets(topic) },
         on(t,l) { EVENT.on(t,l); return api.event },
@@ -227,6 +230,7 @@ export const api = {
     onkey(fn) {
         api.feature.on_key2.push(fn);
     },
+    opfs: OPFS,
     platform,
     process: processModule,
     sdb: dataLocal,
@@ -234,6 +238,12 @@ export const api = {
     settings,
     show: {
         alert() { return alerts.show(...arguments) },
+        busy(msg) {
+            if (msg === false || msg === null || msg === 0 || msg === '') {
+                return visuals.set_progress(0);
+            }
+            return visuals.set_progress(-1, typeof msg === 'string' ? msg : undefined);
+        },
         controls() { console.trace('deprecated') },
         devices: showDevices,
         import() { api.ui.import.style.display = '' },

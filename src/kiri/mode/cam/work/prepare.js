@@ -87,7 +87,7 @@ export async function prepare_one(widget, settings, print, firstPoint, update) {
         { alignTop } = settings.controller,
         { camArcEnabled, camArcResolution, camArcTolerance } = process,
         { camDepthFirst, camEaseAngle, camEaseDown } = process,
-        { camFastFeed, camFastFeedZ } = process,
+        { camFastFeed, camFastFeedZ, camZTop } = process,
         { camStockX, camStockY, camStockZ, camStockIndexed, camStockOffset } = process,
         { camForceZMax, camFullEngage, camInnerFirst, camOriginCenter } = process,
         { camOriginOffX, camOriginOffY, camOriginOffZ, camZClearance } = process,
@@ -110,7 +110,7 @@ export async function prepare_one(widget, settings, print, firstPoint, update) {
         wmx = wmpos.x,
         wmy = wmpos.y,
         wmz = !camStockIndexed ? stock.z - boundsZ : alignTop ? 0 : 0,
-        zSafe = camStockIndexed ? Math.hypot(stock.y, stock.z) / 2 + camZClearance : stockZClear,
+        zSafe = Math.max(camZTop, camStockIndexed ? Math.hypot(stock.y, stock.z) / 2 + camZClearance : stockZClear),
         originx = (camOriginCenter ? 0 : -stock.x / 2) + (camOriginOffX || 0),
         originy = (camOriginCenter ? 0 : -stock.y / 2) + (camOriginOffY || 0),
         origin = newPoint(originx, originy, zSafe),
@@ -138,6 +138,7 @@ export async function prepare_one(widget, settings, print, firstPoint, update) {
         toolType,
         toolDiam,
         toolDiamMove,
+        toolDiamEpsilon,
         travelBounds,
         spindle = 0,
         spindleMax = device.spindleMax,
@@ -194,6 +195,7 @@ export async function prepare_one(widget, settings, print, firstPoint, update) {
     }
 
     function setSpindle(speed) {
+        // console.trace({ setSpindle: speed });
         spindle = Math.min(speed, spindleMax);
     }
 
@@ -211,6 +213,7 @@ export async function prepare_one(widget, settings, print, firstPoint, update) {
             toolType = tool.getType();
             toolDiam = tool.fluteDiameter();
             toolDiamMove = (tool.hasTaper() ? tolerance ?? toolDiam : toolDiam) * 2;
+            toolDiamEpsilon = toolDiam * 0.01,
             lastTool = toolID;
         }
         feedRate = Math.min(camFastFeed, feed || feedRate || plunge);
@@ -387,7 +390,7 @@ export async function prepare_one(widget, settings, print, firstPoint, update) {
     /**
      * when moving between contour endpoints, check if we can
      * instead route around the bounding area of the contour
-     * whih we call the coastline.
+     * which we call the coastline.
      */
     function coastlineMove(point) {
         let from = toWidgetCoords(printPoint);
@@ -395,6 +398,7 @@ export async function prepare_one(widget, settings, print, firstPoint, update) {
         if (!coastline || from.distTo2D(to) < 0.01) {
             return false;
         }
+        let minz = Math.min(from.z, to.z);
         let start = { dist: 1, poly: 0, pt: from };
         let end = { dist: 1, poly: 1, pt: to };
         for (let poly of coastline) {
@@ -445,7 +449,9 @@ export async function prepare_one(widget, settings, print, firstPoint, update) {
             }
         }
         for (let i=sp, d=0; d < dist; i += dir, d++) {
-            layerPush(toWorkCoords(points[i % pl]), 1, 0, tool);
+            let cp = points[i % pl].clone();
+            cp.z = Math.max(minz, cp.z);
+            layerPush(toWorkCoords(cp), 1, 0, tool);
         }
         return true;
     }
@@ -567,7 +573,7 @@ export async function prepare_one(widget, settings, print, firstPoint, update) {
             } else
             // otherwise move over before descending
             if (deltaZ <= -tolerance) {
-                if (debug) console.log('over before descend');
+                if (debug) console.log('over before descend', deltaZ, -tolerance);
                 layerPush(point.clone().setZ(printPoint.z), 0, 0, tool);
                 newLayer();
             }
@@ -590,9 +596,11 @@ export async function prepare_one(widget, settings, print, firstPoint, update) {
             if (lastTravelBounds) check.push(...lastTravelBounds);
             let from = toWidgetCoords(printPoint);
             let to = toWidgetCoords(point);
+            let ep = toolDiamEpsilon;
             for (let poly of check) {
-                let ints = poly.intersections(from, to);
-                if (ints.length) {
+                let ints = poly.intersections(from, to) ?? [];
+                let far = ints.filter(p => p.distTo2D(to) > ep && p.distTo2D(from) > ep);
+                if (far.length) {
                     if (debug) console.log({ ints, poly, deltaXY, deltaZ });
                     upAndOver = "bounds";
                     break;
@@ -636,7 +644,7 @@ export async function prepare_one(widget, settings, print, firstPoint, update) {
 
         // plunge safety catch
         if (deltaZ < 0 && !contouring) {
-            if (debug) console.log('deltaZ snap', rate, plungeRate);
+            if (debug) console.log('plunge safety', deltaZ, rate, plungeRate);
             emit = 1;
             rate = plungeRate;
         }
@@ -667,16 +675,21 @@ export async function prepare_one(widget, settings, print, firstPoint, update) {
      * @param {boolean} cutdir true=CW false=CCW
      * @param {boolean} depthFirst prioritize cut depth in pockets by nesting
      */
-    function pocket({ slices, cutdir, depthFirst, progress }) {
+    function pocket({ slices, cutdir, depthFirst, outline, progress }) {
         let total = 0;
         let depthData = [];
 
         for (let slice of slices) {
             let polys = [], t = [], c = [];
-            // use shadow + tool radius offset when available (roughing)
+
+            // collect polys in to tops (parents) and children
+            // so we can have the windings be opposite
             POLY.flatten(slice.camLines).forEach((poly) => {
+                // poly is child if has parent
                 let child = poly.parent;
+                // for depth, collapse parent to 1 or 0 (has, missing)
                 if (depthFirst) { poly = poly.clone(); poly.parent = child ? 1 : 0 }
+                // place poly into top or child bucket
                 if (child) c.push(poly); else t.push(poly);
                 polys.push(poly);
             });
@@ -687,6 +700,7 @@ export async function prepare_one(widget, settings, print, firstPoint, update) {
             POLY.setWinding(c, !cutdir);
 
             if (depthFirst) {
+                // re-nest layer polys and add to depth stack
                 polys = POLY.nest(polys,true,true);
                 polys.tool_shadow = POLY.flatten(slice.tool_shadow.clone(true));
                 depthData.push(polys);
@@ -706,18 +720,18 @@ export async function prepare_one(widget, settings, print, firstPoint, update) {
 
         if (depthFirst) {
             for (let i=0; i<depthData.length; i++) {
-                descend(depthData.slice(i));
+                descend(depthData.slice(i), undefined, outline);
             }
         }
     }
 
-    function descend(stack, inside) {
+    function descend(stack, inside, outline) {
         if (stack.length === 0) return;
         let tops = stack[0];
-        let flat = tops.filter(poly => !poly.marked);
+        let flat = (outline ? POLY.flatten(tops) : tops).filter(poly => !poly.marked);
         if (flat.length === 0) return;
         if (inside) {
-            flat = flat.filter(p => p.isNested(inside));
+            flat = flat.filter(p => p.isInside(inside));
         }
 
         for (;;) {
@@ -736,7 +750,13 @@ export async function prepare_one(widget, settings, print, firstPoint, update) {
                     polyEmit(poly, CLOSEST_TO_PP, engage);
                     engage = false;
                 }
-                descend(stack.slice(1), poly);
+                if (outline) {
+                    output.forEach(poly => {
+                        descend(stack.slice(1), poly, outline);
+                    });
+                } else {
+                    descend(stack.slice(1), poly, outline);
+                }
             } else {
                 return;
             }
@@ -826,20 +846,31 @@ export async function prepare_one(widget, settings, print, firstPoint, update) {
 
             // calculate ease down for poly path output
             if (startPoint.z > point0.z) {
-                let easeFeed = plungeRate + ((feedRate - plungeRate) * easeThrottle);
+                let easeMax = feedRate * camFullEngage;
+                let easeLerp = plungeRate + ((feedRate - plungeRate) * easeThrottle);
+                let easeFeed = Math.min(easeLerp, easeMax);
                 let zat = startPoint.z;
-                let lp;
-                for (let i=0; ; i++) {
-                    let ii = i % points.length;
+                let len = points.length;
+                let lp, lz = Infinity;
+                // hard cap on number of repeats to catch bad geometry
+                for (let i=0; i<len*50 ; i++) {
+                    let ii = i % len;
                     let pt = points[ii];
                     if (zat <= pt.z) {
                         // rotate points to start at end of ease
-                        points = [...points.slice(i), ...points.slice(0,i)];
+                        points = [...points.slice(ii), ...points.slice(0,ii)];
                         break;
                     }
                     if (i > 0) {
                         let dd = lp.distTo2D(pt);
                         zat = Math.max(pt.z, zat - (dd * easeDzPerMm));
+                        if (zat > lz) {
+                            // rotate points to start at end of ease
+                            // also should never get here unless bad geometry
+                            points = [...points.slice(ii), ...points.slice(0,ii)];
+                            break;
+                        }
+                        lz = zat;
                     }
                     lp = pt.clone().setZ(Math.max(pt.z, zat));
                     camOut(lp, 1, { feed: easeFeed });
@@ -950,7 +981,7 @@ export async function prepare_one(widget, settings, print, firstPoint, update) {
         // console.log('coming from another widget', { printPoint });
     } else if (center) {
         // we're the first widget output. offset is center
-        printPoint = origin.clone().move({ x: center.x, y: center.y });
+        printPoint = origin.clone().move({ x: center.x, y: center.y, z: 0 });
         // console.log('first widget output', { printPoint });
     } else {
         console.log({ missing_center_using_origin: origin });

@@ -66,6 +66,18 @@ self.lang['pt-pt'] = {
     view:           "visualizar",   // left view pop menu
     wire:           "aramado",      // left render pop menu
     volume:         "volume",       // device build area
+    al_menu:        "alinhar",
+    re_menu:        "renderizar",
+    sx_menu:        "seleção",
+    ed_menu:        "editar",
+    face_left:      "face esquerda",
+    re_edgs:        "alternar arestas",
+    al_menu:        "alinhar",
+    re_menu:        "renderizar",
+    sx_menu:        "seleção",
+    ed_menu:        "editar",
+    face_left:      "face esquerda",
+    re_edgs:        "alternar arestas",
 
     acct_xpo:       ["faça uma cópia de segurança do seu dispositivo","e perfis de dispositivo com a opção","de incluir objectos e posições","do espaço de trabalho"],
 
@@ -81,8 +93,8 @@ self.lang['pt-pt'] = {
     rc_xobj:        "exportar OBJ",
     rc_xstl:        "exportar STL",
     sb_info:        ["velocidade de impressão","em mm/s"],
-    rc_merg:        "fundir malhas de objecto",
-    rc_splt:        "isolar corpos",
+    rc_merg:        "fundir objectos",
+    rc_splt:        "isolar objectos",
 
     // DEVICE MENU and related dialogs
     dm_sldt:        "seleccione um tipo de dispositivo",
@@ -712,6 +724,10 @@ self.lang['pt-pt'] = {
     ct_midl_l:      ["usar linha média da aba","em vez de z inferior","para trabalho de dupla face"],
     ct_nabl_s:      "automático",
     ct_nabl_l:      ["gerar automaticamente abas radiais","projectadas do centro da peça","usando número e desvio de ângulo"],
+
+    // CNC AREA OP
+    ca_fini_s:      "corte de acabamento",
+    ca_fini_l:      "caminho de corte que segue o contorno da peça final. permite passo preciso ao limpar uma área maior.",
 
     // OUTPUT
     ou_menu:        "saída",

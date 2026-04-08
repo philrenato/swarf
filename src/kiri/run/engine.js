@@ -19,13 +19,15 @@ class Engine {
             filter: { FDM: "internal" },
             device: conf.defaults.fdm.d, // device profile
             process: conf.defaults.fdm.p, // slicing settings
-            widget: { [this.widget.id]: {} }
+            widget: { [this.widget.id]: {} },
+            time: Date.now()
         };
         this.listener = () => { };
         try {
             client.setWorkPath(workURL);
             client.setPoolPath(poolURL);
             client.restart();
+            client.pool.start();
         } catch (error) {
             console.log({ error });
         }
@@ -37,6 +39,7 @@ class Engine {
                 new load.STL().load(url, vertices => {
                     this.listener({ loaded: url, vertices });
                     this.widget.loadVertices(vertices).center();
+                    this.setTopOffset(0);
                     accept(this);
                 });
             } catch (error) {
@@ -47,6 +50,10 @@ class Engine {
 
     clear() {
         api.platform.clear();
+    }
+
+    workspace() {
+        return api.settings.export({ engine: this.settings });
     }
 
     parse(data) {
@@ -63,11 +70,8 @@ class Engine {
     }
 
     setThreading(bool) {
-        if (bool) {
-            client.pool.start();
-        } else {
-            client.pool.stop();
-        }
+        console.log('setThreading() deprecated');
+        return this;
     }
 
     setListener(listener) {
@@ -86,7 +90,15 @@ class Engine {
      * @returns {Engine} this
      */
     setMode(mode) {
-        this.settings.mode = mode;
+        let lmode = mode.toLowerCase();
+        Object.assign(this.settings, {
+            mode: mode,
+            controller: {},
+            render: false,
+            filter: { [mode]: "internal" },
+            device: conf.defaults[lmode].d,
+            process: conf.defaults[lmode].p,
+        });
         return this;
     }
 
@@ -123,17 +135,24 @@ class Engine {
         process.camStockX = stock.x;
         process.camStockY = stock.y;
         process.camStockZ = stock.z;
-        if (this.origin) settings.stock.center = origin;
+        settings.stock.center = {
+            x: stock.x / 2,
+            y: stock.y / 2,
+            z: stock.z / 2
+        };
         return this;
     }
 
     setTopOffset(offset = 0) {
         this.topOffset = offset;
+        let wbb = this.widget.getBoundingBox();
+        this.widget.setTopZ(wbb.max.z - offset);
+        return this;
     }
 
     setOrigin(x, y, z) {
         this.origin = { x, y, z };
-        if (this.settings.stock) this.settings.stock.center = { x, y, z };
+        this.settings.origin = this.origin;
         return this;
     }
 
@@ -158,11 +177,11 @@ class Engine {
     }
 
     slice() {
-        this.widget.setTopZ((this.settings?.stock?.z || 0) - (this.topOffset || 0));
         return new Promise((accept, reject) => {
             client.clear();
             client.sync([this.widget]);
             client.rotate(this.settings);
+            client.slicePre(this.settings, () => {});
             client.slice(this.settings, this.widget, msg => {
                 this.listener({ slice: msg });
                 if (msg.error) {
@@ -170,6 +189,7 @@ class Engine {
                 }
                 if (msg.done) {
                     accept(this);
+                    client.slicePost(this.settings, () => {});
                 }
             });
         });

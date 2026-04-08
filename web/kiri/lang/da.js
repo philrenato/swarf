@@ -65,6 +65,18 @@ self.lang['da-dk'] = {
     view:           "vis",          // left view pop menu
     wire:           "tråd",         // left render pop menu
     volume:         "volumen",      // device build area
+    al_menu:        "juster",
+    re_menu:        "render",
+    sx_menu:        "markering",
+    ed_menu:        "rediger",
+    face_left:      "venstre side",
+    re_edgs:        "skift kanter",
+    al_menu:        "juster",
+    re_menu:        "render",
+    sx_menu:        "markering",
+    ed_menu:        "rediger",
+    face_left:      "venstre side",
+    re_edgs:        "skift kanter",
 
     acct_xpo: ["lav en sikkerhedskopi af din enhed","og enhedsprofiler med mulighed for at","medtage arbejdsområdeobjekter og positioner"],
 
@@ -80,8 +92,8 @@ self.lang['da-dk'] = {
     rc_xobj:        "eksporter OBJ",
     rc_xstl:        "eksporter STL",
     sb_info:        ["print hastighed","i mm/s"],
-    rc_merg:        "flet objekt meshes",
-    rc_splt:        "isoler legemer",
+    rc_merg:        "flet objekter",
+    rc_splt:        "isoler objekter",
 
     // DEVICE MENU and related dialogs
     dm_sldt:        "vælg en enhedstype",
@@ -711,6 +723,10 @@ self.lang['da-dk'] = {
     ct_midl_l: ["brug midtlinje af tap","i stedet for z bund","til dobbeltsidigt arbejde"],
     ct_nabl_s: "auto",
     ct_nabl_l: ["auto generer radiale tapper","projekteret fra del center","ved brug af antal og vinkel forskydning"],
+
+    // CNC AREA OP
+    ca_fini_s: "efterbehandlings snit",
+    ca_fini_l: "skærebane der følger konturen af den endelige del. tillader præcis step over ved rydning af større område.",
 
     // OUTPUT
     ou_menu: "output",

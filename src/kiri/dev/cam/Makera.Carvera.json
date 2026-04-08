@@ -32,7 +32,7 @@
     "gcodeStrip": false,
     "gcodeResetA": ["G92.4 A0 R0"],
     "new": false,
-    "deviceName": "My Makera Carvera",
+    "deviceName": "Makera Carvera",
     "maxHeight": 150,
     "useLaser": true,
     "useIndexed": true,

@@ -66,6 +66,18 @@ self.lang['fr-fr'] = {
     view:           "vue",          // left view pop menu
     wire:           "filaire",      // left render pop menu
     volume:         "volume",       // device build area
+    al_menu:        "aligner",
+    re_menu:        "rendu",
+    sx_menu:        "sélection",
+    ed_menu:        "éditer",
+    face_left:      "face gauche",
+    re_edgs:        "basculer arêtes",
+    al_menu:        "aligner",
+    re_menu:        "rendu",
+    sx_menu:        "sélection",
+    ed_menu:        "éditer",
+    face_left:      "face gauche",
+    re_edgs:        "basculer arêtes",
 
     acct_xpo:       ["faites une sauvegarde de votre appareil","et des profils d'appareil avec","l'option d'inclure les objets","de l'espace de travail et les positions"],
 
@@ -81,8 +93,8 @@ self.lang['fr-fr'] = {
     rc_xobj:        "exporter OBJ",
     rc_xstl:        "exporter STL",
     sb_info:        ["vitesse d'impression","en mm/s"],
-    rc_merg:        "fusionner les maillages d'objets",
-    rc_splt:        "isoler les corps",
+    rc_merg:        "fusionner les objets",
+    rc_splt:        "isoler les objets",
 
     // DEVICE MENU and related dialogs
     dm_sldt:        "sélectionner un type d'appareil",
@@ -712,6 +724,10 @@ self.lang['fr-fr'] = {
     ct_midl_l:      ["utiliser la ligne médiane de la patte","au lieu de z bas","pour le travail double face"],
     ct_nabl_s:      "auto",
     ct_nabl_l:      ["générer automatiquement des pattes radiales","projetées depuis le centre de la pièce","en utilisant le nombre et le décalage d'angle"],
+
+    // CNC AREA OP
+    ca_fini_s:      "coupe de finition",
+    ca_fini_l:      "chemin de coupe qui suit le contour de la pièce finale. permet un pas précis lors du dégagement d'une zone plus large.",
 
     // OUTPUT
     ou_menu:        "sortie",

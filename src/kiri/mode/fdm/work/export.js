@@ -577,10 +577,12 @@ export function fdm_export(print, online, ondone, ondebug) {
             lastFanSpeed = fanSpeed;
         }
         if (bedTemp !== lastBedTemp) {
+            // console.log({ bed_temp_change_to: bedTemp, from: lastBedTemp });
             append(`M140 S${bedTemp} T0`);
             lastBedTemp = bedTemp;
         }
         if (nozzleTemp !== lastNozzleTemp) {
+            // console.log({ temp_change_to: nozzleTemp, from: lastNozzleTemp });
             if (t0) append(`M104 S${nozzleTemp} T0`);
             if (t1) append(`M104 S${nozzleTemp} T1`);
             if (!(t0 || t1)) append(`M104 S${nozzleTemp} T${tool}`);

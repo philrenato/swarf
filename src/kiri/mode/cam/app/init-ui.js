@@ -339,7 +339,7 @@ export function opRender() {
             `<div id="${mark + i}" class="${clazz.join(' ')}"${title}>`,
             `<label class="label">${label}</label>`,
             clock ? '' :
-                `<label id="${mark + i}-x" class="del"><i class="fa fa-trash"></i></label>`,
+                `<label id="${mark + i}-x" class="del"><i class="fa-solid fa-xmark"></i></label>`,
             `</div>`
         ]);
         bind[mark + i] = rec;
@@ -421,9 +421,10 @@ export function opRender() {
             const brect = ev.target.getBoundingClientRect();
             const prect = parent.getBoundingClientRect();
             const Prect = poprec.div.getBoundingClientRect();
-            const tdiff = prect.top - brect.top;
-            const botoff = innerHeight - (brect.top + Prect.height);
-            const offpx = -tdiff + (botoff < 0 ? botoff : -Prect.height/3);
+            const topmv = brect.top - prect.top - Math.min(50, Prect.height/5);
+            const topnu = prect.top + topmv;
+            const botof = innerHeight - (topnu + Prect.height);
+            const offpx = botof < 0 ? topmv + botof : topmv;
             poprec.div.style.transform = `translateY(${offpx}px)`;
             poprec.div.onmouseenter = () => { inside = true };
             poprec.div.onmouseleave = onLeave;
@@ -587,7 +588,7 @@ export function zPlaneSelect({ which, onselect }) {
     }
     clearPops();
     zPlaneStart(which, value => {
-        onselect(parseFloat(value));
+        onselect(parseFloat(value) / api.view.unit_scale());
     });
 }
 

@@ -82,6 +82,8 @@ function updateProcessList() {
         load.onclick = (ev) => {
             api.conf.load(undefined, sk);
             updateProcessList();
+            // update pulldowns
+            api.devices.refresh();
             modal.hide();
         }
         load.appendChild(DOC.createTextNode(sk));

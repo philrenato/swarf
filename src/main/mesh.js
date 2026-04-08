@@ -17,10 +17,12 @@ import { edges as meshEdges } from '../mesh/edges.js';
 import { open as dataOpen } from '../data/index.js';
 import { load as fileLoad } from '../load/file.js';
 import { THREE } from '../ext/three.js';
+import { createDocumentManager } from '../mesh/document.js';
 
 const version = '1.5.7';
 const call = broker.send;
-const dbindex = [ "admin", "space" ];
+const dbindex = [ "admin", "documents", "versions" ];
+const DOC_META_KEY = '__doc';
 
 const { Quaternion } = THREE;
 
@@ -28,10 +30,67 @@ function log() {
     return api.log.emit(...arguments);
 }
 
+function boot_status(message = 'loading...') {
+    const curtain = $('curtain');
+    if (!curtain) return;
+    curtain.textContent = String(message || 'loading...');
+}
+
+function boot_start(message = 'loading...') {
+    $('app')?.classList?.add('booting');
+    boot_status(message);
+    $d('curtain', 'flex');
+}
+
+function boot_done() {
+    $('app')?.classList?.remove('booting');
+    $d('curtain', 'none');
+}
+
+function get_doc_meta(meta = metaCache) {
+    if (!meta || typeof meta !== 'object') return {};
+    return meta[DOC_META_KEY] || {};
+}
+
+function capture_camera_state() {
+    return {
+        place: space.view.save(),
+        focus: space.view.getFocus()
+    };
+}
+
+function apply_camera_state(camera) {
+    if (!camera) return;
+    if (camera.place) {
+        space.view.load(camera.place);
+    }
+    if (camera.focus) {
+        space.view.setFocus(camera.focus);
+    }
+}
+
+function save_camera_to_document() {
+    const dmeta = get_doc_meta(metaCache);
+    metaCache[DOC_META_KEY] = {
+        ...dmeta,
+        camera: capture_camera_state()
+    };
+    store_meta();
+}
+
+let cameraSaveTimer = null;
+function schedule_camera_save(delay = 120) {
+    clearTimeout(cameraSaveTimer);
+    cameraSaveTimer = setTimeout(() => {
+        cameraSaveTimer = null;
+        save_camera_to_document();
+    }, delay);
+}
+
 // set below. called once the DOM readyState = complete
 // this is the main() entrypoint called after all dependents load
 function init() {
-    let stores = dataOpen('mesh', { stores: dbindex, version: 4 }).init(),
+    let stores = dataOpen('mesh', { stores: dbindex, version: 5 }).init(),
         dark = false,
         ortho = false,
         zoomrev = true,
@@ -39,11 +98,21 @@ function init() {
         platform = space.platform,
         db = api.db = {
             admin: stores.promise('admin'),
-            space: stores.promise('space')
+            documents: stores.promise('documents'),
+            versions: stores.promise('versions')
         };
+
+    const docman = api.document = createDocumentManager({
+        admin: db.admin,
+        documents: db.documents,
+        versions: db.versions,
+        maxRevisions: 200
+    });
+    db.space = docman.spaceStore;
 
     // initialize the API (to avoid circular dependencies)
     api.init();
+    boot_start('initializing mesh:tool');
 
     // mark init time and use count
     db.admin.put("init", Date.now());
@@ -70,25 +139,22 @@ function init() {
             colorX: 0xff7777, colorY: 0x7777ff },
     });
     platform.onMove(() => {
-        // save last location and focus
-        db.admin.put('camera', {
-            place: space.view.save(),
-            focus: space.view.getFocus()
-        });
+        // save camera per-document
+        save_camera_to_document();
     }, 100);
     space.view.setZoom(zoomrev, zoomspd);
+
+    // trigger ui building
+    call.ui_build();
+
+    // trigger space event binding
+    call.space_init({ space: space, platform });
 
     // reload stored space when worker is ready
     motoClient.on('ready', restore_space);
 
     // start worker
     motoClient.start('../lib/mesh/work.js?' + version);
-
-    // trigger space event binding
-    call.space_init({ space: space, platform });
-
-    // trigger ui building
-    call.ui_build();
 
     // hide url params
     let wlp = window.location.pathname;
@@ -102,32 +168,27 @@ function init() {
     self.electron = navigator.userAgent.includes('Electron');
 }
 
-// restore space layout and view from previous session
-async function restore_space() {
-    const db_admin = api.db.admin;
+function clear_workspace() {
+    api.selection.clear();
+    for (let sk of api.sketch.list().slice()) {
+        sk.remove();
+    }
+    for (let grp of api.group.list().slice()) {
+        grp.remove();
+    }
+}
+
+async function restore_workspace_from_state(cached = {}, mcache = {}) {
     const db_space = api.db.space;
-    // let mcache = {};
-    await db_admin.get("camera")
-        .then(saved => {
-            if (saved) {
-                space.view.load(saved.place);
-                space.view.setFocus(saved.focus);
-            }
-        });
-    const mcache = await db_admin.get("meta") || {};
     let count = 0;
-    await db_space.iterate({ map: true }).then(cached => {
+    await Promise.resolve(cached).then(cached => {
         const keys = [];
         const claimed = [];
         for (let [id, data] of Object.entries(cached)) {
-            // console.log({ id, data });
             keys.push(id);
             if (count++ === 0) {
                 log(`restoring workspace`);
             }
-            // restore object based on type
-            // group arrays load models they contain
-            // sketches are loaded by type since they're not grouped
             if (Array.isArray(data)) {
                 claimed.push(id);
                 let models = data
@@ -135,11 +196,11 @@ async function restore_space() {
                         claimed.push(id);
                         return { id, md: cached[id] }
                     })
-                    .filter(r => r.md) // filter cache misses
-                    .map(r => new meshModel(r.md, r.id).applyMeta(mcache[r.id]))
+                    .filter(r => r.md)
+                    .map(r => new meshModel(r.md, r.id).applyMeta(mcache[r.id]));
                 if (models.length) {
                     log(`restored ${models.length} model(s)`);
-                    api.group.new(models, id).applyMeta(mcache[id])
+                    api.group.new(models, id).applyMeta(mcache[id]);
                 } else {
                     log(`removed empty group ${id}`);
                     db_space.remove(id);
@@ -155,22 +216,17 @@ async function restore_space() {
         if (keys.length) {
             log(`removing ${keys.length} unclaimed meshes`);
         }
-        // clear out meshes left in the space db along with their meta-data
         for (let id of keys) {
             db_space.remove(id);
             delete mcache[id];
         }
-        // restore global cache only after objects are restored
-        // otherwise their setup will corrupt the cache for other restores
         metaCache = mcache;
-        store_meta();
+        api.document.setMeta(metaCache);
     }).then(() => {
-        // restore preferences after models are restored
         return api.prefs.load().then(() => {
             let { map } = api.prefs;
             let { space, mode } = map;
             api.grid(space.grid);
-            // restore selected state
             let selist = space.select || [];
             let smodel = api.model.list().filter(m => selist.contains(m.id));
             let sgroup = api.group.list().filter(m => selist.contains(m.id));
@@ -179,14 +235,38 @@ async function restore_space() {
             let tgroup = api.group.list().filter(m => tolist.contains(m.id));
             let sklist = api.sketch.list().filter(s => selist.contains(s.id));
             api.selection.set([...smodel, ...sgroup, ...sklist], [...tmodel, ...tgroup]);
-            // restore edit mode
             api.mode[mode]();
-            // restore dark mode
-            set_darkmode(map.space.dark);
+            set_darkmode();
         });
-    }).finally(() => {
+    });
+}
+
+// restore space layout and view from previous session
+async function restore_space() {
+    const db_admin = api.db.admin;
+    const db_space = api.db.space;
+    const docman = api.document;
+    boot_status('loading document');
+    const currentDoc = await docman.restoreOrCreate();
+    const mcache = docman.getMeta() || {};
+    const oldCamera = await db_admin.get("camera");
+    const docCamera = get_doc_meta(mcache).camera || oldCamera || null;
+    boot_status('restoring workspace');
+    const cached = await db_space.iterate({ map: true }) || {};
+    docman.pause();
+    try {
+        await restore_workspace_from_state(cached, mcache);
+    } finally {
+        docman.resume();
+    }
+    boot_status('restoring view');
+    apply_camera_state(docCamera);
+    space.update();
+    await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+    boot_status('finalizing');
+    Promise.resolve().finally(() => {
         // hide loading curtain
-        $d('curtain','none');
+        boot_done();
         // restore handles visibility
         handles.setEnabled(api.prefs.map.space.bounds ?? false);
         // restore script if was showing
@@ -196,8 +276,50 @@ async function restore_space() {
         if (api.prefs.map.info.welcome !== false) {
             api.welcome(version);
         }
+        api.file.set_doc_name(currentDoc?.name || 'Untitled');
         broker.publish("app_ready");
     });
+}
+
+async function document_new(opt = {}) {
+    const docman = api.document;
+    await docman.flush();
+    await docman.commit('document.autosave', 'document.autosave');
+    docman.pause();
+    try {
+        clear_workspace();
+        space.view.home();
+        metaCache = {
+            [DOC_META_KEY]: {
+                camera: capture_camera_state()
+            }
+        };
+        await docman.create(opt.name || 'Untitled');
+        docman.setMeta(metaCache);
+    } finally {
+        docman.resume();
+    }
+    await docman.commit('document.new', 'document.new');
+    api.file.set_doc_name(docman.current?.name || 'Untitled');
+}
+
+async function document_open(opt = {}) {
+    const docman = api.document;
+    const id = String(opt?.id || '');
+    if (!id) return;
+    await docman.flush();
+    await docman.open(id, { autosave: opt.autosave !== false });
+    const cached = docman.getSpace() || {};
+    const mcache = docman.getMeta() || {};
+    docman.pause();
+    try {
+        clear_workspace();
+        await restore_workspace_from_state(cached, mcache);
+    } finally {
+        docman.resume();
+    }
+    apply_camera_state(get_doc_meta(mcache).camera);
+    api.file.set_doc_name(docman.current?.name || 'Untitled');
 }
 
 // add space event bindings
@@ -205,6 +327,52 @@ function space_init(data) {
     let platcolor = 0x00ff00;
     let { space, platform } = data;
     let { selection } = api;
+
+    function selection_or_visible_entities() {
+        const selected = api.selection.list(true);
+        if (selected?.length) return selected;
+        return [
+            ...api.group.list().filter(g => g.visible()),
+            ...api.sketch.list().filter(s => s.visible())
+        ];
+    }
+
+    function fit_visible() {
+        const entities = selection_or_visible_entities();
+        const objects = entities.map(e => e?.object).filter(o => o);
+        return space.view.fit(undefined, {
+            padding: 1,
+            visibleOnly: true,
+            objects: objects.length ? objects : undefined
+        });
+    }
+
+    function focus_visible() {
+        const entities = selection_or_visible_entities();
+        if (entities.length) {
+            return api.focus(entities);
+        }
+        return api.focus([
+            ...api.group.list(),
+            ...api.sketch.list()
+        ]);
+    }
+
+    function norm_code(evt) {
+        if (evt?.code) return evt.code;
+        const key = evt?.key;
+        if (!key) return '';
+        if (key === ' ') return 'Space';
+        if (key === 'Spacebar') return 'Space';
+        if (key === 'Escape') return 'Escape';
+        if (key.length === 1) {
+            const up = key.toUpperCase();
+            if (up >= 'A' && up <= 'Z') return `Key${up}`;
+            if (up >= '0' && up <= '9') return `Digit${up}`;
+        }
+        return key;
+    }
+
     // add file drop handler
     space.event.addHandlers(self, [
         'drop', (evt) => {
@@ -222,6 +390,10 @@ function space_init(data) {
         'dragleave', evt => {
             platform.set({ opacity: 0, color: platcolor });
         },
+        // camera interactions (orbit/pan/dolly) are not guaranteed to trigger platform.onMove
+        'wheel', () => schedule_camera_save(),
+        'mouseup', () => schedule_camera_save(),
+        'touchend', () => schedule_camera_save(),
         'keypress', evt => {
             if (api.modal.showing) {
                 return;
@@ -229,7 +401,8 @@ function space_init(data) {
             if (evt.key === '?') {
                 return api.welcome(version);
             }
-            let { shiftKey, metaKey, ctrlKey, code, target } = evt;
+            let { shiftKey, metaKey, ctrlKey, target } = evt;
+            let code = norm_code(evt);
             if (target.nodeName === 'TEXTAREA') {
                 api.script.changed();
                 return;
@@ -250,7 +423,11 @@ function space_init(data) {
                 case 'KeyB':
                     return selection.boundsBox({toggle:true});
                 case 'KeyC':
-                    return selection.centerXY().focus();
+                    if (shiftKey) {
+                        return selection.floor();
+                    } else {
+                        return selection.centerXY().focus();
+                    }
                 case 'KeyD':
                     return shiftKey && api.tool.duplicate();
                 case 'KeyE':
@@ -259,14 +436,14 @@ function space_init(data) {
                         return api.sketch.extrude();
                     }
                     return;
-                case 'KeyF':
-                    return shiftKey ? selection.focus() : selection.floor().focus();
                 case 'KeyG':
                     return shiftKey ?
                         (api.mode.is([ api.modes.sketch ]) ? api.sketch.arrange.group() : api.tool.regroup()) :
                         api.grid();
                 case 'KeyH':
-                    return shiftKey ? selection.hide() : space.view.home();
+                    if (shiftKey) return selection.hide();
+                    schedule_camera_save(180);
+                    return space.view.home();
                 case 'KeyI':
                     return api.file.import();
                 case 'KeyL':
@@ -283,7 +460,9 @@ function space_init(data) {
                     if (!api.mode.is([ api.modes.object ])) return;
                     return shiftKey ? selection.visible({toggle:true}) : meshSplit.start();
                 case 'KeyT':
-                    return shiftKey ? api.tool.triangulate() : space.view.top();
+                    if (shiftKey) return api.tool.triangulate();
+                    schedule_camera_save(180);
+                    return space.view.top();
                 case 'KeyU':
                     return shiftKey && api.tool.union();
                 case 'KeyV':
@@ -295,7 +474,9 @@ function space_init(data) {
             }
         },
         'keydown', evt => {
-            let { shiftKey, metaKey, ctrlKey, code, target } = evt;
+            let { shiftKey, metaKey, ctrlKey, target } = evt;
+            let code = norm_code(evt);
+            const key = evt?.key;
             if (target.nodeName === 'TEXTAREA') {
                 if (code === 'Tab') {
                     estop(evt);
@@ -320,14 +501,36 @@ function space_init(data) {
                 delete keyOnce[code];
                 return once(evt);
             }
-            let rv = (Math.PI / 12);
             if (api.modal.showing) {
                 if (code === 'Escape') {
                     api.modal.cancel();
                 }
                 return;
             }
-            let rot, floor = api.prefs.map.space.floor !== false;
+            const isFit = code === 'KeyF' ||
+                key === 'f' ||
+                key === 'F';
+            if (isFit && !(metaKey || ctrlKey)) {
+                estop(evt);
+                const rv = shiftKey ? focus_visible() : fit_visible();
+                schedule_camera_save(220);
+                return rv;
+            }
+            const isSpace = code === 'Space' ||
+                code === 'Spacebar' ||
+                key === ' ' ||
+                key === 'Spacebar';
+            if (isSpace) {
+                if (selection.clear()) {
+                    meshEdges.clear();
+                    meshSplit.end();
+                }
+                estop(evt);
+                return;
+            }
+            let rv = (Math.PI / 12);
+            let rot;
+            let floor = api.prefs.map.space.floor !== false;
             switch (code) {
                 case 'KeyA':
                     estop(evt);
@@ -353,7 +556,9 @@ function space_init(data) {
                     if (metaKey || ctrlKey) {
                         return shiftKey ? api.history.redo() : api.history.undo();
                     } else {
-                        return space.view.reset();
+                        space.view.reset();
+                        schedule_camera_save(220);
+                        return;
                     }
                 case 'Escape':
                     if (selection.clear()) {
@@ -664,7 +869,7 @@ function key_once_cancel(code) {
 }
 
 function store_meta() {
-    api.db.admin.put("meta", metaCache);
+    api.document?.setMeta?.(metaCache);
 }
 
 function update_meta(id, data) {
@@ -694,28 +899,19 @@ function object_destroy(id) {
 function set_darkmode(dark) {
     let { prefs, model } = api;
     let { sky, platform } = space;
-    prefs.map.space.dark = dark;
-    if (dark) {
-        materials.wireframe.color.set(0xaaaaaa);
-        materials.wireline.color.set(0xaaaaaa);
-        $('app').classList.add('dark');
-    } else {
-        materials.wireframe.color.set(0,0,0);
-        materials.wireline.color.set(0,0,0);
-        $('app').classList.remove('dark');
-    }
+    dark = true;
+    prefs.map.space.dark = true;
+    materials.wireframe.color.set(0xaaaaaa);
+    materials.wireline.color.set(0xaaaaaa);
     sky.set({
-        color: dark ? 0 : 0xffffff,
-        ambient: { intensity: dark ? 0.55 : 1.1 }
+        color: 0,
+        ambient: { intensity: 0.55 }
     });
     platform.set({
-        light: dark ? 0.08 : 0.08,
-        grid: dark ? {
+        light: 0.08,
+        grid: {
             colorMajor: 0x666666,
             colorMinor: 0x333333,
-        } : {
-            colorMajor: 0xcccccc,
-            colorMinor: 0xeeeeee,
         },
     });
     api.updateFog();
@@ -741,11 +937,8 @@ function set_normals_length(length) {
 function set_normals_color(color) {
     let { prefs, model } = api;
     let { map } = prefs;
-    if (map.space.dark) {
-        map.normals.color_dark = color || 0;
-    } else {
-        map.normals.color_lite = color || 0;
-    }
+    map.normals.color_dark = color || 0;
+    map.normals.color_lite = color || 0;
     prefs.save();
     // Update existing normals
     for (let m of model.list()) {
@@ -809,7 +1002,9 @@ broker.listeners({
     set_surface_radius,
     set_wireframe_opacity,
     set_wireframe_fog,
-    set_snap_value
+    set_snap_value,
+    document_new,
+    document_open
 });
 
 init();
@@ -837,5 +1032,7 @@ export {
     set_surface_radius,
     set_wireframe_opacity,
     set_wireframe_fog,
-    set_snap_value
+    set_snap_value,
+    document_new,
+    document_open
 };

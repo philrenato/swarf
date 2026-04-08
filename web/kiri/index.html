@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-app="kiri">
 <head>
     <meta charset="UTF-8">
     <meta name="author" content="Stewart Allen">
@@ -14,355 +14,58 @@
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="default">
-    <meta http-equiv="origin-trial" content="AobHyD9RXtmfFOTcY506ANNJjG8lYuuvQ3/C7YJvprSP6Kk2pjKIBSKAUbUh64Nx6aCZaqlZ+7sSSswiIFHflgYAAAB0eyJvcmlnaW4iOiJodHRwczovL2dyaWQuc3BhY2U6NDQzIiwiZmVhdHVyZSI6IlVucmVzdHJpY3RlZFNoYXJlZEFycmF5QnVmZmVyIiwiZXhwaXJ5IjoxNzY5NDcyMDAwLCJpc1N1YmRvbWFpbiI6dHJ1ZX0=">
+    <meta http-equiv="origin-trial" content="AvttY0bfMDdg4vBwjn5k4Yv/+OmqjNj4bTRvCgBpP7hkI6base2DxEViSebcOyglERiFV7g0DaVmI+yv79ftDw8AAAB0eyJvcmlnaW4iOiJodHRwczovL2dyaWQuc3BhY2U6NDQzIiwiZmVhdHVyZSI6IlVucmVzdHJpY3RlZFNoYXJlZEFycmF5QnVmZmVyIiwiZXhwaXJ5IjoxNzc5MTQ4ODAwLCJpc1N1YmRvbWFpbiI6dHJ1ZX0=">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>Kiri:Moto</title>
-    <link rel="icon" href="favicon.ico">
-    <link rel="apple-touch-icon" href="favicon-mobile.png">
+    <script>
+        const isDark = localStorage['kiri-dark'] === 'true';
+        function setDarkLight(isDark) {
+            const dde = document.documentElement;
+            dde.setAttribute('data-theme', isDark ? 'dark' : 'light');
+            dde.style.background = isDark ? '#000000' : '#ffffff';
+        }
+        setDarkLight(isDark);
+    </script>
+    <link rel="icon" href="/icon/kirimoto.png">
+    <link rel="apple-touch-icon" href="/icon/kirimoto.png">
+    <link rel="stylesheet" type="text/css" href="/moto/palette.css">
+    <link rel="stylesheet" type="text/css" href="/moto/theme.css">
+    <link rel="stylesheet" type="text/css" href="/moto/menubar.css">
     <link rel="stylesheet" type="text/css" href="index.css">
     <link href="manifest.json" rel="manifest">
-    <link href="../font/css/all.min.css" rel="stylesheet">
+    <link href="/font/css/all.min.css" rel="stylesheet">
     <!-- <script type="module" src="/lib/kiri/run/worker.js"></script> -->
     <!-- <script type="module" src="/lib/kiri/run/minion.js"></script> -->
-    <script src="../lib/ext/tween.js"></script>
-    <script src="../font/js/all.min.js" crossorigin="anonymous" defer></script>
-    <script src="../lib/main/kiri.js" type="module"></script>
+    <script src="/lib/ext/tween.js"></script>
+    <script src="/font/js/all.min.js" crossorigin="anonymous" defer></script>
+    <script src="/lib/main/kiri.js" type="module"></script>
 </head>
 <body>
 <div id="app" class="f-col">
     <!-- hide page contents and provide loading message during initialization -->
     <div id="curtain" class="j-center a-center"><img id="loading">Kiri:Moto is Loading</div>
 
-    <!-- when running iframed, provide a separator between the menu bar and enclosing page -->
-    <div id="top-sep"></div>
-
     <!-- top menu bar -->
-    <div id="top" class="f-row">
-        <div class="f-row top-menu">
-            <span id="view-arrange">
-                <span><i class="fas fa-shapes"></i></span>
-                <label lk="arrange">arrange</label>
-            </span>
-            <span id="act-slice">
-                <span><i class="fas fa-bars"></i></span>
-                <label id="label-slice" title="generate layer slices" lk="slice">preview</label>
-            </span>
-            <span id="act-preview">
-                <span><i class="fas fa-layer-group"></i></span>
-                <label id="label-preview" title="show routing and paths" lk="preview">preview</label>
-            </span>
-            <span id="act-animate">
-                <span><i class="fas fa-film"></i></span>
-                <label id="label-animate" title="render routing on a mesh" lk="animate">animate</label>
-            </span>
-            <span id="act-export">
-                <span><i class="fas fa-file-download"></i></span>
-                <label id="label-export" title="generate gcode" lk="export">export</label>
-            </span>
-        </div>
-        <div class="grow"></div>
-        <div id="app-name" class="f-col a-center top-menu">
-            <span class="grow">
-                <span id="app-name-text" class="km-font">Kiri:Moto</span>
-                <div id="app-name-pop" class="top-menu-drop top-menu-center">
-                    <div class="content">
-                        <div>
-                            <label id="app-info">version</label>
-                        </div>
-                        <hr width="100%">
-                        <div>
-                            <label id="app-mesh">mesh edit</label>
-                        </div>
-                        <hr>
-                        <div id="install">
-                            <label lk="install">install</label>
-                        </div>
-                        <div id="uninstall" class="hide">
-                            <label lk="uninstall">uninstall</label>
-                        </div>
-                        <div id="app-quit" class="hide">
-                            <label lk="quit">quit</label>
-                        </div>
-                    </div>
-                </div>
-            </span>
-        </div>
-        <div id="doit" class="f-row a-center">
-            <button id="undo"><i class="fas fa-undo-alt"></i></button>
-            <button id="redo"><i class="fas fa-redo-alt"></i></button>
-        </div>
-        <div class="grow"></div>
-        <div class="f-row top-menu">
-            <span>
-                <i class="fas fa-folder"></i>
-                <label lk="fe_menu">files</label>
-                <div class="top-menu-drop top-menu-right">
-                    <div class="content">
-                        <div id="file-new">
-                            <label lk="new">new</label>
-                            <span><i class="fas fa-file"></i></span>
-                        </div>
-                        <hr>
-                        <div id="file-recent">
-                            <label lk="recent">recent</label>
-                            <span><i class="fas fa-list"></i></span>
-                        </div>
-                        <div id="file-import">
-                            <label lk="import">import</label>
-                            <span><i class="fas fa-file-upload"></i></span>
-                            <!-- required file input loaders -->
-                            <input id="load-file" type="file" name="loadme" style="display:none" accept=".km,.kmz,.stl,.obj,.svg,.png,.jpg,.jpeg,.gcode,.nc"></input>
-                        </div>
-                        <hr>
-                        <div id="app-export">
-                            <label lk="export">export</label>
-                            <span><i class="fas fa-download"></i></span>
-                        </div>
-                    </div>
-                </div>
-            </span>
-            <span>
-                <i class="fas fa-eye"></i>
-                <label lk="vu_menu">view</label>
-                <div class="top-menu-drop top-menu-right">
-                    <div class="content">
-                        <div id="view-fit">
-                            <label lk="contents">contents</label>
-                            <span><i class="fas fa-expand"></i></span>
-                        </div>
-                        <div id="view-home">
-                            <label lk="home">home</label>
-                            <span><i class="fas fa-home"></i></span>
-                        </div>
-                        <hr>
-                        <div id="view-top">
-                            <label lk="top">top</label>
-                            <span><i class="fas fa-square"></i></span>
-                        </div>
-                        <div id="view-front">
-                            <label lk="front">top</label>
-                            <span><i class="fas fa-square"></i></span>
-                        </div>
-                        <div id="view-back">
-                            <label lk="back">top</label>
-                            <span><i class="fas fa-square"></i></span>
-                        </div>
-                        <div id="view-left">
-                            <label lk="left">top</label>
-                            <span><i class="fas fa-square"></i></span>
-                        </div>
-                        <div id="view-right">
-                            <label lk="right">top</label>
-                            <span><i class="fas fa-square"></i></span>
-                        </div>
-                        <hr>
-                        <div id="app-xpnd">
-                            <label lk="fullscreen">fullscreen</label>
-                            <span><i class="fas fa-maximize"></i></span>
-                        </div>
-                    </div>
-                </div>
-            </span>
-            <span>
-                <i class="fas fa-code-branch"></i>
-                <label lk="mo_menu">mode</label>
-                <div class="top-menu-drop top-menu-right">
-                    <div class="content">
-                        <div id="mode-fdm">
-                            <label title="3D Additive Printing Processes">FDM</label>
-                            <span><i class="fas fa-layer-group"></i></span>
-                        </div>
-                        <div id="mode-cam">
-                            <label title="CNC Mills and Subtractive Processes">CNC</label>
-                            <span><i class="fas fa-bore-hole"></i></span>
-                        </div>
-                        <div id="mode-sla">
-                            <label title="mSLA Resin Printing">SLA</label>
-                            <span><i class="fas fa-cube"></i></span>
-                        </div>
-                        <hr>
-                        <div id="mode-laser">
-                            <label title="Laser Cutting and Engraving">Laser</label>
-                            <span><i class="fas fa-bolt"></i></span>
-                        </div>
-                        <div id="mode-wjet">
-                            <label title="WaterJet Cutting">Water</label>
-                            <span><i class="fas fa-location-pin"></i></span>
-                        </div>
-                        <div id="mode-wedm">
-                            <label title="Wire EDM Cutting">Wire</label>
-                            <span><i class="fas fa-ellipsis-vertical"></i></span>
-                        </div>
-                        <div id="mode-drag">
-                            <label title="Drag Knife Cutting">Drag</label>
-                            <span><i class="fas fa-caret-left"></i></span>
-                        </div>
-                    </div>
-                </div>
-            </span>
-            <span>
-                <i class="fas fa-cog"></i>
-                <label lk="su_menu">setup</label>
-                <div class="top-menu-drop top-menu-right">
-                    <div class="content">
-                        <div id="set-device">
-                            <label lk="machines">machines</label>
-                            <span><i class="fas fa-cube"></i></span>
-                        </div>
-                        <div id="set-profs">
-                            <label lk="profs">profiles</label>
-                            <span><i class="fas fa-sliders-h"></i></span>
-                        </div>
-                        <div id="set-tools">
-                            <label lk="tools">tools</label>
-                            <span><i class="fas fa-tools"></i></span>
-                        </div>
-                        <div id="set-prefs">
-                            <label lk="prefs">prefs</label>
-                            <span><i class="fa-solid fa-square-check"></i></span>
-                        </div>
-                    </div>
-                </div>
-            </span>
-            <span>
-                <i class="fas fa-question-circle"></i>
-                <label lk="info">info</label>
-                <div class="top-menu-drop top-menu-right">
-                    <div class="content">
-                        <div id="app-help">
-                            <label lk="help">help</label>
-                        </div>
-                        <div id="app-don8">
-                            <label lk="donate">donate</label>
-                        </div>
-                    </div>
-                </div>
-            </span>
-            <span>
-                <i class="fas fa-language"></i>
-                <div class="top-menu-drop top-menu-right">
-                    <div class="content">
-                        <div><label id="lset-zh">简体中文</label></div>
-                        <div><label id="lset-da">dansk</label></div>
-                        <div><label id="lset-de">deutsch</label></div>
-                        <div><label id="lset-en">english</label></div>
-                        <div><label id="lset-es">español</label></div>
-                        <div><label id="lset-fr">français</label></div>
-                        <div><label id="lset-pl" class="nocap">polski</label></div>
-                        <div><label id="lset-pt">português</label></div>
-                    </div>
-                </div>
-            </span>
+    <div id="menubar" class="f-row"></div>
+
+    <!-- modal progress overlay -->
+    <div id="progress-overlay" class="hide">
+        <div id="progress-indicator">
+            <div id="progress-ring"></div>
+            <div id="progress-pct"></div>
+            <div id="progtxt"></div>
         </div>
     </div>
-
-    <!-- line betwwen menu bar and main application windows -->
-    <div id="progress"><div id="progbar"></div><div id="progtxt">loading</div></div>
 
     <!-- toolbar with mesh and rendering options -->
-    <div>
-        <div id="render-tools">
-            <span id="tool-nozzle"><i class="fas fa-location-pin" title="extruder"></i>
-                <div id="ft-nozzle" class="f-col pop"></div>
-            </span>
-            <span id="tool-rotate"><i class="fas fa-rotate-right" title="rotate selection"></i>
-                <div id="ft-rotate" class="grid pop">
-                    <div id="rot_x_lt"><i class="fas fa-chevron-left"></i></div>
-                    <label>X</label>
-                    <div id="rot_x_gt"><i class="fas fa-chevron-right"></i></div>
-                    <input id="rot_x" class="value center" size="6" value="90">
-                    <div id="rot_y_lt"><i class="fas fa-chevron-left"></i></div>
-                    <label>Y</label>
-                    <div id="rot_y_gt"><i class="fas fa-chevron-right"></i></div>
-                    <input id="rot_y" class="value center" size="6" value="90">
-                    <div id="rot_z_lt"><i class="fas fa-chevron-left"></i></div>
-                    <label>Z</label>
-                    <div id="rot_z_gt"><i class="fas fa-chevron-right"></i></div>
-                    <input id="rot_z" class="value center" size="6" value="90">
-                    <div class="buttons f-row">
-                        <button id="unrotate" class="grow" lk="reset">reset</button>
-                    </div>
-                </div>
-            </span>
-            <span id="tool-scale"><i class="fas fa-expand" title="scale or resize selection"></i>
-                <div id="ft-scale" class="grid pop">
-                    <div><label>X</label><input id="lock_x" type="checkbox" checked></div>
-                    <div><label>Y</label><input id="lock_y" type="checkbox" checked></div>
-                    <div><label>Z</label><input id="lock_z" type="checkbox" checked></div>
-                    <label id="lab-axis" lk="axis">axis</label>
-                    <input id="size_x" size="8" class="value">
-                    <input id="size_y" size="8" class="value">
-                    <input id="size_z" size="8" class="value">
-                    <label id="lab-size" lk="size">size</label>
-                    <input id="scale_x" size="8" class="value" value="1">
-                    <input id="scale_y" size="8" class="value" value="1">
-                    <input id="scale_z" size="8" class="value" value="1">
-                    <label id="lab-scale" lk="scale">scale</label>
-                    <div class="buttons f-row">
-                        <button id="scale-reset" class="grow j-center">reset</button>
-                    </div>
-                </div>
-            </span>
-            <span id="tool-mesh"><i class="fas fa-dice-d20"></i>
-                <div id="ft-mesh" class="grow f-col pop">
-                    <div id="ft-mesh-btn">
-                        <div><button id="mesh-merge" lk="rc_merg">Merge</button></div>
-                        <div><button id="mesh-split" lk="rc_splt">Isolate Bodies</button></div>
-                        <div><button id="mesh-export-obj" lk="rc_xobj">export OBJ</button></div>
-                        <div><button id="mesh-export-stl" lk="rc_xstl">export STL</button></div>
-                    </div>
-                </div>
-            </span>
-            <span id="context-mirror" xlk="rc_mirr">
-                <i class="fas fa-arrows-left-right-to-line"></i>
-                <div class="pop">mirror selection</div>
-            </span>
-            <span id="context-duplicate" xlk="rc_dupl">
-                <i class="fas fa-copy"></i>
-                <div class="pop">duplicate selection</div>
-            </span>
-            <span id="context-layflat" xlk="rc_lafl">
-                <i class="fas fa-arrows-down-to-line"></i>
-                <div class="pop">choose a face to place<br>on the work surface</div>
-            </span>
-            <span id="context-lefty" xlk="rc_lafl">
-                <i class="fas fa-arrows-down-to-line rot90"></i>
-                <div class="pop">choose a face to align<br>to the y axis</div>
-            </span>
-            <span id="context-setfocus" xlk="rc_focs">
-                <i class="fas fa-eye"></i>
-                <div class="pop">choose focal point<br>camera orbit center</div>
-            </span>
-            <span id="context-contents" xlk="rc_focs">
-                <i class="fas fa-arrows-to-circle"></i>
-                <div class="pop">fit workspace contents</div>
-            </span>
-            <span id="render-solid" class="j-center">
-                <i class="fas fa-square"></i>
-                <div class="pop">render objects solid</div>
-            </span>
-            <span id="render-wire" class="j-center">
-                <i class="fas fa-border-all"></i>
-                <div class="pop">render objects wireframe</div>
-            </span>
-            <span id="render-ghost" class="a-center">
-                <i class="fas fa-border-none"></i>
-                <div class="pop">render objects transparent</div>
-            </span>
-            <span id="render-edges" class="a-center">
-                <i class="fa-regular fa-square"></i>
-                <div class="pop">trace edges</div>
-            </span>
-        </div>
-    </div>
+    <div id="mode-tools"></div>
 
     <div id="mid" class="grow f-row">
 
         <!-- left settings menu -->
         <div id="panel-left" class="f-col j-left">
-            <!-- <div class="line-sep2"></div> -->
-            <div id="slide-show"><span><i class="fa-solid fa-arrow-right"></i></span></div>
-            <div class="f-col grow settings">
+            <div id="panel-slide" class="f-col settings">
+                <div id="all-devpro" class="set2-group"></div>
                 <!-- FDM -->
                 <div id="fdm-layers" class="set2-group mode-fdm"></div>
                 <div id="fdm-walls" class="set2-group mode-fdm"></div>
@@ -373,30 +76,28 @@
                 <div id="fdm-base" class="set2-group mode-fdm"></div>
                 <div id="fdm-support" class="set2-group mode-fdm"></div>
                 <div id="fdm-output" class="set2-group mode-fdm"></div>
-                <div id="fdm-expert" class="set2-group mode-fdm"></div>
+                <div id="fdm-expert" class="set2-group mode-fdm bottom"></div>
                 <!-- CAM -->
                 <div id="cam-tabs" class="set2-group mode-cam"></div>
                 <div id="cam-stock" class="set2-group mode-cam"></div>
                 <div id="cam-limits" class="set2-group mode-cam"></div>
                 <div id="cam-output" class="set2-group mode-cam"></div>
                 <div id="cam-origin" class="set2-group mode-cam"></div>
-                <div id="cam-expert" class="set2-group mode-cam"></div>
+                <div id="cam-expert" class="set2-group mode-cam bottom"></div>
                 <!-- LASER / 2D Cut Tools -->
                 <div id="lzr-slice" class="set2-group mode-laser"></div>
                 <div id="lzr-surface" class="set2-group mode-laser"></div>
                 <div id="lzr-knife" class="set2-group mode-laser"></div>
                 <div id="lzr-layout" class="set2-group mode-laser"></div>
-                <div id="lzr-output" class="set2-group mode-laser"></div>
+                <div id="lzr-output" class="set2-group mode-laser bottom"></div>
                 <!-- SLA -->
                 <div id="sla-slice" class="set2-group mode-sla"></div>
                 <div id="sla-layers" class="set2-group mode-sla"></div>
                 <div id="sla-base" class="set2-group mode-sla"></div>
                 <div id="sla-fill" class="set2-group mode-sla"></div>
                 <div id="sla-support" class="set2-group mode-sla"></div>
-                <div id="sla-output" class="set2-group mode-sla"></div>
+                <div id="sla-output" class="set2-group mode-sla bottom"></div>
             </div>
-            <div class="line-sep2"></div>
-            <div class="chonk"></div>
         </div>
 
         <!-- main workspace -->
@@ -422,7 +123,6 @@
             </div>
             <!-- CAM animation controls and readout -->
             <div id="layer-animate" class="f-col a-center set2-group hide"></div>
-            <!-- <div id="layer-toolpos" class="f-row a-center hide"></div> -->
         </div>
 
         <!-- allows right tray to slide/hide but still show speeds menu -->
@@ -432,21 +132,17 @@
             </div>
             <!-- vertical separation between workspace and right tray -->
             <div id="panel-right" class="f-col j-start settings">
-                <div id="mode-info">
-                    <div><label lk="mi_devi">Device</label><span id="mode-device"></span></div>
-                    <div><label lk="mi_prof">Profile</label><span id="mode-profile"></span></div>
-                </div>
                 <div class="set2-group f-col">
                     <details open>
                         <summary class="set-header"><a>objects</a></summary>
                         <div id="ws-widgets" class="f-col"></div>
                     </details>
                 </div>
-                <div class="set2-group f-col mode-fdm">
+                <div class="set2-group f-col mode-fdm bottom">
                     <div class="set-header"><a>ranges</a></div>
                     <div id="fdm-ranges" class="f-col"></div>
                 </div>
-                <div class="set2-group f-col mode-cam">
+                <div class="set2-group f-col mode-cam bottom">
                     <details open>
                     <summary class="set-header mode-cam"><a>operation list</a></summary>
                     <div id="camops" class="f-col a-stretch grow">
@@ -478,9 +174,6 @@
                     </div>
                     </details>
                 </div>
-                <div class="grow"></div>
-                <div class="line-sep2"></div>
-                <div class="chonk"></div>
             </div>
         </div>
     </div>

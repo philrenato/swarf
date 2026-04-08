@@ -83,6 +83,10 @@ class OpRough extends CamOp {
 
         // outside only if we're not clearing all of stock
         if (cutOutside && !op.all) {
+            if (op.leave) {
+                // recompute area with offset when provided
+                areas = POLY.flatten(POLY.expand(shadowBase, tool.fluteDiameter() / 2 - 0.001 + op.leave));
+            }
             ops_list.push(new OpArea(state, {
                 rename: op.rename ?? "cutout",
                 spindle: op.spindle,

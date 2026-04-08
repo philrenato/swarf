@@ -66,6 +66,18 @@ self.lang['de-de'] = {
     view:           "Ansicht",          // left view pop menu
     wire:           "Drahtansicht",     // left render pop menu
     volume:         "Volumen",          // device build area
+    al_menu:        "ausrichten",
+    re_menu:        "rendern",
+    sx_menu:        "auswahl",
+    ed_menu:        "Bearbeiten",
+    face_left:      "linke seite",
+    re_edgs:        "kanten umschalten",
+    al_menu:        "ausrichten",
+    re_menu:        "rendern",
+    sx_menu:        "auswahl",
+    ed_menu:        "Bearbeiten",
+    face_left:      "linke seite",
+    re_edgs:        "kanten umschalten",
 
     acct_xpo:       ["Lege ein Backup Deiner Geräte","und Geräte-Profile an, mit der","Option, den Arbeitsbereich und","mit Objekten und Anordnung zu speichern"],
 
@@ -81,8 +93,8 @@ self.lang['de-de'] = {
     rc_xobj:        "Als OBJ exportieren",
     rc_xstl:        "Als STL exportieren",
     sb_info:        ["Druckgeschwindigkeit","in mm/s"],
-    rc_merg:        "Objekt-Meshes zusammenführen",
-    rc_splt:        "Körper isolieren",
+    rc_merg:        "Objekte zusammenführen",
+    rc_splt:        "Objekte isolieren",
 
     // DEVICE MENU and related dialogs
     dm_sldt:        "Wähle einen Geräte-Typ aus",
@@ -712,6 +724,10 @@ self.lang['de-de'] = {
     ct_midl_l:      ["Mittellinie des Haltestegs verwenden","statt Z unten","für doppelseitige Arbeit"],
     ct_nabl_s:      "Auto",
     ct_nabl_l:      ["Radiale Haltestege automatisch generieren","projiziert von Teil-Mitte","mit Anzahl und Winkel-Offset"],
+
+    // CNC AREA OP
+    ca_fini_s:      "Schlichtwerkzeugweg",
+    ca_fini_l:      "Schneidpfad, der der Kontur des Endteils folgt. ermöglicht präzisen Vorschub beim Räumen größerer Bereiche.",
 
     // OUTPUT
     ou_menu:        "Ausgabe",

@@ -85,6 +85,13 @@ class Orbit extends EventDispatcher {
             PAN: MOUSE.MIDDLE
         };
 
+        // Onshape
+        this.mouseVoid = {
+            ORBIT: MOUSE.RIGHT,
+            // ZOOM: MOUSE.LEFT,
+            PAN: MOUSE.MIDDLE
+        };
+
         this.mouseButtons = this.mouseDefault;
 
         this.setMouse = function(bindings) {
@@ -116,6 +123,7 @@ class Orbit extends EventDispatcher {
             pan = new Vector3(),
             lastPosition = new Vector3(),
             lastQuaternion = new Quaternion(),
+            lastZoom = object.zoom !== undefined ? object.zoom : 1,
             // so camera.up is the orbit axis
             quat = new Quaternion().setFromUnitVectors(object.up, new Vector3(0, 1, 0)),
             quatInverse = quat.clone().invert(),
@@ -227,15 +235,33 @@ class Orbit extends EventDispatcher {
         this.setPosition = function(set) {
             thetaSet = firstValue([set.left, set.theta, thetaSet]);
             phiSet = firstValue([set.up, set.phi, phiSet]);
-            if (set.panX !== undefined) this.target.x = set.panX;
-            if (set.panY !== undefined) this.target.y = set.panY;
-            if (set.panZ !== undefined) this.target.z = set.panZ;
+            let target = this.target;
+            let position = this.object.position;
+            if (set.posX !== undefined) position.x = set.posX;
+            if (set.posY !== undefined) position.y = set.posY;
+            if (set.posZ !== undefined) position.z = set.posZ;
+            if (set.panX !== undefined) target.x = set.panX;
+            if (set.panY !== undefined) target.y = set.panY;
+            if (set.panZ !== undefined) target.z = set.panZ;
             if (set.scale !== undefined) scale = set.scale;
+            else scale = 1;
+            this.update();
         };
 
-        this.getPosition = function(scaled) {
+        this.getPosition = function({ scaled } = { scaled: false }) {
             let t = this.target,
-                pos = { left:theta, up:phi, panX:t.x, panY:t.y, panZ:t.z, scale:scaled ? scaleSave : 1 };
+                p = this.object.position,
+                pos = {
+                    left: theta,
+                    up: phi,
+                    panX: t.x,
+                    panY: t.y,
+                    panZ: t.z,
+                    posX: p.x,
+                    posY: p.y,
+                    posZ: p.z,
+                    scale: scaled ? scaleSave : undefined
+                };
             return pos;
         };
 
@@ -325,11 +351,13 @@ class Orbit extends EventDispatcher {
             // min(camera displacement, camera rotation in radians)^2 > EPS
             // using small-angle approximation cos(x/2) = 1 - x^2 / 8
             if (lastPosition.distanceToSquared(this.object.position) > EPS
-                || 8 * (1 - lastQuaternion.dot(this.object.quaternion)) > EPS) {
+                || 8 * (1 - lastQuaternion.dot(this.object.quaternion)) > EPS
+                || Math.abs(lastZoom - this.object.zoom) > EPS) {
 
                 this.dispatchEvent(changeEvent);
                 lastPosition.copy(this.object.position);
                 lastQuaternion.copy(this.object.quaternion);
+                lastZoom = this.object.zoom;
                 if (notify) notify(position, true);
             } else {
                 if (notify) notify(position, false);
@@ -362,6 +390,15 @@ class Orbit extends EventDispatcher {
             if (scope.enabled === false) return;
             event.preventDefault();
 
+            // keep wheel as dolly, but treat middle-button drag like right-button drag
+            // in default orbit bindings.
+            const touchSynthesized = Boolean(event?.sourceCapabilities?.firesTouchEvents);
+            if (!touchSynthesized
+                && event.button === MOUSE.MIDDLE
+                && scope.mouseButtons.ZOOM === MOUSE.MIDDLE
+                && scope.mouseButtons.PAN === MOUSE.RIGHT) {
+                state = STATE.PAN;
+            } else {
             switch (event.button) {
                 case scope.mouseButtons.ORBIT:
                     state = event.metaKey ? STATE.PAN : STATE.ROTATE;
@@ -372,6 +409,7 @@ class Orbit extends EventDispatcher {
                 case scope.mouseButtons.PAN:
                     state = STATE.PAN;
                     break;
+            }
             }
 
             switch (state) {
@@ -467,14 +505,14 @@ class Orbit extends EventDispatcher {
             if (event.wheelDelta !== undefined) {
                 // Chrome/Safari wheelDelta: scroll up = +120, scroll down = -120
                 // Negate to match deltaY convention
-                delta = -event.wheelDelta;
+                delta = event.wheelDelta;
             } else if (event.detail !== undefined) {
                 // Old Firefox DOMMouseScroll detail: scroll up = -3, scroll down = +3
-                delta = event.detail * 40; // Normalize to pixel values
+                delta = -event.detail * 40; // Normalize to pixel values
             } else if (event.deltaY !== undefined) {
                 // Modern browsers deltaY: scroll up = negative, scroll down = positive
                 // Already matches our convention
-                delta = event.deltaY;
+                delta = -event.deltaY;
                 // Firefox's deltaMode indicates the unit of deltaY
                 // DOM_DELTA_PIXEL (0x00) - pixels
                 // DOM_DELTA_LINE (0x01) - lines (default for Firefox, ~3 units per notch)
@@ -681,7 +719,23 @@ class Orbit extends EventDispatcher {
 
         this.onMouseUp = onMouseUp;
 
-        domEl.addEventListener('contextmenu', function (event) { event.preventDefault() }, false);
+        this.dispose = function() {
+            domEl.removeEventListener('contextmenu', onContextMenu, false);
+            domEl.removeEventListener('mousedown', onMouseDown, false);
+            domEl.removeEventListener('wheel', onMouseWheel, false);
+            domEl.removeEventListener('mousewheel', onMouseWheel, false);
+            domEl.removeEventListener('DOMMouseScroll', onMouseWheel, false);
+            domEl.removeEventListener('touchstart', touchstart, false);
+            domEl.removeEventListener('touchend', touchend, false);
+            domEl.removeEventListener('touchmove', touchmove, false);
+
+            document.removeEventListener('mousemove', onMouseMove, false);
+            document.removeEventListener('mouseup', onMouseUp, false);
+            window.removeEventListener('keydown', onKeyDown, false);
+        };
+
+        function onContextMenu(event) { event.preventDefault() }
+        domEl.addEventListener('contextmenu', onContextMenu, false);
         domEl.addEventListener('mousedown', onMouseDown, false);
         domEl.addEventListener('wheel', onMouseWheel, false); // Modern standard (Chrome, Safari, Firefox)
         domEl.addEventListener('mousewheel', onMouseWheel, false); // Legacy Chrome/Safari

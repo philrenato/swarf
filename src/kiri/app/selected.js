@@ -6,6 +6,7 @@ import { THREE } from '../../ext/three.js';
 import { tool as MeshTool } from '../../mesh/tool.js';
 import { encode as objEncode } from '../../load/obj.js';
 import { encode as stlEncode } from '../../load/stl.js';
+import { $ } from '../../moto/webui.js';
 
 /**
  * Array of currently selected widget meshes.

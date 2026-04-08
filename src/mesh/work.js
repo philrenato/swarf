@@ -35,6 +35,8 @@ function log(msg) {
     return worker.publish("mesh.log", msg);
 }
 
+self.log = log;
+
 function cacheUpdate(id, data) {
     return Object.assign(cache[id], data);
 }

@@ -36,42 +36,6 @@
     font-family: 'Russo One';
     src: url('../moto/russo-one.ttf');
 }
-@media only screen and (max-width : 1000px) {
-    .top-menu > span > label {
-        display: none;
-    }
-}
-@media only screen and (max-width : 1200px) {
-    body {
-        font-size: smaller;
-    }
-}
-@media only screen and (max-width : 900px) {
-    body {
-        font-size: x-small;
-    }
-}
-@media only screen and (max-height : 1024px) {
-    body {
-        font-size: smaller;
-    }
-}
-@media only screen and (max-height : 750px) {
-    .lt-menu, .pop-lcol {
-        font-size: 16px !important;
-    }
-    .lt-menu svg {
-        font-size: 30px !important;
-    }
-    .pop-lcol svg {
-        font-size: 20px !important;
-    }
-    .mod-x {
-        position: absolute;
-        font-size: 30px;
-        top: 8px;
-    }
-}
 
 html, body {
     position: relative;
@@ -115,22 +79,16 @@ button[disabled] {
     color: #999;
 }
 input {
-    background-color: #f8f8ff;
+    margin-top: 1px;
     margin-bottom: 1px;
-    text-align: right;
-    border: 0.5px solid #bbb;
     padding-top: 0;
     padding-bottom: 0;
-    margin-top: 1px;
     position: relative;
+    text-align: right;
 }
 input:focus {
     outline: 0;
     box-shadow: 0 0 0 0.2rem rgb(0 100 255 / 10%);
-}
-input[disabled] {
-    background-color: #ddd;
-    color: #000;
 }
 input[type="range"] {
     width: 85px;
@@ -170,8 +128,6 @@ textarea {
     overflow: scroll;
 }
 select {
-    border: 1px solid #bbb;
-    background-color: rgba(255,255,255,0.5);
     border-radius: 3px;
 }
 th, tr, td, span, div, label, button {
@@ -224,6 +180,7 @@ details[open] summary::after {
 /* container for entire page / app */
 #app {
     position: fixed;
+    font-size: 14px;
     font-weight: normal;
     font-family: sans-serif;
     top: 0;
@@ -237,226 +194,209 @@ details[open] summary::after {
 }
 
 /** dark conversion */
-.dark button[disabled] {
-    color: #888;
-}
-.dark input[disabled] {
-    border-color: #666;
-    background-color: #444;
-    color: #888;
-}
-.dark input,
-.dark select,
-.dark option
-{
-    border-color: #888;
-    background-color: #333;
-    color: #fff;
-}
-.dark option:checked {
-    background-color: var(--blue-1);
-}
-.dark hr {
-    border-color: #555;
-}
-.dark textarea {
-    background-color: #333;
-    color: #fff;
-}
-.dark button {
-    color: #fff;
-    background-color: #555;
-    border: 1px solid #777;
-}
-.dark button:not([disabled]):hover {
-    background-color: var(--blue-2);
-    color: black;
-}
-.dark #alert-border:hover {
-    background-color: rgba(255,255,255,0.7);
-}
-.dark #progress {
-    background-color: #333;
-    border-top: 1px solid #555;
-    border-bottom: 1px solid #555;
-}
-.dark #mesh-info label,
-.dark #mode-info label
-{
-    color: #fff;
-    border-color: #888;
-    background-color: var(--blue-0);
-}
-.dark #mesh-info span,
-.dark #mode-info span
-{
-    color: #fff;
-    border-color: #888;
-    background-color: #333;
-}
-.dark #oplist div .del {
-    color: #aaa;
-}
-.dark #oplist div:hover .del {
-    color: #333 !important;
-}
-.dark .mod-top, .dark .mod-end {
-    background-color: var(--blue-00);
-}
-.dark .pop-sep,
-.dark .set-sep
-{
-    background-color: #555 !important;
-}
-.dark #render-tools .pop,
-.dark #render-tools svg,
-.dark .pop-tics > div,
-.dark #top,
-.dark #top .content,
-.dark #app-name,
-.dark .set2-group,
-.dark .set2-group .var-row,
-.dark .set2-sep,
-.dark .var-row,
-.dark #layers .var-row,
-.dark #slider-zero,
-.dark #slider-max,
-.dark .mdialog,
-.dark .t-body,
-.dark .cam-pop-op,
-.dark .mod-print,
-.dark .mod-print .header label
-{
-    background-color: #282828;
-    color: white;
-}
-.dark #dev-list:hover {
-    background-color: var(--blue-1);
-}
-.dark #render-tools .pop,
-.dark #render-tools svg,
-.dark .cam-pop-op {
-    border-color: #555;
-}
-.dark .btn-sel,
-.dark .txt-sel button {
-    /* color: #fff; */
-    background-color: var(--blue-1);
-}
-.dark #dialog {
-    background-color: rgba(60,60,60,0.85);
-    border-top: 8px solid rgba(100,100,100,1);
-    border-bottom: 7px solid rgba(100,100,100,1);
-}
-.dark #modal, .dark #dialog {
-    color: #fff !important;
-}
-.dark #modal select, .dark #dialog select {
-    color: #fff !important;
-}
-.dark .t-body,
-.dark .set2-group {
-    border: 1px solid #444 !important;
-}
-.dark .set2-group .var-row:hover,
-.dark .var-row:hover
-{
-    border-right: 3px solid var(--blue-3);
-    background-color: var(--blue-1) !important;
-}
-.dark #slider-line {
-    background-color: #444;
-}
-.dark .set-header {
-    background-color: var(--blue-00);
-}
-.dark #oplist > div,
-.dark .opdiv
-{
-    background-color: #333;
-    border: 1px solid #888;
-}
-.dark #oplist > div:hover,
-.dark #op-add:hover {
-    background-color: var(--blue-1);
-}
-.dark #oplist div:hover .del {
-    color: #777;
-}
-.dark #top .content > div:hover {
-    background-color: var(--blue-1);
-}
-.dark .top-menu label {
-    color: var(--dark-menu-text)
-}
-.dark #render-tools svg:hover {
-    background-color: var(--blue-1);
-    border-color: var(--blue-3);
-}
-.dark .top-menu > span:hover {
-    background-color: var(--blue-1);
-}
-.dark .top-menu > span:hover label,
-.dark .top-menu > span:hover svg
-{
-    color: var(--dark-menu-text) !important;
-}
-.dark .top-menu > span.selected,
-.dark .top-menu > span.selected svg,
-.dark .top-menu-drop div.selected
-{
-    background-color: var(--blue-1);
-    color: #fff;
-}
-.dark #slider-hold {
-    background-color: var(--blue-0);
-}
-.dark #stats {
-    color: #888;
-}
-.dark #rnfo {
-    color: #aaa;
-    border: 1px solid rgba(255,255,255,0.25);
-    background-color: rgba(0,0,0,0.75);
-}
-.dark #rnfo label {
-    color: #ada;
-}
-.dark #slider-center {
-    /* background-color: rgba(255,255,255,0.15); */
-}
-#slider-center {
-    /* background-color: rgba(255,255,255,0.5); */
-}
-.dark #slider-hold .handle {
-    background-color: #999;
-}
-.dark #speedbar label {
-    color: black;
-}
-.dark .widopt {
-    background-color: #222;
-}
-.dark #camops summary {
-    background-color: var(--blue-0);
+:root[data-theme="dark"] {
+    /* global alerts / labels */
+    #alert-border:hover {
+        background-color: rgba(255,255,255,0.7);
+    }
+    #mesh-info label,
+    #mesh-info span,
+    #oplist div .del {
+        color: #aaa;
+    }
+    /* shared panels */
+    .mod-top, .mod-end {
+        background-color: var(--blue-00);
+    }
+    .pop-sep,
+    .set-sep {
+        background-color: #555 !important;
+    }
+    .t-body {
+        border: 1px solid #555;
+    }
+    #render-tools .pop,
+    #render-tools svg,
+    .pop-tics > div,
+    #menubar.content,
+    #app-name,
+    .set2-sep,
+    .var-row,
+    #layers .var-row,
+    #slider-zero,
+    #slider-max,
+    .mdialog,
+    .t-body,
+    .cam-pop-op,
+    .mod-print,
+    .mod-print .header label {
+        background-color: #282828;
+        color: white;
+    }
+    /* borders + emphasis */
+    #dev-list:hover {
+        background-color: var(--blue-1);
+    }
+    #render-tools .pop,
+    #render-tools svg,
+    .cam-pop-op {
+        border-color: #555;
+    }
+    .btn-sel,
+    .txt-sel button {
+        /* color: #fff; */
+        background-color: var(--blue-1);
+    }
+    /* lists / rows */
+    .set2-group .var-row:hover,
+    .var-row:hover {
+        border-right: 3px solid var(--blue-3);
+        background-color: var(--blue-1) !important;
+    }
+    #slider-line {
+        background-color: #444;
+    }
+    .set-header {
+        background-color: var(--blue-00);
+    }
+    #oplist > div,
+    .opdiv {
+        background-color: #282828;
+        border: 1px solid #666;
+    }
+    #oplist > div:hover,
+    #op-add:hover {
+        background-color: var(--blue-1);
+    }
+    #oplist div:hover .del {
+        color: #777 !important;
+    }
+    /* menu states */
+    #menubar.content > div:hover {
+        background-color: var(--blue-1);
+    }
+    .top-menu label {
+        color: var(--dark-menu-text)
+    }
+    #render-tools svg:hover {
+        background-color: var(--blue-1);
+        border-color: var(--blue-3);
+    }
+    .top-menu > span:hover {
+        background-color: var(--blue-1);
+    }
+    .top-menu > span:hover label,
+    .top-menu > span:hover svg {
+        color: var(--dark-menu-text) !important;
+    }
+    .top-menu > span.selected,
+    .top-menu > span.selected svg,
+    .top-menu-drop div.selected {
+        background-color: var(--blue-1);
+        color: #fff;
+    }
+    /* status + side widgets */
+    #slider-hold {
+        background-color: var(--blue-0);
+    }
+    #stats {
+        color: #888;
+    }
+    #rnfo {
+        color: #aaa;
+        border: 1px solid rgba(255,255,255,0.25);
+        background-color: rgba(0,0,0,0.75);
+    }
+    #rnfo label {
+        color: #ada;
+    }
+    #slider-hold .handle {
+        background-color: #999;
+    }
+    #speedbar label {
+        color: black;
+    }
+    .widopt {
+        background-color: #222;
+    }
+    #camops summary {
+        background-color: var(--blue-0);
+    }
+    /* overlays */
+    #wassup {
+        background-color: rgba(0,255,0,0.2);
+    }
+    .blurb p:first-child,
+    .blurb p:last-child {
+        color: #fff;
+    }
+    #curtain {
+        color: white;
+        background-color: black;
+    }
+    /* dialogs + print */
+    #op-add-list > div:hover {
+        color: black;
+        background-color: var(--blue-2) !important;
+    }
+    .mod-x {
+        border-color: #555;
+        background-color: rgba(0,0,0,0.15);
+    }
+    #mod-help a:hover {
+        color: #333;
+    }
+    .mod-print .box {
+        background-color: rgba(0,0,0,0.15);
+        border-color: #555;
+    }
+    .mod-print button {
+        background-color: #555;
+        border-color: #777;
+    }
+    /* layer controls */
+    #layer-animate button {
+        border: 1px solid #555;
+        background-color: #444;
+    }
+    #layer-animate button:hover {
+        background-color: var(--main-color);
+    }
+    #layer-animate button svg {
+        color: #ddd;
+    }
+    #layer-animate label {
+        border: 1px solid #555;
+        background-color: #444;
+    }
+    #layer-animate input {
+        border: 1px solid #444;
+    }
 }
 
 /* top menu bar, drop menus */
-#top, #app-name {
+#app-name {
     background-color: #fff;
     text-transform: capitalize;
     font-family: sans-serif;
     z-index: 15;
-    height: 36px;
+    color: var(--appname-blue);
+    font-weight: bold;
+    align-self: center;
+    justify-self: stretch;
+    height: 100%;
 }
 .top-menu {
     display: flex;
     gap: 0px;
-    align-items: center;
     white-space: nowrap;
     align-items: stretch;
 }
 .top-menu > span {
+    position: relative;
+    display: flex;
+    gap: 5px;
+    align-items: center;
     padding: 5px 9px 5px 9px;
     border-left: 1px solid transparent;
     border-right: 1px solid transparent;
@@ -474,12 +414,6 @@ details[open] summary::after {
 }
 .top-menu svg {
     color: var(--blue-1);
-}
-.top-menu > span {
-    position: relative;
-    display: flex;
-    gap: 5px;
-    align-items: center;
 }
 .top-menu > span:hover label {
     color: #000;
@@ -500,16 +434,17 @@ details[open] summary::after {
 .top-menu > span:hover .top-menu-drop {
     display: flex;
 }
-.top-menu-left .content {
+/* .top-menu-right .content {
     border-top-right-radius: 4px; 
-}
-.top-menu-right {
     align-items: self-end;
+} */
+.top-menu-left {
+    align-items: self-start;
 }
 .top-menu-center .content > div > label {
     text-align: center !important;
 }
-.top-menu-right .content {
+.top-menu-left .content {
     border-top-left-radius: 4px; 
 }
 .top-menu-drop {
@@ -525,11 +460,12 @@ details[open] summary::after {
     width: 15px;
 }
 
-#top .content {
-    gap: 2px;
+#menubar.content {
     display: flex;
-    align-items: center;
     flex-direction: column;
+    align-items: stretch;
+    gap: 2px;
+    padding: 2px;
     background-color: #fff;
     border-top: 1px dashed var(--blue-2);
     border-left: 1px solid var(--blue-2);
@@ -538,63 +474,25 @@ details[open] summary::after {
     border-bottom-right-radius: 4px;
     border-bottom-left-radius: 4px;
 }
-#top .content {
-    display: flex;
-    flex-direction: column;
-    align-items: stretch;
-    padding: 2px;
-}
-#top .content > div {
+#menubar.content > div {
     display: flex;
     flex-direction: row;
 }
-#top .content > div > label {
-    text-align: left;
-    flex-grow: 1;
-}
-#top .content > div > span {
-    text-align: right;
-}
-#top .content > div > span {
+#menubar.content > div > span {
     padding: 2px 7px 2px 7px;
     padding-left: 10px;
     text-align: center;
 }
-#top .content > div > label {
+#menubar.content > div > label {
+    text-align: left;
+    flex-grow: 1;
     padding: 2px 7px 2px 7px;
     justify-self: stretch;
     align-self: stretch;
     border-radius: 3px;
 }
-#top .content > div:hover {
+#menubar.content > div:hover {
     background-color: var(--blue-4);
-}
-
-#app-name {
-    position: absolute;
-    top: 0;
-    left: 50%;
-    z-index: 50;
-    transform: translateX(-50%);
-}
-#app-name {
-    cursor: pointer;
-
-}
-#app-name hr {
-    margin: 1px;
-}
-#app-name:hover #app-name-pop {
-    display: flex;
-}
-#app-name-pop {
-    color: var(--fg-gray);
-    font-family: sans-serif;
-    position: absolute;
-    top: 100%;
-}
-#app-name-pop .content {
-    text-align: center;
 }
 
 #app,div {
@@ -815,9 +713,6 @@ details[open] summary::after {
     border-top: 5px solid rgba(0,255,100,0.5);
     border-bottom: 5px solid rgba(0,255,100,0.5);
 }
-.dark #wassup {
-    background-color: rgba(0,255,0,0.2);
-}
 .blurb {
     max-width: 200px;
     align-items: flex-end;
@@ -829,9 +724,6 @@ details[open] summary::after {
 }
 .blurb p {
     margin: 0;
-}
-.dark .blurb p:first-child, .dark .blurb p:last-child {
-    color: #fff;
 }
 .blurb p:first-child, .blurb p:last-child {
     color: #000;
@@ -851,6 +743,7 @@ details[open] summary::after {
     font-family: 'Russo One', sans-serif;
     z-index: 1000;
 }
+
 
 #tracker {
     top: 0;
@@ -894,56 +787,6 @@ details[open] summary::after {
     min-width: 100px;
     background-color: var(--bg-gray-lt);
 }
-#mode-info {
-    white-space: nowrap;
-    font-size: smaller;
-    font-family: sans-serif;
-    align-items: stretch;
-    justify-content: center;
-    padding: 2px 0 2px 0;
-    display: grid !important;
-    margin-right: 0 !important;
-    margin-bottom: 2px !important;
-    grid-template-columns: auto 1fr;
-    row-gap: 1px;
-}
-#mode-info > div {
-    display: contents;
-}
-#mode-info label, #mesh-info label {
-    font-size: smaller;
-    font-weight: bold;
-    align-self: right;
-    margin: 0 0 0 5px;
-    padding: 3px 5px 3px 5px;
-    color: var(--fg-gray);
-    background-color: var(--blue-4);
-    border-top-left-radius: 5px;
-    border-bottom-left-radius: 5px;
-    border-top: 1px solid var(--blue-3);
-    border-left: 1px solid var(--blue-3);
-    border-right: 0;
-    border-bottom: 1px solid var(--blue-3);
-}
-#mode-info span, #mesh-info span {
-    font-size: smaller;
-    margin: 0 5px 0 0;
-    padding: 3px 5px 3px 5px;
-    color: var(--fg-gray);
-    background-color: white;
-    border-top-left-radius: 0;
-    border-top-right-radius: 5px;
-    border-bottom-left-radius: 0;
-    border-bottom-right-radius: 5px;
-    border-top: 1px solid var(--blue-3);
-    border-left: 0;
-    border-right: 1px solid var(--blue-3);
-    border-bottom: 1px solid var(--blue-3);
-}
-#mode-device, #mode-profile {
-    max-width: 100px;
-    overflow: hidden;
-}
 
 #doit {
     display: none;
@@ -984,58 +827,40 @@ details[open] summary::after {
     text-transform: none !important;
 }
 
-.slideshow #panel-left .settings {
-    transform: translateX(-100%);
-    transition: transform 0.1s ease-in-out;
-    transition-delay: 0.3s;
-}
-.slideshow #panel-left:hover .settings {
-    transform: translateX(0);
-    transition-delay: 0.0s;
-}
-.slideshow #panel-left:hover #slide-show {
-    transform: translateX(-100%);
-    transition-delay: 0.0s;
-}
-.slideshow #slide-show {
-    transition-delay: 0.5s;
-    transform: translateX(-80%);
-    /* transform: translateX(0); */
-    position: absolute;
-    top: 5px;
-    left: 0;
-    bottom: 5px;
-    width: 25px;
-    background-color: var(--slide-bg);
-    border-top: 1px solid var(--blue-1);
-    border-right: 1px solid var(--blue-1);
-    border-bottom: 1px solid var(--blue-1);
-    border-bottom-right-radius: 4px;
-    border-top-right-radius: 4px;
-    z-index: -1;
-}
-.slideshow #slide-show span {
-    display: flex;
-}
-#slide-show {
-    flex-direction: row;
-    align-items: center;
-    justify-content: center;;
-}
-#slide-show span {
-    display: none;
-}
 #panel-right {
     overflow: unset;
 }
-/* #panel-right {
-    direction: rtl;
+#ws-widgets {
+    /* max-height: 250px;
+    overflow-y: auto; */
 }
-#panel-right * {
-    direction: ltr;
-} */
+#ws-widgets, #camops, #fdm-ranges {
+    padding: 0 4px 0 4px;
+}
+#camops {
+    padding-bottom: 2px;
+}
 #panel-left {
     padding-right: 5px;
+}
+#panel-right > div.bottom, .set2-group.bottom {
+    border-bottom: 1px solid var(--border-gray);
+}
+.slideshow #panel-slide {
+    padding-right: 1px;
+    border-right: 20px solid rgba(128,128,128,0.3);
+    border-top-right-radius: 5px;
+    border-bottom-right-radius: 5px;
+    transform: translateX(calc(-100% + 20px));
+    transition: transform 0.15s ease-in-out, border 0.15s ease-in-out;
+}
+.slideshow #panel-slide:hover {
+    padding-right: 0px;
+    transition: transform 0.15s ease-in-out, border 0.15s ease-in-out;
+    transform: translateX(0);
+    border-right: 0;
+    border-top-right-radius: 0;
+    border-bottom-right-radius: 0;
 }
 #panel-left, #panel-right {
     max-height: 100%;
@@ -1072,16 +897,6 @@ details[open] summary::after {
 }
 .widopt button.disabled {
     background-color: var(--blue-3);
-}
-#top-sep {
-    display: none;
-}
-#top-sep {
-    z-index: 14;
-    height: 1px;
-    min-height: 1px;
-    max-height: 1px;
-    background-image: var(--gradbar);
 }
 .line-sep2 {
     z-index: 14;
@@ -1152,59 +967,43 @@ details[open] summary::after {
     background-color: var(--main-color);
     color: white;
 }
-
-/* top center toolbar  */
-#render-tools {
+/* mode toolbar  */
+#mode-tools {
     pointer-events: all;
-    position: absolute;
-    gap: 2px;
-    top: 3px;
+    gap: 3px;
+    top: 0;
     left: 0;
     right: 0;
     align-items: center;
     justify-content: center;
     flex-direction: row;
 }
-#render-tools span {
-    position: relative;
+#mode-tools > span {
+    text-transform: capitalize;
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    color: var(--menubar-fore);
+    background-color: var(--menubar-back);
+    border-bottom-left-radius: 4px;
+    border-bottom-right-radius: 4px;
+    border-left: 1px solid var(--border-gray);
+    border-right: 1px solid var(--border-gray);
+    border-bottom: 1px solid var(--border-gray);
+    padding: 4px 8px 4px 8px;
 }
-#render-tools svg {
-    font-size: 20px;
+#mode-tools svg {
     aspect-ratio: 1/1;
-    background-color: #fff;
-    border: 1px solid #aaa;
-    border-radius: 3px;
-    padding: 8px;
+    font-size: 20px;
+    padding: 0 5px 0 0;
 }
-#render-tools svg:hover {
-    border: 1px solid blue;
-    background-color: var(--blue-4);
+#mode-tools > span:hover {
+    border-color: var(--appname-blue);
+    background-color: var(--menu-hover-bg);
 }
-/** tool pop menus */
-#render-tools .pop:before {
-    position: absolute;
-    top: -10px;
-    left: -20px;
-    width: calc(100% + 40px);
-    height: calc(100% + 20px);
-    /* background-color: red; */
-    content: "";
-}
-#render-tools .pop {
-    background-color: #fff;
-    border: 1px solid #aaa;
-    border-radius: 3px;
-    position: absolute;
-    margin-top: 3px;
-    padding: 3px;
-    top: 100%;
-    left: 50%;
-    transform: translateX(-50%);
-    text-align: center;
-    white-space: nowrap;
-}
-#render-tools > span:not(:hover) .pop {
-    display: none;
+#mode-tools > span.selected {
+    border-color: var(--appname-blue);
+    background-color: var(--menu-active-bg);
 }
 /** fdm extruder drop-down */
 #ft-nozzle .splat {
@@ -1218,6 +1017,61 @@ details[open] summary::after {
     flex-direction: row;
     align-items: center;
 }
+
+/* draggable selection transform panels */
+.selection-panel {
+    position: fixed;
+    display: flex;
+    flex-direction: column;
+    z-index: 80;
+    min-width: 230px;
+    border: 1px solid var(--border-gray);
+    border-radius: 6px;
+    background-color: var(--menubar-back);
+    color: var(--menubar-fore);
+    box-shadow: 0 8px 22px rgba(0,0,0,0.25);
+    pointer-events: all;
+}
+#panel-rotate {
+    top: 92px;
+    right: 26px;
+}
+#panel-scale {
+    top: 270px;
+    right: 26px;
+}
+.selection-panel-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 7px 10px;
+    border-bottom: 1px solid var(--border-gray);
+    cursor: move;
+    user-select: none;
+}
+.selection-panel-head-title {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+.selection-panel-head label {
+    font-weight: 600;
+}
+.selection-panel-close {
+    border: none;
+    background: transparent;
+    color: inherit;
+    border-radius: 4px;
+    padding: 2px 6px;
+    cursor: pointer;
+}
+.selection-panel-close:hover {
+    background-color: var(--menu-hover-bg);
+}
+.selection-panel-body {
+    padding: 8px;
+}
+
 /** selection rotation */
 #ft-rotate {
     gap: 2px;
@@ -1383,7 +1237,6 @@ details[open] summary::after {
 }
 #camops {
     display: flex;
-    padding: 0 0 0 0;
 }
 #oplist {
     max-height: calc(70vh - 200px);
@@ -1393,7 +1246,7 @@ details[open] summary::after {
 }
 .cam-pop-op {
     top: 0;
-    right: calc(100% + 4px);
+    right: calc(100% - 4px);
     text-align: left;
     position: absolute;
     white-space: nowrap;
@@ -1472,10 +1325,11 @@ details[open] summary::after {
     align-items: left;
     justify-content: center;
     border: 1px solid rgba(0,0,0,0.25);
-    border-radius: 4px;
+    border-radius: 3px;
     padding: 5px 10px 5px 10px;
     background-color: rgba(255,255,255,0.75);
     white-space: nowrap;
+    font-size: smaller;
 }
 #oplist > div:hover, #op-add:hover {
     background-color: var(--blue-4);
@@ -1533,8 +1387,28 @@ details[open] summary::after {
     position: absolute;
     display: none;
     top: 50%;
-    right: 100%;
+    right: calc(100% - 4px);
     transform: translateY(-50%);
+    isolation: isolate;
+}
+#op-add-pop::before {
+    content: "";
+    position: absolute;
+    top: -50px;
+    left: -50px;
+    right: 0;
+    bottom: -50px;
+    /* background-color: red; */
+}
+#op-add-pop::after {
+    content: "";
+    position: absolute;
+    top: 50%;
+    left: -50px;
+    right: -100px;
+    bottom: -50px;
+    /* background-color: green; */
+    z-index: -1;
 }
 #op-add:hover #op-add-pop {
     display: flex;
@@ -1557,14 +1431,11 @@ details[open] summary::after {
 #op-add-list > div {
     padding: 3px 5px 3px 5px;
     display: flex;
+    font-size: 14px;
     flex-direction: column;
     border: 1px dashed gray;
     border-radius: 3px;
     text-align: center;
-}
-.dark #op-add-list > div:hover {
-    color: black;
-    background-color: var(--blue-2) !important;
 }
 #op-add-list > div:hover {
     background-color: var(--blue-4);
@@ -1575,39 +1446,75 @@ details[open] summary::after {
     top: 0;
 }
 
-#progress {
-    left: 0;
-    right: 0;
-    height: 6px;
-    min-height: 6px;
-    text-align: center;
-    background-color: rgb(220,220,220);
-    border-top: 1px solid #888;
-    border-bottom: 1px solid #888;
-}
-#progbar {
-    width: 0;
-    text-align: left;
-    position: relative;
-    background-color: rgb(255,90,90);
-}
-#progtxt {
-    display: none;
-    position: absolute;
-    left: 0;
-    right: 0;
-    top: 200%;
-    color: #888;
-    margin: 0 5px 0 5px;
-    padding: 0 5px 2px 5px;
-    white-space: nowrap;
-    flex-direction: row;
+#progress-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 3000;
+    display: flex;
     align-items: center;
     justify-content: center;
+    pointer-events: auto;
+    background: rgba(0,0,0,0.08);
+}
+
+#progress-indicator {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    min-width: 120px;
+    padding: 14px 18px 12px;
+    border: 1px solid var(--border-gray);
+    border-radius: 10px;
+    background: var(--menubar-back);
+    color: var(--menubar-fore);
+    box-shadow: 0 8px 24px rgba(0,0,0,0.25);
+}
+
+#progress-ring {
+    --progress-deg: 0deg;
+    width: 56px;
+    height: 56px;
+    border-radius: 50%;
+    background:
+        radial-gradient(circle at center, transparent 58%, var(--menubar-back) 59%),
+        conic-gradient(var(--appname-blue) var(--progress-deg), rgba(128,128,128,0.25) 0);
+}
+
+#progress-ring.indeterminate {
+    background: none;
+    border: 5px solid rgba(128,128,128,0.3);
+    border-top-color: var(--appname-blue);
+    animation: progress-spin 0.9s linear infinite;
+}
+
+#progress-pct {
+    min-height: 16px;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--menubar-fore);
+}
+
+#progtxt {
+    min-height: 16px;
+    max-width: 280px;
+    text-align: center;
+    font-size: 12px;
+    color: var(--menubar-fore);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+@keyframes progress-spin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
 }
 
 #dialog {
     position: fixed;
+    z-index: 310;
     outline: none;
     color: black;
     top: 100px;
@@ -1626,7 +1533,7 @@ details[open] summary::after {
 #modal {
     display: none;
     position: fixed;
-    z-index: 20;
+    z-index: 300;
     top: 50%;
     left: 0px;
     right: 0px;
@@ -1637,9 +1544,6 @@ details[open] summary::after {
     border-bottom: 1px solid black;
     border-top: 1px solid black;
     overflow: hidden;
-}
-#modal button, #modal select {
-    /* color: black !important; */
 }
 #modal > div {
     position: absolute;
@@ -1664,10 +1568,6 @@ details[open] summary::after {
 
 #tool-cols {
     max-height: 350px;
-}
-.dark .mod-x {
-    border-color: #555;
-    background-color: rgba(0,0,0,0.15);
 }
 .mod-x {
     border-radius: 5px;
@@ -1725,9 +1625,6 @@ details[open] summary::after {
     align-items: center;
     justify-content: flex-start;
 }
-.dark #mod-help a:hover {
-    color: #333;
-}
 #mod-help a:hover {
     background-color: #eee;
 }
@@ -1738,10 +1635,6 @@ details[open] summary::after {
     font-weight: bold;
     font-size: larger;
     padding-bottom: 10px;
-}
-#kiri-version {
-    font-family: monospace;
-    padding-top: 5px;
 }
 #export-support {
     padding-top: 10px;
@@ -1764,10 +1657,6 @@ details[open] summary::after {
     text-align: center;
     font-weight: normal;
     padding-top: 5px;
-}
-.dark .mod-print .box {
-    background-color: rgba(0,0,0,0.15);
-    border-color: #555;
 }
 .mod-print .box {
     background-color: rgba(255,255,255,0.5);
@@ -1803,10 +1692,6 @@ details[open] summary::after {
     flex-grow: 1;
     font-weight: bold;
     padding-right: 10px;
-}
-.dark .mod-print button {
-    background-color: #555;
-    border-color: #777;
 }
 .mod-print button {
     flex-direction: column;
@@ -2027,6 +1912,42 @@ details[open] summary::after {
     margin: 0 10px 0 10px;
     text-align: left;
 }
+.image-convert-dialog {
+    gap: 8px;
+    padding: 10px 14px 6px;
+    min-width: 360px;
+}
+.image-convert-title {
+    margin: 0;
+    text-align: center;
+}
+.image-convert-copy {
+    width: 320px;
+    line-height: 1.5em;
+    padding: 5px 0 5px 0;
+    margin: 0;
+}
+.image-convert-fields {
+    justify-content: center;
+}
+.image-convert-fields table {
+    border-collapse: collapse;
+}
+.image-convert-fields th,
+.image-convert-fields td {
+    padding: 3px 6px;
+    vertical-align: middle;
+}
+.image-convert-fields th {
+    font-weight: 600;
+}
+.image-convert-fields input[type="checkbox"] {
+    margin: 0;
+}
+.image-convert-actions {
+    width: 100%;
+    margin-top: 4px;
+}
 
 .dev-type {
     font-family: 'Russo One', sans-serif;
@@ -2123,23 +2044,6 @@ details[open] summary::after {
     color: #335;
 }
 
-.dark #layer-animate button {
-    border: 1px solid #555;
-    background-color: #444;
-}
-.dark #layer-animate button:hover {
-    background-color: var(--main-color);
-}
-.dark #layer-animate button svg {
-    color: #ddd;
-}
-.dark #layer-animate label {
-    border: 1px solid #555;
-    background-color: #444;
-}
-.dark #layer-animate input {
-    border: 1px solid #444;
-}
 #layer-animate {
     pointer-events: all;
     position: absolute;
@@ -2175,34 +2079,6 @@ details[open] summary::after {
 #layer-animate input {
     border-radius: 4px;
 }
-
-/* #layer-toolpos {
-    position: absolute;
-    right: 3px;
-    bottom: 3px;
-    z-index: 201;
-}
-#layer-toolpos label, #layer-toolpos input {
-    display: inline-flex;
-    height: 30px;
-    border-radius: 3px;
-    border: 1px solid #ccc;
-    justify-content: center;
-    align-items: center;
-    font-weight: bold;
-    background-color: #ddd;
-}
-#layer-toolpos label {
-    width: 30px;
-    padding: 1px 1px 1px 1px;
-    margin: 1px 1px 2px 6px;
-}
-#layer-toolpos input {
-    background-color: #eee;
-    font-family: monospace;
-    padding: 1px 4px 1px 4px;
-    margin: 1px 1px 2px 1px;
-} */
 
 #layer-slider {
     position: absolute;
@@ -2360,6 +2236,7 @@ details[open] summary::after {
 }
 
 .settings {
+    gap: 3px;
     max-height: 100%;
     overflow-y: auto;
     overflow-x: hidden;
@@ -2379,16 +2256,20 @@ details[open] summary::after {
 #dev-list:hover {
     background-color: var(--blue-4);
 }
+#panel-left .set2-group {
+    border-right: 1px solid var(--border-gray);
+}
+#panel-right .set2-group {
+    border-left: 1px solid var(--border-gray);
+}
 .set2-group {
-    border-radius: 3px;
-    border: 1px solid #ddd !important;
-    background-color: #fff;
+    background-color: var(--menubar-back);
     flex-flow: column;
-    padding: 4px;
-    margin: 2px;
+    padding: 0 0 2px 0;
+    /* border-bottom: 1px solid var(--border-gray); */
 }
 .set2-group .var-row, .var-row {
-    background: #fff;
+    background: var(--menubar-back);
     padding: 1px 4px 1px 4px;
     margin: 0 !important;
     border-left: 3px solid transparent;
@@ -2418,12 +2299,11 @@ details[open] summary::after {
     background-color: #bbb !important;
 }
 .set-header {
+    overflow: hidden;
     white-space: nowrap;
-    border-radius: 2px;
     justify-content: left;
     background-color: var(--blue-3);
     border-left: 3px solid transparent;
-    border-right: 3px solid var(--main-color-hover);
     border-bottom: 0.5px solid var(--main-color-hover);
     padding: 4px;
     margin: 0 0 4px 0;
@@ -2454,7 +2334,7 @@ details[open] summary::after {
 }
 .settings .ext-buttons {
     margin: 0 4px 0 4px;
-    gap: 3px;
+    gap: 2px;
 }
 #layers .var-row {
     border-radius: 10px;
@@ -2475,6 +2355,12 @@ details[open] summary::after {
 #layers button:hover {
     background-color: var(--main-color);
 }
+
+.tiny.var-row select {
+    width: 10em;
+    max-width: 10em;
+    font-size: smaller;
+}
 .var-row {
     white-space: nowrap;
     align-items: center;
@@ -2493,13 +2379,17 @@ details[open] summary::after {
     justify-self: center;
 }
 .var-row input {
-    /* flex: 1 1 auto;   */
     min-width: 0;
     max-width: 7ch;
     margin-right: 0;
     margin-bottom: 1px;
     padding-bottom: 1px;
     padding-top: 1px;
+}
+.var-row select {
+    border: 0;
+    border-radius: 0;
+    text-align: right;
 }
 .var-row #tool-name {
     max-width: 15ch;
@@ -2650,4 +2540,8 @@ details[open] summary::after {
 .devel #code-preview > div,
 .devel #code-preview-textarea {
     height: 100%;
+}
+
+.em20 {
+    max-width: 20em;
 }

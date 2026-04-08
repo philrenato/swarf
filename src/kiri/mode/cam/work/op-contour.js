@@ -21,7 +21,7 @@ function createFilter(op, origin, axis) {
             let index = 0;
             const accept = [];
             filter = function (slices) {
-                for (let slice of slices) {
+                for (let slice of slices.filter(s => s.camLines)) {
                     if (slice_fn && slice_fn(slice, index++)) {
                         accept.push(slice);
                     } else if (box) {

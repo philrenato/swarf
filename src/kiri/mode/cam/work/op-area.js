@@ -134,12 +134,15 @@ class OpArea extends CamOp {
             polys = POLY.union(nupolys, 0.00001, true);
         }
 
+        // filter out invalid polys
+        polys = polys.filter(p => p && p.length > 2);
+
         // process each area separately
         let proc = 0;
         let pinc = 1 / polys.length;
         for (let area of polys) {
             let bounds = area.getBounds3D();
-            let ts_off = toolDiam / 2 - ts_eps + (op.leave_xy ?? 0);
+            let ts_off = toolDiam / 2 + (op.leave_xy ?? 0) + ts_eps;
             let offopt = {
                 arc: 250,
                 join: roundSharps ? ClipperLib.JoinType.jtRound : undefined,
@@ -175,7 +178,7 @@ class OpArea extends CamOp {
                 for (let z of zs) {
                     let slice = newLayer(z);
                     let layers = slice.output();
-                    let shadow = await shadowAt(z);
+                    let shadow = await shadowAt(z + 0.01);
                     let tool_shadow = [
                         ...POLY.offset(shadow, [  ts_off ], { count: 1, z, ...offopt }),
                         ...POLY.offset(shadow, [ -ts_off ], { count: 1, z, ...offopt }),
@@ -188,8 +191,23 @@ class OpArea extends CamOp {
                     let outs = [];
                     let clip = [];
                     let firstOff = -(toolDiam / 2 + (op.leave_xy ?? 0));
-                    POLY.subtract([ area ], shadow, clip, undefined, undefined, 0);
-                    POLY.offset(clip, [ firstOff, -toolOver ], {
+                    // remove shadow from area
+                    if (op.ignore) {
+                        clip = [ area ];
+                    } else {
+                        POLY.subtract([ area ], shadow, clip, undefined, undefined, 0);
+                    }
+                    //generate offsets to use
+                    let offsets = [ firstOff ];
+                    //if we need a finish cut, add it
+                    let finish_cut = op.finish_cut ?? 0;
+                    if (finish_cut != 0) { //todo: this should check for camInnerFirst and warn if it is not true
+                        offsets.push(-finish_cut);
+                    }
+                    //everything else uses the tool stepover
+                    offsets.push(-toolOver);
+                    //actually offset the walls inwards
+                    POLY.offset(clip, offsets, {
                         count: op.walls ? 1 : (op.steps ?? 999), outs, flat: true, z: z - zMov, ...offopt
                     });
                     // if we see no offsets, re-check the mesh bottom Z then exit
@@ -248,14 +266,15 @@ class OpArea extends CamOp {
                 progress(proc, 'clear');
             } else
             if (mode === 'trace') {
-                let { tr_over, tr_type  } = op;
+                let { tr_over, tr_offz, tr_type  } = op;
                 let zs = down ? base_util.lerp(zTop, op.thru ? zBottom : Math.max(zBottom, area.minZ()), down) : [ bounds.min.z ];
                 let zroc = 0;
                 let zinc = 1 / zs.length;
+                if (tr_offz) zs = zs.map(z => z - tr_offz);
                 for (let z of zs) {
                     let slice = newLayer(z);
                     let layers = slice.output();
-                    let shadow = await shadowAt(z);
+                    let shadow = op.base ? state.shadow.base : await shadowAt(z);
                     let outs = [];
                     if (tr_type === 'none') {
                         // todo: move this out of the zs loop and only setZ when needed
@@ -462,7 +481,8 @@ class OpArea extends CamOp {
         while (areas?.length) {
             let min = {
                 dist: Infinity,
-                area: undefined
+                area: undefined,
+                point: undefined
             };
 
             for (let area of areas.filter(p => !p.used)) {
@@ -477,16 +497,19 @@ class OpArea extends CamOp {
                 if (find.distance < min.dist) {
                     min.area = area;
                     min.dist = find.distance;
+                    min.point = find.point
                 }
             }
 
             // if we have a next-closest top poly, pocket that
             if (min.area) {
                 min.area.used = true;
+                printPoint = min.point;
                 pocket({
                     cutdir: op.ov_conv,
-                    depthFirst: process.camDepthFirst && !op.drape,
+                    depthFirst: process.camDepthFirst,
                     easeDown: op.down && process.easeDown ? op.down : 0,
+                    outline: op.drape || op.mode === 'trace',
                     progress: (n,m) => progress(n/m, "area"),
                     slices: min.area.filter(slice => slice.camLines)
                 });

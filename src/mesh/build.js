@@ -19,7 +19,10 @@ let deg = Math.PI / 180;
 let und = undefined;
 
 broker.listeners({
-    ui_build
+    ui_build,
+    app_ready() {
+        api.file?.set_doc_name?.(api.document?.current?.name || 'Untitled');
+    }
 });
 
 let spin_timer;
@@ -240,14 +243,10 @@ api.welcome = function(version = "unknown") {
 api.settings = function() {
     const { prefs } = api;
     const { surface, normals, space, sketch, wireframe } = prefs.map;
-    const { dark } = space;
+    const dark = true;
 
     const set1 = div([
-        label('dark mode'),
-        input({ type: "checkbox",
-            onchange: ev => call.set_darkmode(ev.target.checked),
-            [ dark ? 'checked' : 'unchecked' ] : 1
-        }),
+        label({ class: "header", _: 'auto'}),
         label('auto floor'),
         input({ type: "checkbox",
             onchange: ev => prefs.save( space.floor = !space.floor ),
@@ -391,20 +390,27 @@ function ui_build() {
 
     // top left drop menus
     bind($('top-left'), [
+        div({ _: 'Mesh:Tool', class: "title" }),
+        div({ class: "menubar-separator" }),
         div({ class: "menu" }, [
             div('File'),
             div({ class: "menu-items" }, [
                 input({
-                    id: "import", type: "file", class: ["hide"], multiple: true, accept:".stl,.obj",
+                    id: "import", type: "file", class: ["hide"], multiple: true, accept:".stl,.obj,.svg,.png",
                     onchange(evt) { broker.send.load_files(evt.target.files) }
                 }),
+                menu_item('New', file.new),
+                menu_item('Open', file.open),
+                hr(),
                 menu_item('Import', file.import, 'I'),
                 menu_item('Export', file.export, 'X'),
                 hr(),
                 menu_item('Slicer', api.kirimoto),
                 menu_item('Script', api.script.toggle),
                 hr(),
-                menu_item('Close', window.close),
+                menu_item('Preferences', api.settings, 'Q'),
+                hr(),
+                menu_item('Close', () => window.close() || api.kirimoto()),
             ])
         ]),
         div({ class: "menu sketch-on" }, [
@@ -467,7 +473,6 @@ function ui_build() {
                 menu_item('Face', mode.face, '5', 'mode-face'),
                 menu_item('Edge', mode.edge, '6', 'mode-edge'),
             ]),
-            div({ id: "mode-label" })
         ]),
         div({ class: "menu sketch-on" }, [
             div('Items'),
@@ -510,7 +515,7 @@ function ui_build() {
         div({ class: "menu sketch-off" }, [
             div('Faces'),
             div({ class: "menu-items" }, [
-                menu_item('Flip Normals', tool.invert, ['bi-shift','I']),
+                menu_item('Flip Normals', tool.invert, ['bi-shift','N']),
                 menu_item('Triangulate', tool.triangulate, ['bi-shift','T']),
                 menu_item('To Sketch', tool.toSketch),
                 hr(),
@@ -535,6 +540,7 @@ function ui_build() {
             ])
         ]),
         div({ class: "menu" }, [
+            // div({ class: "fas fa-question" }),
             div('Help'),
             div({ class: "menu-items" }, [
                 menu_item('About', () => { api.welcome(version) }),
@@ -546,15 +552,15 @@ function ui_build() {
                 menu_item('Versions', api.version),
             ])
         ]),
+        div({ class: "menubar-separator" }),
+        div({ id: "top-mode-label" }),
     ]);
 
     // add help buttons
     bind($('top-right'), [
-        div({ id: "top-settings", onclick: api.settings }, [
-            div({ class: "fas fa-gear" }),
-            div('Settings')
-        ]),
+        div({ id: "top-doc-name", onclick: () => api.file.rename(), _: 'Untitled' }),
     ]);
+    api.file?.set_doc_name?.(api.document?.current?.name || 'Untitled');
 
     // modal dialog and page blocker
     bind($('modal_page'), [
@@ -600,32 +606,55 @@ function ui_build() {
         return div({ onclick: fn, class: "tool" }, [ bicon(icon), div([ label(help) ]) ]);
     }
 
+    function toolbar_separator() {
+        return div({ class: "toolbar-separator" });
+    }
+
     // bind sketch chiclets
     bind(sketchtools, div([
         tool_item('bi-plus', 'New Sketch', add.sketch),
+        toolbar_separator(),
         tool_item('bi-circle', 'Add Circle', api.add.circle),
+        toolbar_separator(),
         tool_item('bi-square', 'Add Rectangle', api.add.rectangle),
+        toolbar_separator(),
         tool_item('bi-symmetry-vertical', 'Flip Horizontal', api.sketch.arrange.fliph),
+        toolbar_separator(),
         tool_item('bi-symmetry-horizontal', 'Flip Vertical', api.sketch.arrange.flipv),
+        toolbar_separator(),
         tool_item('bi-arrow-clockwise', 'Rotate', api.sketch.arrange.rotate),
+        toolbar_separator(),
         tool_item('bi-union', 'Union', sketch.boolean.union),
+        toolbar_separator(),
         tool_item('bi-intersect', 'Intersect', sketch.boolean.intersect),
+        toolbar_separator(),
         tool_item('bi-exclude', 'Difference', sketch.boolean.difference),
+        toolbar_separator(),
         tool_item('bi-pip', 'Nest', sketch.boolean.nest),
+        toolbar_separator(),
         tool_item('bi-layers', 'Flatten', sketch.boolean.flatten),
+        toolbar_separator(),
         tool_item('bi-cookie', 'Even Odd', sketch.boolean.evenodd),
+        toolbar_separator(),
         tool_item('bi-arrow-bar-up', 'Extrude', () => sketch.extrude()),
     ]));
 
     // bind object chiclets
     bind(objecttools, div([
         tool_item('bi-pencil', 'New Sketch', add.sketch),
+        toolbar_separator(),
         tool_item('bi-box', 'New Cube', add.cube),
+        toolbar_separator(),
         tool_item('bi-database', 'New Cylinder', add.cylinder),
+        toolbar_separator(),
         tool_item('bi-gear', 'New Gear', add.gear),
+        toolbar_separator(),
         tool_item('bi-union', 'Union', tool.union),
+        toolbar_separator(),
         tool_item('bi-subtract', 'Subtract', tool.subtract),
+        toolbar_separator(),
         tool_item('bi-intersect', 'Intersect', tool.intersect),
+        toolbar_separator(),
         tool_item('bi-exclude', 'Difference', tool.difference),
     ]));
 

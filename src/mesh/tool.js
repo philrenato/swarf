@@ -929,7 +929,7 @@ class MeshTool {
             }
 
             pitch = p.round(3);
-            geom.log(`gear pitch radius: ${pitch}`);
+            log(`gear pitch radius: ${pitch}`);
         }
 
         return { gear, pitch };

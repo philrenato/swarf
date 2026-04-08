@@ -6,6 +6,7 @@ import { api } from './api.js';
 import { MODES } from './consts.js';
 import { colorSchemeRegistry } from './color/schemes.js';
 import { load as file_load } from '../../load/file.js';
+import { load_url as url_load } from '../../load/url.js';
 import { newBounds } from '../../geo/bounds.js';
 import { Packer } from './pack.js';
 import { space } from '../../moto/space.js';
@@ -171,14 +172,14 @@ function update_size(updateDark = true) {
            space.platform.setGrid(gridMajor, gridMinor, scheme.grid.major, scheme.grid.minor);
            space.platform.opacity(0.05);
            space.sky.set({ color: 0, ambient: { intensity: 0.6 } });
-           document.body.classList.add('dark');
+           document.documentElement.setAttribute('data-theme', 'dark');
        } else {
            space.platform.set({ light: 0.08 });
            space.platform.setFont({rulerColor:'#333333'});
            space.platform.setGrid(gridMajor, gridMinor, scheme.grid.major, scheme.grid.minor);
            space.platform.opacity(0.2);
            space.sky.set({ color: 0xffffff, ambient: { intensity: 1.1 } });
-           document.body.classList.remove('dark');
+           document.documentElement.setAttribute('data-theme', 'light');
        }
        space.platform.setSize();
     }
@@ -491,7 +492,7 @@ function load_stl(url, onload, formdata, credentials, headers) {
  */
 function load_url(url, options = {}) {
     platform.group();
-    file_load.URL.load(url, options).then(objects => {
+    url_load(url, options).then(objects => {
         let widgets = [];
         for (let object of objects) {
             let widget = newWidget(undefined, options.group).loadVertices(object.mesh);
@@ -978,6 +979,7 @@ function load_files(files, group) {
             isobj = lower.endsWith(".obj"),
             is3mf = lower.endsWith(".3mf"),
             issvg = lower.endsWith(".svg"),
+            isdxf = lower.endsWith(".dxf"),
             ispng = lower.endsWith(".png"),
             isjpg = lower.endsWith(".jpg"),
             iskmz = lower.endsWith(".kmz"),
@@ -1066,7 +1068,7 @@ function load_files(files, group) {
                 api.function.parse(data.textDecode('utf-8'), 'gcode');
                 load_dec();
             } else if (issvg) {
-                loadSVGDialog(opt => { 
+                loadSVGDialog(opt => {
                     group = group || [];
                     let svg = file_load.SVG.parse(data.textDecode('utf-8'), opt);
                     let ind = 0;
@@ -1076,6 +1078,19 @@ function load_files(files, group) {
                     }
                     for (let v of svg) {
                         load_verts(group, svg[ind++], ind ? `${name}-${ind}` : name);
+                    }
+                    load_dec();
+                });
+            } else if (isdxf) {
+                loadDXFDialog(opt => {
+                    group = group || [];
+                    let dxf = file_load.DXF.parse(data.textDecode('utf-8'), opt);
+                    let ind = 0;
+                    if (dxf.length === 0) {
+                        api.show.alert(`DXF contains no supported entities`, 10);
+                    }
+                    for (let v of dxf) {
+                        load_verts(group, dxf[ind++], ind ? `${name}-${ind}` : name);
                     }
                     load_dec();
                 });
@@ -1122,6 +1137,64 @@ function loadSVGDialog(doit) {
         let soup = $('svg-nest').checked;
         ok && doit({ soup, resolution: arcs, segmin: marc, depth, dpi: sdpi });
     });
+}
+
+/**
+ * Show dialog to configure DXF import settings.
+ * Prompts for extrusion depth, arc segment size, and nesting.
+ * @param {Function} doit - Callback with options: {soup, depth, segmentSize, minSegments}
+ * @private
+ */
+function loadDXFDialog(doit) {
+    const rnd = Date.now().toString(36);
+    const host = $('mod-any');
+    host.innerHTML = [
+        `<div class="image-convert-dialog f-col a-center">`,
+        `  <h3 class="image-convert-title">Import DXF</h3>`,
+        `  <p class="image-convert-copy t-just">`,
+        `  Extrude a 3D model from a 2D DXF.`,
+        `  Supports POLYLINE, LWPOLYLINE, LINE, CIRCLE, ARC, and SPLINE entities.`,
+        `  </p>`,
+        `  <div class="f-row t-right image-convert-fields"><table>`,
+        `  <tr><th>units</th><td><select id="dxf-units-${rnd}"><option value="auto" selected>auto</option><option value="mm">millimeters</option><option value="inch">inches</option></select></td></tr>`,
+        `  <tr><th>z height</th><td><input id="dxf-depth-${rnd}" value="5" size="3"></td></tr>`,
+        `  <tr><th title="target length of each line segment when converting arcs and circles">arc segment size</th><td><input id="dxf-seg-${rnd}" value="1" size="3"></td></tr>`,
+        `  <tr><th title="minimum number of segments for very small arcs to avoid degenerate geometry">minimum arc segments</th><td><input id="dxf-min-${rnd}" value="4" size="3"></td></tr>`,
+        `  <tr><th>nest shapes</th><td><input id="dxf-nest-${rnd}" type="checkbox" checked></td></tr>`,
+        `  </table></div>`,
+        `  <div class="f-row j-end image-convert-actions">`,
+        `    <button id="dxf-convert-ok-${rnd}">import</button>`,
+        `    <button id="dxf-convert-cancel-${rnd}">cancel</button>`,
+        `  </div>`,
+        `</div>`
+    ].join('');
+
+    const units = $(`dxf-units-${rnd}`);
+    const depth = $(`dxf-depth-${rnd}`);
+    const segmentSize = $(`dxf-seg-${rnd}`);
+    const minSegments = $(`dxf-min-${rnd}`);
+    const nest = $(`dxf-nest-${rnd}`);
+    const okBtn = $(`dxf-convert-ok-${rnd}`);
+    const cancelBtn = $(`dxf-convert-cancel-${rnd}`);
+
+    okBtn.onclick = () => {
+        api.modal.hide();
+        setTimeout(() => {
+            doit({
+                soup: nest.checked,
+                depth: Math.max(0.1, parseFloat(depth.value)),
+                segmentSize: Math.max(0.01, parseFloat(segmentSize.value)),
+                minSegments: Math.max(3, parseInt(minSegments.value)),
+                units: units.value
+            });
+        }, 50);
+    };
+    cancelBtn.onclick = () => api.modal.hide();
+    depth.onkeypress = (ev) => {
+        if (ev.key === 'Enter' || ev.charCode === 13) okBtn.click();
+    };
+    api.modal.show('any');
+    setTimeout(() => depth.focus(), 0);
 }
 
 /**

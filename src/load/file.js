@@ -6,6 +6,7 @@ import { STL } from './stl.js';
 import * as OBJ from './obj.js';
 import * as TMF from './3mf.js';
 import * as SVG from './svg.js';
+import * as DXF from './dxf.js';
 import * as GBR from './gbr.js';
 import { load as pngLoad } from './png.js';
 
@@ -33,6 +34,11 @@ const types = {
 
     svg(data, file, resolve, reject, opt = {}) {
         let out = SVG.parse(data, opt);
+        resolve(opt.flat ? out : out.map(m => { return { mesh: m.toFloat32(), file } }));
+    },
+
+    dxf(data, file, resolve, reject, opt = {}) {
+        let out = DXF.parse(data, opt);
         resolve(opt.flat ? out : out.map(m => { return { mesh: m.toFloat32(), file } }));
     },
 
@@ -100,6 +106,6 @@ function load_file(file, opt) {
     });
 }
 
-Object.assign(load_file, { SVG, OBJ, STL, TMF, GBR, PNG: pngLoad.PNG });
+Object.assign(load_file, { SVG, DXF, OBJ, STL, TMF, GBR, PNG: pngLoad.PNG });
 
 export { types, as_buffer, load_data, load_file, load_file as load };

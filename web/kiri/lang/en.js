@@ -67,6 +67,18 @@ self.lang['en-us'] = {
     view:           "view",         // left view pop menu
     wire:           "wire",         // left render pop menu
     volume:         "volume",       // device build area
+    al_menu:        "align",
+    re_menu:        "render",
+    sx_menu:        "selection",
+    ed_menu:        "edit",
+    face_left:      "face left",
+    re_edgs:        "toggle edges",
+    al_menu:        "align",
+    re_menu:        "render",
+    sx_menu:        "selection",
+    ed_menu:        "edit",
+    face_left:      "face left",
+    re_edgs:        "toggle edges",
 
     acct_xpo:       ["make a backup of your device","and device profiles with the","option to include workspace","objects and positions"],
 
@@ -82,8 +94,8 @@ self.lang['en-us'] = {
     rc_xobj:        "export OBJ",
     rc_xstl:        "export STL",
     sb_info:        ["print speed","in mm/s"],
-    rc_merg:        "merge object meshes",
-    rc_splt:        "isolate bodies",
+    rc_merg:        "merge objects",
+    rc_splt:        "isolate objects",
 
     // DEVICE MENU and related dialogs
     dm_sldt:        "select a device type",
@@ -472,7 +484,7 @@ self.lang['en-us'] = {
     sp_offs_s:      "part offset",
     sp_offs_l:      ["offset from part","in millimeters"],
     sp_gaps_s:      "layer gap",
-    sp_gaps_l:      ["number of layers","offset from part"],
+    sp_gaps_l:      ["add a layer gap between support and part"],
     sp_span_s:      "max span",
     sp_span_l:      ["unsupported span that causes","a new support to be generated","in millimeters"],
     sp_angl_s:      "angle",
@@ -504,6 +516,8 @@ self.lang['en-us'] = {
     cc_thru_l:      ["allow trace depth to extend thru","the bottom of the selected area","use with negative Z bottom"],
     cc_offd_s:      "offset",
     cc_offd_l:      ["overrides default offset distance (which is the tool radius) when set to any value but zero"],
+    cc_offz_s:      "offset z",
+    cc_offz_l:      ["shift add or subtract Z values by this amount","in workspace units"],
     cc_feed_s:      "feed rate",
     cc_feed_l:      ["max cutting speed in","workspace units / minute"],
     cc_plng_s:      "plunge rate",
@@ -549,6 +563,8 @@ self.lang['en-us'] = {
     co_menu:        "outline",
     co_merg_s:      "merge overlap",
     co_merg_l:      ["merge overlapping lines to prevent overcutting into adjacent solids"],
+    co_igno_s:      "ignore part",
+    co_igno_l:      ["do not constrain cutting areas","to part boundaries. this allows","using the part as negative space"],
     co_dogb_s:      "dogbones",
     co_dogb_l:      ["insert dogbone cuts","into inside corners"],
     co_dogr_s:      "reverse bones",
@@ -724,6 +740,8 @@ self.lang['en-us'] = {
     ca_sang_l:      "crossing angle on the XY plane for contour lines",
     ca_wall_s:      "walls",
     ca_wall_l:      ["perform a single pass along vertical faces. leave interior spaces. similar to outline operation"],
+    ca_fini_s:      "finish cut",
+    ca_fini_l:      "cutting path that follows the contour of the final part. allows for precise step over when clearing a larger area.",
 
     // OUTPUT
     ou_menu:        "output",

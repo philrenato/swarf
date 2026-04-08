@@ -39,7 +39,7 @@ let drivers = {
         WJET
     },
     ccvalue = self.navigator ? self.navigator.hardwareConcurrency || 0 : 0,
-    concurrent = Math.min(4, self.Worker && ccvalue > 3 ? ccvalue - 1 : 0),
+    concurrent = Math.round(Math.max(4, self.Worker && ccvalue > 3 ? ccvalue * 0.75 : 0)),
     current = {
         print: null,
         snap: null,
@@ -101,6 +101,9 @@ function minhandler(msg) {
 
 // for concurrent operations
 const minwork = {
+
+    // core functions
+
     get concurrent() {
         return concurrent
     },
@@ -135,6 +138,76 @@ const minwork = {
             minion.terminate();
         }
         minions.length = 0;
+    },
+
+    queue(work, ondone, direct) {
+        minionq.push({work, ondone, direct});
+        minwork.kick();
+    },
+
+    queueAsync(work, direct) {
+        return new Promise(resolve => {
+            minwork.queue(work, resolve, direct);
+        });
+    },
+
+    kick() {
+        if (minions.length && minionq.length) {
+            let qrec = minionq.shift();
+            let minion = minions.shift();
+            let seq = miniseq++;
+            qrec.work.seq = seq;
+            minifns[seq] = (data) => {
+                qrec.ondone(data);
+                minions.push(minion);
+                minwork.kick();
+            };
+            minion.postMessage(qrec.work, qrec.direct);
+        }
+    },
+
+    broadcast(cmd, data, direct) {
+        for (let minion of minions) {
+            minion.postMessage({
+                cmd, ...data
+            }, direct);
+        }
+    },
+
+    setPoints(points) {
+        let i = 0, floatP = new Float32Array(points.length * 3);
+        for (let p of points) {
+            floatP[i++] = p.x;
+            floatP[i++] = p.y;
+            floatP[i++] = p.z;
+        }
+        minwork.broadcast("setPoints", { points: floatP });
+    },
+
+    // added functions (should be namespaced)
+
+    subtract({ a, b, outA, outB, z, area, wasm }) {
+        return new Promise((resolve, reject) => {
+            if (concurrent < 2 || a.length + b.length < concurrent * 2 || POLY.points([...a,...b]) < concurrent * 50) {
+                POLY.subtract(a, b, outA, outB, z, area, { wasm });
+                resolve();
+                return;
+            }
+            minwork.queue({
+                cmd: "subtract",
+                opt: { area, wasm, z },
+                arg: {
+                    a: codec.encode(a),
+                    b: codec.encode(b),
+                    outA: outA ? 1 : 0,
+                    outB: outB ? 1 : 0,
+                }
+            }, result => {
+                if (outA) outA.push(...codec.decode(result.outA));
+                if (outB) outB.push(...codec.decode(result.outB));
+                resolve();
+            });
+        });
     },
 
     union(polys, minarea) {
@@ -222,17 +295,9 @@ const minwork = {
                 reject("concurrent slice unavaiable");
             }
             let { each } = options;
-            // todo use shared array buffer?
-            let i = 0, floatP = new Float32Array(points.length * 3);
-            for (let p of points) {
-                floatP[i++] = p.x;
-                floatP[i++] = p.y;
-                floatP[i++] = p.z;
-            }
             minwork.queue({
                 cmd: "sliceZ",
                 z,
-                points: floatP,
                 options: codec.toCodable(options)
             }, data => {
                 let recs = codec.decode(data.output);
@@ -242,43 +307,9 @@ const minwork = {
                     }
                 }
                 resolve(recs);
-            }, [ floatP.buffer ]);
+            });
         });
     },
-
-    queue(work, ondone, direct) {
-        minionq.push({work, ondone, direct});
-        minwork.kick();
-    },
-
-    queueAsync(work, direct) {
-        return new Promise(resolve => {
-            minwork.queue(work, resolve, direct);
-        });
-    },
-
-    kick() {
-        if (minions.length && minionq.length) {
-            let qrec = minionq.shift();
-            let minion = minions.shift();
-            let seq = miniseq++;
-            qrec.work.seq = seq;
-            minifns[seq] = (data) => {
-                qrec.ondone(data);
-                minions.push(minion);
-                minwork.kick();
-            };
-            minion.postMessage(qrec.work, qrec.direct);
-        }
-    },
-
-    broadcast(cmd, data, direct) {
-        for (let minion of minions) {
-            minion.postMessage({
-                cmd, ...data
-            }, direct);
-        }
-    }
 };
 
 console.log(`kiri | init work | ${version || "rogue"}`);
@@ -586,9 +617,9 @@ const dispatch = {
         const { process } = settings;
         const origin = settings.origin;
         const offset = {
-            x:  origin.x - (process.camOriginOffX ?? 0),
-            y: -origin.y - (process.camOriginOffY ?? 0),
-            z:  origin.z - (process.camOriginOffZ ?? 0)
+            x:  origin.x,// - (process.camOriginOffX ?? 0),
+            y: -origin.y,// - (process.camOriginOffY ?? 0),
+            z:  origin.z,// + (process.camOriginOffZ ?? 0)
         };
         const device = settings.device;
         const print = setPrint(newPrint(settings, Object.values(wcache)));

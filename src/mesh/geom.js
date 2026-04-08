@@ -2,7 +2,6 @@
 
 import { THREE } from '../ext/three.js';
 const { Matrix4, Matrix3, Vector3, Box3 } = THREE;
-import { license as motoLicense } from '../moto/license.js';
 
 // geometry helper functions
 const geom = {

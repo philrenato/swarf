@@ -87,9 +87,6 @@ function checkSeed(then) {
     return false;
 }
 
-// upon restore, seed presets
-api.event.emit('preset', api.conf.dbo());
-
 // api.event.on("set.threaded", bool => setThreaded(bool));
 
 export function onBooleanClick(el) {
@@ -142,6 +139,11 @@ function onResize() {
     } else {
         ui.modalBox.classList.remove('mh85');
     }
+    if (WIN.innerWidth < 800) {
+        $('app').classList.add('slideshow');
+    } else {
+        api.prefs.updateDrawer();
+    }
     api.view.update_slider();
 }
 
@@ -174,6 +176,7 @@ export function init_input() {
     event.on('resize', onResize);
 
     // configure moto.space
+    space.view.setFitPadding({ perspective: 0.8 });
     space.sky.showGrid(false);
     space.sky.setColor(controller.dark ? 0 : 0xffffff);
     space.setAntiAlias(controller.antiAlias);
@@ -210,6 +213,10 @@ export function init_input() {
 
     // api augmentation with local functions
     api.device.export = settingsOps.export_device;
+
+    let driven = true,
+        hideable = true,
+        separator = true;
 
     Object.assign(ui, {
         tracker:            tracker,
@@ -320,6 +327,10 @@ export function init_input() {
 
         prefadd:          uc.checkpoint($('prefs-add')),
 
+        _____:            newGroup('Machine Profile', $('all-devpro'), { driven, hideable, separator, group: "devpro" }),
+        modeDevice:       newSelect('machine', {title: 'device', class: "tiny"}, "_"),
+        modeProfile:      newSelect('profile', {title: 'profile', class: "tiny"}, "_"),
+
         /** FDM Settings */
         ...menuFDM(),
 
@@ -349,6 +360,8 @@ export function init_input() {
     // override old style settings two-button menu
     ui.settingsSave.onclick = () => {
         settingsOps.settings_save(undefined, ui.settingsName.value);
+        // update pulldowns
+        api.devices.refresh();
     };
 
     // initialize and expose modal to API

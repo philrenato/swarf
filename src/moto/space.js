@@ -2,6 +2,7 @@
 
 import { THREE } from '../ext/three.js';
 import { Orbit } from './orbit.js';
+import { Trackball } from './trackball.js';
 import { Text3D } from './text3d.js';
 import '../ext/tween.js';
 
@@ -36,8 +37,14 @@ let WIN = self.window || {},
     refreshRequested = false,
     selectRecurse = false,
     defaultKeys = true,
+    fitVisibleOnly = false,
+    fitPaddingPerspective = 0.5,
+    fitPaddingOrthographic = 0.9,
     initialized = false,
     alignedTracking = false,
+    trackingMode = 'platform',  // 'platform', 'camera-aligned', 'world-xy'
+    trackingDistance = 1000,    // Distance from camera for camera-aligned mode
+    afterRenderCallbacks = [],
     skyAmbient,
     skyGridColor = 0xcccccc,
     skyGridMaterial = undefined,
@@ -66,6 +73,7 @@ let WIN = self.window || {},
     mouseUp,
     mouseDown,
     mouseHover,
+    mouseHoverNull,
     mouseDrag,
     grid = {
         origin: origin,
@@ -135,7 +143,8 @@ let WIN = self.window || {},
     antiAlias = WIN.devicePixelRatio <= 1,
     lastAction = Date.now(),
     renderTime = 0,
-    fps = 0;
+    fps = 0,
+    controlMode = 'default';
 
 if (DOC) {
     if (typeof DOC.hidden !== "undefined") {
@@ -158,6 +167,27 @@ function updateLastAction() {
     lastAction = Date.now();
 }
 
+function isTrackballMode() {
+    return controlMode === 'void';
+}
+
+function createViewControl(cam, dom, notify, slider) {
+    return isTrackballMode()
+        ? new Trackball(cam, dom, notify, slider)
+        : new Orbit(cam, dom, notify, slider);
+}
+
+function applyControlBindings() {
+    if (!viewControl?.setMouse) return;
+    if (controlMode === 'onshape') {
+        viewControl.setMouse(viewControl.mouseOnshape);
+    } else if (controlMode === 'void') {
+        viewControl.setMouse(viewControl.mouseVoid);
+    } else {
+        viewControl.setMouse(viewControl.mouseDefault);
+    }
+}
+
 function delayed(key, time, fn) {
     clearTimeout(timers[key]);
     timers[key] = setTimeout(fn, time);
@@ -165,6 +195,15 @@ function delayed(key, time, fn) {
 
 function valueOr(val, def) {
     return val !== undefined ? val : def;
+}
+
+function isEffectivelyVisible(obj) {
+    let node = obj;
+    while (node) {
+        if (!node.visible) return false;
+        node = node.parent;
+    }
+    return true;
 }
 
 WORLD.contains = (obj) => {
@@ -182,7 +221,7 @@ function tweenit() {
 
 tweenit();
 
-function tweenCamPan(x,y,z,left,up) {
+function tweenCamPan(x,y,z,left,up,time,upVec) {
     updateLastAction();
     let pos = viewControl.getPosition();
     pos.panX = x;
@@ -190,17 +229,54 @@ function tweenCamPan(x,y,z,left,up) {
     pos.panZ = z;
     if (left !== undefined) pos.left = left;
     if (up !== undefined) pos.up = up;
+    if (time !== undefined) pos.time = time;
+    if (upVec) pos.upVec = upVec;
     tweenCam(pos);
 }
 
 function tweenCam(pos) {
+    let hasScale = pos.scale !== undefined;
+    let hasUpVec = pos.upVec !== undefined;
+    let prevScale = 1;
+    let tweenDuration = pos.time ?? tweenTime;
     let tf = function () {
-        viewControl.setPosition(this);
+        if (hasUpVec && camera) {
+            const upNow = new THREE.Vector3(this.upX, this.upY, this.upZ);
+            if (upNow.lengthSq() > 1e-12) {
+                camera.up.copy(upNow.normalize());
+            }
+        }
+        const next = {
+            left: this.left,
+            up: this.up,
+            panX: this.panX,
+            panY: this.panY,
+            panZ: this.panZ
+        };
+        if (hasScale) {
+            const scaleStep = this.scale / prevScale;
+            if (isFinite(scaleStep) && scaleStep > 0) {
+                next.scale = scaleStep;
+                prevScale = this.scale;
+            }
+        }
+        viewControl.setPosition(next);
         updateLastAction();
         refresh();
     };
     let from = Object.clone(viewControl.getPosition());
     let to = Object.clone(pos);
+    if (hasScale) {
+        from.scale = 1;
+    }
+    if (hasUpVec && camera) {
+        from.upX = camera.up.x;
+        from.upY = camera.up.y;
+        from.upZ = camera.up.z;
+        to.upX = pos.upVec.x;
+        to.upY = pos.upVec.y;
+        to.upZ = pos.upVec.z;
+    }
     let dist = Math.abs(from.left - to.left);
     if (dist > Math.PI) {
         if (from.left < to.left) {
@@ -210,10 +286,29 @@ function tweenCam(pos) {
         }
     }
     new TWEEN.Tween(from).
-        to(to, tweenTime).
+        to(to, tweenDuration).
         onUpdate(tf).
         onComplete(() => {
-            viewControl.setPosition(pos);
+            if (hasUpVec && camera) {
+                const upFinal = new THREE.Vector3(pos.upVec.x, pos.upVec.y, pos.upVec.z);
+                if (upFinal.lengthSq() > 1e-12) {
+                    camera.up.copy(upFinal.normalize());
+                }
+            }
+            const finalPos = {
+                left: pos.left,
+                up: pos.up,
+                panX: pos.panX,
+                panY: pos.panY,
+                panZ: pos.panZ
+            };
+            if (hasScale) {
+                const finalScaleStep = pos.scale / prevScale;
+                if (isFinite(finalScaleStep) && finalScaleStep > 0) {
+                    finalPos.scale = finalScaleStep;
+                }
+            }
+            viewControl.setPosition(finalPos);
             updateLastAction();
             refresh();
             let { then } = pos;
@@ -224,15 +319,175 @@ function tweenCam(pos) {
         start();
 }
 
+function snapUpForViewDirection(dir, currentUp) {
+    const viewDir = dir.clone().normalize();
+    const upRef = (currentUp || new THREE.Vector3(0, 1, 0)).clone();
+    let projectedUp = upRef.projectOnPlane(viewDir);
+    if (projectedUp.lengthSq() < 1e-8) {
+        projectedUp = new THREE.Vector3(0, 1, 0).projectOnPlane(viewDir);
+    }
+    if (projectedUp.lengthSq() < 1e-8) {
+        projectedUp = new THREE.Vector3(0, 0, 1).projectOnPlane(viewDir);
+    }
+    if (projectedUp.lengthSq() < 1e-8) {
+        projectedUp = new THREE.Vector3(1, 0, 0).projectOnPlane(viewDir);
+    }
+    if (projectedUp.lengthSq() < 1e-8) {
+        return new THREE.Vector3(0, 1, 0);
+    }
+    projectedUp.normalize();
+
+    const axes = [
+        new THREE.Vector3(1, 0, 0),
+        new THREE.Vector3(-1, 0, 0),
+        new THREE.Vector3(0, 1, 0),
+        new THREE.Vector3(0, -1, 0),
+        new THREE.Vector3(0, 0, 1),
+        new THREE.Vector3(0, 0, -1)
+    ];
+
+    let best = null;
+    let bestScore = -Infinity;
+    for (const axis of axes) {
+        const p = axis.clone().projectOnPlane(viewDir);
+        if (p.lengthSq() < 1e-8) continue;
+        p.normalize();
+        const score = p.dot(projectedUp);
+        if (score > bestScore) {
+            bestScore = score;
+            best = p;
+        }
+    }
+    return best;
+}
+
+function viewDirectionFromAngles(left, upAngle) {
+    return new THREE.Vector3(
+        Math.sin(upAngle) * Math.sin(left),
+        Math.cos(upAngle),
+        Math.sin(upAngle) * Math.cos(left)
+    ).normalize();
+}
+
+function tweenPreset(left, upAngle, then) {
+    // Keep legacy behavior for orbit-based modes (kiri/mesh): do not tween camera.up.
+    if (controlMode !== 'void') {
+        tweenCam({ left, up: upAngle, panX, panY, panZ, then });
+        return;
+    }
+    const upVec = camera
+        ? snapUpForViewDirection(viewDirectionFromAngles(left, upAngle), camera.up)
+        : null;
+    tweenCam({ left, up: upAngle, panX, panY, panZ, upVec: upVec || undefined, then });
+}
+
+function fitPreset(left, upAngle, then) {
+    const upVec = camera
+        ? snapUpForViewDirection(viewDirectionFromAngles(left, upAngle), camera.up)
+        : null;
+    Space.view.fit(then, { left, up: upAngle, upVec: upVec || undefined, tween: true });
+}
+
+function runPreset(left, upAngle, then) {
+    // Only void uses preset+fit behavior. Kiri/mesh keep legacy fixed-distance presets.
+    if (controlMode === 'void') {
+        fitPreset(left, upAngle, then);
+    } else {
+        tweenPreset(left, upAngle, then);
+    }
+}
+
 /** ******************************************************************
  * Utility Functions
  ******************************************************************* */
 
-function width() { return WIN.innerWidth }
+function width() { return container ? container.clientWidth : WIN.innerWidth }
 
-function height() { return WIN.innerHeight }
+function height() { return container ? container.clientHeight : WIN.innerHeight }
 
 function aspect() { return width() / height() }
+
+/**
+ * Convert mouse event to normalized device coordinates (-1 to +1)
+ * relative to the container element. Accounts for container position offset.
+ */
+function eventToNDC(event) {
+    const canvas = renderer?.domElement || null;
+    const rect = canvas?.getBoundingClientRect?.();
+    if (!rect?.width || !rect?.height) {
+        if (!container) {
+            // Fallback for no container (shouldn't happen after init)
+            return {
+                x: (event.clientX / WIN.innerWidth) * 2 - 1,
+                y: -(event.clientY / WIN.innerHeight) * 2 + 1
+            };
+        }
+        const crect = container.getBoundingClientRect();
+        const x = event.clientX - crect.left;
+        const y = event.clientY - crect.top;
+        return {
+            x: (x / crect.width) * 2 - 1,
+            y: -(y / crect.height) * 2 + 1
+        };
+    }
+    const x = event.clientX - rect.left;
+    const y = event.clientY - rect.top;
+
+    return {
+        x: (x / rect.width) * 2 - 1,
+        y: -(y / rect.height) * 2 + 1
+    };
+}
+
+/**
+ * Update tracking plane orientation based on tracking mode
+ */
+function updateTrackingPlane() {
+    if (!trackPlane || !camera || !viewControl) {
+        return;
+    }
+
+    // Don't update during drag operations
+    if (mouseDragPoint) {
+        return;
+    }
+
+    switch (trackingMode) {
+        case 'camera-aligned':
+            // Orient plane perpendicular to camera view
+            const cameraDir = new THREE.Vector3();
+            camera.getWorldDirection(cameraDir);
+
+            // Position plane at fixed distance behind camera target
+            const target = viewControl.getTarget();
+            trackPlane.position.copy(target).addScaledVector(cameraDir, trackingDistance);
+
+            // Orient perpendicular to camera (copy camera rotation)
+            trackPlane.quaternion.copy(camera.quaternion);
+
+            // Enable aligned tracking mode
+            alignedTracking = true;
+            trackPlane.visible = false;  // Hidden by default, shown during drag
+            break;
+
+        case 'world-xy':
+            // Fixed horizontal plane at Z=0 (original behavior)
+            trackPlane.position.set(0, 0, 0);
+            trackPlane.rotation.set(0, 0, 0);
+
+            // Enable aligned tracking mode
+            alignedTracking = true;
+            trackPlane.visible = false;  // Hidden by default, shown during drag
+            break;
+
+        case 'platform':
+        default:
+            // Use platform for tracking (not trackPlane)
+            alignedTracking = false;
+            trackPlane.visible = false;
+            break;
+    }
+}
 
 function addEventListener(el, key, fn) {
     el.addEventListener(key, fn);
@@ -862,6 +1117,9 @@ function intersect(objects, recurse) {
  ******************************************************************* */
 
 function onMouseDown(event) {
+    if (isVoidUiEventTarget(event?.target)) {
+        return;
+    }
     updateLastAction();
     if (event.target === renderer.domElement) {
         DOC.activeElement.blur();
@@ -872,18 +1130,19 @@ function onMouseDown(event) {
         if (mouseDownSelect) {
             selection = mouseDownSelect(undefined, event);
         }
-        if (selection && selection.length > 0) {
+        // Always raycast, even if no selection (to detect trackPlane on empty clicks)
+        if (selection || alignedTracking) {
             // selection = selection.map(o => o.isGroup ? o.children : o).flat();
-            // console.log({ selection });
             trackTo.visible = true;
-            let int = intersect(selection.slice().append(trackTo), false);
+            let raycastArray = selection && selection.length > 0 ? selection.slice().append(trackTo) : [trackTo];
+            let int = intersect(raycastArray, false);
             trackTo.visible = isVis;
             if (int.length > 0) {
                 let trackInt, selectInt;
                 for (let i=0; i<int.length; i++) {
                     if (!trackInt && int[i].object === trackTo) {
                         trackInt = int[i];
-                    } else if (!selectInt && selection.contains(int[i].object)) {
+                    } else if (!selectInt && selection && selection.contains(int[i].object)) {
                         selectInt = int[i];
                     }
                 }
@@ -911,20 +1170,19 @@ function onMouseDown(event) {
     } else {
         viewControl.enabled = false;
     }
-    mouseStart = {
-        x: (event.clientX / width()) * 2 - 1,
-        y: -(event.clientY / height()) * 2 + 1};
+    mouseStart = eventToNDC(event);
 }
 
 function onMouseUp(event) {
+    if (isVoidUiEventTarget(event?.target)) {
+        return;
+    }
     updateLastAction();
     if (!viewControl.enabled) {
         viewControl.enabled = true;
         viewControl.onMouseUp(event);
     }
-    let mouseEnd = {
-        x: (event.clientX / width()) * 2 - 1,
-        y: -(event.clientY / height()) * 2 + 1};
+    let mouseEnd = eventToNDC(event);
     // only fire on mouse move between mouseStart (down) and up
     if (mouseStart && mouseEnd.x - mouseStart.x + mouseEnd.y - mouseStart.y === 0) {
         event.preventDefault();
@@ -968,27 +1226,36 @@ function onMouseUp(event) {
 }
 
 function onMouseMove(event) {
+    if (isVoidUiEventTarget(event?.target)) {
+        updateLastAction();
+        requestRefresh();
+        return;
+    }
     updateLastAction();
     let int, vis, dragTrack;
 
-    const mv = new THREE.Vector2();
-    mv.x = ( event.clientX / window.innerWidth ) * 2 - 1;
-    mv.y = - ( event.clientY / window.innerHeight ) * 2 + 1;
+    const ndc = eventToNDC(event);
+    const mv = new THREE.Vector2(ndc.x, ndc.y);
     raycaster.setFromCamera( mv, camera );
 
     if (viewControl.enabled) {
         event.preventDefault();
-        let selection = mouseHover ? mouseHover() : null;
-        if (selection && selection.length > 0) {
-            int = intersect(selection, selectRecurse);
-            if (int.length > 0) mouseHover(int[0], event, int);
-        }
-        if ((!int || int.length == 0) && platformHover) {
-            vis = platform.visible;
-            platform.visible = true;
-            int = intersect([platform], false);
-            platform.visible = vis;
-            if (int && int.length > 0) platformHover(int[0].point);
+        if (!event.buttons) {
+            let selection = mouseHover ? mouseHover() : null;
+            if (selection && selection.length > 0) {
+                int = intersect(selection, selectRecurse);
+                if (int.length > 0) mouseHover(int[0], event, int);
+                else if (mouseHoverNull) mouseHoverNull();
+            }
+            if ((!int || int.length == 0) && platformHover) {
+                vis = platform.visible;
+                platform.visible = true;
+                int = intersect([platform], false);
+                platform.visible = vis;
+                if (int && int.length > 0) platformHover(int[0].point);
+            }
+        } else if (mouseHoverNull) {
+            mouseHoverNull();
         }
     } else if (mouseDragPoint && mouseDrag && (dragTrack = mouseDrag())) {
         event.preventDefault();
@@ -1019,9 +1286,13 @@ function onMouseMove(event) {
             requestRefresh();
         }
     }
-    mouse = {
-        x: (event.clientX / width()) * 2 - 1,
-        y: -(event.clientY / height()) * 2 + 1};
+    mouse = eventToNDC(event);
+}
+
+function isVoidUiEventTarget(target) {
+    return !!target?.closest?.(
+        '.props-panel, #left-panel, #top-bar, .doc-dialog, .doc-dialog-backdrop, .toolbar-menu, .toolbar-menu-pop, .toolbar-menu-panel, .sketch-constraint-layer'
+    );
 }
 
 /** ******************************************************************
@@ -1047,6 +1318,40 @@ function updateFocus() {
     }
 }
 
+function onViewControlMove(position, moved) {
+    if (platform) {
+        platform.visible = hidePlatformBelow ?
+            initialized && position.y >= 0 && showPlatform : showPlatform;
+        volume.visible = volumeOn && platform.visible;
+    }
+    if (grid.view) {
+        grid.view.visible = hideGridBelow ? platform.visible : showGrid;
+    }
+    if (cameraLight) {
+        cameraLight.position.copy(camera.position);
+    }
+    if (moved && platformOnMove) {
+        clearTimeout(platformMoveTimer);
+        platformMoveTimer = setTimeout(platformOnMove, 500);
+        Space.scene.updateFog();
+    }
+    updateTrackingPlane();
+    updateLastAction();
+    updateFocus();
+}
+
+function onViewControlZoom(val) {
+    if (camera && grid?.origin?.scale) {
+        grid.origin.scale();
+    }
+    if (camera && viewControl) {
+        const dist = camera.position.distanceTo(viewControl.target);
+        raycaster.params.Line.threshold = Math.min(1, dist / 100);
+    }
+    updateLastAction();
+    if (sliderCallback) sliderCallback(val);
+}
+
 function setSky(opt = {}) {
     let { grid, color, gridColor } = opt;
     if (grid) Space.sky.showGrid(grid);
@@ -1061,7 +1366,8 @@ function setSky(opt = {}) {
 
 function setPlatform(opt = {}) {
     let platform = Space.platform;
-    let { color, round, size, grid, opacity } = opt;
+    let { hiding } = opt;
+    let { color, round, size, grid, opacity, zoom } = opt;
     let { visible, volume, zOffset, origin, light } = opt;
     if (light) {
         lightInfo.intensity = light;
@@ -1077,12 +1383,14 @@ function setPlatform(opt = {}) {
         platform.setSize(width, depth, height, maxz);
     }
     if (grid) {
-        let { zOffset } = grid;
+        let { below, disabled, zOffset } = grid;
         let { major = 25, minor = 5 } = grid;
         let { colorX, colorY, colorMajor, colorMinor } = grid;
         platform.setGrid(major, minor);
         platform.setGridColor({ colorX, colorY, colorMajor, colorMinor });
         if (zOffset !== undefined) platform.setGridZOff(zOffset);
+        if (disabled) platform.showGrid(false);
+        if (below) platform.showGridBelow(true);
     }
     if (origin) {
         let { x, y, z, show } = origin;
@@ -1100,11 +1408,23 @@ function setPlatform(opt = {}) {
     if (visible !== undefined) {
         platform.setVisible(visible);
     }
+    if (zoom !== undefined) {
+        Space.view.setZoom(zoom.reverse, zoom.speed);
+    }
+    if (hiding !== undefined) {
+        platform.setHiding(hiding);
+    }
 }
 
 let Space = {
     refresh: refresh,
     update: requestRefresh,
+
+    afterRender(callback) {
+        if (callback && typeof callback === 'function') {
+            afterRenderCallbacks.push(callback);
+        }
+    },
 
     setAntiAlias(b) { antiAlias = b ? true : false },
     raycast: intersect,
@@ -1224,7 +1544,7 @@ let Space = {
     },
 
     preset: {
-        top:    {left: home, up: 0,   panX, panY, panZ},
+        top:    {left: 0,    up: 0,   panX, panY, panZ},
         back:   {left: PI,   up: PI2, panX, panY, panZ},
         home:   {left: home, up,      panX, panY, panZ},
         front:  {left: 0,    up: PI2, panX, panY, panZ},
@@ -1233,29 +1553,56 @@ let Space = {
     },
 
     view: {
-        top:    (then) => { tweenCam({left: home, up: 0,   panX, panY, panZ, then}) },
-        back:   (then) => { tweenCam({left: PI,   up: PI2, panX, panY, panZ, then}) },
-        home:   (then) => { tweenCam({left: home, up,      panX, panY, panZ, then}) },
-        front:  (then) => { tweenCam({left: 0,    up: PI2, panX, panY, panZ, then}) },
-        right:  (then) => { tweenCam({left: PI2,  up: PI2, panX, panY, panZ, then}) },
-        left:   (then) => { tweenCam({left: -PI2, up: PI2, panX, panY, panZ, then}) },
-        reset:  ()     => { viewControl.reset(); requestRefresh() },
-        load:   (cam)  => { viewControl.setPosition(cam); requestRefresh() },
-        save:   ()     => { return viewControl.getPosition(true) },
-        panTo:  (x,y,z,l,u) => { tweenCamPan(x,y,z,l,u) },
-        setZoom: (r,v) => { viewControl.setZoom(r,v) },
-        fit:    (then, opts = {}) => {
+        top:    (then) => { runPreset(0,     0,   then) },
+        bottom: (then) => { runPreset(0,     PI,  then) },
+        back:   (then) => { runPreset(PI,    PI2, then) },
+        home:   (then) => { runPreset(home,  up,  then) },
+        front:  (then) => { runPreset(0,     PI2, then) },
+        right:  (then) => { runPreset(PI2,   PI2, then) },
+        left:   (then) => { runPreset(-PI2,  PI2, then) },
+        reset:  ()     => {
+            viewControl.reset();
+            requestRefresh()
+        },
+        load: (cam)  => {
+            viewControl.setPosition(cam);
+            requestRefresh();
+        },
+        save: () => {
+            return viewControl.getPosition(true);
+        },
+        panTo: (x,y,z,l,u,t,upVec) => {
+            tweenCamPan(x,y,z,l,u,t,upVec);
+        },
+        setZoom: (r,v) => {
+            viewControl.setZoom(r,v);
+        },
+        fit: (then, opts = {}) => {
             // Calculate bounding box of all objects in the workspace
             const box = new THREE.Box3();
             let hasObjects = false;
+            const visibleOnly = opts.visibleOnly !== undefined ? !!opts.visibleOnly : fitVisibleOnly;
+            const targetObjects = Array.isArray(opts.objects) ? opts.objects.filter(Boolean) : null;
 
-            // Recursively expand box for all visible objects with geometry
-            WORLD.traverse(obj => {
-                if (obj.visible && obj.geometry) {
+            if (targetObjects && targetObjects.length) {
+                // Fit only the supplied objects (selection-driven fit in app code)
+                for (const obj of targetObjects) {
+                    if (!obj) continue;
+                    if (visibleOnly && !isEffectivelyVisible(obj)) continue;
                     box.expandByObject(obj);
                     hasObjects = true;
                 }
-            });
+            } else {
+                // Recursively expand box for all visible objects with geometry
+                WORLD.traverse(obj => {
+                    if (!obj.geometry) return;
+                    if (visibleOnly && !isEffectivelyVisible(obj)) return;
+                    if (obj.visible) {
+                        box.expandByObject(obj);
+                        hasObjects = true;
+                    }
+                });
+            }
 
             // If no objects, fall back to platform bounds
             if (!hasObjects) {
@@ -1277,10 +1624,15 @@ let Space = {
 
             // Use the maximum dimension for distance calculation
             const maxDim = Math.max(size.x, size.y, size.z);
+            // Get target view angles (may be overridden by caller)
+            const pos = viewControl.getPosition();
+            const left = opts.left !== undefined ? opts.left : pos.left;
+            const upAngle = opts.up !== undefined ? opts.up : pos.up;
 
             // Calculate desired camera distance based on bounding box
-            const padding = opts.padding || 0.75;
+            const padding = opts.padding || (camera.isOrthographicCamera ? fitPaddingOrthographic : fitPaddingPerspective);
             let desiredDistance;
+            let orthoScaleSaveTarget = null;
 
             if (camera.isPerspectiveCamera) {
                 // For perspective, calculate distance to fit object in view
@@ -1288,55 +1640,166 @@ let Space = {
                 // Use maxDim directly (not half) for more conservative framing
                 desiredDistance = maxDim / Math.tan(fov / 2) * padding;
             } else {
-                // For orthographic, calculate equivalent distance
-                // The ortho frustum size is proportional to distance * tan(fov/2)
-                // We want similar framing to perspective mode
-                const fov = perspective * (Math.PI / 180);
-                desiredDistance = maxDim / Math.tan(fov / 2) * padding;
-            }
+                // For orthographic, fit based on camera-plane extents (not perspective distance).
+                // This avoids chronic over-zoom-out in ortho mode.
+                const min = box.min;
+                const max = box.max;
+                const corners = [
+                    new THREE.Vector3(min.x, min.y, min.z),
+                    new THREE.Vector3(min.x, min.y, max.z),
+                    new THREE.Vector3(min.x, max.y, min.z),
+                    new THREE.Vector3(min.x, max.y, max.z),
+                    new THREE.Vector3(max.x, min.y, min.z),
+                    new THREE.Vector3(max.x, min.y, max.z),
+                    new THREE.Vector3(max.x, max.y, min.z),
+                    new THREE.Vector3(max.x, max.y, max.z)
+                ];
 
-            // Get current view angles or use defaults
-            const pos = viewControl.getPosition();
-            const left = opts.left !== undefined ? opts.left : pos.left;
-            const upAngle = opts.up !== undefined ? opts.up : pos.up;
+                const requestedView = opts.left !== undefined || opts.up !== undefined || !!opts.upVec;
+                let camMinX = Infinity;
+                let camMaxX = -Infinity;
+                let camMinY = Infinity;
+                let camMaxY = -Infinity;
+                if (requestedView) {
+                    const viewDir = viewDirectionFromAngles(left, upAngle);
+                    let upVec = null;
+                    if (opts.upVec) {
+                        upVec = new THREE.Vector3(opts.upVec.x || 0, opts.upVec.y || 0, opts.upVec.z || 0);
+                        if (upVec.lengthSq() > 1e-12) upVec.normalize();
+                    }
+                    if (!upVec) {
+                        upVec = snapUpForViewDirection(viewDir, camera.up) || camera.up.clone();
+                    }
+                    upVec = upVec.projectOnPlane(viewDir);
+                    if (upVec.lengthSq() < 1e-8) {
+                        upVec = new THREE.Vector3(0, 1, 0).projectOnPlane(viewDir);
+                    }
+                    if (upVec.lengthSq() < 1e-8) {
+                        upVec = new THREE.Vector3(1, 0, 0).projectOnPlane(viewDir);
+                    }
+                    upVec.normalize();
+                    const rightVec = upVec.clone().cross(viewDir).normalize();
+                    for (const corner of corners) {
+                        const x = corner.dot(rightVec);
+                        const y = corner.dot(upVec);
+                        if (x < camMinX) camMinX = x;
+                        if (x > camMaxX) camMaxX = x;
+                        if (y < camMinY) camMinY = y;
+                        if (y > camMaxY) camMaxY = y;
+                    }
+                } else {
+                    camera.updateMatrixWorld(true);
+                    const inv = camera.matrixWorldInverse;
+                    for (const corner of corners) {
+                        corner.applyMatrix4(inv);
+                        if (corner.x < camMinX) camMinX = corner.x;
+                        if (corner.x > camMaxX) camMaxX = corner.x;
+                        if (corner.y < camMinY) camMinY = corner.y;
+                        if (corner.y > camMaxY) camMaxY = corner.y;
+                    }
+                }
+                const spanX = Math.max(1e-6, camMaxX - camMinX);
+                const spanY = Math.max(1e-6, camMaxY - camMinY);
+                const frustumW = Math.max(1e-6, Math.abs(camera.right - camera.left));
+                const frustumH = Math.max(1e-6, Math.abs(camera.top - camera.bottom));
+                const fitX = spanX / frustumW;
+                const fitY = spanY / frustumH;
+                // Keep historical fit padding semantics: lower padding => more margin.
+                orthoScaleSaveTarget = Math.max(fitX, fitY) / Math.max(1e-6, padding);
+            }
 
             // Map scene coordinates to pan coordinates
             // The target position in orbit control is in scene space
             const newPanX = center.x;
             const newPanY = center.y;
             const newPanZ = center.z;
+            const currentScaleSave = viewControl.getPosition({ scaled: true }).scale || 1;
+            const currentDistToCenter = camera.position.distanceTo(center);
 
-            // First, tween to center the view on the object
-            viewControl.setPosition({
+            const fitPos = {
                 left,
                 up: upAngle,
                 panX: newPanX,
                 panY: newPanY,
                 panZ: newPanZ,
-            });
+            };
+            let fitScaleRatio = 1;
 
             if (camera.isPerspectiveCamera) {
-                const currentDist = camera.position.distanceTo(viewControl.getTarget());
-                const scale = desiredDistance / currentDist;
-                viewControl.setPosition({ scale });
+                fitScaleRatio = desiredDistance / currentDistToCenter;
             } else {
-                // For orthographic, set zoom directly based on viewing size
-                // The camera frustum height is determined by the orthographic bounds
-                // We want the object to fit within the view with padding
-                const currentDist = camera.position.distanceTo(viewControl.getTarget());
-                const targetScaleSave = desiredDistance / currentDist;
-                // Reset scale accumulation and set absolute zoom
-                viewControl.setPosition({ scale: targetScaleSave / viewControl.getPosition(true).scale });
+                // For orthographic, set the absolute target zoom scale directly.
+                const targetScaleSave = Number.isFinite(orthoScaleSaveTarget) ? orthoScaleSaveTarget : currentScaleSave;
+                fitScaleRatio = targetScaleSave / currentScaleSave;
             }
-            viewControl.update();
 
-            if (typeof(then) === 'function') then();
+            // Guard against degenerate center/camera overlap.
+            if (!isFinite(fitScaleRatio) || fitScaleRatio <= 0) {
+                fitScaleRatio = 1;
+            }
+
+            if (opts.tween !== false) {
+                if (opts.upVec) {
+                    fitPos.upVec = opts.upVec;
+                }
+                fitPos.scale = fitScaleRatio;
+                fitPos.time = opts.time ?? 350;
+                fitPos.then = then;
+                tweenCam(fitPos);
+            } else {
+                if (opts.upVec && camera) {
+                    const upNow = new THREE.Vector3(opts.upVec.x || 0, opts.upVec.y || 0, opts.upVec.z || 0);
+                    if (upNow.lengthSq() > 1e-12) {
+                        camera.up.copy(upNow.normalize());
+                    }
+                }
+                viewControl.setPosition(fitPos);
+                viewControl.setPosition({ scale: fitScaleRatio });
+                viewControl.update();
+                if (typeof(then) === 'function') then();
+            }
         },
         setCtrl: (name) => {
-            if (name === 'onshape') {
-                viewControl.setMouse(viewControl.mouseOnshape);
-            } else {
-                viewControl.setMouse(viewControl.mouseDefault);
+            const nextMode = name || 'default';
+            const wantsTrackball = nextMode === 'void';
+            const hasTrackball = !!viewControl?.isTrackballAdapter;
+            controlMode = nextMode;
+
+            if (viewControl && wantsTrackball !== hasTrackball) {
+                const position = viewControl.getPosition(true);
+                const target = viewControl.getTarget().clone();
+                const minDistance = viewControl.minDistance;
+                const maxDistance = viewControl.maxDistance;
+                const noKeys = viewControl.noKeys;
+                const enabled = viewControl.enabled;
+                const reverseZoom = viewControl.reverseZoom;
+                const zoomSpeed = viewControl.zoomSpeed;
+
+                if (viewControl.dispose) {
+                    viewControl.dispose();
+                }
+
+                viewControl = createViewControl(camera, container, onViewControlMove, onViewControlZoom);
+                viewControl.noKeys = noKeys;
+                viewControl.minDistance = minDistance;
+                viewControl.maxDistance = maxDistance;
+                viewControl.enabled = enabled;
+                viewControl.reverseZoom = reverseZoom;
+                viewControl.zoomSpeed = zoomSpeed;
+                viewControl.setTarget(target);
+                viewControl.setPosition(position);
+            }
+            applyControlBindings();
+        },
+        setFitVisibleOnly: (enabled) => {
+            fitVisibleOnly = !!enabled;
+        },
+        setFitPadding: (next = {}) => {
+            if (Number.isFinite(next.perspective) && next.perspective > 0) {
+                fitPaddingPerspective = next.perspective;
+            }
+            if (Number.isFinite(next.orthographic) && next.orthographic > 0) {
+                fitPaddingOrthographic = next.orthographic;
             }
         },
         getFPS () { return fps },
@@ -1352,8 +1815,8 @@ let Space = {
             updateFocus();
         },
         setHome(r,u) {
-            home = r || 0;
-            up = u || PI4;
+            home = r ?? 0;
+            up = u ?? PI4;
         },
         spin(then, count) {
             Space.view.front(() => {
@@ -1387,8 +1850,50 @@ let Space = {
         downSelect: (f) => { mouseDownSelect = f },
         upSelect:   (f) => { mouseUpSelect = f },
         onDrag:     (f) => { mouseDrag = f },
-        onHover:    (f) => { mouseHover = f }
+        onHover:    (f,n) => { mouseHover = f, mouseHoverNull = n }
     },
+
+    tracking: {
+        /**
+         * Set tracking plane mode
+         * @param {string} mode - 'platform', 'camera-aligned', or 'world-xy'
+         */
+        setMode(mode) {
+            if (['platform', 'camera-aligned', 'world-xy'].includes(mode)) {
+                trackingMode = mode;
+                updateTrackingPlane();
+                requestRefresh();
+            }
+        },
+
+        /**
+         * Set distance from camera for camera-aligned mode
+         * @param {number} distance - Distance in world units
+         */
+        setDistance(distance) {
+            trackingDistance = distance;
+            if (trackingMode === 'camera-aligned') {
+                updateTrackingPlane();
+                requestRefresh();
+            }
+        },
+
+        /**
+         * Get current tracking mode
+         */
+        getMode() {
+            return trackingMode;
+        },
+
+        /**
+         * Get tracking plane object (for advanced use)
+         */
+        getPlane() {
+            return trackPlane;
+        }
+    },
+
+    isFocused: inputHasFocus,
 
     tween: {
         setTime:    (t) => { tweenTime = t || 500 },
@@ -1452,7 +1957,7 @@ let Space = {
     },
 
     internals() {
-        return { renderer, camera, platform };
+        return { renderer, camera, platform, container, raycaster };
     },
 
     isOrtho() {
@@ -1498,7 +2003,11 @@ let Space = {
 
         // Copy camera position
         newCamera.position.copy(camera.position);
-        newCamera.up.copy(camera.up);
+        if (controlMode === 'void') {
+            newCamera.up.copy(camera.up);
+        } else {
+            newCamera.up.set(0, 1, 0);
+        }
         newCamera.lookAt(target);
 
         // Store old control properties
@@ -1515,43 +2024,17 @@ let Space = {
         cameraType = type;
 
         // Recreate viewControl with new camera and proper callbacks
-        viewControl = new Orbit(camera, container, (position, moved) => {
-            if (platform) {
-                platform.visible = hidePlatformBelow ?
-                    initialized && position.y >= 0 && showPlatform : showPlatform;
-                volume.visible = showVolume && platform.visible;
-            }
-            if (grid.view) {
-                grid.view.visible = hideGridBelow ? platform.visible : showGrid;
-            }
-            if (cameraLight) {
-                cameraLight.position.copy(camera.position);
-            }
-            if (moved && platformOnMove) {
-                clearTimeout(platformMoveTimer);
-                platformMoveTimer = setTimeout(platformOnMove, 500);
-                Space.scene.updateFog();
-            }
-            updateLastAction();
-            updateFocus();
-        }, (val) => {
-            if (camera && grid?.origin?.scale) {
-                grid.origin.scale();
-            }
-            if (camera && viewControl) {
-                // increase intersect line precision on zoom
-                const dist = camera.position.distanceTo(viewControl.target);
-                raycaster.params.Line.threshold = Math.min(1, dist / 100);
-            }
-            updateLastAction();
-            if (sliderCallback) sliderCallback(val);
-        });
+        if (viewControl?.dispose) {
+            viewControl.dispose();
+        }
+        viewControl = createViewControl(camera, container, onViewControlMove, onViewControlZoom);
         viewControl.noKeys = noKeys;
         viewControl.minDistance = minDistance;
         viewControl.maxDistance = maxDistance;
         viewControl.enabled = enabled;
         viewControl.reverseZoom = reverseZoom;
         viewControl.zoomSpeed = zoomSpeed;
+        applyControlBindings();
         viewControl.setPosition(position);
 
         // Dispose old camera
@@ -1599,42 +2082,13 @@ let Space = {
 
         raycaster = new THREE.Raycaster();
 
-        viewControl = new Orbit(camera, domelement, (position, moved) => {
-            if (platform) {
-                platform.visible = hidePlatformBelow ?
-                    initialized && position.y >= 0 && showPlatform : showPlatform;
-                volume.visible = showVolume && platform.visible;
-            }
-            if (grid.view) {
-                grid.view.visible = hideGridBelow ? platform.visible : showGrid;
-            }
-            if (cameraLight) {
-                cameraLight.position.copy(camera.position);
-            }
-            if (moved && platformOnMove) {
-                clearTimeout(platformMoveTimer);
-                platformMoveTimer = setTimeout(platformOnMove, 500);
-                Space.scene.updateFog();
-            }
-            updateLastAction();
-            updateFocus();
-        }, (val) => {
-            if (camera && grid?.origin?.scale) {
-                grid.origin.scale();
-            }
-            if (camera && viewControl) {
-                // increase intersect line precision on zoom
-                const dist = camera.position.distanceTo(viewControl.target);
-                raycaster.params.Line.threshold = Math.min(1, dist / 100);
-            }
-            // broker.publish("space.view.zoom", camera);
-            updateLastAction();
-            if (slider) slider(val);
-        });
+        sliderCallback = slider;
+        viewControl = createViewControl(camera, domelement, onViewControlMove, onViewControlZoom);
 
         viewControl.noKeys = true;
         viewControl.minDistance = 1;
         viewControl.maxDistance = 1000;
+        applyControlBindings();
 
         SCENE.add(skyAmbient = new THREE.AmbientLight(0x707070));
 
@@ -1701,6 +2155,10 @@ let Space = {
             if (docVisible && !freeze && Date.now() - lastAction < 1500) {
                 renderStart = Date.now();
                 renderer.render(SCENE, camera);
+                // call after-render callbacks (e.g., for viewcube)
+                for (const callback of afterRenderCallbacks) {
+                    callback(renderer);
+                }
                 // track frame render times
                 renders.push(Date.now() - renderStart);
             } else {
@@ -1721,6 +2179,9 @@ let Space = {
         };
 
         initialized = true;
+
+        // Initialize tracking plane orientation
+        updateTrackingPlane();
     }
 };
 

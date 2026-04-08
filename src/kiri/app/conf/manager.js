@@ -172,9 +172,6 @@ function updateSettings(opt = {}) {
             same = false;
         }
     }
-
-    $('mode-device').innerText = device.deviceName;
-    $('mode-profile').innerText = `${cproc[mode]}${same ? '' : ' *'}`;
 }
 
 function updateSettingsFromFields(setrec, uirec = api.ui, changes) {
@@ -279,6 +276,7 @@ function updateFieldsFromSettings(setrec, uirec = api.ui, opt = {}) {
                 let opt = document.createElement('option');
                 opt.appendChild(document.createTextNode(el.name));
                 opt.setAttribute('value', ev);
+                if (id === '#') opt.setAttribute('disabled', true);
                 uie.appendChild(opt);
             });
             if (chosen) {
@@ -526,7 +524,7 @@ function settingsExport(opts = {}) {
     const shot = opts.work || opts.screen ? space.screenshot() : undefined;
     const work = opts.work ? codec.encode(widgets,{_json_:true}) : undefined;
     const view = opts.work ? space.view.save() : undefined;
-    const setn = Object.clone(settings);
+    const setn = Object.clone(opts.engine ?? settings);
     // stuff in legacy annotations for re-import
     for (let w of widgets) {
         setn.widget[w.id] = w.anno;
@@ -539,7 +537,7 @@ function settingsExport(opts = {}) {
         note: note,
         work: work,
         view: view,
-        moto: moto.id,
+        moto: self.moto?.id,
         init: local.getItem('kiri-init'),
         time: Date.now()
     };
@@ -559,6 +557,7 @@ function settingsImport(data, ask) {
     }
 
     if (api.const.LOCAL) console.log('import', data);
+
     let isSettings = (data.settings && data.time);
     let isProcess = (data.process && data.time && data.mode && data.name);
     let isDevice = (data.device && data.time);

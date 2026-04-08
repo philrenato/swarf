@@ -43,7 +43,7 @@ self.addEventListener('message', e => {
 async function _install(e) {
     log('install');
     if (e.addRoutes) {
-        for (let pre of ["font","mesh","kiri","lib","wasm"]) {
+        for (let pre of ["font","mesh","kiri","void","lib","wasm"]) {
             e.addRoutes({
                 condition: { urlPattern: new URLPattern({ pathname: `/${pre}/.*` }) },
                 source: { cacheName: CACHE_VERSION }
@@ -193,8 +193,10 @@ async function preloadBundle() {
     const res = await fetch(BUNDLE_URL, { cache: 'no-store' });
     const buf = await res.arrayBuffer();
     const files = await unpackBundle(buf);
+    const total = Object.keys(files).length;
     await Promise.all(
         Object.entries(files).map(([path, blob]) => {
+            broadcast({ progress: loaded/total });
             const ext = path.split('.').pop();
             const type =
                 ext === 'html' ? 'text/html' :

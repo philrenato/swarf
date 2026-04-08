@@ -44,7 +44,7 @@ export function parse(text, opt = { }) {
             if (points.length < 3) {
                 continue;
             }
-            let poly = newPolygon().addPoints(points.map(p => newPoint(p.x, -p.y, 0)));
+            let poly = newPolygon().addPoints(points.map(p => newPoint(p.x, -p.y, 0))).clean();
             if (poly.appearsClosed()) poly.points.pop();
             if (type === 'polyline') poly.setOpen(true);
             poly._svg = { width, miter };

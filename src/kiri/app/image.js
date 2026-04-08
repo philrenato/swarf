@@ -22,36 +22,58 @@ function loadImageDialog(image, name, force) {
             }
         });
     }
-    const opt = {pre: [
-        "<div class='f-col a-center'>",
-        "  <h3>Image Conversion</h3>",
-        "  <p class='t-just' style='width:300px;line-height:1.5em'>",
-        "  This will create a 3D model from a 2D PNG image. Photos must",
-        "  be blurred to be usable. Values from 0=off to 50=high are suggested.",
-        "  Higher values incur more processing time.",
-        "  </p>",
-        "  <div class='f-row t-right'><table>",
-        "  <tr><th>blur value</th><td><input id='png-blur' value='0' size='3'></td>",
-        "      <th>&nbsp;invert image</th><td><input id='png-inv' type='checkbox'></td></tr>",
-        "  <tr><th>base size</th><td><input id='png-base' value='0' size='3'></td>",
-        "      <th>&nbsp;invert alpha</th><td><input id='alpha-inv' type='checkbox'></td></tr>",
-        "  <tr><th>border size</th><td><input id='png-border' value='0' size='3'></td>",
-        "      <th></th><td></td></tr>",
-        "  </table></div>",
-        "</div>"
-    ]};
-    api.uc.confirm(undefined, {convert:true, cancel:false}, undefined, opt).then((ok) => {
-        if (ok) {
+    const rnd = Date.now().toString(36);
+    const host = $('mod-any');
+    host.innerHTML = [
+        `<div class="image-convert-dialog f-col a-center">`,
+        `  <h3 class="image-convert-title">Image Conversion</h3>`,
+        `  <p class="image-convert-copy t-just">`,
+        `  This will create a 3D model from a 2D PNG image. Photos must`,
+        `  be blurred to be usable. Values from 0=off to 50=high are suggested.`,
+        `  Higher values incur more processing time.`,
+        `  </p>`,
+        `  <div class="f-row t-right image-convert-fields"><table>`,
+        `  <tr><th>blur value</th><td><input id="png-blur-${rnd}" value="0" size="3"></td>`,
+        `      <th>invert image</th><td><input id="png-inv-${rnd}" type="checkbox"></td></tr>`,
+        `  <tr><th>base size</th><td><input id="png-base-${rnd}" value="0" size="3"></td>`,
+        `      <th>invert alpha</th><td><input id="alpha-inv-${rnd}" type="checkbox"></td></tr>`,
+        `  <tr><th>border size</th><td><input id="png-border-${rnd}" value="0" size="3"></td>`,
+        `      <th></th><td></td></tr>`,
+        `  </table></div>`,
+        `  <div class="f-row j-end image-convert-actions">`,
+        `    <button id="img-convert-ok-${rnd}">convert</button>`,
+        `    <button id="img-convert-cancel-${rnd}">cancel</button>`,
+        `  </div>`,
+        `</div>`
+    ].join('');
+
+    const blur = $(`png-blur-${rnd}`);
+    const base = $(`png-base-${rnd}`);
+    const border = $(`png-border-${rnd}`);
+    const invImage = $(`png-inv-${rnd}`);
+    const invAlpha = $(`alpha-inv-${rnd}`);
+    const okBtn = $(`img-convert-ok-${rnd}`);
+    const cancelBtn = $(`img-convert-cancel-${rnd}`);
+
+    okBtn.onclick = () => {
+        api.modal.hide();
+        setTimeout(() => {
             loadImage(image, {
                 file: name,
-                blur: parseInt($('png-blur').value) || 0,
-                base: parseInt($('png-base').value) || 0,
-                border: parseInt($('png-border').value) || 0,
-                inv_image: $('png-inv').checked,
-                inv_alpha: $('alpha-inv').checked
+                blur: parseInt(blur.value) || 0,
+                base: parseInt(base.value) || 0,
+                border: parseInt(border.value) || 0,
+                inv_image: invImage.checked,
+                inv_alpha: invAlpha.checked
             });
-        }
-    });
+        },50);
+    };
+    cancelBtn.onclick = () => api.modal.hide();
+    blur.onkeypress = (ev) => {
+        if (ev.key === 'Enter' || ev.charCode === 13) okBtn.click();
+    };
+    api.modal.show('any');
+    setTimeout(() => blur.focus(), 0);
 }
 
 /**
@@ -62,10 +84,10 @@ function loadImageDialog(image, name, force) {
  */
 function loadImage(image, opt = {}) {
     const info = Object.assign({settings: settings.get(), png:image}, opt);
-    api.client.image2mesh(info, progress => {
-        api.show.progress(progress, "converting");
+    api.client.image2mesh(info, () => {
+        api.show.busy('converting');
     }, vertices => {
-        api.show.progress(0);
+        api.show.busy(false);
         const widget = newWidget().loadVertices(vertices);
         widget.meta.file = opt.file;
         platform.add(widget);

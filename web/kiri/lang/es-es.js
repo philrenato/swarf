@@ -66,6 +66,18 @@ self.lang['es-es'] = {
     view:           "vista",        // left view pop menu
     wire:           "alambre",      // left render pop menu
     volume:         "volumen",      // device build area
+    al_menu:        "alinear",
+    re_menu:        "renderizar",
+    sx_menu:        "selección",
+    ed_menu:        "editar",
+    face_left:      "cara izquierda",
+    re_edgs:        "alternar bordes",
+    al_menu:        "alinear",
+    re_menu:        "renderizar",
+    sx_menu:        "selección",
+    ed_menu:        "editar",
+    face_left:      "cara izquierda",
+    re_edgs:        "alternar bordes",
 
     acct_xpo:       ["hace una copia de seguridad de su dispositivo","y perfiles de dispositivo con la ","opción de incluir espacio de trabajo","objetos y posiciones"],
 
@@ -81,8 +93,8 @@ self.lang['es-es'] = {
     rc_xobj:        "exportar OBJ",
     rc_xstl:        "exportar STL",
     sb_info:        ["velocidad de impresión","en mm/s"],
-    rc_merg:        "fusionar mallas de objeto",
-    rc_splt:        "aislar cuerpos",
+    rc_merg:        "fusionar objetos",
+    rc_splt:        "aislar objetos",
 
     // DEVICE MENU and related dialogs
     dm_sldt:        "seleccionar un tipo de dispositivo",
@@ -712,6 +724,10 @@ self.lang['es-es'] = {
     ct_midl_l:      ["usar línea media de la pestaña","en lugar de z inferior","para trabajo de doble cara"],
     ct_nabl_s:      "automático",
     ct_nabl_l:      ["generar automáticamente pestañas radiales","proyectadas desde el centro de la pieza","usando cantidad y desplazamiento de ángulo"],
+
+    // CNC AREA OP
+    ca_fini_s:      "corte de acabado",
+    ca_fini_l:      "trayectoria de corte que sigue el contorno de la pieza final. permite un paso preciso al limpiar un área más grande.",
 
     // OUTPUT
     ou_menu:        "salida",

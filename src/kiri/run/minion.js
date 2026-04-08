@@ -78,6 +78,20 @@ const funcs = self.minion = {
         }
     },
 
+    subtract(data, seq) {
+        let { arg, opt } = data;
+        let { area, wasm, z } = opt;
+        let a = codec.decode(arg.a);
+        let b = codec.decode(arg.b);
+        let outA = [], outB = [];
+        POLY.subtract(a, b, outA, outB, z, area, { wasm });
+        reply({
+            seq,
+            outA: codec.encode(outA),
+            outB: codec.encode(outB)
+        });
+    },
+
     union(data, seq) {
         if (!(data.polys && data.polys.length)) {
             reply({ seq, union: codec.encode([]) });
@@ -140,14 +154,11 @@ const funcs = self.minion = {
 
     sliceZ(data, seq) {
         debug('minion.sliceZ', { data, seq });
-        let { z, points, options } = data;
-        let i = 0, p = 0, realp = new Array(points.length / 3);
-        while (i < points.length) {
-            realp[p++] = newPoint(points[i++], points[i++], points[i++]).round(3);
-        }
+        let { z, options } = data;
+        let { points } = cache;
         let state = { zero: [] };
         let output = [];
-        sliceZ(z, realp, {
+        sliceZ(z, points, {
             ...options,
             each(out) { output.push(out) }
         }).then(() => {
@@ -159,9 +170,17 @@ const funcs = self.minion = {
         });
     },
 
+    setPoints(data, seq) {
+        let { points } = data;
+        let i = 0, p = 0, realp = new Array(points.length / 3);
+        while (i < points.length) {
+            realp[p++] = newPoint(points[i++], points[i++], points[i++]).round(3);
+        }
+        cache.points = realp;
+    },
+
     putCache(msg) {
         const { key, data } = msg;
-        // log({ minion_putCache: key, data });
         if (data) {
             cache[key] = data;
         } else {

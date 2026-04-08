@@ -18,6 +18,20 @@
             font-family: sans-serif;
             font-weight: bold;
         }
+        #progress {
+            margin-top: 20px;
+            width: 300px;
+            height: 20px;
+            border: 1px solid black;
+            border-radius: 10px;
+            background-color: white;
+            overflow: hidden;
+        }
+        #bar {
+            background-color: #555;
+            height: 20px;
+            width: 0%;
+        }
     </style>
     <script type="module">
         import { version } from '/lib/moto/license.js';
@@ -49,10 +63,19 @@
                 version: map.version || version
             });
 
+            const bar = document.getElementById('bar');
+
             navigator.serviceWorker.addEventListener('message', e => {
-                console.log('[SM]', e.data);
-                    setTimeout(() => {
-                        if (map.mesh) {
+                let { data } = e;
+                if (data.progress) {
+                    bar.style.width = `${(data.progress * 100)|0}%`;
+                    return;
+                } else {
+                    console.log('[SM]', data);
+                }
+                setTimeout(() => {
+                    bar.style.width = `100%`;
+                    if (map.mesh) {
                         location.replace('/mesh/index.html');
                     } else {
                         location.replace('/kiri/index.html');
@@ -63,6 +86,11 @@
     </script>
 </head>
 
-<body>Booting Grid.Space</body>
+<body>
+    <div>Installing Grid.Space</div>
+    <div id="progress">
+        <div id="bar"></div>
+    </div>
+</body>
 
 </html>

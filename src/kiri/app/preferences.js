@@ -83,7 +83,7 @@ function booleanSave() {
     control.assembly = ui.assembly.checked;
     control.autoLayout = ui.autoLayout.checked;
     control.autoSave = ui.autoSave.checked;
-    control.dark = ui.dark.checked;
+    control.dark = api.sdb['kiri-dark'] = ui.dark.checked;
     control.devel = ui.devel.checked;
     control.drawer = ui.drawer.checked;
     control.exportOcto = ui.exportOcto.checked;
@@ -109,6 +109,7 @@ function booleanSave() {
     updateDrawer();
     api.event.emit('boolean.update');
     space.view.setProjection(control.ortho ? 'orthographic' : 'perspective');
+    setDarkLight(control.dark);
 }
 
 function updateDrawer() {
@@ -127,3 +128,5 @@ export const preferences = {
     booleanSave,
     updateDrawer
 };
+
+api.prefs = preferences;
