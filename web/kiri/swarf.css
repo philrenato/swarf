@@ -473,10 +473,26 @@ hr:not(.swarf-keep) {
 /* ---- Wordmark: push in from the corner (markup note: too close to edge) ---- */
 .menubar-appname {
   color: var(--swarf-text) !important;
-  font-weight: 600;
-  letter-spacing: 0.14em;
-  text-transform: lowercase;
-  font-size: 14px;
   padding: 0 18px 0 28px !important;
+  display: flex;
+  align-items: baseline;
+}
+.swarf-wordmark {
+  display: inline-flex;
+  align-items: baseline;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: lowercase;
+  font-size: 22px;
+  line-height: 1;
+  color: var(--swarf-text);
+}
+.swarf-wordmark .swarf-tm {
+  font-size: 9px;
+  margin-left: 2px;
+  letter-spacing: 0;
+  color: var(--swarf-text-2);
+  transform: translateY(-8px);
+  font-weight: 500;
 }
 .menubar-separator { background: var(--swarf-line) !important; }

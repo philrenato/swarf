@@ -145,14 +145,17 @@ class KeyboardControl {
             return false;
         }
 
-        // Allow feature hooks to intercept
-        if (this.#api.feature.on_key) {
-            if (this.#api.feature.on_key({down:evt})) return;
+        // swarf: no keyboard shortcuts except Delete/Backspace for removing the selected part.
+        // Every other Kiri hotkey is suppressed here. See project_swarf_v001.md.
+        if (evt.keyCode === 8 || evt.keyCode === 46) {
+            if (this.inputHasFocus()) return false;
+            this.#platform.delete(this.#selection.meshes());
+            evt.preventDefault();
         }
-        for (let handler of this.#api.feature.on_key2) {
-            if (handler({down:evt})) return;
-        }
+        return false;
 
+        // legacy Kiri shortcuts below — unreachable, preserved for upstream-diff clarity
+        // eslint-disable-next-line no-unreachable
         let move = evt.altKey ? 5 : 0,
             deg = move ? 0 : -Math.PI / (evt.shiftKey ? 36 : 2);
 
