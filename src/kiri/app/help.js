@@ -25,7 +25,7 @@ function showHelpFile(local,then) {
         local = true;
     }
     // swarf: fork version replaces upstream Kiri:Moto version string
-    $('kiri-version').innerHTML = `v001-000 · kiri:moto ${version}`;
+    $('kiri-version').innerHTML = `v00000-007 · kiri:moto ${version}`;
     modal.show('help');
     api.event.emit('help.show', local);
 }

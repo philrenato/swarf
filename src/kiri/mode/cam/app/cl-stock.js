@@ -133,6 +133,12 @@ export function updateStock() {
             let lines = new THREE.LineSegments(ligeo, limat);
             env.camStock.lines = lines;
             env.camStock.add(lines);
+            // swarf: hide the stock outline by default (markup Apr 15 — "why does it
+            // have a bounding box around it that is padded?"). The stock box auto-
+            // derives from part bounds in student mode and shows up as a translucent
+            // cuboid around every part. For students it reads as noise, not as
+            // "this is your raw material." Expert-mode body class re-enables it.
+            env.camStock.visible = document.body.classList.contains('swarf-expert');
             SPACE.world.add(env.camStock);
         }
         // fight z fighting in threejs

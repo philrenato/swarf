@@ -35,27 +35,29 @@ html, body { background: var(--swarf-bg) !important; color: var(--swarf-text); }
    canvas's clear color only when the canvas doesn't paint something — OR via the overlay
    glow on the surrounding chrome. Subtle by design. */
 body {
-  /* swarf 'red sky at night' backdrop — inspired by Phil's two sunset refs (mackerel sky
-     + banded pink stratus). Subtler than the previous radials: a quiet vertical sunset
-     gradient (warm at the horizon, cool at the zenith) with near-invisible horizontal
-     cloud striations. Low opacity — atmospheric, not graphic. */
+  /* swarf sky backdrop v3 (markup Apr 15 — "red to blue gradient, like sky references
+     in refs"): Tron:Ares terminal sky — mill-red at the horizon, cooling through
+     deep purple to a near-black indigo at the zenith. Canvas alpha:true now lets the
+     3D viewport sit on top of this rather than covering it with opaque black.
+     Horizontal striations carry the EMCO Mill-55 texture language. */
   background:
-    /* horizontal cloud striations — very faint, stacked */
+    /* horizontal scan-line striations — technical grain */
     repeating-linear-gradient(
       0deg,
-      rgba(224, 80, 56, 0.0) 0px,
-      rgba(224, 80, 56, 0.025) 2px,
-      rgba(60, 28, 40, 0.015) 4px,
-      rgba(0, 0, 0, 0.0) 7px
+      rgba(255, 80, 56, 0.00) 0px,
+      rgba(255, 80, 56, 0.022) 1px,
+      rgba(16, 20, 40, 0.018) 2px,
+      rgba(0, 0, 0, 0.00) 5px
     ),
-    /* warm horizon band at the bottom — ember to ember-purple */
+    /* primary sky: red horizon → violet mid → indigo zenith */
     linear-gradient(
       to top,
-      rgba(224, 90, 40, 0.08) 0%,
-      rgba(180, 40, 48, 0.06) 10%,
-      rgba(90, 30, 60, 0.05) 28%,
-      rgba(24, 16, 32, 0.00) 55%,
-      rgba(0, 0, 0, 0.00) 100%
+      rgba(208, 32, 32, 0.70)   0%,
+      rgba(255, 58, 42, 0.55)   6%,
+      rgba(150, 28, 60, 0.48)  18%,
+      rgba( 72, 28, 92, 0.42)  38%,
+      rgba( 24, 24, 72, 0.50)  62%,
+      rgba( 10, 14, 44, 0.70) 100%
     ),
     var(--swarf-bg) !important;
 }
@@ -63,7 +65,9 @@ body {
    body gradient inside the canvas, but the edges/margins pick up the sailor sky. */
 #container {
   background: transparent !important;
-  position: relative;
+  /* swarf: keep Kiri's position:fixed full-viewport — switching to relative
+     collapses the THREE canvas dimensions and renders the viewport invisible
+     (markup #3 follow-up, Apr 15) */
 }
 /* keep the thin accent rail at top of viewport */
 #container::before {
@@ -82,22 +86,42 @@ body {
 #mid-mid { min-width: 60vw; min-height: calc(100vh - 100px); }
 #container { min-height: calc(100vh - 100px); }
 
-/* ---- Pager arrow tooltip: until the single-widget pager is hidden, at least label it ---- */
-#ws-widgets [class*="prev"], #ws-widgets [class*="next"],
-#ws-widgets button:first-child, #ws-widgets button:last-child {
-  cursor: pointer;
+/* swarf: pager hover-tooltip removed (markup #2, Apr 15) — caret-left button gone, the note no longer applies. Per-widget options surface on row hover via .widpop:hover .widopt. */
+
+/* swarf: watermark — moved up-and-to-the-right per Phil's note (markup Apr 15 follow-up).
+   Anchor it under the menu bar on the right side, away from the markup toolbar. */
+#swarf-watermark {
+  position: fixed; right: 18px; top: 56px; z-index: 9999;
+  font-family: "JetBrains Mono", "IBM Plex Mono", ui-monospace, monospace;
+  font-size: 10px; letter-spacing: 0.18em; text-transform: uppercase;
+  color: var(--swarf-text-3); text-decoration: none; opacity: 0.55;
+  pointer-events: auto; padding: 2px 6px;
+  border-right: 1px solid var(--swarf-line);
+  transition: opacity 200ms linear, color 200ms linear;
 }
-#ws-widgets { position: relative; }
-#ws-widgets::before {
-  /* visible-only-on-hover note above the pager strip */
-  content: "click arrows to cycle through parts when more than one is loaded";
-  position: absolute; left: 0; right: 0; top: -22px;
-  font-size: 9px; letter-spacing: 0.12em; text-transform: uppercase;
-  color: var(--swarf-text-3); opacity: 0;
-  transition: opacity 150ms linear;
-  pointer-events: none;
+#swarf-watermark:hover { opacity: 1; color: var(--swarf-accent-hi); }
+
+/* swarf: panel headers — slight gradient + 1px grid texture so they read as
+   structural plates rather than flat bars (markup Apr 15, annotation #2). */
+.set-header {
+  background-image:
+    linear-gradient(180deg,
+      rgba(255,255,255,0.025) 0%,
+      rgba(255,255,255,0.000) 40%,
+      rgba(0,0,0,0.18)        100%),
+    repeating-linear-gradient(0deg,
+      rgba(255,255,255,0.020) 0px,
+      rgba(255,255,255,0.020) 1px,
+      transparent              1px,
+      transparent              4px),
+    repeating-linear-gradient(90deg,
+      rgba(255,255,255,0.020) 0px,
+      rgba(255,255,255,0.020) 1px,
+      transparent              1px,
+      transparent              4px) !important;
+  border-top: 1px solid rgba(255,255,255,0.04);
+  border-bottom: 1px solid rgba(0,0,0,0.4);
 }
-#ws-widgets:hover::before { opacity: 1; }
 
 /* typography: stark mono for UI, tracked uppercase for labels */
 body, .set-header, label, button, select, input, .opdiv, #op-add-list > div {
@@ -111,8 +135,11 @@ body, .set-header, label, button, select, input, .opdiv, #op-add-list > div {
 }
 
 /* panels */
+/* swarf: keep #app/#mid/#container transparent so the body sunset gradient
+   AND the THREE canvas in #container actually show. Earlier opaque fill was
+   painting over both (markup #3, Apr 15). */
 #app, #mid, #container {
-  background: var(--swarf-bg);
+  background: transparent !important;
 }
 #menubar,
 .set2-group,
@@ -175,7 +202,7 @@ a:hover { color: var(--swarf-text); }
 }
 
 /* viewport chrome */
-#container { background: var(--swarf-bg); }
+#container { background: transparent !important; }
 
 /* the old "Kiri:Moto is Loading" text */
 #curtain {
@@ -705,14 +732,93 @@ input[type="range"] { accent-color: var(--swarf-accent-hi); }
   box-shadow: none !important;
 }
 
-/* kill the extra decorative lines around the parameter rail ("these extra lines are weird") */
+/* kill the extra decorative lines around the parameter rail ("these extra lines are weird").
+   NOTE: the earlier version swept in `.set2-group.bottom` with opacity:0 which nuked the
+   whole toolpaths panel (it carries class="bottom" in HTML). Now only the decorative
+   border/hr rules are muted — the panel itself stays visible (markup Apr 15). */
 .set-sep,
-.set2-group.bottom,
 .set2-group:not(:last-child)::after,
 hr:not(.swarf-keep) {
   border-color: transparent !important;
   background: transparent !important;
   opacity: 0;
+}
+.set2-group.bottom {
+  border-color: transparent !important;
+}
+
+/* swarf: this fork is CAM-only. Permanently hide any mode-fdm/mode-sla/mode-laser
+   panels that Kiri's HTML still contains but we don't use (markup Apr 15 — RANGES
+   pill was leaking into CAM view). */
+.mode-fdm, .mode-sla, .mode-laser { display: none !important; }
+
+/* swarf: HUD corner brackets + scanline overlay on every panel pill — pushes the
+   chrome further from Kiri's flat-pill look toward the Tron:Ares terminal refs.
+   Kept subtle; this is read, not decoration (markup Apr 15 — "much more of what's
+   in that folder"). */
+#panel-right .set2-group,
+#panel-left .set2-group {
+  position: relative;
+}
+#panel-right .set2-group > .set-header,
+#panel-right .set2-group > details > summary.set-header,
+#panel-left .set2-group > .set-header,
+#panel-left .set2-group > details > summary.set-header {
+  /* stronger header: mill-red → black gradient, visible grid texture */
+  background-image:
+    linear-gradient(180deg,
+      rgba(208,32,32,0.14)  0%,
+      rgba(208,32,32,0.04) 45%,
+      rgba(0,0,0,0.45)     100%),
+    repeating-linear-gradient(0deg,
+      rgba(255,255,255,0.035) 0px,
+      rgba(255,255,255,0.035) 1px,
+      transparent              1px,
+      transparent              3px),
+    repeating-linear-gradient(90deg,
+      rgba(255,255,255,0.035) 0px,
+      rgba(255,255,255,0.035) 1px,
+      transparent              1px,
+      transparent              3px) !important;
+}
+
+/* scanline overlay on panel bodies */
+#panel-right .set2-group > :not(.set-header):not(details),
+#panel-right .set2-group > details > :not(summary),
+#panel-left .set2-group > :not(.set-header):not(details),
+#panel-left .set2-group > details > :not(summary) {
+  background-image: repeating-linear-gradient(
+      0deg,
+      rgba(255,255,255,0.010) 0px,
+      rgba(255,255,255,0.010) 1px,
+      transparent              1px,
+      transparent              3px
+  );
+}
+
+/* four corner brackets per panel */
+#panel-right .set2-group::before,
+#panel-right .set2-group::after,
+#panel-left  .set2-group::before,
+#panel-left  .set2-group::after {
+  content: "";
+  position: absolute;
+  width: 10px; height: 10px;
+  border-color: var(--swarf-accent);
+  pointer-events: none;
+  z-index: 2;
+}
+#panel-right .set2-group::before,
+#panel-left  .set2-group::before {
+  top: 2px; left: 2px;
+  border-top: 1px solid var(--swarf-accent);
+  border-left: 1px solid var(--swarf-accent);
+}
+#panel-right .set2-group::after,
+#panel-left  .set2-group::after {
+  bottom: 2px; right: 2px;
+  border-bottom: 1px solid var(--swarf-accent);
+  border-right: 1px solid var(--swarf-accent);
 }
 
 /* ---- Wordmark: push in from the corner (markup note: too close to edge) ---- */
@@ -731,6 +837,8 @@ hr:not(.swarf-keep) {
   font-size: 22px;
   line-height: 1;
   color: var(--swarf-text);
+  /* swarf: drop the wordmark slightly per Phil's note (markup Apr 15 follow-up) */
+  transform: translateY(3px);
 }
 .swarf-wordmark .swarf-tm {
   font-size: 9px;
@@ -741,3 +849,23 @@ hr:not(.swarf-keep) {
   font-weight: 500;
 }
 .menubar-separator { background: var(--swarf-line) !important; }
+
+/* swarf: Kiri:Moto MIT license panel inside Help → About (markup Apr 15 follow-up) */
+.swarf-license {
+  margin: 12px 0 4px 0;
+  padding: 10px 14px;
+  border: 1px solid var(--swarf-line);
+  background: rgba(0,0,0,0.25);
+  border-radius: 2px;
+  max-height: 180px; overflow-y: auto;
+  font-family: "JetBrains Mono", "IBM Plex Mono", ui-monospace, monospace;
+}
+.swarf-license-title {
+  font-size: 10px; letter-spacing: 0.18em; text-transform: uppercase;
+  color: var(--swarf-text-2); margin-bottom: 6px;
+}
+.swarf-license-body {
+  font-size: 10px; line-height: 1.5; color: var(--swarf-text-3);
+}
+.swarf-license-body a { color: var(--swarf-accent); text-decoration: none; }
+.swarf-license-body a:hover { color: var(--swarf-accent-hi); }

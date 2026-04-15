@@ -120,7 +120,7 @@ class Text3D {
         this.material = new THREE.MeshBasicMaterial({
             map: this.atlas.texture,
             transparent: true,
-            opacity: 0.9,
+            opacity: 0.5, // swarf: ruler/grid labels at 50% (markup Apr 15)
             depthWrite: false,
             side: THREE.DoubleSide
         });

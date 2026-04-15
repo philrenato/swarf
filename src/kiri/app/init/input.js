@@ -61,9 +61,27 @@ function checkSeed(then) {
     if (widgets.length === 0 && !SETUP.s && api.feature.seed && !SETUP.debug) {
         platform.load_stl('/obj/cube.stl', function(vert) {
             catalog.putFile('cube', vert);
+            // swarf: viewport sometimes painted black on first load (markup #3, Apr 15).
+            // Container can be 0x0 at this moment because of fixed-position panel reparenting.
+            // Trigger a resize first so the renderer picks up real dimensions, then home
+            // the camera on the next animation frame, then re-home once more after a tick
+            // to cover any late layout pass.
+            try { space.event.onResize(); } catch (e) {}
+            try { WIN.dispatchEvent(new Event('resize')); } catch (e) {}
             platform.update_bounds();
-            space.view.home();
-            setTimeout(() => api.space.save(true), 500);
+            const tightFit = () => {
+                try { space.event.onResize(); } catch (e) {}
+                try {
+                    const meshes = (api.widgets.all() || []).map(w => w.mesh).filter(Boolean);
+                    if (space.view.fit && meshes.length) {
+                        space.view.fit(undefined, { padding: 2.6, visibleOnly: true, objects: meshes });
+                    } else space.view.home();
+                } catch (e) { space.view.home(); }
+            };
+            requestAnimationFrame(() => {
+                tightFit();
+                setTimeout(tightFit, 250);
+            });
             sdb[SEED] = sdb[SEED] || new Date().getTime();
             sdb[LAST] = version;
             then();

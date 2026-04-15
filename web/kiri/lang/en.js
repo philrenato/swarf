@@ -744,7 +744,7 @@ self.lang['en-us'] = {
     ca_fini_l:      "cutting path that follows the contour of the final part. allows for precise step over when clearing a larger area.",
 
     // OUTPUT
-    ou_menu:        "output",
+    ou_menu:        "strategy", // swarf: was "output" — these are carve-strategy controls (ease down, depth-first, etc.). GCode output lives in the EXPORT step.
 
     // LASER SLICING
     ls_offs_s:      "offset / kerf",

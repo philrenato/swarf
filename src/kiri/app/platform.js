@@ -176,10 +176,14 @@ function update_size(updateDark = true) {
        // swarf viewport v2 (refs pass Apr 15, 20%+): mill-red X rails, iron Y grid,
        // brighter so the bed reads as a Tron-terminal workfield — still the carving
        // instrument, not a poster. CSS adds soft corner bloom via #container gradients.
-       space.platform.set({ light: 0.08 });
-       space.platform.setFont({rulerColor:'#b0a89a'}); // bone rulers, slightly hotter
-       space.platform.setGrid(gridMajor, gridMinor, 0xb01818, 0x3a1e18);
-       space.platform.opacity(0.18);
+       // swarf grid v3 (markup Apr 15, refs pass): lighter translucent gray floor,
+       // soft gray grid (was red mill-rails, too hot); rulers thinned via faint bone
+       // color so they read as helvetica-neue-thin in spirit (real font swap requires
+       // a new bitmap atlas — deferred).
+       space.platform.set({ light: 0.06 });
+       space.platform.setFont({rulerColor:'#7a7670'}); // faint bone, thin-weight feel
+       space.platform.setGrid(gridMajor, gridMinor, 0x6a6660, 0x3a3833);
+       space.platform.opacity(0.10);
        space.sky.set({ color: 0x0a0808, ambient: { intensity: 0.6 } });
        document.documentElement.setAttribute('data-theme', 'dark');
        space.platform.setSize();
@@ -784,10 +788,9 @@ function changed() {
                             },
                             [ h.i({ class:"fas fa-trash" }), ]
                         )
-                    ]),
-                    h.button([
-                        h.i({ class: "fa-solid fa-caret-left" })
                     ])
+                    // swarf: removed vestigial caret-left toggle (markup #2, Apr 15) —
+                    // .widopt already appears on hover via CSS, the button did nothing.
                 ]),
                 h.button({
                     _: fsho,

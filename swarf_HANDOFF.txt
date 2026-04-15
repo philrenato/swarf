@@ -1,5 +1,75 @@
 swarf_HANDOFF.txt — for Claude
-last updated 2026-04-14
+last updated 2026-04-15 (v00000-007, late night markup pass)
+
+v00000-007 — NIGHT 2 MARKUP PASS (2026-04-15)
+─────────────────────────────────────────────
+Addressed two rounds of Phil markup + inline briefs.
+
+UI / layout
+- TABS + STRATEGY drawers collapsed by default (defaults.js hidden map).
+- OUTPUT drawer renamed to STRATEGY (en.js ou_menu) — those controls (ease down,
+  depth first, tool init, Z rules) are carve-strategy, not gcode output. Gcode
+  output lives in EXPORT.
+- TOOLPATHS step (red bar at top) now opens the toolpaths panel on click
+  (#swarf-toolpaths-details, opens by default on boot).
+- Toolpaths panel gains an inline TOOL LIBRARY row with an "ENDMILLS & BITS"
+  button that opens Kiri's tool modal (api.modal.show('tools')).
+- Operation list header renamed "toolpaths" (was "operation list").
+- RANGES / FDM / SLA / Laser panels permanently hidden in CSS — CAM-only fork.
+- Ease-down default flipped on (defaults.js camEaseDown: true).
+- CAM stock bounding box hidden by default (cl-stock.js — was auto-drawing a
+  padded cuboid around every part; re-enabled only when body.swarf-expert).
+
+Chrome / identity
+- Panel pills now carry HUD corner brackets (red L-frames top-left + bottom-right).
+- Panel headers carry a mill-red → black vertical gradient + 1px×3px grid
+  texture. Panel bodies carry a 1px×3px scanline overlay. Together these push
+  the chrome away from Kiri's flat pill look toward the Tron:Ares / EMCO Mill-55
+  refs in ~/Desktop/swarf_refs.
+- Body sky backdrop rewritten (swarf.css body rule) — red horizon → violet mid →
+  indigo zenith, at much higher opacity than v006's sunset. Still tempered with
+  the horizontal scan-line striations.
+- THREE WebGLRenderer now initialized with alpha:true + setClearColor(0,0) so
+  the body sky gradient shows through the 3D canvas (src/moto/space.js).
+- Ruler / grid-label bitmap atlas opacity dropped to 0.5 (src/moto/text3d.js).
+  Grid major color softened to 0x6a6660 / minor 0x3a3833 — lighter translucent
+  gray floor (was 0xb01818 / 0x3a1e18 mill-red rails).
+
+3D camera
+- space.view.home() replaced with space.view.fit() for the auto-fit path. The
+  fit is scoped to widget meshes only (not the platform/grid, which is huge and
+  dwarfs parts). padding tuned to 2.6 → cube at ~30% screen, matching Phil's
+  reference screenshot.
+- checkSeed in input.js hardened: resize → rAF → fit → 250ms → fit.
+  Removed the redundant api.space.save(true) call in the fit path — it was
+  causing IDB transaction races during first-run schema init.
+- Auto-fit hook: api.event.on('widget.add' | 'widget.delete' | 'widgets.loaded')
+  fires space.view.fit() — the part recenters on every drop and on every delete.
+
+ws-widgets
+- Removed the vestigial fa-caret-left button inside each widget row (it was a
+  no-op toggle; .widopt already shows on hover via CSS). Removed the misleading
+  "click arrows to cycle through parts" hover note.
+
+Help / license
+- Kiri:Moto MIT license panel added inside Help → About modal with upstream
+  copyright + full permissions notice + link to grid-apps LICENSE.
+- Wordmark pushed down 3px (swarf.css .swarf-wordmark transform).
+- renato.design watermark moved from lower-left to upper-right (swarf.css
+  #swarf-watermark).
+
+Known open from last round (Phil retiring 2026-04-15 00:07):
+- "Almost full width" markup around OBJECTS header — ambiguous, needs Phil.
+- Fonts still feel Kiri-like past JetBrains-Mono — would need a custom 3D text
+  atlas + deeper uppercase/letter-spacing pass on labels to fully escape it.
+- First-run fresh IndexedDB profiles race with Kiri's schema-upgrade transaction
+  (InvalidStateError: "A version change transaction is running" at
+  lib/data/index.js:130). Warm profiles render clean. This is pre-existing in
+  Kiri's data layer, not introduced by swarf. Investigate if it bites Phil.
+
+
+v00000-006 and earlier (2026-04-14)
+───────────────────────────────────
 
 Repo
 ────
@@ -78,8 +148,8 @@ Never mentioned anywhere user-facing. Second-time rule (Phil has said this acros
 
 Open items / known issues
 ─────────────────────────
-– Viewport 3D grid/bed sometimes reads as empty on first load. Seed cube should give it something, but depending on timing the camera may not home. If it reoccurs, check checkSeed's space.view.home() timing.
-– ws-widgets left-arrow pager: has a visible-on-hover CSS tooltip for now. When widget count === 1, should probably hide the pager entirely (not yet wired).
+– Viewport 3D grid/bed sometimes reads as empty on first load. v00000-007 fix: checkSeed now fires resize → rAF → home → settle → home, which should cover the post-reparent layout race. Watch for regressions — if it reoccurs, the pattern is in src/kiri/app/init/input.js checkSeed().
+– ws-widgets caret-left button removed in v00000-007 (was a vestigial toggle; per-widget options already appear on .widpop hover via CSS). The pager-style hover tooltip in swarf.css is also gone.
 – Error overlay (#swarf-err) is still in the DOM. Strip or gate by query-param before distribution.
 – Stubs in worker.js/input.js for deleted modes — clean up later once the surrounding code paths are confirmed unreachable.
 – src/cli/kiri-source.json still references deleted mode paths — CLI-only, not loaded in browser, but would break npm scripts that use it.

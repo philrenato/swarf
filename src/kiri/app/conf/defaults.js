@@ -476,7 +476,7 @@ export const conf = {
                 camDrillThru: 5,
                 camDrillTool: 1006,
                 camEaseAngle: 10,
-                camEaseDown: false,
+                camEaseDown: true, // swarf: ease-down on by default (markup Apr 15)
                 camExpertFast: false,
                 camFastFeed: 6000,
                 camFastFeedZ: 300,
@@ -984,7 +984,10 @@ export const conf = {
             "fdm-fill": true,
             "fdm-solid": true,
             "fdm-supp": true,
-            "fdm-xprt": true
+            "fdm-xprt": true,
+            // swarf: tabs + output drawers start closed (markup #1, Apr 15)
+            "cam-tabs": true,
+            "cam-output": true
         },
         // label state preferences (slice/preview toggles)
         labels: {

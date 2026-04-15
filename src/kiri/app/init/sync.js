@@ -381,6 +381,40 @@ function setup_keybd_nav() {
         document.addEventListener('keydown', (ev) => { if (ev.key === 'Escape') close(); });
     })();
 
+    // swarf: auto-fit camera on every widget add (markup Apr 15 — "approx default
+    // zoom to any/all 3D in scene, on startup and as new things come in" + "zoom
+    // cube to almost whole screen"). Use space.view.fit() with tight padding so
+    // the part fills most of the viewport; home() only sets angles, not zoom.
+    (function(){
+        const fit = () => requestAnimationFrame(() => {
+            try { space.event.onResize(); } catch (e) {}
+            try { api.platform.update_bounds(); } catch (e) {}
+            try {
+                // swarf: fit only the widgets (their meshes), not the platform/grid —
+                // otherwise the bed dwarfs the part and the part renders tiny.
+                const meshes = (api.widgets.all() || []).map(w => w.mesh).filter(Boolean);
+                if (space.view.fit && meshes.length) {
+                    space.view.fit(undefined, { padding: 2.6, visibleOnly: true, objects: meshes });
+                } else space.view.home();
+            } catch (e) {}
+        });
+        api.event.on('widget.add', fit);
+        api.event.on('widget.delete', fit);
+        api.event.on('widgets.loaded', fit);
+    })();
+
+    // swarf: lower-left renato.design watermark (markup Apr 15, annotation #7)
+    (function(){
+        if (document.getElementById('swarf-watermark')) return;
+        const wm = document.createElement('a');
+        wm.id = 'swarf-watermark';
+        wm.href = 'https://renato.design';
+        wm.target = '_blank';
+        wm.rel = 'noopener';
+        wm.textContent = 'renato.design';
+        document.body.appendChild(wm);
+    })();
+
     // swarf: Expert toggle — flips body.swarf-expert, persists in localStorage
     (function(){
         const key = 'swarf-expert';
@@ -398,6 +432,29 @@ function setup_keybd_nav() {
             apply(next);
         };
     })();
+    // swarf: clicking the TOOLPATHS step bar opens the operation list details
+    // panel + scrolls to it (markup Apr 15 — "bring toolpaths back, put in the red
+    // toolpaths bar at top which has nothing in it now").
+    (function(){
+        const tpDetails = $('swarf-toolpaths-details');
+        const tpStep = $('view-arrange');
+        if (tpStep && tpDetails) {
+            tpStep.addEventListener('click', () => {
+                tpDetails.open = true;
+                try { tpDetails.scrollIntoView({ behavior: 'smooth', block: 'nearest' }); } catch (e) {}
+            });
+            // open by default on boot so students see there's an op list ready to use
+            tpDetails.open = true;
+        }
+    })();
+
+    // swarf: tool-library opener inside the toolpaths panel (markup Apr 15 —
+    // "you're missing the machining tools"). Opens Kiri's tool editor modal.
+    (function(){
+        const b = $('swarf-open-tools');
+        if (b) b.onclick = (ev) => { ev.stopPropagation(); api.modal.show('tools'); };
+    })();
+
     $('file-new').onclick = (ev) => { ev.stopPropagation(); settingsOps.new_workspace() };
     $('file-recent').onclick = () => { api.modal.show('files') };
     $('file-import').onclick = (ev) => { api.event.import(ev); };

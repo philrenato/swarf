@@ -2064,8 +2064,13 @@ let Space = {
         renderer = new WebGLRenderer({
             antialias: antiAlias,
             preserveDrawingBuffer: true,
-            logarithmicDepthBuffer: true
+            logarithmicDepthBuffer: true,
+            // swarf: alpha so the body's sky gradient shows through the canvas
+            // (markup Apr 15 — "background of scene should be textured red to blue
+            // gradient, like sky references in refs").
+            alpha: true
         });
+        renderer.setClearColor(0x000000, 0);
 
         // THREE.ColorManagement.enabled = false;
         // renderer.outputColorSpace = THREE.LinearSRGBColorSpace;
