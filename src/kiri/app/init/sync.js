@@ -342,9 +342,25 @@ function setup_keybd_nav() {
     $('export-support-a').onclick = (ev) => { ev.stopPropagation(); api.modal.show('don8') };
     // swarf: mode menu removed — these buttons no longer exist in the DOM
     $('set-device').onclick = (ev) => { ev.stopPropagation(); api.show.devices() };
-    $('set-profs').onclick = (ev) => { ev.stopPropagation(); api.conf.show() };
     $('set-tools').onclick = (ev) => { ev.stopPropagation(); api.show.tools() };
     $('set-prefs').onclick = (ev) => { ev.stopPropagation(); api.modal.show('prefs') };
+    // swarf: Expert toggle — flips body.swarf-expert, persists in localStorage
+    (function(){
+        const key = 'swarf-expert';
+        const apply = (on) => {
+            document.body.classList.toggle('swarf-expert', !!on);
+            const item = document.getElementById('swarf-expert-toggle');
+            if (item) item.classList.toggle('selected', !!on);
+        };
+        apply(localStorage.getItem(key) === '1');
+        const tog = $('swarf-expert-toggle');
+        if (tog) tog.onclick = (ev) => {
+            ev.stopPropagation();
+            const next = document.body.classList.contains('swarf-expert') ? 0 : 1;
+            localStorage.setItem(key, String(next));
+            apply(next);
+        };
+    })();
     $('file-new').onclick = (ev) => { ev.stopPropagation(); settingsOps.new_workspace() };
     $('file-recent').onclick = () => { api.modal.show('files') };
     $('file-import').onclick = (ev) => { api.event.import(ev); };

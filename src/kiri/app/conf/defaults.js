@@ -926,15 +926,9 @@ export const conf = {
             WEDM: {},
             LASER: {},
         },
-        // current device (name of last used) by mode
+        // swarf: only CAM is live; pre-select Langmuir MR-1 as the default for new students
         filter:{
-            FDM: "Any.Generic.Marlin",
-            SLA: "Anycubic.Photon",
-            CAM: "Any.Generic.Grbl",
-            DRAG: "Any.Generic.DragKnife",
-            WJET: "HydroBLADE",
-            WEDM: "RackRobo.Betta.Wire.V1",
-            LASER: "Any.Generic.Laser",
+            CAM: "Langmuir.MR-1",
         },
         // current (last used) device by mode
         cdev: {

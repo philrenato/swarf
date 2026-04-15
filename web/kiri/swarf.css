@@ -138,7 +138,12 @@ select:focus, input:focus { outline: none; border-color: var(--swarf-accent); }
 #swarf-err { border-top-color: var(--swarf-accent) !important; }
 
 /* ---- Top toolbar: Arrange / Slice / Preview / Animate / Export ---- */
-#mode-tools,
+#mode-tools {
+  /* swarf: lift below the menubar so the toolbar isn't clipped at the top */
+  top: 40px !important;
+  background: transparent !important;
+  gap: 1px !important;
+}
 #mode-tools > span {
   background: var(--swarf-bg-2) !important;
   color: var(--swarf-text) !important;
@@ -146,10 +151,9 @@ select:focus, input:focus { outline: none; border-color: var(--swarf-accent); }
   text-transform: uppercase;
   letter-spacing: 0.08em;
   font-size: 11px;
-}
-#mode-tools > span {
-  padding: 6px 14px;
-  border-right: 1px solid var(--swarf-line);
+  padding: 6px 14px !important;
+  border: 1px solid var(--swarf-line) !important;
+  border-radius: 2px !important;
   cursor: pointer;
   transition: background 120ms linear, color 120ms linear;
 }

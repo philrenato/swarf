@@ -189,9 +189,11 @@ function content(actions) {
             topMenu(actions, {
                 text: 'setup', lk: 'su_menu', side: 'right', right: true, items: [
                     menuItem(actions, { id: 'set-device', lk: 'machines', text: 'machines', iconClass: 'fas fa-cube' }),
-                    menuItem(actions, { id: 'set-profs', lk: 'profs', text: 'profiles', iconClass: 'fas fa-sliders-h' }),
                     menuItem(actions, { id: 'set-tools', lk: 'tools', text: 'tools', iconClass: 'fas fa-tools' }),
                     menuItem(actions, { id: 'set-prefs', lk: 'prefs', text: 'prefs', iconClass: 'fa-solid fa-square-check' }),
+                    hr(),
+                    // swarf: Student (default) vs Expert mode. Toggles body.swarf-expert which flips visibility on every .swarf-expert-only element.
+                    menuItem(actions, { id: 'swarf-expert-toggle', text: 'expert mode', iconClass: 'fas fa-user-gear' }),
                     hr({ class: "el-app-hide" }),
                     menuItem(actions, { id: 'install', lk: 'install', text: 'install' }),
                     menuItem(actions, { id: 'uninstall', lk: 'uninstall', text: 'uninstall', className: 'hide' })
