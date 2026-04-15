@@ -5,15 +5,16 @@
  * All mode-specific schemes inherit from this base
  */
 const BASE_SCHEME = {
-    // Widget colors for selected/deselected states
+    // swarf: widgets in the Downward Spiral palette
+    //   selected = rust-red (accent hover)   deselected = bone (text)
     widget: {
         selected: {
-            light: [ 0xbbff00, 0xbbee00, 0xbbdd00, 0xbb9900 ],
-            dark: [ 0xbbff00, 0xbbee00, 0xbbdd00, 0xbb9900 ]
+            light: [ 0xa8382a, 0x9a3224, 0x8c2b1e, 0x7a2a1a ],
+            dark:  [ 0xa8382a, 0x9a3224, 0x8c2b1e, 0x7a2a1a ]
         },
         deselected: {
-            light: [ 0xffff00, 0xffdd00, 0xffbb00, 0xff9900 ],
-            dark: [ 0xffff00, 0xffdd00, 0xffbb00, 0xff9900 ]
+            light: [ 0xd4cfc4, 0xbab5aa, 0xa09b90, 0x868176 ],
+            dark:  [ 0xd4cfc4, 0xbab5aa, 0xa09b90, 0x868176 ]
         },
         disabled: {
             // Computed via avgc(0x888888, baseColor, 3)
@@ -43,15 +44,15 @@ const BASE_SCHEME = {
         }
     },
 
-    // Grid colors for platform
+    // swarf: oxidized-iron bed grid
     grid: {
         major: {
-            light: 0x999999,
-            dark: 0x666666
+            light: 0x3a2820,
+            dark:  0x3a2820
         },
         minor: {
-            light: 0xcccccc,
-            dark: 0x333333
+            light: 0x2a1a14,
+            dark:  0x2a1a14
         }
     },
 

@@ -137,6 +137,129 @@ select:focus, input:focus { outline: none; border-color: var(--swarf-accent); }
 /* on-page error overlay keeps its red strip visible on dark bg */
 #swarf-err { border-top-color: var(--swarf-accent) !important; }
 
+/* ---- Top toolbar: Arrange / Slice / Preview / Animate / Export ---- */
+#mode-tools,
+#mode-tools > span {
+  background: var(--swarf-bg-2) !important;
+  color: var(--swarf-text) !important;
+  border-color: var(--swarf-line) !important;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-size: 11px;
+}
+#mode-tools > span {
+  padding: 6px 14px;
+  border-right: 1px solid var(--swarf-line);
+  cursor: pointer;
+  transition: background 120ms linear, color 120ms linear;
+}
+#mode-tools svg { fill: var(--swarf-text-2) !important; color: var(--swarf-text-2) !important; }
+#mode-tools > span:hover {
+  background: var(--swarf-bg-3) !important;
+  color: #fff !important;
+}
+#mode-tools > span:hover svg { fill: #fff !important; color: #fff !important; }
+#mode-tools > span.selected {
+  background: var(--swarf-accent) !important;
+  color: #fff !important;
+}
+#mode-tools > span.selected svg { fill: #fff !important; color: #fff !important; }
+#act-animate.disabled,
+#mode-tools > span.disabled {
+  background: var(--swarf-bg-2) !important;
+  color: var(--swarf-text-3) !important;
+  opacity: 0.4;
+}
+
+/* ---- Menubar top menu (FILE EDIT VIEW RENDER INFO SETUP) ---- */
+#menubar.content { background: var(--swarf-bg-2) !important; border-bottom: 1px solid var(--swarf-line); }
+#menubar.content > div {
+  color: var(--swarf-text-2);
+  padding: 0 14px;
+  letter-spacing: 0.1em;
+  font-size: 11px;
+  text-transform: uppercase;
+}
+#menubar.content > div:hover,
+.top-menu > span.selected,
+.top-menu-drop div.selected {
+  background: var(--swarf-accent) !important;
+  color: #fff !important;
+}
+.top-menu-drop {
+  background: var(--swarf-bg-2) !important;
+  border: 1px solid var(--swarf-line) !important;
+  color: var(--swarf-text);
+}
+.top-menu-drop div { color: var(--swarf-text); }
+.top-menu-drop div:hover {
+  background: var(--swarf-accent) !important;
+  color: #fff !important;
+}
+
+/* ---- Form inputs: hard overrides on Kiri's #fff baseline ---- */
+input, input[type="text"], input[type="number"], textarea {
+  background-color: var(--swarf-bg-3) !important;
+  color: var(--swarf-text) !important;
+  border: 1px solid var(--swarf-line-2) !important;
+  border-radius: 2px;
+  padding: 2px 6px;
+  caret-color: var(--swarf-accent-hi);
+}
+input:focus, textarea:focus, select:focus { outline: none; border-color: var(--swarf-accent-hi) !important; }
+
+/* native checkbox: swap browser blue for rust red */
+input[type="checkbox"] {
+  accent-color: var(--swarf-accent-hi);
+  background-color: var(--swarf-bg-3) !important;
+}
+
+/* sliders */
+input[type="range"] { accent-color: var(--swarf-accent-hi); }
+
+/* value cells inside set2-group rows */
+.set2-group input,
+.set2-group .value {
+  background-color: var(--swarf-bg-3) !important;
+  color: var(--swarf-text) !important;
+}
+
+/* ---- Right panel: Objects / Ranges / Operation List ---- */
+#oplist, #op-add-list,
+.rt-group, #layer-toggle,
+[id^="range"] {
+  background: var(--swarf-bg-2) !important;
+  color: var(--swarf-text) !important;
+}
+
+/* ---- Language / setup icon (top right) ---- */
+#app-lang, #app-lang * {
+  color: var(--swarf-text-2) !important;
+  background: transparent !important;
+}
+
+/* ---- kill remaining #fff fill-ins from Kiri's baseline index.css ---- */
+.set2-group,
+.set-group,
+.var-row,
+.var-row input,
+.mdialog,
+.mdialog input,
+.mdialog select,
+.mdialog textarea {
+  background-color: var(--swarf-bg-2) !important;
+  color: var(--swarf-text) !important;
+}
+
+/* ---- modal dialogs ---- */
+#modal { background: rgba(10,7,7,0.7) !important; }
+#modal-box {
+  background: var(--swarf-bg-2) !important;
+  border: 1px solid var(--swarf-line-2) !important;
+  color: var(--swarf-text);
+}
+.mod-top { border-bottom: 1px solid var(--swarf-line); }
+
 /* swarf wordmark — styled on the real .menubar-appname span (menu.js renamed Kiri:Moto → swarf) */
 .menubar-appname {
   color: var(--swarf-text) !important;

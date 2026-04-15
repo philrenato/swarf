@@ -166,20 +166,22 @@ function update_size(updateDark = true) {
 
     if (updateDark) {
        const scheme = getColorScheme();
+       // swarf: force the Downward Spiral register — bruised near-black sky, oxidized grid,
+       // bone rulers. Light path kept for upstream-merge friendliness but we never take it.
        if (controller.dark) {
            space.platform.set({ light: 0.08 });
-           space.platform.setFont({rulerColor:'#888888'});
+           space.platform.setFont({rulerColor:'#8a857c'}); // bone-ash
            space.platform.setGrid(gridMajor, gridMinor, scheme.grid.major, scheme.grid.minor);
            space.platform.opacity(0.05);
-           space.sky.set({ color: 0, ambient: { intensity: 0.6 } });
+           space.sky.set({ color: 0x0a0707, ambient: { intensity: 0.55 } });
            document.documentElement.setAttribute('data-theme', 'dark');
        } else {
            space.platform.set({ light: 0.08 });
-           space.platform.setFont({rulerColor:'#333333'});
+           space.platform.setFont({rulerColor:'#8a857c'});
            space.platform.setGrid(gridMajor, gridMinor, scheme.grid.major, scheme.grid.minor);
-           space.platform.opacity(0.2);
-           space.sky.set({ color: 0xffffff, ambient: { intensity: 1.1 } });
-           document.documentElement.setAttribute('data-theme', 'light');
+           space.platform.opacity(0.05);
+           space.sky.set({ color: 0x0a0707, ambient: { intensity: 0.55 } });
+           document.documentElement.setAttribute('data-theme', 'dark');
        }
        space.platform.setSize();
     }

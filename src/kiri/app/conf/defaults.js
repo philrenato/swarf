@@ -955,7 +955,7 @@ export const conf = {
             assembly: false,
             autoLayout: true,
             autoSave: true,
-            dark: false,
+            dark: true, // swarf: always dark (Downward Spiral)
             detail: "50",
             devel: false,
             drawer: false,
