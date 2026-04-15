@@ -137,15 +137,13 @@ select:focus, input:focus { outline: none; border-color: var(--swarf-accent); }
 /* on-page error overlay keeps its red strip visible on dark bg */
 #swarf-err { border-top-color: var(--swarf-accent) !important; }
 
-/* swarf wordmark in top bar, replacing "Kiri:Moto" (dev-quick; real wordmark comes later) */
-#menubar::before {
-  content: "swarf™";
-  padding: 0 16px 0 14px;
-  color: var(--swarf-text);
+/* swarf wordmark — styled on the real .menubar-appname span (menu.js renamed Kiri:Moto → swarf) */
+.menubar-appname {
+  color: var(--swarf-text) !important;
   font-weight: 600;
   letter-spacing: 0.14em;
   text-transform: lowercase;
-  border-right: 1px solid var(--swarf-line);
-  margin-right: 10px;
   font-size: 14px;
+  padding: 0 6px;
 }
+.menubar-separator { background: var(--swarf-line) !important; }

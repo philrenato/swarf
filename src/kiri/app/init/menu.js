@@ -116,7 +116,7 @@ function scalePanel(actions) {
 
 function content(actions) {
     return [
-        div({ class: 'menubar-appname el-app-hide', _: 'Kiri:Moto' }),
+        div({ class: 'menubar-appname el-app-hide', _: 'swarf\u2122' }),
         div({ class: 'menubar-separator el-app-hide' }),
         div({ class: 'f-row top-menu grow' }, [
             topMenu(actions, {
