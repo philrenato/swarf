@@ -392,6 +392,48 @@
   `;
   document.body.appendChild(toolbar);
 
+  // swarf: drag the toolbar by its edges (not buttons). Restore position from localStorage.
+  (function enableToolbarDrag(){
+    const KEY = 'swarf-markup-toolbar-pos';
+    try {
+      const saved = JSON.parse(localStorage.getItem(KEY) || 'null');
+      if (saved && typeof saved.left === 'number' && typeof saved.top === 'number') {
+        toolbar.style.left = saved.left + 'px';
+        toolbar.style.top = saved.top + 'px';
+        toolbar.style.right = 'auto';
+        toolbar.style.bottom = 'auto';
+      }
+    } catch(_) {}
+    let dx = 0, dy = 0, dragging = false;
+    toolbar.addEventListener('pointerdown', (ev) => {
+      // only drag when grabbing toolbar chrome itself, not its buttons/swatches/inputs
+      const t = ev.target;
+      if (t !== toolbar && !t.classList.contains('rd-label') && !t.classList.contains('rd-sep')) return;
+      dragging = true;
+      toolbar.setPointerCapture(ev.pointerId);
+      const r = toolbar.getBoundingClientRect();
+      dx = ev.clientX - r.left;
+      dy = ev.clientY - r.top;
+      ev.preventDefault();
+    });
+    toolbar.addEventListener('pointermove', (ev) => {
+      if (!dragging) return;
+      const left = Math.max(4, Math.min(window.innerWidth - toolbar.offsetWidth - 4, ev.clientX - dx));
+      const top  = Math.max(4, Math.min(window.innerHeight - toolbar.offsetHeight - 4, ev.clientY - dy));
+      toolbar.style.left = left + 'px';
+      toolbar.style.top = top + 'px';
+      toolbar.style.right = 'auto';
+      toolbar.style.bottom = 'auto';
+    });
+    toolbar.addEventListener('pointerup', (ev) => {
+      if (!dragging) return;
+      dragging = false;
+      try {
+        localStorage.setItem(KEY, JSON.stringify({ left: toolbar.offsetLeft, top: toolbar.offsetTop }));
+      } catch(_) {}
+    });
+  })();
+
   // ── SEND MODAL ─────────────────────────────────────────────────────────────
   const modal = document.createElement('div');
   modal.id = 'rd-send-modal';

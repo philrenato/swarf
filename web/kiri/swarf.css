@@ -281,41 +281,176 @@ input[type="range"] { accent-color: var(--swarf-accent-hi); }
 .swarf-step label { cursor: pointer; }
 #mode-tools > span.selected .swarf-step label { color: #fff; }
 
-/* ---- Layout inversion (per markup Apr 15): params to lower-right, status upper-right ---- */
-/* The left rail — Kiri's process params — becomes a floating, collapsible, lower-right panel.
-   #mid uses display:flex row with the rail as left child; we reposition via CSS only. */
-#mid > .f-col:first-child,            /* left rail wrapper */
-#mid #process-params,
-#mid .set-group[id*="cam-"],
-#mid #cam-tabs, #mid #cam-output {
-  /* float these into a single sticky panel rather than occupying the left column */
+/* ===== swarf layout inversion (markup Apr 15) =====
+   Upper-left  = persistent machining-path panel (#panel-right content: operation list)
+   Upper-right = live status readout (objects / ranges / machine)
+   Lower-right = parameter detail (Tabs, Output) — the stuff you tune, floating, auxiliary
+   Center      = viewport, dominant                                                    */
+
+/* ---- Bespoke swarf plate — used on every panel ---- */
+/* Fabrication plate look: notched top-left corner, rust accent strip on the left edge,
+   textured surface (SVG noise), blocky uppercase header with a block marker.          */
+.swarf-plate {
+  background:
+    linear-gradient(180deg, rgba(42,24,20,0.25), rgba(0,0,0,0) 60%),
+    var(--swarf-bg-2);
+  border: 1px solid var(--swarf-line-2);
+  border-left: 3px solid var(--swarf-accent);
+  box-shadow: 0 6px 24px rgba(0,0,0,0.55), inset 0 1px 0 rgba(212,207,196,0.04);
+  position: relative;
+  /* chamfer the top-left corner — machine-plate reference */
+  clip-path: polygon(10px 0, 100% 0, 100% 100%, 0 100%, 0 10px);
+}
+.swarf-plate::before {
+  /* subtle scanline texture — Downward Spiral "degraded signal" */
+  content: "";
+  position: absolute; inset: 0;
+  background-image: repeating-linear-gradient(
+    0deg,
+    rgba(212,207,196,0.015) 0px,
+    rgba(212,207,196,0.015) 1px,
+    transparent 1px,
+    transparent 3px
+  );
+  pointer-events: none;
+}
+.swarf-plate-head {
+  display: flex; align-items: center; gap: 8px;
+  padding: 8px 10px 7px 12px;
+  border-bottom: 1px solid var(--swarf-line);
+  text-transform: uppercase;
+  letter-spacing: 0.18em;
+  font-size: 10px;
+  color: var(--swarf-text);
+  font-weight: 600;
+}
+.swarf-plate-head::before {
+  content: ""; display: block;
+  width: 6px; height: 6px; background: var(--swarf-accent);
+}
+.swarf-plate-body { padding: 6px 8px 10px 8px; }
+
+/* ---- #panel-right — OPERATIONS list pinned upper-left as the work surface ---- */
+#panel-right {
+  position: fixed !important;
+  top: 96px;                /* below menubar (40) + workflow toolbar (~56) */
+  left: 16px;
+  width: 300px;
+  max-height: calc(100vh - 130px);
+  overflow-y: auto;
+  z-index: 15;
+  padding: 0 !important;
+  gap: 10px !important;
+  background: transparent !important;
+}
+/* every set2-group inside panel-right becomes a swarf plate */
+#panel-right .set2-group {
+  background:
+    linear-gradient(180deg, rgba(42,24,20,0.25), rgba(0,0,0,0) 60%),
+    var(--swarf-bg-2) !important;
+  border: 1px solid var(--swarf-line-2) !important;
+  border-left: 3px solid var(--swarf-accent) !important;
+  box-shadow: 0 6px 24px rgba(0,0,0,0.55);
+  clip-path: polygon(10px 0, 100% 0, 100% 100%, 0 100%, 0 10px);
+  margin-bottom: 10px;
+  overflow: hidden;
+  position: relative;
+}
+#panel-right .set2-group > details > summary.set-header,
+#panel-right .set2-group > .set-header {
+  list-style: none;
+  padding: 10px 12px 9px 14px !important;
+  border-bottom: 1px solid var(--swarf-line) !important;
+  text-transform: uppercase;
+  letter-spacing: 0.18em;
+  font-size: 10px;
+  color: var(--swarf-text) !important;
+  font-weight: 600;
+  cursor: pointer;
+}
+#panel-right .set2-group summary::-webkit-details-marker { display: none; }
+#panel-right .set2-group summary.set-header a { color: inherit !important; }
+#panel-right .set2-group summary.set-header::before {
+  content: "▸ ";
+  display: inline-block;
+  color: var(--swarf-accent);
+  margin-right: 6px;
+  transition: transform 120ms linear;
+}
+#panel-right .set2-group details[open] summary.set-header::before {
+  content: "▾ ";
+}
+#panel-right #oplist { padding: 6px 8px 0 8px; }
+#panel-right #oplist > div {
+  padding: 6px 8px;
+  margin: 2px 0;
+  border: 1px solid var(--swarf-line);
+  background: var(--swarf-bg-3);
+  color: var(--swarf-text);
+  text-transform: lowercase;
+  letter-spacing: 0.04em;
+  font-size: 12px;
+  cursor: pointer;
+}
+#panel-right #oplist > div.selected,
+#panel-right #oplist > div:hover {
+  border-color: var(--swarf-accent-hi);
+  background: var(--swarf-accent);
+  color: #fff;
+}
+#panel-right #op-add { padding: 8px; }
+#panel-right #op-add .fa-plus {
+  color: var(--swarf-accent-hi);
+  font-size: 14px;
 }
 
-/* pull the whole left rail out of flow and pin it bottom-right as a compact floating card */
-#mid > .f-col.noselect {
+/* ---- #panel-left — Tabs/Output parameter rail pinned lower-right ---- */
+#panel-left {
   position: fixed !important;
   right: 16px;
   bottom: 16px;
   top: auto !important;
   left: auto !important;
-  width: 280px !important;
-  max-height: 60vh;
+  width: 300px !important;
+  max-height: 55vh;
   overflow-y: auto;
-  background: rgba(20,16,16,0.94) !important;
+  z-index: 15;
+  padding: 0 !important;
+}
+#panel-slide { padding: 0 !important; gap: 10px !important; }
+#panel-left .set2-group {
+  background:
+    linear-gradient(180deg, rgba(42,24,20,0.15), rgba(0,0,0,0) 60%),
+    var(--swarf-bg-2) !important;
   border: 1px solid var(--swarf-line-2) !important;
-  border-radius: 4px;
-  box-shadow: 0 8px 30px rgba(0,0,0,0.6);
-  padding: 6px 4px;
-  z-index: 20;
-  backdrop-filter: blur(6px);
-  -webkit-backdrop-filter: blur(6px);
+  border-left: 3px solid var(--swarf-line-2) !important;  /* ash edge, not rust — these are auxiliary */
+  clip-path: polygon(10px 0, 100% 0, 100% 100%, 0 100%, 0 10px);
+  margin-bottom: 10px;
+  overflow: hidden;
 }
+#panel-left .set-header,
+#panel-left .set2-group > .set-header,
+#panel-left .set2-group > details > summary.set-header {
+  padding: 10px 12px 9px 14px !important;
+  border-bottom: 1px solid var(--swarf-line) !important;
+  text-transform: uppercase;
+  letter-spacing: 0.18em;
+  font-size: 10px;
+  color: var(--swarf-text-2) !important;
+  font-weight: 600;
+}
+#panel-left .set-header::before {
+  content: "■";
+  display: inline-block;
+  color: var(--swarf-text-3);
+  margin-right: 8px;
+  font-size: 8px;
+  vertical-align: middle;
+}
+#panel-left .set-header[style*="background: rgb"] { background: transparent !important; }
 
-/* right-hand panel (Objects/Ranges/Operation List) — tighten, flatten, become status ---- */
-#app > .f-col:last-child,
-#right-panel {
-  background: transparent !important;
-}
+/* legacy #mid > .f-col positioning is no longer used — superseded by #panel-left / #panel-right fixed */
+#mid > .f-col:first-child { position: static !important; }
 
 /* ---- Upper-right status readout: compact row, not chrome-heavy ---- */
 #right-top-panel,
