@@ -216,7 +216,7 @@ function modeTools(actions) {
         ]),
         span({ id: 'view-arrange', ...on(actions, 'view-arrange'), class: 'swarf-step' }, [
             span([icon('fas fa-list-check')]),
-            label({ title: 'set up operations — rough, contour, outline, pocket', _: 'operations' })
+            label({ title: 'set up toolpaths — rough, contour, outline, pocket', _: 'toolpaths' })
         ]),
         span({ id: 'act-preview', ...on(actions, 'act-preview'), class: 'swarf-step' }, [
             span([icon('fas fa-route')]),

@@ -453,8 +453,11 @@ export function init_input() {
         [ 'lset-es', 'es-es' ],
         [ 'lset-zh', 'zh' ],
     ]
+    // swarf: language selector removed — English-only. Skip bindings for deleted lset-* elements.
     for (let [ btn, lang ] of lang_map) {
-        $(btn).onclick = () => {
+        const el = $(btn);
+        if (!el) continue;
+        el.onclick = () => {
             sdb.setItem('kiri-lang', lang);
             api.space.reload();
         };
