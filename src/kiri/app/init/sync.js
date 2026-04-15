@@ -432,7 +432,7 @@ function setup_keybd_nav() {
     };
     // $('context-contents').onclick = api.const.SPACE.view.fit;
     $('view-fit').onclick = api.const.SPACE.view.fit;
-    $('wassup').onmouseover = () => { $('suppopp').classList.remove('hide') };
+    // swarf: 'wassup'/'suppopp' GridSpace support-dev element removed from mod-help; skip binding
 
     makePanelDraggable('panel-rotate', 'panel-rotate-head', 'win.roate');
     makePanelDraggable('panel-scale', 'panel-scale-head', 'win.scale');
