@@ -132,15 +132,27 @@ select:focus, input:focus { outline: none; border-color: var(--swarf-accent); }
   box-shadow: inset 0 -2px 0 var(--swarf-amber);
 }
 
-/* on-page error overlay keeps its red strip visible on dark bg */
-#swarf-err { border-top-color: var(--swarf-accent) !important; }
+/* on-page error overlay — hidden unless an error actually populates it */
+#swarf-err { border-top-color: var(--swarf-accent) !important; max-height: 30vh; }
+#swarf-err:empty { display: none !important; }
 
-/* ---- Top toolbar: Arrange / Slice / Preview / Animate / Export ---- */
+/* ---- Top toolbar: FILE / OPERATIONS / PREVIEW / EXPORT ---- */
 #mode-tools {
-  /* swarf: lift below the menubar so the toolbar isn't clipped at the top */
+  /* swarf: pin below menubar as a centered workflow strip */
+  position: fixed !important;
   top: 40px !important;
-  background: transparent !important;
-  gap: 1px !important;
+  left: 50% !important;
+  right: auto !important;
+  transform: translateX(-50%);
+  background: var(--swarf-bg-2) !important;
+  border: 1px solid var(--swarf-line-2) !important;
+  border-top: none !important;
+  border-left: 3px solid var(--swarf-accent) !important;
+  padding: 0 !important;
+  gap: 0 !important;
+  z-index: 20;
+  clip-path: polygon(8px 0, 100% 0, 100% 100%, 0 100%, 0 8px);
+  box-shadow: 0 4px 16px rgba(0,0,0,0.6);
 }
 #mode-tools > span {
   background: var(--swarf-bg-2) !important;
@@ -281,13 +293,27 @@ input[type="range"] { accent-color: var(--swarf-accent-hi); }
 .swarf-step label { cursor: pointer; }
 #mode-tools > span.selected .swarf-step label { color: #fff; }
 
-/* ---- About modal: toned down, three roles, clean ---- */
-.swarf-about {
-  min-width: 360px;
-  padding: 0 !important;
+/* ---- About / INFO modal: toned down, three roles, swarf plate register ---- */
+/* The whole modal-box wrapper when it's hosting swarf-about gets stripped of Kiri chrome */
+#modal-box:has(> .swarf-about),
+#mod-help.swarf-about {
   background: var(--swarf-bg-2) !important;
   border: 1px solid var(--swarf-line-2) !important;
-  clip-path: polygon(10px 0, 100% 0, 100% 100%, 0 100%, 0 10px);
+  border-radius: 0 !important;
+  padding: 0 !important;
+  color: var(--swarf-text) !important;
+  clip-path: polygon(12px 0, 100% 0, 100% 100%, 0 100%, 0 12px);
+  min-width: 380px;
+  max-width: 480px;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.75);
+}
+.swarf-about {
+  min-width: 380px !important;
+  padding: 0 !important;
+  background: transparent !important;
+  border: none !important;
+  color: var(--swarf-text) !important;
+  font-family: "JetBrains Mono", "IBM Plex Mono", monospace !important;
 }
 .swarf-about-head {
   display: flex; align-items: baseline; gap: 14px;
@@ -400,7 +426,7 @@ input[type="range"] { accent-color: var(--swarf-accent-hi); }
 /* every set2-group inside panel-right becomes a swarf plate */
 #panel-right .set2-group {
   background:
-    linear-gradient(180deg, rgba(42,24,20,0.25), rgba(0,0,0,0) 60%),
+    linear-gradient(180deg, rgba(42,24,20,0.18), rgba(0,0,0,0) 60%),
     var(--swarf-bg-2) !important;
   border: 1px solid var(--swarf-line-2) !important;
   border-left: 3px solid var(--swarf-accent) !important;
@@ -410,6 +436,13 @@ input[type="range"] { accent-color: var(--swarf-accent-hi); }
   overflow: hidden;
   position: relative;
 }
+/* empty plates should not render — otherwise the UI looks like skeleton chrome */
+#panel-right .set2-group:empty,
+#panel-right .set2-group:not(:has(> details)):not(:has(> .set-header)) {
+  display: none !important;
+}
+#panel-right .set2-group > details > div:empty { display: none; }
+#panel-left .set2-group:empty { display: none !important; }
 #panel-right .set2-group > details > summary.set-header,
 #panel-right .set2-group > .set-header {
   list-style: none;
