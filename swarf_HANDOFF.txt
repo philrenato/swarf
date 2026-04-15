@@ -1,0 +1,116 @@
+swarf_HANDOFF.txt — for Claude
+last updated 2026-04-14
+
+Repo
+────
+/Users/philrenato/Documents/claude/swarf/swarf_repo (fork of GridSpace/grid-apps)
+remote: github.com/philrenato/swarf (private, not pushed tonight)
+branch: master
+
+Dev server
+──────────
+npm run dev (NOT serve — the docx spec §4 is wrong). First-time after fresh clone:
+  1. mkdir -p src/pack
+  2. npm run webpack-ext   ← one-time; dev doesn't chain this but setup does
+  3. npm run dev
+Port default 8080 collides with Phil's Python server. Tonight ran on 8181 via:
+  npx gs-app-server --debug --single --port 8181
+URL: http://localhost:8181/kiri/
+
+Build fixes baseline
+────────────────────
+bin/esbuild.config.mjs externals: added node:module, node:fs, node:path, node:crypto, node:url so manifold-3d's browser bundle compiles on node 25.
+
+Fork-audit state
+────────────────
+Modes: only CAM. Deleted drag/fdm/laser/sla/wedm/wjet source trees + SLA wasm. 26 non-target machines deleted; only Langmuir.MR-1 and ShopBot.Basic remain. Mode menu removed. CAM forced at boot + on every setMode call (mode.js, defaults.js). Default device Langmuir.MR-1.
+
+Mode-dispatcher imports in export.js / input.js / worker.js / minion.js are stubbed as no-ops where they reference deleted modes. Keeps bundle compiling. Those stubs never fire in CAM-only execution.
+
+Visual state (Downward Spiral v2, post-refs pass)
+─────────────────────────────────────────────────
+Palette tokens in web/kiri/swarf.css:
+  --swarf-bg         #0a0808
+  --swarf-bg-2       #13100f
+  --swarf-bg-3       #1c1817
+  --swarf-text       #d8d2c6 (bone)
+  --swarf-accent     #d02020 (mill-red primary — NOT the old dried-blood #7a2a1a)
+  --swarf-accent-hi  #ff3a2a (crimson glow)
+  --swarf-glow       rgba(224,40,30,0.32)
+  --swarf-amber      #c08a3a (Concerns warnings — not yet wired)
+
+Chrome — .swarf-plate + #panel-right .set2-group: chamfered top-left + bottom-right, 2px rust left edge, inner rail, scanline overlay, corner L-brackets on the first child (HUD register). Workflow toolbar: centered below menubar, left-dark → right-light gradient, clip-path chamfer. Body backdrop: subtle vertical sunset (ember horizon → ember-purple → black) + 2.5% horizontal cloud striations. 3D sky #0a0808, grid major 0xb01818 X, minor 0x3a1e18 Y, opacity 0.18, rulers #b0a89a.
+
+Layout
+──────
+#panel-left reparented to body, position: fixed bottom-right, 300px — Tabs / Output (aux).
+#panel-right reparented to body, position: fixed top:340px left:16px, 300px — Objects / Operation List (primary). top:340px clears the longest menu dropdown so they never overlap.
+Operation list default-closed, Objects default-open.
+Workflow toolbar: IMPORT · TOOLPATHS · PREVIEW · EXPORT.
+
+Menus
+─────
+Click-to-open, not hover. Handled in sync.js by toggling .swarf-open on top-level menu spans. Outside-click and Escape close.
+Left side: FILE · EDIT · VIEW · SETUP · HELP.
+Right side: empty (language selector removed — English-only rule locked in memory).
+Help menu items: Search help… / Concordance / About swarf. Both search and concordance are scaffolded modals — empty placeholder copy, real content in the coaching pass.
+
+No keyboard shortcuts
+─────────────────────
+Locked rule (project memory): only Delete/Backspace (remove selected part) is honored.
+keyboard.js:#handleKeyDown early-returns after Delete. Everything else reachable via menu AND tool icon. Escape still closes modals (reflex, not a shortcut).
+
+Seed
+────
+On empty workspace, loads /obj/cube.stl into catalog as 'cube' so Objects panel + viewport are never blank.
+
+Dev-only tooling
+────────────────
+web/kiri/swarf-markup-inject.js — Phil's markup toolbar, cross-origin to localhost:8731 markup server. Draggable by its chrome (not buttons), position persists in localStorage as swarf-markup-toolbar-pos.
+web/kiri/index.html has an on-page #swarf-err error overlay (hidden when empty).
+Both are dev-only — strip or gate before ship.
+
+Also patched upstream philrenato-web/tools/markup-server.py: added do_OPTIONS CORS preflight + Access-Control-Allow-Origin on static file serve, so swarf on :8181 can POST /markup-save and GET the inject script from :8731.
+
+Kendall
+───────
+Never mentioned anywhere user-facing. Second-time rule (Phil has said this across the suite). Search the repo periodically to confirm clean.
+
+Open items / known issues
+─────────────────────────
+– Viewport 3D grid/bed sometimes reads as empty on first load. Seed cube should give it something, but depending on timing the camera may not home. If it reoccurs, check checkSeed's space.view.home() timing.
+– ws-widgets left-arrow pager: has a visible-on-hover CSS tooltip for now. When widget count === 1, should probably hide the pager entirely (not yet wired).
+– Error overlay (#swarf-err) is still in the DOM. Strip or gate by query-param before distribution.
+– Stubs in worker.js/input.js for deleted modes — clean up later once the surrounding code paths are confirmed unreachable.
+– src/cli/kiri-source.json still references deleted mode paths — CLI-only, not loaded in browser, but would break npm scripts that use it.
+– No Concerns drawer yet. No per-op coaching warnings yet. No populated Searchable Help or Concordance. All in the coaching pass.
+– Localization strip not yet executed (authorized). When it is, rip LANG.* and inline English strings.
+
+Commit cadence tonight
+──────────────────────
+~18 commits on master:
+  – fork audit delete pass
+  – mode-selector + machine-picker lockdown
+  – initial Downward Spiral skin
+  – markup-driven layout redesign (panels to body, workflow verbs,
+    click-to-open menus, Kendall removed, tools-linked-to-toolpaths)
+  – wordmark bigger / ™ smaller
+  – no-keyboard-shortcut rule
+  – About modal: three credits, Phil links
+  – refs pass: mill-red palette, glow, HUD brackets, scanlines, red
+    backdrop, plate chrome v2
+  – markup-pass: Help menu, English-only, 25.4mm cube seed, toolbar
+    gradient, default-closed ops, Operations → Toolpaths
+  – subtle sunset backdrop v2
+
+Not pushed. Master branch is ahead of origin.
+
+Next session
+────────────
+1. Fix 3D viewport reliably (seed cube + camera home on every boot).
+2. Single-widget hide of the pager arrows.
+3. Coaching pass: real Concordance content (every control one line), real Searchable Help content, Concerns drawer with rule-based warnings per spec §13.
+4. Localization strip (LANG.* → inline English).
+5. Strip the dev-only error overlay and markup inject before first distribution.
+6. Favicon: replace ⚒️ emoji placeholder with a real swarf mark SVG.
+7. Consider: swarf-specific STL for the default cube (the current /obj/cube.stl is upstream's — size may not be 25.4mm).
