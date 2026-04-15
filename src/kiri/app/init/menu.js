@@ -154,49 +154,43 @@ function content(actions) {
             }),
             topMenu(actions, {
                 text: 'view', lk: 'vu_menu', items: [
-                    menuItem(actions, { id: 'context-setfocus', lk: 'rc_focs', text: 'focal point', iconClass: 'fas fa-eye' }),
+                    menuItem(actions, { id: 'view-fit', text: 'fit to part', iconClass: 'fas fa-arrows-to-circle' }),
+                    menuItem(actions, { id: 'view-home', text: 'home', iconClass: 'fas fa-home' }),
+                    menuItem(actions, { id: 'view-top', text: 'top', iconClass: 'fas fa-square' }),
+                    menuItem(actions, { id: 'context-setfocus', text: 'focal point', iconClass: 'fas fa-eye' }),
                     hr(),
-                    menuItem(actions, { id: 'view-fit', lk: 'contents', text: 'contents', iconClass: 'fas fa-arrows-to-circle' }),
-                    menuItem(actions, { id: 'view-home', lk: 'home', text: 'home', iconClass: 'fas fa-home' }),
-                    menuItem(actions, { id: 'view-top', lk: 'top', text: 'top', iconClass: 'fas fa-square' }),
+                    // swarf: render modes folded into view — they're display choices
+                    menuItem(actions, { id: 'render-solid', text: 'solid', iconClass: 'fas fa-square' }),
+                    menuItem(actions, { id: 'render-wire', text: 'wireframe', iconClass: 'fas fa-border-all' }),
+                    menuItem(actions, { id: 'render-ghost', text: 'transparent', iconClass: 'fas fa-border-none' }),
+                    menuItem(actions, { id: 'render-edges', text: 'toggle edges', iconClass: 'fa-regular fa-square' }),
                     hr(),
-                    menuItem(actions, { id: 'app-xpnd', lk: 'fullscreen', text: 'fullscreen', iconClass: 'fas fa-maximize' })
+                    // swarf: expert-mode toggle lives under view (it's a display choice, not a preference)
+                    menuItem(actions, { id: 'swarf-expert-toggle', text: 'expert mode', iconClass: 'fas fa-user-gear' }),
+                    hr(),
+                    menuItem(actions, { id: 'app-xpnd', text: 'fullscreen', iconClass: 'fas fa-maximize' })
                 ]
             }),
-            topMenu(actions, {
-                text: 'render', lk: 're_menu', items: [
-                    menuItem(actions, { id: 'render-solid', lk: 'solid', text: 'solid', iconClass: 'fas fa-square' }),
-                    menuItem(actions, { id: 'render-wire', lk: 'wire', text: 'wireframe', iconClass: 'fas fa-border-all' }),
-                    menuItem(actions, { id: 'render-ghost', lk: 'ghost', text: 'transparent', iconClass: 'fas fa-border-none' }),
-                    hr(),
-                    menuItem(actions, { id: 'render-edges', lk: 're_edgs', text: 'toggle edges', iconClass: 'fa-regular fa-square' })
-                ]
-            }),
-            div({ class: 'f-row top-menu' }, [
-                span({ id: 'tool-nozzle' }, [
-                    label({ lk: 'tool', _: tr('tool', 'tool') }),
-                    div({ id: 'ft-nozzle', class: 'f-col pop' })
-                ])
+            // hidden tool-nozzle shim — kept so any downstream code referencing ft-nozzle still finds the element
+            div({ class: 'f-row top-menu', style: 'display:none' }, [
+                span({ id: 'tool-nozzle' }, [ div({ id: 'ft-nozzle' }) ])
             ]),
             div({ class: 'grow' }),
             topMenu(actions, {
-                text: 'info', lk: 'info', side: 'right', right: true, items: [
-                    menuItem(actions, { id: 'app-help', lk: 'help', text: 'help' }),
-                    menuItem(actions, { id: 'app-don8', lk: 'donate', text: 'donate' }),
+                text: 'info', side: 'right', right: true, items: [
+                    menuItem(actions, { id: 'app-help', text: 'about swarf' }),
                 ]
             }),
             // swarf: mode menu removed — CNC is the only mode (spec §4)
             topMenu(actions, {
-                text: 'setup', lk: 'su_menu', side: 'right', right: true, items: [
-                    menuItem(actions, { id: 'set-device', lk: 'machines', text: 'machines', iconClass: 'fas fa-cube' }),
-                    menuItem(actions, { id: 'set-tools', lk: 'tools', text: 'tools', iconClass: 'fas fa-tools' }),
-                    menuItem(actions, { id: 'set-prefs', lk: 'prefs', text: 'prefs', iconClass: 'fa-solid fa-square-check' }),
-                    hr(),
-                    // swarf: Student (default) vs Expert mode. Toggles body.swarf-expert which flips visibility on every .swarf-expert-only element.
-                    menuItem(actions, { id: 'swarf-expert-toggle', text: 'expert mode', iconClass: 'fas fa-user-gear' }),
+                text: 'setup', side: 'right', right: true, items: [
+                    menuItem(actions, { id: 'set-device', text: 'machines', iconClass: 'fas fa-cube' }),
+                    // swarf: Tool library editing is expert-only. Students pick tools per-operation from the locked 10-tool inventory.
+                    menuItem(actions, { id: 'set-tools', text: 'tool library', iconClass: 'fas fa-tools', className: 'swarf-expert-only' }),
+                    menuItem(actions, { id: 'set-prefs', text: 'preferences', iconClass: 'fa-solid fa-square-check' }),
                     hr({ class: "el-app-hide" }),
-                    menuItem(actions, { id: 'install', lk: 'install', text: 'install' }),
-                    menuItem(actions, { id: 'uninstall', lk: 'uninstall', text: 'uninstall', className: 'hide' })
+                    menuItem(actions, { id: 'install', text: 'install' }),
+                    menuItem(actions, { id: 'uninstall', text: 'uninstall', className: 'hide' })
                 ]
             }),
             topMenu(actions, {
@@ -218,28 +212,29 @@ function content(actions) {
 }
 
 function modeTools(actions) {
-    const t = (key, fallback) => tr(key, fallback);
+    // swarf workflow bar: the four verbs a student moves through in order.
+    // File (import mesh), Operations (arrange view — set up ops), Preview
+    // (slice + show paths), Export (gcode).
     return [
-        span({ id: 'view-arrange', ...on(actions, 'view-arrange') }, [
-            span([icon('fas fa-shapes')]),
-            span({ lk: 'arrange', _: t('arrange', 'arrange') })
+        span({ id: 'swarf-step-file', class: 'swarf-step', onclick() { $('load-file').click(); } }, [
+            span([icon('fas fa-file-arrow-up')]),
+            label({ title: 'import a part — STL, OBJ, or supported mesh', _: 'file' })
         ]),
-        span({ id: 'act-slice', ...on(actions, 'act-slice') }, [
-            span([icon('fas fa-bars')]),
-            label({ id: 'label-slice', title: 'generate layer slices', lk: 'slice', _: t('slice', 'slice') })
+        span({ id: 'view-arrange', ...on(actions, 'view-arrange'), class: 'swarf-step' }, [
+            span([icon('fas fa-list-check')]),
+            label({ title: 'set up operations — rough, contour, outline, pocket', _: 'operations' })
         ]),
-        span({ id: 'act-preview', ...on(actions, 'act-preview') }, [
-            span([icon('fas fa-layer-group')]),
-            label({ id: 'label-preview', title: 'show routing and paths', lk: 'preview', _: t('preview', 'preview') })
+        span({ id: 'act-preview', ...on(actions, 'act-preview'), class: 'swarf-step' }, [
+            span([icon('fas fa-route')]),
+            label({ id: 'label-preview', title: 'slice the part and show the toolpaths', _: 'preview' })
         ]),
-        span({ id: 'act-animate', ...on(actions, 'act-animate') }, [
-            span([icon('fas fa-film')]),
-            label({ id: 'label-animate', title: 'render routing on a mesh', lk: 'animate', _: t('animate', 'animate') })
+        span({ id: 'act-export', ...on(actions, 'act-export'), class: 'swarf-step' }, [
+            span([icon('fas fa-file-export')]),
+            label({ id: 'label-export', title: 'generate gcode for the machine', _: 'export' })
         ]),
-        span({ id: 'act-export', ...on(actions, 'act-export') }, [
-            span([icon('fas fa-file-download')]),
-            label({ id: 'label-export', title: 'generate gcode', lk: 'export', _: t('export', 'export') })
-        ])
+        // hidden but preserved so upstream slice/animate code paths still have their hooks
+        span({ id: 'act-slice', style: 'display:none' }),
+        span({ id: 'act-animate', style: 'display:none' })
     ];
 }
 

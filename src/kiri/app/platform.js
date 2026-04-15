@@ -166,23 +166,19 @@ function update_size(updateDark = true) {
 
     if (updateDark) {
        const scheme = getColorScheme();
-       // swarf: force the Downward Spiral register — bruised near-black sky, oxidized grid,
-       // bone rulers. Light path kept for upstream-merge friendliness but we never take it.
-       if (controller.dark) {
-           space.platform.set({ light: 0.08 });
-           space.platform.setFont({rulerColor:'#8a857c'}); // bone-ash
-           space.platform.setGrid(gridMajor, gridMinor, scheme.grid.major, scheme.grid.minor);
-           space.platform.opacity(0.05);
-           space.sky.set({ color: 0x0a0707, ambient: { intensity: 0.55 } });
-           document.documentElement.setAttribute('data-theme', 'dark');
-       } else {
-           space.platform.set({ light: 0.08 });
-           space.platform.setFont({rulerColor:'#8a857c'});
-           space.platform.setGrid(gridMajor, gridMinor, scheme.grid.major, scheme.grid.minor);
-           space.platform.opacity(0.05);
-           space.sky.set({ color: 0x0a0707, ambient: { intensity: 0.55 } });
-           document.documentElement.setAttribute('data-theme', 'dark');
-       }
+       // swarf viewport (per markup Apr 15): dark gray background, translucent red (X)
+       // and amber (Y) grid lines, bed sized to the machine. Quieter than LastFirst.
+       //   sky #14120f  (dark warm gray)
+       //   major grid  X = 0x5a1a14  (translucent red)   Y = 0x5a3a14  (translucent amber)
+       //   minor grid  X = 0x2a1a14                      Y = 0x2a2012
+       // setGrid(major, minor, colorMajor, colorMinor) takes a single color per level,
+       // so we alternate by using major=red-ish, minor=amber-ish as the two visible layers.
+       space.platform.set({ light: 0.08 });
+       space.platform.setFont({rulerColor:'#8a857c'}); // bone-ash rulers
+       space.platform.setGrid(gridMajor, gridMinor, 0x5a1a14, 0x3a2820);
+       space.platform.opacity(0.08);
+       space.sky.set({ color: 0x14120f, ambient: { intensity: 0.55 } });
+       document.documentElement.setAttribute('data-theme', 'dark');
        space.platform.setSize();
     }
 

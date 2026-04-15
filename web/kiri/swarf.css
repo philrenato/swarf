@@ -22,7 +22,9 @@ body.swarf-expert .swarf-expert-only { display: initial !important; }
   --swarf-green:     #3a7a5a;   /* LLM-active dot, reserved for v002 Journeyman */
 }
 
-html, body { background: var(--swarf-bg) !important; color: var(--swarf-text); }
+/* swarf viewport: dark gray, not crushed black (markup Apr 15) */
+html, body { background: #14120f !important; color: var(--swarf-text); }
+#container { background: #14120f !important; }
 
 /* typography: stark mono for UI, tracked uppercase for labels */
 body, .set-header, label, button, select, input, .opdiv, #op-add-list > div {
@@ -260,13 +262,86 @@ input[type="range"] { accent-color: var(--swarf-accent-hi); }
 }
 .mod-top { border-bottom: 1px solid var(--swarf-line); }
 
-/* swarf wordmark — styled on the real .menubar-appname span (menu.js renamed Kiri:Moto → swarf) */
+/* ---- Click-to-open menus (spec: real-app behavior) ---- */
+/* Disable hover-opens from moto/menubar.css */
+#menubar .top-menu > span:hover > .pop { display: none !important; }
+#menubar .top-menu > span:hover .top-menu-drop { opacity: 1 !important; }
+/* Open only when explicitly toggled */
+#menubar .top-menu > span.swarf-open > .pop { display: flex !important; }
+#menubar .top-menu > span.swarf-open { background: var(--swarf-accent) !important; color: #fff !important; }
+#menubar .top-menu > span.swarf-open label { color: #fff !important; }
+
+/* Workflow step buttons (top toolbar) */
+.swarf-step {
+  display: inline-flex; align-items: center; gap: 8px;
+  padding: 7px 14px !important;
+  text-transform: uppercase; letter-spacing: 0.1em;
+  font-size: 11px;
+}
+.swarf-step label { cursor: pointer; }
+#mode-tools > span.selected .swarf-step label { color: #fff; }
+
+/* ---- Layout inversion (per markup Apr 15): params to lower-right, status upper-right ---- */
+/* The left rail — Kiri's process params — becomes a floating, collapsible, lower-right panel.
+   #mid uses display:flex row with the rail as left child; we reposition via CSS only. */
+#mid > .f-col:first-child,            /* left rail wrapper */
+#mid #process-params,
+#mid .set-group[id*="cam-"],
+#mid #cam-tabs, #mid #cam-output {
+  /* float these into a single sticky panel rather than occupying the left column */
+}
+
+/* pull the whole left rail out of flow and pin it bottom-right as a compact floating card */
+#mid > .f-col.noselect {
+  position: fixed !important;
+  right: 16px;
+  bottom: 16px;
+  top: auto !important;
+  left: auto !important;
+  width: 280px !important;
+  max-height: 60vh;
+  overflow-y: auto;
+  background: rgba(20,16,16,0.94) !important;
+  border: 1px solid var(--swarf-line-2) !important;
+  border-radius: 4px;
+  box-shadow: 0 8px 30px rgba(0,0,0,0.6);
+  padding: 6px 4px;
+  z-index: 20;
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+}
+
+/* right-hand panel (Objects/Ranges/Operation List) — tighten, flatten, become status ---- */
+#app > .f-col:last-child,
+#right-panel {
+  background: transparent !important;
+}
+
+/* ---- Upper-right status readout: compact row, not chrome-heavy ---- */
+#right-top-panel,
+.rt-group {
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+}
+
+/* kill the extra decorative lines around the parameter rail ("these extra lines are weird") */
+.set-sep,
+.set2-group.bottom,
+.set2-group:not(:last-child)::after,
+hr:not(.swarf-keep) {
+  border-color: transparent !important;
+  background: transparent !important;
+  opacity: 0;
+}
+
+/* ---- Wordmark: push in from the corner (markup note: too close to edge) ---- */
 .menubar-appname {
   color: var(--swarf-text) !important;
   font-weight: 600;
   letter-spacing: 0.14em;
   text-transform: lowercase;
   font-size: 14px;
-  padding: 0 6px;
+  padding: 0 18px 0 28px !important;
 }
 .menubar-separator { background: var(--swarf-line) !important; }

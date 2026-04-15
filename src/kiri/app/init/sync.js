@@ -344,6 +344,23 @@ function setup_keybd_nav() {
     $('set-device').onclick = (ev) => { ev.stopPropagation(); api.show.devices() };
     $('set-tools').onclick = (ev) => { ev.stopPropagation(); api.show.tools() };
     $('set-prefs').onclick = (ev) => { ev.stopPropagation(); api.modal.show('prefs') };
+    // swarf: click-to-open menus (kill Kiri's hover-to-open — markup note: "like a real app")
+    (function(){
+        const menus = document.querySelectorAll('#menubar .top-menu > span');
+        const close = () => menus.forEach(m => m.classList.remove('swarf-open'));
+        menus.forEach(m => {
+            if (!m.querySelector(':scope > .pop')) return; // only top-level menus (have a dropdown)
+            m.addEventListener('click', (ev) => {
+                ev.stopPropagation();
+                const wasOpen = m.classList.contains('swarf-open');
+                close();
+                if (!wasOpen) m.classList.add('swarf-open');
+            });
+        });
+        document.addEventListener('click', close);
+        document.addEventListener('keydown', (ev) => { if (ev.key === 'Escape') close(); });
+    })();
+
     // swarf: Expert toggle — flips body.swarf-expert, persists in localStorage
     (function(){
         const key = 'swarf-expert';
