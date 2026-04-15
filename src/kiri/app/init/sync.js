@@ -333,9 +333,12 @@ function setup_keybd_nav() {
 
     // bind interface action elements
     ui.acct.help.onclick = (ev) => { ev.stopPropagation(); api.help.show() };
-    ui.acct.don8.onclick = (ev) => { ev.stopPropagation(); api.modal.show('don8') };
-    ui.acct.export.onclick = (ev) => { ev.stopPropagation(); settingsOps.export_profile() };
-    ui.acct.export.title = LANG.acct_xpo;
+    // swarf: 'donate' menu item removed; skip binding (Kiri had a GridSpace patreon link)
+    if (ui.acct.don8) ui.acct.don8.onclick = (ev) => { ev.stopPropagation(); api.modal.show('don8') };
+    if (ui.acct.export) {
+        ui.acct.export.onclick = (ev) => { ev.stopPropagation(); settingsOps.export_profile() };
+        ui.acct.export.title = LANG.acct_xpo;
+    }
     // prevent modal input from propagating to parents
     ui.modalBox.onclick = (ev) => { ev.stopPropagation() };
 
