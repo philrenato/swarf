@@ -3,7 +3,7 @@
 self.lang['en'] =
 self.lang['en-us'] = {
     // common keys and menus
-    animate:        "animate",      // CAM animate button
+    animate:        "simulate",     // CAM simulate button (swarf: always "simulate", never "animate" in user-facing strings)
     arrange:        "arrange",      // layout workspace objects
     axis:           "axis",         // left object scale pop menu
     back:           "back",
@@ -332,8 +332,8 @@ self.lang['en-us'] = {
     op_line_l:      ["line style for path rendering","impacts 3d performance","path: 3d best","flat: 2d good","line = 1d fast"],
     op_unit_s:      "units",
     op_unit_l:      ["workspace units affects","speeds and distances"],
-    op_anim_s:      "animate",
-    op_anim_l:      ["animation mesh density","higher is more dense","takes more memory","and is slower"],
+    op_anim_s:      "simulate",
+    op_anim_l:      ["simulation mesh density","higher is more dense","takes more memory","and is slower"],
     op_mani_s:      "manifold",
     op_mani_l:      ["in stock indexed mode","use boolean visualiation","this is very expensive","and likely very slow"],
     op_exop_s:      "remote host",
@@ -823,7 +823,7 @@ self.lang['en-us'] = {
 
     // OUTPUT CAM
     ou_toll_s:      "precision",
-    ou_toll_l:      ["surface precision","in workspace units","lower is slower and","uses more memory","0 = automatic based","on animate preference"],
+    ou_toll_l:      ["surface precision","in workspace units","lower is slower and","uses more memory","0 = automatic based","on simulate preference"],
     ou_flat_s:      "flatness",
     ou_flat_l:      ["delta z below which two adjacent points are considered co-linear. 0 = compute using tolerance"],
     ou_redu_s:      "reduction",

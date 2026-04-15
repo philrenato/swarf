@@ -12,8 +12,9 @@ let meshes = {},
     label = {},
     lineTracker,
     material,
-    speedValues = [1, 2, 4, 8, 32],
-    speedNames = ["1x", "2x", "4x", "8x", "!!"],
+    // swarf r6: more speed options (Phil markup)
+    speedValues = [0.5, 1, 2, 4, 8, 16, 32],
+    speedNames  = ["½×","1×","2×","4×","8×","16×","!!"],
     speedMax = speedValues.length - 1,
     speedIndex = 0,
     speed,
@@ -75,7 +76,8 @@ export function animate2(api, delay) {
         }
 
         updateSpeed(0);
-        setTimeout(step, delay || 0);
+        // swarf r6: auto-play when SIMULATE fires (matches anim-2d behavior)
+        setTimeout(() => play({}), delay || 0);
         toggleTrans(undefined, false);
         origin = settings.origin;
 
@@ -305,8 +307,9 @@ function handleUpdate(data) {
         label.x.value = (pos.x - origin.x).toFixed(2);
         label.y.value = (pos.y + origin.y).toFixed(2);
         label.z.value = (pos.z - origin.z).toFixed(2);
-        // swarf r5: broadcast tool position for chip physics.
-        if (id < 0) {
+        // swarf r6: broadcast tool position for chip physics — any non-zero id
+        // (stock = 0, tool can be negative or positive depending on mode).
+        if (id !== 0 && id !== undefined) {
             try { api.event.emit('swarf.tool.move', { id, pos }); } catch (e) {}
         }
     }
@@ -336,14 +339,20 @@ function handleUpdate(data) {
 }
 
 function updateSpeed(inc = 0) {
+    if (inc !== 0) window.__swarfCustomSpeed = null;
     if (inc === Infinity) {
         speedIndex = speedMax;
     } else if (inc > 0) {
         speedIndex = (speedIndex + inc) % speedValues.length;
     }
     api.local.set('cam.anim.speed', speedIndex);
-    speed = speedValues[speedIndex];
-    label.speed.value = speedNames[speedIndex];
+    if (typeof window.__swarfCustomSpeed === 'number' && window.__swarfCustomSpeed > 0) {
+        speed = window.__swarfCustomSpeed;
+        label.speed.value = `${window.__swarfCustomSpeed}×`;
+    } else {
+        speed = speedValues[speedIndex];
+        label.speed.value = speedNames[speedIndex];
+    }
 }
 
 function replay() {

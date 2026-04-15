@@ -22,6 +22,14 @@
   if (window.__swarfChipsLoaded) return;
   window.__swarfChipsLoaded = true;
 
+  // r6: kill switch. Append ?nochips=1 to the URL to isolate simulation
+  // stalls — if SIMULATE works with nochips and not without, the physics
+  // layer is the culprit.
+  if (/[?&]nochips=1\b/.test(location.search)) {
+    console.log('swarf-chips: disabled via ?nochips=1');
+    return;
+  }
+
   const AIRBORNE_MAX = 240;
   const SETTLED_MAX  = 1600;
   const GRAVITY      = 180;   // mm/s² (Three.js mm units)
@@ -47,7 +55,8 @@
     const world = space.world;
 
     // ---- chip geometries: four flavors for visual variety ---------------
-    // all are small, bruised-metal colored, with a faint rust rim
+    // chip color tracks the current material (swarf-material.js) so wood
+    // chips look like wood, aluminum like aluminum, etc.
     const chipMat = new THREE.MeshPhongMaterial({
       color: 0x8a5a42,
       emissive: 0x2a0a08,
@@ -55,12 +64,30 @@
       flatShading: true,
       side: THREE.DoubleSide,
     });
+    function applyMaterialToChips() {
+      const m = window.__swarfMaterial;
+      if (!m || !m.appearance) return;
+      const a = m.appearance;
+      try {
+        if (a.chipColor)    chipMat.color.set(a.chipColor);
+        if (a.chipEmissive) chipMat.emissive.set(a.chipEmissive);
+        chipMat.shininess  = a.metalness > 0.5 ? 80 : 30;
+        chipMat.transparent = (a.opacity || 1) < 0.9;
+        chipMat.opacity     = (a.opacity || 1) < 0.9 ? 0.6 : 1;
+        chipMat.needsUpdate = true;
+      } catch (e) {}
+    }
+    applyMaterialToChips();
+    window.addEventListener('swarf.material.change', applyMaterialToChips);
 
-    // curl: a thin helical ribbon — the characteristic "long chip" from ductile cuts
+    // curl: a thin helical ribbon — the characteristic "long chip" from
+    // ductile cuts. swarf r6: poly-count cut ~4× from r5 (8 tubular × 3
+    // radial = ~48 tris vs the prior 18×4 = ~144). Curl shape is preserved
+    // because at chip scale the difference is invisible.
     function curlGeometry() {
       const pts = [];
-      const turns = 1.8;
-      const steps = 18;
+      const turns = 1.6;
+      const steps = 8;
       for (let i = 0; i <= steps; i++) {
         const t = i / steps;
         const a = t * turns * Math.PI * 2;
@@ -71,7 +98,7 @@
         ));
       }
       const curve = new THREE.CatmullRomCurve3(pts);
-      return new THREE.TubeGeometry(curve, 18, 0.12, 4, false);
+      return new THREE.TubeGeometry(curve, 8, 0.12, 3, false);
     }
     // flake: a small triangular shard — brittle-material chip
     function flakeGeometry() {
@@ -85,16 +112,17 @@
       g.computeVertexNormals();
       return g;
     }
-    // coil: tight C-shape — aluminum-style short curl
+    // coil: tight C-shape — aluminum-style short curl. r6 reduced from
+    // 10×4 = 80 tris to 6×3 = ~36 tris.
     function coilGeometry() {
       const pts = [];
-      const steps = 12;
+      const steps = 6;
       for (let i = 0; i <= steps; i++) {
         const a = (i / steps) * Math.PI * 1.3;
         pts.push(new THREE.Vector3(Math.cos(a) * 0.5, 0, Math.sin(a) * 0.5));
       }
       const curve = new THREE.CatmullRomCurve3(pts);
-      return new THREE.TubeGeometry(curve, 10, 0.10, 4, false);
+      return new THREE.TubeGeometry(curve, 6, 0.10, 3, false);
     }
     // grit: tiny cube — fine powder / MDF dust
     function gritGeometry() {
@@ -106,10 +134,13 @@
     const weights = [0.55, 0.18, 0.20, 0.07];
 
     // Separate airborne + settled pools per flavor, all InstancedMesh
+    // start invisible — only show once simulation begins, so empty pools
+    // never interfere with Kiri's preview/animate setup or rendering
     const airborne = flavors.map(geo => {
       const m = new THREE.InstancedMesh(geo, chipMat, Math.ceil(AIRBORNE_MAX / 2));
       m.count = 0;
       m.frustumCulled = false;
+      m.visible = false;
       m.renderOrder = 5;
       world.add(m);
       return m;
@@ -118,14 +149,23 @@
       const m = new THREE.InstancedMesh(geo, chipMat, Math.ceil(SETTLED_MAX / 2));
       m.count = 0;
       m.frustumCulled = false;
+      m.visible = false;
       m.renderOrder = 4;
       world.add(m);
       return m;
     });
+    const setPoolVisible = (v) => {
+      for (const p of airborne) p.visible = v;
+      for (const p of settled)  p.visible = v || p.count > 0;
+    };
 
-    // active airborne chip records (one per instance slot)
-    const chips = []; // { flavor, slot, pos, vel, rot, spin, life }
-    const settledSlots = flavors.map(() => 0); // next write index per flavor (ring)
+    // active airborne chip records per flavor (one array per pool so swap-
+    // remove stays within a single pool's slot-space — previous global
+    // `chips[]` array was swap-removing across flavors and corrupting the
+    // instance-slot bookkeeping, which meant chips either didn't render or
+    // stuck at phantom positions).
+    const chips = flavors.map(() => []); // chips[flavor][i] = {slot,pos,vel,...}
+    const settledSlots = flavors.map(() => 0);
     const settledCount = flavors.map(() => 0);
 
     // ---- tool tracking ---------------------------------------------------
@@ -145,8 +185,15 @@
       return 0;
     }
 
+    function totalAirborne() {
+      let n = 0;
+      for (const arr of chips) n += arr.length;
+      return n;
+    }
+
     function spawnChip(pos) {
-      if (chips.length >= AIRBORNE_MAX) return;
+      if (window.__swarfChipsVisible === false) return;
+      if (totalAirborne() >= AIRBORNE_MAX) return;
       const flavor = pickFlavor();
       const pool = airborne[flavor];
       if (pool.count >= pool.instanceMatrix.count) return;
@@ -171,7 +218,7 @@
       const startY = pos.y + Math.sin(theta) * TOOL_R;
       const startZ = Math.max(pos.z, 0.2);
 
-      chips.push({
+      const chip = {
         flavor, slot,
         pos: { x: startX, y: startY, z: startZ },
         vel: { x: tx + fx, y: ty + fy, z: vz },
@@ -179,8 +226,9 @@
         spin: { x: (Math.random() - 0.5) * 8, y: (Math.random() - 0.5) * 8, z: (Math.random() - 0.5) * 8 },
         life: CHIP_LIFE,
         scale: 0.7 + Math.random() * 0.7,
-      });
-      writeMatrix(pool, slot, chips[chips.length - 1]);
+      };
+      chips[flavor].push(chip);
+      writeMatrix(pool, slot, chip);
       pool.instanceMatrix.needsUpdate = true;
     }
 
@@ -226,47 +274,60 @@
       const dt = Math.min(0.05, (now - lastTime) / 1000);
       lastTime = now;
 
-      for (let i = chips.length - 1; i >= 0; i--) {
-        const c = chips[i];
-        c.life -= dt;
-        // integrate
-        c.vel.z -= GRAVITY * dt;
-        c.vel.x *= (1 - (1 - DRAG) * dt * 2);
-        c.vel.y *= (1 - (1 - DRAG) * dt * 2);
-        c.pos.x += c.vel.x * dt;
-        c.pos.y += c.vel.y * dt;
-        c.pos.z += c.vel.z * dt;
-        c.rot.x += c.spin.x * dt;
-        c.rot.y += c.spin.y * dt;
-        c.rot.z += c.spin.z * dt;
-
-        const landed = c.pos.z <= 0.05 || c.life <= 0;
-        if (landed) {
-          // settle: flatten rotation toward horizontal, tiny random tilt
-          const restRot = {
-            x: (Math.random() - 0.5) * 0.4,
-            y: Math.random() * 6.28,
-            z: (Math.random() - 0.5) * 0.4,
-          };
-          const restPos = { x: c.pos.x, y: c.pos.y, z: 0.12 };
-          writeSettled(c.flavor, restPos, restRot, c.scale);
-          // remove from airborne — O(1) swap-remove
-          const pool = airborne[c.flavor];
-          const last = chips[chips.length - 1];
-          if (i !== chips.length - 1) {
-            chips[i] = last;
-            // rewrite the swapped-in chip at the vacated slot
-            writeMatrix(airborne[last.flavor], c.slot, last);
-            last.slot = c.slot;
-          }
-          chips.pop();
-          // shrink airborne count if this was the top slot
-          if (pool.count > 0) pool.count--;
-          pool.instanceMatrix.needsUpdate = true;
-        } else {
-          writeMatrix(airborne[c.flavor], c.slot, c);
-          airborne[c.flavor].instanceMatrix.needsUpdate = true;
+      // swarf r6: spin the tool mesh while simulating so the cutter looks
+      // like it's actually working. ~720 RPM in scene units (12 rev/s) —
+      // visibly fast but won't strobe out at 60fps. Spins around the local
+      // Z axis (cylinder long axis in Kiri's CAM coords).
+      if (simulating && window.__swarfToolMeshes) {
+        const dRot = dt * Math.PI * 24; // 12 rev/s
+        for (const m of window.__swarfToolMeshes) {
+          if (m && m.rotation) m.rotation.z += dRot;
         }
+      }
+
+      // per-flavor loop so swap-remove stays within a single pool's slot space
+      for (let f = 0; f < chips.length; f++) {
+        const arr = chips[f];
+        const pool = airborne[f];
+        let dirty = false;
+        for (let i = arr.length - 1; i >= 0; i--) {
+          const c = arr[i];
+          c.life -= dt;
+          c.vel.z -= GRAVITY * dt;
+          c.vel.x *= (1 - (1 - DRAG) * dt * 2);
+          c.vel.y *= (1 - (1 - DRAG) * dt * 2);
+          c.pos.x += c.vel.x * dt;
+          c.pos.y += c.vel.y * dt;
+          c.pos.z += c.vel.z * dt;
+          c.rot.x += c.spin.x * dt;
+          c.rot.y += c.spin.y * dt;
+          c.rot.z += c.spin.z * dt;
+
+          const landed = c.pos.z <= 0.05 || c.life <= 0;
+          if (landed) {
+            // write to settled pool
+            const restRot = {
+              x: (Math.random() - 0.5) * 0.4,
+              y: Math.random() * 6.28,
+              z: (Math.random() - 0.5) * 0.4,
+            };
+            writeSettled(f, { x: c.pos.x, y: c.pos.y, z: 0.12 }, restRot, c.scale);
+            // swap-remove within this flavor's array + pool
+            const last = arr[arr.length - 1];
+            if (i !== arr.length - 1) {
+              arr[i] = last;
+              writeMatrix(pool, c.slot, last);
+              last.slot = c.slot;
+            }
+            arr.pop();
+            if (pool.count > 0) pool.count--;
+            dirty = true;
+          } else {
+            writeMatrix(pool, c.slot, c);
+            dirty = true;
+          }
+        }
+        if (dirty) pool.instanceMatrix.needsUpdate = true;
       }
 
       requestAnimationFrame(tick);
@@ -278,6 +339,7 @@
       const api = window.kiri && window.kiri.api;
       if (!api || !api.event) return false;
 
+      let firstSpawnLogged = false;
       api.event.on('swarf.tool.move', ({ id, pos }) => {
         const t = performance.now() / 1000;
         if (lastToolPos) {
@@ -289,24 +351,29 @@
         lastToolPos = { x: pos.x, y: pos.y, z: pos.z };
         lastToolTime = t;
 
-        // only spawn while "cutting": XY motion present and Z at/below stock top.
-        // stockTopZ is set from cam.stock events when available; fallback 0.
-        const cuttingZ = pos.z <= (stockTopZ + 0.1);
-        const moving = Math.hypot(toolVel.x, toolVel.y) > 1;
-        if (simulating && cuttingZ && moving) {
-          // spawn 1–3 chips per move event, rate ~feed-dependent
+        // r6: forgiving spawn gate — simulate + XY motion. Earlier we also
+        // required Z near stock top, but that silently killed spawning when
+        // the part origin wasn't at top, making chips look "broken".
+        const moving = Math.hypot(toolVel.x, toolVel.y) > 0.2;
+        if (simulating && moving) {
           const n = 1 + Math.floor(Math.random() * 3);
           for (let i = 0; i < n; i++) spawnChip(pos);
+          if (!firstSpawnLogged) {
+            console.log('swarf-chips: first spawn at', pos);
+            firstSpawnLogged = true;
+          }
         }
       });
 
-      api.event.on('animate', () => { simulating = true; });
+      const updateVisible = () => setPoolVisible(simulating && window.__swarfChipsVisible !== false);
+      api.event.on('animate', () => { simulating = true; updateVisible(); });
       api.event.on('animate.end', () => { simulating = false; });
-      api.event.on('function.animate', () => { simulating = true; });
+      api.event.on('function.animate', () => { simulating = true; updateVisible(); });
+      window.addEventListener('swarf.chips.toggle', updateVisible);
 
       // IMPORT a new part → clear the workshop floor
       api.event.on('widget.add', () => {
-        chips.length = 0;
+        for (let f = 0; f < chips.length; f++) chips[f].length = 0;
         for (const p of airborne) { p.count = 0; p.instanceMatrix.needsUpdate = true; }
         for (let i = 0; i < settled.length; i++) {
           settled[i].count = 0;

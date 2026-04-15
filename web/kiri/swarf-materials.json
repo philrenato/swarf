@@ -7,6 +7,16 @@
       "id": "hardwood",
       "name": "hard wood",
       "note": "oak, maple, walnut, cherry — sharp HSS leaves a clean edge. dust mask.",
+      "appearance": {
+        "color":       "#7a5230",
+        "emissive":    "#2a1808",
+        "roughness":   0.85,
+        "metalness":   0.0,
+        "opacity":     1.0,
+        "texture":     "wood-grain",
+        "chipColor":   "#8b6238",
+        "chipEmissive":"#2a1808"
+      },
       "by_tool": {
         "3.175": { "feed": 2500, "plunge": 800,  "spindle": 20000, "stepdown": 0.8, "stepover": 0.40 },
         "6.35":  { "feed": 4500, "plunge": 1500, "spindle": 18000, "stepdown": 1.5, "stepover": 0.40 }
@@ -16,6 +26,16 @@
       "id": "foam",
       "name": "foam",
       "note": "rigid PU, EPS, blue/pink insulation — cuts like air. main risk is tool deflection on long flutes.",
+      "appearance": {
+        "color":       "#d8d2c0",
+        "emissive":    "#1a1818",
+        "roughness":   0.95,
+        "metalness":   0.0,
+        "opacity":     1.0,
+        "texture":     "foam-pores",
+        "chipColor":   "#e8e2d2",
+        "chipEmissive":"#1a1818"
+      },
       "by_tool": {
         "3.175": { "feed": 3000, "plunge": 1000, "spindle": 16000, "stepdown": 1.5, "stepover": 0.55 },
         "6.35":  { "feed": 5000, "plunge": 2000, "spindle": 16000, "stepdown": 3.0, "stepover": 0.55 }
@@ -25,6 +45,16 @@
       "id": "aluminum_6061",
       "name": "aluminum 6061",
       "note": "chips should curl not powder. keep RPM as low as the spindle allows. a mist of WD-40 or alcohol helps.",
+      "appearance": {
+        "color":       "#c8ccd0",
+        "emissive":    "#0a0c10",
+        "roughness":   0.32,
+        "metalness":   0.85,
+        "opacity":     1.0,
+        "texture":     "brushed-metal",
+        "chipColor":   "#b8bcc4",
+        "chipEmissive":"#1a1c20"
+      },
       "by_tool": {
         "3.175": { "feed": 500, "plunge": 150, "spindle": 12000, "stepdown": 0.25, "stepover": 0.25 },
         "6.35":  { "feed": 760, "plunge": 250, "spindle": 10000, "stepdown": 0.50, "stepover": 0.25 }
@@ -34,6 +64,16 @@
       "id": "polycarbonate",
       "name": "polycarbonate",
       "note": "Lexan and similar — gummy, melts if you feed too slow. single-flute O-flute is ideal; 2-flute HSS works if chips eject.",
+      "appearance": {
+        "color":       "#c8e0e8",
+        "emissive":    "#0a1418",
+        "roughness":   0.10,
+        "metalness":   0.0,
+        "opacity":     0.45,
+        "texture":     "clear",
+        "chipColor":   "#d8eef4",
+        "chipEmissive":"#0a1418"
+      },
       "by_tool": {
         "3.175": { "feed": 800,  "plunge": 250, "spindle": 14000, "stepdown": 0.8, "stepover": 0.35 },
         "6.35":  { "feed": 1200, "plunge": 400, "spindle": 12000, "stepdown": 1.5, "stepover": 0.35 }
@@ -43,6 +83,16 @@
       "id": "mild_steel",
       "name": "mild steel",
       "note": "occasional only. HSS on prosumer CNC is slow and punishing. small stepdowns, lots of lubricant, listen for chatter and back off.",
+      "appearance": {
+        "color":       "#5a5e62",
+        "emissive":    "#0a0808",
+        "roughness":   0.45,
+        "metalness":   0.7,
+        "opacity":     1.0,
+        "texture":     "scaled-steel",
+        "chipColor":   "#48484c",
+        "chipEmissive":"#1a0a08"
+      },
       "by_tool": {
         "3.175": { "feed": 200, "plunge": 60,  "spindle": 10000, "stepdown": 0.15, "stepover": 0.15 },
         "6.35":  { "feed": 300, "plunge": 100, "spindle": 8000,  "stepdown": 0.30, "stepover": 0.15 }

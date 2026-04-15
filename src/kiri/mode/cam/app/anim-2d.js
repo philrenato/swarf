@@ -14,9 +14,10 @@ let meshes = {},
     button = {},
     label = {},
     unitScale = 1,
-    speedValues = [ 1, 2, 4, 8, 32 ],
-    speedPauses = [ 30, 20, 10, 5, 0 ],
-    speedNames = [ "1x", "2x", "4x", "8x", "!!" ],
+    // swarf r6: more speed options (Phil markup)
+    speedValues = [ 0.5, 1, 2, 4, 8, 16, 32 ],
+    speedPauses = [  40, 30, 20, 10, 5,  2,  0 ],
+    speedNames  = [ "½×","1×","2×","4×","8×","16×","!!" ],
     speedMax = speedValues.length - 1,
     speedIndex = 0,
     speed,
@@ -36,13 +37,26 @@ export function animate_clear(api) {
 }
 
 export function animate(api, delay) {
+    console.log('[swarf anim-2d] animate() called');
     api.show.busy("building animation");
     let settings = api.conf.get();
+    let sawMeshAdd = false;
     client.animate_setup(settings, data => {
-        checkMeshCommands(data);
+        try {
+            console.log('[swarf anim-2d] animate_setup callback', {
+                hasData: !!data,
+                keys: data ? Object.keys(data) : null
+            });
+        } catch (e) {}
+        try { checkMeshCommands(data); } catch (e) { console.error('[swarf anim-2d] checkMeshCommands threw', e); }
         if (!(data && data.mesh_add)) {
+            if (!sawMeshAdd) {
+                console.warn('[swarf anim-2d] callback fired without mesh_add — animation cannot start', data);
+            }
             return;
         }
+        sawMeshAdd = true;
+        console.log('[swarf anim-2d] mesh_add received, setting up UI');
 
         let { anim } = api.ui;
         Object.assign(button, {
@@ -64,9 +78,16 @@ export function animate(api, delay) {
         });
 
         origin = settings.origin;
-        speedIndex = api.local.getInt('cam.anim.speed') || 0;
+        // swarf r6: default to 1× (index 1) — index 0 is now ½× which is
+        // surprisingly slow for first-time users
+        speedIndex = api.local.getInt('cam.anim.speed') ?? 1;
+        if (speedIndex < 0 || speedIndex >= speedValues.length) speedIndex = 1;
         updateSpeed();
-        setTimeout(step, delay || 0);
+        // swarf r6: auto-play when SIMULATE fires. Upstream just runs ONE
+        // step and waits for the user to click play — confusing because
+        // clicking SIMULATE should make the simulation run. play({}) gives
+        // Infinity steps and chips fly.
+        setTimeout(() => play({}), delay || 0);
 
         button.replay.onclick = replay;
         button.play.onclick = play;
@@ -144,8 +165,33 @@ function meshAdd(id, ind, pos, sab) {
         mesh = new THREE.LineSegments(geo, mat);
     } else {
         geo.computeVertexNormals();
-        mesh = new THREE.Mesh(geo, material);
-        mesh.renderOrder = -10;
+        // swarf r6: tool meshes (id != 0) get a fluted mill-style material
+        // so the cutter doesn't read as a plain cylinder. Stock grid (id=0)
+        // keeps Kiri's translucent material.
+        if (id !== 0) {
+            // swarf r6: tool is ALWAYS metallic silver — never tinted by the
+            // stock material. PBR (MeshStandardMaterial) so it reads as real
+            // brushed steel under any light/sky color.
+            const fluteTex = window.__swarfGetFluteTexture && window.__swarfGetFluteTexture();
+            const toolMat = new THREE.MeshStandardMaterial({
+                color:     0xd4d8de,
+                emissive:  0x161820,
+                roughness: 0.28,
+                metalness: 0.92,
+                map:       fluteTex || null,
+                flatShading: false,
+                side:      THREE.DoubleSide,
+            });
+            try { geo.computeBoundingBox(); } catch (e) {}
+            mesh = new THREE.Mesh(geo, toolMat);
+            mesh.renderOrder = 1;
+            // expose so swarf-spin.js can rotate it during sim
+            window.__swarfToolMeshes = window.__swarfToolMeshes || [];
+            window.__swarfToolMeshes.push(mesh);
+        } else {
+            mesh = new THREE.Mesh(geo, material);
+            mesh.renderOrder = -10;
+        }
     }
     space.world.add(mesh);
     meshes[id] = mesh;
@@ -161,8 +207,14 @@ function meshUpdates(id) {
 }
 
 function deleteMesh(id) {
-    space.world.remove(meshes[id]);
+    const m = meshes[id];
+    space.world.remove(m);
     delete meshes[id];
+    // swarf r6: drop deleted tool meshes from the spin registry
+    if (m && window.__swarfToolMeshes) {
+        const i = window.__swarfToolMeshes.indexOf(m);
+        if (i >= 0) window.__swarfToolMeshes.splice(i, 1);
+    }
 }
 
 function toggleModel(ev,bool) {
@@ -226,14 +278,22 @@ function handleGridUpdate(data) {
 }
 
 function updateSpeed(inc = 0) {
+    // swarf r6: any user click on a speed cycle clears any custom override
+    if (inc !== 0) window.__swarfCustomSpeed = null;
     if (inc === Infinity) {
         speedIndex = speedMax;
     } else if (inc > 0) {
         speedIndex = (speedIndex + inc) % speedValues.length;
     }
     api.local.set('cam.anim.speed', speedIndex);
-    speed = speedValues[speedIndex];
-    label.speed.value = speedNames[speedIndex];
+    // honor user-typed custom multiplier from the simulate bar
+    if (typeof window.__swarfCustomSpeed === 'number' && window.__swarfCustomSpeed > 0) {
+        speed = window.__swarfCustomSpeed;
+        label.speed.value = `${window.__swarfCustomSpeed}×`;
+    } else {
+        speed = speedValues[speedIndex];
+        label.speed.value = speedNames[speedIndex];
+    }
 }
 
 function replay() {
@@ -270,9 +330,11 @@ function checkMeshCommands(data) {
         label.x.value = (pos.x - origin.x).toFixed(2);
         label.y.value = (pos.y + origin.y).toFixed(2);
         label.z.value = (pos.z - origin.z).toFixed(2);
-        // swarf r5: broadcast tool position so swarf-chips.js can spawn debris.
-        // Negative id = tool mesh; 0 = stock. Only emit for tools.
-        if (id < 0) {
+        // swarf r6: broadcast tool position for chip physics. In 2D-mode CAM,
+        // the tool mesh has POSITIVE id (toolID starts at 2); in 3D-indexed
+        // mode it's negative. Stock grid is id=0 and never moves after init,
+        // so emit for any non-zero mesh_move.
+        if (id !== 0 && id !== undefined) {
             try { api.event.emit('swarf.tool.move', { id, pos }); } catch (e) {}
         }
     }

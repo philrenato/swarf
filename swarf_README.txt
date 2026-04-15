@@ -1,4 +1,4 @@
-swarf™ v00000-007 r6
+swarf™ v00000-008
 gcode carving interface
 renato.design
 
@@ -22,7 +22,7 @@ How to use
 3. Setup → machines — MR-1 is preselected. Or pick ShopBot Basic.
 4. Toolpaths (top toolbar) — add rough, contour, outline, pocket. Click the op name or the EDIT pill on the right to open its parameter drawer and change tool, feed, stepdown, stepover. Click ENDMILLS & BITS to manage the tool library.
 5. Preview — slice and inspect.
-6. Simulate — watch the tool walk the paths in real time. Curled chips peel off the cutter, arc through the scene, and pile up on the floor. Not a cleanup sim — the workshop looks worked-in when you're done.
+6. Simulate — clicking SIMULATE auto-plays the toolpath. The cutter spins, curled chips peel off it in the color of the selected material, arc through the scene, and pile up on the floor. Not a cleanup sim — the workshop looks worked-in when you're done. The bottom rail has a red play/pause/step row, a fast-forward cycle through ½× to 32×, click the speed value to type a custom multiplier, and a chips on/off toggle so you can compare with and without debris.
 7. Export — gcode for the selected machine. After export the scene goes quiet and achromatic; move the mouse or start a new step and the color comes back.
 
 That is the whole trip.
@@ -33,6 +33,12 @@ Search Help (live filter across operations, parameters, tools, and short coachin
 A Concerns drawer pinned to the lower right counts setup warnings as you build a job — stepover too wide on a finishing pass, plunge running as fast as feed, step-down deeper than the tool diameter. Empty drawer means a clean setup.
 
 A small indicator LED next to the renato.design watermark changes color with the current phase of work — dim when idle, amber while you're editing toolpaths, gold while preview is slicing, glowing mill-red while simulation runs, gray after gcode export. It is the quietest possible progress bar, and always on.
+
+Materials
+─────────
+A MATERIAL row sits at the top of the TOOLPATHS panel — pick hard wood, foam, aluminum 6061, polycarbonate, or mild steel. The selection retints the stock and the chips. Hardwood looks like wood and throws brown shavings; aluminum reads as brushed silver and spits silver curls; polycarbonate goes translucent blue and the chips do too. The endmill itself is always brushed metallic silver with a helical flute pattern, regardless of stock material — a tool is a tool.
+
+Speeds and feeds for each material × tool diameter live in web/kiri/swarf-materials.json (HSS midranges cut in half for safety per Phil's prosumer-CNC rule). The selection is per-browser and persists across reloads.
 
 Student mode vs. Expert mode
 ────────────────────────────

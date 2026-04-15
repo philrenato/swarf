@@ -84,6 +84,7 @@
         "fs-extra": "^11.2.0",
         "imports-loader": "^5.0.0",
         "node-fetch": "^3.3.2",
+        "puppeteer-core": "^24.40.0",
         "terser-webpack-plugin": "^5.3.10",
         "webpack": "^5.92.1",
         "webpack-cli": "^5.1.4"

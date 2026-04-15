@@ -164,6 +164,19 @@ function normalize(settings) {
         "poor": "25"
     }[detail] || detail;
 
+    // swarf r6 defensive repair: an earlier mistake set settings.cdev.CAM to
+    // a STRING ("Langmuir.MR-1"); fill_cull_once expects an object and
+    // crashes with "Cannot create property 'new' on string". Repair any
+    // cdev.<MODE> that's not an object so stored bad profiles can recover.
+    if (settings && settings.cdev) {
+        for (const k of ['FDM','SLA','CAM','LASER','DRAG']) {
+            const v = settings.cdev[k];
+            if (v !== null && typeof v !== 'object') {
+                console.warn(`swarf: cdev.${k} was a ${typeof v} ("${v}") — resetting to null`);
+                settings.cdev[k] = null;
+            }
+        }
+    }
     fill_cull_once(settings, template);
     fill_cull_once(settings.device, default_dev);
     fill_cull_once(settings.process, default_pro);
@@ -935,6 +948,10 @@ export const conf = {
             CAM: "Langmuir.MR-1",
         },
         // current (last used) device by mode
+        // (Default device selection lives in `filter` above — `filter.CAM:
+        // "Langmuir.MR-1"` makes MR-1 the picked device. cdev.CAM is the
+        // expanded device-config OBJECT, populated from defaults.cam.d at
+        // load time; it must NOT be a string here.)
         cdev: {
             FDM: null,
             SLA: null,

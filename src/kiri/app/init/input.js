@@ -67,6 +67,9 @@ function checkSeed(then) {
             if (seedWidget) {
                 seedWidget.meta = seedWidget.meta || {};
                 seedWidget.meta.swarfSeed = true;
+                // swarf r6: name the seed cube Kiri_Cube so the OBJECTS panel
+                // doesn't show "no name" (markup Apr 15 r6).
+                seedWidget.meta.file = 'Kiri_Cube';
                 try { seedWidget.mesh.userData.swarfSeed = true; } catch (e) {}
                 const evictSeed = (addedWidget) => {
                     try {

@@ -1,5 +1,156 @@
 swarf_HANDOFF.txt — for Claude
-last updated 2026-04-15 (v00000-007 round 6, mid-morning)
+last updated 2026-04-15 (v00000-008, late morning)
+
+
+v00000-008 — SIM bar polish, materials, tool flutes, headless probe (2026-04-15 ~10:30)
+─────────────────────────────────────────────────────────────────────────────────────
+Iterative pass through Phil's markup loop. Highlights:
+
+1. SIMULATE WORKER STALL — ROOT CAUSE FIXED
+   src/kiri/run/worker.js:818 was iterating drivers and calling
+   driver.init(worker) on each. Since the fork audit, FDM/SLA/LASER/DRAG/
+   WJET/WEDM are stubbed `{}` with no init — first one threw and the loop
+   halted before CAM.init() could register dispatch.animate_setup. Result:
+   "building animation" hung forever, worker logged worker_unhandled for
+   every animate_setup task. Guarded the loop to skip drivers without an
+   init() function. SIMULATE now runs.
+
+2. SIMULATE BAR
+   - Auto-play on click: anim-2d.js animate() callback now calls play({})
+     instead of one-shot step() so chips actually fly when you click
+     SIMULATE. Same for anim-3d.js.
+   - Speed list expanded from [1,2,4,8,32] to [0.5,1,2,4,8,16,32] with
+     names ½× 1× 2× 4× 8× 16× !!. Default index 1 (1×) on fresh load.
+   - Custom speed entry: web/kiri/swarf-sim-bar.js attaches click on the
+     speed value input — opens prompt() for any positive multiplier.
+     window.__swarfCustomSpeed honored by updateSpeed() in anim-2d/3d.
+     Cycle button clears custom override.
+   - Chips on/off toggle: same swarf-sim-bar.js injects a "chips on"
+     pill at right end of bar. Flips window.__swarfChipsVisible which
+     swarf-chips.js reads before spawn + on visibility setter.
+   - Watermark clearance: body.swarf-phase-simulating raises
+     #swarf-watermark from bottom:14px → 70px so the simulate rail
+     doesn't overlap renato.design.
+   - Bar restyled: SIMULATE label at left, mill-red play button stands
+     out as primary affordance, dark HUD plate.
+
+3. CHIPS — TOOL POSITION EVENT FIX
+   anim-2d uses POSITIVE tool ids (toolID = 1, ++toolID); anim-3d uses
+   NEGATIVE. Original gate `if (id < 0)` only fired for 3D-indexed mode.
+   Changed to `if (id !== 0 && id !== undefined)` — both modes emit
+   swarf.tool.move now. Without this, chips never spawned in 2D CAM
+   (the common case).
+
+4. CHIPS — POLY REDUCTION
+   - curl: 18×4 = ~144 tris → 8×3 = ~48 tris (3×)
+   - coil: 10×4 = ~80 tris → 6×3 = ~36 tris (~2×)
+   - flake stays 1 tri, grit stays 12 tris
+   - Pool caps unchanged (240 airborne / 1600 settled)
+   - Per-flavor arrays inside chips[][] so swap-remove stays in single
+     pool's slot space (was corrupting bookkeeping cross-flavor)
+
+5. TOOL — METALLIC + ROTATION + FLUTES
+   anim-2d.js meshAdd swaps the tool mesh (id !== 0) for a
+   THREE.MeshStandardMaterial:
+     color 0xd4d8de, roughness 0.28, metalness 0.92
+     map = window.__swarfGetFluteTexture()
+   The flute texture is procedural (256x256 canvas) — diagonal grooves +
+   light/shadow shaft highlight wrapped helically.
+   Tool meshes are pushed onto window.__swarfToolMeshes; deleteMesh
+   removes them. swarf-chips.js tick() spins all entries on local Z at
+   ~12 rev/s while simulating — visibly fast, no strobe at 60fps.
+   Tool color is FIXED (Phil's rule: "Tool should always be metallic
+   silver") — material switching never tints the cutter.
+
+6. MATERIAL SYSTEM v1
+   web/kiri/swarf-materials.json extended each material with an
+   `appearance` block: color, emissive, roughness, metalness, opacity,
+   texture id, chipColor, chipEmissive.
+   web/kiri/swarf-material.js (new) loads the JSON, owns
+   window.__swarfMaterial, persists selection in localStorage
+   `swarf.material.current`, and:
+     - Generates procedural canvas textures (no binary assets):
+       wood-grain rings, brushed-metal streaks, foam pores, scaled steel,
+       clear glass, helical flutes for the tool.
+     - Applies texture+color+roughness+metalness+opacity to widget
+       (stock) meshes on widget.add and material.change.
+     - Injects a MATERIAL dropdown into TOOLPATHS panel above the
+       ENDMILLS & BITS row.
+   swarf-chips.js retints chipMat on swarf.material.change events:
+   chipColor, chipEmissive, opacity for polycarb, shininess bump for
+   metals.
+
+7. FOG — RUN OUT FIXED + CAMERA-AWARE
+   r6 used `transform: translate3d` on body::before which eventually
+   exposed the pseudo's edge as a horizontal seam.
+   Now: pseudo is `position:fixed; inset:0`, animated via
+   background-position. Wrap distance lands on exact tile multiples
+   (768×768 high-freq, 1024×1024 low-freq) so the loop is invisible.
+   Camera-orbit parallax composes via `--swarf-sky-parallax-x/y`
+   (vars on body, inherited by ::before). swarf-sky.js polls
+   moto.space.view.save() each frame for left/up/scale; deltas feed
+   the vars. Important detail: do NOT redeclare those custom props
+   on ::before with default values — that shadowed the inherited body
+   value. The pseudo now reacts to tumble + zoom.
+
+8. KIRI_CUBE NAME
+   src/kiri/app/init/input.js checkSeed sets seedWidget.meta.file =
+   'Kiri_Cube'. swarf-sky.js renameSeed hook patches the OBJECTS
+   panel DOM directly because platform.js's changed() runs BEFORE
+   the widget.add event our hook listens for.
+
+9. MR-1 DEFAULT — DEFENSIVE REPAIR
+   Earlier mistake set settings.cdev.CAM = "Langmuir.MR-1" (a string).
+   fill_cull_once expects an OBJECT, crashed with "Cannot create
+   property 'new' on string". Two fixes:
+     - defaults.js: cdev.CAM stays null; selection lives in
+       filter.CAM = "Langmuir.MR-1".
+     - defaults.js fill_cull_once-caller now scans cdev.{FDM,SLA,
+       CAM,LASER,DRAG} and resets any non-object back to null
+       BEFORE fill_cull_once runs, so any stored bad profile self-
+       repairs on next load.
+   Migration `swarf.r6.filter-mr1` in swarf-sky.js force-sets
+   filter.CAM for existing profiles.
+
+10. ORIGINAL KIRI CUBE RESTORED
+    web/obj/cube.stl swapped back to the upstream 16,084-byte
+    promotional cube extracted from the v001-000 backup.
+
+11. HEADLESS PROBE — Claude's own browser
+    tools/swarf_probe.mjs (puppeteer-core, system Chrome — no 180MB
+    download). Drives headless Chrome, optionally clicks add-op /
+    PREVIEW / SIMULATE / EXPORT, captures console + screenshots,
+    writes a JSON report to /tmp/swarf-probe-<ts>.json.
+    Used this turn to: confirm worker_unhandled is the simulate
+    bug, check `getComputedStyle` on background-position, sample
+    `document.getAnimations()` to see running keyframes, diff
+    screenshots to verify fog motion, query DOM to catch the
+    "no name" widget label bug.
+    Run: `node tools/swarf_probe.mjs --flow=sim --shot`
+         `node tools/swarf_probe.mjs --flow=sim --headful`
+    tools/swarf_console.sh is the simpler one-shot Chrome console
+    capture (no clicking).
+
+12. DRAWERS-CLOSED MIGRATION FIX
+    Earlier r5 wrote to settings.controller.hidden — wrong path; the
+    real path is top-level settings.hidden. Migration runs every load
+    until known-consistent.
+
+13. LABEL SIZE +30%
+    #panel-left and #panel-right .set-header font-size: 10px → 13px.
+
+OPEN DEBT carried forward to v00000-009:
+- Tool flutes apply only in 2D CAM mode (anim-2d.js). Need same
+  treatment in anim-3d.js for indexed/lathe.
+- Custom speed input handler attaches by content matching — fragile.
+  Move to a stable id when init-menu.js next gets a touch.
+- Material applyToStock runs on widget.add and material change — but
+  if Kiri rebuilds the widget mesh during slice, the material gets
+  reset. Need to also re-apply on slice.end / view.set.
+- swarf-chips dynamic LOD: drop a poly tier when settled count > 800
+  (Phil's r6 ask: "fewer polygons or get simpler as more accumulate").
+  Currently uniform poly count regardless of population.
+- Material UI dropdown is bare — needs the swarf chrome treatment.
 
 
 v00000-007 ROUND 6 — Machine-feel pass (2026-04-15 ~09:00)

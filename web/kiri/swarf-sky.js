@@ -57,6 +57,42 @@
       if (on) body.classList.add('swarf-sky-working');
       else body.classList.remove('swarf-sky-working');
     };
+    // swarf r6: force the default seed cube to read "Kiri_Cube" in the
+    // OBJECTS panel — checkSeed's rename only runs for fresh empty profiles;
+    // catalog-loaded widgets or reloads need this hook to catch up.
+    const renameSeed = (added) => {
+      try {
+        const list = Array.isArray(added) ? added : [added];
+        for (const w of list) {
+          if (!w) continue;
+          const isSeed = (w.meta && w.meta.swarfSeed) ||
+                         (w.mesh && w.mesh.userData && w.mesh.userData.swarfSeed) ||
+                         (w.meta && (w.meta.file === 'cube' || !w.meta.file));
+          if (isSeed) {
+            w.meta = w.meta || {};
+            w.meta.file = 'Kiri_Cube';
+            w.meta.swarfSeed = true;
+          }
+        }
+        // patch the already-rendered OBJECTS panel directly — platform.js
+        // calls changed() BEFORE widget.add emits, so the panel shows the
+        // old name by the time our hook runs. Rewrite matching DOM text.
+        try {
+          const nameBtns = document.querySelectorAll('#ws-widgets button.name');
+          for (const btn of nameBtns) {
+            const t = btn.textContent.trim();
+            if (t === 'no name' || t === 'cube' || !t) btn.textContent = 'Kiri_Cube';
+          }
+        } catch (e) {}
+        try { api.event.emit('widget.rename'); } catch (e) {}
+      } catch (e) { console.warn('swarf: renameSeed failed', e); }
+    };
+    try {
+      const all = api.widgets && api.widgets.all && api.widgets.all();
+      if (all && all.length) renameSeed(all);
+    } catch (e) {}
+    api.event.on('widget.add', renameSeed);
+
     api.event.on('slice.begin',   () => setWorking(true));
     api.event.on('slice.end',     () => setTimeout(() => setWorking(false), 400));
     api.event.on('slice.error',   () => setWorking(false));
@@ -68,18 +104,38 @@
     // swarf r5: one-shot migration — force TAGS (cam-tabs) and STRATEGY
     // (cam-output) drawers to start closed for existing profiles that had
     // them open from earlier builds.
+    // swarf r6: force TAGS (cam-tabs) + STRATEGY (cam-output) drawers closed.
+    // settings.hidden is top-level, NOT under controller — earlier r5 migration
+    // wrote to the wrong path. Run every load (cheap) until we know profiles
+    // are consistent, then gate via localStorage.
     try {
-      const MIG = 'swarf.r5.drawers-closed';
-      if (!localStorage.getItem(MIG) && api.conf && api.conf.get) {
+      const MIG = 'swarf.r6.drawers-closed';
+      if (api.conf && api.conf.get) {
         const s = api.conf.get();
-        if (s && s.controller) {
-          s.controller.hidden = s.controller.hidden || {};
-          s.controller.hidden['cam-tabs']   = true;
-          s.controller.hidden['cam-output'] = true;
-          if (api.uc && api.uc.setHidden) api.uc.setHidden(s.controller.hidden);
+        if (s) {
+          s.hidden = s.hidden || {};
+          s.hidden['cam-tabs']   = true;
+          s.hidden['cam-output'] = true;
+          if (api.uc && api.uc.setHidden) api.uc.setHidden(s.hidden);
           if (api.conf.save) api.conf.save();
         }
-        localStorage.setItem(MIG, '1');
+        if (!localStorage.getItem(MIG)) localStorage.setItem(MIG, '1');
+      }
+    } catch (e) { console.warn('swarf: drawers migration failed', e); }
+
+    // swarf r6: force MR-1 as the selected CAM device on first load (Phil
+    // markup). Selection lives in `filter.CAM` (a string device name);
+    // `cdev.CAM` is the expanded device CONFIG object and must not be a
+    // string — earlier attempt set it to "Langmuir.MR-1" and broke load.
+    try {
+      const MIG_MR1 = 'swarf.r6.filter-mr1';
+      if (!localStorage.getItem(MIG_MR1) && api.conf && api.conf.get) {
+        const s = api.conf.get();
+        if (s && s.filter) {
+          s.filter.CAM = 'Langmuir.MR-1';
+          if (api.conf.save) api.conf.save();
+        }
+        localStorage.setItem(MIG_MR1, '1');
       }
     } catch (e) {}
 
@@ -102,53 +158,67 @@
       }
     } catch (e) {}
 
-    // swarf r5: camera-aware fog. We replace the mouse-drag parallax with
-    // real camera-orbit awareness by polling moto.space.view.save() for the
-    // camera's azimuth ('left') and elevation ('up') angles. When those
-    // change, drive --swarf-sky-parallax-x/y so the sky counter-rotates
-    // like a backdrop at infinity.
-    try {
-      const space = window.moto && window.moto.space;
-      if (space && space.view && space.view.save) {
-        let lastL = null, lastU = null;
-        let cx = 0, cy = 0;
-        const TAU = Math.PI * 2;
-        const sign = v => v < 0 ? -1 : 1;
-        const shortestDelta = (a, b) => {
-          let d = a - b;
-          if (d >  Math.PI) d -= TAU;
-          if (d < -Math.PI) d += TAU;
-          return d;
-        };
-        const tick = () => {
-          try {
-            const p = space.view.save();
-            if (p && typeof p.left === 'number' && typeof p.up === 'number') {
-              if (lastL !== null) {
-                const dL = shortestDelta(p.left, lastL);
-                const dU = p.up - lastU;
-                // azimuth → horizontal parallax; elevation → vertical
-                // scale: 1 rad ≈ 500px of sky shift, damped to match the
-                // old mouse parallax feel.
-                cx += dL * 500;
-                cy += dU * 300;
-                cx = ((cx % 1024) + 1024) % 1024;
-                cy = ((cy % 1024) + 1024) % 1024;
-                body.style.setProperty('--swarf-sky-parallax-x', cx.toFixed(1) + 'px');
-                body.style.setProperty('--swarf-sky-parallax-y', cy.toFixed(1) + 'px');
-              }
-              lastL = p.left;
-              lastU = p.up;
-            }
-          } catch (e) {}
-          requestAnimationFrame(tick);
-        };
-        requestAnimationFrame(tick);
-      }
-    } catch (e) {}
-
     return true;
   };
+
+  // swarf r6: camera-aware fog — run independently of api.event so we retry
+  // until window.moto.space is populated. Earlier we gated this inside hook()
+  // and returned true unconditionally, meaning if moto.space came online late
+  // the camera poll never started. Now it has its own poller and sets up once.
+  let cameraAttached = false;
+  let cameraTries = 0;
+  const TAU = Math.PI * 2;
+  const shortestDelta = (a, b) => {
+    let d = a - b;
+    if (d >  Math.PI) d -= TAU;
+    if (d < -Math.PI) d += TAU;
+    return d;
+  };
+  const attachCameraParallax = () => {
+    if (cameraAttached) return true;
+    const space = window.moto && window.moto.space;
+    if (!space || !space.view || typeof space.view.save !== 'function') return false;
+    cameraAttached = true;
+    let lastL = null, lastU = null, lastScale = null;
+    let cx = 0, cy = 0;
+    let logged = false;
+    const tick = () => {
+      try {
+        const p = space.view.save();
+        if (p && typeof p.left === 'number' && typeof p.up === 'number') {
+          if (!logged) {
+            console.log('swarf-sky: camera parallax online', p);
+            logged = true;
+          }
+          if (lastL !== null) {
+            const dL = shortestDelta(p.left, lastL);
+            const dU = p.up - lastU;
+            // 1 rad orbit = ~900px sideways shift, ~600px vertical
+            cx += dL * 900;
+            cy += dU * 600;
+            // zoom also nudges sky — feeling of 3D depth response
+            if (typeof p.scale === 'number' && lastScale !== null) {
+              const dS = p.scale - lastScale;
+              cy -= dS * 400;
+            }
+            cx = ((cx % 1024) + 1024) % 1024;
+            cy = ((cy % 1024) + 1024) % 1024;
+            body.style.setProperty('--swarf-sky-parallax-x', cx.toFixed(1) + 'px');
+            body.style.setProperty('--swarf-sky-parallax-y', cy.toFixed(1) + 'px');
+          }
+          lastL = p.left;
+          lastU = p.up;
+          if (typeof p.scale === 'number') lastScale = p.scale;
+        }
+      } catch (e) {}
+      requestAnimationFrame(tick);
+    };
+    requestAnimationFrame(tick);
+    return true;
+  };
+  const camPoll = setInterval(() => {
+    if (attachCameraParallax() || ++cameraTries > 200) clearInterval(camPoll);
+  }, 100);
   let tries = 0;
   const poll = setInterval(() => {
     if (hook() || ++tries > 50) clearInterval(poll);

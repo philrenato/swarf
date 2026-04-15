@@ -814,7 +814,16 @@ const worker = self.kiri_worker = {
     minions: minwork
 };
 
-// initilize driver mode handlers
-for (let driver of Object.values(drivers)) {
-    driver.init(worker);
+// initialize driver mode handlers
+// swarf: non-CAM drivers were stubbed to {} in the fork audit; skip any
+// without an init(). Without this guard the first empty driver throws
+// "driver.init is not a function" and the loop halts BEFORE CAM.init()
+// runs — which means dispatch.animate_setup is never registered and the
+// worker responds "worker_unhandled" for every animate-setup message.
+// This is why SIMULATE's "building animation" spinner would hang forever.
+for (let [name, driver] of Object.entries(drivers)) {
+    if (driver && typeof driver.init === 'function') {
+        try { driver.init(worker); }
+        catch (e) { console.error(`swarf: ${name}.init() threw`, e); }
+    }
 }
