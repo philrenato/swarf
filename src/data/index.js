@@ -188,8 +188,11 @@ SP.init = function(options = {}) {
                     console.log({index_dropped: curr});
                 }
             }
-            // allow transactions
-            storage.db = db;
+            // swarf: do NOT set storage.db here. Setting it inside onupgradeneeded
+            // makes subsequent iterate()/get()/put() calls think the DB is ready
+            // and start their own transactions — which throws InvalidStateError
+            // ("A version change transaction is running") on first-load.
+            // Wait for onsuccess to assign storage.db; queued ops will run there.
         };
 
         request.onsuccess = function(event) {

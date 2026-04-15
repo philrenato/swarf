@@ -850,6 +850,98 @@ hr:not(.swarf-keep) {
 }
 .menubar-separator { background: var(--swarf-line) !important; }
 
+/* swarf: Concordance content styling — proper glossary layout (Apr 15) */
+.swarf-help-modal .swarf-help-body.swarf-concordance {
+  display: block !important;
+  text-align: left;
+  padding: 18px 24px 24px 24px;
+  max-height: 70vh; overflow-y: auto;
+}
+.swarf-concordance section { margin-bottom: 22px; display: block; }
+.swarf-concordance section h3 {
+  font-family: "JetBrains Mono", "IBM Plex Mono", ui-monospace, monospace;
+  font-size: 11px; letter-spacing: 0.22em; text-transform: uppercase;
+  color: var(--swarf-accent); margin: 0 0 10px 0;
+  padding-bottom: 4px;
+  border-bottom: 1px solid var(--swarf-line);
+}
+.swarf-concordance dl { display: block; margin: 0; }
+.swarf-concordance dt {
+  font-family: "JetBrains Mono", "IBM Plex Mono", ui-monospace, monospace;
+  font-size: 12px; letter-spacing: 0.06em;
+  color: var(--swarf-text); font-weight: 600;
+  margin-top: 10px;
+  text-transform: lowercase;
+}
+.swarf-concordance dd {
+  font-family: "JetBrains Mono", "IBM Plex Mono", ui-monospace, monospace;
+  font-size: 11px; line-height: 1.55;
+  color: var(--swarf-text-2);
+  margin: 3px 0 0 0;
+}
+
+/* swarf: Concerns drawer — bottom-bar count badge + drawer body (Apr 15).
+   Empty drawer = clean setup. Content = list of warnings with explanations. */
+#swarf-concerns {
+  position: fixed; right: 18px; bottom: 90px; z-index: 9000;
+  font-family: "JetBrains Mono", "IBM Plex Mono", ui-monospace, monospace;
+  pointer-events: auto;
+}
+#swarf-concerns-tab {
+  display: flex; align-items: center; gap: 10px;
+  padding: 6px 14px;
+  background: var(--swarf-bg-2);
+  border: 1px solid var(--swarf-line);
+  border-left: 2px solid var(--swarf-amber);
+  font-size: 10px; letter-spacing: 0.18em; text-transform: uppercase;
+  color: var(--swarf-text-2);
+  cursor: pointer;
+  transition: color 120ms, border-color 120ms;
+}
+#swarf-concerns-tab:hover { color: var(--swarf-text); border-left-color: var(--swarf-accent-hi); }
+#swarf-concerns-tab.has-warnings { color: var(--swarf-text); border-left-color: var(--swarf-accent); }
+#swarf-concerns-count {
+  display: inline-flex; min-width: 18px; height: 18px;
+  align-items: center; justify-content: center;
+  background: var(--swarf-bg-3); color: var(--swarf-text-3);
+  border: 1px solid var(--swarf-line);
+  border-radius: 9px;
+  padding: 0 6px;
+  font-size: 10px; letter-spacing: 0;
+}
+#swarf-concerns-tab.has-warnings #swarf-concerns-count {
+  background: var(--swarf-accent); color: #fff; border-color: var(--swarf-accent-hi);
+}
+#swarf-concerns-body {
+  display: none;
+  position: absolute; right: 0; bottom: 36px;
+  width: 360px; max-height: 50vh; overflow-y: auto;
+  background: var(--swarf-bg-2);
+  border: 1px solid var(--swarf-line);
+  border-left: 2px solid var(--swarf-amber);
+  padding: 12px 14px;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.6);
+}
+#swarf-concerns.open #swarf-concerns-body { display: block; }
+#swarf-concerns-body .swarf-concern {
+  padding: 8px 0; border-bottom: 1px dashed var(--swarf-line);
+  font-size: 11px; line-height: 1.45;
+}
+#swarf-concerns-body .swarf-concern:last-child { border-bottom: none; }
+#swarf-concerns-body .swarf-concern strong {
+  color: var(--swarf-amber); font-weight: 600;
+  display: block; margin-bottom: 2px;
+  letter-spacing: 0.08em; text-transform: uppercase; font-size: 10px;
+}
+#swarf-concerns-body .swarf-concern em {
+  color: var(--swarf-text-3); font-style: normal;
+  display: block; margin-top: 2px; font-size: 10px;
+}
+#swarf-concerns-body .swarf-empty {
+  color: var(--swarf-text-3); font-size: 11px; font-style: italic;
+  text-align: center; padding: 14px 0;
+}
+
 /* swarf: always-visible add-op grid inside the toolpaths panel
    (markup Apr 15 — "I still don't see a way to make/add/change/see toolpaths") */
 .swarf-add-op-label {

@@ -394,7 +394,7 @@ function setup_keybd_nav() {
                 // otherwise the bed dwarfs the part and the part renders tiny.
                 const meshes = (api.widgets.all() || []).map(w => w.mesh).filter(Boolean);
                 if (space.view.fit && meshes.length) {
-                    space.view.fit(undefined, { padding: 1.3, visibleOnly: true, objects: meshes });
+                    space.view.fit(undefined, { padding: 1.8, visibleOnly: true, objects: meshes });
                 } else space.view.home();
             } catch (e) {}
         });
@@ -432,6 +432,90 @@ function setup_keybd_nav() {
             apply(next);
         };
     })();
+    // swarf: Concerns drawer (markup Apr 15, locked rule) — bottom-bar count badge,
+    // click opens a list of rule-based warnings. Starter ruleset: stepover too wide
+    // on finishing, plunge rate same as feed rate, depth-of-cut > 1× tool diameter.
+    // More rules land during the coaching pass.
+    (function(){
+        if (document.getElementById('swarf-concerns')) return;
+        const wrap = document.createElement('div');
+        wrap.id = 'swarf-concerns';
+        wrap.innerHTML = `
+            <div id="swarf-concerns-tab" title="rule-based setup warnings — click to expand">
+                <span>concerns</span>
+                <span id="swarf-concerns-count">0</span>
+            </div>
+            <div id="swarf-concerns-body"></div>
+        `;
+        document.body.appendChild(wrap);
+        const tab = wrap.querySelector('#swarf-concerns-tab');
+        const body = wrap.querySelector('#swarf-concerns-body');
+        const count = wrap.querySelector('#swarf-concerns-count');
+        tab.addEventListener('click', (e) => {
+            e.stopPropagation();
+            wrap.classList.toggle('open');
+        });
+        document.addEventListener('click', (e) => {
+            if (!wrap.contains(e.target)) wrap.classList.remove('open');
+        });
+
+        // rule engine: pull current settings + ops, evaluate each rule, render warnings
+        function evaluate() {
+            const warnings = [];
+            try {
+                const settings = api.conf.get();
+                const proc = settings.process || {};
+                const ops = (proc.ops || proc.ops2 || []).filter(Boolean);
+                for (const op of ops) {
+                    const tool = op.tool ? api.conf.get_tool?.(op.tool) : null;
+                    const td = tool?.metric ? tool.flute_diam : (tool?.flute_diam || 3);
+                    // rule 1 — stepover > 50% on a finishing pass
+                    if ((op.type === 'contour' || op.type === 'finish') && op.step != null) {
+                        if (op.step > 0.5) {
+                            warnings.push({
+                                title: `wide stepover on ${op.type}`,
+                                body: `${(op.step*100).toFixed(0)}% of tool diameter on a finishing pass leaves a coarser surface than typical (5–15%).`,
+                                hint: 'finer stepover = smoother finish + slower run'
+                            });
+                        }
+                    }
+                    // rule 2 — plunge rate equal to or greater than feed rate
+                    if (op.feed && op.plunge && op.plunge >= op.feed * 0.95) {
+                        warnings.push({
+                            title: `plunge rate ≈ feed rate`,
+                            body: `plunging at ${op.plunge} mm/min vs feed ${op.feed} mm/min — most tools want plunge at 30–50% of feed.`,
+                            hint: 'too fast a plunge snaps end-mills'
+                        });
+                    }
+                    // rule 3 — depth of cut > 1× tool diameter
+                    if (op.depth && td && op.depth > td * 1.0) {
+                        warnings.push({
+                            title: `step-down deeper than tool diameter`,
+                            body: `${op.depth.toFixed(2)} mm step-down on a ${td.toFixed(2)} mm tool — chip evacuation gets bad past 1× diameter.`,
+                            hint: 'split into shallower passes for safer cutting'
+                        });
+                    }
+                }
+            } catch (e) { /* swallow until ops shape is finalised */ }
+            render(warnings);
+        }
+        function render(warnings) {
+            count.textContent = String(warnings.length);
+            tab.classList.toggle('has-warnings', warnings.length > 0);
+            if (warnings.length === 0) {
+                body.innerHTML = '<div class="swarf-empty">setup looks clean — no concerns to flag.</div>';
+                return;
+            }
+            body.innerHTML = warnings.map(w =>
+                `<div class="swarf-concern"><strong>${w.title}</strong>${w.body}<em>${w.hint}</em></div>`
+            ).join('');
+        }
+        evaluate();
+        // re-evaluate on settings + op changes
+        ['settings','op.add','op.del','op.update','widget.add','widget.delete']
+            .forEach(ev => api.event.on(ev, evaluate));
+    })();
+
     // swarf: clicking the TOOLPATHS step bar opens the operation list details
     // panel + scrolls to it (markup Apr 15 — "bring toolpaths back, put in the red
     // toolpaths bar at top which has nothing in it now").
