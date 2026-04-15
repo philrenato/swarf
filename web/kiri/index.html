@@ -26,9 +26,9 @@
         }
         setDarkLight(isDark);
     </script>
-    <!-- swarf: placeholder favicon — ⚒️ hammer-and-pick emoji until the real wordmark SVG lands -->
-    <link rel="icon" href='data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 64 64%22><rect width=%2264%22 height=%2264%22 fill=%22%230a0707%22/><text x=%2232%22 y=%2248%22 font-size=%2244%22 text-anchor=%22middle%22>%E2%9A%92%EF%B8%8F</text></svg>'>
-    <link rel="apple-touch-icon" href='data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 64 64%22><rect width=%2264%22 height=%2264%22 fill=%22%230a0707%22/><text x=%2232%22 y=%2248%22 font-size=%2244%22 text-anchor=%22middle%22>%E2%9A%92%EF%B8%8F</text></svg>'>
+    <!-- swarf favicon: bone "s" wordmark on dark plate, mill-red corner bracket (HUD register) -->
+    <link rel="icon" href='data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 64 64%22><rect width=%2264%22 height=%2264%22 fill=%22%230a0707%22/><path d=%22M4 4 L20 4 M4 4 L4 20%22 stroke=%22%23d02020%22 stroke-width=%222%22/><path d=%22M44 60 L60 60 M60 60 L60 44%22 stroke=%22%23d02020%22 stroke-width=%222%22/><text x=%2232%22 y=%2244%22 font-family=%22ui-monospace,Menlo,monospace%22 font-size=%2240%22 font-weight=%22700%22 text-anchor=%22middle%22 fill=%22%23d8d2c6%22>s</text></svg>'>
+    <link rel="apple-touch-icon" href='data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 64 64%22><rect width=%2264%22 height=%2264%22 fill=%22%230a0707%22/><path d=%22M4 4 L20 4 M4 4 L4 20%22 stroke=%22%23d02020%22 stroke-width=%222%22/><path d=%22M44 60 L60 60 M60 60 L60 44%22 stroke=%22%23d02020%22 stroke-width=%222%22/><text x=%2232%22 y=%2244%22 font-family=%22ui-monospace,Menlo,monospace%22 font-size=%2240%22 font-weight=%22700%22 text-anchor=%22middle%22 fill=%22%23d8d2c6%22>s</text></svg>'>
     <link rel="stylesheet" type="text/css" href="/moto/palette.css">
     <link rel="stylesheet" type="text/css" href="/moto/theme.css">
     <link rel="stylesheet" type="text/css" href="/moto/menubar.css">
@@ -257,17 +257,15 @@
             </div>
         </div>
 
-        <!-- swarf: Searchable Help — real content comes in the coaching pass -->
+        <!-- swarf: Searchable Help — populated index over operations / params / tools / coaching -->
         <div id="mod-swarf-search" class="mdialog f-col swarf-help-modal">
             <div class="swarf-help-head">
                 <span class="swarf-help-title">search help</span>
                 <input id="swarf-search-input" type="text" placeholder="type a control name, a question, or a machining term" autocomplete="off">
             </div>
-            <div id="swarf-search-results" class="swarf-help-body">
-                <div class="swarf-help-empty">
-                    <p>search is scaffolded but not yet populated.</p>
-                    <p>during the coaching pass this will surface every control's explanation and the related machining background — feeds and speeds, when to rough before contour, why the stepover matters, and so on.</p>
-                </div>
+            <div id="swarf-search-results" class="swarf-help-body swarf-search">
+                <!-- starter results render before any keystroke; the inline JS in sync.js
+                     wires keyup → filter against the static index. -->
             </div>
         </div>
 

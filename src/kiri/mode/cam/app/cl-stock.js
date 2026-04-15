@@ -100,7 +100,14 @@ export function updateStock() {
         SPACE.world.remove(env.camStock);
         env.camStock = null;
     }
-    if (x && y && z) {
+    // swarf: when not in expert mode, never even build the stock outline mesh
+    // (markup Apr 15 — "should be one object I believe"). Phil was seeing the
+    // student-mode stock cuboid + the part as two separate cubes, because the
+    // stock mesh is added to the world even with visible=false (some upstream
+    // code or scene traversal still treats it as an object). Skip construction
+    // entirely outside expert mode.
+    const swarfHideStock = !document.body.classList.contains('swarf-expert');
+    if (x && y && z && !swarfHideStock) {
         UI.func.animate.classList.remove('disabled');
         {
             let geo = new THREE.BoxGeometry(1, 1, 1);

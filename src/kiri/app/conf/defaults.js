@@ -412,7 +412,7 @@ export const conf = {
                 maxHeight: 300,
                 useLaser: false,
                 useIndexed: false,
-                originCenter: false,
+                originCenter: true, // swarf: parts default centered on origin (markup Apr 15)
                 spindleMax: 0,
                 gcodePre: [],
                 gcodePost: [],
@@ -537,7 +537,7 @@ export const conf = {
                 camLevelStock: true,
                 camLevelTool: 1000,
                 camMillDirection: "climb",
-                camOriginCenter: false,
+                camOriginCenter: true, // swarf: gcode origin at part center (markup Apr 15)
                 camOriginOffX: 0,
                 camOriginOffY: 0,
                 camOriginOffZ: 0,

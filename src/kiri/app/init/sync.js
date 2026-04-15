@@ -539,6 +539,57 @@ function setup_keybd_nav() {
         if (b) b.onclick = (ev) => { ev.stopPropagation(); api.modal.show('tools'); };
     })();
 
+    // swarf: Searchable Help — index of every named thing in swarf with a
+    // short explanation. Real-time filter against the user's query. Index
+    // expands during the coaching pass.
+    (function(){
+        const input = document.getElementById('swarf-search-input');
+        const results = document.getElementById('swarf-search-results');
+        if (!input || !results) return;
+        const INDEX = [
+            { kind:'op', name:'rough', body:'first pass that clears bulk material in horizontal layers above the part. fast, deep, sloppy by design — finished later by contour.', tags:'roughing clearing bulk first pass' },
+            { kind:'op', name:'contour', body:'smooth surface pass. cutter crawls across the X or Y axis at a fine stepover, riding part curves. typical stepover 5–15% of tool diameter.', tags:'contouring finishing surface 2.5d' },
+            { kind:'op', name:'outline', body:"cuts the part free from the stock by following its silhouette. usually the last cutting op. add tabs so the part doesn't fly out.", tags:'outline cutout silhouette' },
+            { kind:'op', name:'pocket', body:'clears flat-bottomed cavities — trays, countersinks, recesses. selection-driven; pick the floor face and swarf walls down.', tags:'pocket cavity tray' },
+            { kind:'param', name:'stepover', body:'how far the tool moves sideways between passes. % of tool diameter. roughing 40–60%, finishing 5–15%.', tags:'stepover sideways pass spacing' },
+            { kind:'param', name:'step-down', body:'depth of cut per layer. wood/plastic up to 1× tool diameter; aluminum 0.25–0.5×; steel 0.1–0.25×.', tags:'depth of cut step down doc layer' },
+            { kind:'param', name:'feed rate', body:'how fast the tool moves through material, in mm/min. when in doubt: slower is safer.', tags:'feed feedrate mm/min cutting speed' },
+            { kind:'param', name:'plunge rate', body:'how fast the tool drives down into material. usually 30–50% of feed rate. too fast snaps end-mills.', tags:'plunge plungerate descent' },
+            { kind:'param', name:'spindle speed', body:'RPM of the cutter. wood 12k–24k, aluminum 10k–18k, steel 4k–10k.', tags:'spindle rpm cutter speed' },
+            { kind:'param', name:'ease down', body:'ramp into the cut at an angle instead of plunging straight down. easier on the tool, especially for end-mills with no center cut. on by default in swarf.', tags:'ease down ramp helix descent' },
+            { kind:'param', name:'depth first', body:'finish each Z layer top-to-bottom in one region before moving to the next. opposite is layer-first (sweep all regions per layer).', tags:'depth first order strategy' },
+            { kind:'param', name:'tab', body:"small uncut bridge of stock that holds the part during the outline cut so it doesn't shift or fly out. break/sand off after.", tags:'tab tabs holding bridge' },
+            { kind:'param', name:'stock', body:'the raw block of material on the machine bed. defaults to part-bbox in student mode; expert mode lets you size it independently.', tags:'stock material block bed' },
+            { kind:'param', name:'z top / z bottom', body:'upper and lower Z bounds for the carving. defines the slab swarf will work inside.', tags:'z top bottom bounds height' },
+            { kind:'param', name:'z clearance', body:'how high above stock the tool retracts during rapids. high enough to clear clamps; low enough not to waste time.', tags:'z clearance retract rapid' },
+            { kind:'tool', name:'end-mill', body:'flat-bottomed cutter, the workhorse. fewer flutes = better chip clearance for soft material.', tags:'endmill flat cutter mill' },
+            { kind:'tool', name:'ball-end', body:'spherical tip. for 3D contour finishing on curved surfaces. leaves a cusp pattern proportional to stepover.', tags:'ballend spherical 3d finishing' },
+            { kind:'tool', name:'v-bit', body:'conical cutter for engraving and chamfering. depth controls the line width.', tags:'vbit cone engraving chamfer' },
+            { kind:'tool', name:'drill', body:'plunges straight down to make holes. paired with the drill operation (expert mode).', tags:'drill hole plunge' },
+            { kind:'coach', name:'why rough before contour', body:"rough clears the easy bulk first at a deep stepdown. then contour finishes the surface at a fine stepover. one operation can't do both jobs efficiently.", tags:'order strategy rough contour finishing' },
+            { kind:'coach', name:'why stepover matters', body:'stepover sets surface finish. wide stepover = scallops between passes (rough texture). narrow stepover = smoother but slower.', tags:'stepover finish quality scallop' },
+            { kind:'coach', name:'feeds and speeds', body:'rule of thumb: chip load × flutes × rpm = feed rate. use a chip load chart for your material/diameter or err slow.', tags:'feeds speeds chip load rpm' },
+            { kind:'coach', name:'how to keep the part in place', body:'add tabs in the outline operation, or use double-sided tape, vacuum hold-down, or screw clamps for soft sheet stock.', tags:'workholding tabs clamping fixture' }
+        ];
+        function render(query) {
+            const q = (query || '').trim().toLowerCase();
+            const matches = !q ? INDEX : INDEX.filter(e =>
+                e.name.toLowerCase().includes(q) ||
+                e.body.toLowerCase().includes(q) ||
+                e.tags.toLowerCase().includes(q)
+            );
+            if (matches.length === 0) {
+                results.innerHTML = '<div class="swarf-help-empty"><p>no matches.</p><p>try a control name, a parameter, or a phrase like &ldquo;why rough&rdquo;.</p></div>';
+                return;
+            }
+            results.innerHTML = matches.map(e =>
+                `<div class="swarf-result"><span class="swarf-result-kind ${e.kind}">${e.kind}</span><strong>${e.name}</strong><p>${e.body}</p></div>`
+            ).join('');
+        }
+        input.addEventListener('keyup', () => render(input.value));
+        render('');
+    })();
+
     $('file-new').onclick = (ev) => { ev.stopPropagation(); settingsOps.new_workspace() };
     $('file-recent').onclick = () => { api.modal.show('files') };
     $('file-import').onclick = (ev) => { api.event.import(ev); };

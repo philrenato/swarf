@@ -222,13 +222,18 @@ function modeTools(actions) {
             span([icon('fas fa-route')]),
             label({ id: 'label-preview', title: 'slice the part and show the toolpaths', _: 'preview' })
         ]),
+        // swarf: SIMULATE step (markup Apr 15) — runs Kiri's animation, watching
+        // the tool walk the toolpaths in real time.
+        span({ id: 'act-animate', ...on(actions, 'act-animate'), class: 'swarf-step' }, [
+            span([icon('fas fa-play')]),
+            label({ id: 'label-animate', title: 'play back the toolpath animation — watch the tool work', _: 'simulate' })
+        ]),
         span({ id: 'act-export', ...on(actions, 'act-export'), class: 'swarf-step' }, [
             span([icon('fas fa-file-export')]),
             label({ id: 'label-export', title: 'generate gcode for the machine', _: 'export' })
         ]),
-        // hidden but preserved so upstream slice/animate code paths still have their hooks
-        span({ id: 'act-slice', style: 'display:none' }),
-        span({ id: 'act-animate', style: 'display:none' })
+        // hidden but preserved so upstream slice code paths still have a hook
+        span({ id: 'act-slice', style: 'display:none' })
     ];
 }
 

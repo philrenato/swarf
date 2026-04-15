@@ -880,6 +880,47 @@ hr:not(.swarf-keep) {
   margin: 3px 0 0 0;
 }
 
+/* swarf: Searchable Help results */
+.swarf-help-modal .swarf-help-body.swarf-search {
+  display: block !important;
+  text-align: left;
+  padding: 14px 22px 22px 22px;
+  max-height: 60vh; overflow-y: auto;
+}
+.swarf-search .swarf-result {
+  padding: 10px 0 12px 0;
+  border-bottom: 1px dashed var(--swarf-line);
+  font-family: "JetBrains Mono", "IBM Plex Mono", ui-monospace, monospace;
+}
+.swarf-search .swarf-result:last-child { border-bottom: none; }
+.swarf-search .swarf-result strong {
+  font-size: 12px; color: var(--swarf-text); letter-spacing: 0.06em;
+  text-transform: lowercase; margin-left: 8px;
+}
+.swarf-search .swarf-result p {
+  margin: 4px 0 0 0; font-size: 11px; line-height: 1.5;
+  color: var(--swarf-text-2);
+}
+.swarf-search .swarf-result-kind {
+  display: inline-block; padding: 1px 8px;
+  font-size: 9px; letter-spacing: 0.18em; text-transform: uppercase;
+  border: 1px solid var(--swarf-line);
+  color: var(--swarf-text-3);
+  background: var(--swarf-bg-3);
+}
+.swarf-search .swarf-result-kind.op    { color: var(--swarf-accent-hi); border-color: var(--swarf-accent-dim); }
+.swarf-search .swarf-result-kind.param { color: var(--swarf-amber); border-color: rgba(192,138,58,0.4); }
+.swarf-search .swarf-result-kind.tool  { color: var(--swarf-text-2); }
+.swarf-search .swarf-result-kind.coach { color: #6ea3c8; border-color: rgba(110,163,200,0.35); }
+#swarf-search-input {
+  width: 100%; box-sizing: border-box;
+  background: var(--swarf-bg-3); color: var(--swarf-text);
+  border: 1px solid var(--swarf-line);
+  padding: 8px 12px; font-size: 12px;
+  font-family: "JetBrains Mono", "IBM Plex Mono", ui-monospace, monospace;
+}
+#swarf-search-input:focus { outline: none; border-color: var(--swarf-accent); }
+
 /* swarf: Concerns drawer — bottom-bar count badge + drawer body (Apr 15).
    Empty drawer = clean setup. Content = list of warnings with explanations. */
 #swarf-concerns {
