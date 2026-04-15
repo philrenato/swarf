@@ -101,14 +101,16 @@ export function updateStock() {
         env.camStock = null;
     }
     // swarf: when not in expert mode, never even build the stock outline mesh
-    // (markup Apr 15 — "should be one object I believe"). Phil was seeing the
-    // student-mode stock cuboid + the part as two separate cubes, because the
-    // stock mesh is added to the world even with visible=false (some upstream
-    // code or scene traversal still treats it as an object). Skip construction
-    // entirely outside expert mode.
+    // (markup Apr 15). Skip construction entirely outside expert mode.
     const swarfHideStock = !document.body.classList.contains('swarf-expert');
-    if (x && y && z && !swarfHideStock) {
+    // swarf v00000-009: keep SIMULATE enabled in student mode too — the
+    // upstream gate only flips animate's disabled class when the stock
+    // outline is built, which in swarf student mode is never. SIMULATE
+    // works regardless of the visible stock outline, so unblock it always.
+    if (x && y && z) {
         UI.func.animate.classList.remove('disabled');
+    }
+    if (x && y && z && !swarfHideStock) {
         {
             let geo = new THREE.BoxGeometry(1, 1, 1);
             let mat = new THREE.MeshBasicMaterial({

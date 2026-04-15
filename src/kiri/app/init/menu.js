@@ -117,7 +117,11 @@ function scalePanel(actions) {
 function content(actions) {
     return [
         div({ class: 'menubar-appname el-app-hide' }, [
-            span({ class: 'swarf-wordmark' }, [ span({ _: 'swarf' }), span({ class: 'swarf-tm', _: '\u2122' }) ])
+            span({ class: 'swarf-wordmark' }, [
+                span({ class: 'swarf-mark-sw', _: 'sw' }),
+                span({ class: 'swarf-mark-arf', _: 'arf' }),
+                span({ class: 'swarf-tm', _: '\u2122' })
+            ])
         ]),
         div({ class: 'menubar-separator el-app-hide' }),
         div({ class: 'f-row top-menu grow' }, [

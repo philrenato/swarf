@@ -1,5 +1,61 @@
 swarf_HANDOFF.txt — for Claude
-last updated 2026-04-15 (v00000-008, late morning)
+last updated 2026-04-15 (v00000-009, midday)
+
+
+v00000-009 — SIMULATE re-enabled, wordmark split, backronym, MATERIAL row
+loud, distance fog (2026-04-15 ~11:30)
+─────────────────────────────────────────────────────────────────────────
+Phil markup pass after v008:
+
+1. SIMULATE WAS ALWAYS GRAYED OUT
+   src/kiri/mode/cam/app/cl-stock.js: UI.func.animate.classList.add('disabled')
+   was followed by remove('disabled') ONLY inside the !swarfHideStock branch
+   (= expert mode only). In student mode (swarf default) the visible stock
+   outline is suppressed, so remove() never fired and SIMULATE stayed at
+   opacity 0.4 forever. Moved the remove('disabled') ABOVE the
+   swarfHideStock guard so it always re-enables when bounds are valid.
+   The button worked, just looked dead. Now it lights up as it should.
+
+2. MATERIAL ROW INVISIBLE
+   The dropdown was actually present in #camops but styled too quietly
+   (10px text, no background, no separator). Re-styled in
+   web/kiri/swarf-material.js:injectDropdown — 13px uppercase mill-red
+   "MATERIAL" label, monospaced select with mill-red border, faint red
+   tint background, bordered separator below. Now reads as the loudest
+   thing in the TOOLPATHS panel.
+
+3. WORDMARK SPLIT — sw|arf
+   src/kiri/app/init/menu.js menubar wordmark renders three spans now:
+     <span class="swarf-mark-sw">sw</span>
+     <span class="swarf-mark-arf">arf</span>
+     <span class="swarf-tm">™</span>
+   web/kiri/swarf.css: .swarf-mark-sw is white, .swarf-mark-arf is
+   var(--swarf-accent-hi) with a faint mill-red glow shadow.
+
+4. BACKRONYM ADDED
+   swarf_README.txt header now documents:
+     Subtractive Workshop for Resourceful Folks
+   Plus a short noun-not-acronym note. Concordance entry pending v010.
+
+5. GRID FADES WITH DISTANCE
+   web/kiri/swarf-grid-fade.js (new): scene.fog = THREE.Fog(near, far)
+   where near = bbox-max-dim × 1.5 and far = bbox-max-dim × 6. Recomputes
+   on widget.add / widget.delete / animate. Most of Kiri's grid +
+   numeric label materials honor scene fog by default. A small 25.4mm
+   cube gets a tight fade (~38mm near, ~152mm far); a 200mm part fades
+   over 1.2m. Fog color matches --swarf-bg so it blends to background.
+   Wired in index.html after swarf-material.js.
+
+OPEN DEBT carried forward to v00000-010:
+- Backronym entry in concordance + about panel
+- Material applyToStock should re-run on slice.end / view.set in case
+  Kiri rebuilds the widget mesh during slice
+- Tool flute treatment in anim-3d.js (currently 2D-only)
+- Dynamic chip LOD: drop a poly tier when settled count > 800
+- Material UI dropdown could host swatches not just text
+- Sky-fog integrate with grid-fade so they share a fog color
+- The "no name" widget label may still appear if a real STL is
+  imported (Kiri_Cube renaming heuristic only catches seed/empty names)
 
 
 v00000-008 — SIM bar polish, materials, tool flutes, headless probe (2026-04-15 ~10:30)

@@ -929,10 +929,13 @@ hr:not(.swarf-keep) {
   text-transform: lowercase;
   font-size: 22px;
   line-height: 1;
-  color: var(--swarf-text);
-  /* swarf: drop the wordmark slightly per Phil's note (markup Apr 15 follow-up) */
   transform: translateY(3px);
 }
+/* v00000-009: split wordmark — sw (white) | arf (mill-red).
+   Reads as a quiet bark: the cutter making its sound. The split also
+   anchors the SWARF / ARF backronym (see swarf_README.txt). */
+.swarf-wordmark .swarf-mark-sw  { color: #fff; }
+.swarf-wordmark .swarf-mark-arf { color: var(--swarf-accent-hi, #ff3a2a); text-shadow: 0 0 8px rgba(208, 32, 32, 0.45); }
 .swarf-wordmark .swarf-tm {
   font-size: 9px;
   margin-left: 2px;

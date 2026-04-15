@@ -223,13 +223,13 @@
     if (!camops || camops.querySelector('#swarf-material-row')) return;
     const row = document.createElement('div');
     row.id = 'swarf-material-row';
-    row.style.cssText = 'display:flex; gap:6px; padding:4px 0; align-items:center;';
+    row.style.cssText = 'display:flex; gap:8px; padding:8px 6px; align-items:center; border-bottom:1px solid var(--swarf-accent, #7a2a1a); background:rgba(208,32,32,0.04); margin-bottom:6px;';
     const label = document.createElement('span');
     label.textContent = 'material';
-    label.style.cssText = 'font-size:11px; letter-spacing:0.14em; text-transform:uppercase; color:var(--swarf-text-3); flex:1';
+    label.style.cssText = 'font-size:13px; letter-spacing:0.18em; text-transform:uppercase; color:var(--swarf-accent-hi, #ff3a2a); font-weight:600; flex:0 0 auto;';
     const select = document.createElement('select');
     select.id = 'swarf-material-select';
-    select.style.cssText = 'font-size:11px; padding:3px 6px; background:rgba(0,0,0,0.4); border:1px solid var(--swarf-line, #2a2a2a); color:var(--swarf-text-1, #ddd); border-radius:2px;';
+    select.style.cssText = 'flex:1; font-size:13px; padding:6px 8px; background:rgba(0,0,0,0.55); border:1px solid var(--swarf-accent, #7a2a1a); color:#fff; border-radius:2px; font-family:"JetBrains Mono","IBM Plex Mono",ui-monospace,monospace;';
     for (const m of materials) {
       const opt = document.createElement('option');
       opt.value = m.id;

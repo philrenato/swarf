@@ -1,6 +1,34 @@
-swarf™ v00000-008
+sw|arf™ v00000-009
 gcode carving interface
 renato.design
+
+(Wordmark: sw in white, arf in mill-red — the cutter making its sound.
+ Backronym below.)
+
+The name
+────────
+swarf is the dust, chips, and shavings left on the floor after a CNC machine
+finishes its work. The shop floor remembers what got made.
+
+It is also a soft, contented bark — sw•arf — the sound a router makes when
+it finds the material and starts to bite. The wordmark splits accordingly:
+sw is the spin-up, arf is the cut.
+
+Backronym (recovered after the fact, like all good ones):
+
+  S — Subtractive
+  W — Workshop
+  A — for
+  R — Resourceful
+  F — Folks
+
+Subtractive Workshop for Resourceful Folks. The tool is for design students
+who want to cut something out, not for shopfloor pros who already have a CAM
+package they trust. The whole interface is built around making a single,
+honest cut readable.
+
+If anyone asks "is the name an acronym?", the answer is "no, it's a noun.
+But if it were, it would be Subtractive Workshop for Resourceful Folks."
 
 What it is
 ──────────
