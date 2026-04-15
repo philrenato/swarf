@@ -6,8 +6,9 @@ import { client } from './workers.js';
 import { local } from '../../data/local.js';
 import { util } from '../../geo/base.js';
 import { MODES } from './consts.js';
-import { LASER as laser_driver } from '../mode/laser/init-work.js';
-import { SLA as sla_client } from '../mode/sla/app/init-ui.js';
+// swarf: laser + SLA modes deleted in fork audit; stubs keep exportFile dispatcher compilable
+const laser_driver = { exportSVG:()=>'', exportDXF:()=>'', exportOBJ:()=>'', exportGCode:()=>'' };
+const sla_client = { printDownload:()=>{} };
 import { hash } from '../../ext/md5.js';
 
 /**

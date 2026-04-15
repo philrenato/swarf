@@ -19,12 +19,8 @@ import { wasm_ctrl } from '../../geo/wasm.js';
 import { Widget, newWidget } from '../core/widget.js';
 
 import { CAM } from '../mode/cam/work/init-work.js';
-import { DRAG } from '../mode/drag/init-work.js';
-import { FDM } from '../mode/fdm/work/init-work.js';
-import { LASER } from '../mode/laser/init-work.js';
-import { SLA } from '../mode/sla/work/init-work.js';
-import { WEDM } from '../mode/wedm/init-work.js';
-import { WJET } from '../mode/wjet/init-work.js';
+// swarf: non-CAM modes deleted in fork audit
+const DRAG = {}, FDM = {}, LASER = {}, SLA = {}, WEDM = {}, WJET = {};
 
 const { time } = util;
 const POOLPATH = "./minion.js";

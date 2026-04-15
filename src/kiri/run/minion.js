@@ -8,7 +8,8 @@ import '../../add/three.js';
 
 import { base } from '../../geo/base.js';
 import { codec, encode, encodePointArray } from '../core/codec.js';
-import { layerProcessTop } from '../mode/fdm/work/post.js';
+// swarf: FDM mode deleted in fork audit
+const layerProcessTop = ()=>{};
 import { newPoint } from '../../geo/point.js';
 import { newWidget } from '../core/widget.js';
 import { polygons as POLY } from '../../geo/polygons.js';
