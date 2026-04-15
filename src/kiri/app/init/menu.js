@@ -173,21 +173,10 @@ function content(actions) {
                     menuItem(actions, { id: 'app-xpnd', text: 'fullscreen', iconClass: 'fas fa-maximize' })
                 ]
             }),
-            // hidden tool-nozzle shim — kept so any downstream code referencing ft-nozzle still finds the element
-            div({ class: 'f-row top-menu', style: 'display:none' }, [
-                span({ id: 'tool-nozzle' }, [ div({ id: 'ft-nozzle' }) ])
-            ]),
-            div({ class: 'grow' }),
+            // swarf: Setup moved to left (Mac app convention — markup Apr 15)
             topMenu(actions, {
-                text: 'info', side: 'right', right: true, items: [
-                    menuItem(actions, { id: 'app-help', text: 'about swarf' }),
-                ]
-            }),
-            // swarf: mode menu removed — CNC is the only mode (spec §4)
-            topMenu(actions, {
-                text: 'setup', side: 'right', right: true, items: [
+                text: 'setup', items: [
                     menuItem(actions, { id: 'set-device', text: 'machines', iconClass: 'fas fa-cube' }),
-                    // swarf: Tool library editing is expert-only. Students pick tools per-operation from the locked 10-tool inventory.
                     menuItem(actions, { id: 'set-tools', text: 'tool library', iconClass: 'fas fa-tools', className: 'swarf-expert-only' }),
                     menuItem(actions, { id: 'set-prefs', text: 'preferences', iconClass: 'fa-solid fa-square-check' }),
                     hr({ class: "el-app-hide" }),
@@ -195,18 +184,21 @@ function content(actions) {
                     menuItem(actions, { id: 'uninstall', text: 'uninstall', className: 'hide' })
                 ]
             }),
+            // swarf: Info renamed Help, moved to left. Contains About, Searchable Help, Concordance.
             topMenu(actions, {
-                iconClass: 'fas fa-language', side: 'right', right: true, items: [
-                    menuItem(actions, { children: label({ id: 'lset-zh', _: '简体中文' }) }),
-                    menuItem(actions, { children: label({ id: 'lset-da', _: 'dansk' }) }),
-                    menuItem(actions, { children: label({ id: 'lset-de', _: 'deutsch' }) }),
-                    menuItem(actions, { children: label({ id: 'lset-en', _: 'english' }) }),
-                    menuItem(actions, { children: label({ id: 'lset-es', _: 'español' }) }),
-                    menuItem(actions, { children: label({ id: 'lset-fr', _: 'français' }) }),
-                    menuItem(actions, { children: label({ id: 'lset-pl', class: 'nocap', _: 'polski' }) }),
-                    menuItem(actions, { children: label({ id: 'lset-pt', _: 'português' }) })
+                text: 'help', items: [
+                    menuItem(actions, { id: 'swarf-help-search', text: 'search help…', iconClass: 'fas fa-magnifying-glass' }),
+                    menuItem(actions, { id: 'swarf-concordance', text: 'concordance', iconClass: 'fas fa-book-open' }),
+                    hr(),
+                    menuItem(actions, { id: 'app-help', text: 'about swarf', iconClass: 'fas fa-circle-info' }),
                 ]
-            })
+            }),
+            // hidden tool-nozzle shim — downstream code references ft-nozzle
+            div({ class: 'f-row top-menu', style: 'display:none' }, [
+                span({ id: 'tool-nozzle' }, [ div({ id: 'ft-nozzle' }) ])
+            ]),
+            div({ class: 'grow' }),
+            // swarf: language selector removed — English-only (spec authorized 2026-04-14)
         ]),
         rotatePanel(actions),
         scalePanel(actions)
@@ -220,7 +212,7 @@ function modeTools(actions) {
     return [
         span({ id: 'swarf-step-file', class: 'swarf-step', onclick() { $('load-file').click(); } }, [
             span([icon('fas fa-file-arrow-up')]),
-            label({ title: 'import a part — STL, OBJ, or supported mesh', _: 'file' })
+            label({ title: 'import a part — STL, OBJ, or supported mesh', _: 'import' })
         ]),
         span({ id: 'view-arrange', ...on(actions, 'view-arrange'), class: 'swarf-step' }, [
             span([icon('fas fa-list-check')]),

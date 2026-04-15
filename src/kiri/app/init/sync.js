@@ -347,6 +347,11 @@ function setup_keybd_nav() {
     $('set-device').onclick = (ev) => { ev.stopPropagation(); api.show.devices() };
     $('set-tools').onclick = (ev) => { ev.stopPropagation(); api.show.tools() };
     $('set-prefs').onclick = (ev) => { ev.stopPropagation(); api.modal.show('prefs') };
+    // swarf: Help menu — Search / Concordance / About
+    const helpSearch = $('swarf-help-search');
+    if (helpSearch) helpSearch.onclick = (ev) => { ev.stopPropagation(); api.modal.show('swarf-search'); setTimeout(() => { const i = $('swarf-search-input'); if (i) i.focus(); }, 50); };
+    const helpConc = $('swarf-concordance');
+    if (helpConc) helpConc.onclick = (ev) => { ev.stopPropagation(); api.modal.show('swarf-concordance'); };
     // swarf: reparent #panel-left and #panel-right out of #mid so fixed positioning
     // actually pins to the viewport. Some ancestor in Kiri's flow has a containing block
     // that was trapping fixed descendants.

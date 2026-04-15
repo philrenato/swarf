@@ -147,7 +147,8 @@
                     <div id="fdm-ranges" class="f-col"></div>
                 </div>
                 <div class="set2-group f-col mode-cam bottom">
-                    <details open>
+                    <!-- swarf: operation list closed by default — must be opened to use (markup Apr 15) -->
+                    <details>
                     <summary class="set-header mode-cam"><a>operation list</a></summary>
                     <div id="camops" class="f-col a-stretch grow">
                         <div id="oplist" class="f-col"></div>
@@ -229,6 +230,34 @@
                     <span class="sep">&middot;</span>
                     <a href="https://instagram.com/formfollowsphil" target="_blank">@formfollowsphil</a>
                 </span>
+            </div>
+        </div>
+
+        <!-- swarf: Searchable Help — real content comes in the coaching pass -->
+        <div id="mod-swarf-search" class="mdialog f-col swarf-help-modal">
+            <div class="swarf-help-head">
+                <span class="swarf-help-title">search help</span>
+                <input id="swarf-search-input" type="text" placeholder="type a control name, a question, or a machining term" autocomplete="off">
+            </div>
+            <div id="swarf-search-results" class="swarf-help-body">
+                <div class="swarf-help-empty">
+                    <p>search is scaffolded but not yet populated.</p>
+                    <p>during the coaching pass this will surface every control's explanation and the related machining background — feeds and speeds, when to rough before contour, why the stepover matters, and so on.</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- swarf: Concordance — glossary of everything named in the UI -->
+        <div id="mod-swarf-concordance" class="mdialog f-col swarf-help-modal">
+            <div class="swarf-help-head">
+                <span class="swarf-help-title">concordance</span>
+                <span class="swarf-help-sub">every named thing in swarf, one line each</span>
+            </div>
+            <div class="swarf-help-body">
+                <div class="swarf-help-empty">
+                    <p>concordance is scaffolded but not yet populated.</p>
+                    <p>coming in the coaching pass: every operation (rough, contour, outline, pocket), every parameter (stepover, feed rate, plunge rate, depth of cut), every tool, and every machine — each with a one-paragraph what/does/typical-range entry.</p>
+                </div>
             </div>
         </div>
 

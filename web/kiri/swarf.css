@@ -175,7 +175,8 @@ select:focus, input:focus { outline: none; border-color: var(--swarf-accent); }
   left: 50% !important;
   right: auto !important;
   transform: translateX(-50%);
-  background: var(--swarf-bg-2) !important;
+  /* subtle gradient: darker left, lighter right — workflow reads as advancing into lit territory */
+  background: linear-gradient(90deg, #0e0b0a 0%, #1c1817 100%) !important;
   border: 1px solid var(--swarf-line-2) !important;
   border-top: none !important;
   border-left: 3px solid var(--swarf-accent) !important;
@@ -396,6 +397,49 @@ input[type="range"] { accent-color: var(--swarf-accent-hi); }
 .swarf-about-links a:hover { color: var(--swarf-accent-hi); }
 .swarf-about-links .sep { opacity: 0.4; }
 
+/* ---- Help modals (Searchable Help, Concordance) ---- */
+#modal-box:has(> .swarf-help-modal) {
+  background: var(--swarf-bg-2) !important;
+  border: 1px solid var(--swarf-line-2) !important;
+  border-left: 2px solid var(--swarf-accent) !important;
+  border-radius: 0 !important;
+  padding: 0 !important;
+  min-width: 540px;
+  max-width: 680px;
+  clip-path: polygon(12px 0, 100% 0, 100% 100%, 0 100%, 0 12px);
+  box-shadow: 0 20px 60px rgba(0,0,0,0.75), -1px 0 10px -2px var(--swarf-glow);
+}
+.swarf-help-modal { padding: 0 !important; background: transparent !important; border: none !important; color: var(--swarf-text) !important; font-family: "JetBrains Mono", "IBM Plex Mono", monospace !important; }
+.swarf-help-head {
+  padding: 18px 22px 12px 22px;
+  border-bottom: 1px solid var(--swarf-line);
+  display: flex; flex-direction: column; gap: 10px;
+}
+.swarf-help-title {
+  font-size: 10px; letter-spacing: 0.22em; text-transform: uppercase;
+  color: var(--swarf-text-2);
+}
+.swarf-help-sub {
+  font-size: 11px; color: var(--swarf-text-3); letter-spacing: 0.08em;
+}
+#swarf-search-input {
+  background: var(--swarf-bg-3) !important;
+  border: 1px solid var(--swarf-line-2) !important;
+  color: var(--swarf-text) !important;
+  padding: 8px 10px !important;
+  font-size: 13px !important;
+  font-family: inherit !important;
+}
+#swarf-search-input:focus { border-color: var(--swarf-accent-hi) !important; outline: none; }
+.swarf-help-body {
+  padding: 16px 22px 20px 22px;
+  max-height: 60vh;
+  overflow-y: auto;
+  font-size: 12px; line-height: 1.6;
+}
+.swarf-help-empty { color: var(--swarf-text-2); }
+.swarf-help-empty p { margin: 0 0 10px 0; }
+
 /* ===== swarf layout inversion (markup Apr 15) =====
    Upper-left  = persistent machining-path panel (#panel-right content: operation list)
    Upper-right = live status readout (objects / ranges / machine)
@@ -448,12 +492,14 @@ input[type="range"] { accent-color: var(--swarf-accent-hi); }
 .swarf-plate-body { padding: 6px 8px 10px 8px; }
 
 /* ---- #panel-right — OPERATIONS list pinned upper-left as the work surface ---- */
+/* Top offset is below the deepest menu dropdown so open menus never overlap the panel
+   (markup Apr 15). Longest dropdown is ~10 items × 28px = ~280px, so 340px clears. */
 #panel-right {
   position: fixed !important;
-  top: 96px;                /* below menubar (40) + workflow toolbar (~56) */
+  top: 340px;
   left: 16px;
   width: 300px;
-  max-height: calc(100vh - 130px);
+  max-height: calc(100vh - 360px);
   overflow-y: auto;
   z-index: 15;
   padding: 0 !important;
