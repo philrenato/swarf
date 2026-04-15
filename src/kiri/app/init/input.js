@@ -55,37 +55,18 @@ function updateTool(ev) {
 }
 
 function checkSeed(then) {
-    // swarf: always load a 25.4mm (1-inch) stock cube when the workspace is empty
-    // so the viewport and Objects panel are never blank on arrival (markup Apr 15).
+    // swarf: always load a stock cube when the workspace is empty so the viewport and
+    // Objects panel are never blank on arrival. Named simply 'cube' (markup Apr 15).
     const widgets = (api.widgets && api.widgets.all && api.widgets.all()) || [];
     if (widgets.length === 0 && !SETUP.s && api.feature.seed && !SETUP.debug) {
-        // build a 25.4mm cube mesh directly (no STL dependency)
-        try {
-            const THREE = self.THREE || self.three || (api.const && api.const.THREE);
-            if (THREE && THREE.BoxGeometry) {
-                const geo = new THREE.BoxGeometry(25.4, 25.4, 25.4).toNonIndexed();
-                const pos = geo.attributes.position.array; // Float32Array
-                const vert = new Float32Array(pos);        // copy for catalog
-                catalog.putFile('sample cube 25.4mm.stl', vert);
-                platform.add_widget ? platform.add_widget(vert) : platform.load_stl && platform.load_stl('/obj/cube.stl');
-                platform.update_bounds();
-                space.view.home();
-                setTimeout(() => api.space.save(true), 500);
-                sdb[SEED] = sdb[SEED] || new Date().getTime();
-                sdb[LAST] = version;
-                then();
-                return true;
-            }
-        } catch (e) { console.warn('swarf: 25.4mm cube seed failed, falling back to STL', e); }
-        // fallback: original Kiri sample cube
         platform.load_stl('/obj/cube.stl', function(vert) {
-            catalog.putFile('sample cube.stl', vert);
+            catalog.putFile('cube', vert);
             platform.update_bounds();
             space.view.home();
             setTimeout(() => api.space.save(true), 500);
-            then();
             sdb[SEED] = sdb[SEED] || new Date().getTime();
             sdb[LAST] = version;
+            then();
         });
         return true;
     }

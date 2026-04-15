@@ -27,25 +27,45 @@ body.swarf-expert .swarf-expert-only { display: initial !important; }
   --swarf-green:     #3a7a5a;   /* LLM-active dot, reserved for v002 Journeyman */
 }
 
-/* swarf viewport: warm black with subtle Tron-ref corner bloom + top rail */
+/* swarf viewport: warm black with "red sky at night" sailor's gradient (markup Apr 15) */
 html, body { background: var(--swarf-bg) !important; color: var(--swarf-text); }
-#container {
+/* Red-sky gradient applied to the BODY so it sits behind the 3D canvas rather than on top
+   of #container. Kiri's canvas renders opaque black by default; we kill that with JS (sky color
+   is set to 0x0a0808) but the real atmospheric backdrop lives here, visible through the
+   canvas's clear color only when the canvas doesn't paint something — OR via the overlay
+   glow on the surrounding chrome. Subtle by design. */
+body {
+  /* swarf 'red sky at night' backdrop — inspired by Phil's two sunset refs (mackerel sky
+     + banded pink stratus). Subtler than the previous radials: a quiet vertical sunset
+     gradient (warm at the horizon, cool at the zenith) with near-invisible horizontal
+     cloud striations. Low opacity — atmospheric, not graphic. */
   background:
-    /* bottom-left red bloom */
-    radial-gradient(ellipse 60% 45% at 10% 95%, rgba(208,32,32,0.11), transparent 60%),
-    /* top-right thin red rail bloom */
-    radial-gradient(ellipse 40% 30% at 95% 5%, rgba(208,32,32,0.08), transparent 55%),
-    /* subtle horizontal scan overlay, very faint */
+    /* horizontal cloud striations — very faint, stacked */
     repeating-linear-gradient(
       0deg,
-      rgba(216,210,198,0.010) 0,
-      rgba(216,210,198,0.010) 1px,
-      transparent 1px, transparent 3px
+      rgba(224, 80, 56, 0.0) 0px,
+      rgba(224, 80, 56, 0.025) 2px,
+      rgba(60, 28, 40, 0.015) 4px,
+      rgba(0, 0, 0, 0.0) 7px
+    ),
+    /* warm horizon band at the bottom — ember to ember-purple */
+    linear-gradient(
+      to top,
+      rgba(224, 90, 40, 0.08) 0%,
+      rgba(180, 40, 48, 0.06) 10%,
+      rgba(90, 30, 60, 0.05) 28%,
+      rgba(24, 16, 32, 0.00) 55%,
+      rgba(0, 0, 0, 0.00) 100%
     ),
     var(--swarf-bg) !important;
+}
+/* 3D viewport container keeps its fixed flex size; its black clear color will show over the
+   body gradient inside the canvas, but the edges/margins pick up the sailor sky. */
+#container {
+  background: transparent !important;
   position: relative;
 }
-/* thin accent rail across the top of the viewport */
+/* keep the thin accent rail at top of viewport */
 #container::before {
   content: "";
   position: absolute;
@@ -56,6 +76,28 @@ html, body { background: var(--swarf-bg) !important; color: var(--swarf-text); }
   pointer-events: none;
   z-index: 1;
 }
+
+/* ---- Guarantee the viewport actually has a box to render into (markup: 'where is the 3D?') ---- */
+#mid { min-height: calc(100vh - 40px); }
+#mid-mid { min-width: 60vw; min-height: calc(100vh - 100px); }
+#container { min-height: calc(100vh - 100px); }
+
+/* ---- Pager arrow tooltip: until the single-widget pager is hidden, at least label it ---- */
+#ws-widgets [class*="prev"], #ws-widgets [class*="next"],
+#ws-widgets button:first-child, #ws-widgets button:last-child {
+  cursor: pointer;
+}
+#ws-widgets { position: relative; }
+#ws-widgets::before {
+  /* visible-only-on-hover note above the pager strip */
+  content: "click arrows to cycle through parts when more than one is loaded";
+  position: absolute; left: 0; right: 0; top: -22px;
+  font-size: 9px; letter-spacing: 0.12em; text-transform: uppercase;
+  color: var(--swarf-text-3); opacity: 0;
+  transition: opacity 150ms linear;
+  pointer-events: none;
+}
+#ws-widgets:hover::before { opacity: 1; }
 
 /* typography: stark mono for UI, tracked uppercase for labels */
 body, .set-header, label, button, select, input, .opdiv, #op-add-list > div {
