@@ -173,11 +173,14 @@ function update_size(updateDark = true) {
        //   minor grid  X = 0x2a1a14                      Y = 0x2a2012
        // setGrid(major, minor, colorMajor, colorMinor) takes a single color per level,
        // so we alternate by using major=red-ish, minor=amber-ish as the two visible layers.
+       // swarf viewport (refs pass Apr 15): warm near-black sky, hot crimson X grid,
+       // oxidized-iron Y grid. Still quieter than LastFirst — grid is an instrument,
+       // not a theme. Translucent opacity keeps lines readable but not loud.
        space.platform.set({ light: 0.08 });
        space.platform.setFont({rulerColor:'#8a857c'}); // bone-ash rulers
-       space.platform.setGrid(gridMajor, gridMinor, 0x5a1a14, 0x3a2820);
+       space.platform.setGrid(gridMajor, gridMinor, 0x7a1612, 0x3a1e18);
        space.platform.opacity(0.08);
-       space.sky.set({ color: 0x14120f, ambient: { intensity: 0.55 } });
+       space.sky.set({ color: 0x0a0808, ambient: { intensity: 0.55 } });
        document.documentElement.setAttribute('data-theme', 'dark');
        space.platform.setSize();
     }
