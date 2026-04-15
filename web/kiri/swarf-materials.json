@@ -1,0 +1,52 @@
+{
+  "_note": "swarf material palette — Phil 2026-04-15 r5. Starting defaults for HSS endmills on MR-1 / ShopBot Basic class prosumer CNCs. Published HSS speed/feed midranges CUT IN HALF for safety per Phil's rule. UI wiring TODO; data lives here so Phil can edit by hand.",
+  "_units": "feed mm/min · plunge mm/min · spindle rpm · stepdown mm (absolute Z per pass) · stepover 0–1 fraction of tool diameter",
+  "_tools": "by_tool keyed to endmill diameter in mm. 3.175 = 1/8 inch, 6.35 = 1/4 inch. HSS 2-flute is the reference; carbide can push 2–3× these numbers.",
+  "materials": [
+    {
+      "id": "hardwood",
+      "name": "hard wood",
+      "note": "oak, maple, walnut, cherry — sharp HSS leaves a clean edge. dust mask.",
+      "by_tool": {
+        "3.175": { "feed": 2500, "plunge": 800,  "spindle": 20000, "stepdown": 0.8, "stepover": 0.40 },
+        "6.35":  { "feed": 4500, "plunge": 1500, "spindle": 18000, "stepdown": 1.5, "stepover": 0.40 }
+      }
+    },
+    {
+      "id": "foam",
+      "name": "foam",
+      "note": "rigid PU, EPS, blue/pink insulation — cuts like air. main risk is tool deflection on long flutes.",
+      "by_tool": {
+        "3.175": { "feed": 3000, "plunge": 1000, "spindle": 16000, "stepdown": 1.5, "stepover": 0.55 },
+        "6.35":  { "feed": 5000, "plunge": 2000, "spindle": 16000, "stepdown": 3.0, "stepover": 0.55 }
+      }
+    },
+    {
+      "id": "aluminum_6061",
+      "name": "aluminum 6061",
+      "note": "chips should curl not powder. keep RPM as low as the spindle allows. a mist of WD-40 or alcohol helps.",
+      "by_tool": {
+        "3.175": { "feed": 500, "plunge": 150, "spindle": 12000, "stepdown": 0.25, "stepover": 0.25 },
+        "6.35":  { "feed": 760, "plunge": 250, "spindle": 10000, "stepdown": 0.50, "stepover": 0.25 }
+      }
+    },
+    {
+      "id": "polycarbonate",
+      "name": "polycarbonate",
+      "note": "Lexan and similar — gummy, melts if you feed too slow. single-flute O-flute is ideal; 2-flute HSS works if chips eject.",
+      "by_tool": {
+        "3.175": { "feed": 800,  "plunge": 250, "spindle": 14000, "stepdown": 0.8, "stepover": 0.35 },
+        "6.35":  { "feed": 1200, "plunge": 400, "spindle": 12000, "stepdown": 1.5, "stepover": 0.35 }
+      }
+    },
+    {
+      "id": "mild_steel",
+      "name": "mild steel",
+      "note": "occasional only. HSS on prosumer CNC is slow and punishing. small stepdowns, lots of lubricant, listen for chatter and back off.",
+      "by_tool": {
+        "3.175": { "feed": 200, "plunge": 60,  "spindle": 10000, "stepdown": 0.15, "stepover": 0.15 },
+        "6.35":  { "feed": 300, "plunge": 100, "spindle": 8000,  "stepdown": 0.30, "stepover": 0.15 }
+      }
+    }
+  ]
+}

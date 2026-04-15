@@ -593,9 +593,13 @@ export const conf = {
                 camStockIndexed: false,
                 camStockIndexGrid: true,
                 camStockOffset: true,
-                camStockX: 5,
-                camStockY: 5,
-                camStockZ: 5,
+                // swarf: zero stock padding so the stock volume equals the part —
+                // students shouldn't see a ghost cuboid hovering around their geometry
+                // (markup Apr 15 round 4 — "parts should not have any material/padding").
+                // Expert mode can dial these up via the stock panel when ready.
+                camStockX: 0,
+                camStockY: 0,
+                camStockZ: 0,
                 camTabsDepth: 5,
                 camTabsHeight: 5,
                 camTabsMidline: false,
@@ -944,7 +948,7 @@ export const conf = {
         devproc: {},
         // application ui and control preferences (Q menu)
         controller:{
-            animesh: "800",
+            animesh: "500",
             antiAlias: true,
             assembly: false,
             autoLayout: true,

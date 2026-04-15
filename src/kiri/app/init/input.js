@@ -59,8 +59,29 @@ function checkSeed(then) {
     // Objects panel are never blank on arrival. Named simply 'cube' (markup Apr 15).
     const widgets = (api.widgets && api.widgets.all && api.widgets.all()) || [];
     if (widgets.length === 0 && !SETUP.s && api.feature.seed && !SETUP.debug) {
-        platform.load_stl('/obj/cube.stl', function(vert) {
+        platform.load_stl('/obj/cube.stl', function(vert, seedWidget) {
             catalog.putFile('cube', vert);
+            // swarf: mark the seed cube so any subsequent user import evicts it.
+            // Without this, Phil's "Raised Snap..." STL sits next to the seed cube
+            // as two objects (markup Apr 15 round 4 — "one part into two").
+            if (seedWidget) {
+                seedWidget.meta = seedWidget.meta || {};
+                seedWidget.meta.swarfSeed = true;
+                try { seedWidget.mesh.userData.swarfSeed = true; } catch (e) {}
+                const evictSeed = (addedWidget) => {
+                    try {
+                        const list = Array.isArray(addedWidget) ? addedWidget : [addedWidget];
+                        const incomingIsSeed = list.some(w => w === seedWidget || (w && w.meta && w.meta.swarfSeed));
+                        if (incomingIsSeed) return;
+                        if (seedWidget && !seedWidget.__swarfEvicted) {
+                            seedWidget.__swarfEvicted = true;
+                            platform.delete(seedWidget);
+                        }
+                        api.event.off && api.event.off('widget.add', evictSeed);
+                    } catch (e) {}
+                };
+                api.event.on('widget.add', evictSeed);
+            }
             // swarf: viewport sometimes painted black on first load (markup #3, Apr 15).
             // Container can be 0x0 at this moment because of fixed-position panel reparenting.
             // Trigger a resize first so the renderer picks up real dimensions, then home
@@ -181,9 +202,13 @@ export function init_input() {
     event.on('resize', onResize);
 
     // configure moto.space
+    // swarf: expose space to window so swarf-sky.js (plain <script>, outside
+    // the ESM bundle) can read the camera's orbit state for parallax.
+    try { if (typeof window !== 'undefined') { window.moto = window.moto || {}; window.moto.space = space; } } catch (e) {}
     space.view.setFitPadding({ perspective: 0.8 });
     space.sky.showGrid(false);
-    space.sky.setColor(controller.dark ? 0 : 0xffffff);
+    // swarf: null = let body CSS gradient show through canvas alpha (markup Apr 15 r4)
+    space.sky.setColor(null);
     space.setAntiAlias(controller.antiAlias);
     space.init(container, (delta) => {
         const { lo, hi, max } = slider.getRange();

@@ -317,6 +317,25 @@
                         <dt>ShopBot Basic</dt><dd>4×8' router, ER25 spindle. for sheet-goods carving and signage.</dd>
                     </dl>
                 </section>
+                <section>
+                    <h3>materials (starting defaults)</h3>
+                    <dl>
+                        <dt>hardwood</dt><dd>oak, maple, walnut, cherry — sharp HSS leaves a clean edge. dust mask. feed, plunge, spindle, step-down per tool diameter live in swarf-materials.json.</dd>
+                        <dt>foam</dt><dd>rigid PU, EPS, blue/pink insulation. fastest cuts in the library; main risk is tool deflection on long flutes.</dd>
+                        <dt>aluminum 6061</dt><dd>chips should curl, not powder. keep RPM as low as the spindle allows. a mist of WD-40 or alcohol helps.</dd>
+                        <dt>polycarbonate</dt><dd>Lexan and similar. gummy — melts if you feed too slow. single-flute O-flutes are ideal; 2-flute HSS works if chips eject.</dd>
+                        <dt>mild steel</dt><dd>occasional only. HSS on prosumer CNC is slow and punishing. small stepdowns, lots of lubricant, listen for chatter and back off.</dd>
+                    </dl>
+                </section>
+                <section>
+                    <h3>simulation</h3>
+                    <dl>
+                        <dt>chips</dt><dd>during Simulate, the cutter throws particles along its spin tangent with a kick in the feed direction. four flavors mix — long helical curls, triangular flakes, tight c-coils, and fine grit. gravity pulls them down; they settle on the build platform and stay there. import a new part to clear the floor.</dd>
+                        <dt>phase aura</dt><dd>the whole scene gently tints to the current workflow step — neutral when idle, warm while toolpathing, cool while preview slices, hot mill-red while simulating, achromatic after gcode export. touch anything and the color returns.</dd>
+                        <dt>phase LED</dt><dd>a small dot next to the renato.design watermark. dim = idle, amber = toolpaths, gold = preview, glowing mill-red = simulate, gray = exported. always on, always quiet.</dd>
+                        <dt>sky</dt><dd>procedural two-layer mackerel sky with slow drift and camera-orbit parallax. when swarf is thinking (slicing, preparing, simulating) the clouds speed up. sunset palette behind it — yellow horizon, red band, violet, indigo zenith.</dd>
+                    </dl>
+                </section>
             </div>
         </div>
 
@@ -569,6 +588,12 @@
   console.error = function(){ show('console.error: ' + Array.from(arguments).map(String).join(' ')); _ce.apply(console, arguments); };
 })();
 </script>
+<!-- swarf sky animator: procedural drift + working-state fog + camera parallax -->
+<script src="swarf-sky.js"></script>
+<!-- swarf phase aura: body class reflects current workflow phase so CSS can tint -->
+<script src="swarf-phase.js"></script>
+<!-- swarf chip physics: tool-spin-aware shavings, gravity, floor accumulation -->
+<script src="swarf-chips.js"></script>
 <!-- swarf dev-only: markup toolbar, cross-origin to markup server on :8731 -->
 <script src="swarf-markup-inject.js"></script>
 </body>

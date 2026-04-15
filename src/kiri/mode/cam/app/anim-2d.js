@@ -270,6 +270,11 @@ function checkMeshCommands(data) {
         label.x.value = (pos.x - origin.x).toFixed(2);
         label.y.value = (pos.y + origin.y).toFixed(2);
         label.z.value = (pos.z - origin.z).toFixed(2);
+        // swarf r5: broadcast tool position so swarf-chips.js can spawn debris.
+        // Negative id = tool mesh; 0 = stock. Only emit for tools.
+        if (id < 0) {
+            try { api.event.emit('swarf.tool.move', { id, pos }); } catch (e) {}
+        }
     }
     if (data.mesh_update) {
         meshUpdates(data.id);

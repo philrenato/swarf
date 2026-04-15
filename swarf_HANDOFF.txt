@@ -1,5 +1,223 @@
 swarf_HANDOFF.txt — for Claude
-last updated 2026-04-15 (v00000-007, late-night marathon)
+last updated 2026-04-15 (v00000-007 round 6, mid-morning)
+
+
+v00000-007 ROUND 6 — Machine-feel pass (2026-04-15 ~09:00)
+─────────────────────────────────────────────────────────
+Phil's ask (paraphrased): make the simulator FEEL like the machine. Throw
+chips with variety — not dots and planes — under tool-spin force. Accumulate
+debris on horizontal surfaces. Reflect the current workflow phase in some
+subtle way across the whole scene. Go achromatic after EXPORT until the user
+touches something again. Also: fog wasn't moving; SIMULATE build felt slow.
+
+Delivered this round:
+
+1. CAMERA-AWARE FOG (fix + feature)
+   Previously swarf-sky.js hung the parallax off mouse-drag deltas and
+   accessed window.moto.space which was only an empty object. Two fixes:
+   - src/kiri/app/init/input.js:205 now bridges `space` to `window.moto.space`
+     so the plain <script> layers can reach the Three.js camera.
+   - swarf-sky.js retired the mouse-drag handlers and added a RAF poller on
+     `moto.space.view.save()` — reads `left` (azimuth) + `up` (elevation)
+     each frame, accumulates angular deltas into --swarf-sky-parallax-x/y.
+     Works with trackpad pinch, keyboard orbit, programmatic view changes.
+   Also added a second high-freq turbulence cloud layer (baseFrequency 0.012)
+   in swarf.css that drifts at 1.4× the low-freq layer with a phase offset,
+   so the two read as actual moving fog rather than noise + slide.
+
+2. SIMULATION SPEED
+   `controller.animesh` default dropped from "800" to "500" in defaults.js
+   AND migrated in stored profiles via `swarf.r5.animesh-500` localStorage
+   flag — my earlier fix-that-wasn't (running prepareAnimation's own
+   preview-gate on top of the CAM listener's prepare() call) was causing a
+   double-preview; that's reverted. Grid density is (animesh · area)² so the
+   new setting cuts animation setup ~60%.
+
+3. CHIP PHYSICS — web/kiri/swarf-chips.js (NEW)
+   Tool-spin-aware particle layer. Four flavors share InstancedMesh pools:
+   - helical curl (55% — long ductile-cut ribbon, TubeGeometry around a
+     CatmullRom helix)
+   - triangular flake (18% — brittle)
+   - tight C-coil (20% — aluminum short curl)
+   - grit cube (7% — MDF / HDPE powder)
+   Spawn gated by "cutting motion": XY motion present AND tool z near/below
+   stock top. Per-spawn physics: random point on cutter perimeter, velocity
+   = spin-tangent + feed-direction kick + upward pop, gravity + drag each
+   RAF. On z≤0 chips flatten to a random horizontal rotation and write to a
+   settled-chip ring buffer (cap 1600; oldest fall off). Airborne cap 240.
+   IMPORT clears everything.
+   Plumbing: new `swarf.tool.move` event emitted from
+   src/kiri/mode/cam/app/anim-2d.js:273 and anim-3d.js:308 for negative-id
+   meshes (tool only). swarf-chips.js polls for window.moto.space + kiri.api
+   before attaching.
+
+4. PHASE AURA — web/kiri/swarf-phase.js (NEW) + CSS in swarf.css
+   Body class swarf-phase-{idle,toolpaths,previewing,simulating,exported}
+   reflects the workflow step. CSS drives a gentle filter change per phase;
+   post-EXPORT is grayscale(0.92) contrast(0.94) brightness(0.90) — the
+   scene goes quiet until the user clicks/keys/wheels, at which point
+   swarf-phase.js bounces it back to idle. A 6px LED after the renato.design
+   watermark picks up a per-phase color (dim/amber/gold/mill-red/gray).
+
+5. SIMULATE AUTO-PREVIEW (revert)
+   Earlier this session I had prepareAnimation in src/kiri/app/function.js
+   auto-run preview first. That double-ran preview because the CAM listener
+   at init-ui.js:713 already calls api.function.prepare() before animate().
+   Reverted to upstream behavior.
+
+6. PANEL-LEFT RAISE + DRAWERS CLOSED
+   #panel-left (TAGS + STRATEGY stack, right-pinned) bottom raised from
+   16px → 28vh so the stack sits higher. Defaults had cam-tabs and
+   cam-output hidden already, but Phil's stored profile had them open —
+   swarf-sky.js now runs a one-shot `swarf.r5.drawers-closed` migration to
+   force them closed on existing profiles.
+
+7. SIMULATE ANIMATION BAR SKIN
+   #layer-animate (upstream Kiri's white #eee control strip) re-skinned in
+   swarf.css as a dark HUD plate, mill-red hover, JetBrains Mono. No more
+   light-theme hole in the Downward Spiral chrome.
+
+Open debt carried forward to r7:
+- Material palette UI wiring. Data is in web/kiri/swarf-materials.json with
+  the five materials Phil asked for (hardwood, foam, aluminum, polycarb,
+  mild steel) × two tool diameters, published HSS midranges cut in half for
+  safety. UI target: a material dropdown next to ENDMILLS & BITS that bulk-
+  applies feed/plunge/stepdown/stepover to all open ops when selected.
+- Chip collision with actual stock surfaces (currently chips only settle on
+  z=0). Would mean querying the stock mesh / dropping per-chip raycasts.
+  Defer until perf budget is known.
+- Sparks for mild steel (hotter particle variant, emissive, short life).
+- Chips pick up the tool's RPM from the current op's spindle setting rather
+  than the hardcoded 12000. Thread through rec.spindle via the tool.move
+  event payload.
+- #swarf-err overlay + swarf-markup-inject.js still not ?dev=1-gated.
+
+
+v00000-007 ROUND 5 — Toolpath param UX + material palette stub (2026-04-15 ~07:10)
+─────────────────────────────────────────────────────────────────────────────────
+Phil's ask: "how do I modify the toolpaths I am creating? They have to have
+variables like speed and stepdown accessible to the user. In the future
+build a material setting palette that preloads speeds etc."
+
+The inline drawer scaffolding from an earlier round was already in place
+(SWARF_OP_FIELDS map in init-ui.js rendered a per-op <div class="swarf-op-
+params"> with tool / feed / stepdown / stepover inputs, chevron toggled
+.swarf-params-open). Values bind via api.conf.save() on change. The issue
+was affordance, not mechanism — the 9px dim chevron was invisible next
+to the 'x' delete button.
+
+Round 5 changes:
+- swarf.css: chevron is now a proper mill-red EDIT pill (12px, bordered,
+  uppercase, JetBrains Mono). Open state flips to filled red with
+  "EDITING" label. Op label gets a ▸/▾ caret after it and becomes
+  pointer-cursor.
+- init-ui.js (chevron click handler block): added a second click listener
+  on the op label itself so clicking "rough" or "pocket" toggles the
+  drawer — Phil doesn't have to aim at the chevron. Also switched
+  `el.classList.toggle(...)` to `$(id).classList.toggle(...)` to fix an
+  ordering bug where `el` was referenced in a closure before assignment.
+
+Material palette stub:
+- NEW FILE: web/kiri/swarf-materials.json. Six starter entries (wax, MDF,
+  HDPE, aluminum 6061, brass, mild steel) × two tool diameters (3.175mm
+  and 6.35mm) with feed / plunge / spindle / stepdown / stepover values
+  calibrated roughly for Langmuir MR-1 + ShopBot Basic. Short
+  conversational notes per material in Phil voice ("forgiving, great for
+  first cuts"). UI wiring for this is TODO — see
+  memory/project_swarf_toolpath_variables.md for the planned feature
+  (palette dropdown in TOOLPATHS panel that bulk-sets all open ops'
+  feed/stepdown from the selected material+tool combo).
+
+Version bumped README → v00000-007 r5. Bundle rebuilt. CSS + JSON + HTML
+changes are hot-served.
+
+
+v00000-007 ROUND 4 — Phil's morning screenshots (2026-04-15 ~06:30)
+──────────────────────────────────────────────────────────────────
+Six markup passes across sky texture, seed cube, stock padding, and the
+UI watermark + OBJECTS truncation. Plus live-motion sky work and a
+pinpointed-but-deferred G-code offset bug.
+
+Seed cube
+- /obj/cube.stl replaced with a 12-tri 25.4mm solid cube, centered XY and
+  sitting on Z=0. The previous file was upstream Kiri's 320-tri
+  promotional cube (bounds X[50,75], Y[110,135], Z[21,46] — not centered,
+  logo-carved faces). Phil's screenshot of "broken cube" was that logo
+  geometry rendering as wireframe, not a bug.
+- Seed cube gets meta.swarfSeed = true in input.js checkSeed. A one-shot
+  api.event.on('widget.add', ...) listener auto-deletes the seed when any
+  non-seed widget is added. Fixes Phil's "one part became two" when he
+  imported his Raised Snap STL alongside the seed.
+
+Stock
+- defaults.js camStockX/Y/Z dropped from 5mm → 0mm. Parts no longer float
+  inside a ghost cuboid in student mode; stock volume = part bounds.
+- cl-stock.js student gate from round 3 still holds — camStock mesh is
+  never constructed outside body.swarf-expert.
+
+Sky / background — procedural and alive
+- space.js sky.setColor(null) path added so SCENE.background = null
+  instead of a solid color. platform.js and input.js now pass null.
+  Body's red-sky CSS gradient finally shows through canvas alpha:true.
+- Cloud layer is SVG feTurbulence (procedural — browser computes it, not
+  a raster). 1024×1024 stitched tile, baseFrequency 0.004, 5 octaves. All
+  octave wavelengths divide 1024 as integers so Chrome's stitcher lands
+  seamlessly. Gradient retuned to sunset ref (yellow horizon → red →
+  violet → indigo zenith, warm sun hotspot at bottom-center). Alphas
+  pulled way down from the "too loud" first try.
+- NEW FILE: web/kiri/swarf-sky.js (loaded from index.html alongside
+  swarf-markup-inject). Three behaviors:
+    1. body.swarf-sky-drift → CSS keyframe drifts background-position over
+       180s. Procedural cloud churn, always on.
+    2. Hooks api.event 'slice.begin' / 'animate' / 'slice.end' /
+       'animate.end' / 'slice.error' — toggles body.swarf-sky-working
+       which shortens animation to 14s. Fog visibly speeds up while
+       swarf computes toolpaths or simulates.
+    3. Tracks mouse-drag over #container (ignores panel chrome) and
+       writes --swarf-sky-parallax-x/y custom props (damping 0.12/0.08,
+       wrap at 1024). CSS adds these to background-position for a subtle
+       camera-rotate parallax on the sky.
+
+UI cleanup
+- Watermark moved back to lower-left (was pushed to upper-right in a
+  prior iteration by mistake).
+- #ws-widgets button max-width:150px removed — OBJECTS rows now fill the
+  panel, "Raised Snap - Countersink Flush Mount" no longer truncates to
+  a useless stub. #panel-right bumped 300px → 320px.
+
+DEFERRED — top of next session
+- G-code Y-offset bug. Root cause found and written up in
+  memory/project_swarf_gcode_origin_bug.md.
+  Short version: platform.js:104 does `origin.y = -stockCenter.y` for
+  CAM, but cl-stock.js:157 positions stock mesh at +stockCenter.y, and
+  widget mesh defaults to {0,0,0}. 25.4mm Y offset between toolpath
+  preview and part + stock. Three fix options (A: remove negation; B:
+  mirror into stock; C: negate vertices at render). DO NOT PICK BLIND.
+  First: console.log at prepare.js:114 + cl-stock.js:156 with the cube
+  loaded, then EXPORT and inspect the G-code Y values. G-code correct
+  → bug is preview-only → Option C. G-code also flipped → fix at
+  source → Option A.
+- Toolpath parameter UI (speed/stepdown/stepover/tool editable per step
+  without digging into expert-gated right panel). Future: a material
+  palette (aluminum/brass/steel/HDPE/MDF/wax) that preloads
+  feedrate/RPM/stepdown per tool+material combo.
+  See memory/project_swarf_toolpath_variables.md.
+
+Still-open debt from round 3
+- #swarf-err overlay + swarf-markup-inject.js not gated by ?dev=1
+- Camera padding=1.8 tuned for 25.4mm cube; not adaptive to arbitrary
+  imports
+- Localization strip still half-done
+- Coaching pass v2 — tooltips don't yet reference the Concordance corpus
+
+Round 3 item #6 (default cube STL size not guaranteed) is CLOSED — the
+cube is now swarf-owned and guaranteed 25.4mm centered on XY.
+
+Chrome crash note: the r3 headless verify loop was killing Phil's real
+Chrome when /tmp/swarf-pN paths were reused. Always pkill
+'Google Chrome.*headless' first and use unique /tmp/swarf-headless-$$-$(date +%s)
+dirs. Delete the dir after each run.
+
 
 v00000-007 ROUND 3 — Phil's late return (2026-04-15 ~06:00)
 ───────────────────────────────────────────────────────────

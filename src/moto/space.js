@@ -1443,6 +1443,10 @@ let Space = {
         },
 
         setColor: (c) => {
+            // swarf: allow null to punch a hole through the 3D scene so the body
+            // CSS gradient (red sky → indigo) shows through canvas alpha:true
+            // (markup Apr 15 round 4 — "background still isn't redsky texture gradient")
+            if (c === null) { SCENE.background = null; return; }
             SCENE.background = new THREE.Color(c);
         },
 

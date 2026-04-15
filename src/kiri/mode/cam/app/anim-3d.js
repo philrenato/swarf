@@ -305,6 +305,10 @@ function handleUpdate(data) {
         label.x.value = (pos.x - origin.x).toFixed(2);
         label.y.value = (pos.y + origin.y).toFixed(2);
         label.z.value = (pos.z - origin.z).toFixed(2);
+        // swarf r5: broadcast tool position for chip physics.
+        if (id < 0) {
+            try { api.event.emit('swarf.tool.move', { id, pos }); } catch (e) {}
+        }
     }
     if (data.stock_index !== undefined) {
         api.widgets.setAxisIndex(data.stock_index);

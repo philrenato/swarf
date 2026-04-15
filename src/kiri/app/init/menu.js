@@ -226,11 +226,11 @@ function modeTools(actions) {
         // the tool walk the toolpaths in real time.
         span({ id: 'act-animate', ...on(actions, 'act-animate'), class: 'swarf-step' }, [
             span([icon('fas fa-play')]),
-            label({ id: 'label-animate', title: 'play back the toolpath animation — watch the tool work', _: 'simulate' })
+            label({ id: 'label-animate', title: 'play back the toolpath animation — watch the tool work, throw chips, and leave debris on the platform', _: 'simulate' })
         ]),
         span({ id: 'act-export', ...on(actions, 'act-export'), class: 'swarf-step' }, [
             span([icon('fas fa-file-export')]),
-            label({ id: 'label-export', title: 'generate gcode for the machine', _: 'export' })
+            label({ id: 'label-export', title: 'generate gcode for the machine — scene goes achromatic until you touch something new', _: 'export' })
         ]),
         // hidden but preserved so upstream slice code paths still have a hook
         span({ id: 'act-slice', style: 'display:none' })

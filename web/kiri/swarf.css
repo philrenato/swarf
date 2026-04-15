@@ -35,31 +35,80 @@ html, body { background: var(--swarf-bg) !important; color: var(--swarf-text); }
    canvas's clear color only when the canvas doesn't paint something — OR via the overlay
    glow on the surrounding chrome. Subtle by design. */
 body {
-  /* swarf sky backdrop v3 (markup Apr 15 — "red to blue gradient, like sky references
-     in refs"): Tron:Ares terminal sky — mill-red at the horizon, cooling through
-     deep purple to a near-black indigo at the zenith. Canvas alpha:true now lets the
-     3D viewport sit on top of this rather than covering it with opaque black.
-     Horizontal striations carry the EMCO Mill-55 texture language. */
+  /* swarf sky backdrop v5 (markup Apr 15 round 4 — "not the right texture, too fine,
+     should be cloudier, mix with sunset refs"). Target: sailor's-warning mackerel sky —
+     cirrocumulus cloud ripples lit red-orange at the horizon, cooling to purple-blue
+     at zenith, yellow sun-glow punch low-center. Film grain is OUT; big cloud lumps
+     are IN. Layer stack (top CSS → bottom visually):
+       1. Mackerel cloud rows — stretched SVG turbulence, low freq, horizontally elongated
+       2. Big cloud clumps — second SVG turbulence, even lower freq for macro shapes
+       3. Sun hotspot — yellow→orange radial at low-center horizon
+       4. Side red haze hotspots — keep atmospheric glow
+       5. Primary vertical gradient: yellow horizon → red → violet → indigo zenith
+       6. Warm-black base
+  */
   background:
-    /* horizontal scan-line striations — technical grain */
-    repeating-linear-gradient(
-      0deg,
-      rgba(255, 80, 56, 0.00) 0px,
-      rgba(255, 80, 56, 0.022) 1px,
-      rgba(16, 20, 40, 0.018) 2px,
-      rgba(0, 0, 0, 0.00) 5px
+    /* 1a. high-freq cloud detail — smaller shapes, drifts faster for fog-churn feel */
+    url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='1024' height='1024'><filter id='c2' x='0' y='0' width='100%' height='100%'><feTurbulence type='fractalNoise' baseFrequency='0.012' numOctaves='3' seed='13' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0.80   0 0 0 0 0.30   0 0 0 0 0.40   0 0 0 0.12 -0.05'/></filter><rect width='100%' height='100%' filter='url(%23c2)'/></svg>"),
+    /* 1b. low-freq cloud clumps — the big mackerel shapes; drifts slowly */
+    url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='1024' height='1024'><filter id='c' x='0' y='0' width='100%' height='100%'><feTurbulence type='fractalNoise' baseFrequency='0.004' numOctaves='5' seed='7' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0.75   0 0 0 0 0.35   0 0 0 0 0.45   0 0 0 0.20 -0.08'/></filter><rect width='100%' height='100%' filter='url(%23c)'/></svg>"),
+    /* 2. sun hotspot — warm but restrained */
+    radial-gradient(
+      ellipse 55vw 16vh at 50% 100%,
+      rgba(255, 190,  90, 0.35) 0%,
+      rgba(220, 100,  50, 0.22) 25%,
+      rgba(120,  30,  40, 0.08) 60%,
+      rgba(  0,   0,   0, 0.00) 92%
     ),
-    /* primary sky: red horizon → violet mid → indigo zenith */
+    /* 3. primary sky: yellow horizon → red → violet → indigo zenith (lower alphas) */
     linear-gradient(
       to top,
-      rgba(208, 32, 32, 0.70)   0%,
-      rgba(255, 58, 42, 0.55)   6%,
-      rgba(150, 28, 60, 0.48)  18%,
-      rgba( 72, 28, 92, 0.42)  38%,
-      rgba( 24, 24, 72, 0.50)  62%,
-      rgba( 10, 14, 44, 0.70) 100%
+      rgba(255, 150,  70, 0.40)   0%,
+      rgba(200,  50,  50, 0.50)   8%,
+      rgba(150,  35,  70, 0.48)  24%,
+      rgba( 70,  30,  90, 0.44)  46%,
+      rgba( 22,  22,  66, 0.54)  70%,
+      rgba(  6,   8,  26, 0.80) 100%
     ),
     var(--swarf-bg) !important;
+  background-repeat: repeat, repeat, no-repeat, no-repeat, repeat;
+  background-size: 768px 768px, 1024px 1024px, auto, auto, auto;
+  background-attachment: fixed, fixed, fixed, fixed, fixed;
+  /* parallax offset: swarf-sky.js writes these from the 3D camera's orbit */
+  --swarf-sky-parallax-x: 0px;
+  --swarf-sky-parallax-y: 0px;
+  /* both cloud layers get parallax; the high-freq one moves at 1.4× for depth */
+  background-position:
+    calc(var(--swarf-sky-parallax-x, 0px) * 1.4) calc(var(--swarf-sky-parallax-y, 0px) * 1.4),
+    calc(var(--swarf-sky-parallax-x, 0px))       calc(var(--swarf-sky-parallax-y, 0px)),
+    center, center, center;
+}
+
+/* swarf sky drift: always-on slow procedural churn. We animate the cloud
+   layer's background-position via the CSS var so the parallax from JS and
+   the keyframe drift compose cleanly. Using a long keyframe duration
+   (120s) so the motion reads as atmospheric, not a loop. */
+@keyframes swarf-sky-drift {
+  0%   { --swarf-sky-drift-x:   0px; --swarf-sky-drift-y:   0px; }
+  50%  { --swarf-sky-drift-x: 512px; --swarf-sky-drift-y:  64px; }
+  100% { --swarf-sky-drift-x:1024px; --swarf-sky-drift-y:   0px; }
+}
+@property --swarf-sky-drift-x { syntax: '<length>'; inherits: true; initial-value: 0px; }
+@property --swarf-sky-drift-y { syntax: '<length>'; inherits: true; initial-value: 0px; }
+body.swarf-sky-drift {
+  animation: swarf-sky-drift 180s linear infinite;
+  /* high-freq layer drifts at 1.4× (depth), low-freq drifts at 1× with a phase
+     offset so they don't beat in lock-step — together they read as fog movement */
+  background-position:
+    calc(var(--swarf-sky-parallax-x, 0px) * 1.4 + var(--swarf-sky-drift-x, 0px) * 1.6 + 128px)
+    calc(var(--swarf-sky-parallax-y, 0px) * 1.4 + var(--swarf-sky-drift-y, 0px) * 1.3 + 64px),
+    calc(var(--swarf-sky-parallax-x, 0px)       + var(--swarf-sky-drift-x, 0px))
+    calc(var(--swarf-sky-parallax-y, 0px)       + var(--swarf-sky-drift-y, 0px)),
+    center, center, center;
+}
+/* Working state: speed up dramatically while slice/prepare/simulate is running */
+body.swarf-sky-working {
+  animation-duration: 14s;
 }
 /* 3D viewport container keeps its fixed flex size; its black clear color will show over the
    body gradient inside the canvas, but the edges/margins pick up the sailor sky. */
@@ -88,15 +137,15 @@ body {
 
 /* swarf: pager hover-tooltip removed (markup #2, Apr 15) — caret-left button gone, the note no longer applies. Per-widget options surface on row hover via .widpop:hover .widopt. */
 
-/* swarf: watermark — moved up-and-to-the-right per Phil's note (markup Apr 15 follow-up).
-   Anchor it under the menu bar on the right side, away from the markup toolbar. */
+/* swarf: watermark — back to lower-left (markup Apr 15 round 4 —
+   "renato.design mysteriously jumped to upper right rather than lower left"). */
 #swarf-watermark {
-  position: fixed; right: 18px; top: 56px; z-index: 9999;
+  position: fixed; left: 18px; bottom: 14px; z-index: 9999;
   font-family: "JetBrains Mono", "IBM Plex Mono", ui-monospace, monospace;
   font-size: 10px; letter-spacing: 0.18em; text-transform: uppercase;
   color: var(--swarf-text-3); text-decoration: none; opacity: 0.55;
   pointer-events: auto; padding: 2px 6px;
-  border-right: 1px solid var(--swarf-line);
+  border-left: 1px solid var(--swarf-line);
   transition: opacity 200ms linear, color 200ms linear;
 }
 #swarf-watermark:hover { opacity: 1; color: var(--swarf-accent-hi); }
@@ -567,7 +616,7 @@ input[type="range"] { accent-color: var(--swarf-accent-hi); }
   position: fixed !important;
   top: 340px;
   left: 16px;
-  width: 300px;
+  width: 320px;
   max-height: calc(100vh - 360px);
   overflow-y: auto;
   z-index: 15;
@@ -575,6 +624,17 @@ input[type="range"] { accent-color: var(--swarf-accent-hi); }
   gap: 10px !important;
   background: transparent !important;
 }
+/* swarf: OBJECTS list rows — upstream Kiri capped #ws-widgets buttons at 150px which
+   truncated "Raised Snap - Count..." to a useless stub (markup Apr 15 round 4 —
+   "label container in objects is still too small"). Let the button fill the plate. */
+#ws-widgets button {
+  max-width: none !important;
+  width: 100% !important;
+  padding: 5px 10px !important;
+  font-size: 12px !important;
+  text-overflow: ellipsis;
+}
+#ws-widgets .widpop { padding: 2px 0; }
 /* ---- Swarf plate v2 (refs pass): mill-red structural frame, HUD corners, scanlines ---- */
 #panel-right .set2-group {
   background: var(--swarf-bg-2) !important;
@@ -677,11 +737,14 @@ input[type="range"] { accent-color: var(--swarf-accent-hi); }
   font-size: 14px;
 }
 
-/* ---- #panel-left — Tabs/Output parameter rail pinned lower-right ---- */
+/* ---- #panel-left — Tabs/Output parameter rail pinned right side ---- */
+/* Phil r5: raised from bottom:16px so the bottom drawer (STRATEGY) sits roughly
+   where the top drawer (TAGS) used to sit. Both drawers also start collapsed
+   (default-closed migration in swarf-sky.js). */
 #panel-left {
   position: fixed !important;
   right: 16px;
-  bottom: 16px;
+  bottom: 28vh;
   top: auto !important;
   left: auto !important;
   width: 300px !important;
@@ -1045,3 +1108,180 @@ body:not(.swarf-expert) .swarf-add-op-grid > .swarf-expert-only {
 }
 .swarf-license-body a { color: var(--swarf-accent); text-decoration: none; }
 .swarf-license-body a:hover { color: var(--swarf-accent-hi); }
+
+/* swarf: inline op-parameter drawer (2026-04-15) — per-op tool/feed/stepdown/stepover
+   without digging into the expert right panel. */
+#oplist .draggable.has-params {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: wrap;
+  align-items: center;
+}
+/* chevron: brighter, larger, with EDIT label so affordance is obvious (r5) */
+#oplist .draggable .swarf-op-chevron {
+  margin-left: auto;
+  margin-right: 6px;
+  font-size: 12px;
+  color: var(--swarf-accent, #d02020);
+  cursor: pointer;
+  padding: 3px 7px;
+  border: 1px solid var(--swarf-line, #2a1612);
+  border-radius: 2px;
+  transition: transform 140ms, color 140ms, background 140ms, border-color 140ms;
+  display: inline-flex; align-items: center; gap: 5px;
+  letter-spacing: 0.14em; text-transform: uppercase; font-weight: 600;
+}
+#oplist .draggable .swarf-op-chevron::before {
+  content: "edit";
+  font-size: 9px;
+  font-family: "JetBrains Mono", "IBM Plex Mono", ui-monospace, monospace;
+  color: inherit;
+}
+#oplist .draggable .swarf-op-chevron:hover {
+  color: var(--swarf-accent-hi, #ff3a2a);
+  background: rgba(208, 32, 32, 0.10);
+  border-color: var(--swarf-accent, #d02020);
+}
+#oplist .draggable.swarf-params-open .swarf-op-chevron i { transform: rotate(180deg); transition: transform 140ms; }
+#oplist .draggable.swarf-params-open .swarf-op-chevron {
+  color: var(--swarf-text, #d8d2c6);
+  background: var(--swarf-accent-dim, #7a1612);
+  border-color: var(--swarf-accent, #d02020);
+}
+#oplist .draggable.swarf-params-open .swarf-op-chevron::before { content: "editing"; }
+/* whole row label becomes a pointer target too — click anywhere on the op name
+   to toggle the parameter drawer (r5 affordance). */
+#oplist .draggable.has-params > .label { cursor: pointer; }
+#oplist .draggable.has-params > .label::after {
+  content: "▸"; margin-left: 6px;
+  color: var(--swarf-text-3, #58534a);
+  font-size: 9px; transition: transform 140ms, color 140ms;
+  display: inline-block;
+}
+#oplist .draggable.has-params.swarf-params-open > .label::after {
+  transform: rotate(90deg);
+  color: var(--swarf-accent, #d02020);
+}
+#oplist .swarf-op-params {
+  flex-basis: 100%;
+  display: none;
+  flex-direction: column;
+  gap: 4px;
+  padding: 6px 8px 4px 8px;
+  margin-top: 4px;
+  border-top: 1px solid var(--swarf-line, #2a2a2a);
+  background: rgba(0,0,0,0.25);
+}
+#oplist .draggable.swarf-params-open .swarf-op-params { display: flex; }
+.swarf-op-params .swarf-op-row {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 6px;
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  text-transform: lowercase;
+  color: var(--swarf-text-2, #aaa);
+}
+.swarf-op-params .swarf-op-row > span {
+  flex: 0 0 64px;
+}
+.swarf-op-params .swarf-op-row > input,
+.swarf-op-params .swarf-op-row > select {
+  flex: 1 1 auto;
+  background: rgba(0,0,0,0.4);
+  border: 1px solid var(--swarf-line, #2a2a2a);
+  color: var(--swarf-text-1, #ddd);
+  font-family: "JetBrains Mono", "IBM Plex Mono", ui-monospace, monospace;
+  font-size: 10px;
+  padding: 2px 4px;
+  border-radius: 2px;
+  min-width: 0;
+}
+.swarf-op-params .swarf-op-row > input:focus,
+.swarf-op-params .swarf-op-row > select:focus {
+  outline: 1px solid var(--swarf-accent, #b03030);
+  outline-offset: 0;
+}
+
+/* swarf: SIMULATE animation bar overrides (2026-04-15 r5) — upstream Kiri ships
+   a white #eee/#ddd control strip; re-skin it as a dark HUD plate at the
+   bottom of the viewport so SIMULATE doesn't punch a light hole in the suite. */
+#layer-animate {
+  background: rgba(8,8,8,0.88);
+  border-top: 1px solid var(--swarf-line, #2a2a2a);
+  color: var(--swarf-text-1, #ddd);
+  padding: 6px 10px !important;
+  backdrop-filter: blur(4px);
+  font-family: "JetBrains Mono", "IBM Plex Mono", ui-monospace, monospace;
+  font-size: 11px;
+  letter-spacing: 0.05em;
+}
+#layer-animate svg { color: var(--swarf-text-2, #aaa); font-size: 16px !important; }
+#layer-animate button {
+  width: auto !important;
+  min-width: 34px;
+  padding: 4px 8px !important;
+  background: rgba(0,0,0,0.4) !important;
+  border: 1px solid var(--swarf-line, #2a2a2a) !important;
+  color: var(--swarf-text-1, #ddd) !important;
+  border-radius: 2px !important;
+  transition: background 120ms, border-color 120ms;
+}
+#layer-animate button:hover {
+  background: var(--swarf-accent, #7a2a1a) !important;
+  border-color: var(--swarf-accent-hi, #a8382a) !important;
+  color: #fff !important;
+}
+#layer-animate button:hover svg { color: #fff; }
+#layer-animate label {
+  background: rgba(0,0,0,0.35) !important;
+  border: 1px solid var(--swarf-line, #2a2a2a) !important;
+  color: var(--swarf-text-2, #aaa) !important;
+  font-weight: normal !important;
+  text-transform: lowercase;
+  letter-spacing: 0.1em;
+  font-size: 10px;
+  padding: 3px 6px !important;
+  border-radius: 2px !important;
+}
+#layer-animate input {
+  background: rgba(0,0,0,0.5) !important;
+  border: 1px solid var(--swarf-line, #2a2a2a) !important;
+  color: var(--swarf-text-1, #ddd) !important;
+  border-radius: 2px !important;
+  font-family: "JetBrains Mono", "IBM Plex Mono", ui-monospace, monospace !important;
+  font-size: 11px !important;
+}
+
+/* swarf r5: workflow-phase aura (2026-04-15). The body picks up one of
+   .swarf-phase-{idle,toolpaths,previewing,simulating,exported}; CSS paints
+   the subtle difference so the user can feel which step they're in. */
+body { transition: filter 900ms ease-out; }
+body.swarf-phase-idle      { filter: saturate(1);      }
+body.swarf-phase-toolpaths { filter: saturate(1.02);   }
+body.swarf-phase-previewing{ filter: saturate(0.96) hue-rotate(-4deg); }
+body.swarf-phase-simulating{ filter: saturate(1.12) brightness(1.02);  }
+/* post-export achromatic wash — the tool is done, the scene goes quiet
+   until the user touches anything (swarf-phase.js hooks mousedown/keydown/
+   wheel to bounce back to idle). */
+body.swarf-phase-exported  { filter: grayscale(0.92) contrast(0.94) brightness(0.90); }
+
+/* subtle phase corner bracket — tiny LED near the watermark so the phase
+   is legible even when the filter change is subtle */
+#swarf-watermark::after {
+  content: "";
+  display: inline-block;
+  width: 6px; height: 6px; margin-left: 8px;
+  border-radius: 50%;
+  background: var(--swarf-text-3, #58534a);
+  vertical-align: middle;
+  transition: background 500ms, box-shadow 500ms;
+}
+body.swarf-phase-toolpaths  #swarf-watermark::after { background: #b85a2a; }
+body.swarf-phase-previewing #swarf-watermark::after { background: #d8a830; }
+body.swarf-phase-simulating #swarf-watermark::after {
+  background: var(--swarf-accent-hi, #ff3a2a);
+  box-shadow: 0 0 10px var(--swarf-accent-hi, #ff3a2a);
+}
+body.swarf-phase-exported   #swarf-watermark::after { background: #6a6a6a; }

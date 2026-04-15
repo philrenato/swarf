@@ -184,7 +184,9 @@ function update_size(updateDark = true) {
        space.platform.setFont({rulerColor:'#7a7670'}); // faint bone, thin-weight feel
        space.platform.setGrid(gridMajor, gridMinor, 0x6a6660, 0x3a3833);
        space.platform.opacity(0.10);
-       space.sky.set({ color: 0x0a0808, ambient: { intensity: 0.6 } });
+       // swarf: null sky color = transparent scene background, so the body's
+       // red-sky CSS gradient shows through canvas alpha (markup Apr 15 round 4).
+       space.sky.set({ color: null, ambient: { intensity: 0.6 } });
        document.documentElement.setAttribute('data-theme', 'dark');
        space.platform.setSize();
     }

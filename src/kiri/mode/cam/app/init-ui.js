@@ -335,11 +335,35 @@ export function opRender() {
         } else {
             delete rec.rename;
         }
+        const SWARF_OP_FIELDS = {
+            rough:   ['tool','rate','down','step'],
+            outline: ['tool','rate','down','step'],
+            pocket:  ['tool','rate','down','step'],
+            contour: ['tool','rate','step'],
+            lathe:   ['tool','rate','down','step'],
+            trace:   ['tool','rate','down'],
+            drill:   ['tool','rate','down'],
+            area:    ['tool','rate','down','step'],
+        };
+        const swarfFields = (!clock && SWARF_OP_FIELDS[rec.type]) || null;
+        let drawerHtml = '';
+        if (swarfFields) {
+            const labels = { tool: 'tool', rate: 'feed', down: 'stepdown', step: 'stepover' };
+            const rows = swarfFields.map(f => {
+                if (f === 'tool') {
+                    return `<label class="swarf-op-row"><span>${labels[f]}</span><select data-swarf-field="tool" data-op="${mark + i}"></select></label>`;
+                }
+                return `<label class="swarf-op-row"><span>${labels[f]}</span><input type="number" step="0.01" data-swarf-field="${f}" data-op="${mark + i}"/></label>`;
+            }).join('');
+            drawerHtml = `<div id="${mark + i}-p" class="swarf-op-params" data-op="${mark + i}">${rows}</div>`;
+        }
         html.appendAll([
-            `<div id="${mark + i}" class="${clazz.join(' ')}"${title}>`,
+            `<div id="${mark + i}" class="${clazz.join(' ')}${swarfFields ? ' has-params' : ''}"${title}>`,
             `<label class="label">${label}</label>`,
             clock ? '' :
                 `<label id="${mark + i}-x" class="del"><i class="fa-solid fa-xmark"></i></label>`,
+            swarfFields ? `<label id="${mark + i}-c" class="swarf-op-chevron" title="edit parameters"><i class="fa-solid fa-chevron-down"></i></label>` : '',
+            drawerHtml,
             `</div>`
         ]);
         bind[mark + i] = rec;
@@ -364,6 +388,55 @@ export function opRender() {
                 tabDone();
                 opDel(rec);
             };
+            const drawerEl = $(`${id}-p`);
+            const chevEl = $(`${id}-c`);
+            if (drawerEl && chevEl) {
+                const tools = (api.conf.get().tools || []).slice().sort((a,b) => (a.name||'').localeCompare(b.name||''));
+                drawerEl.querySelectorAll('[data-swarf-field]').forEach(inp => {
+                    const f = inp.dataset.swarfField;
+                    if (f === 'tool') {
+                        for (const t of tools) {
+                            const o = document.createElement('option');
+                            o.value = t.id;
+                            o.textContent = t.name || `#${t.number}`;
+                            if (t.id === rec.tool) o.selected = true;
+                            inp.appendChild(o);
+                        }
+                    } else {
+                        if (rec[f] !== undefined && rec[f] !== null) inp.value = rec[f];
+                    }
+                    inp.addEventListener('change', () => {
+                        if (f === 'tool') {
+                            rec.tool = inp.value;
+                        } else {
+                            const v = parseFloat(inp.value);
+                            if (!Number.isNaN(v)) rec[f] = v;
+                        }
+                        api.conf.save();
+                    });
+                    inp.addEventListener('mousedown', ev => ev.stopPropagation());
+                    inp.addEventListener('click', ev => ev.stopPropagation());
+                });
+                chevEl.addEventListener('mousedown', ev => {
+                    ev.stopPropagation();
+                    ev.preventDefault();
+                });
+                chevEl.addEventListener('click', ev => {
+                    ev.stopPropagation();
+                    ev.preventDefault();
+                    $(id).classList.toggle('swarf-params-open');
+                });
+                // swarf r5: also toggle from clicking the op label itself so
+                // Phil doesn't have to aim at a small chevron.
+                const labelEl = $(id) && $(id).querySelector('.label');
+                if (labelEl) {
+                    labelEl.addEventListener('click', ev => {
+                        ev.stopPropagation();
+                        ev.preventDefault();
+                        $(id).classList.toggle('swarf-params-open');
+                    });
+                }
+            }
         } else {
             indexing = false;
         }

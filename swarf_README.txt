@@ -1,4 +1,4 @@
-swarf™ v00000-007
+swarf™ v00000-007 r6
 gcode carving interface
 renato.design
 
@@ -13,17 +13,17 @@ Where the name comes from — swarf is what is left on the floor after the machi
 
 Genre
 ─────
-The Downward Spiral, by Nine Inch Nails. Productive upside-down of bright, feature-complete Kiri:Moto. Crushed blacks, bone text, mill-red accent, subtle sunset backdrop, industrial plate chrome. No lightcycles, no Eurostile monograms.
+The Downward Spiral, by Nine Inch Nails. Productive upside-down of bright, feature-complete Kiri:Moto. Crushed blacks, bone text, mill-red accent, and a live sailor's-warning sky behind the viewport — procedural cloud drift that picks up pace while swarf is thinking, parallax on camera rotate. Industrial plate chrome. No lightcycles, no Eurostile monograms.
 
 How to use
 ──────────
-1. Open the app. A 25.4mm cube sits centered on the bed so the viewport is never blank.
+1. Open the app. A 25.4mm cube sits centered on the bed so the viewport is never blank. Drop in your own STL or OBJ and the seed cube steps aside — swarf only ever holds one part at a time in student mode.
 2. File → import — drop in an STL or OBJ.
 3. Setup → machines — MR-1 is preselected. Or pick ShopBot Basic.
-4. Toolpaths (top toolbar) — add rough, contour, outline, pocket. Click ENDMILLS & BITS to manage the tool library.
+4. Toolpaths (top toolbar) — add rough, contour, outline, pocket. Click the op name or the EDIT pill on the right to open its parameter drawer and change tool, feed, stepdown, stepover. Click ENDMILLS & BITS to manage the tool library.
 5. Preview — slice and inspect.
-6. Simulate — watch the tool walk the paths in real time.
-7. Export — gcode for the selected machine.
+6. Simulate — watch the tool walk the paths in real time. Curled chips peel off the cutter, arc through the scene, and pile up on the floor. Not a cleanup sim — the workshop looks worked-in when you're done.
+7. Export — gcode for the selected machine. After export the scene goes quiet and achromatic; move the mouse or start a new step and the color comes back.
 
 That is the whole trip.
 
@@ -31,6 +31,8 @@ Two help surfaces ship with the app, both under the Help menu —
 Search Help (live filter across operations, parameters, tools, and short coaching paragraphs) and Concordance (the glossary, every named thing in swarf in one paragraph).
 
 A Concerns drawer pinned to the lower right counts setup warnings as you build a job — stepover too wide on a finishing pass, plunge running as fast as feed, step-down deeper than the tool diameter. Empty drawer means a clean setup.
+
+A small indicator LED next to the renato.design watermark changes color with the current phase of work — dim when idle, amber while you're editing toolpaths, gold while preview is slicing, glowing mill-red while simulation runs, gray after gcode export. It is the quietest possible progress bar, and always on.
 
 Student mode vs. Expert mode
 ────────────────────────────
