@@ -1,5 +1,77 @@
 swarf_HANDOFF.txt — for Claude
-last updated 2026-04-15 (v00000-007, late night markup pass)
+last updated 2026-04-15 (v00000-007, late-night marathon)
+
+v00000-007 ROUND 3 — Phil's late return (2026-04-15 ~06:00)
+───────────────────────────────────────────────────────────
+Three more markup batches landed before handoff.
+
+ws-widgets / scene
+- Phil reported "two cubes" — the CAM stock outline was rendering alongside
+  the part. visible:false wasn't enough; some upstream traversal still treats
+  the mesh as a real object. cl-stock.js now skips constructing the mesh
+  entirely outside expert mode (gated by body.swarf-expert).
+- Part centered on origin: defaults.js device.originCenter true + process.
+  camOriginCenter true. Both axes. This also puts the gcode origin at the
+  part center, which Phil wanted ("when gcode is run it should be on top of
+  the object" — i.e. toolpath aligned with the part instead of offset to
+  one corner).
+- MR-1 was already the preselected default (filterMode CAM = "Langmuir.MR-1"
+  in defaults.js:931). Confirmed in screenshot.
+
+Workflow bar
+- SIMULATE step added between PREVIEW and EXPORT (init/menu.js). Wired to
+  the upstream act-animate hook. Plays back the toolpath animation.
+- The sequence is now: IMPORT · TOOLPATHS · PREVIEW · SIMULATE · EXPORT.
+
+Coaching content
+- Searchable Help (#mod-swarf-search) — populated INDEX of 23 entries
+  (4 ops, 11 params, 4 tools, 4 coaching cards). Live keyup filter. Source
+  is in src/kiri/app/init/sync.js — the IIFE marked "Searchable Help".
+- Concordance (#mod-swarf-concordance) — populated as 4 sections (operations,
+  parameters, tools, machines) with dl/dt/dd. Source is the static HTML
+  inside index.html, .swarf-concordance class.
+- Concerns drawer — bottom-bar pill ("CONCERNS · 0") that expands a list of
+  rule-based warnings. Three starter rules (stepover >50% on finishing,
+  plunge ≈ feed, step-down > 1× tool diameter). Re-evaluates on settings/
+  op/widget events. Source: sync.js IIFE marked "Concerns drawer".
+
+Critical fix — IDB cold-start race
+──────────────────────────────────
+src/data/index.js:192 was setting storage.db inside onupgradeneeded. That let
+queued iterate()/get()/put() calls open their own transactions while the
+schema-upgrade transaction was still open, throwing
+  InvalidStateError: A version change transaction is running
+on every fresh-profile first load. Removed the assignment; storage.db is now
+only set in onsuccess, which is when the upgrade transaction actually
+commits. Verified: cold profile renders cleanly after the fix (was rendering
+"SWARF IS LOADING" stuck screen + error overlay before).
+
+This is in upstream Kiri territory. Worth offering the fix back to GridSpace
+if Phil wants the goodwill — patch is one logical line.
+
+Other
+- Favicon: bone "s" mark on dark plate with mill-red HUD corner brackets.
+  Replaces the placeholder ⚒️ emoji.
+- Always-visible op grid (rough/contour/outline/pocket) inside the toolpaths
+  panel, replacing the +-popover. Phil markup: "I still don't see a way to
+  make/add/change/see toolpaths." Cards are big, hover-highlighted, and
+  expert-only ops are gated by body.swarf-expert.
+
+Camera padding tuned to 1.8 (was 2.6 → 1.3 → 1.8 across iterations). Aim:
+~75% viewport fill on a single 25.4mm cube. Watch this if Phil reports
+zoom drift on imported parts of different sizes — fit() math scales with
+the part's max dimension, so a much smaller or larger part will land at a
+different ratio. Easy follow-up: set padding adaptively from bbox volume.
+
+KNOWN OPEN
+──────────
+- Sky gradient is in (canvas alpha:true + body red→indigo) but reads dim in
+  practice because the THREE scene's directional light + grid still wash it
+  out. May want to drop ambient further or tint the grid to match.
+- Localization strip — LANG.* indirection still in. Phil approved removal
+  but it's mid-way; deferred behind the coaching pass.
+- Markup-inject + #swarf-err overlay still loaded on /kiri/. Strip or
+  query-param gate before any external distribution.
 
 v00000-007 — NIGHT 2 MARKUP PASS (2026-04-15)
 ─────────────────────────────────────────────

@@ -17,19 +17,25 @@ The Downward Spiral, by Nine Inch Nails. Productive upside-down of bright, featu
 
 How to use
 ──────────
-1. Open the app. A 25.4mm cube is loaded by default so the viewport is never blank.
+1. Open the app. A 25.4mm cube sits centered on the bed so the viewport is never blank.
 2. File → import — drop in an STL or OBJ.
-3. Setup → machines — pick MR-1 or ShopBot.
-4. Toolpaths (top toolbar) — add rough, contour, outline, pocket as needed.
-5. Preview — slice and inspect the toolpaths.
-6. Export — gcode for the selected machine.
+3. Setup → machines — MR-1 is preselected. Or pick ShopBot Basic.
+4. Toolpaths (top toolbar) — add rough, contour, outline, pocket. Click ENDMILLS & BITS to manage the tool library.
+5. Preview — slice and inspect.
+6. Simulate — watch the tool walk the paths in real time.
+7. Export — gcode for the selected machine.
 
 That is the whole trip.
 
+Two help surfaces ship with the app, both under the Help menu —
+Search Help (live filter across operations, parameters, tools, and short coaching paragraphs) and Concordance (the glossary, every named thing in swarf in one paragraph).
+
+A Concerns drawer pinned to the lower right counts setup warnings as you build a job — stepover too wide on a finishing pass, plunge running as fast as feed, step-down deeper than the tool diameter. Empty drawer means a clean setup.
+
 Student mode vs. Expert mode
 ────────────────────────────
-Student is the default and covers the four operations above with locked tools, auto stock, and corner/top origin.
-Expert (View → expert mode) unlocks the rest — stock overrides, origin offsets, tool library editing, flip, drip, area, gcode, register, level, helical. Persists per browser.
+Student is the default and covers the four operations above with locked tools, auto stock at the part bbox, and origin centered on the part.
+Expert (View → expert mode) unlocks the rest — stock overrides, origin offsets, tool library editing, flip, drip, area, gcode, register, level, helical. Persists per browser. Also restores the translucent stock outline around the part so you can see your raw material.
 
 Keyboard shortcuts
 ──────────────────
