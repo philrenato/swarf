@@ -347,6 +347,18 @@ function setup_keybd_nav() {
     $('set-device').onclick = (ev) => { ev.stopPropagation(); api.show.devices() };
     $('set-tools').onclick = (ev) => { ev.stopPropagation(); api.show.tools() };
     $('set-prefs').onclick = (ev) => { ev.stopPropagation(); api.modal.show('prefs') };
+    // swarf: reparent #panel-left and #panel-right out of #mid so fixed positioning
+    // actually pins to the viewport. Some ancestor in Kiri's flow has a containing block
+    // that was trapping fixed descendants.
+    (function(){
+        const reparent = (id) => {
+            const el = document.getElementById(id);
+            if (el && el.parentNode !== document.body) document.body.appendChild(el);
+        };
+        reparent('panel-left');
+        reparent('panel-right');
+    })();
+
     // swarf: click-to-open menus (kill Kiri's hover-to-open — markup note: "like a real app")
     (function(){
         const menus = document.querySelectorAll('#menubar .top-menu > span');

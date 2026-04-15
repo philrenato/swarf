@@ -173,14 +173,14 @@ function update_size(updateDark = true) {
        //   minor grid  X = 0x2a1a14                      Y = 0x2a2012
        // setGrid(major, minor, colorMajor, colorMinor) takes a single color per level,
        // so we alternate by using major=red-ish, minor=amber-ish as the two visible layers.
-       // swarf viewport (refs pass Apr 15): warm near-black sky, hot crimson X grid,
-       // oxidized-iron Y grid. Still quieter than LastFirst — grid is an instrument,
-       // not a theme. Translucent opacity keeps lines readable but not loud.
+       // swarf viewport v2 (refs pass Apr 15, 20%+): mill-red X rails, iron Y grid,
+       // brighter so the bed reads as a Tron-terminal workfield — still the carving
+       // instrument, not a poster. CSS adds soft corner bloom via #container gradients.
        space.platform.set({ light: 0.08 });
-       space.platform.setFont({rulerColor:'#8a857c'}); // bone-ash rulers
-       space.platform.setGrid(gridMajor, gridMinor, 0x7a1612, 0x3a1e18);
-       space.platform.opacity(0.08);
-       space.sky.set({ color: 0x0a0808, ambient: { intensity: 0.55 } });
+       space.platform.setFont({rulerColor:'#b0a89a'}); // bone rulers, slightly hotter
+       space.platform.setGrid(gridMajor, gridMinor, 0xb01818, 0x3a1e18);
+       space.platform.opacity(0.18);
+       space.sky.set({ color: 0x0a0808, ambient: { intensity: 0.6 } });
        document.documentElement.setAttribute('data-theme', 'dark');
        space.platform.setSize();
     }

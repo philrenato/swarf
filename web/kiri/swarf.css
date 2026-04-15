@@ -27,9 +27,35 @@ body.swarf-expert .swarf-expert-only { display: initial !important; }
   --swarf-green:     #3a7a5a;   /* LLM-active dot, reserved for v002 Journeyman */
 }
 
-/* swarf viewport: dark gray, not crushed black (markup Apr 15) */
-html, body { background: #14120f !important; color: var(--swarf-text); }
-#container { background: #14120f !important; }
+/* swarf viewport: warm black with subtle Tron-ref corner bloom + top rail */
+html, body { background: var(--swarf-bg) !important; color: var(--swarf-text); }
+#container {
+  background:
+    /* bottom-left red bloom */
+    radial-gradient(ellipse 60% 45% at 10% 95%, rgba(208,32,32,0.11), transparent 60%),
+    /* top-right thin red rail bloom */
+    radial-gradient(ellipse 40% 30% at 95% 5%, rgba(208,32,32,0.08), transparent 55%),
+    /* subtle horizontal scan overlay, very faint */
+    repeating-linear-gradient(
+      0deg,
+      rgba(216,210,198,0.010) 0,
+      rgba(216,210,198,0.010) 1px,
+      transparent 1px, transparent 3px
+    ),
+    var(--swarf-bg) !important;
+  position: relative;
+}
+/* thin accent rail across the top of the viewport */
+#container::before {
+  content: "";
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent 0%, var(--swarf-accent) 20%, var(--swarf-accent-hi) 50%, var(--swarf-accent) 80%, transparent 100%);
+  box-shadow: 0 0 8px var(--swarf-glow);
+  pointer-events: none;
+  z-index: 1;
+}
 
 /* typography: stark mono for UI, tracked uppercase for labels */
 body, .set-header, label, button, select, input, .opdiv, #op-add-list > div {
@@ -355,7 +381,7 @@ input[type="range"] { accent-color: var(--swarf-accent-hi); }
   text-transform: uppercase; letter-spacing: 0.18em;
   color: var(--swarf-text-3);
 }
-.swarf-credit-who { color: var(--swarf-text); }
+.swarf-credit-who { color: var(--swarf-text); white-space: nowrap; }
 .swarf-credit-who a { color: var(--swarf-text); text-decoration: none; border-bottom: 1px solid var(--swarf-line-2); }
 .swarf-credit-who a:hover { color: var(--swarf-accent-hi); border-bottom-color: var(--swarf-accent-hi); }
 .swarf-about-foot {
@@ -434,18 +460,52 @@ input[type="range"] { accent-color: var(--swarf-accent-hi); }
   gap: 10px !important;
   background: transparent !important;
 }
-/* every set2-group inside panel-right becomes a swarf plate */
+/* ---- Swarf plate v2 (refs pass): mill-red structural frame, HUD corners, scanlines ---- */
 #panel-right .set2-group {
   background: var(--swarf-bg-2) !important;
+  /* full L-frame: thick red on left/top/bottom; thin iron hairline on right */
   border: 1px solid var(--swarf-line-2) !important;
-  border-left: 3px solid var(--swarf-accent) !important;
+  border-left: 2px solid var(--swarf-accent) !important;
+  /* larger asymmetric chamfer (EMCO plate + Tron terminal registers) */
+  clip-path: polygon(14px 0, 100% 0, 100% calc(100% - 6px), calc(100% - 6px) 100%, 0 100%, 0 14px);
   box-shadow:
-    0 6px 24px rgba(0,0,0,0.6),
-    -1px 0 8px -2px var(--swarf-glow);
-  clip-path: polygon(10px 0, 100% 0, 100% 100%, 0 100%, 0 10px);
-  margin-bottom: 10px;
+    0 6px 28px rgba(0,0,0,0.6),
+    inset 1px 0 0 var(--swarf-accent-dim),  /* inner rail next to the outer accent edge */
+    inset 0 1px 0 rgba(216,210,198,0.06),   /* top highlight hairline */
+    -1px 0 10px -2px var(--swarf-glow);
+  margin-bottom: 12px;
   overflow: hidden;
   position: relative;
+}
+/* scanlines over the whole plate */
+#panel-right .set2-group::before {
+  content: "";
+  position: absolute; inset: 0;
+  background-image: repeating-linear-gradient(
+    0deg,
+    rgba(216,210,198,0.022) 0,
+    rgba(216,210,198,0.022) 1px,
+    transparent 1px, transparent 3px
+  );
+  pointer-events: none;
+  z-index: 0;
+}
+/* corner brackets — Tron terminal HUD reference */
+#panel-right .set2-group > *:first-child::before,
+#panel-right .set2-group > *:first-child::after {
+  content: "";
+  position: absolute;
+  width: 8px; height: 8px;
+  border: 1px solid var(--swarf-accent);
+  opacity: 0.85;
+}
+#panel-right .set2-group > *:first-child::before {
+  top: 5px; right: 5px;
+  border-left: none; border-bottom: none;
+}
+#panel-right .set2-group > *:first-child::after {
+  bottom: 5px; right: 5px;
+  border-left: none; border-top: none;
 }
 /* empty plates should not render — otherwise the UI looks like skeleton chrome */
 #panel-right .set2-group:empty,
