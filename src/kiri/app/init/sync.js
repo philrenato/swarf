@@ -340,13 +340,7 @@ function setup_keybd_nav() {
     ui.modalBox.onclick = (ev) => { ev.stopPropagation() };
 
     $('export-support-a').onclick = (ev) => { ev.stopPropagation(); api.modal.show('don8') };
-    $('mode-fdm').onclick = () => api.mode.set('FDM');
-    $('mode-cam').onclick = () => api.mode.set('CAM');
-    $('mode-sla').onclick = () => api.mode.set('SLA');
-    $('mode-laser').onclick = () => api.mode.set('LASER');
-    $('mode-drag').onclick = () => api.mode.set('DRAG');
-    $('mode-wjet').onclick = () => api.mode.set('WJET');
-    $('mode-wedm').onclick = () => api.mode.set('WEDM');
+    // swarf: mode menu removed — these buttons no longer exist in the DOM
     $('set-device').onclick = (ev) => { ev.stopPropagation(); api.show.devices() };
     $('set-profs').onclick = (ev) => { ev.stopPropagation(); api.conf.show() };
     $('set-tools').onclick = (ev) => { ev.stopPropagation(); api.show.tools() };

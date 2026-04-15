@@ -1,0 +1,151 @@
+/* swarf™ — the Downward Spiral skin layered over Kiri:Moto's UI.
+   All tokens live here; Kiri's index.css remains untouched so upstream pulls stay easy.
+   Student/Expert visibility is driven by body.swarf-expert / default student. */
+
+/* ---- Student/Expert visibility ---- */
+.swarf-expert-only { display: none !important; }
+body.swarf-expert .swarf-expert-only { display: initial !important; }
+
+/* ---- Palette: crushed black, bone, dried blood red (locked 2026-04-14) ---- */
+:root {
+  --swarf-bg:        #0a0707;   /* bruised near-black, not pure black */
+  --swarf-bg-2:      #141010;   /* panel */
+  --swarf-bg-3:      #1d1816;   /* elevated */
+  --swarf-line:      #2a1a14;   /* oxidized iron */
+  --swarf-line-2:    #3a2820;
+  --swarf-text:      #d4cfc4;   /* bone */
+  --swarf-text-2:    #8a857c;   /* ash */
+  --swarf-text-3:    #5a554c;   /* faint */
+  --swarf-accent:    #7a2a1a;   /* dried blood */
+  --swarf-accent-hi: #a8382a;   /* hover */
+  --swarf-amber:     #c08a3a;   /* concerns warning */
+  --swarf-green:     #3a7a5a;   /* LLM-active dot, reserved for v002 Journeyman */
+}
+
+html, body { background: var(--swarf-bg) !important; color: var(--swarf-text); }
+
+/* typography: stark mono for UI, tracked uppercase for labels */
+body, .set-header, label, button, select, input, .opdiv, #op-add-list > div {
+  font-family: "JetBrains Mono", "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace !important;
+}
+.set-header, #menubar, label[class*="set-"] {
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-size: 11px;
+  color: var(--swarf-text-2);
+}
+
+/* panels */
+#app, #mid, #container {
+  background: var(--swarf-bg);
+}
+#menubar,
+.set2-group,
+#mode-tools,
+.mdialog,
+#oplist,
+#op-add-list,
+#dev-list,
+#modal-box {
+  background: var(--swarf-bg-2) !important;
+  color: var(--swarf-text) !important;
+  border-color: var(--swarf-line) !important;
+}
+
+/* active button text always white (RDS non-negotiable) */
+button {
+  background: var(--swarf-bg-3);
+  color: var(--swarf-text);
+  border: 1px solid var(--swarf-line-2);
+  border-radius: 2px;
+  padding: 4px 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  font-size: 11px;
+  transition: background 120ms linear, border-color 120ms linear;
+}
+button:hover,
+button.selected,
+button:active {
+  background: var(--swarf-accent);
+  border-color: var(--swarf-accent-hi);
+  color: #fff;
+}
+
+/* links & accents */
+a, a:visited { color: var(--swarf-accent-hi); }
+a:hover { color: var(--swarf-text); }
+
+/* op-add tiles */
+#op-add-list { gap: 2px; padding: 3px; }
+#op-add-list > div {
+  background: var(--swarf-bg-3);
+  border: 1px solid var(--swarf-line-2);
+  color: var(--swarf-text);
+  padding: 6px 8px;
+  text-transform: lowercase;
+  font-size: 12px;
+  cursor: pointer;
+}
+#op-add-list > div:hover {
+  background: var(--swarf-accent);
+  color: #fff;
+  border-color: var(--swarf-accent-hi);
+}
+
+/* top bar */
+#menubar {
+  border-bottom: 1px solid var(--swarf-line);
+  box-shadow: 0 1px 0 rgba(0,0,0,0.4);
+}
+
+/* viewport chrome */
+#container { background: var(--swarf-bg); }
+
+/* the old "Kiri:Moto is Loading" text */
+#curtain {
+  background: var(--swarf-bg) !important;
+  color: var(--swarf-text) !important;
+  font-family: "JetBrains Mono", "IBM Plex Mono", ui-monospace, monospace !important;
+  letter-spacing: 0.08em;
+}
+#curtain img { display: none; } /* kill Kiri gear spinner — replace later with swarf mark */
+#curtain::after {
+  content: "SWARF IS LOADING";
+  position: absolute; top: 50%; left: 0; right: 0; transform: translateY(-50%);
+  text-align: center;
+  font-size: 12px; color: var(--swarf-text-2); letter-spacing: 0.2em;
+}
+#loading { display: none !important; } /* hide the original "Kiri:Moto is Loading" string */
+
+/* form controls */
+select, input[type="text"], input[type="number"] {
+  background: var(--swarf-bg-3);
+  color: var(--swarf-text);
+  border: 1px solid var(--swarf-line-2);
+  padding: 2px 6px;
+  font-size: 12px;
+  border-radius: 2px;
+}
+select:focus, input:focus { outline: none; border-color: var(--swarf-accent); }
+
+/* amber underline marker for Concerns-flagged fields (wired up in coaching pass) */
+.swarf-concern {
+  box-shadow: inset 0 -2px 0 var(--swarf-amber);
+}
+
+/* on-page error overlay keeps its red strip visible on dark bg */
+#swarf-err { border-top-color: var(--swarf-accent) !important; }
+
+/* swarf wordmark in top bar, replacing "Kiri:Moto" (dev-quick; real wordmark comes later) */
+#menubar::before {
+  content: "swarf™";
+  padding: 0 16px 0 14px;
+  color: var(--swarf-text);
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: lowercase;
+  border-right: 1px solid var(--swarf-line);
+  margin-right: 10px;
+  font-size: 14px;
+}

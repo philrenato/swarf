@@ -64,18 +64,9 @@ function setMode(mode, lock, then) {
     // change mode constants
     current.mode = mode;
     MODE = MODES[mode];
-    document.title = 'Kiri:Moto | ' + mode;
-    // gcode edit area for any non-SLA mode
-    api.uc.setVisible($('gcode-edit'), mode !== 'SLA');
-    // highlight selected mode menu item
-    ["FDM","CAM","SLA","LASER","DRAG","WJET","WEDM"].forEach(sm => {
-        const cl = $(`mode-${sm.toLowerCase()}`).classList;
-        if (sm === mode) {
-            cl.add('selected');
-        } else {
-            cl.remove('selected');
-        }
-    });
+    document.title = 'swarf';
+    // swarf: mode menu removed; skip mode-item highlight (elements no longer exist)
+    api.uc.setVisible($('gcode-edit'), true);
     // restore cached device profile for this mode
     if (current.cdev[mode]) {
         current.device = clone(current.cdev[mode]);

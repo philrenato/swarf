@@ -32,6 +32,7 @@
     <link rel="stylesheet" type="text/css" href="/moto/theme.css">
     <link rel="stylesheet" type="text/css" href="/moto/menubar.css">
     <link rel="stylesheet" type="text/css" href="index.css">
+    <link rel="stylesheet" type="text/css" href="swarf.css">
     <link href="manifest.json" rel="manifest">
     <link href="/font/css/all.min.css" rel="stylesheet">
     <!-- <script type="module" src="/lib/kiri/run/worker.js"></script> -->
@@ -65,7 +66,8 @@
         <!-- left settings menu -->
         <div id="panel-left" class="f-col j-left">
             <div id="panel-slide" class="f-col settings">
-                <div id="all-devpro" class="set2-group"></div>
+                <!-- swarf: Machine Profile / Profile editor hidden in student mode; student picks MR-1 or ShopBot from a simpler chooser elsewhere -->
+                <div id="all-devpro" class="set2-group swarf-expert-only"></div>
                 <!-- FDM -->
                 <div id="fdm-layers" class="set2-group mode-fdm"></div>
                 <div id="fdm-walls" class="set2-group mode-fdm"></div>
@@ -79,11 +81,12 @@
                 <div id="fdm-expert" class="set2-group mode-fdm bottom"></div>
                 <!-- CAM -->
                 <div id="cam-tabs" class="set2-group mode-cam"></div>
-                <div id="cam-stock" class="set2-group mode-cam"></div>
-                <div id="cam-limits" class="set2-group mode-cam"></div>
+                <!-- swarf student mode: Stock auto from bbox, Limits/Origin locked, Expert hidden (spec §5, §10, §11) -->
+                <div id="cam-stock" class="set2-group mode-cam swarf-expert-only"></div>
+                <div id="cam-limits" class="set2-group mode-cam swarf-expert-only"></div>
                 <div id="cam-output" class="set2-group mode-cam"></div>
-                <div id="cam-origin" class="set2-group mode-cam"></div>
-                <div id="cam-expert" class="set2-group mode-cam bottom"></div>
+                <div id="cam-origin" class="set2-group mode-cam swarf-expert-only"></div>
+                <div id="cam-expert" class="set2-group mode-cam bottom swarf-expert-only"></div>
                 <!-- LASER / 2D Cut Tools -->
                 <div id="lzr-slice" class="set2-group mode-laser"></div>
                 <div id="lzr-surface" class="set2-group mode-laser"></div>
@@ -151,23 +154,25 @@
                             <i class="fas fa-plus"></i>
                             <div id="op-add-pop" class="f-col">
                                 <div id="op-add-list" class="opdiv op-grid">
-                                    <div id="laser-on" title="turn on laser mode">laser on</div>
-                                    <div id="laser-off"  title="turn off laser mode">laser off</div>
-                                    <div id="cam-index" title="rotate index axis">index</div>
-                                    <div id="cam-lathe" title="lathe operation">lathe</div>
-                                    <div id="cam-flip" title="flip part and load&#13;profile for other side&#13;for double-sided work">flip</div>
-                                    <div id="cam-reg" title="drill registration holes&#13;along the X or Y axis&#13;for double-sided work">register</div>
-                                    <div title="clear stock face">level</div>
-                                    <div title="drill selected holes">drill</div>
-                                    <div title="follow a downward helix&#13;using conical selections">helical</div>
-                                    <div title="insert custom gcode">gcode</div>
-                                    <div title="2.5D tracing along X or Y axis&#13;used for complex part features">contour</div>
-                                    <div title="follow selected features. often used&#13;for lettering and engraving">trace</div>
-                                    <div title="clear areas above selected surfaces">pocket</div>
-                                    <div title="remove an area of material&#13;inside a defined boundary&#13;sometimes called pocketing">rough</div>
-                                    <div title="cutout parts using their shadow outline">outline</div>
-                                    <div title="perform operations on using outlines or surfaces&#13;many operations are simple wrappers around this">area</div>
-                                    <div id="cam-loop" title="loop next N operations M times">loop</div>
+                                    <!-- swarf student ops: Rough, Contour, Outline, Pocket (spec §8) -->
+                                    <div title="clear stock material layer by layer above selected surfaces — the first pass that clears the bulk">rough</div>
+                                    <div title="smooth 2.5D pass along the X or Y axis, used for curved faces after roughing">contour</div>
+                                    <div title="cut parts out using their outline — the pass that frees the part from the stock">outline</div>
+                                    <div title="clear areas above selected surfaces — pockets, trays, countersinks">pocket</div>
+                                    <!-- swarf expert-only: hidden in student mode (spec §5 + §8) -->
+                                    <div class="swarf-expert-only" title="clear the top of the stock to a flat reference surface">level</div>
+                                    <div class="swarf-expert-only" title="drill selected holes">drill</div>
+                                    <div class="swarf-expert-only" title="follow selected features, often used for lettering and engraving">trace</div>
+                                    <div class="swarf-expert-only" title="perform operations on outlines or surfaces — a low-level wrapper">area</div>
+                                    <div class="swarf-expert-only" title="insert custom gcode">gcode</div>
+                                    <div class="swarf-expert-only" title="follow a downward helix using conical selections">helical</div>
+                                    <div id="cam-flip" class="swarf-expert-only" title="flip part and load profile for other side (double-sided work)">flip</div>
+                                    <div id="cam-reg" class="swarf-expert-only" title="drill registration holes for double-sided work">register</div>
+                                    <div id="cam-lathe" class="swarf-expert-only" title="lathe operation">lathe</div>
+                                    <div id="cam-index" class="swarf-expert-only" title="rotate index axis">index</div>
+                                    <div id="cam-loop" class="swarf-expert-only" title="loop next N operations M times">loop</div>
+                                    <div id="laser-on" class="swarf-expert-only" title="turn on laser mode">laser on</div>
+                                    <div id="laser-off" class="swarf-expert-only" title="turn off laser mode">laser off</div>
                                 </div>
                             </div>
                         </div>
