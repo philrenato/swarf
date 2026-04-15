@@ -394,7 +394,7 @@ function setup_keybd_nav() {
                 // otherwise the bed dwarfs the part and the part renders tiny.
                 const meshes = (api.widgets.all() || []).map(w => w.mesh).filter(Boolean);
                 if (space.view.fit && meshes.length) {
-                    space.view.fit(undefined, { padding: 2.6, visibleOnly: true, objects: meshes });
+                    space.view.fit(undefined, { padding: 1.3, visibleOnly: true, objects: meshes });
                 } else space.view.home();
             } catch (e) {}
         });

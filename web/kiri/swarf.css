@@ -850,6 +850,49 @@ hr:not(.swarf-keep) {
 }
 .menubar-separator { background: var(--swarf-line) !important; }
 
+/* swarf: always-visible add-op grid inside the toolpaths panel
+   (markup Apr 15 — "I still don't see a way to make/add/change/see toolpaths") */
+.swarf-add-op-label {
+  font-size: 9px; letter-spacing: 0.22em; text-transform: uppercase;
+  color: var(--swarf-text-3);
+  padding: 10px 4px 6px 4px;
+  border-top: 1px dashed var(--swarf-line);
+  margin-top: 6px;
+}
+.swarf-add-op-grid {
+  display: grid !important;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+  padding: 0 0 8px 0;
+  position: static !important;
+  background: transparent !important;
+  border: none !important;
+}
+.swarf-add-op-grid > div {
+  display: flex !important;
+  align-items: center;
+  justify-content: center;
+  padding: 12px 8px;
+  background: var(--swarf-bg-3);
+  border: 1px solid var(--swarf-line-2);
+  border-left: 2px solid var(--swarf-accent-dim);
+  color: var(--swarf-text);
+  font-family: "JetBrains Mono", "IBM Plex Mono", ui-monospace, monospace;
+  font-size: 12px;
+  letter-spacing: 0.1em;
+  text-transform: lowercase;
+  cursor: pointer;
+  transition: background 120ms, border-color 120ms, color 120ms;
+}
+.swarf-add-op-grid > div:hover {
+  background: var(--swarf-accent);
+  border-color: var(--swarf-accent-hi);
+  color: #fff;
+}
+body:not(.swarf-expert) .swarf-add-op-grid > .swarf-expert-only {
+  display: none !important;
+}
+
 /* swarf: Kiri:Moto MIT license panel inside Help → About (markup Apr 15 follow-up) */
 .swarf-license {
   margin: 12px 0 4px 0;

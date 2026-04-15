@@ -148,42 +148,46 @@
                 </div>
                 <div class="set2-group f-col mode-cam bottom">
                     <!-- swarf: operation list — opens when TOOLPATHS step is clicked (markup Apr 15) -->
-                    <details id="swarf-toolpaths-details">
+                    <details id="swarf-toolpaths-details" open>
                     <summary class="set-header mode-cam"><a>toolpaths</a></summary>
                     <div id="camops" class="f-col a-stretch grow">
-                        <!-- swarf: tool library opener (markup Apr 15 — "where are the
-                             machining tools?"). Endmills / drills / bits live in the
-                             tool library; each operation picks one from it. -->
+                        <!-- swarf: tool library opener (markup Apr 15) — endmills / drills / bits -->
                         <div id="swarf-tools-row" class="f-row" style="gap:6px; padding:4px 0; align-items:center">
                             <span style="font-size:10px; letter-spacing:0.14em; text-transform:uppercase; color:var(--swarf-text-3); flex:1">tool library</span>
                             <button id="swarf-open-tools" title="manage endmills, drills, and bits" style="font-size:11px; padding:3px 10px">endmills &amp; bits</button>
                         </div>
+
+                        <!-- swarf: live operations list (rough/contour/outline/pocket added here) -->
                         <div id="oplist" class="f-col"></div>
-                        <div id="op-add" class="opdiv">
-                            <i class="fas fa-plus"></i>
-                            <div id="op-add-pop" class="f-col">
-                                <div id="op-add-list" class="opdiv op-grid">
-                                    <!-- swarf student ops: Rough, Contour, Outline, Pocket (spec §8) -->
-                                    <div title="clear stock material layer by layer above selected surfaces — the first pass that clears the bulk">rough</div>
-                                    <div title="smooth 2.5D pass along the X or Y axis, used for curved faces after roughing">contour</div>
-                                    <div title="cut parts out using their outline — the pass that frees the part from the stock">outline</div>
-                                    <div title="clear areas above selected surfaces — pockets, trays, countersinks">pocket</div>
-                                    <!-- swarf expert-only: hidden in student mode (spec §5 + §8) -->
-                                    <div class="swarf-expert-only" title="clear the top of the stock to a flat reference surface">level</div>
-                                    <div class="swarf-expert-only" title="drill selected holes">drill</div>
-                                    <div class="swarf-expert-only" title="follow selected features, often used for lettering and engraving">trace</div>
-                                    <div class="swarf-expert-only" title="perform operations on outlines or surfaces — a low-level wrapper">area</div>
-                                    <div class="swarf-expert-only" title="insert custom gcode">gcode</div>
-                                    <div class="swarf-expert-only" title="follow a downward helix using conical selections">helical</div>
-                                    <div id="cam-flip" class="swarf-expert-only" title="flip part and load profile for other side (double-sided work)">flip</div>
-                                    <div id="cam-reg" class="swarf-expert-only" title="drill registration holes for double-sided work">register</div>
-                                    <div id="cam-lathe" class="swarf-expert-only" title="lathe operation">lathe</div>
-                                    <div id="cam-index" class="swarf-expert-only" title="rotate index axis">index</div>
-                                    <div id="cam-loop" class="swarf-expert-only" title="loop next N operations M times">loop</div>
-                                    <div id="laser-on" class="swarf-expert-only" title="turn on laser mode">laser on</div>
-                                    <div id="laser-off" class="swarf-expert-only" title="turn off laser mode">laser off</div>
-                                </div>
-                            </div>
+
+                        <!-- swarf: ALWAYS-VISIBLE add-operation grid. Phil markup Apr 15:
+                             "I still don't see a way to make/add/change/see toolpaths."
+                             Pulled out of the +-popover so the primary action is obvious. -->
+                        <div class="swarf-add-op-label">add a step</div>
+                        <div id="op-add-list" class="opdiv op-grid swarf-add-op-grid">
+                            <div title="clear stock material layer by layer above selected surfaces — the first pass that clears the bulk">rough</div>
+                            <div title="smooth 2.5D pass along the X or Y axis, used for curved faces after roughing">contour</div>
+                            <div title="cut parts out using their outline — the pass that frees the part from the stock">outline</div>
+                            <div title="clear areas above selected surfaces — pockets, trays, countersinks">pocket</div>
+                            <!-- expert-only ops, hidden in student mode -->
+                            <div class="swarf-expert-only" title="clear the top of the stock to a flat reference surface">level</div>
+                            <div class="swarf-expert-only" title="drill selected holes">drill</div>
+                            <div class="swarf-expert-only" title="follow selected features, often used for lettering and engraving">trace</div>
+                            <div class="swarf-expert-only" title="perform operations on outlines or surfaces — a low-level wrapper">area</div>
+                            <div class="swarf-expert-only" title="insert custom gcode">gcode</div>
+                            <div class="swarf-expert-only" title="follow a downward helix using conical selections">helical</div>
+                            <div id="cam-flip" class="swarf-expert-only" title="flip part and load profile for other side (double-sided work)">flip</div>
+                            <div id="cam-reg" class="swarf-expert-only" title="drill registration holes for double-sided work">register</div>
+                            <div id="cam-lathe" class="swarf-expert-only" title="lathe operation">lathe</div>
+                            <div id="cam-index" class="swarf-expert-only" title="rotate index axis">index</div>
+                            <div id="cam-loop" class="swarf-expert-only" title="loop next N operations M times">loop</div>
+                            <div id="laser-on" class="swarf-expert-only" title="turn on laser mode">laser on</div>
+                            <div id="laser-off" class="swarf-expert-only" title="turn off laser mode">laser off</div>
+                        </div>
+                        <!-- preserve original popover scaffolding hidden so upstream code paths that
+                             reference #op-add and #op-add-pop don't break -->
+                        <div id="op-add" class="opdiv" style="display:none">
+                            <div id="op-add-pop" class="f-col" style="display:none"></div>
                         </div>
                     </div>
                     </details>
@@ -273,11 +277,48 @@
                 <span class="swarf-help-title">concordance</span>
                 <span class="swarf-help-sub">every named thing in swarf, one line each</span>
             </div>
-            <div class="swarf-help-body">
-                <div class="swarf-help-empty">
-                    <p>concordance is scaffolded but not yet populated.</p>
-                    <p>coming in the coaching pass: every operation (rough, contour, outline, pocket), every parameter (stepover, feed rate, plunge rate, depth of cut), every tool, and every machine — each with a one-paragraph what/does/typical-range entry.</p>
-                </div>
+            <div class="swarf-help-body swarf-concordance">
+                <section>
+                    <h3>operations</h3>
+                    <dl>
+                        <dt>rough</dt><dd>the first pass. clears bulk material in horizontal layers above the part. fast, deep, sloppy by design — you finish later. typical step-down: 30–80% of tool diameter; typical stepover: 40–60%.</dd>
+                        <dt>contour</dt><dd>smooth surface pass after rough. the cutter crawls across the X or Y axis at a fine stepover, riding the part's curves. typical stepover: 5–15% of tool diameter on finishing.</dd>
+                        <dt>outline</dt><dd>cuts the part free from the stock by following its silhouette. usually the last cutting op. leave material with tabs so the part doesn't fly out.</dd>
+                        <dt>pocket</dt><dd>clears flat-bottomed cavities — trays, countersinks, recesses. selection-driven; pick the floor face and swarf walls down.</dd>
+                    </dl>
+                </section>
+                <section>
+                    <h3>parameters</h3>
+                    <dl>
+                        <dt>stepover</dt><dd>how far the tool moves sideways between passes. percentage of tool diameter. larger = faster but rougher; smaller = smoother but slower. roughing 40–60%, finishing 5–15%.</dd>
+                        <dt>step-down (depth of cut)</dt><dd>how deep the tool plunges per layer. limited by tool reach and material. wood/plastic up to 1× tool diameter; aluminum 0.25–0.5×; steel 0.1–0.25×.</dd>
+                        <dt>feed rate</dt><dd>how fast the tool moves through material, in mm/min. material + tool + step-down all affect this. when in doubt: slower is safer.</dd>
+                        <dt>plunge rate</dt><dd>how fast the tool drives down into material. usually 30–50% of feed rate. too fast and you snap end-mills.</dd>
+                        <dt>spindle speed</dt><dd>RPM of the cutter. softer material + bigger tool = lower RPM. wood 12k–24k; aluminum 10k–18k; steel 4k–10k.</dd>
+                        <dt>ease down</dt><dd>ramp into the cut at an angle instead of plunging straight down. easier on the tool, especially for end-mills with no center cut. on by default in swarf.</dd>
+                        <dt>depth first</dt><dd>finish each Z layer top-to-bottom in one region before moving to the next. opposite is layer-first (sweep all regions per layer).</dd>
+                        <dt>tab</dt><dd>a small uncut bridge of stock that holds the part in place during the outline cut, so it doesn't shift or fly out. break or sand off after.</dd>
+                        <dt>stock</dt><dd>the raw block of material on the machine bed. defaults to part-bbox in swarf student mode. expert mode lets you size it independently.</dd>
+                        <dt>z top / z bottom</dt><dd>upper and lower Z bounds for the carving. defines the slab swarf will work inside.</dd>
+                        <dt>z clearance</dt><dd>how high above stock the tool retracts during rapids. high enough to clear clamps; low enough not to waste time.</dd>
+                    </dl>
+                </section>
+                <section>
+                    <h3>tools</h3>
+                    <dl>
+                        <dt>end-mill</dt><dd>flat-bottomed cutter, the workhorse. diameter and flute count vary; fewer flutes = better chip clearance for soft material.</dd>
+                        <dt>ball-end</dt><dd>spherical tip. for 3D contour finishing on curved surfaces. leaves a cusp pattern proportional to stepover.</dd>
+                        <dt>v-bit</dt><dd>conical cutter for engraving and chamfering. depth controls the line width.</dd>
+                        <dt>drill</dt><dd>plunges straight down to make holes. paired with the drill operation (expert mode).</dd>
+                    </dl>
+                </section>
+                <section>
+                    <h3>machines</h3>
+                    <dl>
+                        <dt>Langmuir MR-1</dt><dd>benchtop CNC mill, 30×17×16" envelope, BT30 spindle. swarf's default device.</dd>
+                        <dt>ShopBot Basic</dt><dd>4×8' router, ER25 spindle. for sheet-goods carving and signage.</dd>
+                    </dl>
+                </section>
             </div>
         </div>
 
