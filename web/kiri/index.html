@@ -207,38 +207,30 @@
             </div>
         </div>
 
-        <!-- help menu -->
+        <!-- swarf: help / about modal. Replaces Kiri:Moto's links with swarf credits + Kiri:Moto attribution (spec §19). -->
         <div id="mod-help" class="mdialog f-col">
             <div class="f-row j-center title">
-                <label>Kiri:Moto Help</label>
+                <label>swarf&trade;</label>
+            </div>
+            <div class="f-row j-center" style="opacity:0.7;font-size:11px;letter-spacing:0.14em;text-transform:uppercase;margin-top:-4px">
+                <label>gcode carving interface</label>
             </div>
             <hr width="100%">
-            <div class="f-row">
-                <div class="f-col">
-                    <a target="_rsc" href="https://docs.grid.space/projects/kiri-moto"><i class="fas fa-question-circle"></i>Documentation & APIs</a>
-                    <a target="_rsc" href="https://forum.grid.space"><i class="fab fa-discourse"></i> Discourse Forums</a>
-                    <a target="_rsc" href="https://discord.gg/suyCCgr"><i class="fab fa-discord"></i> Discord Server</a>
-                    <a target="_rsc" href="https://github.com/gridspace/grid-apps/issues"><i class="fas fa-bug"></i> Bug Reports</a>
-                    <a href="https://youtu.be/08795Sj22QE" target="youtube"><i class="fab fa-youtube"></i>Video Guide (v2.5)</a>
-                    <a target="_rsc" href="https://github.com/gridspace/grid-apps/releases"><i class="fab fa-github"></i> Releases & Binaries</a>
-                    <a target="_rsc" id="wassup" onclick="kiri.api.modal.show('don8')"><i class="fa-solid fa-hand-holding-dollar"></i> Support Development</a>
+            <div class="f-col" style="gap:12px;padding:6px 14px">
+                <p style="margin:0">swarf is a focused CNC carving front-end for design students — one way to go from a mesh to good gcode on the two machines in the lab, with everything else hidden.</p>
+                <p style="margin:0">Not a replacement for Kiri:Moto. A fork with opinions.</p>
+                <div class="swarf-credit-block" style="font-size:11px;letter-spacing:0.04em;line-height:1.6;opacity:0.88;margin-top:4px">
+                    <div>concept, domain, UX &mdash; Phil Renato / renato.design</div>
+                    <div>code, algorithms, docs &mdash; Claude (Anthropic)</div>
+                    <div>method &mdash; Iterative LLM Co-Authorship (ILCA)</div>
+                    <div>CAM engine &mdash; <a target="_km" href="https://github.com/GridSpace/grid-apps">Kiri:Moto</a> by Stewart Allen / GridSpace (MIT)</div>
+                    <div>Kendall College of Art and Design</div>
+                    <div style="opacity:0.65;margin-top:4px">part of the renato.design application family</div>
                 </div>
-                <div id="suppopp" class="content hide">
-                <hr class="mlr-10">
-                <div class="f-col blurb">
-                    <p>14 Years Under<br>Active Development</p>
-                    <span class="grow"></span>
-                    <p>A project for makers, hobbyist, professionals, students, and educators</p>
-                    <span class="grow"></span>
-                    <p>Help keep it free. Ask about Institutional support</p>
-                    <span class="grow"></span>
-                    <p>Support funds continued development, bug fixes, documentation, and discussion forums</p>
-                </div>
-            </div>
             </div>
             <hr width="100%">
             <div class="f-row j-center">
-                <label id="kiri-version"></label>
+                <label id="kiri-version" style="letter-spacing:0.14em;font-size:11px;text-transform:uppercase;opacity:0.7"></label>
             </div>
         </div>
 

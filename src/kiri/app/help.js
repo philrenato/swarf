@@ -21,11 +21,11 @@ function showHelp() {
  */
 function showHelpFile(local,then) {
     if (!local) {
-        WIN.open("//docs.grid.space/", "_help");
-        return;
+        // swarf: no external docs redirect. The INFO modal IS the help surface until SearchableHelp lands.
+        local = true;
     }
-    const LANG = api.language.current;
-    $('kiri-version').innerHTML = `${LANG.version} ${version}`;
+    // swarf: fork version replaces upstream Kiri:Moto version string
+    $('kiri-version').innerHTML = `v001-000 · kiri:moto ${version}`;
     modal.show('help');
     api.event.emit('help.show', local);
 }
