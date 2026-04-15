@@ -35,7 +35,8 @@ function currentDeviceCode() {
 }
 
 function getModeDevices() {
-    return Object.keys(devlist[ api.mode.get_lower() ]).sort();
+    // swarf: non-CAM mode dirs deleted in fork audit; fall back to empty list for those modes
+    return Object.keys(devlist[ api.mode.get_lower() ] || {}).sort();
 }
 
 export function showDevices() {
@@ -85,7 +86,9 @@ function selectDevice(devicename) {
     if (isLocalDevice(devicename)) {
         setDeviceCode(setconf.get().devices[devicename], devicename);
     } else {
-        let code = devlist[api.mode.get_lower()][devicename];
+        // swarf: mode may have no devices if its dir was deleted in fork audit; guard the lookup
+        let modeDevs = devlist[api.mode.get_lower()] || {};
+        let code = modeDevs[devicename];
         if (code) {
             setDeviceCode(code, devicename);
         }

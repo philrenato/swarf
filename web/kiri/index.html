@@ -242,7 +242,8 @@
             <div class="f-row gap4 a-center">
                 <label id="dev-sel" class="set-header">select device</label>
                 <select id="dev-list"></select>
-                <div class="f-row grow j-end">
+                <!-- swarf: student-mode lockdown — no copy/rename/delete/export of devices. Expert toggle will restore these later. -->
+                <div class="f-row grow j-end swarf-expert-only" style="display:none">
                     <button id="device-add" lk="copy">copy</button>
                     <button id="device-ren" lk="rename">rename</button>
                     <button id="device-del" lk="delete">delete</button>
@@ -260,7 +261,8 @@
                 </div>
             </div>
             <div class="set-sep"></div>
-            <div id="device-action" class="f-row">
+            <!-- swarf: save + kirimoto macro docs are expert-only; students get read-only device view -->
+            <div id="device-action" class="f-row swarf-expert-only" style="display:none">
                 <div class="grow"></div>
                 <button id="device-save" lk="save">save</button>
                 <div class="grow"></div>
@@ -468,6 +470,22 @@
     </div>
 
 </div>
+<!-- swarf dev-only: on-page error overlay so Phil doesn't need DevTools -->
+<div id="swarf-err" style="display:none;position:fixed;bottom:0;left:0;right:0;max-height:40vh;overflow:auto;background:#1a0a0a;color:#ff6b5a;font:12px/1.4 monospace;padding:10px;z-index:99999;border-top:2px solid #a8382a;white-space:pre-wrap"></div>
+<script>
+(function(){
+  var box = document.getElementById('swarf-err');
+  function show(msg){ box.style.display='block'; box.textContent += msg + '\n\n'; }
+  window.addEventListener('error', function(e){
+    show('ERROR: ' + (e.message || e.error) + '\n  at ' + (e.filename||'?') + ':' + (e.lineno||'?'));
+  });
+  window.addEventListener('unhandledrejection', function(e){
+    show('PROMISE REJECTED: ' + (e.reason && e.reason.stack || e.reason));
+  });
+  var _ce = console.error;
+  console.error = function(){ show('console.error: ' + Array.from(arguments).map(String).join(' ')); _ce.apply(console, arguments); };
+})();
+</script>
 <!-- swarf dev-only: markup toolbar, cross-origin to markup server on :8731 -->
 <script src="swarf-markup-inject.js"></script>
 </body>

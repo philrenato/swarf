@@ -185,18 +185,7 @@ function content(actions) {
                     menuItem(actions, { id: 'app-don8', lk: 'donate', text: 'donate' }),
                 ]
             }),
-            topMenu(actions, {
-                text: 'mode', lk: 'mo_menu', side: 'right', right: true, items: [
-                    menuItem(actions, { id: 'mode-fdm', text: 'FDM', title: '3D Additive Printing Processes', iconClass: 'fas fa-layer-group' }),
-                    menuItem(actions, { id: 'mode-cam', text: 'CNC', title: 'CNC Mills and Subtractive Processes', iconClass: 'fas fa-bore-hole' }),
-                    menuItem(actions, { id: 'mode-sla', text: 'SLA', title: 'mSLA Resin Printing', iconClass: 'fas fa-cube' }),
-                    hr(),
-                    menuItem(actions, { id: 'mode-laser', text: 'Laser', title: 'Laser Cutting and Engraving', iconClass: 'fas fa-bolt' }),
-                    menuItem(actions, { id: 'mode-wjet', text: 'Water', title: 'WaterJet Cutting', iconClass: 'fas fa-location-pin' }),
-                    menuItem(actions, { id: 'mode-wedm', text: 'Wire', title: 'Wire EDM Cutting', iconClass: 'fas fa-ellipsis-vertical' }),
-                    menuItem(actions, { id: 'mode-drag', text: 'Drag', title: 'Drag Knife Cutting', iconClass: 'fas fa-caret-left' })
-                ]
-            }),
+            // swarf: mode menu removed — CNC is the only mode (spec §4)
             topMenu(actions, {
                 text: 'setup', lk: 'su_menu', side: 'right', right: true, items: [
                     menuItem(actions, { id: 'set-device', lk: 'machines', text: 'machines', iconClass: 'fas fa-cube' }),

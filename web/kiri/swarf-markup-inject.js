@@ -37,16 +37,22 @@
 
     #rd-toolbar {
       position: fixed;
-      top: 0; left: 0; right: 0;
-      height: 44px;
-      background: #111;
-      border-bottom: 1px solid #2a2a2a;
+      /* swarf: float bottom-right so it doesn't occlude Kiri:Moto's top bar */
+      bottom: 16px; right: 16px; left: auto; top: auto;
+      height: 38px;
+      background: rgba(17,17,17,0.92);
+      backdrop-filter: blur(6px);
+      -webkit-backdrop-filter: blur(6px);
+      border: 1px solid #2a2a2a;
+      border-radius: 6px;
+      box-shadow: 0 6px 24px rgba(0,0,0,0.55);
       display: flex;
       align-items: center;
       gap: 2px;
-      padding: 0 10px;
+      padding: 0 8px;
       z-index: 999999;
       user-select: none;
+      cursor: move;
     }
     .rd-label {
       font-size: 9px;
@@ -262,7 +268,7 @@
     .rd-compare-ta.rd-dimmed { opacity: 0.3; }
 
     /* Top padding so site doesn't hide under toolbar */
-    #rd-body-pad { height: 44px; }
+    #rd-body-pad { height: 0; } /* swarf: toolbar floats, no body offset needed */
 
     /* Send modal */
     #rd-send-modal {

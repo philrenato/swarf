@@ -1013,7 +1013,7 @@ export const conf = {
             'cam.anim.stock': false,
             'cam.anim.speed': 3
         },
-        mode: 'FDM',
+        mode: 'CAM', // swarf: CAM-only (spec §4)
         id: genID(),
         ver: CVER
     }

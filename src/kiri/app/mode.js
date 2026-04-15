@@ -11,8 +11,8 @@ import { settings } from './conf/manager.js';
 const { MODES, VIEWS } = consts;
 const clone = Object.clone;
 
-/** Current operating mode ID */
-let MODE = MODES.FDM;
+/** Current operating mode ID — swarf forces CAM (spec §4: CNC is the only mode) */
+let MODE = MODES.CAM;
 
 /**
  * Get current mode name as string.
@@ -55,9 +55,10 @@ function switchMode(mode) {
  * @param {function} [then] - Optional callback after mode set complete
  */
 function setMode(mode, lock, then) {
-    if (!MODES[mode]) {
-        console.log("invalid mode: "+mode);
-        mode = 'FDM';
+    // swarf: force CAM; any other requested mode (from persisted settings or deep link) falls back to CAM
+    if (!MODES[mode] || mode !== 'CAM') {
+        if (mode !== 'CAM') console.log("swarf: forcing CAM mode (requested: " + mode + ")");
+        mode = 'CAM';
     }
     const current = settings.get();
     // change mode constants

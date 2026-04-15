@@ -12,7 +12,7 @@ import { interact } from '../mouse.js';
 import { keyboard } from '../keyboard.js';
 import { local as sdb } from '../../../data/local.js';
 import { menu as menuCAM } from '../../mode/cam/app/init-menu.js';
-const menuFDM = ()=>{}, menuLaser = ()=>{}, menuSLA = ()=>{};
+const menuFDM = ()=>[], menuLaser = ()=>[], menuSLA = ()=>[];
 import { modal } from '../modal.js';
 import { preferences } from '../preferences.js';
 import { settings as set_ctrl } from '../conf/manager.js';
