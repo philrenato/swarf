@@ -281,6 +281,60 @@ input[type="range"] { accent-color: var(--swarf-accent-hi); }
 .swarf-step label { cursor: pointer; }
 #mode-tools > span.selected .swarf-step label { color: #fff; }
 
+/* ---- About modal: toned down, three roles, clean ---- */
+.swarf-about {
+  min-width: 360px;
+  padding: 0 !important;
+  background: var(--swarf-bg-2) !important;
+  border: 1px solid var(--swarf-line-2) !important;
+  clip-path: polygon(10px 0, 100% 0, 100% 100%, 0 100%, 0 10px);
+}
+.swarf-about-head {
+  display: flex; align-items: baseline; gap: 14px;
+  padding: 22px 24px 10px 24px;
+  border-bottom: 1px solid var(--swarf-line);
+}
+.swarf-about-mark {
+  font-size: 28px; font-weight: 700;
+  letter-spacing: 0.06em; text-transform: lowercase;
+  color: var(--swarf-text);
+}
+.swarf-about-mark sup { font-size: 10px; color: var(--swarf-text-2); font-weight: 500; margin-left: 2px; top: -0.9em; }
+.swarf-about-sub {
+  font-size: 10px; letter-spacing: 0.2em; text-transform: uppercase;
+  color: var(--swarf-text-2);
+}
+.swarf-about-body p {
+  margin: 0; padding: 16px 24px 10px 24px;
+  color: var(--swarf-text);
+  line-height: 1.55; font-size: 13px;
+}
+.swarf-credits {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 6px 18px;
+  padding: 6px 24px 16px 24px;
+  font-size: 11px; line-height: 1.6;
+}
+.swarf-credit-role {
+  text-transform: uppercase; letter-spacing: 0.18em;
+  color: var(--swarf-text-3);
+}
+.swarf-credit-who { color: var(--swarf-text); }
+.swarf-credit-who a { color: var(--swarf-text); text-decoration: none; border-bottom: 1px solid var(--swarf-line-2); }
+.swarf-credit-who a:hover { color: var(--swarf-accent-hi); border-bottom-color: var(--swarf-accent-hi); }
+.swarf-about-foot {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 10px 24px 16px 24px;
+  border-top: 1px solid var(--swarf-line);
+  font-size: 10px; letter-spacing: 0.2em; text-transform: uppercase;
+  color: var(--swarf-text-3);
+}
+.swarf-about-links { display: flex; gap: 10px; align-items: center; }
+.swarf-about-links a { color: var(--swarf-text-2); text-decoration: none; letter-spacing: 0.18em; }
+.swarf-about-links a:hover { color: var(--swarf-accent-hi); }
+.swarf-about-links .sep { opacity: 0.4; }
+
 /* ===== swarf layout inversion (markup Apr 15) =====
    Upper-left  = persistent machining-path panel (#panel-right content: operation list)
    Upper-right = live status readout (objects / ranges / machine)

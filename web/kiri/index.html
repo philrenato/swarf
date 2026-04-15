@@ -207,29 +207,27 @@
             </div>
         </div>
 
-        <!-- swarf: help / about modal. Replaces Kiri:Moto's links with swarf credits + Kiri:Moto attribution (spec §19). -->
-        <div id="mod-help" class="mdialog f-col">
-            <div class="f-row j-center title">
-                <label>swarf&trade;</label>
+        <!-- swarf: about modal — concept, original source, new code. Nothing else. -->
+        <div id="mod-help" class="mdialog f-col swarf-about">
+            <div class="swarf-about-head">
+                <span class="swarf-about-mark">swarf<sup>&trade;</sup></span>
+                <span class="swarf-about-sub">gcode carving interface</span>
             </div>
-            <div class="f-row j-center" style="opacity:0.7;font-size:11px;letter-spacing:0.14em;text-transform:uppercase;margin-top:-4px">
-                <label>gcode carving interface</label>
+            <div class="swarf-about-body">
+                <p>A focused CNC carving front-end &mdash; mesh in, gcode out, everything else hidden.</p>
             </div>
-            <hr width="100%">
-            <div class="f-col" style="gap:12px;padding:6px 14px">
-                <p style="margin:0">swarf is a focused CNC carving front-end for design students — one way to go from a mesh to good gcode on the two machines in the lab, with everything else hidden.</p>
-                <p style="margin:0">Not a replacement for Kiri:Moto. A fork with opinions.</p>
-                <div class="swarf-credit-block" style="font-size:11px;letter-spacing:0.04em;line-height:1.6;opacity:0.88;margin-top:4px">
-                    <div>concept, domain, UX &mdash; Phil Renato / renato.design</div>
-                    <div>code, algorithms, docs &mdash; Claude (Anthropic)</div>
-                    <div>method &mdash; Iterative LLM Co-Authorship (ILCA)</div>
-                    <div>CAM engine &mdash; <a target="_km" href="https://github.com/GridSpace/grid-apps">Kiri:Moto</a> by Stewart Allen / GridSpace (MIT)</div>
-                    <div style="opacity:0.65;margin-top:4px">part of the renato.design application family</div>
-                </div>
+            <div class="swarf-credits">
+                <div><span class="swarf-credit-role">concept</span><span class="swarf-credit-who"><a target="_blank" href="https://renato.design">Phil Renato</a></span></div>
+                <div><span class="swarf-credit-role">original source</span><span class="swarf-credit-who"><a target="_blank" href="https://github.com/GridSpace/grid-apps">Stewart Allen</a></span></div>
+                <div><span class="swarf-credit-role">new code</span><span class="swarf-credit-who">Claude</span></div>
             </div>
-            <hr width="100%">
-            <div class="f-row j-center">
-                <label id="kiri-version" style="letter-spacing:0.14em;font-size:11px;text-transform:uppercase;opacity:0.7"></label>
+            <div class="swarf-about-foot">
+                <span id="kiri-version"></span>
+                <span class="swarf-about-links">
+                    <a href="https://renato.design" target="_blank">renato.design</a>
+                    <span class="sep">&middot;</span>
+                    <a href="https://instagram.com/formfollowsphil" target="_blank">@formfollowsphil</a>
+                </span>
             </div>
         </div>
 
