@@ -398,22 +398,34 @@ function setup_keybd_nav() {
     // zoom to any/all 3D in scene, on startup and as new things come in" + "zoom
     // cube to almost whole screen"). Use space.view.fit() with tight padding so
     // the part fills most of the viewport; home() only sets angles, not zoom.
+    //
+    // r14+ fix: the rAF fit fires before mesh bounding boxes are computed or
+    // before the camera's matrixWorld has settled, producing a tiny blob on
+    // the platform. Force computeBoundingBox on each mesh, then fit once
+    // immediately AND once after a short delay as a safety net for slow
+    // imports (OBJ with quads, 3MF, etc).
     (function(){
-        const fit = () => requestAnimationFrame(() => {
+        const doFit = () => {
             try { space.event.onResize(); } catch (e) {}
             try { api.platform.update_bounds(); } catch (e) {}
             try {
-                // swarf: fit only the widgets (their meshes), not the platform/grid —
-                // otherwise the bed dwarfs the part and the part renders tiny.
                 const meshes = (api.widgets.all() || []).map(w => w.mesh).filter(Boolean);
+                for (const m of meshes) {
+                    try { m.geometry && m.geometry.computeBoundingBox(); } catch (e) {}
+                }
                 if (space.view.fit && meshes.length) {
                     space.view.fit(undefined, { padding: 1.8, visibleOnly: true, objects: meshes });
                 } else space.view.home();
             } catch (e) {}
-        });
+        };
+        const fit = () => {
+            requestAnimationFrame(doFit);
+            setTimeout(doFit, 250);
+        };
         api.event.on('widget.add', fit);
         api.event.on('widget.delete', fit);
         api.event.on('widgets.loaded', fit);
+        api.event.on('load.url', fit);
     })();
 
     // swarf: lower-left renato.design watermark (markup Apr 15, annotation #7)
