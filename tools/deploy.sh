@@ -32,9 +32,16 @@ cd "$SRC_REPO"
 echo "[1/5] esbuild prod rebuild"
 npm run webpack-src prod
 
-echo "[2/5] copy bundles → $WEB_APP/lib/"
+echo "[2/5] copy bundles + swarf assets → $WEB_APP/"
 cp src/pack/kiri-main.js "$WEB_APP/lib/main/kiri.js"
 cp src/pack/kiri-work.js "$WEB_APP/lib/kiri/run/worker.js"
+# swarf overlay scripts + stylesheet live at /swarf-app/ root (flattened from
+# /kiri/). Sync any that changed — fast and harmless when they're already current.
+for f in web/kiri/swarf*.js web/kiri/swarf.css web/kiri/swarf-materials.json; do
+  [ -f "$f" ] || continue
+  dst="$WEB_APP/$(basename "$f")"
+  cp "$f" "$dst"
+done
 
 echo "[3/5] rewrite worker + wasm paths to /swarf-app/ absolutes"
 sed -i '' 's|"\.\./lib/kiri/run/worker\.js"|"/swarf-app/lib/kiri/run/worker.js"|g' "$WEB_APP/lib/main/kiri.js"
@@ -54,7 +61,8 @@ echo "      ok — no broken paths remain"
 
 echo "[4/5] commit web repo"
 cd "$WEB_REPO"
-git add swarf-app/lib/main/kiri.js swarf-app/lib/kiri/run/worker.js
+git add swarf-app/lib/main/kiri.js swarf-app/lib/kiri/run/worker.js \
+  swarf-app/swarf*.js swarf-app/swarf.css swarf-app/swarf-materials.json 2>/dev/null || true
 git -c commit.gpgsign=false commit -m "$MSG
 
 Co-Authored-By: Claude Opus 4.7 (1M context) <noreply@anthropic.com>" || echo "      nothing to commit"

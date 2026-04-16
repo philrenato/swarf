@@ -517,7 +517,11 @@ body.swarf-menu-open #swarf-concerns  { z-index: -1 !important; pointer-events: 
   line-height: 1.1;
   color: var(--swarf-text);
 }
-.swarf-about-mark sup { font-size: 9px; color: var(--swarf-text-2); font-weight: 500; margin-left: 2px; top: -0.8em; }
+.swarf-about-mark sup { font-size: 9px; color: var(--swarf-text-2); font-weight: 500; margin-left: 2px; top: -0.8em; text-decoration: none; }
+/* swarf r14+: Safari renders a faint underline under the <sup>™ and <sup>re —
+   WebKit inherits text-decoration onto positioned <sup> where Blink/Gecko don't.
+   Explicit none on every <sup> in the about/credits block kills it. */
+.swarf-about sup, .swarf-credits sup { text-decoration: none; }
 .swarf-about-sub {
   font-size: 9px; letter-spacing: 0.14em; text-transform: uppercase;
   color: var(--swarf-text-2);
