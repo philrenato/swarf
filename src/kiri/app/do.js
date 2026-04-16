@@ -21,8 +21,21 @@ let moved = { x: 0, y: 0 };
 let msgid;
 
 event.on("load-done", () => {
-    $('undo').onclick = undo;
-    $('redo').onclick = redo;
+    // swarf: no undo/redo buttons in UI (feedback_no_undo_buttons), but keep
+    // the bind guarded in case upstream ever re-adds the DOM.
+    const u = $('undo'); if (u) u.onclick = undo;
+    const r = $('redo'); if (r) r.onclick = redo;
+
+    // swarf: Cmd/Ctrl+Z for undo, Cmd/Ctrl+Shift+Z for redo. Skip when a
+    // text input is focused so we don't steal the browser's in-field undo.
+    document.addEventListener('keydown', (ev) => {
+        if (!(ev.metaKey || ev.ctrlKey)) return;
+        if (ev.key !== 'z' && ev.key !== 'Z') return;
+        const tag = document.activeElement?.tagName;
+        if (tag === 'INPUT' || tag === 'TEXTAREA' || document.activeElement?.isContentEditable) return;
+        ev.preventDefault();
+        if (ev.shiftKey) redo(); else undo();
+    });
 });
 
 let undo = api.doit.undo = function() {
@@ -52,10 +65,15 @@ let clear = api.doit.clear = function() {
 };
 
 function updateButtons() {
-    let isArrange = api.view.get() === api.consts.VIEWS.ARRANGE;
-    $('doit').style.display = isArrange && stack.length ? 'flex' : 'none';
-    $('undo').disabled = stpos === 0;
-    $('redo').disabled = stpos == stack.length;
+    // swarf: no undo/redo UI in the chrome, but keep the guards in case the
+    // DOM ever carries these ids again.
+    const doit = $('doit');
+    if (doit) {
+        const isArrange = api.view.get() === api.consts.VIEWS.ARRANGE;
+        doit.style.display = isArrange && stack.length ? 'flex' : 'none';
+    }
+    const u = $('undo'); if (u) u.disabled = stpos === 0;
+    const r = $('redo'); if (r) r.disabled = stpos == stack.length;
 }
 
 function message(txt) {

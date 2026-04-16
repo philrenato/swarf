@@ -11,6 +11,8 @@ import { init_lang } from '../kiri/app/init/lang.js';
 import { init_input } from '../kiri/app/init/input.js';
 import { init_sync } from '../kiri/app/init/sync.js';
 import { surfaces } from '../kiri/app/init/build.js';
+// swarf: wire undo/redo stack (Cmd+Z / Cmd+Shift+Z) via do.js side effects.
+import '../kiri/app/do.js';
 
 let traceload = location.search.indexOf('traceload') > 0;
 let load = [];
