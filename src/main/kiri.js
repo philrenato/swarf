@@ -13,6 +13,8 @@ import { init_sync } from '../kiri/app/init/sync.js';
 import { surfaces } from '../kiri/app/init/build.js';
 // swarf: wire undo/redo stack (Cmd+Z / Cmd+Shift+Z) via do.js side effects.
 import '../kiri/app/do.js';
+// swarf r14+: Rhino-style gumball (translate/rotate/scale on selection).
+import '../kiri/app/gumball.js';
 
 let traceload = location.search.indexOf('traceload') > 0;
 let load = [];
