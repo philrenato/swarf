@@ -16,6 +16,7 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="default">
     <meta http-equiv="origin-trial" content="AvttY0bfMDdg4vBwjn5k4Yv/+OmqjNj4bTRvCgBpP7hkI6base2DxEViSebcOyglERiFV7g0DaVmI+yv79ftDw8AAAB0eyJvcmlnaW4iOiJodHRwczovL2dyaWQuc3BhY2U6NDQzIiwiZmVhdHVyZSI6IlVucmVzdHJpY3RlZFNoYXJlZEFycmF5QnVmZmVyIiwiZXhwaXJ5IjoxNzc5MTQ4ODAwLCJpc1N1YmRvbWFpbiI6dHJ1ZX0=">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
     <title>swarf</title>
     <script>
         const isDark = localStorage['kiri-dark'] === 'true';
@@ -34,6 +35,10 @@
     <link rel="stylesheet" type="text/css" href="/moto/menubar.css">
     <link rel="stylesheet" type="text/css" href="index.css">
     <link rel="stylesheet" type="text/css" href="swarf.css">
+    <!-- swarf phone takeover: detects narrow viewport and replaces the UI
+         with a "desktop only" wall. Loaded early so phones don't wait for
+         the CAM engine bundle before seeing the message. -->
+    <script src="swarf-phone.js?v=1" defer></script>
     <link href="manifest.json" rel="manifest">
     <link href="/font/css/all.min.css" rel="stylesheet">
     <!-- <script type="module" src="/lib/kiri/run/worker.js"></script> -->

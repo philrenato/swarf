@@ -2,6 +2,7 @@
 
 import { menubar } from './menu.js';
 import { api } from '../api.js';
+import { env, opAdd } from '../../mode/cam/app/init-ui.js';
 
 const surfaces = {
     build(actions = {}) {
@@ -26,6 +27,22 @@ const surfaces = {
                         try { api.function.clear && api.function.clear(); } catch (e) {}
                         try { api.view.set && api.view.set(1); } catch (e) {}
                         try { window.dispatchEvent(new CustomEvent('swarf.clear')); } catch (e) {}
+                    }
+                } catch (e) {}
+                // swarf: auto-add a rough op on the main thread if the user
+                // clicks TOOLPATHS without adding one first. Without this, the
+                // oplist stays visually empty and the worker silently injects
+                // a transient rough op that never surfaces to the UI (so the
+                // student sees no op, no concern, no sign anything happened).
+                // Mirror on main thread → oplist renders → worker gets a real
+                // op in proc.ops → toolpaths render as expected.
+                try {
+                    const proc = env.current?.process;
+                    if (proc && env.isCamMode && env.popOp && env.popOp.rough) {
+                        const hasRealOp = (proc.ops || []).some(op => op.type && op.type !== '|');
+                        if (!hasRealOp) {
+                            opAdd(env.popOp.rough.new());
+                        }
                     }
                 } catch (e) {}
                 api.function.print();

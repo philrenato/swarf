@@ -78,9 +78,22 @@ function isSecure(proto) {
  * @param {string} filename - Filename for download
  */
 function download(data, filename) {
-    let url = window.URL.createObjectURL(new Blob([data], {type: "octet/stream"}));
-    $('mod-any').innerHTML = `<a id="_dexport_" href="${url}" download="${filename}">x</a>`;
-    $('_dexport_').click();
+    // swarf: Safari blocks programmatic downloads if the <a> sits inside a
+    // styled/positioned container that was reused from another modal. Build a
+    // fresh anchor, append to body, click, remove. Also: correct MIME type —
+    // "octet/stream" is malformed; some browsers silently drop the download.
+    const url = window.URL.createObjectURL(new Blob([data], { type: 'application/octet-stream' }));
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    a.rel = 'noopener';
+    a.style.display = 'none';
+    document.body.appendChild(a);
+    a.click();
+    setTimeout(() => {
+        try { document.body.removeChild(a); } catch (e) {}
+        try { window.URL.revokeObjectURL(url); } catch (e) {}
+    }, 1000);
 }
 
 /** Busy state counter for tracking active operations */

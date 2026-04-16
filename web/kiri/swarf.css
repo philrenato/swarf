@@ -1721,3 +1721,148 @@ body:not(.swarf-expert) #speeds { display: none !important; }
 .swarf-toggle:hover { filter: brightness(1.12); }
 .swarf-toggle-off { box-shadow: inset 0 0 0 1px rgba(208,32,32,0.2); }
 .swarf-toggle-on  { box-shadow: 0 0 10px rgba(208,32,32,0.45); }
+
+/* ---- swarf-phone: desktop-only takeover ---- */
+/* See swarf-phone.js. body.swarf-phone is the latch; the wall sits on top
+   of every other chrome. Mill-red accents, JetBrains mono, thin rules —
+   reads as an end-of-line terminal, which matches the Downward Spiral
+   ambient texture for the rest of the app. */
+#swarf-phone-wall {
+  position: fixed;
+  inset: 0;
+  z-index: 99999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background:
+    radial-gradient(ellipse at 50% 30%, rgba(208,32,32,0.18) 0%, rgba(0,0,0,0.95) 60%, #000 100%);
+  color: #e6e6e6;
+  font-family: "JetBrains Mono", "IBM Plex Mono", ui-monospace, monospace;
+  padding: 32px 22px;
+  box-sizing: border-box;
+  overflow-y: auto;
+  animation: swarfPhoneFadeIn 520ms ease-out both;
+}
+body.swarf-phone #swarf-phone-wall { display: flex; }
+
+/* hide every other layer under the wall so broken UI doesn't bleed
+   through during slow loads. body.swarf-phone is the scope. */
+body.swarf-phone > *:not(#swarf-phone-wall) { display: none !important; }
+
+@keyframes swarfPhoneFadeIn {
+  0%   { opacity: 0; }
+  100% { opacity: 1; }
+}
+
+.swarf-phone-inner {
+  max-width: 460px;
+  width: 100%;
+  text-align: left;
+  line-height: 1.55;
+  /* explicit stacking: some sibling stylesheets target div children with
+     flex-row defaults (index.css .f-row etc.), which were rearranging the
+     block-level children into a horizontal run on narrow viewports. */
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+}
+.swarf-phone-inner > * { flex: 0 0 auto; }
+
+.swarf-phone-mark {
+  font-family: "JetBrains Mono", monospace;
+  font-size: 42px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  margin-bottom: 4px;
+}
+.swarf-phone-sw { color: #d02020; }
+.swarf-phone-arf { color: #e6e6e6; }
+.swarf-phone-tm {
+  font-size: 14px;
+  color: #d02020;
+  margin-left: 2px;
+  vertical-align: super;
+}
+
+.swarf-phone-sub {
+  font-size: 11.5px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: rgba(230,230,230,0.55);
+  margin-bottom: 28px;
+}
+
+.swarf-phone-headline {
+  font-size: 19px;
+  font-weight: 600;
+  color: #fff;
+  margin-bottom: 16px;
+  border-left: 2px solid #d02020;
+  padding-left: 12px;
+  text-wrap: pretty;
+}
+
+.swarf-phone-body {
+  font-size: 14px;
+  color: rgba(230,230,230,0.78);
+  margin-bottom: 14px;
+  text-wrap: pretty;
+}
+
+.swarf-phone-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin: 28px 0 22px;
+}
+
+.swarf-phone-primary,
+.swarf-phone-secondary {
+  display: inline-block;
+  text-decoration: none;
+  font-size: 13px;
+  letter-spacing: 0.06em;
+  text-transform: lowercase;
+  padding: 11px 16px;
+  border: 1px solid rgba(208,32,32,0.6);
+  color: #fff;
+  background: rgba(208,32,32,0.15);
+  transition: background 160ms ease, border-color 160ms ease;
+  text-align: center;
+}
+.swarf-phone-primary:hover,
+.swarf-phone-primary:active {
+  background: rgba(208,32,32,0.35);
+  border-color: #ff3a2a;
+}
+.swarf-phone-secondary {
+  border-color: rgba(230,230,230,0.25);
+  color: rgba(230,230,230,0.78);
+  background: transparent;
+}
+.swarf-phone-secondary:hover,
+.swarf-phone-secondary:active {
+  border-color: rgba(230,230,230,0.55);
+  color: #fff;
+}
+
+.swarf-phone-escape {
+  font-size: 11.5px;
+  color: rgba(230,230,230,0.4);
+  border-top: 1px solid rgba(255,255,255,0.08);
+  padding-top: 14px;
+  margin-top: 8px;
+}
+.swarf-phone-escape a {
+  color: rgba(230,230,230,0.65);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.swarf-phone-escape a:hover,
+.swarf-phone-escape a:active { color: #fff; }
+.swarf-phone-escape-note {
+  display: block;
+  margin-top: 4px;
+  font-style: italic;
+  color: rgba(230,230,230,0.3);
+}
