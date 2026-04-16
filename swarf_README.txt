@@ -1,4 +1,4 @@
-sw|arf™ v00000-011
+sw|arf™ v00000-012
 gcode carving interface
 renato.design/swarf/
 
@@ -114,5 +114,7 @@ Live at renato.design/swarf-app/ — the same app, served from the website. No i
 SharedArrayBuffer (which Kiri's worker threads need) requires specific security headers. A service worker shim (coi-serviceworker.js) injects COEP and COOP headers on first load. This means one extra page refresh the first time — after that, the service worker handles it silently.
 
 One catch: incognito and private browsing windows block service workers entirely. If the app can't start, an 8-second timeout shows a message explaining why. Use a regular browser window.
+
+On a phone the app doesn't load. A desktop-only takeover explains why — swarf is a CAM workbench and its 3D orbit, precise pointer, and drag-to-pan toolpaths don't survive on a phone screen. Link back to the marketing page and an escape hatch (?full=1) for visitors who want to see the unusable UI anyway.
 
 The deployed build flattens the kiri/ directory to root and rewrites all absolute paths from /kiri/ and /lib/ to /swarf-app/ prefixes. The source of truth is always this repo — the deployed copy is a build artifact.

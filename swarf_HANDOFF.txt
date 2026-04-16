@@ -1,11 +1,33 @@
 swarf_HANDOFF.txt — for Claude
-last updated 2026-04-16 (v00000-011 r13, final)
+last updated 2026-04-16 (v00000-012 r14, final)
 
-CRITICAL STATE — READ BEFORE TOUCHING ROUGHING OR STOCK:
+CRITICAL STATE — READ BEFORE TOUCHING ROUGHING, STOCK, TOOLPATHS, OR DOWNLOADS:
   Roughing defaults: all=false, inside=false (cutout mode). Hardcoded in
   slice.js lines ~200-208 — overrides any stored profile. NO stock padding
   in toolpaths. Simulate adds a thin skin (tool-radius per side) in
   anim-2d.js animate() so the tool visibly cuts through material.
+
+  TOOLPATHS button (act-paths) auto-adds a rough op on the main thread
+  when proc.ops contains only the separator. Lives in init/build.js —
+  uses env.popOp.rough.new() + opAdd() from init-ui.js so the oplist UI
+  renders the op. Worker-side auto-inject in slice.js still exists as a
+  safety net, but the main-thread add is what the student sees. If you
+  touch this, keep both: worker auto-inject is load-bearing for CLI /
+  engine runs that bypass opAdd.
+
+  DOWNLOAD FUNCTION (api.js download()): uses "application/octet-stream"
+  and a fresh-anchor-per-download pattern. Do NOT revert to the old
+  "octet/stream" MIME or the #mod-any-reuse pattern — both broke
+  Safari (workspace .kmz silently refused to download). Canonical:
+  createElement('a') → appendChild(body) → .click() → setTimeout
+  removeChild + revokeObjectURL.
+
+  PHONE TAKEOVER: web/kiri/swarf-phone.js detects (max-width: 820px)
+  OR (pointer: coarse) + max-width:1000px and replaces the UI with a
+  mill-red desktop-only wall. body.swarf-phone class + CSS in swarf.css
+  hides every child of body except #swarf-phone-wall. ?full=1 escape
+  hatch persists in localStorage swarf_phone_mode. Pattern borrowed
+  from interfacing/play/js/global-palette.js.
 
   Profile migration is at v7. Every migration bump nukes IndexedDB +
   ws-settings + reloads. If behavior seems stale, bump the version string
@@ -20,18 +42,44 @@ CRITICAL STATE — READ BEFORE TOUCHING ROUGHING OR STOCK:
   ui.modals in bind.js. Without that, api.modal.show() can't find them.
 
 NEXT SESSION — PRIORITY ITEMS:
-  1. Simulate stock block — show material being cut away. Key visual
+  1. OBJ import broken — imported parts need faces welded on import;
+     currently unusable (Phil, 2026-04-16).
+  2. Undo missing — app has no undo at all, needs adding.
+  3. Camera auto-fit on STL import — freshly imported parts land small
+     relative to the platform; toolpaths generate correctly but the user
+     sees a tiny mesh. Fit-to-widget on platform.add() would fix it.
+  4. Simulate stock block — show material being cut away. Key visual
      missing from the simulate experience. Calculate block size from
      toolpath extents + bit diameter so stock fully encloses cut volume.
-  2. Ribbon pre-populate from print.output on preview.end (cosmetic)
-  3. Tooltip audit: inherit+enrich Kiri's existing lk=/lkt= tooltips
-     for swarf's audience
-  4. TM underline in Safari (Chrome is clean)
-  5. Deploy script to automate the redeploy steps (see HOW TO REDEPLOY
-     section below)
+  5. Phone demo loop (optional) — Phil floated replacing the phone
+     takeover with a prefired toolpath + lightstream animation. The
+     takeover is the baseline; this is a future polish pass.
+  6. Ribbon pre-populate from print.output on preview.end (cosmetic).
+  7. Tooltip audit: inherit+enrich Kiri's existing lk=/lkt= tooltips
+     for swarf's audience.
+  8. TM underline in Safari (Chrome is clean).
+  9. Deploy script to automate the redeploy steps (see HOW TO REDEPLOY
+     section below).
 
 DEPLOYED: renato.design/swarf-app/ is live. See HOW TO REDEPLOY section
 below for the full build-and-deploy sequence.
+
+DIAGNOSTIC PROBES: four puppeteer-core tools alongside swarf_probe.mjs
+in tools/. Each is a one-shot that drives a real Chrome and reports
+JSON.
+  - probe_1stl.mjs   — load ~/Desktop/1.stl → click TOOLPATHS → dump
+                       widget/ops/stack state. Used to diagnose the
+                       r14 rough-op-never-added bug.
+  - probe_export.mjs — click File→export work, auto-complete dialog,
+                       verify a .kmz lands in /tmp. Used for the
+                       Safari download fix.
+  - probe_phone.mjs  — boot at 390×844 iPhone viewport, assert the
+                       takeover wall is up.
+  - probe_deploy.mjs — point at a local /swarf-app/ static preview
+                       and probe the same way. NOTE: python3 -m
+                       http.server has service-worker issues that
+                       don't affect GitHub Pages — trust the localhost
+                       :8181 dev probes over the /swarf-app/ preview.
 
 
 HOW TO REDEPLOY swarf-app (renato.design/swarf-app/):
@@ -54,6 +102,69 @@ HOW TO REDEPLOY swarf-app (renato.design/swarf-app/):
   NOTE: Works in Chrome + regular Safari. Does NOT work in incognito
   (service workers blocked). 8-second timeout shows friendly message
   if app can't load.
+
+
+v00000-012 r14 — TOOLPATH AUTO-ADD + SAFARI DOWNLOAD + PHONE WALL (2026-04-16)
+──────────────────────────────────────────────────────────────────────────────
+Phil surfaced three regressions against the r13 deploy and we fixed them
+in one pass:
+
+ROUGH OP AUTO-ADD ON TOOLPATHS (src/kiri/app/init/build.js):
+  Symptom: load an STL, click TOOLPATHS, nothing visible changes. No op in
+  the oplist, CONCERNS stays at 0, no obvious toolpath render. The worker
+  was correctly auto-injecting a rough op locally in slice.js — but the
+  main thread never learned about it, so the oplist UI stayed empty and
+  the student saw no feedback. Fix: inside the act-paths handler in
+  build.js, when proc.ops contains only a separator ('|'), call
+  opAdd(env.popOp.rough.new()) BEFORE api.function.print(). The main
+  thread now renders the op, the worker receives a real ops list, and
+  slice/preview runs exactly as if the student had added rough manually.
+  Verified end-to-end with tools/probe_1stl.mjs: 39 slice layers, real
+  LineSegments geometry, widget stack populated, oplist shows "rough".
+
+SAFARI WORKSPACE EXPORT (src/kiri/app/api.js download()):
+  Symptom: File → export work opened the filename prompt, accepted the
+  name, but no .kmz downloaded. Two issues in the old download(): MIME
+  was "octet/stream" (malformed — should be "application/octet-stream"),
+  and it reused #mod-any as an anchor host by writing innerHTML then
+  clicking a stale #_dexport_ element. Chrome was forgiving; Safari
+  dropped the download. Rewrote download() to build a fresh <a> off a
+  new URL.createObjectURL, append to body, click, then setTimeout
+  removeChild + revokeObjectURL. Verified a 378KB .kmz round-trips
+  cleanly with tools/probe_export.mjs: client.zip fires, download() is
+  invoked, a real .kmz lands in /tmp with a valid workspace.json inside.
+
+PHONE TAKEOVER (web/kiri/swarf-phone.js, swarf.css, index.html):
+  Symptom: swarf has no phone handling. The CAM interface — 3D orbit,
+  precise pointer, drag-to-pan toolpaths, keyboard nudging — is dead on
+  a phone. Shipping it anyway hands users a broken tool. Pattern from
+  philrenato-web/interfacing/play/js/global-palette.js:
+    - swarf-phone.js detects (max-width: 820px) OR (pointer: coarse)
+      AND (max-width: 1000px), persists preference in localStorage
+      swarf_phone_mode, respects ?phone=1 / ?full=1 url flags.
+    - When latched, adds body.swarf-phone + injects #swarf-phone-wall
+      full-screen takeover. Mill-red accent, JetBrains mono, bone text.
+      Copy: "this interface needs a laptop." + CAM-workbench context +
+      two action buttons (read about swarf → /swarf/, renato.design).
+      Small escape-hatch link underneath: "show the interface anyway
+      (it will not work right)" → ?full=1.
+    - CSS: body.swarf-phone > *:not(#swarf-phone-wall) { display: none
+      !important; } — hard hide every existing child so broken UI
+      doesn't bleed during slow loads.
+  Verified with probe_phone.mjs at 390×844 iPhone viewport: wall
+  exists, body class set, headline reads correctly.
+
+CACHE-CONTROL META (web/kiri/index.html):
+  Added <meta http-equiv="Cache-Control" content="no-cache, no-store,
+  must-revalidate"> per philrenato-web/CLAUDE.md rule for phone-facing
+  web apps. swarf-phone.js also loads with ?v=1 cache-buster.
+
+DEPLOY (philrenato-web commit 0e3e18f):
+  Ported rebuilt src/pack/kiri-main.js → swarf-app/lib/main/kiri.js with
+  the standard path-rewrite sed (/kiri/ → /swarf-app/, /lib/ → /swarf-app/
+  lib/, /obj/ → /swarf-app/obj/) and the 6-line SharedArrayBuffer warning
+  suppression. New swarf-phone.js + updated swarf.css + index.html. Both
+  repos pushed.
 
 
 v00000-011 r13 — POLISH + DEPLOY (2026-04-16)
