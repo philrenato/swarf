@@ -545,7 +545,7 @@ function parse_as_float(e) {
  * @param {object} ui - UI elements object
  */
 function input_binding(ui) {
-    // on enter but not on blur
+    // on enter but not on blur (upstream behavior)
     space.event.onEnterKey([
         ui.scale.X,        (e) => input_scale(e, ui),
         ui.scale.Y,        (e) => input_scale(e, ui),
@@ -554,6 +554,13 @@ function input_binding(ui) {
         ui.size.Y,         (e) => input_resize(e, ui),
         ui.size.Z,         (e) => input_resize(e, ui),
     ]);
+    // swarf r14+: also apply on blur so typing a value and tabbing/clicking
+    // away works without hunting for Enter. Guard with a `was` check so an
+    // unchanged field (e.g. user just focused and left) doesn't fire.
+    const applyScale = (e) => { if (parseFloat(e.target.value) !== parseFloat(e.target.was)) input_scale(e, ui); };
+    const applyResize = (e) => { if (parseFloat(e.target.value) !== parseFloat(e.target.was)) input_resize(e, ui); };
+    [ui.scale.X, ui.scale.Y, ui.scale.Z].forEach(el => el?.addEventListener('blur', applyScale));
+    [ui.size.X, ui.size.Y, ui.size.Z].forEach(el => el?.addEventListener('blur', applyResize));
     // on enter and blur
     space.event.onEnterKey([
         ui.toolName,       updateTool,

@@ -52,6 +52,37 @@ function topMenu(actions, { text, lk, iconClass, side = 'left', right = false, i
     ]);
 }
 
+// swarf r14+: move panel — mirrors the rotate panel's pattern.
+// Translates the selected widget in X / Y by the value in the input, with
+// chevron buttons for +/- direction. Z intentionally omitted — parts sit
+// on the platform in CAM. Closes/drags identically to the other panels.
+function movePanel(actions) {
+    return div({ id: 'panel-move', class: 'selection-panel hide' }, [
+        div({ id: 'panel-move-head', class: 'selection-panel-head' }, [
+            div({ class: 'selection-panel-head-title' }, [
+                i({ class: 'fas fa-arrows-up-down-left-right' }),
+                label({ _: 'Move' })
+            ]),
+            button({ id: 'panel-move-close', class: 'selection-panel-close', title: 'close' }, [
+                i({ class: 'fas fa-times' })
+            ])
+        ]),
+        div({ id: 'ft-move', class: 'grid selection-panel-body' }, [
+            div({ id: 'mov_x_lt', ...on(actions, 'mov_x_lt') }, icon('fas fa-chevron-left')),
+            label({ _: 'X' }),
+            div({ id: 'mov_x_gt', ...on(actions, 'mov_x_gt') }, icon('fas fa-chevron-right')),
+            input({ id: 'mov_x', class: 'value center', size: '6', value: '10' }),
+            div({ id: 'mov_y_lt', ...on(actions, 'mov_y_lt') }, icon('fas fa-chevron-left')),
+            label({ _: 'Y' }),
+            div({ id: 'mov_y_gt', ...on(actions, 'mov_y_gt') }, icon('fas fa-chevron-right')),
+            input({ id: 'mov_y', class: 'value center', size: '6', value: '10' }),
+            div({ class: 'buttons f-row' }, [
+                button({ id: 'mov_center', class: 'grow', _: 'center', ...on(actions, 'mov_center') })
+            ])
+        ])
+    ]);
+}
+
 function rotatePanel(actions) {
     return div({ id: 'panel-rotate', class: 'selection-panel hide' }, [
         div({ id: 'panel-rotate-head', class: 'selection-panel-head' }, [
@@ -151,6 +182,7 @@ function content(actions) {
                     menuItem(actions, { id: 'context-mirror', lk: 'rc_mirr', text: 'mirror', iconClass: 'fas fa-arrows-left-right-to-line' }),
                     menuItem(actions, { id: 'context-duplicate', lk: 'rc_dupl', text: 'duplicate', iconClass: 'fas fa-copy' }),
                     hr(),
+                    menuItem(actions, { id: 'context-move-panel', text: 'move', iconClass: 'fas fa-arrows-up-down-left-right' }),
                     menuItem(actions, { id: 'context-rotate-panel', text: 'rotate', iconClass: 'fas fa-rotate-right' }),
                     menuItem(actions, { id: 'context-scale-panel', text: 'scale / size', iconClass: 'fas fa-expand' }),
                     hr(),
@@ -213,6 +245,7 @@ function content(actions) {
             div({ class: 'grow' }),
             // swarf: language selector removed — English-only (spec authorized 2026-04-14)
         ]),
+        movePanel(actions),
         rotatePanel(actions),
         scalePanel(actions)
     ];

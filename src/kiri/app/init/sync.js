@@ -221,6 +221,7 @@ function ui_sync() {
 
 function setup_keybd_nav() {
     const panelPosKeys = {
+        'panel-move': 'win.move',
         'panel-rotate': 'win.roate',
         'panel-scale': 'win.scale'
     };
@@ -426,6 +427,25 @@ function setup_keybd_nav() {
         api.event.on('widget.delete', fit);
         api.event.on('widgets.loaded', fit);
         api.event.on('load.url', fit);
+
+        // swarf r14+: force-select newly-added widgets after a short delay so
+        // drag-to-move works on first import. platform.add calls platform.select
+        // but the initial select is sometimes swallowed if the view hasn't
+        // settled into ARRANGE yet. Re-running select later closes that window.
+        const selectNew = (payload) => {
+            const widgets = Array.isArray(payload) ? payload : (payload ? [payload] : []);
+            setTimeout(() => {
+                try {
+                    if (!api.view.is_arrange?.()) return;
+                    const ws = widgets.length ? widgets : api.widgets.all();
+                    if (!ws.length) return;
+                    // if nothing is already selected, select the first one.
+                    if (api.selection.count() === 0) api.platform.select(ws[0], false);
+                } catch (e) {}
+            }, 300);
+        };
+        api.event.on('widget.add', selectNew);
+        api.event.on('load.url', selectNew);
     })();
 
     // swarf: lower-left renato.design watermark (markup Apr 15, annotation #7)
@@ -673,6 +693,29 @@ function setup_keybd_nav() {
     $('mesh-split').onclick = selection.isolateBodies;
     $('context-duplicate').onclick = selection.duplicate;
     $('context-mirror').onclick = selection.mirror;
+    // swarf r14+: move panel wiring. Mirrors rotate-panel: chevrons translate
+    // by the value in the input; 'center' zeros XY so the widget snaps to
+    // platform center. Move defaults to 10mm per click (vs rotate's 90°).
+    if ($('context-move-panel')) {
+        $('context-move-panel').onclick = () => toggleSelectionPanel('panel-move');
+        $('panel-move-close').onmousedown = (ev) => { ev.stopPropagation(); };
+        $('panel-move-close').onclick = (ev) => { ev.stopPropagation(); hideSelectionPanel('panel-move'); };
+        $('mov_x_lt').onclick = () => { selection.move(-parseFloat($('mov_x').value || 0), 0, 0); };
+        $('mov_x_gt').onclick = () => { selection.move( parseFloat($('mov_x').value || 0), 0, 0); };
+        $('mov_y_lt').onclick = () => { selection.move(0, -parseFloat($('mov_y').value || 0), 0); };
+        $('mov_y_gt').onclick = () => { selection.move(0,  parseFloat($('mov_y').value || 0), 0); };
+        $('mov_center').onclick = () => {
+            // absolute move to platform origin (0,0,0). widget.move with abs=true
+            // places the widget AT that world position rather than adding.
+            try {
+                const widgets = api.selection.widgets(true);
+                if (widgets.length) {
+                    const w = widgets[0];
+                    selection.move(-w.track.pos.x, -w.track.pos.y, 0);
+                }
+            } catch (e) {}
+        };
+    }
     $('context-rotate-panel').onclick = () => toggleSelectionPanel('panel-rotate');
     $('context-scale-panel').onclick = () => toggleSelectionPanel('panel-scale');
     $('panel-rotate-close').onmousedown = (ev) => { ev.stopPropagation(); };
@@ -688,6 +731,7 @@ function setup_keybd_nav() {
     $('view-fit').onclick = api.const.SPACE.view.fit;
     // swarf: 'wassup'/'suppopp' GridSpace support-dev element removed from mod-help; skip binding
 
+    if ($('panel-move')) makePanelDraggable('panel-move', 'panel-move-head', 'win.move');
     makePanelDraggable('panel-rotate', 'panel-rotate-head', 'win.roate');
     makePanelDraggable('panel-scale', 'panel-scale-head', 'win.scale');
 
