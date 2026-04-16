@@ -167,10 +167,13 @@
       }
     } catch (e) {}
 
-    // swarf r12: profile reset. Wipe ws-settings AND IndexedDB, then
+    // swarf r12+: profile reset. Wipe ws-settings AND IndexedDB, then
     // reload so the delete completes before Kiri re-opens the DB.
+    // BUMPED r14: stale profiles from r12/r13 carried over ops/settings
+    // that defeated r14's rough-op auto-add (user clicked TOOLPATHS,
+    // nothing rendered). Fresh profile forces the r14 code path.
     try {
-      const MIG_R12 = 'swarf.r12.profile-reset-v7';
+      const MIG_R12 = 'swarf.r14.profile-reset-v8';
       if (!localStorage.getItem(MIG_R12)) {
         localStorage.removeItem('ws-settings');
         // mark BEFORE reload so we don't loop
