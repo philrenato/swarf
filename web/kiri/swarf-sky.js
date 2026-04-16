@@ -193,14 +193,40 @@
     } catch (e) { console.warn('swarf: r12 profile reset failed', e); }
 
     // expose a manual reset for Help → Reset Profile
-    window.__swarfResetProfile = function () {
-      localStorage.removeItem('ws-settings');
-      Object.keys(localStorage).forEach(k => {
-        if (k.startsWith('swarf.')) localStorage.removeItem(k);
-      });
-      const req = indexedDB.deleteDatabase('kiri');
-      req.onsuccess = req.onerror = req.onblocked = () => location.reload();
-      setTimeout(() => location.reload(), 500);
+    // swarf r14+: also unregister the coi service worker + clear caches.
+    // Without this, a stale SW can leave the reloaded page without the
+    // cross-origin headers SharedArrayBuffer needs, and the loading
+    // curtain never lifts (Phil saw "swarf needs browser features" fallback
+    // after hitting Reset Profile).
+    window.__swarfResetProfile = async function () {
+      try {
+        localStorage.removeItem('ws-settings');
+        Object.keys(localStorage).forEach(k => {
+          if (k.startsWith('swarf.')) localStorage.removeItem(k);
+        });
+      } catch (e) {}
+      // unregister every service worker under this origin
+      try {
+        if (navigator.serviceWorker && navigator.serviceWorker.getRegistrations) {
+          const regs = await navigator.serviceWorker.getRegistrations();
+          await Promise.all(regs.map(r => r.unregister().catch(() => {})));
+        }
+      } catch (e) {}
+      // clear all caches so the next load is truly fresh
+      try {
+        if (self.caches && caches.keys) {
+          const keys = await caches.keys();
+          await Promise.all(keys.map(k => caches.delete(k).catch(() => {})));
+        }
+      } catch (e) {}
+      // drop the kiri IDB and reload. IDB delete must race with a hard
+      // reload — whichever fires first wins, either way we end up at a
+      // fresh page without the old SW in control.
+      try {
+        const req = indexedDB.deleteDatabase('kiri');
+        req.onsuccess = req.onerror = req.onblocked = () => location.reload();
+      } catch (e) {}
+      setTimeout(() => location.reload(), 800);
     };
 
     return true;
