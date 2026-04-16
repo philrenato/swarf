@@ -24,6 +24,10 @@ let meshes = {},
     color = 0,
     material,
     origin,
+    // swarf r14+: static stock-shell mesh (4 side walls + bottom) rendered
+    // alongside the heightmap top. Without this the tool appeared to cut
+    // through air — the heightmap is a single-layer Z-grid with no sides.
+    stockShell,
     posOffset = { x:0, y:0, z:0 };
 
 export function animate_clear(api) {
@@ -31,6 +35,11 @@ export function animate_clear(api) {
     space.platform.showGridBelow(true);
     client.animate_cleanup();
     Object.keys(meshes).forEach(id => deleteMesh(id));
+    // swarf r14+: drop the stock shell alongside the heightmap.
+    if (stockShell) {
+        space.world.remove(stockShell);
+        stockShell = null;
+    }
     toggleStock(undefined,true,false);
     api.uc.setVisible(anim.laba, false);
     api.uc.setVisible(anim.vala, false);
@@ -200,6 +209,45 @@ Object.assign(client, {
     }
 });
 
+// swarf r14+: build a static shell — 4 side walls + bottom — sized to the
+// stock cuboid. The heightmap carves the top; this gives the block its sides
+// so the tool visibly cuts into a solid volume instead of through air.
+// Matches the heightmap material so it reads as one piece.
+function buildStockShell() {
+    try {
+        const settings = api.conf.get();
+        const stock = settings && settings.stock;
+        if (!stock || !stock.x || !stock.y || !stock.z) return null;
+        const hx = stock.x / 2, hy = stock.y / 2, h = stock.z;
+        // vertices: 4 bottom (z=0) + 4 top (z=h) corners, CCW from (-x,-y)
+        const V = [
+            -hx,-hy, 0,   hx,-hy, 0,   hx, hy, 0,  -hx, hy, 0,  // 0..3 bottom
+            -hx,-hy, h,   hx,-hy, h,   hx, hy, h,  -hx, hy, h   // 4..7 top
+        ];
+        // faces: 2 tris per side × 4 sides + 2 tris for bottom (no top — heightmap covers it)
+        const F = [
+            // -y wall: 0-1-5-4
+            0,1,5,  0,5,4,
+            // +x wall: 1-2-6-5
+            1,2,6,  1,6,5,
+            // +y wall: 2-3-7-6
+            2,3,7,  2,7,6,
+            // -x wall: 3-0-4-7
+            3,0,4,  3,4,7,
+            // bottom: 0-3-2-1 (facing -z)
+            0,3,2,  0,2,1
+        ];
+        const geo = new THREE.BufferGeometry();
+        geo.setAttribute('position', new THREE.Float32BufferAttribute(V, 3));
+        geo.setIndex(F);
+        geo.computeVertexNormals();
+        const mesh = new THREE.Mesh(geo, material);
+        mesh.renderOrder = -11;  // one behind the heightmap
+        try { buildStockUVs(geo); } catch (e) {}
+        return mesh;
+    } catch (e) { return null; }
+}
+
 function meshAdd(id, ind, pos, sab) {
     const geo = new THREE.BufferGeometry();
     if (sab) {
@@ -263,6 +311,14 @@ function meshAdd(id, ind, pos, sab) {
     }
     space.world.add(mesh);
     meshes[id] = mesh;
+
+    // swarf r14+: build the stock shell exactly once, when the heightmap
+    // (id=0) comes in. Same material, placed at the same origin so the
+    // shell follows the heightmap on mesh_move.
+    if (id === 0 && !stockShell) {
+        stockShell = buildStockShell();
+        if (stockShell) space.world.add(stockShell);
+    }
 }
 
 // swarf v010 r4: triplanar-ish UV projection based on vertex normal. Picks
@@ -443,6 +499,12 @@ function checkMeshCommands(data) {
             mesh.position.y = pos.y;
             mesh.position.z = pos.z;
             space.update();
+        }
+        // swarf r14+: keep the static shell glued to the heightmap origin.
+        if (id === 0 && stockShell) {
+            stockShell.position.x = pos.x;
+            stockShell.position.y = pos.y;
+            stockShell.position.z = pos.z;
         }
         label.x.value = (pos.x - origin.x).toFixed(2);
         label.y.value = (pos.y + origin.y).toFixed(2);
