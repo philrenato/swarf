@@ -1,216 +1,251 @@
 /** Copyright Stewart Allen <sa@grid.space> -- All Rights Reserved */
 //
-// swarf r14+: Rhino-style gumball. A single TransformControls instance
-// follows the selected widget through all three modes: translate, rotate,
-// scale. Larger than the part, visible whenever a widget is selected in
-// ARRANGE view. W/E/R switch modes (translate / rotate / scale). Esc
-// deselects. While dragging, the orbit control is paused so camera doesn't
-// fight the handle.
+// swarf r14+: Rhino-style gumball.
+//
+// Design:
+// - Three TransformControls (translate, rotate, scale) all attached to a
+//   single proxy Object3D at the widget's volume center. All three handle
+//   sets are visible at once; there's no W/E/R mode switch.
+// - During drag, the proxy moves under TransformControls' direct mutation.
+//   We read the per-frame delta and apply it LIVE to the widget via
+//   api.selection.move/rotate/scale so the part itself moves — not just
+//   mesh.position, which creates the "floor is moving, part is static"
+//   illusion Phil flagged.
+// - On translate commit, snap the widget's bottom to z=0. Parts always sit
+//   on the grid. Grid stays still during the drag; snap-back happens once
+//   at drag end.
+// - Proxy resyncs to widget volume center after every commit and whenever
+//   selection / widget set changes, so the gumball never "loses" the part.
 
 import { api } from './api.js';
 import { space } from '../../moto/space.js';
 import { THREE, TransformControls } from '../../ext/three.js';
 
-let gumball = null;
+// the three transform controllers — one per mode, all on the same proxy.
+let controls = { translate: null, rotate: null, scale: null };
+let proxy = null;            // invisible Object3D the gumball attaches to
 let currentWidget = null;
-let preDragSnapshot = null;
-let capturedOrbit = null;
 
-const MODE_KEYS = {
-    'w': 'translate',
-    'e': 'rotate',
-    'r': 'scale'
-};
+// per-drag state
+let dragging = null;          // 'translate' | 'rotate' | 'scale' | null
+let dragStart = null;         // proxy snapshot at dragStart
+let lastProxy = null;         // previous-frame proxy snapshot for delta
 
-function getOrbit() {
-    // space.internals() exposes { renderer, camera, platform, container, raycaster };
-    // the orbit controller is stored on space module-internal; read it via internals too.
-    // Actually internals() doesn't expose viewControl. We reach it via space.view or
-    // via the public api — easiest: pause/resume are implicit via dragging-changed
-    // which we hook below. For now we just stop propagation of pointer events while
-    // a gumball drag is active by setting a flag the orbit loop respects (if wired).
-    // Realistically: disabling pointer events on the canvas during drag is enough.
-    return null;
+function ensureProxy() {
+    if (proxy) return proxy;
+    proxy = new THREE.Object3D();
+    proxy.name = 'swarf-gumball-proxy';
+    try { space.scene.add(proxy); } catch (e) {}
+    return proxy;
 }
 
-function ensureGumball() {
-    if (gumball) return gumball;
+function ensureControls() {
+    if (controls.translate) return;
     const { camera, renderer } = space.internals();
-    if (!camera || !renderer) return null;
+    if (!camera || !renderer) return;
 
-    gumball = new TransformControls(camera, renderer.domElement);
-    // Make the gumball large relative to the part — Rhino-style, bigger than
-    // the geometry so handles don't disappear inside the mesh. 1.0 is default;
-    // we compute a per-widget size below in sizeTo().
-    gumball.size = 1.2;
-    // Translate by default; W/E/R switch.
-    gumball.setMode('translate');
+    ensureProxy();
 
-    // Add the TransformControls' visual helper to the scene. Newer Three
-    // exposes getHelper(); older instances are themselves Object3D.
-    const helper = typeof gumball.getHelper === 'function' ? gumball.getHelper() : gumball;
-    try { space.scene.add(helper); } catch (e) { /* fallback: already-added */ }
+    const modes = ['translate', 'rotate', 'scale'];
+    for (const mode of modes) {
+        const tc = new TransformControls(camera, renderer.domElement);
+        tc.setMode(mode);
+        // sizes offset slightly so the three gizmos don't overlap visually:
+        // translate arrows innermost, rotate rings middle, scale cubes outermost.
+        tc.size = mode === 'translate' ? 1.0 : mode === 'rotate' ? 1.5 : 2.0;
+        tc.space = 'world';
 
-    // While a handle is being dragged, keep the camera still. TransformControls
-    // emits 'dragging-changed' on mousedown/up of handles — match that to the
-    // canvas pointer-events so OrbitControls can't consume drags meant for us.
-    gumball.addEventListener('dragging-changed', (ev) => {
-        const canvas = renderer.domElement;
-        if (ev.value) {
-            // capture starting state for one undo-pair on drag end
-            if (currentWidget) {
-                const w = currentWidget;
-                preDragSnapshot = {
-                    pos: { x: w.track.pos.x, y: w.track.pos.y, z: w.track.pos.z },
-                    scale: w.track.scale ? { x: w.track.scale.x, y: w.track.scale.y, z: w.track.scale.z } : null,
-                    rot: w.track.rot ? { x: w.track.rot.x, y: w.track.rot.y, z: w.track.rot.z } : null
-                };
-            }
-            // stop orbit from stealing the drag — set a global flag orbit code can check,
-            // and also disable pointer-events on any overlay that might catch mouseup.
-            capturedOrbit = true;
-            canvas.setAttribute('data-gumball-drag', '1');
-        } else {
-            canvas.removeAttribute('data-gumball-drag');
-            capturedOrbit = false;
-            // On drag end, read the new widget transform out of the mesh and push
-            // it through swarf's selection API so the existing rebuild pipeline
-            // (bounds, stock, slicing) fires. TransformControls mutates the mesh
-            // directly; we mirror that into widget.track so next slice sees it.
-            commitDrag();
-        }
-    });
+        tc.addEventListener('dragging-changed', (ev) => {
+            if (ev.value) onDragStart(mode);
+            else          onDragEnd(mode);
+            // tell orbit to stand down (picked up by any consumer reading this flag)
+            renderer.domElement.setAttribute('data-gumball-drag', ev.value ? '1' : '');
+        });
+        tc.addEventListener('objectChange', () => onProxyChange(mode));
 
-    // Feed every change back into the render pipeline so the scene updates
-    // during the drag without waiting for the orbit tick.
-    gumball.addEventListener('objectChange', () => {
-        try { space.update && space.update(); } catch (e) {}
-    });
+        try {
+            const helper = typeof tc.getHelper === 'function' ? tc.getHelper() : tc;
+            space.scene.add(helper);
+        } catch (e) {}
 
-    return gumball;
+        tc.attach(proxy);
+        controls[mode] = tc;
+    }
 }
 
-function commitDrag() {
-    if (!currentWidget || !preDragSnapshot) return;
-    const w = currentWidget;
-    const mode = gumball && gumball.getMode ? gumball.getMode() : 'translate';
-    const mesh = w.mesh;
-    // Delta between snapshot and current mesh world position/rotation/scale.
-    // For translate: widget.track.pos is the relative offset from origin —
-    // we call selection.move(dx, dy, dz) with delta in mm.
-    if (mode === 'translate') {
-        const dx = mesh.position.x - preDragSnapshot.pos.x;
-        const dy = mesh.position.y - preDragSnapshot.pos.y;
-        const dz = mesh.position.z - preDragSnapshot.pos.z;
-        // reset mesh position so selection.move isn't doubled on top of the
-        // TransformControls' direct mutation — selection.move will re-apply.
-        mesh.position.set(preDragSnapshot.pos.x, preDragSnapshot.pos.y, preDragSnapshot.pos.z);
-        if (Math.abs(dx) + Math.abs(dy) + Math.abs(dz) > 1e-4) {
-            api.selection.move(dx, dy, dz);
+// Compute the widget's current volume center in world coordinates.
+// widget.getBoundingBox() returns model-space bounds; track.pos is the
+// widget's platform offset. The center is the bbox center shifted by pos.
+function volumeCenter(widget) {
+    if (!widget) return new THREE.Vector3();
+    const bb = widget.getBoundingBox();
+    const cx = (bb.min.x + bb.max.x) * 0.5 + (widget.track?.pos?.x || 0);
+    const cy = (bb.min.y + bb.max.y) * 0.5 + (widget.track?.pos?.y || 0);
+    const cz = (bb.min.z + bb.max.z) * 0.5 + (widget.track?.pos?.z || 0);
+    return new THREE.Vector3(cx, cy, cz);
+}
+
+function syncProxyToWidget() {
+    if (!proxy || !currentWidget) return;
+    const c = volumeCenter(currentWidget);
+    proxy.position.copy(c);
+    proxy.rotation.set(0, 0, 0);
+    proxy.scale.set(1, 1, 1);
+    proxy.updateMatrixWorld(true);
+    lastProxy = snapshotProxy();
+}
+
+function snapshotProxy() {
+    return {
+        pos: proxy.position.clone(),
+        rot: proxy.rotation.clone(),
+        scl: proxy.scale.clone()
+    };
+}
+
+function onDragStart(mode) {
+    if (!currentWidget) return;
+    dragging = mode;
+    dragStart = snapshotProxy();
+    lastProxy = snapshotProxy();
+    // hide the other two gumballs while one is active so handles don't collide.
+    for (const m of Object.keys(controls)) {
+        if (m !== mode && controls[m]) controls[m].enabled = false;
+    }
+}
+
+function onDragEnd(mode) {
+    dragging = null;
+    dragStart = null;
+    lastProxy = null;
+    for (const m of Object.keys(controls)) {
+        if (controls[m]) controls[m].enabled = true;
+    }
+    if (!currentWidget) return;
+
+    // bottom-snap to z=0 after any transform ends (translate, rotate, or
+    // scale can all shift the bottom). Rotate changes orientation, which
+    // may lift the lowest point off z=0; re-snap so parts always sit on
+    // the grid.
+    snapBottomToGrid();
+
+    // resync proxy to the freshly-settled widget volume center so the
+    // gumball re-centers on the part every time.
+    syncProxyToWidget();
+    try { space.update && space.update(); } catch (e) {}
+}
+
+function snapBottomToGrid() {
+    if (!currentWidget) return;
+    try {
+        const w = currentWidget;
+        const bb = w.getBoundingBox();
+        const bottomZ = bb.min.z + (w.track?.pos?.z || 0);
+        if (Math.abs(bottomZ) > 1e-4) {
+            api.selection.move(0, 0, -bottomZ);
         }
+    } catch (e) {}
+}
+
+function onProxyChange(mode) {
+    if (!currentWidget || !dragging || dragging !== mode) return;
+    if (!lastProxy) { lastProxy = snapshotProxy(); return; }
+    const now = snapshotProxy();
+
+    if (mode === 'translate') {
+        const dx = now.pos.x - lastProxy.pos.x;
+        const dy = now.pos.y - lastProxy.pos.y;
+        // constrain Z so parts don't lift off the grid mid-drag. We'll re-snap
+        // on drag end either way, but keeping the drag in XY feels natural
+        // for CNC parts sitting on stock.
+        api.selection.move(dx, dy, 0);
     } else if (mode === 'rotate') {
-        // TransformControls stores rotation on mesh.rotation (Euler). Widget's
-        // own rotate path rotates geometry, not mesh — so we snapshot the
-        // Euler delta, reset the mesh, and call selection.rotate.
-        const cur = mesh.rotation;
-        const pre = preDragSnapshot.rot || { x: 0, y: 0, z: 0 };
-        const rx = cur.x, ry = cur.y, rz = cur.z;
-        mesh.rotation.set(0, 0, 0);
-        if (Math.abs(rx) + Math.abs(ry) + Math.abs(rz) > 1e-4) {
+        // apply the per-frame Euler delta directly. proxy rotation is Euler;
+        // convert to small-angle delta by diffing component-wise.
+        const rx = now.rot.x - lastProxy.rot.x;
+        const ry = now.rot.y - lastProxy.rot.y;
+        const rz = now.rot.z - lastProxy.rot.z;
+        if (Math.abs(rx) + Math.abs(ry) + Math.abs(rz) > 1e-6) {
             api.selection.rotate(rx, ry, rz);
         }
     } else if (mode === 'scale') {
-        const cur = mesh.scale;
-        const rx = cur.x || 1;
-        const ry = cur.y || 1;
-        const rz = cur.z || 1;
-        mesh.scale.set(1, 1, 1);
-        if (Math.abs(1 - rx * ry * rz) > 1e-4) {
-            api.selection.scale(rx, ry, rz);
+        // scale factor = now / last. clamp low end so a flicker through 0
+        // doesn't zero the widget.
+        const sx = Math.max(0.01, now.scl.x / Math.max(1e-6, lastProxy.scl.x));
+        const sy = Math.max(0.01, now.scl.y / Math.max(1e-6, lastProxy.scl.y));
+        const sz = Math.max(0.01, now.scl.z / Math.max(1e-6, lastProxy.scl.z));
+        if (Math.abs(1 - sx * sy * sz) > 1e-6) {
+            api.selection.scale(sx, sy, sz);
         }
     }
-    preDragSnapshot = null;
-    // Re-attach to the (possibly re-placed) mesh so the handle follows.
-    if (gumball && currentWidget) {
-        try { gumball.attach(currentWidget.mesh); } catch (e) {}
+
+    lastProxy = now;
+    // resync proxy to widget center so the gumball origin tracks the part's
+    // new volume center during continuous drag. we overwrite translate's
+    // current proxy position with the widget's new center — TransformControls
+    // tolerates this since it reads the live position on next pointer move.
+    if (mode !== 'translate') {
+        const c = volumeCenter(currentWidget);
+        proxy.position.copy(c);
+        lastProxy.pos.copy(c);
+        proxy.updateMatrixWorld(true);
     }
-    try { space.update && space.update(); } catch (e) {}
 }
 
-function sizeTo(widget) {
-    if (!gumball || !widget || !widget.mesh) return;
-    const geo = widget.mesh.geometry;
-    try { geo.computeBoundingBox && geo.computeBoundingBox(); } catch (e) {}
-    const bb = geo.boundingBox;
-    if (!bb) return;
-    const dim = Math.max(bb.max.x - bb.min.x, bb.max.y - bb.min.y, bb.max.z - bb.min.z);
-    // Rhino-like: handles noticeably larger than the part. 1.2 default, bumped
-    // further for small parts so the gumball never vanishes inside geometry.
-    if (dim < 20) gumball.size = 2.0;
-    else if (dim < 60) gumball.size = 1.6;
-    else gumball.size = 1.2;
+function visible(bool) {
+    for (const m of Object.keys(controls)) {
+        const tc = controls[m];
+        if (!tc) continue;
+        tc.visible = bool;
+        try {
+            const h = typeof tc.getHelper === 'function' ? tc.getHelper() : tc;
+            if (h) h.visible = bool;
+        } catch (e) {}
+    }
 }
 
 function attachToSelection() {
+    ensureControls();
+    if (!controls.translate) return;
+
     const widgets = api.widgets.all();
     const selected = api.selection && api.selection.widgets ? api.selection.widgets() : [];
-    // prefer explicitly selected widget; fall back to the only widget when
-    // exactly one part is on the platform. matches swarf's for_widgets habit
-    // (scale works without explicit selection if there's only one thing).
     let w = selected[0] || null;
     if (!w && widgets.length === 1) w = widgets[0];
-    if (!gumball) ensureGumball();
-    if (!gumball) return;
-    // Only show in ARRANGE — the gumball makes no sense during slicing or sim.
+
     const arrange = api.view && api.view.is_arrange && api.view.is_arrange();
     if (!arrange || !w) {
-        try { gumball.detach(); } catch (e) {}
-        try { gumball.visible = false; } catch (e) {}
         currentWidget = null;
+        visible(false);
         return;
     }
+
     currentWidget = w;
-    try { gumball.attach(w.mesh); } catch (e) {}
-    sizeTo(w);
-    gumball.visible = true;
+    syncProxyToWidget();
+    visible(true);
     try { space.update && space.update(); } catch (e) {}
 }
 
-function setMode(mode) {
-    if (!gumball) return;
-    try { gumball.setMode(mode); } catch (e) {}
-}
-
 api.event.on('load-done', () => {
-    ensureGumball();
+    ensureControls();
     attachToSelection();
 
-    // selection changes — re-attach or hide
     api.event.on('widget.select', attachToSelection);
     api.event.on('widget.deselect', attachToSelection);
     api.event.on('widget.add', attachToSelection);
     api.event.on('widget.delete', attachToSelection);
     api.event.on('view.set', attachToSelection);
-
-    // W / E / R keyboard mode switch — standard 3D DCC convention.
-    // Skip when a text field is focused so typing in inputs isn't hijacked.
-    document.addEventListener('keydown', (ev) => {
-        const tag = document.activeElement?.tagName;
-        if (tag === 'INPUT' || tag === 'TEXTAREA' || document.activeElement?.isContentEditable) return;
-        if (ev.metaKey || ev.ctrlKey || ev.altKey) return;
-        const k = ev.key?.toLowerCase();
-        if (MODE_KEYS[k]) {
-            setMode(MODE_KEYS[k]);
-            ev.preventDefault();
-        }
-    });
+    // resync on any selection transform so the gumball follows external changes too
+    api.event.on('selection.move', () => { if (!dragging) syncProxyToWidget(); });
+    api.event.on('selection.rotate', () => { if (!dragging) syncProxyToWidget(); });
+    api.event.on('selection.scale', () => { if (!dragging) syncProxyToWidget(); });
 });
 
-// expose for debugging + probes
+// expose for probes / debugging
 export const gumballApi = {
-    get instance() { return gumball; },
+    get controls() { return controls; },
     get widget() { return currentWidget; },
-    setMode,
-    attach: attachToSelection
+    attach: attachToSelection,
+    snapBottom: snapBottomToGrid
 };
 window.__swarfGumball = gumballApi;
