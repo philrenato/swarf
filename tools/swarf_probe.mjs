@@ -127,29 +127,54 @@ async function main() {
     }
 
     if (FLOW === 'sim' || FLOW === 'export') {
-      // Add a rough op via the always-visible grid at #op-add-list
-      const addedRough = await page.evaluate(() => {
-        const grid = document.getElementById('op-add-list');
-        if (!grid) return { ok: false, reason: 'no op-add-list' };
-        const rough = [...grid.querySelectorAll('div')].find(d =>
-          d.textContent.trim().toLowerCase() === 'rough'
-        );
-        if (!rough) return { ok: false, reason: 'no rough tile' };
-        rough.click();
-        return { ok: true };
+      // Inject a test cube widget so preview has something to slice
+      const addedCube = await page.evaluate(() => {
+        try {
+          const k = window.kiri, api = k.api;
+          if (!api || !api.widget) return { ok: false, reason: 'no api.widget' };
+          // 20mm cube centered at origin; 12 tris = 36 verts × 3 coords
+          const s = 10;
+          const V = [
+            // bottom (z=-s)
+            -s,-s,-s,  s,-s,-s,  s, s,-s,
+            -s,-s,-s,  s, s,-s, -s, s,-s,
+            // top
+            -s,-s, s,  s, s, s,  s,-s, s,
+            -s,-s, s, -s, s, s,  s, s, s,
+            // sides
+            -s,-s,-s, -s, s, s, -s,-s, s,
+            -s,-s,-s, -s, s,-s, -s, s, s,
+             s,-s,-s,  s,-s, s,  s, s, s,
+             s,-s,-s,  s, s, s,  s, s,-s,
+            -s,-s,-s,  s,-s, s, -s,-s, s,
+            -s,-s,-s,  s,-s,-s,  s,-s, s,
+            -s, s,-s, -s, s, s,  s, s, s,
+            -s, s,-s,  s, s, s,  s, s,-s,
+          ];
+          const w = api.widget().loadVertices(new Float32Array(V));
+          api.platform.add(w);
+          return { ok: true };
+        } catch (e) { return { ok: false, reason: e.message }; }
       });
-      log('op.add', JSON.stringify(addedRough));
-      report.markers.addedRough = addedRough;
+      log('cube.add', JSON.stringify(addedCube));
+      report.markers.addedCube = addedCube;
+      await new Promise(r => setTimeout(r, 800));
+
+      // swarf auto-inject: we no longer manually add a rough op here.
+      // cam_slice auto-injects a default rough when no real ops exist.
+      // This tests Phil's actual workflow: load part → click TOOLPATHS.
+      report.markers.addedRough = { ok: 'auto-inject', reason: 'cam_slice handles empty ops' };
       await shot(page, 'op-added');
 
-      // Click PREVIEW (act-preview)
-      await page.evaluate(() => document.getElementById('act-preview')?.click());
-      log('click', 'act-preview');
+      // Click TOOLPATHS (act-paths) — the combined slice+preview button.
+      // act-preview is a hidden stub with no handler in swarf.
+      await page.evaluate(() => document.getElementById('act-paths')?.click());
+      log('click', 'act-paths');
       // wait for preview complete via app state
       const previewed = await waitFor(page, () => {
         try { return window.kiri.api.view.is_preview && window.kiri.api.view.is_preview(); }
         catch { return false; }
-      }, 20000, 'preview');
+      }, 60000, 'preview');
       report.markers.preview = previewed;
       await shot(page, 'previewed');
 
@@ -162,7 +187,22 @@ async function main() {
           catch { return false; }
         }, 25000, 'animate');
         report.markers.animate = animated;
-        await new Promise(r => setTimeout(r, 3000)); // let some chips fly
+        const samples = [];
+        for (let i = 0; i < 8; i++) {
+          await new Promise(r => setTimeout(r, 500));
+          const s = await page.evaluate(() => ({
+            count: window.__swarfLightstreamCount || 0,
+            pts:   window.__swarfLightstreamPoints || 0,
+            err:   window.__swarfLightstreamErr || null,
+            fat:   window.__swarfLine ? !!window.__swarfLine.LineSegments2 : false,
+            pathAdds: window.__swarfPathAddCount || 0,
+            lineVisible: window.__swarfLineTrackerObj ? window.__swarfLineTrackerObj.visible : null,
+            lsFlag: window.__swarfLightstream,
+          }));
+          samples.push(s);
+        }
+        report.markers.lightstreamSamples = samples;
+        log('lightstream', JSON.stringify(samples[samples.length - 1]));
         await shot(page, 'simulating');
       }
 

@@ -171,6 +171,14 @@ function content(actions) {
                     menuItem(actions, { id: 'render-ghost', text: 'transparent', iconClass: 'fas fa-border-none' }),
                     menuItem(actions, { id: 'render-edges', text: 'toggle edges', iconClass: 'fa-regular fa-square' }),
                     hr(),
+                    // swarf v010 r7 rev2: simulate display toggles — click
+                    // dispatches to the hidden sim-bar button with the same
+                    // onclick handler, so behavior is identical whether the
+                    // user uses the sim bar icons or this menu.
+                    menuItem(actions, { id: 'view-trans', text: 'transparency',    iconClass: 'fa-solid fa-border-none' }),
+                    menuItem(actions, { id: 'view-model', text: 'show part model', iconClass: 'fa-solid fa-eye' }),
+                    menuItem(actions, { id: 'view-shade', text: 'stock box',       iconClass: 'fa-solid fa-cube' }),
+                    hr(),
                     // swarf: expert-mode toggle lives under view (it's a display choice, not a preference)
                     menuItem(actions, { id: 'swarf-expert-toggle', text: 'expert mode', iconClass: 'fas fa-user-gear' }),
                     hr(),
@@ -194,6 +202,7 @@ function content(actions) {
                     menuItem(actions, { id: 'swarf-help-search', text: 'search help…', iconClass: 'fas fa-magnifying-glass' }),
                     menuItem(actions, { id: 'swarf-concordance', text: 'concordance', iconClass: 'fas fa-book-open' }),
                     hr(),
+                    menuItem(actions, { id: 'swarf-reset-profile', text: 'reset profile', iconClass: 'fas fa-rotate-left' }),
                     menuItem(actions, { id: 'app-help', text: 'about swarf', iconClass: 'fas fa-circle-info' }),
                 ]
             }),
@@ -210,34 +219,44 @@ function content(actions) {
 }
 
 function modeTools(actions) {
-    // swarf workflow bar: the four verbs a student moves through in order.
-    // File (import mesh), Operations (arrange view — set up ops), Preview
-    // (slice + show paths), Export (gcode).
+    // swarf v010 r7 workflow bar — collapsed to four verbs:
+    //   IMPORT · TOOLPATHS · SIMULATE · CLEAR · EXPORT
+    // Per Phil markup: TOOLPATHS now combines the old "toolpaths" (arrange
+    // view) and "preview" (slice+render paths) into one step. Until that
+    // button is hit, NO paths are visible. Clicking it generates and
+    // previews them. CLEAR (X) un-previews and wipes any sim state so the
+    // scene returns to a clean arrange.
     return [
-        span({ id: 'swarf-step-file', class: 'swarf-step', onclick() { $('load-file').click(); } }, [
+        span({ id: 'swarf-step-file', class: 'swarf-step', title: 'import a part — STL, OBJ, or supported mesh', onclick() { $('load-file').click(); } }, [
             span([icon('fas fa-file-arrow-up')]),
-            label({ title: 'import a part — STL, OBJ, or supported mesh', _: 'import' })
+            label({ _: 'import' })
         ]),
-        span({ id: 'view-arrange', ...on(actions, 'view-arrange'), class: 'swarf-step' }, [
-            span([icon('fas fa-list-check')]),
-            label({ title: 'set up toolpaths — rough, contour, outline, pocket', _: 'toolpaths' })
-        ]),
-        span({ id: 'act-preview', ...on(actions, 'act-preview'), class: 'swarf-step' }, [
+        // Combined TOOLPATHS — fires preview (slice + render paths). Clicking
+        // also switches to arrange view so the left drawer for op editing
+        // stays reachable. The old 'view-arrange' button is gone because the
+        // left TOOLPATHS drawer handles op setup directly.
+        span({ id: 'act-paths', ...on(actions, 'act-paths'), class: 'swarf-step', title: 'generate and preview toolpaths — rough, contour, outline, pocket' }, [
             span([icon('fas fa-route')]),
-            label({ id: 'label-preview', title: 'slice the part and show the toolpaths', _: 'preview' })
+            label({ id: 'label-paths', _: 'toolpaths' })
         ]),
-        // swarf: SIMULATE step (markup Apr 15) — runs Kiri's animation, watching
-        // the tool walk the toolpaths in real time.
-        span({ id: 'act-animate', ...on(actions, 'act-animate'), class: 'swarf-step' }, [
+        span({ id: 'act-animate', ...on(actions, 'act-animate'), class: 'swarf-step', title: 'simulate — watch the tool cut, throw chips, and leave debris on the platform' }, [
             span([icon('fas fa-play')]),
-            label({ id: 'label-animate', title: 'play back the toolpath animation — watch the tool work, throw chips, and leave debris on the platform', _: 'simulate' })
+            label({ id: 'label-animate', _: 'simulate' })
         ]),
-        span({ id: 'act-export', ...on(actions, 'act-export'), class: 'swarf-step' }, [
+        // swarf v010 r7: CLEAR — nuke all path/preview/sim state
+        span({ id: 'act-clear', ...on(actions, 'act-clear'), class: 'swarf-step swarf-step-clear', title: 'clear toolpaths, preview, and simulate state — back to a clean arrange' }, [
+            span([icon('fas fa-xmark')]),
+            label({ id: 'label-clear', _: 'clear' })
+        ]),
+        span({ id: 'act-export', ...on(actions, 'act-export'), class: 'swarf-step', title: 'export gcode for the machine' }, [
             span([icon('fas fa-file-export')]),
-            label({ id: 'label-export', title: 'generate gcode for the machine — scene goes achromatic until you touch something new', _: 'export' })
+            label({ id: 'label-export', _: 'export' })
         ]),
-        // hidden but preserved so upstream slice code paths still have a hook
-        span({ id: 'act-slice', style: 'display:none' })
+        // legacy hidden hooks — upstream slice/preview codepaths still expect
+        // these ids. act-paths wires to the same action as act-preview below.
+        span({ id: 'act-slice',   style: 'display:none' }),
+        span({ id: 'act-preview', style: 'display:none' }),
+        span({ id: 'view-arrange', style: 'display:none' })
     ];
 }
 

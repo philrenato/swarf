@@ -623,7 +623,9 @@ function setPlatformSize(
             {x:  width/2, z:  depth/2, y: maxz},
             {x: -width/2, z:  depth/2, y: maxz},
         ];
-        SCENE.add(volume = makeLinesFromPoints(points, grid.colorMinor));
+        volume = makeLinesFromPoints(points, grid.colorMinor);
+        volume.name = 'swarf-build-volume';
+        SCENE.add(volume);
         showVolume(volumeOn);
     }
 }
@@ -702,6 +704,7 @@ function updateRulers() {
         labelSize = grid.unitMinor * fontScale,
         oldView = ruler.view,
         view = ruler.view = new THREE.Group();
+    view.name = 'swarf-ruler-view';
 
     if (false) console.log('updateRulers called', {
         xon, yon, axesOn, labelSize, rulerColor, factor,
@@ -816,6 +819,10 @@ function updateGrid() {
     let lines = grid.lines = new THREE.Group();
 
     view = grid.view = new THREE.Group();
+    // swarf: name grid groups so lightstream's scene walk can exclude them
+    view.name = 'swarf-grid-view';
+    lines.name = 'swarf-grid-lines';
+    axes.name  = 'swarf-grid-axes';
     view.visible = oldView ? oldView.visible : true;
     view.add(lines);
     view.add(axes);

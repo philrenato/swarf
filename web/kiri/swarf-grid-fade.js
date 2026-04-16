@@ -39,15 +39,46 @@
     } catch (e) { return 0; }
   }
 
+  // v010-r10: Phil — "the floor must be IDENTICAL across modes." Kiri's
+  // Space.scene.updateFog() resets fog.near to camera-distance-to-target on
+  // every camera move (space.js onCameraMove). Switching to SIMULATE shifts
+  // the camera, which shifts the fog band, which paints the grid brighter
+  // or darker. Pin fog to fixed world-space distances anchored on the part
+  // size, and neutralise updateFog so camera motion can't repaint the floor.
   function applyFog(api, space) {
-    if (!space || !space.scene || !space.scene.setFog) return;
-    // mult is the ratio of fog.far / fog.near. Smaller mult = sharper fade.
-    // We pick mult by part size: small parts get mult=2 (tight, dramatic
-    // fade past the cube); larger parts get mult=5 (gentle, doesn't hide
-    // the workspace).
+    if (!space || !space.scene) return;
+    const THREE = window.THREE;
+    if (!THREE) return;
     const size = widgetSize(api) || 25.4;
-    const mult = size < 60 ? 2.2 : (size < 200 ? 3.5 : 5);
-    space.scene.setFog(mult, FOG_COLOR);
+    // Near = generous "always crisp" radius around the part. Far = where the
+    // grid fully fades to background. Both fixed in world units so the fade
+    // pattern is the same regardless of camera position.
+    const near = Math.max(size * 4, 120);
+    const far  = Math.max(size * 18, near * 4);
+    const sceneObj = space.scene.scene || space.scene._scene || null;
+    // setFog works through space's API; then we pin near/far ourselves.
+    try { space.scene.setFog && space.scene.setFog(3, FOG_COLOR); } catch (e) {}
+    // Reach into the actual THREE.Scene and overwrite. setFog stores fog on
+    // the underlying SCENE; we patch through space.world.scene if exposed,
+    // else via the well-known global path moto.Space internals.
+    try {
+      const all = [
+        space.world && space.world.scene,
+        sceneObj
+      ].filter(Boolean);
+      for (const s of all) {
+        if (s && s.fog) {
+          s.fog.near = near;
+          s.fog.far  = far;
+          s.fog.color && s.fog.color.setHex(FOG_COLOR);
+        }
+      }
+    } catch (e) {}
+    // Neutralise Kiri's camera-relative fog recompute. Idempotent.
+    if (space.scene && !space.scene.__swarfFogPinned) {
+      space.scene.updateFog = function () { /* swarf: fog is world-anchored */ };
+      space.scene.__swarfFogPinned = true;
+    }
     try { space.refresh && space.refresh(); } catch (e) {}
   }
 
@@ -60,9 +91,8 @@
       applyFog(api, space);
       api.event.on('widget.add',    () => setTimeout(() => applyFog(api, space), 50));
       api.event.on('widget.delete', () => setTimeout(() => applyFog(api, space), 50));
-      // recompute when entering simulate so chips and tool can fade with depth
-      api.event.on('animate',          () => applyFog(api, space));
-      api.event.on('function.animate', () => applyFog(api, space));
+      // v010-r10: do NOT re-apply on animate/function.animate. Fog is now
+      // world-anchored to part size; mode transitions must not change it.
     }
     if (++tries > 200) clearInterval(poll);
   }, 150);

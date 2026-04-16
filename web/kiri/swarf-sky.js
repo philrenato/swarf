@@ -21,9 +21,8 @@
   window.__swarfSkyLoaded = true;
 
   const body = document.body;
-  if (!body.classList.contains('swarf-sky-drift')) {
-    body.classList.add('swarf-sky-drift');
-  }
+  // swarf-sky-drift class removed in r12 — sky animation now only runs
+  // during swarf-sky-working (simulate/slice). No always-on drift.
 
   // ---- parallax on viewport drag ----------------------------------------
   // We don't have a clean camera-rotate event, so we track mouse drag deltas
@@ -53,8 +52,11 @@
     const kiri = window.kiri;
     const api = kiri && kiri.api;
     if (!api || !api.event) return false;
+    // swarf v010 r8: working-sky accelerated drift ("smoke/fog") only in
+    // expert mode. Default users don't see it.
     const setWorking = (on) => {
-      if (on) body.classList.add('swarf-sky-working');
+      const expert = body.classList.contains('swarf-expert');
+      if (on && expert) body.classList.add('swarf-sky-working');
       else body.classList.remove('swarf-sky-working');
     };
     // swarf r6: force the default seed cube to read "Kiri_Cube" in the
@@ -65,9 +67,12 @@
         const list = Array.isArray(added) ? added : [added];
         for (const w of list) {
           if (!w) continue;
+          // swarf v010: tightened — ONLY rename to Kiri_Cube if the widget is
+          // explicitly flagged as the seed (via meta.swarfSeed or
+          // mesh.userData.swarfSeed). An imported STL with no name is NOT the
+          // seed and must not be clobbered.
           const isSeed = (w.meta && w.meta.swarfSeed) ||
-                         (w.mesh && w.mesh.userData && w.mesh.userData.swarfSeed) ||
-                         (w.meta && (w.meta.file === 'cube' || !w.meta.file));
+                         (w.mesh && w.mesh.userData && w.mesh.userData.swarfSeed);
           if (isSeed) {
             w.meta = w.meta || {};
             w.meta.file = 'Kiri_Cube';
@@ -77,11 +82,15 @@
         // patch the already-rendered OBJECTS panel directly — platform.js
         // calls changed() BEFORE widget.add emits, so the panel shows the
         // old name by the time our hook runs. Rewrite matching DOM text.
-        try {
+        // swarf v010: DOM patch only runs when we actually renamed a seed
+        // widget this call — not on every widget.add, or a fresh unnamed
+        // STL import gets relabeled Kiri_Cube.
+        const renamedAny = list.some(w => w && w.meta && w.meta.swarfSeed);
+        if (renamedAny) try {
           const nameBtns = document.querySelectorAll('#ws-widgets button.name');
           for (const btn of nameBtns) {
             const t = btn.textContent.trim();
-            if (t === 'no name' || t === 'cube' || !t) btn.textContent = 'Kiri_Cube';
+            if (t === 'no name' || !t) btn.textContent = 'Kiri_Cube';
           }
         } catch (e) {}
         try { api.event.emit('widget.rename'); } catch (e) {}
@@ -158,6 +167,39 @@
       }
     } catch (e) {}
 
+    // swarf r12: profile reset. Wipe ws-settings AND IndexedDB, then
+    // reload so the delete completes before Kiri re-opens the DB.
+    try {
+      const MIG_R12 = 'swarf.r12.profile-reset-v7';
+      if (!localStorage.getItem(MIG_R12)) {
+        localStorage.removeItem('ws-settings');
+        // mark BEFORE reload so we don't loop
+        localStorage.setItem(MIG_R12, '1');
+        // delete the IDB and reload — deleteDatabase won't complete
+        // while the current page holds an open connection, so we
+        // must reload to close it and let the delete land.
+        const req = indexedDB.deleteDatabase('kiri');
+        req.onsuccess = req.onerror = req.onblocked = () => {
+          console.log('swarf r12: IDB deleted, reloading');
+          location.reload();
+        };
+        // if callbacks don't fire within 500ms, reload anyway
+        setTimeout(() => location.reload(), 500);
+        return true; // skip remaining hook() work
+      }
+    } catch (e) { console.warn('swarf: r12 profile reset failed', e); }
+
+    // expose a manual reset for Help → Reset Profile
+    window.__swarfResetProfile = function () {
+      localStorage.removeItem('ws-settings');
+      Object.keys(localStorage).forEach(k => {
+        if (k.startsWith('swarf.')) localStorage.removeItem(k);
+      });
+      const req = indexedDB.deleteDatabase('kiri');
+      req.onsuccess = req.onerror = req.onblocked = () => location.reload();
+      setTimeout(() => location.reload(), 500);
+    };
+
     return true;
   };
 
@@ -182,7 +224,9 @@
     let lastL = null, lastU = null, lastScale = null;
     let cx = 0, cy = 0;
     let logged = false;
+    let parallaxRunning = false;
     const tick = () => {
+      if (!parallaxRunning) return;
       try {
         const p = space.view.save();
         if (p && typeof p.left === 'number' && typeof p.up === 'number') {
@@ -193,10 +237,8 @@
           if (lastL !== null) {
             const dL = shortestDelta(p.left, lastL);
             const dU = p.up - lastU;
-            // 1 rad orbit = ~900px sideways shift, ~600px vertical
             cx += dL * 900;
             cy += dU * 600;
-            // zoom also nudges sky — feeling of 3D depth response
             if (typeof p.scale === 'number' && lastScale !== null) {
               const dS = p.scale - lastScale;
               cy -= dS * 400;
@@ -211,9 +253,22 @@
           if (typeof p.scale === 'number') lastScale = p.scale;
         }
       } catch (e) {}
-      requestAnimationFrame(tick);
+      setTimeout(() => requestAnimationFrame(tick), 33);
     };
-    requestAnimationFrame(tick);
+    // only run the parallax loop during simulate — saves CPU when idle.
+    // swarf-phase.js sets body classes; listen for simulate start/stop.
+    const startParallax = () => { if (!parallaxRunning) { parallaxRunning = true; requestAnimationFrame(tick); } };
+    const stopParallax  = () => { parallaxRunning = false; };
+    try {
+      const api = window.kiri && window.kiri.api;
+      if (api && api.event) {
+        api.event.on('animate',       startParallax);
+        api.event.on('animate.end',   stopParallax);
+        api.event.on('slice.begin',   startParallax);
+        api.event.on('slice.end',     stopParallax);
+      }
+    } catch (e) {}
+    window.addEventListener('swarf.clear', stopParallax);
     return true;
   };
   const camPoll = setInterval(() => {

@@ -16,7 +16,7 @@ let meshes = {},
     speedValues = [0.5, 1, 2, 4, 8, 16, 32],
     speedNames  = ["½×","1×","2×","4×","8×","16×","!!"],
     speedMax = speedValues.length - 1,
-    speedIndex = 0,
+    speedIndex = 1,  // swarf v010 r6: default 1× (speedValues[1])
     speed,
     origin,
     color = 0,
@@ -105,16 +105,28 @@ Object.assign(client, {
 
     animate_setup2(settings, ondone) {
         initPathMesh();
+        // swarf r7: stock + widget tinted by current swarf material
+        const sm = window.__swarfMaterial;
+        const a = sm && sm.appearance;
         color = dark ? 0x888888 : 0;
-        material = material ?? new THREE.MeshPhongMaterial({
-            flatShading: true,
-            transparent: false,
-            opacity: 0.5,
-            color: 0x888888,
-            side: THREE.DoubleSide
-        });
-        api.widgets.setColor(0x0055aa);
+        if (a) {
+            material = a.physical && THREE.MeshPhysicalMaterial
+                ? new THREE.MeshPhysicalMaterial({ color: a.color, side: THREE.DoubleSide })
+                : new THREE.MeshStandardMaterial({ color: a.color, side: THREE.DoubleSide });
+            if (window.__swarfApplyAppearance) window.__swarfApplyAppearance(material, a);
+            api.widgets.setColor(new THREE.Color(a.color).getHex());
+        } else {
+            material = material ?? new THREE.MeshPhongMaterial({
+                flatShading: true,
+                transparent: false,
+                opacity: 0.5,
+                color: 0x888888,
+                side: THREE.DoubleSide
+            });
+            api.widgets.setColor(0x0055aa);
+        }
         api.widgets.setOpacity(0.5);
+        window.__swarfAnimStockMaterial = material;
         client.send("animate_setup2", { settings }, ondone);
     },
 
@@ -131,7 +143,20 @@ function initPathMesh() {
         max = 10000,
         rot = new THREE.Euler(0,0,0),
         geo = new THREE.BufferGeometry(),
-        mat = new THREE.LineBasicMaterial({ color: dark ? 0xffff00 : 0x771100 }),
+        mat = (window.__swarfLightstream
+            ? new THREE.LineBasicMaterial({
+                color: 0xff2a1a,
+                transparent: true,
+                opacity: 0.9,
+                blending: THREE.AdditiveBlending,
+                depthWrite: false,
+                // swarf v010 r9: fog was killing the additive ribbon. The
+                // scene fog added in v009 for floor-fade applies per-material
+                // alpha attenuation that, combined with additive blending,
+                // drove the ribbon to invisible. Opt this one material out.
+                fog: false,
+              })
+            : new THREE.LineBasicMaterial({ color: dark ? 0xffff00 : 0x771100 })),
         pos = new Float32Array(max * 6),
         lines = new THREE.LineSegments(geo, mat),
         vec = new THREE.Vector3(0,0,0),
@@ -176,19 +201,35 @@ function initPathMesh() {
             lines.setRotationFromEuler(rot);
         },
         visible(bool) {
-            if (show && bool !== lines.visible) {
-                lines.visible = bool;
-            } else if (!show) {
-                lines.visible = false;
-            }
+            // swarf r9: ribbon visibility is governed by __swarfLightstream
+            // (the user toggle). The legacy `show` var used a stale localStorage
+            // pref that could force-hide the ribbon mid-simulate.
+            const want = (window.__swarfLightstream !== false) && bool;
+            if (want !== lines.visible) lines.visible = want;
         },
         show(bool) {
             show = bool;
             lines.visible = bool;
         }
     }
-    track.show(show);
+    // swarf v010 r9 (Apr 15 rewrite): this built-in path tracer IS the
+    // lightstream. Gate on __swarfLightstream (default on) — the separate
+    // swarf-lightstream.js overlay was reinventing the same data path and
+    // was the root cause of regressions. Kiri grows `lines` as each segment
+    // is reported; with the red additive material (set above when the flag
+    // is true) this is a translucent glowing ribbon traced behind the tool.
+    lines.visible = window.__swarfLightstream !== false;
     space.world.add(lines);
+
+    try {
+      window.addEventListener('swarf.lightstream.toggle', () => {
+        lines.visible = window.__swarfLightstream !== false;
+      });
+      // legacy event alias
+      window.addEventListener('swarf.paths.toggle', () => {
+        lines.visible = window.__swarfLightstream !== false;
+      });
+    } catch (e) {}
 }
 
 function meshAdd(id, ind, pos, ilen, plen) {
@@ -197,9 +238,30 @@ function meshAdd(id, ind, pos, ilen, plen) {
     const ia = ilen ? ind.subarray(0, ilen) : ind;
     geo.setAttribute('position', new THREE.BufferAttribute(pa, 3));
     geo.setIndex(new THREE.BufferAttribute(ia, 1));
-    const mesh = new THREE.Mesh(geo, material);
+    // swarf v010: 3D tool ids are NEGATIVE — give them the silver flute PBR
+    // material so the cutter doesn't read as the same material as the stock.
+    let useMat = material;
+    const isTool = (id !== undefined && id < 0);
+    if (isTool) {
+        const fluteTex = window.__swarfGetFluteTexture && window.__swarfGetFluteTexture();
+        useMat = new THREE.MeshStandardMaterial({
+            color:      0xd4d8de,
+            emissive:   0x161820,
+            roughness:  0.28,
+            metalness:  0.92,
+            map:        fluteTex || null,
+            flatShading:false,
+            side:       THREE.DoubleSide,
+        });
+    }
+    const mesh = new THREE.Mesh(geo, useMat);
     mesh.pos = pos;
     mesh.ind = ind;
+    if (isTool) {
+        mesh.renderOrder = 1;
+        window.__swarfToolMeshes = window.__swarfToolMeshes || [];
+        window.__swarfToolMeshes.push(mesh);
+    }
     space.world.add(mesh);
     meshes[id] = mesh;
 }
@@ -220,8 +282,13 @@ function meshUpdate(id, ind, pos, ilen, plen) {
 }
 
 function deleteMesh(id) {
-    space.world.remove(meshes[id]);
-    meshes[id].geometry.dispose();
+    const m = meshes[id];
+    space.world.remove(m);
+    m.geometry.dispose();
+    if (window.__swarfToolMeshes) {
+        const i = window.__swarfToolMeshes.indexOf(m);
+        if (i >= 0) window.__swarfToolMeshes.splice(i, 1);
+    }
     delete meshes[id];
 }
 

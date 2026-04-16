@@ -14,6 +14,9 @@
 (function () {
   'use strict';
 
+  // Markup toolbar is always on while we're actively iterating on swarf.
+  // (Previously gated behind ?dev=1 / ?markup=1 to hide it in "normal" use.)
+
   // ── STATE ──────────────────────────────────────────────────────────────────
   const state = {
     mode: 'select',
@@ -63,6 +66,9 @@
       white-space: nowrap;
     }
     .rd-sep { width: 1px; height: 22px; background: #2a2a2a; margin: 0 5px; }
+    #rd-toolbar-body { display: inline-flex; align-items: center; gap: 2px; overflow: hidden; transition: max-width 0.22s ease, opacity 0.18s ease; max-width: 2000px; opacity: 1; }
+    #rd-toolbar.rd-collapsed #rd-toolbar-body { max-width: 0; opacity: 0; pointer-events: none; }
+    #rd-toolbar.rd-collapsed { padding-right: 4px; }
     .rd-btn {
       height: 28px;
       padding: 0 9px;
@@ -365,30 +371,33 @@
   toolbar.id = 'rd-toolbar';
   toolbar.innerHTML = `
     <span class="rd-label">markup</span>
-    <div class="rd-sep"></div>
-    <button class="rd-btn rd-active" id="rd-btn-select">↖ select</button>
-    <button class="rd-btn" id="rd-btn-edit">✎ edit text</button>
-    <button class="rd-btn" id="rd-btn-note">⊕ note</button>
-    <button class="rd-btn" id="rd-btn-draw">✏ draw</button>
-    <button class="rd-btn" id="rd-btn-arrow">↗ arrow</button>
-    <div class="rd-sep"></div>
-    <span class="rd-label" style="font-size:8px">color</span>
-    <div class="rd-swatch rd-active" style="background:#e8ff00" data-color="#e8ff00" title="yellow"></div>
-    <div class="rd-swatch" style="background:#ff4d4d" data-color="#ff4d4d" title="red"></div>
-    <div class="rd-swatch" style="background:#4daaff" data-color="#4daaff" title="blue"></div>
-    <div class="rd-swatch" style="background:#ffffff; border-color:#555" data-color="#ffffff" title="white"></div>
-    <select class="rd-size-select" id="rd-size">
-      <option value="2">thin</option>
-      <option value="3" selected>med</option>
-      <option value="5">thick</option>
-      <option value="8">fat</option>
-    </select>
-    <div class="rd-sep"></div>
-    <button class="rd-btn" id="rd-btn-undo" title="Undo last stroke (Cmd+Z)">↩ undo</button>
-    <button class="rd-btn" id="rd-btn-clear" style="color:#ff6666">✕ clear all</button>
-    <div class="rd-sep"></div>
-    <button class="rd-btn" id="rd-btn-compare" title="Load compare proposals from markup-compare.json">⇔ compare</button>
-    <button class="rd-btn rd-send-btn" id="rd-btn-send">→ send to claude</button>
+    <span id="rd-toolbar-body">
+      <div class="rd-sep"></div>
+      <button class="rd-btn rd-active" id="rd-btn-select">↖ select</button>
+      <button class="rd-btn" id="rd-btn-edit">✎ edit text</button>
+      <button class="rd-btn" id="rd-btn-note">⊕ note</button>
+      <button class="rd-btn" id="rd-btn-draw">✏ draw</button>
+      <button class="rd-btn" id="rd-btn-arrow">↗ arrow</button>
+      <div class="rd-sep"></div>
+      <span class="rd-label" style="font-size:8px">color</span>
+      <div class="rd-swatch rd-active" style="background:#e8ff00" data-color="#e8ff00" title="yellow"></div>
+      <div class="rd-swatch" style="background:#ff4d4d" data-color="#ff4d4d" title="red"></div>
+      <div class="rd-swatch" style="background:#4daaff" data-color="#4daaff" title="blue"></div>
+      <div class="rd-swatch" style="background:#ffffff; border-color:#555" data-color="#ffffff" title="white"></div>
+      <select class="rd-size-select" id="rd-size">
+        <option value="2">thin</option>
+        <option value="3" selected>med</option>
+        <option value="5">thick</option>
+        <option value="8">fat</option>
+      </select>
+      <div class="rd-sep"></div>
+      <button class="rd-btn" id="rd-btn-undo" title="Undo last stroke (Cmd+Z)">↩ undo</button>
+      <button class="rd-btn" id="rd-btn-clear" style="color:#ff6666">✕ clear all</button>
+      <div class="rd-sep"></div>
+      <button class="rd-btn" id="rd-btn-compare" title="Load compare proposals from markup-compare.json">⇔ compare</button>
+      <button class="rd-btn rd-send-btn" id="rd-btn-send">→ send to claude</button>
+    </span>
+    <button class="rd-btn" id="rd-btn-collapse" title="Collapse/expand markup toolbar" style="margin-left:6px">«</button>
   `;
   document.body.appendChild(toolbar);
 
@@ -490,6 +499,23 @@
       el.contentEditable = (mode === 'edit') ? 'true' : 'false';
     });
   }
+
+  // swarf v010: collapse/expand the markup toolbar horizontally
+  (function wireCollapse() {
+    const COLLAPSE_KEY = 'swarf-markup-toolbar-collapsed';
+    const btn = document.getElementById('rd-btn-collapse');
+    function setCollapsed(c) {
+      toolbar.classList.toggle('rd-collapsed', c);
+      btn.textContent = c ? '»' : '«';
+      btn.title = c ? 'Expand markup toolbar' : 'Collapse markup toolbar';
+      try { localStorage.setItem(COLLAPSE_KEY, c ? '1' : '0'); } catch (e) {}
+    }
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      setCollapsed(!toolbar.classList.contains('rd-collapsed'));
+    });
+    try { setCollapsed(localStorage.getItem(COLLAPSE_KEY) === '1'); } catch (e) {}
+  })();
 
   document.getElementById('rd-btn-select').addEventListener('click', () => setMode('select'));
   document.getElementById('rd-btn-edit').addEventListener('click', () => setMode('edit'));

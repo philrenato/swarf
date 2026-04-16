@@ -48,6 +48,7 @@
     api.event.on('animate',           () => setPhase('simulating'));
     api.event.on('animate.end',       () => setPhase('toolpaths'));
     api.event.on('function.export',   () => setPhase('exported'));
+    window.addEventListener('swarf.clear', () => setPhase('idle'));
     return true;
   };
   let tries = 0;

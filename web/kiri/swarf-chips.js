@@ -30,8 +30,10 @@
     return;
   }
 
-  const AIRBORNE_MAX = 240;
-  const SETTLED_MAX  = 1600;
+  // swarf v010: cut caps ~40% — Phil reported Chrome at ~40% CPU, chip physics
+  // was the biggest per-frame cost. Visual density barely changes.
+  const AIRBORNE_MAX = 140;
+  const SETTLED_MAX  = 900;
   const GRAVITY      = 180;   // mm/s² (Three.js mm units)
   const DRAG         = 0.85;
   const SPIN_RPM     = 12000; // visual approximation, not read from tool
@@ -269,19 +271,37 @@
 
     // ---- simulation tick -------------------------------------------------
     let lastTime = performance.now();
+    let _toolSpinRate = 0; // rev/s, smoothed toward target based on tool velocity
     function tick() {
       const now = performance.now();
       const dt = Math.min(0.05, (now - lastTime) / 1000);
       lastTime = now;
 
-      // swarf r6: spin the tool mesh while simulating so the cutter looks
-      // like it's actually working. ~720 RPM in scene units (12 rev/s) —
-      // visibly fast but won't strobe out at 60fps. Spins around the local
-      // Z axis (cylinder long axis in Kiri's CAM coords).
-      if (simulating && window.__swarfToolMeshes) {
-        const dRot = dt * Math.PI * 24; // 12 rev/s
-        for (const m of window.__swarfToolMeshes) {
-          if (m && m.rotation) m.rotation.z += dRot;
+      // swarf r12: fully stop when nothing to animate. The old 8Hz heartbeat
+      // still burned CPU. Now we park entirely and restart via api events.
+      let anyAirborne = false;
+      for (let f = 0; f < chips.length; f++) { if (chips[f].length) { anyAirborne = true; break; } }
+      if (!simulating && !anyAirborne) {
+        window.__swarfChipTickRunning = false;
+        return;  // fully parked — restarted by simulate/tool.move events
+      }
+
+      // swarf v010 r5: tool spin with velocity-driven ramp. Spin speed
+      // follows actual tool motion — spinning up when cutting, coasting
+      // down quickly after the move ends. Looks like a real spindle that
+      // idles between cuts rather than a cartoon prop that runs forever.
+      if (window.__swarfToolMeshes) {
+        // target RPM: scale with XY velocity (cutting); 0 when idle
+        const speed = Math.hypot(toolVel.x, toolVel.y);
+        const targetRevPerSec = simulating && speed > 0.2 ? 12 : 0;
+        // smooth toward target — accelerate fast, decelerate faster
+        const rate = targetRevPerSec > _toolSpinRate ? 6 : 9; // 1/e over ~0.11s decel
+        _toolSpinRate += (targetRevPerSec - _toolSpinRate) * Math.min(1, dt * rate);
+        const dRot = dt * Math.PI * 2 * _toolSpinRate;
+        if (dRot !== 0) {
+          for (const m of window.__swarfToolMeshes) {
+            if (m && m.rotation) m.rotation.z += dRot;
+          }
         }
       }
 
@@ -332,7 +352,16 @@
 
       requestAnimationFrame(tick);
     }
+    window.__swarfChipTickRunning = true;
     requestAnimationFrame(tick);
+
+    // restart the tick if it parked itself
+    function ensureTickRunning() {
+      if (!window.__swarfChipTickRunning) {
+        window.__swarfChipTickRunning = true;
+        requestAnimationFrame(tick);
+      }
+    }
 
     // ---- hooks via api.event --------------------------------------------
     const hookApi = () => {
@@ -341,6 +370,7 @@
 
       let firstSpawnLogged = false;
       api.event.on('swarf.tool.move', ({ id, pos }) => {
+        ensureTickRunning();
         const t = performance.now() / 1000;
         if (lastToolPos) {
           const dt = Math.max(0.001, t - lastToolTime);
@@ -355,9 +385,11 @@
         // required Z near stock top, but that silently killed spawning when
         // the part origin wasn't at top, making chips look "broken".
         const moving = Math.hypot(toolVel.x, toolVel.y) > 0.2;
-        if (simulating && moving) {
-          const n = 1 + Math.floor(Math.random() * 3);
-          for (let i = 0; i < n; i++) spawnChip(pos);
+        // swarf v010 r4: halved spawn count (was 1..3, now 0..1 per event)
+        // so chip physics doesn't crowd out tool-position updates. Visual
+        // density barely changes because hook fires many times per second.
+        if (simulating && moving && Math.random() < 0.55) {
+          spawnChip(pos);
           if (!firstSpawnLogged) {
             console.log('swarf-chips: first spawn at', pos);
             firstSpawnLogged = true;
@@ -366,13 +398,13 @@
       });
 
       const updateVisible = () => setPoolVisible(simulating && window.__swarfChipsVisible !== false);
-      api.event.on('animate', () => { simulating = true; updateVisible(); });
+      api.event.on('animate', () => { simulating = true; updateVisible(); ensureTickRunning(); });
       api.event.on('animate.end', () => { simulating = false; });
-      api.event.on('function.animate', () => { simulating = true; updateVisible(); });
+      api.event.on('function.animate', () => { simulating = true; updateVisible(); ensureTickRunning(); });
       window.addEventListener('swarf.chips.toggle', updateVisible);
 
-      // IMPORT a new part → clear the workshop floor
-      api.event.on('widget.add', () => {
+      // IMPORT a new part or CLEAR → wipe the workshop floor
+      function clearAllChips() {
         for (let f = 0; f < chips.length; f++) chips[f].length = 0;
         for (const p of airborne) { p.count = 0; p.instanceMatrix.needsUpdate = true; }
         for (let i = 0; i < settled.length; i++) {
@@ -381,7 +413,9 @@
           settledSlots[i] = 0;
           settled[i].instanceMatrix.needsUpdate = true;
         }
-      });
+      }
+      api.event.on('widget.add', clearAllChips);
+      window.addEventListener('swarf.clear', clearAllChips);
 
       return true;
     };

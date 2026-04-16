@@ -91,8 +91,18 @@ export async function prepare_one(widget, settings, print, firstPoint, update) {
         { camStockX, camStockY, camStockZ, camStockIndexed, camStockOffset } = process,
         { camForceZMax, camFullEngage, camInnerFirst, camOriginCenter } = process,
         { camOriginOffX, camOriginOffY, camOriginOffZ, camZClearance } = process,
-        bounds = widget.getBoundingBox(),
-        stock = camStockOffset ? {
+        bounds = widget.getBoundingBox();
+
+    // swarf: the slice worker may auto-inject stock padding (5mm per
+    // axis) and stash the padded dimensions on the widget. The prepare
+    // dispatch receives a fresh settings copy from the main thread that
+    // does NOT include the padding, so prefer widget-stored values.
+    let padded = widget._swarfPaddedStock;
+    let stock = padded ? {
+            x: padded.x,
+            y: padded.y,
+            z: padded.z,
+        } : camStockOffset ? {
             x: bounds.dim.x + camStockX,
             y: bounds.dim.y + camStockY,
             z: bounds.dim.z + camStockZ,
@@ -100,21 +110,31 @@ export async function prepare_one(widget, settings, print, firstPoint, update) {
             x: camStockX,
             y: camStockY,
             z: camStockZ
-        },
-        stockZ = stock.z * (camStockIndexed ? 0.5 : 1),
+        };
+
+    // use widget.track.pos as the single position source — this matches
+    // the mesh position (widget.js _updateMeshPosition) and avoids drift
+    // with settings.stock.center which can diverge in multi-widget or
+    // stored-profile scenarios
+    let wmpos = widget.track.pos;
+    if (!center || (center.x === undefined && center.y === undefined)) {
+        center = { x: wmpos.x, y: wmpos.y, z: stock.z / 2 };
+    }
+
+    let stockZ = stock.z * (camStockIndexed ? 0.5 : 1),
         stockZClear = stockZ + camZClearance,
         widgetTrackTop = widget.track.top,
         widgetTopToStock = stockZ - widgetTrackTop,
         boundsZ = camStockIndexed ? stock.z / 2 : bounds.max.z + widgetTopToStock,
-        wmpos = widget.track.pos,
         wmx = wmpos.x,
         wmy = wmpos.y,
         wmz = !camStockIndexed ? stock.z - boundsZ : alignTop ? 0 : 0,
         zSafe = Math.max(camZTop, camStockIndexed ? Math.hypot(stock.y, stock.z) / 2 + camZClearance : stockZClear),
         originx = (camOriginCenter ? 0 : -stock.x / 2) + (camOriginOffX || 0),
         originy = (camOriginCenter ? 0 : -stock.y / 2) + (camOriginOffY || 0),
-        origin = newPoint(originx, originy, zSafe),
-        coastline,
+        origin = newPoint(originx, originy, zSafe);
+
+    let coastline,
         contouring = false,
         currentOp,
         drillDown = 0,

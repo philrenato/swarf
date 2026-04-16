@@ -165,8 +165,45 @@ export async function cam_slice(settings, widget, onupdate, ondone) {
         console.log("disabling overhang safeties");
     }
 
+    // swarf: auto-inject a default rough operation when the user clicks
+    // TOOLPATHS without manually configuring ops. Students shouldn't need
+    // to know about the operation system to see toolpaths on their part.
+    // Also catches the case where ops contains only separators ('|').
+    const hasRealOps = proc.ops && proc.ops.some(op => op.type && op.type !== '|');
+    if (!hasRealOps) {
+        // no stock padding — toolpaths trace the part outline (cutout).
+        // simulate adds its own thin skin for visual feedback.
+        proc.ops = [{
+            type: "rough",
+            tool: proc.camRoughTool || 1000,
+            direction: proc.camMillDirection || "climb",
+            spindle: proc.camRoughSpindle || 1000,
+            down: proc.camRoughDown || 2,
+            step: proc.camRoughOver || 0.4,
+            rate: proc.camRoughSpeed || 1000,
+            plunge: proc.camRoughPlunge || 250,
+            leave: proc.camRoughStock || 0,
+            leavez: proc.camRoughStockZ || 0,
+            all: false,
+            flats: false,
+            inside: false,
+            omitthru: proc.camRoughOmitThru || false,
+            ov_topz: 0,
+            ov_botz: 0,
+        }];
+    }
+
     if (!proc.ops || proc.ops.length === 0) {
         return error('no processes specified');
+    }
+
+    // swarf: ensure rough ops use cutout mode (outside trace at each Z)
+    // with no stock padding. Stock = part bounds.
+    for (const op of proc.ops) {
+        if (op && op.type === 'rough') {
+            op.all = false;
+            op.inside = false;
+        }
     }
 
     if (stock.x === 0 || stock.y === 0 || stock.z === 0) {

@@ -81,11 +81,14 @@
                 <div id="fdm-output" class="set2-group mode-fdm"></div>
                 <div id="fdm-expert" class="set2-group mode-fdm bottom"></div>
                 <!-- CAM -->
-                <div id="cam-tabs" class="set2-group mode-cam"></div>
-                <!-- swarf student mode: Stock auto from bbox, Limits/Origin locked, Expert hidden (spec §5, §10, §11) -->
+                <!-- swarf v010 r10 (markup Apr 15 #5/#6): cam-tabs and cam-output
+                     (tabs + strategy) moved to the right rail, stacked under
+                     OBJECTS. Left side now hosts only TOOLPATHS. Stock / Limits /
+                     Origin / Expert stay left (expert-only; re-exposed by nerd
+                     mode per markup #7). IDs preserved so init-menu.js keeps
+                     wiring groups to the right elements regardless of DOM position. -->
                 <div id="cam-stock" class="set2-group mode-cam swarf-expert-only"></div>
                 <div id="cam-limits" class="set2-group mode-cam swarf-expert-only"></div>
-                <div id="cam-output" class="set2-group mode-cam"></div>
                 <div id="cam-origin" class="set2-group mode-cam swarf-expert-only"></div>
                 <div id="cam-expert" class="set2-group mode-cam bottom swarf-expert-only"></div>
                 <!-- LASER / 2D Cut Tools -->
@@ -136,12 +139,6 @@
             </div>
             <!-- vertical separation between workspace and right tray -->
             <div id="panel-right" class="f-col j-start settings">
-                <div class="set2-group f-col">
-                    <details open>
-                        <summary class="set-header"><a>objects</a></summary>
-                        <div id="ws-widgets" class="f-col"></div>
-                    </details>
-                </div>
                 <div class="set2-group f-col mode-fdm bottom">
                     <div class="set-header"><a>ranges</a></div>
                     <div id="fdm-ranges" class="f-col"></div>
@@ -149,7 +146,7 @@
                 <div class="set2-group f-col mode-cam bottom">
                     <!-- swarf: operation list — opens when TOOLPATHS step is clicked (markup Apr 15) -->
                     <details id="swarf-toolpaths-details" open>
-                    <summary class="set-header mode-cam"><a>toolpaths</a></summary>
+                    <summary class="set-header mode-cam" title="machining operations — each step removes material in a different way"><a>toolpaths</a></summary>
                     <div id="camops" class="f-col a-stretch grow">
                         <!-- swarf: tool library opener (markup Apr 15) — endmills / drills / bits -->
                         <div id="swarf-tools-row" class="f-row" style="gap:6px; padding:4px 0; align-items:center">
@@ -196,6 +193,23 @@
         </div>
     </div>
 
+    <!-- swarf v010 r10 (markup Apr 15 #5/#6): right rail — OBJECTS, TABS,
+         STRATEGY stacked on the right side of the viewport. TOOLPATHS stays
+         alone on the left (panel-right, CSS-pinned left). cam-tabs and
+         cam-output divs carry their original IDs so init-menu.js wires its
+         newGroup() calls to the right elements by getElementById regardless
+         of DOM position. -->
+    <div id="swarf-right-rail" class="f-col j-start settings">
+        <div class="set2-group f-col">
+            <details open>
+                <summary class="set-header" title="imported meshes in the scene — click a name to select"><a>objects</a></summary>
+                <div id="ws-widgets" class="f-col"></div>
+            </details>
+        </div>
+        <div id="cam-tabs" class="set2-group mode-cam"></div>
+        <div id="cam-output" class="set2-group mode-cam"></div>
+    </div>
+
     <!-- ThreeJS container -->
     <div id="container"></div>
 
@@ -228,9 +242,10 @@
             </div>
             <div class="swarf-about-body">
                 <p>A focused CNC carving front-end &mdash; mesh in, gcode out, everything else hidden.</p>
+                <p style="opacity:0.7; font-size:12px; margin-top:6px;">swarf &middot; <em>Subtractive Workshop for Resourceful Folks</em></p>
             </div>
             <div class="swarf-credits">
-                <div><span class="swarf-credit-role">concept</span><span class="swarf-credit-who"><a target="_blank" href="https://renato.design">Phil Renato</a></span></div>
+                <div><span class="swarf-credit-role"><sup>re</sup>concept</span><span class="swarf-credit-who"><a target="_blank" href="https://renato.design">Phil Renato</a></span></div>
                 <div><span class="swarf-credit-role">original source</span><span class="swarf-credit-who"><a target="_blank" href="https://grid.space">Stewart Allen</a> &middot; <a target="_blank" href="https://github.com/GridSpace/grid-apps">grid-apps</a></span></div>
                 <div><span class="swarf-credit-role">new code</span><span class="swarf-credit-who">Claude</span></div>
             </div>
@@ -576,6 +591,9 @@
 <div id="swarf-err" style="display:none;position:fixed;bottom:0;left:0;right:0;max-height:40vh;overflow:auto;background:#1a0a0a;color:#ff6b5a;font:12px/1.4 monospace;padding:10px;z-index:99999;border-top:2px solid #a8382a;white-space:pre-wrap"></div>
 <script>
 (function(){
+  // swarf v010: gate error overlay behind ?dev=1 — normal users never see it.
+  var qs = new URLSearchParams(location.search);
+  if (!qs.has('dev')) return;
   var box = document.getElementById('swarf-err');
   function show(msg){ box.style.display='block'; box.textContent += msg + '\n\n'; }
   window.addEventListener('error', function(e){
@@ -599,9 +617,17 @@
 <script src="swarf-grid-fade.js"></script>
 <!-- swarf chip physics: tool-spin-aware shavings, gravity, floor accumulation -->
 <script src="swarf-chips.js"></script>
-<!-- swarf simulate-bar extras: chips toggle + custom speed prompt -->
+<!-- swarf simulate-bar extras: chips/paths/lightstream toggles + editable speed -->
 <script src="swarf-sim-bar.js"></script>
+<!-- swarf lightstream: Tron-style glowing red toolpath ribbon trailing the tool -->
+<script src="swarf-lightstream.js"></script>
 <!-- swarf dev-only: markup toolbar, cross-origin to markup server on :8731 -->
-<script src="swarf-markup-inject.js"></script>
+<script>
+if (new URLSearchParams(location.search).has('dev')) {
+  var s = document.createElement('script');
+  s.src = 'swarf-markup-inject.js';
+  document.body.appendChild(s);
+}
+</script>
 </body>
 </html>

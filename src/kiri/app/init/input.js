@@ -13,6 +13,8 @@ import { keyboard } from '../keyboard.js';
 import { local as sdb } from '../../../data/local.js';
 import { menu as menuCAM } from '../../mode/cam/app/init-menu.js';
 const menuFDM = ()=>[], menuLaser = ()=>[], menuSLA = ()=>[];
+// swarf v010 r6: expose Line2/LineMaterial on window for swarf-lightstream.js
+import '../swarf-line-ext.js';
 import { modal } from '../modal.js';
 import { preferences } from '../preferences.js';
 import { settings as set_ctrl } from '../conf/manager.js';

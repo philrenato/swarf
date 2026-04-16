@@ -53,9 +53,12 @@ async function path(levels, update, opts = {}) {
     const flat = opts.flat;
     const thin = opts.thin && !flat;
     const ckspeed = isCAM || opts.speed !== false;
+    // swarf v010 r5: Tron lightstream mode — re-tint Kiri's PREVIEW toolpath
+    // layers as mill-red glowing ribbons when toggled on via View menu.
+    const lightstream = (typeof window !== 'undefined' && window.__swarfLightstream);
     const headColor = 0x888888;
-    const moveColor = opts.move >= 0 ? opts.move : (dark ? 0x666666 : 0xaaaaaa);
-    const printColor = opts.print >= 0 ? opts.print : 0x777700;
+    const moveColor = opts.move >= 0 ? opts.move : (lightstream ? 0xff2a1a : (dark ? 0x666666 : 0xaaaaaa));
+    const printColor = opts.print >= 0 ? opts.print : (lightstream ? 0xff2a1a : 0x777700);
     const arrowAll = true;
     const arrowSize = arrowAll ? 0.2 : 0.4;
     const layers = [];
@@ -244,16 +247,20 @@ async function path(levels, update, opts = {}) {
             pushPrint(lastOut.tool, current)
         }
 
+        // swarf v010 r5: lightstream re-tint — all marker glyphs become
+        // glowing mill-red when lightstream is on.
+        const lsLine = lightstream ? 0xff6040 : null;
+        const lsFace = lightstream ? 0xff2a1a : null;
         if (lasers.length) {
             for (let poly of lasers)
             output
-                .setLayer('power', { line: 0x000055, face: 0x0000ff, opacity: 0.5 }, true)
+                .setLayer('power', { line: lsLine ?? 0x000055, face: lsFace ?? 0x0000ff, opacity: lightstream ? 0.85 : 0.5 }, true)
                 .addPolys([ poly ], { thin: true, z: opts.z, color: poly.color });
         }
 
         if (changes.length) {
             output
-                .setLayer('tool', { line: 0x000055, face: 0x0000ff, opacity: 0.5 }, true)
+                .setLayer('tool', { line: lsLine ?? 0x000055, face: lsFace ?? 0x0000ff, opacity: lightstream ? 0.85 : 0.5 }, true)
                 .addAreas(changes.map(point => {
                     return newPolygon().centerCircle(point, 0.2, 4).setZ(point.z + 0.03);
                 }), { outline: true });
@@ -261,7 +268,7 @@ async function path(levels, update, opts = {}) {
 
         if (retracts.length) {
             output
-                .setLayer('retract', { line: 0x550000, face: 0xff0000, opacity: 0.5 }, true)
+                .setLayer('retract', { line: lsLine ?? 0x550000, face: lsFace ?? 0xff0000, opacity: lightstream ? 0.85 : 0.5 }, true)
                 .addAreas(retracts.map(point => {
                     return newPolygon().centerCircle(point, 0.2, 5).setZ(point.z + 0.01);
                 }), { outline: true });
@@ -269,7 +276,7 @@ async function path(levels, update, opts = {}) {
 
         if (engages.length) {
             output
-                .setLayer('engage', { line: 0x005500, face: 0x00ff00, opacity: 0.5 }, true)
+                .setLayer('engage', { line: lsLine ?? 0x005500, face: lsFace ?? 0x00ff00, opacity: lightstream ? 0.85 : 0.5 }, true)
                 .addAreas(engages.map(point => {
                     return newPolygon().centerCircle(point, 0.2, 7).setZ(point.z + 0.02);
                 }), { outline: true });

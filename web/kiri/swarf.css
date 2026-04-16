@@ -115,11 +115,10 @@ body::before {
       calc(var(--swarf-sky-parallax-x, 0px)       + 128px) calc(var(--swarf-sky-parallax-y, 0px)       - 1024px);
   }
 }
-body.swarf-sky-drift::before {
-  animation: swarf-sky-rise 240s linear infinite;
-}
+/* sky animation only runs during simulate — feTurbulence is CPU-expensive
+   and the 240s drift was burning fans even when idle. */
 body.swarf-sky-working::before {
-  animation-duration: 40s;
+  animation: swarf-sky-rise 40s linear infinite;
 }
 
 /* swarf sky drift: always-on slow procedural churn. We animate the cloud
@@ -459,13 +458,21 @@ input[type="range"] { accent-color: var(--swarf-accent-hi); }
 .mod-top { border-bottom: 1px solid var(--swarf-line); }
 
 /* ---- Click-to-open menus (spec: real-app behavior) ---- */
-/* Disable hover-opens from moto/menubar.css */
+/* Disable hover-opens from moto/menubar.css — both .pop and .top-menu-drop */
 #menubar .top-menu > span:hover > .pop { display: none !important; }
-#menubar .top-menu > span:hover .top-menu-drop { opacity: 1 !important; }
-/* Open only when explicitly toggled */
+#menubar .top-menu > span:hover .top-menu-drop { display: none !important; }
+/* Open only when explicitly toggled via click (swarf-open class) */
 #menubar .top-menu > span.swarf-open > .pop { display: flex !important; }
+#menubar .top-menu > span.swarf-open .top-menu-drop { display: flex !important; }
 #menubar .top-menu > span.swarf-open { background: var(--swarf-accent) !important; color: #fff !important; }
 #menubar .top-menu > span.swarf-open label { color: #fff !important; }
+/* body { filter } (swarf-phase-* classes) creates a stacking context that
+   can cause position:fixed panels to paint over menu dropdowns despite lower
+   z-index in some Chrome builds. Fix: when ANY menu is open, suppress panels
+   via a body-level class toggled by the click handler in sync.js. */
+body.swarf-menu-open #panel-right,
+body.swarf-menu-open #swarf-right-rail { z-index: -1 !important; pointer-events: none; }
+body.swarf-menu-open #swarf-concerns  { z-index: -1 !important; pointer-events: none; }
 
 /* Workflow step buttons (top toolbar) */
 .swarf-step {
@@ -500,48 +507,49 @@ input[type="range"] { accent-color: var(--swarf-accent-hi); }
   font-family: "JetBrains Mono", "IBM Plex Mono", monospace !important;
 }
 .swarf-about-head {
-  display: flex; align-items: baseline; gap: 14px;
-  padding: 22px 24px 10px 24px;
+  display: flex; align-items: baseline; gap: 12px;
+  padding: 16px 20px 8px 20px;
   border-bottom: 1px solid var(--swarf-line);
 }
 .swarf-about-mark {
-  font-size: 28px; font-weight: 700;
-  letter-spacing: 0.06em; text-transform: lowercase;
+  font-size: 24px; font-weight: 700;
+  letter-spacing: 0.02em; text-transform: lowercase;
+  line-height: 1.1;
   color: var(--swarf-text);
 }
-.swarf-about-mark sup { font-size: 10px; color: var(--swarf-text-2); font-weight: 500; margin-left: 2px; top: -0.9em; }
+.swarf-about-mark sup { font-size: 9px; color: var(--swarf-text-2); font-weight: 500; margin-left: 2px; top: -0.8em; }
 .swarf-about-sub {
-  font-size: 10px; letter-spacing: 0.2em; text-transform: uppercase;
+  font-size: 9px; letter-spacing: 0.14em; text-transform: uppercase;
   color: var(--swarf-text-2);
 }
 .swarf-about-body p {
-  margin: 0; padding: 16px 24px 10px 24px;
+  margin: 0; padding: 12px 20px 8px 20px;
   color: var(--swarf-text);
-  line-height: 1.55; font-size: 13px;
+  line-height: 1.4; font-size: 12px;
 }
 .swarf-credits {
   display: grid;
   grid-template-columns: auto 1fr;
-  gap: 6px 18px;
-  padding: 6px 24px 16px 24px;
-  font-size: 11px; line-height: 1.6;
+  gap: 4px 16px;
+  padding: 4px 20px 12px 20px;
+  font-size: 10px; line-height: 1.45;
 }
 .swarf-credit-role {
-  text-transform: uppercase; letter-spacing: 0.18em;
+  text-transform: uppercase; letter-spacing: 0.12em;
   color: var(--swarf-text-3);
 }
-.swarf-credit-who { color: var(--swarf-text); white-space: nowrap; }
+.swarf-credit-who { color: var(--swarf-text); white-space: nowrap; letter-spacing: 0.02em; }
 .swarf-credit-who a { color: var(--swarf-text); text-decoration: none; border-bottom: 1px solid var(--swarf-line-2); }
 .swarf-credit-who a:hover { color: var(--swarf-accent-hi); border-bottom-color: var(--swarf-accent-hi); }
 .swarf-about-foot {
   display: flex; justify-content: space-between; align-items: center;
-  padding: 10px 24px 16px 24px;
+  padding: 8px 20px 12px 20px;
   border-top: 1px solid var(--swarf-line);
-  font-size: 10px; letter-spacing: 0.2em; text-transform: uppercase;
+  font-size: 9px; letter-spacing: 0.14em; text-transform: uppercase;
   color: var(--swarf-text-3);
 }
-.swarf-about-links { display: flex; gap: 10px; align-items: center; }
-.swarf-about-links a { color: var(--swarf-text-2); text-decoration: none; letter-spacing: 0.18em; }
+.swarf-about-links { display: flex; gap: 8px; align-items: center; }
+.swarf-about-links a { color: var(--swarf-text-2); text-decoration: none; letter-spacing: 0.12em; }
 .swarf-about-links a:hover { color: var(--swarf-accent-hi); }
 .swarf-about-links .sep { opacity: 0.4; }
 
@@ -639,21 +647,110 @@ input[type="range"] { accent-color: var(--swarf-accent-hi); }
 }
 .swarf-plate-body { padding: 6px 8px 10px 8px; }
 
-/* ---- #panel-right — OPERATIONS list pinned upper-left as the work surface ---- */
-/* Top offset is below the deepest menu dropdown so open menus never overlap the panel
-   (markup Apr 15). Longest dropdown is ~10 items × 28px = ~280px, so 340px clears. */
+/* ---- #panel-right — TOOLPATHS pinned upper-left, solo ---- */
+/* swarf v010 r10 (markup Apr 15 #6): OBJECTS / TABS / STRATEGY moved to the
+   right rail. TOOLPATHS is the only resident left, so we move it UP into
+   the slot OBJECTS vacated. Top offset still clears the menubar + mode-tools
+   strip so open top-menu dropdowns never overlap the panel. */
 #panel-right {
   position: fixed !important;
-  top: 340px;
+  top: 96px;
   left: 16px;
   width: 320px;
-  max-height: calc(100vh - 360px);
+  max-height: calc(100vh - 120px);
   overflow-y: auto;
-  z-index: 15;
+  z-index: 5;  /* swarf v010 r8: below top-menu dropdowns */
   padding: 0 !important;
   gap: 10px !important;
   background: transparent !important;
 }
+/* ---- #swarf-right-rail — OBJECTS + TABS + STRATEGY stacked upper-right ---- */
+#swarf-right-rail {
+  position: fixed !important;
+  top: 96px;
+  right: 16px;
+  width: 320px;
+  max-height: calc(100vh - 120px);
+  overflow-y: auto;
+  z-index: 5;
+  padding: 0;
+  gap: 10px;
+  background: transparent;
+  display: flex;
+  flex-direction: column;
+}
+/* rail plates inherit the same mill-red / chamfered treatment as panel-right */
+#swarf-right-rail .set2-group {
+  background: var(--swarf-bg-2) !important;
+  border: 1px solid var(--swarf-line-2) !important;
+  border-left: 2px solid var(--swarf-accent) !important;
+  clip-path: polygon(14px 0, 100% 0, 100% calc(100% - 6px), calc(100% - 6px) 100%, 0 100%, 0 14px);
+  box-shadow:
+    0 6px 28px rgba(0,0,0,0.6),
+    inset 1px 0 0 var(--swarf-accent-dim),
+    inset 0 1px 0 rgba(216,210,198,0.06),
+    -1px 0 10px -2px var(--swarf-glow);
+  margin-bottom: 12px;
+  overflow: hidden;
+  position: relative;
+}
+#swarf-right-rail .set2-group::before {
+  content: "";
+  position: absolute; inset: 0;
+  background-image: repeating-linear-gradient(
+    0deg,
+    rgba(216,210,198,0.022) 0,
+    rgba(216,210,198,0.022) 1px,
+    transparent 1px, transparent 3px
+  );
+  pointer-events: none;
+  z-index: 0;
+}
+#swarf-right-rail .set2-group:empty,
+#swarf-right-rail .set2-group:not(:has(> details)):not(:has(> .set-header)) {
+  display: none !important;
+}
+#swarf-right-rail .set2-group > details > summary.set-header,
+#swarf-right-rail .set2-group > .set-header {
+  list-style: none;
+  padding: 10px 12px 9px 14px !important;
+  border-bottom: 1px solid var(--swarf-line) !important;
+  text-transform: uppercase;
+  letter-spacing: 0.18em;
+  font-size: 13px;
+  color: var(--swarf-text) !important;
+  font-weight: 600;
+  cursor: pointer;
+}
+#swarf-right-rail .set2-group summary::-webkit-details-marker { display: none; }
+#swarf-right-rail .set2-group summary.set-header a { color: inherit !important; }
+/* Let cam-tabs / cam-output render their content inside the plate cleanly */
+#swarf-right-rail #cam-tabs,
+#swarf-right-rail #cam-output {
+  padding: 0;
+}
+/* on narrow viewports let the right rail coexist with the viewport without
+   overlapping #mid-mid; reduce its width and let the canvas take priority */
+@media (max-width: 1280px) {
+  #swarf-right-rail { width: 260px; }
+  #panel-right { width: 260px; }
+}
+/* swarf v010 r8: topbar menu dropdowns must always paint over #panel-right
+   and any simulate bar content so they're never obscured. r10-f (markup
+   Apr 15): don't touch #menubar's position/stacking — setting position on
+   it re-sized the bar. Just drop the rails beneath the default dropdown
+   z-index (999) so they paint under menu pops. */
+/* swarf r12: menu dropdowns must paint over position:fixed panels.
+   Make the entire menubar position:fixed with a high z-index so its
+   dropdown children (which are position:absolute within it) paint
+   above #panel-right. */
+#menubar {
+  position: fixed !important;
+  top: 0; left: 0; right: 0;
+  z-index: 100 !important;
+}
+#panel-right, #swarf-right-rail { z-index: 2 !important; }
+
 /* swarf: OBJECTS list rows — upstream Kiri capped #ws-widgets buttons at 150px which
    truncated "Raised Snap - Count..." to a useless stub (markup Apr 15 round 4 —
    "label container in objects is still too small"). Let the button fill the plate. */
@@ -1236,6 +1333,18 @@ body:not(.swarf-expert) .swarf-add-op-grid > .swarf-expert-only {
   outline: 1px solid var(--swarf-accent, #b03030);
   outline-offset: 0;
 }
+.swarf-op-params .swarf-op-bool {
+  flex-direction: row-reverse;
+  justify-content: flex-end;
+  cursor: pointer;
+}
+.swarf-op-params .swarf-op-bool > input[type="checkbox"] {
+  flex: 0 0 auto;
+  width: 14px;
+  height: 14px;
+  accent-color: var(--swarf-accent, #b03030);
+  cursor: pointer;
+}
 
 /* swarf: SIMULATE playback bar (2026-04-15 r6) — upstream Kiri ships a white
    control strip; re-skin as a dark HUD with a bright mill-red PLAY affordance
@@ -1371,3 +1480,244 @@ body.swarf-phase-simulating #swarf-watermark::after {
   box-shadow: 0 0 10px var(--swarf-accent-hi, #ff3a2a);
 }
 body.swarf-phase-exported   #swarf-watermark::after { background: #6a6a6a; }
+
+/* Feed-rate legend (#speedbar) — was an unlabeled mystery strip. Header
+   pill above it in the drawer register so the scale reads "feed mm/min". */
+#speeds { position: relative; }
+#speeds::before {
+  content: "( feed mm/min )";
+  position: absolute;
+  top: -18px; left: 50%; transform: translateX(-50%);
+  font-family: "JetBrains Mono", "IBM Plex Mono", monospace;
+  font-size: 9px;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--swarf-text-2);
+  white-space: nowrap;
+  pointer-events: none;
+}
+body:not(.swarf-expert) #speeds { display: none !important; }
+
+/* ================================================================
+   DIALOG UNIFICATION (Apr 15) — job/download popover, Application
+   Preferences, Workspace Export confirm. Mimic the tool-drawer
+   (.set2-group) register + About-panel type pass. Drawer aesthetic:
+   warm-black plate, mill-red left rail, scanline hairlines, chamfer,
+   monospace, bracketed "( label )" section heads in uppercase.
+   ================================================================ */
+
+/* --- shared dialog shell --- */
+#mod-x-any, #mod-x-sla, #mod-x-laser, #mod-prefs, #mod-any {
+  font-family: "JetBrains Mono", "IBM Plex Mono", monospace !important;
+  color: var(--swarf-text) !important;
+  background: var(--swarf-bg-2) !important;
+  border: 1px solid var(--swarf-line-2) !important;
+  border-left: 3px solid var(--swarf-accent) !important;
+  clip-path: polygon(12px 0, 100% 0, 100% 100%, 0 100%, 0 12px);
+  box-shadow:
+    0 20px 60px rgba(0,0,0,0.75),
+    inset 0 1px 0 rgba(216,210,198,0.04),
+    -1px 0 10px -2px var(--swarf-glow);
+  padding: 14px 16px 14px 18px !important;
+  position: relative;
+}
+/* scanlines on dialog shells */
+#mod-x-any::before, #mod-x-sla::before, #mod-x-laser::before,
+#mod-prefs::before, #mod-any::before {
+  content: "";
+  position: absolute; inset: 0;
+  background-image: repeating-linear-gradient(
+    0deg,
+    rgba(216,210,198,0.02) 0,
+    rgba(216,210,198,0.02) 1px,
+    transparent 1px, transparent 3px
+  );
+  pointer-events: none;
+  z-index: 0;
+}
+#mod-x-any > *, #mod-x-sla > *, #mod-x-laser > *,
+#mod-prefs > *, #mod-any > * { position: relative; z-index: 1; }
+
+/* --- bracketed "( label )" section head, matching drawer pill-heads --- */
+.mod-print .header label,
+#mod-prefs .header,
+#mod-setup .header {
+  background: var(--swarf-bg-3) !important;
+  color: var(--swarf-text) !important;
+  border: 1px solid var(--swarf-line-2) !important;
+  border-left: 2px solid var(--swarf-accent) !important;
+  border-right: none !important;
+  border-radius: 0 !important;
+  padding: 5px 12px !important;
+  font-family: "JetBrains Mono", "IBM Plex Mono", monospace !important;
+  font-size: 10px !important;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.mod-print .header label::before,
+#mod-prefs .header::before,
+#mod-setup .header::before { content: "( "; color: var(--swarf-accent-hi); }
+.mod-print .header label::after,
+#mod-prefs .header::after,
+#mod-setup .header::after { content: " )"; color: var(--swarf-accent-hi); }
+
+/* Kiri's .mod-print .header centers the label by translating it halfway
+   through the box border — a white-theme trick that looks fine there but
+   leaves the dark label floating awkwardly. Pin it flush with the plate. */
+.mod-print .header {
+  transform: none !important;
+  z-index: 1;
+  align-items: flex-start !important;
+  padding-left: 2px !important;
+  margin-bottom: 4px !important;
+}
+
+/* --- input boxes inside dialogs --- */
+.mod-print .box,
+#mod-prefs .f-col,
+#mod-setup .box {
+  background: var(--swarf-bg) !important;
+  border: 1px solid var(--swarf-line) !important;
+  border-radius: 0 !important;
+  padding: 10px 12px !important;
+  gap: 4px;
+}
+.mod-print .box input,
+.mod-print .box select,
+.mod-print .box textarea,
+#mod-prefs input,
+#mod-prefs select,
+#mod-any input {
+  background: var(--swarf-bg-3) !important;
+  color: var(--swarf-text) !important;
+  border: 1px solid var(--swarf-line-2) !important;
+  border-radius: 0 !important;
+  font-family: "JetBrains Mono", "IBM Plex Mono", monospace !important;
+  font-size: 11px !important;
+  padding: 3px 6px !important;
+}
+.mod-print .box input:focus,
+#mod-prefs input:focus,
+#mod-any input:focus { border-color: var(--swarf-accent-hi) !important; outline: none; }
+.mod-print .box input[disabled] { color: var(--swarf-text-2) !important; text-align: right; }
+
+.mod-print label,
+#mod-prefs label {
+  font-weight: 500 !important;
+  font-size: 11px !important;
+  letter-spacing: 0.04em;
+  text-transform: lowercase;
+  color: var(--swarf-text) !important;
+}
+
+/* download row buttons — match drawer button scale */
+.mod-print .f-row.box button {
+  min-height: 32px;
+  font-size: 11px;
+  letter-spacing: 0.14em;
+}
+
+/* red-link support line */
+#export-support { padding-top: 14px !important; }
+#export-support a {
+  color: var(--swarf-accent-hi) !important;
+  text-decoration: none !important;
+  border-bottom: 1px solid var(--swarf-accent-dim);
+  padding: 2px 0 !important;
+  letter-spacing: 0.04em;
+  font-size: 11px;
+}
+#export-support a:hover { color: #fff !important; border-bottom-color: var(--swarf-accent-hi); }
+
+/* --- Application Preferences column heads --- */
+/* Prefs columns render plain <label> children; give each column a pill head
+   and the plate chrome. The .menu-title already prints "Application
+   Preferences" above — retheme that as the big bracketed title. */
+#mod-prefs .menu-title {
+  font-family: "JetBrains Mono", "IBM Plex Mono", monospace !important;
+  font-size: 11px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--swarf-text-2);
+  padding: 4px 0 10px 0;
+}
+#mod-prefs .menu-title::before { content: "( "; color: var(--swarf-accent-hi); }
+#mod-prefs .menu-title::after  { content: " )"; color: var(--swarf-accent-hi); }
+#mod-prefs hr { border: none; border-top: 1px solid var(--swarf-line); width: 100% !important; margin: 0 0 10px 0; }
+#mod-prefs .f-row.gap10 { gap: 8px !important; }
+#mod-prefs { overflow: visible !important; min-width: 520px !important; }
+#mod-prefs .f-row { overflow: visible !important; }
+/* convert the 4-column row into a 2×2 grid so prefs are more square */
+#mod-prefs .f-row.gap10 {
+  display: grid !important;
+  grid-template-columns: 1fr 1fr !important;
+  gap: 4px !important;
+}
+#mod-prefs .f-row.gap10 > .f-col {
+  overflow: visible !important;
+  background: var(--swarf-bg) !important;
+  border: 1px solid var(--swarf-line) !important;
+  border-left: 2px solid var(--swarf-accent-dim) !important;
+  padding: 4px 8px !important;
+  min-width: 0;
+  gap: 1px;
+}
+#mod-prefs .f-row.gap10 > .f-col:hover {
+  border-left-color: var(--swarf-accent) !important;
+}
+/* Kiri wraps each pref row in a span with label+checkbox. Trim + tighten. */
+#mod-prefs .f-col label,
+#mod-prefs .f-col span {
+  font-size: 11px !important;
+  line-height: 1.4;
+  letter-spacing: 0.02em;
+  padding: 1px 0 !important;
+}
+
+/* --- Workspace Export & other generic confirm modals (#mod-any) --- */
+#mod-any .confirm { padding-top: 8px !important; }
+#mod-any .confirm > div { padding-top: 6px !important; }
+#mod-any .confirm h3 {
+  margin: 0 0 6px 0;
+  font-family: "JetBrains Mono", "IBM Plex Mono", monospace;
+  font-size: 11px;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--swarf-text);
+  text-align: center;
+}
+#mod-any .confirm h3::before { content: "( "; color: var(--swarf-accent-hi); }
+#mod-any .confirm h3::after  { content: " )"; color: var(--swarf-accent-hi); }
+#mod-any .confirm label {
+  font-family: "JetBrains Mono", "IBM Plex Mono", monospace;
+  font-size: 12px;
+  line-height: 1.45;
+  color: var(--swarf-text);
+  letter-spacing: 0.02em;
+}
+#mod-any .confirm input[type="text"],
+#mod-any .confirm input:not([type="checkbox"]):not([type="radio"]) {
+  background: var(--swarf-bg-3) !important;
+  color: var(--swarf-text) !important;
+  border: 1px solid var(--swarf-line-2) !important;
+  border-left: 2px solid var(--swarf-accent) !important;
+  border-radius: 0 !important;
+  font-family: "JetBrains Mono", "IBM Plex Mono", monospace !important;
+  font-size: 12px !important;
+  padding: 5px 8px !important;
+  min-width: 220px;
+}
+#mod-any .confirm input:focus { outline: none; border-color: var(--swarf-accent-hi) !important; }
+#mod-any .confirm button {
+  min-width: 64px;
+  padding: 5px 14px !important;
+  letter-spacing: 0.14em;
+}
+
+/* toggle buttons share their inline styling whether in sim-bar or tp-bar */
+.swarf-toggle { outline: none !important; }
+.swarf-toggle:hover { filter: brightness(1.12); }
+.swarf-toggle-off { box-shadow: inset 0 0 0 1px rgba(208,32,32,0.2); }
+.swarf-toggle-on  { box-shadow: 0 0 10px rgba(208,32,32,0.45); }

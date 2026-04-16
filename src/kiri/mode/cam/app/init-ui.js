@@ -336,24 +336,40 @@ export function opRender() {
             delete rec.rename;
         }
         const SWARF_OP_FIELDS = {
-            rough:   ['tool','rate','down','step'],
-            outline: ['tool','rate','down','step'],
+            rough:   ['tool','rate','down','step','inside'],
+            outline: ['tool','rate','down','step','inside','outside'],
             pocket:  ['tool','rate','down','step'],
-            contour: ['tool','rate','step'],
+            contour: ['tool','rate','step','inside'],
             lathe:   ['tool','rate','down','step'],
             trace:   ['tool','rate','down'],
             drill:   ['tool','rate','down'],
             area:    ['tool','rate','down','step'],
         };
+        // boolean fields render as checkboxes
+        const BOOL_FIELDS = { inside: true, outside: true, all: true, flats: true, curves: true };
         const swarfFields = (!clock && SWARF_OP_FIELDS[rec.type]) || null;
         let drawerHtml = '';
         if (swarfFields) {
-            const labels = { tool: 'tool', rate: 'feed', down: 'stepdown', step: 'stepover' };
+            const labels = { tool: 'tool', rate: 'feed', down: 'stepdown', step: 'stepover',
+                             inside: 'inside only', outside: 'outside only', all: 'clear all',
+                             flats: 'flats', curves: 'curves' };
+            const tips = {
+                tool: 'which cutter to use for this operation',
+                rate: 'feed rate in mm/min — how fast the tool moves through material',
+                down: 'step-down — how deep each layer cuts (mm)',
+                step: 'stepover — sideways distance between passes (mm)',
+                inside: 'cut only inside the part outline',
+                outside: 'cut only outside the part outline',
+            };
             const rows = swarfFields.map(f => {
+                const tip = tips[f] ? ` title="${tips[f]}"` : '';
                 if (f === 'tool') {
-                    return `<label class="swarf-op-row"><span>${labels[f]}</span><select data-swarf-field="tool" data-op="${mark + i}"></select></label>`;
+                    return `<label class="swarf-op-row"${tip}><span>${labels[f]}</span><select data-swarf-field="tool" data-op="${mark + i}"></select></label>`;
                 }
-                return `<label class="swarf-op-row"><span>${labels[f]}</span><input type="number" step="0.01" data-swarf-field="${f}" data-op="${mark + i}"/></label>`;
+                if (BOOL_FIELDS[f]) {
+                    return `<label class="swarf-op-row swarf-op-bool"${tip}><input type="checkbox" data-swarf-field="${f}" data-op="${mark + i}"${rec[f] ? ' checked' : ''}/><span>${labels[f]}</span></label>`;
+                }
+                return `<label class="swarf-op-row"${tip}><span>${labels[f]}</span><input type="number" step="0.01" data-swarf-field="${f}" data-op="${mark + i}"/></label>`;
             }).join('');
             drawerHtml = `<div id="${mark + i}-p" class="swarf-op-params" data-op="${mark + i}">${rows}</div>`;
         }
@@ -408,6 +424,8 @@ export function opRender() {
                     inp.addEventListener('change', () => {
                         if (f === 'tool') {
                             rec.tool = inp.value;
+                        } else if (inp.type === 'checkbox') {
+                            rec[f] = inp.checked;
                         } else {
                             const v = parseFloat(inp.value);
                             if (!Number.isNaN(v)) rec[f] = v;

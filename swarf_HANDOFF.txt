@@ -1,5 +1,526 @@
 swarf_HANDOFF.txt — for Claude
-last updated 2026-04-15 (v00000-009, midday)
+last updated 2026-04-16 (v00000-011 r12, final)
+
+CRITICAL STATE — READ BEFORE TOUCHING ROUGHING OR STOCK:
+  Roughing defaults: all=false, inside=false (cutout mode). Hardcoded in
+  slice.js lines ~200-208 — overrides any stored profile. NO stock padding
+  in toolpaths. Simulate adds a thin skin (tool-radius per side) in
+  anim-2d.js animate() so the tool visibly cuts through material.
+
+  Profile migration is at v7. Every migration bump nukes IndexedDB +
+  ws-settings + reloads. If behavior seems stale, bump the version string
+  in swarf-sky.js MIG_R12 constant.
+
+NEXT SESSION — PRIORITY ITEMS:
+  1. Simulate speed input broken. The "4×" label in the sim bar should be
+     an editable number input. swarf-sim-bar.js:130 tries to find the speed
+     label via regex /[½\d]\s*[x×]/i but it doesn't match the current DOM.
+     Fix: inspect the actual #layer-animate children to find the speed
+     cycle button/label, then replace with a <input type="number"> that
+     dispatches swarf.speed.custom on change. The commit() and event
+     wiring already exist (lines 144-157) — just the selector is broken.
+  2. Web card + app page (deferred for screenshots)
+  3. Expert mode prefs toggle
+  4. GitHub push
+
+  Menu z-index: #menubar is position:fixed z-index:100. Panels are z-index:2.
+  If menus render behind panels, the fix is ALWAYS in stacking context, not
+  z-index values.
+
+
+v00000-011 r12 — SHIP SPRINT (2026-04-16)
+──────────────────────────────────────────
+Full r12 session: toolpath offset fix + pre-ship polish + CPU fix +
+inside/outside controls + lightstream vertical ribbons.
+
+TOOLPATH OFFSET FIX (priority 1 blocker):
+  Three root causes fixed — see detailed section below.
+
+CPU HOG FIX:
+  Fan was running constantly. Three sources killed:
+  1. feTurbulence SVG sky animation — was running 240s infinite loop even
+     when idle. Now only runs during simulate/slice (swarf-sky-working).
+     The two feTurbulence filters (fractalNoise) are computed on CPU by
+     the browser; animating background-position forced continuous repaints.
+  2. Camera parallax RAF loop — was polling moto.space.view.save() at 30Hz
+     forever. Now only runs during simulate/slice events.
+  3. Chip physics tick — was 8Hz heartbeat even when idle. Now fully parks
+     (no RAF scheduled) when not simulating and no airborne chips. Restarts
+     via animate/tool.move events.
+
+INSIDE/OUTSIDE CONTROLS:
+  Rough and contour ops now expose "inside only" checkbox in the inline
+  parameter drawer. Outline exposes both "inside only" and "outside only".
+  Uses the existing KM op record fields (camRoughIn, camContourIn,
+  camOutlineIn, camOutlineOut). Boolean fields render as checkboxes via
+  BOOL_FIELDS map in init-ui.js.
+
+LIGHTSTREAM VERTICAL RIBBONS:
+  Ribbon quads now handle vertical and angled moves, not just XY-planar.
+  Two fixes in swarf-lightstream.js:
+  1. buildQuads: pure-Z moves get a lateral normal in X (was skipped as
+     degenerate). XY-dominant moves still use the XY-perpendicular normal.
+  2. Polyline break logic: was splitting on dz > 8mm separately, which
+     broke every contour plunge. Now uses 3D distance (>50mm) so only
+     true rapid repositioning breaks the line.
+
+PRE-SHIP POLISH:
+  - Dev-only markup toolbar gated behind ?dev=1 (conditional script inject)
+  - One-time r12 profile reset migration (clears ws-settings + IndexedDB)
+  - Help → "reset profile" menu item for manual factory reset
+  - CLEAR button now wipes chips + resets phase to idle
+  - cube.stl replaced with swarf-owned centered 25.4mm cube (not KM)
+  - IP/license clean: Kiri:Moto MIT in About panel + license.md
+
+FILES CHANGED THIS SESSION:
+  web/obj/cube.stl                    — centered 25.4mm swarf cube
+  src/kiri/mode/cam/work/slice.js     — sync padded stock to widget
+  src/kiri/mode/cam/work/prepare.js   — prefer widget padded stock
+  src/kiri/mode/cam/app/init-ui.js    — inside/outside checkbox fields
+  src/kiri/app/platform.js            — removed diagnostic logging
+  src/kiri/app/init/menu.js           — Help → reset profile
+  src/kiri/app/init/sync.js           — reset profile click handler
+  web/kiri/swarf-sky.js               — r12 migration + parallax gating
+  web/kiri/swarf-chips.js             — full park when idle + clear event
+  web/kiri/swarf-phase.js             — reset to idle on swarf.clear
+  web/kiri/swarf-lightstream.js       — 3D quads + 3D break threshold
+  web/kiri/swarf.css                  — sky anim gated + checkbox styling
+  web/kiri/index.html                 — markup toolbar ?dev=1 gate
+
+REMAINING OPEN (next session):
+  ★ SIMULATE STOCK BLOCK — show material to cut away from
+    When in simulate mode, render a solid block (stock material) that the
+    toolpaths cut away from. Calculate block size from the toolpath extents
+    + bit diameter so the stock fully encloses the cut volume. This is the
+    key visual missing from the simulate experience — students need to see
+    the material being removed, not just the tool moving through air.
+  - Web card + app page (deferred until UI screenshot-ready)
+  - Advanced preferences pane behind View → "expert mode"
+  - Ribbon pre-populate from print.output on preview.end (cosmetic)
+  - Push to GitHub remote
+
+
+v00000-011 r12 — TOOLPATH OFFSET FIX DETAIL (2026-04-16)
+──────────────────────────────────────────────────
+FIXED "toolpath offset bug" — Priority 1 blocker from r10-final.
+
+THREE ROOT CAUSES IDENTIFIED AND FIXED:
+
+1. Non-centered cube.stl. The seed cube (web/obj/cube.stl) was the
+   upstream Kiri promotional cube: 320 triangles, bounds at X[50,75]
+   Y[110,135] Z[21,46] — NOT centered at origin. Kiri's widget.center()
+   normalizes vertices after load, but the raw bounds were transiently
+   visible to platformUpdateStock, producing a stock.center of
+   (62.5, 122.5) before centering completed. Replaced with a proper
+   12-triangle 25.4mm cube: X[-12.7, 12.7] Y[-12.7, 12.7] Z[0, 25.4].
+
+2. Auto-inject stock padding lost between slice and prepare. The slice
+   worker's auto-inject (camStockX/Y/Z = 5mm) modified settings.process,
+   but the prepare dispatch receives a FRESH settings copy from the main
+   thread via postMessage (worker.js line 532). The 5mm padding was
+   invisible to prepare, anim-2d, and export.
+   Fix: slice.js now stashes padded stock dimensions on the widget
+   object (widget._swarfPaddedStock). prepare.js checks for this and
+   uses it when present, ensuring prepare uses the same stock envelope
+   the slicer used to generate paths.
+
+3. Dual position sources in prepare.js. printPoint was initialized from
+   settings.stock.center (main-thread bounds midpoint), while wmx/wmy
+   came from widget.track.pos. These can diverge in multi-widget or
+   stored-profile scenarios. Added a defensive fallback: if center is
+   missing/undefined, derive it from widget.track.pos instead.
+
+Files changed:
+  web/obj/cube.stl           — replaced with centered 25.4mm cube
+  src/kiri/mode/cam/work/slice.js    — sync padded stock to widget
+  src/kiri/mode/cam/work/prepare.js  — prefer widget padded stock,
+                                        fallback center from track.pos
+  src/kiri/app/platform.js   — removed diagnostic logging
+
+Also shipped in r12 (pre-ship polish):
+  web/kiri/index.html        — markup toolbar gated behind ?dev=1
+                                (conditional script injection, not static)
+  web/kiri/swarf-sky.js      — one-time r12 profile reset migration
+                                (clears ws-settings localStorage);
+                                window.__swarfResetProfile() for manual reset
+  src/kiri/app/init/menu.js  — Help → "reset profile" menu item
+  src/kiri/app/init/sync.js  — click handler for reset (confirm dialog)
+  web/kiri/swarf-chips.js    — chips clear on swarf.clear event
+  web/kiri/swarf-phase.js    — phase resets to idle on swarf.clear
+
+Verified via probe: preview and simulate screenshots show toolpaths
+wrapping the cube symmetrically with the expected 5mm stock padding.
+Zero errors, zero warnings. No markup toolbar visible in normal mode.
+IP/license: Kiri:Moto MIT attribution in About panel + license.md.
+
+
+v00000-011 r12 continued — ROUGHING DEFAULTS + MATERIAL FEEDS + POLISH (2026-04-16)
+────────────────────────────────────────────────────────────────────────────────────
+Continued r12 work after the ship sprint and toolpath offset fix.
+
+ROUGHING DEFAULTS HARDCODED:
+  slice.js (~line 215-230) now hardcodes `all: true, inside: false` on
+  every rough op BEFORE slicing begins. This overrides any stored profile
+  values that might have inside=true from an earlier session. Stock padding
+  auto-applied: 16mm XY / 10mm Z when camStockOffset detects zero padding.
+  defaults.js updated: camRoughAll=true, camRoughIn=false.
+
+MATERIAL FEED/SPEED PUSH:
+  swarf-material.js gained two key functions:
+  - applyFeedsToOps(): pushes by_tool feed rates into all ops on material
+    change. Fires on material change, slice.end, preview.end, cam.op.add,
+    cam.op.list events.
+  - applyPresetToOp(): applies preset values to individual ops.
+  Fixed inch→mm tool diameter conversion (was producing wrong lookup keys).
+  Triggers cam.op.render after applying to refresh the inline drawer UI.
+
+MR-1 CHEAT SHEET VALUES:
+  swarf-materials.json completely rewritten using Langmuir MR-1 Cutting
+  Parameters Reference Guide values. Max spindle capped at 8000 RPM (was
+  10000-20000 in previous version). All feed rates within MR-1's 100 IPM
+  limit. Values are now realistic for the target machine.
+
+INSIDE/OUTSIDE CONTROLS (expanded):
+  Rough, contour, AND outline ops now expose inside/outside checkboxes in
+  the inline parameter drawer. Uses BOOL_FIELDS map in init-ui.js. Outline
+  exposes both inside and outside toggles; rough and contour expose inside.
+
+LIGHTSTREAM VERTICAL RIBBONS (expanded):
+  buildQuads in swarf-lightstream.js now handles Z-dominant (vertical) and
+  angled moves, not just XY-planar. Pure-Z moves get a lateral normal in X.
+  Polyline break logic switched from separate XY/Z thresholds to 3D
+  distance (50mm) — only true rapid repositioning breaks the ribbon.
+
+CPU FIX (expanded):
+  Three idle-power sources killed:
+  1. Sky feTurbulence SVG animation: only runs during simulate/slice
+     (swarf-sky-working class gates animation).
+  2. Camera parallax RAF: only runs during simulate/slice events.
+  3. Chip physics tick: fully parks (no RAF scheduled) when not simulating
+     and no airborne chips.
+
+DEV GATING:
+  Markup toolbar now behind ?dev=1 query param (conditional script inject
+  in index.html). Not visible in normal student/user mode.
+
+PROFILE RESET:
+  Migration v6: IDB delete + localStorage clear + page reload. Exposed
+  as Help → Reset Profile menu item with confirm dialog.
+
+CLEAR BEHAVIOR:
+  CLEAR button now wipes chips + resets phase to idle (swarf-chips.js +
+  swarf-phase.js listen for swarf.clear event).
+
+MENU Z-INDEX FIX:
+  .pop class forced to position:fixed z-index:9999 — dropdown menus were
+  rendering behind other UI elements.
+
+PREFS OVERFLOW FIX:
+  #mod-prefs set to overflow:visible — preference panel contents were
+  being clipped.
+
+CUBE.STL:
+  web/obj/cube.stl replaced with swarf-owned 25.4mm centered cube
+  (12 triangles, bounds [-12.7,12.7] XY, [0,25.4] Z). Not Kiri's
+  upstream promotional cube.
+
+
+v00000-010 r11 — AUTO-INJECT DEFAULT ROUGH OP + PROBE FIX (2026-04-15)
+───────────────────────────────────────────────────────────────────────
+FIXED "not generating code on the part" — Phil's primary workflow
+(load part → click TOOLPATHS) now generates toolpaths automatically.
+
+TWO ROOT CAUSES:
+
+1. No operations configured by default. Kiri's CAM requires at least one
+   operation (rough, outline, etc.) in settings.process.ops before slice
+   can generate toolpaths. swarf defaults ops to [] and students don't
+   know they need to manually add a "rough" step.
+
+   Fix: cam_slice (src/kiri/mode/cam/work/slice.js) now auto-injects a
+   default roughing operation when proc.ops has no real ops. Uses process
+   defaults (tool 1000 = 1/4" endmill, 2mm stepdown, 0.4 stepover, climb,
+   1000mm/min). Also auto-pads stock by 5mm per axis so roughing has an
+   envelope to cut into. The check uses:
+     proc.ops.some(op => op.type && op.type !== '|')
+   because Kiri leaves behind '|' separator entries when ops are removed
+   via the UI, making ops.length > 0 but with no actual operations.
+
+2. Probe was clicking the wrong button. act-preview is a hidden legacy
+   stub with NO event handler in swarf (menu.js creates it as a bare
+   span). The actual combined slice+preview button is act-paths. Probe
+   now clicks act-paths, which properly triggers api.function.print().
+
+Verified via probe: preview=true, animate=true, camOps=2 (shadow+rough),
+slices=15. Preview screenshot shows yellow/green roughing paths wrapping
+the cube. Simulation shows full lightstream ribbon pattern.
+
+
+v00000-010 r10 — FLOOR-STABLE-ACROSS-MODES (2026-04-15)
+────────────────────────────────────────────────────────
+FIXED the "floor brighter during SIMULATE" bug flagged at end of r9.
+Root cause: Kiri's Space.scene.updateFog() (src/moto/space.js:1489) sets
+fog.near = camera.distanceTo(target), fog.far = near × mult, and re-fires
+on every camera move (space.js:1343). Switching to SIMULATE shifts the
+camera, which shifts the fog band in world space, which paints the grid
+brighter or darker depending on direction. None of the r9 hypotheses
+(tonemapping, environment, hemi intensity, grid envMap) were the cause.
+
+Fix in web/kiri/swarf-grid-fade.js:
+  - fog.near / fog.far now computed from part bbox in WORLD UNITS
+    (near = max(size×4, 120), far = max(size×18, near×4)) and written
+    directly onto the THREE.Scene fog object.
+  - Space.scene.updateFog is monkey-patched to a no-op so Kiri's camera-
+    relative recompute can't clobber the pinned values.
+  - Removed 'animate' and 'function.animate' listeners — fog now only
+    updates on widget.add / widget.delete.
+
+Verified via tools/swarf_probe.mjs --flow=sim --shot: PREVIEW and
+SIMULATE screenshots show matching floor gradient and grid fade.
+
+
+v00000-010 — VISUALIZATION OVERHAUL & WORKFLOW CONSOLIDATION (2026-04-15)
+─────────────────────────────────────────────────────────────────────────
+Huge single-session sprint. Reorganized the top bar, rebuilt material
+finishes from PBR + normal maps, added Tron-style flat light ribbons for
+toolpaths, centralized visualization toggles in the sim bar, moved display
+modes to the View menu, and defaulted the UX to the cleanest possible
+"student first boot" experience.
+
+TOP BAR — 5 verbs, not 6
+  IMPORT · TOOLPATHS · SIMULATE · CLEAR · EXPORT
+  - TOOLPATHS is now combined: one click generates AND previews paths
+    (formerly two buttons — toolpaths + preview). Until hit, no paths.
+  - CLEAR (fa-xmark) wipes slices + preview + sim + lightstream trail,
+    returns to arrange view.
+  - If the user clicks TOOLPATHS while in SIMULATE view, act-paths
+    auto-clears state first so preview rebuilds from a clean slate.
+  - Legacy hidden spans retained for: act-slice, act-preview, view-arrange
+    (upstream codepaths still dispatch to them).
+  src/kiri/app/init/menu.js:modeTools (the 5-button definition)
+  src/kiri/app/init/build.js (click wiring incl. auto-clear)
+
+MATERIAL SYSTEM — PBR + procedural textures + tangent-space normals
+  - Aluminum is now the DEFAULT material (reordered JSON).
+  - Each material has color, emissive, roughness, metalness, opacity,
+    texture, textureRepeat, normalScale, normalStrength, envIntensity,
+    chipColor, chipEmissive. Polycarb uses sheen/clearcoat-ish tuning.
+  - Procedural 1024² textures (no binary assets): wood-grain (cathedral
+    grain + knots), brushed-metal (16k streaks + 80 scratches + highlights),
+    foam-pores (beaded cells + grit), scaled-steel (brushing + rust flecks),
+    clear (for polycarb).
+  - Height→normal derived at load: Sobel pass builds a tangent-space normal
+    map from the same procedural canvas so specular responds per-pixel.
+  - Stock mesh gets box-projection UVs at creation (buildStockUVs in
+    anim-2d.js meshAdd). Upstream Kiri never UV'd the stock, so textures
+    were invisible. One-time computation; NOT per-frame (that caused the
+    tool to lag behind the cut earlier in the session).
+  - A PMREM environment is installed on first material apply: cool shop
+    ceiling with 12 discrete overhead-lamp hotspots, warm horizon accent,
+    dark floor. Aluminum reflects real light, not the red sunset sky.
+  - Hemi fill 0.45 + single warm key 1.15 + cool counter-fill 0.25, ACES
+    tonemapping at 1.00 exposure. Face contrast preserved — forms read.
+  - Widgets are NOT upgraded to MeshPhysicalMaterial; we just set
+    properties on whatever material Kiri gave us. Previous approach of
+    replacing mesh.material left stale refs that re-painted widgets black
+    on the next selection change.
+  web/kiri/swarf-material.js, web/kiri/swarf-materials.json
+  src/kiri/mode/cam/app/anim-2d.js (buildStockUVs + setup branching)
+  src/kiri/mode/cam/app/anim-3d.js (matching setup)
+
+LIGHTSTREAM TOOLPATHS — flat red ribbons, pre-populated on preview
+  - Custom triangle-strip Mesh (NOT Line2/LineSegments2 — those render as
+    wires). For each tool-move point we compute the XY tangent from
+    adjacent segments, emit two vertices at ±halfWidth perpendicular to
+    motion. Two triangles per segment; one indexed BufferGeometry.
+  - Core mesh (mill-red #ff2a1a, 0.95 opacity, additive blend, depthTest:
+    false — always on top) + halo mesh (#ff8060, 0.30 opacity, 2.4× width).
+  - Width scales with stepover: halfWidth = clamp(stepover × toolØ × 1.32)
+    — Phil: "approx 50% of stepover width, 10% wider than that." Ribbon
+    widens for big stepovers, narrows for fine.
+  - Multiple disconnected POLYLINES — jumps/plunges don't bridge. Active
+    polyline closes and a new one starts on XY gaps > 12mm during
+    simulate; during preview-seed, gaps > 8mm split.
+  - Pre-populates on preview.end by walking the real THREE.Scene (recovered
+    from space.scene.add(probe).parent) for LineSegments / Line meshes,
+    extracting positions, chaining pairs whose endpoints match. Seeding
+    disabled if scene walk fails — trail then builds only from tool moves.
+  - Clears on 'animate', 'function.animate', and 'swarf.clear' events.
+  web/kiri/swarf-lightstream.js (self-contained plain <script>)
+
+SIMULATE BAR — consolidated toggles, inline speed
+  Three independent toggles (any combo):
+    chips on/off      — physics layer (__swarfChipsVisible, DEFAULT OFF)
+    paths on/off      — Kiri default yellow-wire toolpath (__swarfPaths, OFF)
+    lightstreams on/off — Tron ribbons (__swarfLightstream, DEFAULT ON)
+  Inline <input type="number" min=0.5 max=100 step=0.5> replacing the old
+  click-to-cycle label. Commit on Enter or blur fires swarf.speed.custom,
+  which anim-2d.js listens for and pushes speed+pauseFor(v) straight to
+  the worker.
+  Default simulate speed: 1× (speedValues[1]).
+  pauseFor(speed) = max(0, round(30/speed)); lets custom speeds in
+  [0.5, 100] drive the worker pause directly.
+  web/kiri/swarf-sim-bar.js
+
+VIEW MENU — display modes relocated
+  Added: transparency, show part model, stock box
+    (click-proxy to the hidden anim.trans/model/shade buttons in sim bar)
+  Existing render-solid/wire/ghost/edges stay.
+  "expert mode" toggle stays — it's the gate for XYZ readout + advanced
+  pane (see DEFERRED below).
+  XYZ readout in sim bar now class="swarf-expert-only" (hidden by default).
+  Sky "working" acceleration / fog drift also swarf-expert-only — normal
+  users see static sunset backdrop.
+  src/kiri/app/init/menu.js (view menu items)
+  src/kiri/app/init/build.js (view-trans / view-model / view-shade actions)
+
+TABS — mill-red glowing blocks
+  cam.js color scheme operations.tabs overridden to #ff2a1a in both
+  light and dark themes; opacity 0.85/0.90. Part of the mill-red light-
+  language (simulate button, retract markers, lightstream ribbons).
+  src/kiri/app/color/cam.js
+
+TOOL SPIN — velocity-driven ramp
+  Replaced fixed "12 rev/s while simulating" with target =
+  (simulating && toolXYspeed > 0.2) ? 12 : 0. Smoothed toward target:
+  decel rate 9 (1/e in ~0.11 s, fully stopped in under half a second),
+  accel rate 6. Reads like a spindle that idles between cuts rather
+  than a prop that runs forever.
+  web/kiri/swarf-chips.js (inside the tick function)
+
+CPU — chip physics no longer burns frames when idle
+  Per-frame tick now idles to 8 Hz when !simulating AND no airborne
+  chips exist. Previously ran full 60 Hz forever composing empty-pool
+  matrices. Airborne cap 240→140, settled 1600→900. Spawn rate halved.
+  Sky camera-parallax loop throttled 60 → ~30 Hz.
+  web/kiri/swarf-chips.js, web/kiri/swarf-sky.js
+
+MENUS — z-index fix so dropdowns paint on top
+  #panel-right z-index lowered to 5.
+  .top-menu-drop / #menubar .content set to z-index 999 with
+  position:relative. Dropdowns now overlay panels cleanly.
+  web/kiri/swarf.css
+
+DEV-MODE GATING
+  ?dev=1 now gates BOTH the markup toolbar (swarf-markup-inject.js) and
+  the #swarf-err console overlay (inline script in index.html). Normal
+  users see neither.
+
+KNOWN BUG — FLOOR CHANGES WHEN ENTERING SIMULATE — RESOLVED r10
+────────────────────────────────────────────────────────────────
+Root cause: Kiri's Space.scene.updateFog() resets fog.near to
+camera-distance-to-target on every camera move. Switching modes
+shifts camera, which shifts the fog band, which paints the grid
+brighter or darker. Fix in r10: fog pinned to world-space
+values derived from part bbox; updateFog monkey-patched to no-op.
+
+
+REMAINING OPEN (going into v00000-011 session)
+
+  ★ PRIORITY 1 — TOOLPATH OFFSET BUG — RESOLVED in r12
+  ─────────────────────────────────────────────────────────
+  Phil 2026-04-16: "still not writing the gcode correctly." Rough and
+  contour toolpaths render OFFSET from the widget in the 3D viewport.
+  The green path lines should wrap the cube, but instead float to one
+  side. Affects both rough (full stock clearing) and contour (outline).
+  Three new screenshots on Phil's Desktop confirm the issue persists.
+
+  COORDINATE PIPELINE (traced 2026-04-16):
+
+    Main thread (pre-slice):
+      platform.js:293 update_bounds()
+        → bounds = union of (widget.getBoundingBox() + track.pos.x/y)
+        → NOTE: Z is NOT offset by track.pos.z — only X/Y are
+      platform.js:256 platformUpdateStock()
+        → stock.center = { x: midpoint(bounds.x), y: midpoint(bounds.y),
+                           z: stock.z / 2 }
+        → Stored as settings.stock, sent to worker
+
+    Worker (slice):
+      slice.js:91 var_compute()
+        → stock.center = newPoint(pos.x, pos.y, pos.z) from widget.track.pos
+        → THIS IS DIFFERENT from settings.stock.center (which uses bounds midpoint)
+
+    Worker (prepare):
+      prepare.js:86  center = settings.stock.center   (from main thread!)
+      prepare.js:95  stock = bounds.dim + camStockX/Y/Z  (re-derived locally)
+      prepare.js:109 wmx = widget.track.pos.x
+      prepare.js:110 wmy = widget.track.pos.y
+      prepare.js:112 wmz = stock.z - boundsZ  (NOT mesh.position.z!)
+      prepare.js:984 printPoint = origin + center  (uses main-thread center)
+      prepare.js:370 toWorkCoords(p) = p + wmx/wmy/wmz
+
+    Widget mesh position (widget.js:452):
+      mesh.position = (track.pos.x, track.pos.y, track.pos.z - tzoff)
+
+  SUSPECTED MISMATCH:
+    - prepare.js uses TWO different position sources:
+      1. settings.stock.center (from platform bounds midpoint — main thread)
+      2. widget.track.pos (from widget — worker)
+    - If these diverge (e.g., bounds.midpoint != track.pos for the default
+      Kiri_Cube), all subsequent path coordinates are shifted.
+    - Z offset: wmz = stock.z - boundsZ is NOT the same as mesh.position.z
+      = track.pos.z - tzoff. This Z drift shifts the rendered paths.
+
+  INVESTIGATION PLAN FOR NEXT SESSION:
+    1. Add diagnostic logs at prepare_one entry:
+         console.log('prepare offset debug', {
+           center: settings.stock.center,
+           trackPos: widget.track.pos,
+           boundsMin: bounds.min, boundsMax: bounds.max,
+           wmx, wmy, wmz,
+           meshPosZ: widget.track.pos.z - widget.track.tzoff,
+           stockZ: stock.z, boundsZ
+         });
+    2. Run the probe and compare center vs trackPos. If they differ,
+       that's the XY offset source.
+    3. Compare wmz vs meshPosZ. If they differ, that's the Z offset source.
+    4. Test fix: in prepare.js, replace printPoint init (line 984) to use
+       widget.track.pos instead of settings.stock.center, OR normalize
+       stock.center computation in platformUpdateStock to match track.pos.
+    5. For wmz, test replacing line 112 with:
+         wmz = widget.track.pos.z - (widget.track.tzoff || 0)
+       to match widget.js _updateMeshPosition.
+
+  CANONICAL REPRO:
+    - Load default Kiri_Cube. Click TOOLPATHS. Observe green paths
+      float to one side of the cube. Compare path bbox vs widget bbox.
+    - Screenshots: ~/Desktop/Screenshot 2026-04-16 at 6.26.*.png
+
+  OTHER OPEN ITEMS (lower priority):
+  ★ SIMULATE STOCK BLOCK — render solid stock material in simulate mode;
+    calculate block size from toolpath extents + bit diameter.
+  - OBJECTS panel move (right above TABS, toolpaths alone upper-left)
+  - Advanced preferences pane behind View → "expert mode"
+  - IP / license audit (Kiri:Moto MIT inheritance, ribbon/material copyright)
+  - Web card + app page (/swarf/ draft at philrenato-web/swarf/index.html)
+  - Ribbon pre-populate verification (seedFromPreviewMeshes)
+  - Presentation-mode polish (act-clear leaving spotless arrange state)
+
+NOTES FOR NEXT CLAUDE
+  - Build cycle unchanged: `npm run webpack-src` from swarf_repo. CSS/HTML
+    and swarf-*.js are hot-served.
+  - Probe: `node tools/swarf_probe.mjs --flow=sim --shot`. PNGs at
+    /tmp/swarf-probe-<ts>-*.png; JSON at /tmp/swarf-probe-<ts>.json.
+  - The probe now clicks act-paths (the visible combined TOOLPATHS button),
+    NOT act-preview (hidden stub with no handler). It also skips manual
+    rough-tile click — auto-inject in cam_slice handles empty ops.
+  - Verify via PNG before reporting any visual change "done."
+  - NEVER re-introduce per-frame rebuildStockUVs() in meshUpdates — that
+    caused tool-lag regression in this session.
+  - NEVER upgrade widget.mesh.material class (MeshStandard → MeshPhysical
+    etc) — Kiri's platform.js caches refs and flips colors back to stale.
+  - Default material is aluminum (materials[0]). Don't re-sort the JSON.
+  - Default toggles: lightstreams ON, paths OFF, chips OFF.
+  - Default simulate speed: 1× with inline number input [0.5, 100].
+  - The auto-inject guard is `proc.ops.some(op => op.type && op.type !== '|')`
+    because Kiri leaves behind '|' separator entries when ops are removed.
+    If changing ops handling, keep this pattern so students never hit a
+    silent "no processes specified" error.
+
+
+════════════════════════════════════════════════════════════════════════
+
 
 
 v00000-009 — SIMULATE re-enabled, wordmark split, backronym, MATERIAL row
@@ -681,3 +1202,449 @@ Next session
 5. Strip the dev-only error overlay and markup inject before first distribution.
 6. Favicon: replace ⚒️ emoji placeholder with a real swarf mark SVG.
 7. Consider: swarf-specific STL for the default cube (the current /obj/cube.stl is upstream's — size may not be 25.4mm).
+
+
+═══════════════════════════════════════════════════════════════════════
+v00000-010 / r9 — Apr 15 2026, afternoon session (LIGHTSTREAM REPAIR)
+═══════════════════════════════════════════════════════════════════════
+
+Session goal: fix the ribbon (aka lightstream) that had been broken
+since r8's "floor fade" change, and which the previous session handed
+off without repairing. Secondary: unify dialog aesthetics (Workspace
+Export / Preferences / job popover), tighten About panel typography,
+label the mystery speedbar, and add a batch of markup items.
+
+Root cause of the afternoon saga (documented here so the next session
+does NOT repeat it)
+───────────────────────────────────────────────────────────────────────
+Two non-obvious truths, either one of which will burn hours if you
+don't know them:
+
+1. **Non-indexed CAM uses anim-2d.js, NOT anim-3d.js.** Phil's mill
+   workflow (cube + rough op on the bed, no A-axis indexing) runs
+   through `env.animVer = 0` → `anim-2d.js`. Kiri's built-in lineTracker
+   (the red additive path-draw) lives only in `anim-3d.js` and only
+   runs when env.isIndexed → env.animVer = 1. So any edits to
+   `src/kiri/mode/cam/app/anim-3d.js` to "fix the ribbon" will compile,
+   land, and do exactly nothing for Phil's use case. The ribbon HAS
+   to be driven from the `swarf.tool.move` event stream that BOTH
+   animators emit.
+
+2. **`web/kiri/swarf-lightstream.js` is untracked.** It was introduced
+   in the prev session as an overlay that listened to swarf.tool.move
+   and drew a ribbon. It is not in git HEAD. Do not treat it as
+   canonical via git blame — it has no blame. The file, and
+   `src/kiri/app/swarf-line-ext.js` (exposes window.__swarfLine), were
+   both born uncommitted.
+
+Final ribbon architecture (what ships)
+──────────────────────────────────────
+`web/kiri/swarf-lightstream.js` — event-driven, three-layer flat quad
+ribbons, additive-blended:
+
+  • Listens to `swarf.tool.move` (fired by anim-2d + anim-3d on every
+    mesh_move with a non-zero id).
+  • Appends points to a growing polyline. Breaks only on genuine
+    rapids/retracts: XY > 50 mm OR Z > 8 mm between frames.
+  • `buildQuads(width)` walks the polylines and generates horizontal
+    quad vertices per segment. Tangent T = B−A, lateral normal
+    N = rotate90(T) in XY → quads lay flat on the cut plane, thin in Z.
+  • Three stacked Mesh objects (MeshBasicMaterial, additive, fog: false,
+    depthTest: false, DoubleSide), widths and opacities chosen so
+    accumulated brightness is highest at the centerline and falls off
+    smoothly to the edges:
+
+        core:  0.4 mm × 0.58 alpha × #ff2a1a  (tight bright centerline)
+        halo:  1.4 mm × 0.18 alpha × #ff8060  (mid glow)
+        bloom: 4.2 mm × 0.06 alpha × #ff6040  (wide diffuse bloom / soft edge)
+
+  • Visibility controlled by `window.__swarfLightstream` + the
+    `swarf.lightstream.toggle` event fired by swarf-sim-bar.js's pill.
+    Cleared on `animate` / `function.animate` / `swarf.clear`.
+
+DO NOT walk the scene graph to harvest line meshes. The afternoon
+burned on that — grid, axes, build-volume cage, and ruler marks all
+got harvested as "toolpaths" in various failure modes. If the next
+session wants to pre-populate the full toolpath ribbon at the moment
+TOOLPATHS finishes computing (instead of only drawing during SIMULATE
+play), the correct data source is the worker's `print.output` array
+(see `src/kiri/mode/cam/work/anim-2d.js:25` / `anim-3d.js:45` where
+`path = print.output.flat()`). Hook a worker dispatch that ships the
+flattened path to the main thread on preview.end and feed it through
+the same buildQuads pipeline. Do NOT add scene.traverse() back in.
+
+Also landed this session
+────────────────────────
+Dialog unification (swarf.css, ~180 lines appended):
+  • Shared plate shell for #mod-x-any (job/download popover), #mod-prefs
+    (Application Preferences), #mod-any (generic confirm → Workspace
+    Export), #mod-x-sla, #mod-x-laser.
+  • Mill-red left rail, 12 px chamfer, scanline overlay, monospace,
+    glow shadow. Cancels Kiri's white pill-head translateY hack.
+  • Bracketed `( label )` section heads — `::before { content:"( " }`,
+    `::after { content:" )" }`, red accent brackets, uppercase, 0.18em
+    tracking.
+  • Inputs: flat chrome, red-accent left edge, monospace 11 px.
+  • Preferences: each f-col gets its own plate treatment; .menu-title
+    renders as `( APPLICATION PREFERENCES )`; hr tightened.
+  • Generic confirm (#mod-any): title becomes bracketed pill; filename
+    input gets red-accent left edge; OK/CANCEL buttons match suite
+    button scale.
+
+About panel tightening (swarf.css lines ~502–546):
+  • letter-spacing 0.2em → 0.14em on uppercase labels.
+  • credit-role 0.18em → 0.12em.
+  • line-height 1.55 → 1.4 on body, 1.6 → 1.45 on credits.
+  • padding trimmed 22/24/16 → 16/20/12; fonts pulled in one step.
+
+Speedbar (#speeds / #speedbar) clarity:
+  • Labeled with a `( feed mm/min )` pseudo-element header.
+  • Hidden unless body.swarf-expert is set. In student mode it's gone
+    entirely — Phil didn't know what it was.
+
+src/moto/space.js chrome naming (for future scene-graph work):
+  • grid.view  → "swarf-grid-view"
+  • grid.lines → "swarf-grid-lines"
+  • grid.axes  → "swarf-grid-axes"
+  • ruler.view → "swarf-ruler-view"
+  • volume     → "swarf-build-volume"
+
+  Not currently load-bearing (we abandoned scene-walking) but these
+  survive the session and are harmless. If you ever do need to skip
+  chrome in a scene traversal, these names are already set.
+
+src/kiri/mode/cam/app/anim-3d.js (indexed-lathe path tracer):
+  • `initPathMesh` material gets `fog: false` — the scene fog added in
+    v009 for the floor fade was killing additive-blended lines
+    invisibly. Cosmetic only for mill workflows (they don't use this
+    animator) but correct for anyone who indexes.
+  • Visibility now gated on `window.__swarfLightstream !== false` (was
+    `__swarfPaths`, which was never set). `track.visible()` respects
+    the same flag instead of a stale localStorage pref.
+
+swarf-sim-bar.js — ReferenceError fix:
+  • `speedEls` was referenced 36 lines before its declaration
+    (`const speedEls = [...bar.query...]`), throwing "Cannot access
+    'speedEls' before initialization" and aborting the entire
+    sim-bar injection. This is why the editable speed field
+    (input, range 0.5–100) wasn't rendering for Phil.
+  • Moved the `speedEls` declaration above its first use. Speed field
+    now appears in the sim-bar; Phil's markup ask #4 (number input for
+    speed) is resolved by this.
+
+Static scripts re-enabled after debug:
+  • swarf-grid-fade.js — the early `return` added during root-cause
+    isolation has been removed. Scene fog is back on; the ribbon
+    materials have fog:false and no longer care.
+  • swarf-markup-inject.js — URL gate (?dev=1 / ?markup=1) removed.
+    Toolbar is unconditionally on. Revert before distribution.
+
+Dev HUD cleanup:
+  • The "RIBBON HUD" badge that lived top-left during the debug
+    session has been removed from swarf-lightstream.js.
+  • `window.__swarfPathAddCount` debug counter removed from anim-3d.js.
+
+From Phil's markup pass at end of session (markup-feedback.json)
+────────────────────────────────────────────────────────────────
+UNRESOLVED — next session picks these up. Screenshot at
+/Users/philrenato/Desktop/Screenshot 2026-04-15 at 4.17.59 PM.png
+shows the full annotated layout.
+
+ 1. Bottom bar declutter — shade/stock/model/etc visualization toggles
+    should move out of the sim-bar into a menu. The bar is too busy.
+ 2. "When paths are on they should be on in TOOLPATHS and SIMULATE" —
+    the paths toggle pill currently only gates simulate-time drawing.
+    Phil wants the toggle to also control preview-stack visibility in
+    the TOOLPATHS view. Scope question still open: does it stack with
+    the green toolpath mesh, or replace it?
+ 3. Same for lightstream in TOOLPATHS view — pre-render the ribbon
+    from `print.output` on preview.end so it's visible without having
+    to press play. (See architecture note above about fetching the
+    data from the worker, NOT from the scene graph.)
+ 4. Speed field as editable number input — RESOLVED this session by
+    the speedEls ReferenceError fix.
+ 5. OBJECTS panel moves to the right side (where Tabs/Strategy live).
+ 6. TOOLPATHS panel moves up into the slot OBJECTS vacates
+    (upper-left).
+ 7. Workspace Export + Preferences rework:
+    – Workspace Export "is the one panel left that looks like nothing
+      else" — the .swarf-dialog rules I added should have covered this
+      via #mod-any but Phil still sees it as off. Verify and finish.
+    – Preferences: too narrow; convert columns → rows; widen the
+      panel.
+    – Preferences becomes the advanced / nerd-mode home. Phil wants
+      "most Kirimoto tools that we've deprecated to come back with
+      that on" — i.e. a nerd-mode toggle that restores the
+      sla/laser/fdm/etc menus and any other Kiri features we hid in
+      the student-mode lockdown (see v005 fork-audit pass).
+
+Markup feedback JSON path (canonical, shared across suite):
+  /Users/philrenato/Documents/claude/philrenato-web/tools/markup-feedback.json
+  Markup server on localhost:8731 (started via
+  `python3 tools/markup-server.py` in philrenato-web/).
+
+Handoff — read first next session
+─────────────────────────────────
+1. Read the "Root cause" section above. If you're about to edit
+   anim-3d.js to fix a ribbon problem for a mill workflow, STOP —
+   you're in the wrong file.
+2. Read `web/kiri/swarf-lightstream.js` in full. The ribbon is
+   event-driven; the file is ~140 lines; the whole design fits in
+   your head in five minutes.
+3. Read items 1–7 above from Phil's markup. Open them in order; 1
+   and 4 are already resolved, 5+6 are panel-layout work, 7 is the
+   big structural pass.
+4. `npm run webpack-src` rebuilds `src/pack/kiri-main.js`. Files
+   under `web/kiri/*.js` (including swarf-lightstream.js) are served
+   directly — no rebuild needed.
+5. `tools/swarf_probe.mjs --flow=sim --seconds=30 --shot` exercises
+   the app headless via puppeteer. Useful for catching bundle
+   regressions. Caveat: probe's preview/slice step reliably times out
+   in headless Chrome — the probe is good for checking main-thread
+   state but cannot verify the actual simulate animation runs.
+   Visual verification still requires Phil's browser.
+6. If the ribbon stops working again, first check:
+   (a) `window.__swarfLightstream` is not false
+   (b) `__swarfRibbonHUDLoaded` — if undefined, swarf-lightstream.js
+       didn't load at all
+   (c) the event: does `api.event.on('swarf.tool.move', ...)` fire?
+       If not, anim-2d.js at line ~426 is the emit site.
+
+
+v00000-010 / r10 — Apr 15 2026, evening (MARKUP QUEUE, PARTIAL)
+═══════════════════════════════════════════════════════════════════════
+
+Session goal: work the Apr 15 markup queue items 1 → 2 → 5 → 6 → 3 → 7.
+Shipped 1, 5, 6; partial 2; deferred 3 and 7 with notes.
+
+SHIPPED
+───────
+1. Bottom bar declutter (markup #1). New file `web/kiri/swarf-viz-menu.js`
+   renders a single floating "viz ▾" pill (bottom-right, fixed). Clicking
+   it opens a popover housing SIX toggles:
+     • paths        (swarf-owned, __swarfPaths)
+     • lightstream  (swarf-owned, __swarfLightstream)
+     • chips        (swarf-owned, __swarfChipsVisible)
+     • transparency (Kiri, forwards click to #layer-animate btn[title="transparency"])
+     • show model   (Kiri, btn[title="show model"])
+     • stock box    (Kiri, btn[title="stock box"])
+   The swarf-owned three fire the same CustomEvents they always did
+   (swarf.paths.toggle etc.) — swarf-chips.js, swarf-lightstream.js, and
+   anim-3d.js keep listening without change. Sim-bar (swarf-sim-bar.js)
+   no longer renders chips/paths/lightstream buttons; it also hides
+   Kiri's native trans/model/shade buttons via MutationObserver so anim-3d
+   can't re-reveal them when it unhides on index mode. CSS block appended
+   to swarf.css under a "swarf viz menu" header.
+
+5+6. Panel layout swap (markup #5/#6). The right rail now holds
+     OBJECTS → TABS → STRATEGY (three plates, top-down), left rail has
+     TOOLPATHS alone and sits at top:96px instead of 340px.
+       - New container `#swarf-right-rail` added in index.html at top level
+         after `#mid-mid`. Fixed right:16px, top:96px, width:320px.
+       - OBJECTS `<details>` block + `#ws-widgets` moved out of #panel-right
+         into the rail.
+       - `#cam-tabs` and `#cam-output` divs moved out of #panel-slide
+         (#panel-left) into the rail. cam-stock/cam-limits/cam-origin/
+         cam-expert stay left for now (expert-only, hidden in student mode,
+         will be un-hidden by nerd-mode toggle in item #7).
+       - IDs preserved; init-menu.js uses document.getElementById so groups
+         wire correctly regardless of DOM position. Verify by loading:
+         cam-tabs should populate with tab-holds UI; cam-output should
+         populate with strategy controls (ease down, depth first, etc.).
+       - CSS: new `#swarf-right-rail` rules mirror the mill-red plate
+         treatment of #panel-right. Media query <=1280px narrows both
+         rails to 260px.
+
+PARTIAL
+───────
+2. Paths toggle across TOOLPATHS + SIMULATE (markup #2). UX half shipped:
+   the viz popover is visible in all views, so Phil can toggle paths /
+   lightstream in TOOLPATHS without starting a simulate. But the preview-
+   stack visibility gating is not yet wired — toggling `paths off` in
+   TOOLPATHS view still shows Kiri's green toolpath mesh. To finish:
+     • Hook `swarf.paths.toggle` listener that walks `api.widgets.list()`
+       and toggles `.stack` or preview-layer visibility. The stack system
+       is created at `src/kiri/app/function.js:235` via
+       `widget.stack = api.stacks.create(widget.id, widget.mesh)`. Dig into
+       the stacks module to find a show/hide hook.
+     • Same for `swarf.lightstream.toggle` — but that's item #3's job
+       (pre-rendered ribbon from print.output), so shared listener.
+
+DEFERRED TO NEXT SESSION
+────────────────────────
+3. Lightstream pre-render in TOOLPATHS (markup #3). Architecture is
+   already written in r9's "Root cause" section: hook a worker dispatch
+   at preview.end that ships `print.output.flat()` to the main thread,
+   feed through the same `buildQuads` pipeline in swarf-lightstream.js.
+   Do NOT scene-walk. Estimated one focused session.
+
+7. Workspace Export + Preferences rework (markup #7). Three sub-asks:
+     (a) Verify `#mod-any` (Workspace Export) picks up the .swarf-dialog
+         treatment correctly. Phil reports it still looks different at
+         end of r9; may need an explicit swarf-dialog class or scoped
+         override.
+     (b) Preferences `#mod-prefs` — convert columns to rows, widen the
+         panel. Current HTML has 6 f-col siblings (prefs-gen1 / gen2 /
+         lay / xpo / prt / add) inside `.f-row`. Swap to `.f-col` outer
+         and widen.
+     (c) Nerd-mode toggle — NEW FEATURE. Phil scope confirmed this
+         session (2026-04-15 evening): only milling surfaces come back;
+         laser/SLA/FDM stay gone. Scope of restoration:
+           - All CAM op types (full op-add grid, incl. non-`swarf-expert-
+             only` and `swarf-expert-only` items — level/drill/trace/area/
+             gcode/helical/flip/register/lathe/index/loop).
+           - Full tool library modal (all fields, import/export buttons).
+           - Material size / stock editing (`#cam-stock`, `#cam-limits`,
+             `#cam-origin`, `#cam-expert` all visible).
+           - Device editor buttons (copy/rename/delete/export/save) in
+             `#mod-setup` — currently `swarf-expert-only`.
+           - Full machine chooser + machine editor (Phil addendum
+             2026-04-15 evening): all Kiri-bundled CNC/mill devices in
+             `#dev-list`, plus the full `#dev-gcode` macro editor in
+             `#mod-setup`. Laser/SLA/FDM stay out of scope.
+           — ORIGINAL LINE —
+           - Full machine chooser (other machines beyond MR-1 / ShopBot):
+             the student-mode chooser restricts to two devices; nerd mode
+             should expose every Kiri-bundled CNC/mill device in the
+             `#dev-list` select. Look for where swarf filters this list
+             (likely a `data-student` filter or similar in device-config
+             init). Nerd mode removes the filter.
+           - Full machine editor surface in `#mod-setup` — currently only
+             `#dev-config` read-only fields show; nerd mode exposes the
+             full `#dev-gcode` editor (macro scripts, start/end gcode,
+             feeds/speeds config). Already gated by `.swarf-expert-only`
+             on `#device-action`, so the same body-class toggle lights it.
+         Implementation: add a `body.swarf-expert` toggle in Preferences
+         (or a hidden window) that flips the CSS gate on `.swarf-expert-
+         only` to display:revert. Check what's already wired — `#speeds`
+         rule at swarf.css:~1345 already uses `body.swarf-expert`, so
+         the class is established.
+
+Handoff — read first next session
+─────────────────────────────────
+1. The viz popover is the single source of truth for all six viz toggles.
+   Do NOT re-add them to the sim-bar.
+2. Panel layout: OBJECTS/TABS/STRATEGY on right rail; TOOLPATHS alone on
+   left. If Kiri initializes a new CAM group div, add it in index.html
+   under either #panel-slide (left settings) or #swarf-right-rail (right)
+   depending on whether it's detail-tuning or work-surface data.
+3. To finish item 2, pick the stacks.js file under `src/kiri/app/` and
+   find the preview-layer visibility API. Wire it into the existing
+   `swarf.paths.toggle` event.
+4. For item 7's nerd-mode toggle, look at swarf.css for every
+   `.swarf-expert-only` rule — that's the gate set. A single body class
+   + CSS override is the cleanest win.
+
+
+v00000-010 / r10-final — Apr 15 2026, late evening (HANDOFF)
+═══════════════════════════════════════════════════════════════════════
+
+Session summary: r10-a..r10-f thrashed through the markup queue. Net
+state differs from r10's original sprint — read carefully before picking
+up tomorrow.
+
+WHAT SHIPPED (stayed)
+─────────────────────
+• Panel layout (markup #5/#6): OBJECTS + TABS + STRATEGY stacked in
+  `#swarf-right-rail` upper-right; TOOLPATHS alone in `#panel-right`
+  upper-left at top:96px. cam-tabs and cam-output divs relocated; IDs
+  preserved for init-menu.js wiring.
+• Lightstream residue cleanup: swarf-lightstream.js now clearTrail()s
+  on animate.end / preview.begin / preview.end so no stray ribbon
+  fragments survive a view transition.
+• Sim-bar toggle buttons: chips + lightstreams (no paths button).
+  Buttons are black-when-off (visible), mill-red-when-on with a glow.
+
+WHAT GOT REVERTED
+─────────────────
+• Viz popover (r10) — Phil: "Absolutely not. Bring back the bar as it
+  was before." swarf-viz-menu.js deleted. Fly-out popovers are out of
+  scope for swarf's transport bar.
+• TOOLPATHS bottom bar (r10-c..e) — Phil asked for paths+lightstream
+  in TOOLPATHS view too, then changed course: "Just leave paths only
+  in toolpaths [via Kiri's native label checkboxes] and lightstreams
+  only in simulation [sim-bar]." #swarf-tp-toggles deleted in r10-f.
+  Do NOT re-introduce. Kiri's native per-label checkboxes in the left
+  panel are the paths control in TOOLPATHS view.
+• Preview-gate (r10-d) — the deep-clone trick that preserved the
+  preview mesh across STACKS.clear into simulate was removed with the
+  TOOLPATHS bar revert. swarf-preview-gate.js deleted. Paths gating in
+  simulate is gone; Phil OK'd that as long as Kiri's native toolpath
+  label checkboxes work in TOOLPATHS.
+• Menubar / mode-tools z-index overreach (r10-b) — I'd added
+  `#menubar { position: relative; z-index: 9000 }` +
+  `#mode-tools { position: relative; z-index: 20 }` — this RESIZED the
+  menubar (Phil: "the menu deciding to change size"). r10-f reverted
+  to the original `.top-menu-drop, #menubar .content { z-index: 999 }`
+  and `#menubar { z-index: 50; position: relative }`. The only
+  surviving r10 z-index change is
+  `#panel-right, #swarf-right-rail { z-index: 2 !important }` —
+  enough to keep rails under dropdowns.
+
+NEW GLITCH FOUND (not yet fixed)
+────────────────────────────────
+Task #7 in the tracker. Phil 2026-04-15 18:09 screenshot proves the
+roughing toolpath is rendered OFFSET from the widget — floating off
+to the side rather than aligned with the part. Affects both TOOLPATHS
+view AND SIMULATE. NOT caused by r10 changes — shows up independently
+of any toggle. Looks like stock-bbox-vs-widget-transform drift:
+swarf student mode infers stock from widget bbox, but something is
+using a stale transform (or the stack group gets rendered at a world
+position that doesn't match the live widget matrix).
+
+Investigation path for next session:
+1. Instrument `preview.begin` with
+     const widget = api.widgets.list()[0];
+     console.log('widget bbox', widget.getBoundingBox());
+     console.log('widget pos',  widget.mesh.position, widget.track);
+   Then compare to the resulting stack position:
+     const [name, stack] = api.stacks.getStacks()[0];
+     console.log('stack view pos', stack.obj.view.position);
+2. Walk `src/kiri/mode/cam/app/cl-stock.js` auto-bbox logic. Does it
+   read `widget.track.pos` (which may be cached) or `widget.mesh.
+   position` / `widget.getBoundingBox()` (live)?
+3. Reproduce: load a part, preview, MOVE the part, preview again.
+   Does the toolpath follow? If not, the move isn't invalidating
+   something. If yes, hypothesis shifts to initial-slice bug.
+4. After root-cause, the Phil-visible fix is: toolpaths + tabs +
+   stock must all track the live widget world matrix.
+
+Also still on the queue:
+• Item 7 (markup Apr 15) — Workspace Export unification + Preferences
+  columns→rows + nerd-mode toggle. Scope expanded this session to
+  include the full machine chooser and machine editor (`#dev-gcode`
+  macro editor) when nerd mode is on. Milling only — laser/SLA/FDM
+  stay gone.
+• Item 3 (markup Apr 15) — lightstream pre-render in TOOLPATHS. Not
+  started. Architecture still as written in r9 (worker dispatch of
+  `print.output` at preview.end, feed to swarf-lightstream.js's
+  buildQuads). NOT a scene-walk.
+
+FILES TOUCHED THIS SESSION
+──────────────────────────
+added:    (none surviving)
+deleted:  web/kiri/swarf-viz-menu.js
+          web/kiri/swarf-preview-gate.js
+modified: web/kiri/swarf-sim-bar.js    (chips + lightstreams only)
+          web/kiri/swarf-lightstream.js (clearTrail on view transitions)
+          web/kiri/index.html          (right rail; cam-tabs/cam-output
+                                         moved; no viz-menu/preview-gate
+                                         script tags)
+          web/kiri/swarf.css           (right rail styling; panel-right
+                                         top:96px; minimal z-index fix)
+          swarf_HANDOFF.txt            (this entry + earlier r10 entry)
+
+Handoff — read first next session
+─────────────────────────────────
+1. Read the r10-final entry above end-to-end before editing anything.
+   r10's story is non-linear; what shipped at the end of the day is
+   smaller than r10's "sprint note" suggests.
+2. Task #7 is the highest-value next win. The roughing-offset
+   screenshot (Desktop/Screenshot 2026-04-15 at 6.09.21 PM.png) is
+   the canonical reproduction.
+3. If you're about to re-introduce a fly-out popover or a second
+   bottom bar, STOP. Phil's line: "Those toolbars are supposed to
+   float. I don't want yet another bar to fly out."
+4. The r9 "Root cause" section about anim-2d vs anim-3d + the
+   untracked swarf-lightstream.js is still canonical. Re-read it
+   before touching ribbons.

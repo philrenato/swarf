@@ -40,6 +40,35 @@ export function animate(api, delay) {
     console.log('[swarf anim-2d] animate() called');
     api.show.busy("building animation");
     let settings = api.conf.get();
+    // swarf r12: add a thin skin of material around the part for the
+    // simulation mesh so the tool visibly cuts through something.
+    // Skin thickness = tool diameter (just enough to see the cut).
+    // Toolpaths themselves assume zero padding (cutout mode).
+    try {
+        const proc = settings.process;
+        const w = api.widgets.all()[0];
+        const bb = w && w.getBoundingBox();
+        if (bb && settings.stock) {
+            // find the active tool diameter
+            let toolDiam = 6.35; // fallback 1/4"
+            const ops = proc.ops || [];
+            const firstOp = ops.find(o => o && o.type && o.type !== '|');
+            if (firstOp && firstOp.tool) {
+                const tool = (settings.tools || []).find(t => t.id === firstOp.tool || t.number === firstOp.tool);
+                if (tool) {
+                    toolDiam = tool.metric
+                        ? (tool.flute_diam || tool.shaft_diam || 6.35)
+                        : (tool.flute_diam || tool.shaft_diam || 0.25) * 25.4;
+                }
+            }
+            // skin = tool radius per side so the tool at the part outline
+            // cuts exactly to the outer wall of the stock
+            const skin = toolDiam; // radius per side × 2 sides = diameter total per axis
+            settings.stock.x = Math.max(settings.stock.x, bb.dim.x + skin);
+            settings.stock.y = Math.max(settings.stock.y, bb.dim.y + skin);
+            settings.stock.z = Math.max(settings.stock.z, bb.dim.z + toolDiam * 0.5);
+        }
+    } catch (e) {}
     let sawMeshAdd = false;
     client.animate_setup(settings, data => {
         try {
@@ -80,8 +109,9 @@ export function animate(api, delay) {
         origin = settings.origin;
         // swarf r6: default to 1× (index 1) — index 0 is now ½× which is
         // surprisingly slow for first-time users
-        speedIndex = api.local.getInt('cam.anim.speed') ?? 1;
-        if (speedIndex < 0 || speedIndex >= speedValues.length) speedIndex = 1;
+        // swarf v010 r6: default speed is 1× (not 0.5×). speedValues[1] = 1.
+        const stored = api.local.getInt('cam.anim.speed');
+        speedIndex = (stored == null || stored < 0 || stored >= speedValues.length) ? 1 : stored;
         updateSpeed();
         // swarf r6: auto-play when SIMULATE fires. Upstream just runs ONE
         // step and waits for the user to click play — confusing because
@@ -115,20 +145,53 @@ Object.assign(client, {
     },
 
     animate_setup(settings, ondone) {
-        color = settings.controller.dark ? 0x48607B : 0x607FA4;
         unitScale = settings.controller.units === 'in' ? 1/25.4 : 1;
-        let flatShading = true,
-            transparent = true,
-            opacity = 0.9,
-            side = THREE.DoubleSide;
-        material = new THREE.MeshPhongMaterial({
-            flatShading,
-            transparent,
-            opacity,
-            color,
-            side
-        });
+        // swarf r7: stock mesh uses the CURRENT swarf material (PBR) so the
+        // block being cut looks like the chips, not Kiri's default blue.
+        const sm = window.__swarfMaterial;
+        const a = sm && sm.appearance;
+        const side = THREE.DoubleSide;
+        if (a) {
+            material = a.physical && THREE.MeshPhysicalMaterial
+                ? new THREE.MeshPhysicalMaterial({ color: a.color, side })
+                : new THREE.MeshStandardMaterial({ color: a.color, side });
+            if (window.__swarfApplyAppearance) window.__swarfApplyAppearance(material, a);
+            color = new THREE.Color(a.color).getHex();
+        } else {
+            color = settings.controller.dark ? 0x48607B : 0x607FA4;
+            material = new THREE.MeshPhongMaterial({
+                flatShading: true,
+                transparent: true,
+                opacity: 0.9,
+                color,
+                side,
+            });
+        }
         add_red_neg_z(material);
+        // expose so swarf-material.js can re-tint live on material switch
+        window.__swarfAnimStockMaterial = material;
+        // swarf v010 r6: compute lightstream ribbon width from stepover × tool Ø
+        // × 0.5 (world units/mm). Phil: wide stepover → wider ribbon.
+        try {
+            const ops = (settings.process && settings.process.ops) || [];
+            const tools = settings.tools || [];
+            let bestDia = 0, bestStep = 0;
+            for (const op of ops) {
+                const t = tools.find(tt => tt.id === op.tool) || tools[0];
+                if (!t) continue;
+                const dia = (t.flute_diam || t.fluteDiameter || t.dia || 3.175);
+                const step = (op.step || op.stepover || settings.process.camContourOver || 0.4);
+                if (dia * step > bestDia * bestStep) { bestDia = dia; bestStep = step; }
+            }
+            if (!bestDia) bestDia = 3.175;
+            if (!bestStep) bestStep = 0.4;
+            // swarf v010 r8 c: ribbon width now tracks tool DIAMETER, not
+            // stepover distance. Stepover for prosumer endmills is 0.2–0.8mm
+            // — rendering that in world units gives a 1-px wire, not a
+            // ribbon. Tool-Ø × 0.9 gives the actual material-cut band that
+            // the tool leaves behind.
+            window.__swarfRibbonWidth = Math.max(2.5, bestDia * 0.9);
+        } catch (e) { window.__swarfRibbonWidth = 0.8; }
         client.send("animate_setup", {settings}, ondone);
     },
 
@@ -191,10 +254,40 @@ function meshAdd(id, ind, pos, sab) {
         } else {
             mesh = new THREE.Mesh(geo, material);
             mesh.renderOrder = -10;
+            // swarf v010 r4: generate box-projection UVs on the stock mesh so
+            // the material's brushed/grain/foam/scratch texture actually shows
+            // up. Kiri's stock geometry ships without UVs because upstream
+            // never intended the stock to be textured.
+            try { buildStockUVs(geo); } catch (e) {}
         }
     }
     space.world.add(mesh);
     meshes[id] = mesh;
+}
+
+// swarf v010 r4: triplanar-ish UV projection based on vertex normal. Picks
+// whichever cardinal plane the face points along and uses its world-space
+// coordinates. Scale: 1 UV = 80mm, so default textureRepeat ~6 reads at
+// approx the size of real brushing.
+function buildStockUVs(geo) {
+    const pos = geo.attributes.position;
+    if (!pos) return;
+    if (!geo.attributes.normal) geo.computeVertexNormals();
+    const nrm = geo.attributes.normal;
+    const count = pos.count;
+    const uvs = new Float32Array(count * 2);
+    const SCALE = 1 / 80;
+    for (let i = 0; i < count; i++) {
+        const x = pos.getX(i), y = pos.getY(i), z = pos.getZ(i);
+        const nx = Math.abs(nrm.getX(i)), ny = Math.abs(nrm.getY(i)), nz = Math.abs(nrm.getZ(i));
+        let u, v;
+        if (nz >= nx && nz >= ny) { u = x; v = y; }
+        else if (nx >= ny)        { u = y; v = z; }
+        else                      { u = x; v = z; }
+        uvs[i * 2]     = u * SCALE;
+        uvs[i * 2 + 1] = v * SCALE;
+    }
+    geo.setAttribute('uv', new THREE.BufferAttribute(uvs, 2));
 }
 
 function meshUpdates(id) {
@@ -203,6 +296,11 @@ function meshUpdates(id) {
         return; // animate cancelled
     }
     mesh.geometry.attributes.position.needsUpdate = true;
+    // swarf v010 r4: per-frame UV + normal rebuild made the tool lag behind
+    // the cut. Initial UVs (built once in meshAdd) stay close enough as the
+    // tool carves — slight texture stretch in cut regions is acceptable.
+    // Kiri's shader derives surface normals from derivatives, so no recompute
+    // is needed for correct specular.
     space.update();
 }
 
@@ -248,7 +346,7 @@ function play(opts) {
     client.animate({
         speed,
         steps: steps || Infinity,
-        pause: speedPauses[speedIndex]
+        pause: pauseFor(speed)
     }, handleGridUpdate);
 }
 
@@ -260,7 +358,7 @@ function fast(opts) {
     client.animate({
         speed,
         steps: steps || Infinity,
-        pause: speedPauses[speedIndex]
+        pause: pauseFor(speed)
     }, handleGridUpdate);
 }
 
@@ -275,6 +373,25 @@ function handleGridUpdate(data) {
     if (data && data.progress) {
         label.progress.value = (data.progress * 100).toFixed(1);
     }
+}
+
+// swarf v010 r6: derive ms-pause from any speed multiplier (incl. user
+// custom values outside the built-in cycle). 30 ms ≈ 1× baseline. Min 0.
+function pauseFor(mul) {
+    if (!Number.isFinite(mul) || mul <= 0) return 30;
+    return Math.max(0, Math.round(30 / mul));
+}
+
+// swarf v010 r6: when the user sets a custom speed via the sim bar button,
+// push the new speed+pause to the worker without waiting for a cycle click.
+if (typeof window !== 'undefined') {
+    window.addEventListener('swarf.speed.custom', () => {
+        try {
+            const v = window.__swarfCustomSpeed;
+            if (!Number.isFinite(v) || v <= 0) return;
+            client.animate({ speed: v, steps: Infinity, pause: pauseFor(v) }, () => {});
+        } catch (e) {}
+    });
 }
 
 function updateSpeed(inc = 0) {

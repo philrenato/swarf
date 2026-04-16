@@ -352,6 +352,13 @@ function setup_keybd_nav() {
     if (helpSearch) helpSearch.onclick = (ev) => { ev.stopPropagation(); api.modal.show('swarf-search'); setTimeout(() => { const i = $('swarf-search-input'); if (i) i.focus(); }, 50); };
     const helpConc = $('swarf-concordance');
     if (helpConc) helpConc.onclick = (ev) => { ev.stopPropagation(); api.modal.show('swarf-concordance'); };
+    const helpReset = $('swarf-reset-profile');
+    if (helpReset) helpReset.onclick = (ev) => {
+        ev.stopPropagation();
+        if (confirm('Reset swarf to factory defaults? This clears all saved settings and reloads.')) {
+            if (window.__swarfResetProfile) window.__swarfResetProfile();
+        }
+    };
     // swarf: reparent #panel-left and #panel-right out of #mid so fixed positioning
     // actually pins to the viewport. Some ancestor in Kiri's flow has a containing block
     // that was trapping fixed descendants.
@@ -367,14 +374,20 @@ function setup_keybd_nav() {
     // swarf: click-to-open menus (kill Kiri's hover-to-open — markup note: "like a real app")
     (function(){
         const menus = document.querySelectorAll('#menubar .top-menu > span');
-        const close = () => menus.forEach(m => m.classList.remove('swarf-open'));
+        const close = () => {
+            menus.forEach(m => m.classList.remove('swarf-open'));
+            document.body.classList.remove('swarf-menu-open');
+        };
         menus.forEach(m => {
-            if (!m.querySelector(':scope > .pop')) return; // only top-level menus (have a dropdown)
+            if (!m.querySelector(':scope > .pop, :scope > .top-menu-drop')) return; // only menus with a dropdown
             m.addEventListener('click', (ev) => {
                 ev.stopPropagation();
                 const wasOpen = m.classList.contains('swarf-open');
                 close();
-                if (!wasOpen) m.classList.add('swarf-open');
+                if (!wasOpen) {
+                    m.classList.add('swarf-open');
+                    document.body.classList.add('swarf-menu-open');
+                }
             });
         });
         document.addEventListener('click', close);

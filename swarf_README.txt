@@ -96,3 +96,12 @@ License
 ───────
 Kiri:Moto is MIT — see KIRI_MOTO_LICENSE.txt (or upstream license.md). Attribution preserved in the app's about panel.
 swarf's own modifications are Phil Renato's. Do not ship a build without keeping Kiri:Moto's license with it.
+
+
+Lightstreams
+────────────
+Every move the simulated tool makes lays down a glowing translucent ribbon along the cut path. Three stacked layers — a tight red centerline, a softer orange halo, a wide diffuse bloom — all additive. The ribbon is horizontal, thin in Z, lying flat on the cut plane like phosphorescent tape.
+
+Toggle from the pill in the simulate bar. Off means off — the ribbon stops drawing and anything already drawn hides. It clears on each new simulate so it always starts fresh.
+
+The ribbon is driven directly from the simulator's per-frame tool position, not from any scene-graph guesswork. Only genuine rapids (big XY jumps between passes, or a retract to clearance in Z) break the trace.

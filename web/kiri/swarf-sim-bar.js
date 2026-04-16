@@ -1,102 +1,184 @@
 /**
- * swarf simulate-bar extensions — injects extras into Kiri's #layer-animate
- * when simulation starts:
- *   - "chips" toggle button (tied to window.__swarfChipsVisible which the
- *     chips layer reads before rendering/spawning)
- *   - "Nx" click-to-edit on the speed label so Phil can type a custom
- *     speed multiplier (overrides the built-in cycle list)
+ * swarf simulate-bar extensions — renders visualization toggles in both the
+ * SIMULATE sim-bar (#layer-animate) and a small floating TOOLPATHS bar that
+ * appears whenever the sim-bar isn't populated. Both surfaces share state
+ * via the same __swarfPaths / __swarfLightstream / __swarfChipsVisible
+ * window flags and CustomEvents, so flipping a toggle in one place updates
+ * all mirrors instantly.
+ *
+ * Buttons:
+ *   chips        — physics layer (simulate only)
+ *   paths        — Kiri default wire (default OFF — button stays visible)
+ *   lightstreams — Tron-red ribbon (default ON)
+ *
+ * Visual rule (markup Apr 15 r10-c): ON = mill-red, OFF = solid black.
+ * Both states are fully visible; OFF is never hidden.
  */
 (function () {
   'use strict';
   if (window.__swarfSimBarLoaded) return;
   window.__swarfSimBarLoaded = true;
 
-  // Default: chips on. Overridden by ?nochips=1 (handled inside swarf-chips.js)
-  window.__swarfChipsVisible = window.__swarfChipsVisible !== false;
-  window.__swarfCustomSpeed  = null; // null = use built-in cycle
+  // swarf v010 r8: chips default OFF — reserved for when the student
+  // explicitly turns on the "feels like a real cut" view.
+  try {
+    const chipsSaved = localStorage.getItem('swarf.chips');
+    window.__swarfChipsVisible = chipsSaved === '1';
+  } catch (e) { window.__swarfChipsVisible = false; }
+  window.__swarfCustomSpeed = null; // null = use built-in cycle
 
-  // Chips toggle hook: swarf-chips.js listens for this event to flip its pools
-  function toggleChips() {
-    window.__swarfChipsVisible = !window.__swarfChipsVisible;
-    try { window.dispatchEvent(new CustomEvent('swarf.chips.toggle', { detail: window.__swarfChipsVisible })); } catch (e) {}
-    renderChipsBtn();
+  // swarf v010 r7: two independent toolpath toggles (can both be on)
+  //   __swarfLightstream — Tron red ribbons (default ON)
+  //   __swarfPaths       — Kiri default yellow-wire path (default OFF)
+  const LS_KEY = 'swarf.lightstream';
+  const PT_KEY = 'swarf.paths';
+  const CH_KEY = 'swarf.chips';
+  try {
+    const lsSaved = localStorage.getItem(LS_KEY);
+    window.__swarfLightstream = lsSaved === null ? true  : lsSaved === '1';
+    const ptSaved = localStorage.getItem(PT_KEY);
+    window.__swarfPaths       = ptSaved === null ? false : ptSaved === '1';
+  } catch (e) { window.__swarfLightstream = true; window.__swarfPaths = false; }
+
+  // ─── button factory ─────────────────────────────────────────────────────
+  const CFG = {
+    chips: {
+      flag: '__swarfChipsVisible', key: CH_KEY, event: 'swarf.chips.toggle',
+      offLabel: 'chips off', onLabel: 'chips on',
+      offTitle: 'chips are hidden — click to show',
+      onTitle:  'chips are spawning — click to hide',
+    },
+    paths: {
+      flag: '__swarfPaths', key: PT_KEY, event: 'swarf.paths.toggle',
+      offLabel: 'paths off', onLabel: 'paths on',
+      offTitle: 'Kiri default toolpath wire is hidden — click to show',
+      onTitle:  'Kiri default toolpath wire is visible — click to hide',
+    },
+    lightstream: {
+      flag: '__swarfLightstream', key: LS_KEY, event: 'swarf.lightstream.toggle',
+      offLabel: 'lightstreams off', onLabel: 'lightstreams on',
+      offTitle: 'Tron-red ribbon paths hidden — click to show',
+      onTitle:  'Tron-red ribbon paths visible — click to hide',
+    },
+  };
+
+  // every rendered mirror so we can keep them in lockstep when one flips.
+  const mirrors = { chips: [], paths: [], lightstream: [] };
+
+  function paint(b, kind) {
+    const cfg = CFG[kind];
+    const on  = !!window[cfg.flag];
+    b.textContent = on ? cfg.onLabel : cfg.offLabel;
+    // ON = mill-red. OFF = solid black with a faint red hairline so the
+    // button is fully visible in its "off" state (Phil markup r10-c).
+    b.style.background   = on ? 'var(--swarf-accent-hi, #d02020)' : '#000';
+    b.style.borderColor  = on ? 'var(--swarf-accent-hi, #d02020)' : 'var(--swarf-accent, #7a2a1a)';
+    b.style.color        = '#fff';
+    b.title              = on ? cfg.onTitle : cfg.offTitle;
+    b.classList.toggle('swarf-toggle-on',  on);
+    b.classList.toggle('swarf-toggle-off', !on);
   }
 
-  let chipsBtn = null;
-  function renderChipsBtn() {
-    if (!chipsBtn) return;
-    const on = window.__swarfChipsVisible;
-    chipsBtn.textContent = on ? 'chips on' : 'chips off';
-    chipsBtn.style.background = on
-      ? 'var(--swarf-accent, #7a2a1a)'
-      : 'rgba(0,0,0,0.5)';
-    chipsBtn.style.color = '#fff';
-    chipsBtn.title = on ? 'chips are spawning — click to hide/stop' : 'chips are hidden — click to show';
+  function makeToggle(kind) {
+    const cfg = CFG[kind];
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'swarf-sim-extra swarf-toggle swarf-toggle-' + kind;
+    // solid black/red toggle style (overrides #layer-animate button rules)
+    b.style.border = '1px solid var(--swarf-accent, #7a2a1a)';
+    b.style.fontFamily = '"JetBrains Mono","IBM Plex Mono",ui-monospace,monospace';
+    b.style.fontSize = '11px';
+    b.style.letterSpacing = '0.1em';
+    b.style.textTransform = 'lowercase';
+    b.style.padding = '6px 10px';
+    b.style.margin = '0 2px';
+    b.style.cursor = 'pointer';
+    b.style.borderRadius = '3px';
+    b.onclick = () => {
+      window[cfg.flag] = !window[cfg.flag];
+      try { localStorage.setItem(cfg.key, window[cfg.flag] ? '1' : '0'); } catch (e) {}
+      try { window.dispatchEvent(new CustomEvent(cfg.event, { detail: window[cfg.flag] })); } catch (e) {}
+    };
+    mirrors[kind].push(b);
+    paint(b, kind);
+    return b;
   }
 
-  function injectExtras() {
+  // When any flag flips (via any mirror, or via swarf-viz-menu / external),
+  // repaint every mirror so all bars stay visually in sync.
+  function syncAll(kind) { mirrors[kind].forEach(b => paint(b, kind)); }
+  window.addEventListener('swarf.chips.toggle',       () => syncAll('chips'));
+  window.addEventListener('swarf.paths.toggle',       () => syncAll('paths'));
+  window.addEventListener('swarf.lightstream.toggle', () => syncAll('lightstream'));
+
+  // ─── SIMULATE sim-bar injection ─────────────────────────────────────────
+  function injectSimBar() {
     const bar = document.getElementById('layer-animate');
     if (!bar || bar.dataset.swarfExtras === '1') return;
-    // only inject when the bar is actually populated with kiri's buttons
-    if (!bar.querySelector('button')) return;
+    if (!bar.querySelector('button')) return; // wait for Kiri to populate
     bar.dataset.swarfExtras = '1';
 
-    // chips toggle button — appended at the end so kiri's layout isn't broken
-    chipsBtn = document.createElement('button');
-    chipsBtn.type = 'button';
-    chipsBtn.className = 'swarf-sim-extra swarf-sim-chips';
-    chipsBtn.onclick = toggleChips;
-    bar.appendChild(chipsBtn);
-    renderChipsBtn();
+    // swarf r10-f (Phil feedback): paths button lives only in TOOLPATHS
+    // view via Kiri's native label checkboxes — not here. Sim-bar keeps
+    // chips + lightstreams only.
+    bar.appendChild(makeToggle('chips'));
+    bar.appendChild(makeToggle('lightstream'));
 
-    // custom-speed: Kiri's speed VALUE is an <input> (newValue() creates one)
-    // showing "1×", "2×", etc. Find any input or label in the bar whose value
-    // matches the speed pattern; on click, prompt for a custom multiplier
-    // and store it in window.__swarfCustomSpeed (anim-2d/3d updateSpeed
-    // honors that override).
-    const speedEls = [...bar.querySelectorAll('input, label')].filter(el => {
-      const v = el.value !== undefined ? el.value : el.textContent;
-      return /[½\d]\s*[x×]/i.test(String(v || '').trim());
-    });
-    const speedEl = speedEls[0];
-    if (speedEl) {
-      speedEl.style.cursor = 'text';
-      speedEl.title = 'click to set a custom simulate speed (e.g. 3.5)';
-      const handler = (ev) => {
-        ev.stopPropagation();
-        ev.preventDefault();
-        const curStr = String(speedEl.value !== undefined ? speedEl.value : speedEl.textContent);
-        const cur = window.__swarfCustomSpeed ||
-                    parseFloat(curStr.replace('½', '0.5').replace(/[x×]/gi, '')) || 1;
-        const raw = prompt('custom simulate speed multiplier (e.g. 3.5)', String(cur));
-        if (raw === null) return;
-        if (raw.trim() === '') {
-          window.__swarfCustomSpeed = null;
-          return;
-        }
-        const v = parseFloat(raw);
-        if (Number.isFinite(v) && v > 0 && v < 1000) {
-          window.__swarfCustomSpeed = v;
-          if (speedEl.value !== undefined) speedEl.value = `${v}×`;
-          else speedEl.textContent = `${v}×`;
-          try { window.dispatchEvent(new CustomEvent('swarf.speed.custom', { detail: v })); } catch (e) {}
-        }
+    // ── editable speed field (Phil markup Apr 15 item 4) ──
+    // Find the speed label: readonly <input size="3"> that follows the
+    // fast-forward (toggle speed) button. Previous regex approach failed
+    // because updateSpeed() hasn't set the value yet when injectSimBar
+    // fires from the MutationObserver.
+    const speedBtn = bar.querySelector('button[title="toggle speed"]');
+    const speedLabelEl = speedBtn
+      ? speedBtn.nextElementSibling
+      : bar.querySelector('input[readonly][size="3"]');
+    if (speedLabelEl && speedLabelEl.tagName === 'INPUT') {
+      speedLabelEl.style.display = 'none';
+      const field = document.createElement('input');
+      field.type = 'number';
+      field.min = '0.5'; field.max = '100'; field.step = '0.5';
+      field.value = String(window.__swarfCustomSpeed || 1);
+      field.className = 'swarf-sim-extra swarf-sim-speedfield';
+      field.style.cssText = 'width:58px; height:26px; padding:0 6px; background:rgba(0,0,0,0.55); color:#fff; border:1px solid var(--swarf-accent,#7a2a1a); border-radius:3px; font-family:"JetBrains Mono","IBM Plex Mono",ui-monospace,monospace; font-size:12px; text-align:right; margin:0 2px;';
+      field.title = 'simulate speed multiplier — 0.5 to 100';
+      const commit = () => {
+        let v = parseFloat(field.value);
+        if (!Number.isFinite(v) || v <= 0) v = 1;
+        if (v < 0.5) v = 0.5;
+        if (v > 100) v = 100;
+        field.value = String(v);
+        window.__swarfCustomSpeed = v;
+        try { window.dispatchEvent(new CustomEvent('swarf.speed.custom', { detail: v })); } catch (e) {}
       };
-      speedEl.addEventListener('click', handler);
-      speedEl.addEventListener('focus', handler);
+      field.addEventListener('change', commit);
+      field.addEventListener('keydown', (e) => { if (e.key === 'Enter') field.blur(); });
+      field.addEventListener('click', (e) => e.stopPropagation());
+      speedLabelEl.parentNode.insertBefore(field, speedLabelEl.nextSibling);
     }
   }
 
-  // Watch for the bar to become populated (kiri injects buttons lazily on first simulate).
-  const mo = new MutationObserver(() => {
-    try { injectExtras(); } catch (e) { console.warn('swarf sim bar inject failed', e); }
-  });
-  const bar = document.getElementById('layer-animate');
-  if (bar) mo.observe(bar, { childList: true, subtree: true });
-  // also try a couple of times in case bar materializes after load
-  let tries = 0;
-  const poll = setInterval(() => {
-    injectExtras();
-    if (++tries > 40) clearInterval(poll);
-  }, 500);
+  // ─── observers ──────────────────────────────────────────────────────────
+  function wireObservers() {
+    const bar = document.getElementById('layer-animate');
+    if (bar) {
+      new MutationObserver(() => {
+        try { injectSimBar(); } catch (e) { console.warn('swarf sim bar inject failed', e); }
+      }).observe(bar, { childList: true, subtree: true, attributes: true, attributeFilter: ['class','style'] });
+    }
+  }
+  function boot() {
+    wireObservers();
+    // poll a few times in case layer-animate materializes after load
+    let tries = 0;
+    const poll = setInterval(() => {
+      try { injectSimBar(); } catch (e) {}
+      if (++tries > 40) clearInterval(poll);
+    }, 500);
+  }
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', boot, { once: true });
+  } else {
+    boot();
+  }
 })();
