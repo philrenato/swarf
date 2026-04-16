@@ -1,5 +1,5 @@
 swarf_HANDOFF.txt — for Claude
-last updated 2026-04-16 (v00000-011 r12, final)
+last updated 2026-04-16 (v00000-011 r13, final)
 
 CRITICAL STATE — READ BEFORE TOUCHING ROUGHING OR STOCK:
   Roughing defaults: all=false, inside=false (cutout mode). Hardcoded in
@@ -11,21 +11,128 @@ CRITICAL STATE — READ BEFORE TOUCHING ROUGHING OR STOCK:
   ws-settings + reloads. If behavior seems stale, bump the version string
   in swarf-sky.js MIG_R12 constant.
 
-NEXT SESSION — PRIORITY ITEMS:
-  1. Simulate speed input broken. The "4×" label in the sim bar should be
-     an editable number input. swarf-sim-bar.js:130 tries to find the speed
-     label via regex /[½\d]\s*[x×]/i but it doesn't match the current DOM.
-     Fix: inspect the actual #layer-animate children to find the speed
-     cycle button/label, then replace with a <input type="number"> that
-     dispatches swarf.speed.custom on change. The commit() and event
-     wiring already exist (lines 144-157) — just the selector is broken.
-  2. Web card + app page (deferred for screenshots)
-  3. Expert mode prefs toggle
-  4. GitHub push
+  MENUS: click-to-open, NOT hover. CSS disables hover for .top-menu-drop;
+  JS toggles .swarf-open class. body.swarf-menu-open suppresses panels to
+  z-index:-1 while any menu is open (body { filter: saturate() } creates
+  a stacking context that paints panels over dropdowns otherwise).
 
-  Menu z-index: #menubar is position:fixed z-index:100. Panels are z-index:2.
-  If menus render behind panels, the fix is ALWAYS in stacking context, not
-  z-index values.
+  MODALS: 'swarf-search' and 'swarf-concordance' must be registered in
+  ui.modals in bind.js. Without that, api.modal.show() can't find them.
+
+NEXT SESSION — PRIORITY ITEMS:
+  1. Simulate stock block — show material being cut away. Key visual
+     missing from the simulate experience. Calculate block size from
+     toolpath extents + bit diameter so stock fully encloses cut volume.
+  2. Ribbon pre-populate from print.output on preview.end (cosmetic)
+  3. Tooltip audit: inherit+enrich Kiri's existing lk=/lkt= tooltips
+     for swarf's audience
+  4. TM underline in Safari (Chrome is clean)
+  5. Deploy script to automate the redeploy steps (see HOW TO REDEPLOY
+     section below)
+
+DEPLOYED: renato.design/swarf-app/ is live. See HOW TO REDEPLOY section
+below for the full build-and-deploy sequence.
+
+
+HOW TO REDEPLOY swarf-app (renato.design/swarf-app/):
+  1. cd ~/Documents/claude/swarf/swarf_repo
+  2. npm run webpack-ext && npm run webpack-src
+     (builds src/ext/three.js etc, then src/pack/kiri-main.js)
+  3. Copy web/* to philrenato-web/swarf-app/ (flatten kiri/ to root,
+     remove symlinks)
+  4. Copy src/pack/ to swarf-app/lib/ (kiri-main.js → lib/main/kiri.js,
+     etc.)
+  5. Copy node_modules/@fortawesome/fontawesome-free to swarf-app/font/
+  6. sed rewrite absolute paths in JS bundles:
+       "/kiri/" → "/swarf-app/"
+       "/obj/"  → "/swarf-app/obj/"
+       "/lib/"  → "/swarf-app/lib/"
+  7. Suppress SharedArrayBuffer warnings in lib/main/kiri.js
+  8. index.html registers coi-serviceworker.js (COEP require-corp +
+     COOP same-origin headers via service worker for SharedArrayBuffer)
+  9. git add swarf-app/ && commit && push from philrenato-web
+  NOTE: Works in Chrome + regular Safari. Does NOT work in incognito
+  (service workers blocked). 8-second timeout shows friendly message
+  if app can't load.
+
+
+v00000-011 r13 — POLISH + DEPLOY (2026-04-16)
+──────────────────────────────────────────────
+Full r13 session: speed input fix, click-to-open menus, concordance/help
+modals, tooltips, expert mode confirmation, web deployment + marketing page.
+
+SPEED INPUT FIX (swarf-sim-bar.js):
+  The "4×" speed label was supposed to become an editable number field.
+  The regex selector /[½\d]\s*[x×]/i couldn't match because updateSpeed()
+  hadn't set the input's value yet when injectSimBar() fired from
+  MutationObserver. Fix: structural DOM selector —
+  button[title="toggle speed"] → .nextElementSibling. Removed redundant
+  prompt()-based click handler.
+
+CLICK-TO-OPEN MENUS (3 files):
+  Menus were hover-to-open (upstream Kiri behavior). The swarf click-to-
+  open system only handled .pop elements, but all 5 menus use
+  .top-menu-drop. Fixed: CSS disables hover for .top-menu-drop, adds
+  display:flex for .swarf-open. sync.js gate changed to find
+  .top-menu-drop. Also: body { filter: saturate() } from phase classes
+  creates a stacking context that caused panels to paint over menu
+  dropdowns. Fix: body.swarf-menu-open class suppresses panels to
+  z-index:-1 while any menu is open.
+
+CONCORDANCE + SEARCH HELP (bind.js):
+  The modals were defined in index.html but never registered in the
+  modals object in bind.js. api.modal.show('swarf-concordance') couldn't
+  find them. Fix: added 'swarf-search' and 'swarf-concordance' to
+  ui.modals.
+
+TOOLTIPS:
+  - Workflow step tooltips moved from <label> to parent <span.swarf-step>
+    (covers icon + text)
+  - Inline param drawer rows: tool, feed, stepdown, stepover, inside,
+    outside
+  - TOOLPATHS header, OBJECTS header, material dropdown
+
+EXPERT MODE TOGGLE:
+  Already wired from prior session. Confirmed working. View menu →
+  expert mode, persists to localStorage, toggles body.swarf-expert.
+
+WEB DEPLOYMENT at renato.design/swarf-app/:
+  - App files from web/ + built src/pack/ + node_modules/@fortawesome
+  - All absolute paths ("/kiri/", "/lib/", "/obj/") rewritten to
+    "/swarf-app/" prefix in JS bundles
+  - kiri/ directory flattened to root so URL is /swarf-app/ not
+    /swarf-app/kiri/
+  - coi-serviceworker.js shim adds COEP (require-corp) + COOP
+    (same-origin) headers via service worker for SharedArrayBuffer
+  - index.html registers service worker before app loads
+  - SharedArrayBuffer security warnings suppressed in deployed JS
+  - 8-second timeout shows friendly message if app can't load
+    (incognito / private browsing)
+  - Works in Chrome + regular Safari. Does NOT work in Safari/Chrome
+    incognito (service workers blocked)
+
+WEBSITE: Marketing page at renato.design/swarf/ with 5 screenshots,
+  Phil's markup edits. Homepage featured card + grid card in rotation.
+  sitemap.xml updated.
+
+FILES CHANGED THIS SESSION (in swarf_repo):
+  web/kiri/swarf-sim-bar.js        — speed input structural selector
+  web/kiri/swarf.css               — click-to-open menus, panel suppression
+  web/kiri/swarf-material.js       — material dropdown tooltip
+  web/kiri/index.html              — TOOLPATHS/OBJECTS header tooltips
+  src/kiri/app/init/sync.js        — click handler for .top-menu-drop,
+                                      swarf-menu-open class
+  src/kiri/app/init/bind.js        — concordance + search help modal
+                                      registration
+  src/kiri/app/init/menu.js        — workflow step tooltips on parent span
+  src/kiri/mode/cam/app/init-ui.js — inline param drawer tooltips
+
+REMAINING OPEN (next session):
+  ★ SIMULATE STOCK BLOCK — show material being cut away (key visual)
+  - Ribbon pre-populate from print.output on preview.end (cosmetic)
+  - Tooltip audit: inherit+enrich Kiri's existing lk=/lkt= tooltips
+  - TM underline in Safari (Chrome is clean)
+  - Deploy script to automate the redeploy steps above
 
 
 v00000-011 r12 — SHIP SPRINT (2026-04-16)

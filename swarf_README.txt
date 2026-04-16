@@ -1,6 +1,6 @@
-sw|arf™ v00000-009
+sw|arf™ v00000-011
 gcode carving interface
-renato.design
+renato.design/swarf/
 
 (Wordmark: sw in white, arf in mill-red — the cutter making its sound.
  Backronym below.)
@@ -105,3 +105,14 @@ Every move the simulated tool makes lays down a glowing translucent ribbon along
 Toggle from the pill in the simulate bar. Off means off — the ribbon stops drawing and anything already drawn hides. It clears on each new simulate so it always starts fresh.
 
 The ribbon is driven directly from the simulator's per-frame tool position, not from any scene-graph guesswork. Only genuine rapids (big XY jumps between passes, or a retract to clearance in Z) break the trace.
+
+
+Web edition
+───────────
+Live at renato.design/swarf-app/ — the same app, served from the website. No install, no download. Open it in Chrome or Safari and you're cutting.
+
+SharedArrayBuffer (which Kiri's worker threads need) requires specific security headers. A service worker shim (coi-serviceworker.js) injects COEP and COOP headers on first load. This means one extra page refresh the first time — after that, the service worker handles it silently.
+
+One catch: incognito and private browsing windows block service workers entirely. If the app can't start, an 8-second timeout shows a message explaining why. Use a regular browser window.
+
+The deployed build flattens the kiri/ directory to root and rewrites all absolute paths from /kiri/ and /lib/ to /swarf-app/ prefixes. The source of truth is always this repo — the deployed copy is a build artifact.
