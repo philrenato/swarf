@@ -32,10 +32,13 @@
 
   // swarf v010: cut caps ~40% — Phil reported Chrome at ~40% CPU, chip physics
   // was the biggest per-frame cost. Visual density barely changes.
-  const AIRBORNE_MAX = 140;
+  // r15: bump airborne cap + gravity + drag so we can spawn more chips that
+  // stay closer to the tool (see spawn rate + velocity tweaks below).
+  // r15b: Phil asked to double chip count + speed again. Cap doubled.
+  const AIRBORNE_MAX = 440;
   const SETTLED_MAX  = 900;
-  const GRAVITY      = 180;   // mm/s² (Three.js mm units)
-  const DRAG         = 0.85;
+  const GRAVITY      = 260;   // mm/s² (Three.js mm units)
+  const DRAG         = 0.65;
   const SPIN_RPM     = 12000; // visual approximation, not read from tool
   const TOOL_R       = 3.0;   // mm, rough default until we read tool
   const CHIP_LIFE    = 3.0;   // seconds airborne max before settle forced
@@ -205,15 +208,17 @@
       const theta = Math.random() * Math.PI * 2;
       // angular velocity → linear tangent velocity at perimeter
       const omega = (SPIN_RPM * Math.PI * 2) / 60; // rad/s
-      const tanMag = omega * TOOL_R * 0.004; // scaled down; raw would be explosive
+      // r15: halved throw velocity so chips pile near the cutter instead of
+      // flinging across the platform.
+      const tanMag = omega * TOOL_R * 0.002;
       // tangent direction in XY plane
       const tx = -Math.sin(theta) * tanMag;
       const ty =  Math.cos(theta) * tanMag;
       // add a small feed-direction kick
-      const fx = toolVel.x * 0.3;
-      const fy = toolVel.y * 0.3;
+      const fx = toolVel.x * 0.15;
+      const fy = toolVel.y * 0.15;
       // upward pop so they arc visibly
-      const vz = 8 + Math.random() * 10;
+      const vz = 4 + Math.random() * 6;
 
       // start position at random point around the cutter perimeter
       const startX = pos.x + Math.cos(theta) * TOOL_R;
@@ -385,11 +390,16 @@
         // required Z near stock top, but that silently killed spawning when
         // the part origin wasn't at top, making chips look "broken".
         const moving = Math.hypot(toolVel.x, toolVel.y) > 0.2;
-        // swarf v010 r4: halved spawn count (was 1..3, now 0..1 per event)
-        // so chip physics doesn't crowd out tool-position updates. Visual
-        // density barely changes because hook fires many times per second.
-        if (simulating && moving && Math.random() < 0.55) {
+        // r15: Phil asked for more chips, closer to the tool. Spawn 1-2 per
+        // hook fire (100% chance of 1, 70% chance of a second) — the shorter
+        // throw distances below keep the visual busy near the cutter.
+        // r15b: doubled again — 2 guaranteed + 70% for a 3rd + 40% for a 4th
+        // (avg ~3.1 per event, vs. prior ~1.7). Throw velocities unchanged.
+        if (simulating && moving) {
           spawnChip(pos);
+          spawnChip(pos);
+          if (Math.random() < 0.7) spawnChip(pos);
+          if (Math.random() < 0.4) spawnChip(pos);
           if (!firstSpawnLogged) {
             console.log('swarf-chips: first spawn at', pos);
             firstSpawnLogged = true;

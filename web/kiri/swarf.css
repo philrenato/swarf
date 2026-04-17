@@ -6,6 +6,18 @@
 .swarf-expert-only { display: none !important; }
 body.swarf-expert .swarf-expert-only { display: initial !important; }
 
+/* "advanced (alpha)" menu item — superscript styling for the alpha tag */
+.swarf-alpha-sup {
+  font-size: 0.62em;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  margin-left: 2px;
+  top: -0.45em;
+  opacity: 0.75;
+  text-decoration: none;
+}
+
 /* ---- Palette v2 (2026-04-15 refs pass): hotter crimson with glow, industrial-mill-red,
        bone-on-warm-black. Tuned against EMCO Mill-55 + Tron:Ares chrome refs. No Tron
        lettering, no lightcycle motifs — just the hot-red-on-black register and the

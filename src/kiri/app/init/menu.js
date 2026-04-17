@@ -212,7 +212,7 @@ function content(actions) {
                     menuItem(actions, { id: 'view-shade', text: 'stock box',       iconClass: 'fa-solid fa-cube' }),
                     hr(),
                     // swarf: expert-mode toggle lives under view (it's a display choice, not a preference)
-                    menuItem(actions, { id: 'swarf-expert-toggle', text: 'expert mode', iconClass: 'fas fa-user-gear' }),
+                    menuItem(actions, { id: 'swarf-expert-toggle', text: 'advanced<sup class="swarf-alpha-sup">alpha</sup>', iconClass: 'fas fa-user-gear' }),
                     hr(),
                     menuItem(actions, { id: 'app-xpnd', text: 'fullscreen', iconClass: 'fas fa-maximize' })
                 ]

@@ -1,5 +1,56 @@
 swarf_HANDOFF.txt — for Claude
-last updated 2026-04-16 (v00000-012 r14+, evening session final)
+last updated 2026-04-16 (v00000-012 r15b, chip pass + menu-label pass)
+
+r15 / r15b — CHIP PHYSICS RETUNE (web/kiri/swarf-chips.js)
+  Phil asked 2026-04-16 for "more chips, don't let them go as far" then
+  "double chip speed/count again." Two rounds of tuning:
+
+  r15 (short-throw):
+    • AIRBORNE_MAX 140 → 220
+    • GRAVITY 180 → 260          (chips fall faster)
+    • DRAG 0.85 → 0.65           (horizontal velocity bleeds off faster)
+    • tanMag factor 0.004 → 0.002 (halved perimeter tangent throw)
+    • feed kick factor 0.3 → 0.15 (halved feed-direction kick)
+    • upward pop 8..18 → 4..10
+    • spawn rate 0.55-per-hook → always 1 + 70% chance of a 2nd
+
+  r15b (doubled count, throw physics unchanged):
+    • AIRBORNE_MAX 220 → 440
+    • spawn rate → always 2 + 70% chance of 3rd + 40% chance of 4th
+                   (avg ~3.1 per hook-fire, vs ~1.7 in r15)
+    Throw velocities / gravity / drag intentionally left at r15 values —
+    r15b only adds DENSITY, never reverts the short-throw change.
+
+  Known-but-untouched subtlety: each flavor pool is sized ceil(AIRBORNE_MAX/2).
+  Curl flavor has weight 0.55, so at peak density a few curl spawns will
+  silently fail the `pool.count >= pool.instanceMatrix.count` gate. This
+  was already true at AIRBORNE_MAX=140 and is not a regression. Tune per-
+  flavor pool sizing only if visible "chip gaps" show up on long sims.
+
+r15b — EXPERT MODE RELABEL (minimal, additive)
+  View menu item text: "expert mode" → 'advanced<sup class="swarf-alpha-sup">alpha</sup>'.
+  Label renders via innerHTML (see src/moto/webui.js ~line 71), so the
+  <sup> tag is parsed, not escaped. New CSS rule lives right under the
+  existing .swarf-expert-only block in web/kiri/swarf.css:
+    .swarf-alpha-sup { font-size: 0.62em; font-weight: 600;
+                       letter-spacing: 0.04em; text-transform: uppercase;
+                       margin-left: 2px; top: -0.45em; opacity: 0.75;
+                       text-decoration: none; }
+  No class renames, no storage-key churn: element id remains
+  'swarf-expert-toggle', body class remains 'swarf-expert', localStorage
+  key remains 'swarf-expert', and .swarf-expert-only visibility rule is
+  unchanged. The rename is purely the user-facing label.
+
+  Phil's rule (2026-04-16): new power-user surface belongs under this
+  toggle, labeled "advanced (alpha)" + treated as untested. Existing
+  .swarf-expert-only elements continue to carry the KM features that
+  were turned off by default for students.
+
+  Remaining "expert" strings (left in place on purpose — internal docs
+  + searchable help content, changing them is separate copy work):
+    - web/kiri/index.html:319, 330 (concordance help entries)
+    - src/kiri/app/init/sync.js:607, 613 (search-index entries)
+    - web/kiri/lang/{en,fr}.js op_xprt_s / ad_menu tokens (upstream)
 
 CRITICAL STATE — DEPLOYING BUNDLES (READ BEFORE ANY RE-DEPLOY):
   USE tools/deploy.sh. Do not copy src/pack/* to philrenato-web manually.
