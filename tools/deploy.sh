@@ -43,15 +43,21 @@ for f in web/kiri/swarf*.js web/kiri/swarf.css web/kiri/swarf-materials.json; do
   cp "$f" "$dst"
 done
 
-echo "[3/5] rewrite worker + wasm paths to /swarf-app/ absolutes"
+echo "[3/5] rewrite worker + wasm + asset paths to /swarf-app/ absolutes"
+# worker + wasm (fatal — toolpaths break without these)
 sed -i '' 's|"\.\./lib/kiri/run/worker\.js"|"/swarf-app/lib/kiri/run/worker.js"|g' "$WEB_APP/lib/main/kiri.js"
 sed -i '' 's|"\.\./wasm/manifold\.wasm"|"/swarf-app/lib/kiri/wasm/manifold.wasm"|g' "$WEB_APP/lib/main/kiri.js"
 sed -i '' 's|"\.\./wasm/manifold\.wasm"|"/swarf-app/lib/kiri/wasm/manifold.wasm"|g' "$WEB_APP/lib/kiri/run/worker.js"
 sed -i '' 's|"/wasm/kiri-geo\.wasm"|"/swarf-app/lib/kiri/wasm/kiri-geo.wasm"|g' "$WEB_APP/lib/kiri/run/worker.js"
+# seed/sample STL paths (fatal — init_input waits on platform.load_stl's
+# callback; a 404 here leaves the callback unfired, init hangs, curtain
+# never lifts. We learned this the hard way with /obj/cube.stl).
+sed -i '' "s|'/obj/|'/swarf-app/obj/|g" "$WEB_APP/lib/main/kiri.js"
+sed -i '' 's|"/obj/|"/swarf-app/obj/|g' "$WEB_APP/lib/main/kiri.js"
 
 # Hard-fail if any of the broken forms remain — catches bundler changes that
 # introduce new path shapes we haven't taught the script about yet.
-bad=$(grep -oE '"\.\./lib/[^"]*\.js"|"\.\./wasm/[^"]*\.wasm"|"/wasm/[^"]*\.wasm"' "$WEB_APP/lib/main/kiri.js" "$WEB_APP/lib/kiri/run/worker.js" || true)
+bad=$(grep -oE '"\.\./lib/[^"]*\.js"|"\.\./wasm/[^"]*\.wasm"|"/wasm/[^"]*\.wasm"|"/obj/[^"]*"|'"'"'/obj/[^'"'"']*'"'"'' "$WEB_APP/lib/main/kiri.js" "$WEB_APP/lib/kiri/run/worker.js" || true)
 if [[ -n "$bad" ]]; then
   echo "[3/5] FAIL — broken paths remain after rewrite. Investigate before shipping:"
   echo "$bad"

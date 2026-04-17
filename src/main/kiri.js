@@ -37,11 +37,22 @@ async function checkReady() {
         kiri.api = api;
         self.$ = api.web.$;
         {
-            api.client.start();
-            await init_lang();
-            surfaces.build();
-            await init_input();
-            await init_sync();
+            try {
+                console.log('swarf: checkReady client.start');
+                api.client.start();
+                console.log('swarf: checkReady await init_lang');
+                await init_lang();
+                console.log('swarf: checkReady surfaces.build');
+                surfaces.build();
+                console.log('swarf: checkReady await init_input');
+                await init_input();
+                console.log('swarf: checkReady await init_sync');
+                await init_sync();
+                console.log('swarf: checkReady all init done');
+            } catch (err) {
+                console.error('swarf: checkReady boot FAIL', err);
+                throw err;
+            }
         }
         for (let [fn, name] of load) {
             safeExec(fn, name);
