@@ -22,11 +22,9 @@ const STARTMODE = SETUP.sm && SETUP.sm.length === 1 ? SETUP.sm[0] : null;
 
 // SECOND STAGE INIT AFTER UI RESTORED
 export async function init_sync() {
-    console.log('swarf: init_sync START');
     const proto = location.protocol;
 
     api.event.emit('init.two');
-    console.log('swarf: init_sync emit init.two done');
 
     // load script extensions
     if (SETUP.s) SETUP.s.forEach(function(lib) {
@@ -82,9 +80,7 @@ export async function init_sync() {
 
     // bind this to UI so main can call it on settings import
     ui.sync = ui_sync;
-    console.log('swarf: init_sync about to call ui_sync()');
-    try { ui_sync(); } catch (err) { console.error('swarf: ui_sync THREW', err); throw err; }
-    console.log('swarf: init_sync ui_sync() done');
+    ui_sync();
 
     // clear alerts as they build up
     setInterval(api.event.alerts, 1000);
@@ -153,9 +149,7 @@ export async function init_sync() {
     api.event.emitDefer('preset', api.conf.get());
 
     // lift curtain
-    console.log('swarf: init_sync lifting curtain');
     $('curtain').style.display = 'none';
-    console.log('swarf: init_sync COMPLETE');
 }
 
 function ui_sync() {

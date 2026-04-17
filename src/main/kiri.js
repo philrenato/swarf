@@ -37,18 +37,15 @@ async function checkReady() {
         kiri.api = api;
         self.$ = api.web.$;
         {
+            // swarf: wrap the init sequence in a catch so a hang in any step
+            // (like the /obj/ 404 we hit in r14+) surfaces as a visible
+            // console error instead of a silent curtain-stuck.
             try {
-                console.log('swarf: checkReady client.start');
                 api.client.start();
-                console.log('swarf: checkReady await init_lang');
                 await init_lang();
-                console.log('swarf: checkReady surfaces.build');
                 surfaces.build();
-                console.log('swarf: checkReady await init_input');
                 await init_input();
-                console.log('swarf: checkReady await init_sync');
                 await init_sync();
-                console.log('swarf: checkReady all init done');
             } catch (err) {
                 console.error('swarf: checkReady boot FAIL', err);
                 throw err;

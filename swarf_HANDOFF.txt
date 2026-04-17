@@ -1,5 +1,17 @@
 swarf_HANDOFF.txt — for Claude
-last updated 2026-04-16 (v00000-012 r14, final)
+last updated 2026-04-16 (v00000-012 r14+, evening session final)
+
+CRITICAL STATE — DEPLOYING BUNDLES (READ BEFORE ANY RE-DEPLOY):
+  USE tools/deploy.sh. Do not copy src/pack/* to philrenato-web manually.
+  The deploy script rewrites SIX bundle path patterns that 404 on live
+  if left alone. Breakage history that led here:
+    - "../lib/kiri/run/worker.js" → toolpaths silently no-op (r14)
+    - "../wasm/manifold.wasm"     → wasm fails to load
+    - "/wasm/kiri-geo.wasm"       → wasm fails to load
+    - "/obj/cube.stl"             → init_input hangs FOREVER on
+      platform.load_stl's missing callback → curtain never lifts →
+      user sees "swarf is loading" until the 5s reset-curtain fires
+  The script hard-fails if any unrewritten literal remains.
 
 CRITICAL STATE — READ BEFORE TOUCHING ROUGHING, STOCK, TOOLPATHS, OR DOWNLOADS:
   Roughing defaults: all=false, inside=false (cutout mode). Hardcoded in
@@ -41,13 +53,40 @@ CRITICAL STATE — READ BEFORE TOUCHING ROUGHING, STOCK, TOOLPATHS, OR DOWNLOADS
   MODALS: 'swarf-search' and 'swarf-concordance' must be registered in
   ui.modals in bind.js. Without that, api.modal.show() can't find them.
 
-NEXT SESSION — PRIORITY ITEMS:
-  1. OBJ import broken — imported parts need faces welded on import;
-     currently unusable (Phil, 2026-04-16).
-  2. Undo missing — app has no undo at all, needs adding.
-  3. Camera auto-fit on STL import — freshly imported parts land small
-     relative to the platform; toolpaths generate correctly but the user
-     sees a tiny mesh. Fit-to-widget on platform.add() would fix it.
+NEXT SESSION — PRIORITY ITEMS (as of evening 2026-04-16):
+  1. OBJ import verify on live — localhost probe (probe_obj2.mjs) slices
+     /Desktop/1.obj cleanly (48 layers, correct bounds). Phil's original
+     "faces welded" complaint may have been a different OBJ file OR a
+     casualty of the worker-path bug that's since been fixed. Ask him to
+     try a specific OBJ on live before assuming it's still broken.
+  2. Ribbon pre-populate from print.output on preview.end (polish).
+  3. Tooltip audit — sweep swarf-added features for lk=/lkt= attrs.
+  4. Gumball is PARKED — see project_swarf_gumball_idea.md in memory
+     before starting a third attempt.
+
+SHIPPED IN r14+ EVENING SESSION 2026-04-16 — all live on renato.design/swarf-app/:
+  - init_input /obj/cube.stl hang (the "curtain never lifts" bug) — fix is
+    in tools/deploy.sh (adds /obj/ → /swarf-app/obj/ rewrite). If you ever
+    see curtain-stuck again, check that path first.
+  - worker + wasm path rewrites in deploy.sh (four patterns)
+  - swarf.r14.profile-reset-v8 migration bump
+  - __swarfResetProfile now unregisters SWs + clears caches + deletes IDB
+  - Inline loading-curtain redesigned in swarf palette: display word,
+    kicker, pill buttons, italic footnote. Shows "Reset swarf" button
+    after 5s with progress status line. /?reset=1 as URL-based unstick.
+  - Edit menu → move / rotate / scale panels (move is new)
+  - Auto-select on widget.add + load.url (300ms retry)
+  - Scale/size inputs apply on blur in addition to Enter
+  - Camera auto-fit retry on widget.add/load.url with computeBoundingBox
+  - Simulate stock shell (4 side walls + bottom, renderOrder -11)
+  - Undo/redo wired via do.js side-effect import. Cmd+Z / Cmd+Shift+Z.
+  - Safari <sup> underline killed in .swarf-about and .swarf-credits
+  - tools/deploy.sh is canonical. Syncs swarf*.js + swarf.css alongside
+    the bundles, rewrites paths, hard-fails on broken paths, commits,
+    and pushes the web repo in one pass.
+  - checkReady boot sequence wrapped in try/catch → visible
+    "swarf: checkReady boot FAIL" console error if anything throws
+    (previously silent).
   4. Simulate stock block — show material being cut away. Key visual
      missing from the simulate experience. Calculate block size from
      toolpath extents + bit diameter so stock fully encloses cut volume.
