@@ -50,7 +50,183 @@
 <body>
 <div id="app" class="f-col">
     <!-- hide page contents and provide loading message during initialization -->
-    <div id="curtain" class="j-center a-center"><img id="loading"><span class="swarf-loading">swarf is loading</span></div>
+    <!-- swarf r14+: curtain uses swarf's own mill-red / bone palette (same
+         tokens as swarf.css). Same structural rhythm as renato.design's
+         404 page: big display word, kicker, pill buttons, italic footnote. -->
+    <div id="curtain">
+    <style>
+    #curtain {
+      position: fixed; inset: 0; z-index: 9999;
+      display: flex; flex-direction: column;
+      justify-content: center; align-items: center;
+      text-align: center; padding: 4rem 2rem;
+      background: radial-gradient(ellipse at center, #13100f 0%, #0a0808 55%, #000 100%);
+      font-family: ui-sans-serif, system-ui, -apple-system, sans-serif;
+      color: #d8d2c6;
+    }
+    #curtain h1.swarf-display {
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      font-size: clamp(4rem, 12vw, 8rem);
+      letter-spacing: -0.04em;
+      margin: 0 0 0.15em 0;
+      line-height: 1;
+      text-transform: lowercase;
+      color: #d8d2c6; /* bone */
+    }
+    #curtain h1.swarf-display .hot { color: #ff3a2a; text-shadow: 0 0 28px rgba(224,40,30,0.32); }
+    #curtain .swarf-kicker {
+      font-size: clamp(0.95rem, 1.8vw, 1.15rem);
+      font-weight: 400;
+      color: #8a857c; /* ash */
+      max-width: 32em;
+      line-height: 1.5;
+      margin: 0 0 2.5rem 0;
+    }
+    #curtain .swarf-dots { color: #58534a; display: inline-block; width: 1.8em; text-align: left; }
+    #curtain .swarf-pill-row {
+      display: flex; gap: 1rem; flex-wrap: wrap; justify-content: center;
+    }
+    #curtain .swarf-pill {
+      font-family: inherit; font-size: 0.85rem; font-weight: 600;
+      letter-spacing: 0.06em; text-transform: uppercase;
+      color: #8a857c; background: transparent;
+      border: 1px solid #3a1e18; padding: 0.7em 1.6em; border-radius: 3px;
+      cursor: pointer; transition: color 0.2s, border-color 0.2s, background 0.2s, box-shadow 0.2s;
+      text-decoration: none; display: inline-block;
+    }
+    #curtain .swarf-pill:hover, #curtain .swarf-pill:focus {
+      color: #d8d2c6; border-color: #ff3a2a; background: rgba(224,40,30,0.08); outline: none;
+    }
+    #curtain .swarf-pill.primary {
+      color: #f0e6d6; border-color: #d02020;
+      background: rgba(208,32,32,0.22);
+    }
+    #curtain .swarf-pill.primary:hover, #curtain .swarf-pill.primary:focus {
+      border-color: #ff3a2a; background: rgba(255,58,42,0.32);
+      box-shadow: 0 0 24px rgba(224,40,30,0.32);
+      color: #fff;
+    }
+    #curtain .swarf-pill[disabled] { opacity: 0.6; cursor: default; box-shadow: none; }
+    #curtain .swarf-footnote {
+      font-size: 0.78rem; color: #58534a; margin-top: 3rem;
+      max-width: 34em; font-style: italic; line-height: 1.5;
+    }
+    #curtain .swarf-footnote a { color: #ff3a2a; text-decoration: none; border-bottom: 1px dotted #7a1612; }
+    #curtain .swarf-footnote a:hover { color: #fff; border-bottom-color: #ff3a2a; }
+    #curtain .swarf-status { font-family: ui-monospace,Menlo,monospace; font-size: 0.78rem; color: #58534a; margin-top: 1rem; min-height: 1em; }
+    #curtain .swarf-stuck { display: none; margin-top: 0.5rem; }
+    #curtain.is-stuck .swarf-loading-text { display: none; }
+    #curtain.is-stuck .swarf-stuck { display: flex; }
+    /* .swarf-stuck can live on inline-y things too */
+    #curtain .swarf-kicker .swarf-stuck { display: none; }
+    #curtain.is-stuck .swarf-kicker .swarf-stuck { display: inline; }
+    </style>
+
+    <h1 class="swarf-display">sw<span class="hot">arf</span></h1>
+
+    <p class="swarf-kicker">
+      <span class="swarf-loading-text">warming up the workshop<span class="swarf-dots" id="swarf-dots">.</span></span>
+      <span class="swarf-stuck">something is jammed — usually a stale service worker or old stored state from a prior session. Reset clears it and tries again.</span>
+    </p>
+
+    <div class="swarf-pill-row swarf-stuck">
+      <button type="button" id="swarf-hard-reset" class="swarf-pill primary">Reset swarf</button>
+      <a href="https://renato.design" class="swarf-pill">back to renato.design</a>
+    </div>
+
+    <div id="swarf-reset-status" class="swarf-status"></div>
+
+    <p class="swarf-footnote">
+      swarf is a browser-first CNC interface. It needs service workers + SharedArrayBuffer, which most browsers allow by default but some private / incognito modes do not. If reset doesn't bring it back, add <a href="?reset=1">?reset=1</a> to the URL and reload.
+    </p>
+
+    <script>
+    (function(){
+      var dots = document.getElementById('swarf-dots');
+      var n = 1;
+      var ticker = setInterval(function(){
+        if (!dots) return;
+        n = (n % 3) + 1;
+        dots.textContent = '.'.repeat(n);
+      }, 500);
+
+      function setStatus(s){
+        var el = document.getElementById('swarf-reset-status');
+        if (el) el.textContent = s || '';
+      }
+
+      async function hardReset(){
+        setStatus('clearing localStorage…');
+        try {
+          Object.keys(localStorage).forEach(function(k){
+            if (k === 'ws-settings' || k.indexOf('swarf.') === 0) localStorage.removeItem(k);
+          });
+        } catch(e){}
+        setStatus('unregistering service workers…');
+        try {
+          if (navigator.serviceWorker && navigator.serviceWorker.getRegistrations) {
+            var regs = await navigator.serviceWorker.getRegistrations();
+            await Promise.all(regs.map(function(r){ return r.unregister().catch(function(){}); }));
+          }
+        } catch(e){}
+        setStatus('clearing caches…');
+        try {
+          if (self.caches && caches.keys) {
+            var keys = await caches.keys();
+            await Promise.all(keys.map(function(k){ return caches.delete(k).catch(function(){}); }));
+          }
+        } catch(e){}
+        setStatus('deleting database…');
+        try {
+          await new Promise(function(resolve){
+            try {
+              var req = indexedDB.deleteDatabase('kiri');
+              req.onsuccess = req.onerror = req.onblocked = resolve;
+              setTimeout(resolve, 1500);
+            } catch(e){ resolve(); }
+          });
+        } catch(e){}
+        setStatus('reloading…');
+        // strip any ?reset=1 query and force a cache-busting full navigation.
+        var clean = location.pathname;
+        location.replace(clean + '?_=' + Date.now());
+      }
+      window.__swarfHardReset = hardReset;
+
+      // wire the click eagerly — the button is present in the DOM from the
+      // start (only hidden by CSS until the stuck state), so attaching the
+      // handler now removes any race between the user clicking and the 5s
+      // timeout attaching the handler.
+      var btn = document.getElementById('swarf-hard-reset');
+      if (btn) btn.addEventListener('click', function(){
+        btn.disabled = true;
+        btn.textContent = 'resetting…';
+        hardReset();
+      });
+
+      // URL-based auto-reset: ?reset=1 runs hardReset immediately on load.
+      // Useful as a shareable link for anyone stuck.
+      if (/\?(.*&)?reset=1(&|$)/.test(location.search)) {
+        // run without waiting for the curtain timeout
+        document.addEventListener('DOMContentLoaded', function(){
+          var c = document.getElementById('curtain');
+          if (c) c.classList.add('is-stuck');
+          clearInterval(ticker);
+          hardReset();
+        });
+        return;
+      }
+
+      // after 5s, if the curtain is still up, switch to stuck state.
+      setTimeout(function(){
+        var c = document.getElementById('curtain');
+        if (!c || c.style.display === 'none') return;
+        c.classList.add('is-stuck');
+        clearInterval(ticker);
+      }, 5000);
+    })();
+    </script>
+    </div>
 
     <!-- top menu bar -->
     <div id="menubar" class="f-row"></div>

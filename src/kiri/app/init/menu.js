@@ -68,16 +68,16 @@ function movePanel(actions) {
             ])
         ]),
         div({ id: 'ft-move', class: 'grid selection-panel-body' }, [
-            div({ id: 'mov_x_lt', ...on(actions, 'mov_x_lt') }, icon('fas fa-chevron-left')),
+            div({ id: 'mov_x_lt', title: 'move −X by step', ...on(actions, 'mov_x_lt') }, icon('fas fa-chevron-left')),
             label({ _: 'X' }),
-            div({ id: 'mov_x_gt', ...on(actions, 'mov_x_gt') }, icon('fas fa-chevron-right')),
-            input({ id: 'mov_x', class: 'value center', size: '6', value: '10' }),
-            div({ id: 'mov_y_lt', ...on(actions, 'mov_y_lt') }, icon('fas fa-chevron-left')),
+            div({ id: 'mov_x_gt', title: 'move +X by step', ...on(actions, 'mov_x_gt') }, icon('fas fa-chevron-right')),
+            input({ id: 'mov_x', class: 'value center', size: '6', value: '10', title: 'X step in mm' }),
+            div({ id: 'mov_y_lt', title: 'move −Y by step', ...on(actions, 'mov_y_lt') }, icon('fas fa-chevron-left')),
             label({ _: 'Y' }),
-            div({ id: 'mov_y_gt', ...on(actions, 'mov_y_gt') }, icon('fas fa-chevron-right')),
-            input({ id: 'mov_y', class: 'value center', size: '6', value: '10' }),
+            div({ id: 'mov_y_gt', title: 'move +Y by step', ...on(actions, 'mov_y_gt') }, icon('fas fa-chevron-right')),
+            input({ id: 'mov_y', class: 'value center', size: '6', value: '10', title: 'Y step in mm' }),
             div({ class: 'buttons f-row' }, [
-                button({ id: 'mov_center', class: 'grow', _: 'center', ...on(actions, 'mov_center') })
+                button({ id: 'mov_center', class: 'grow', _: 'center', title: 'snap to platform origin', ...on(actions, 'mov_center') })
             ])
         ])
     ]);
@@ -182,9 +182,9 @@ function content(actions) {
                     menuItem(actions, { id: 'context-mirror', lk: 'rc_mirr', text: 'mirror', iconClass: 'fas fa-arrows-left-right-to-line' }),
                     menuItem(actions, { id: 'context-duplicate', lk: 'rc_dupl', text: 'duplicate', iconClass: 'fas fa-copy' }),
                     hr(),
-                    menuItem(actions, { id: 'context-move-panel', text: 'move', iconClass: 'fas fa-arrows-up-down-left-right' }),
-                    menuItem(actions, { id: 'context-rotate-panel', text: 'rotate', iconClass: 'fas fa-rotate-right' }),
-                    menuItem(actions, { id: 'context-scale-panel', text: 'scale / size', iconClass: 'fas fa-expand' }),
+                    menuItem(actions, { id: 'context-move-panel', text: 'move', title: 'translate the selected part on X / Y', iconClass: 'fas fa-arrows-up-down-left-right' }),
+                    menuItem(actions, { id: 'context-rotate-panel', text: 'rotate', title: 'rotate the selected part on X / Y / Z', iconClass: 'fas fa-rotate-right' }),
+                    menuItem(actions, { id: 'context-scale-panel', text: 'scale / size', title: 'scale the part by factor or set absolute size', iconClass: 'fas fa-expand' }),
                     hr(),
                     menuItem(actions, { id: 'mesh-merge', lk: 'rc_merg', text: 'merge meshes' }),
                     menuItem(actions, { id: 'mesh-split', lk: 'rc_splt', text: 'isolate meshes' }),
@@ -212,7 +212,7 @@ function content(actions) {
                     menuItem(actions, { id: 'view-shade', text: 'stock box',       iconClass: 'fa-solid fa-cube' }),
                     hr(),
                     // swarf: expert-mode toggle lives under view (it's a display choice, not a preference)
-                    menuItem(actions, { id: 'swarf-expert-toggle', text: 'advanced<sup class="swarf-alpha-sup">alpha</sup>', iconClass: 'fas fa-user-gear' }),
+                    menuItem(actions, { id: 'swarf-expert-toggle', text: 'advanced<sup class="swarf-alpha-sup">alpha</sup>', title: 'show advanced (alpha) tools — untested, may change', iconClass: 'fas fa-user-gear' }),
                     hr(),
                     menuItem(actions, { id: 'app-xpnd', text: 'fullscreen', iconClass: 'fas fa-maximize' })
                 ]
@@ -231,11 +231,11 @@ function content(actions) {
             // swarf: Info renamed Help, moved to left. Contains About, Searchable Help, Concordance.
             topMenu(actions, {
                 text: 'help', items: [
-                    menuItem(actions, { id: 'swarf-help-search', text: 'search help…', iconClass: 'fas fa-magnifying-glass' }),
-                    menuItem(actions, { id: 'swarf-concordance', text: 'concordance', iconClass: 'fas fa-book-open' }),
+                    menuItem(actions, { id: 'swarf-help-search', text: 'search help…', title: 'search the help corpus', iconClass: 'fas fa-magnifying-glass' }),
+                    menuItem(actions, { id: 'swarf-concordance', text: 'concordance', title: 'glossary of swarf terms', iconClass: 'fas fa-book-open' }),
                     hr(),
-                    menuItem(actions, { id: 'swarf-reset-profile', text: 'reset profile', iconClass: 'fas fa-rotate-left' }),
-                    menuItem(actions, { id: 'app-help', text: 'about swarf', iconClass: 'fas fa-circle-info' }),
+                    menuItem(actions, { id: 'swarf-reset-profile', text: 'reset profile', title: 'clear all settings and reload swarf', iconClass: 'fas fa-rotate-left' }),
+                    menuItem(actions, { id: 'app-help', text: 'about swarf', title: 'about, credits, version', iconClass: 'fas fa-circle-info' }),
                 ]
             }),
             // hidden tool-nozzle shim — downstream code references ft-nozzle

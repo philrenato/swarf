@@ -186,6 +186,64 @@
     bloom.geometry.computeBoundingSphere();
   }
 
+  // Extract segment pairs from a Three.js BufferGeometry. Handles both
+  // regular LineSegments (paired vertices in position attribute) and
+  // LineSegments2 / LineSegmentsGeometry (instanceStart / instanceEnd).
+  function extractSegments(geom) {
+    const out = [];
+    if (!geom || !geom.attributes) return out;
+    const a = geom.attributes.instanceStart;
+    const b = geom.attributes.instanceEnd;
+    if (a && b && a.array && b.array) {
+      const aa = a.array, ba = b.array;
+      const n = Math.min(aa.length, ba.length);
+      for (let i = 0; i + 2 < n; i += 3) {
+        out.push([
+          { x: aa[i], y: aa[i+1], z: aa[i+2] },
+          { x: ba[i], y: ba[i+1], z: ba[i+2] },
+        ]);
+      }
+      return out;
+    }
+    const pos = geom.attributes.position;
+    if (!pos || !pos.array) return out;
+    const arr = pos.array;
+    for (let i = 0; i + 5 < arr.length; i += 6) {
+      out.push([
+        { x: arr[i],   y: arr[i+1], z: arr[i+2] },
+        { x: arr[i+3], y: arr[i+4], z: arr[i+5] },
+      ]);
+    }
+    return out;
+  }
+
+  // Pre-populate the ribbon from the rendered print stack at preview.end.
+  // Without this the ribbon stayed empty in TOOLPATHS view and only filled
+  // in once the user ran Simulate. Now the cut path shows the moment paths
+  // are generated; Simulate still clearTrail+rebuilds from swarf.tool.move
+  // events as before. Long segments are dropped as rapids.
+  function populateFromPrintStack() {
+    if (!ensure()) return;
+    const api = window.kiri && window.kiri.api;
+    const stack = api && api.stacks && api.stacks.getStack && api.stacks.getStack('print');
+    if (!stack || !stack.obj) { clearTrail(); return; }
+    polylines = [[]];
+    const meshes = stack.obj.meshes || [];
+    let kept = 0;
+    for (const m of meshes) {
+      if (!m || !m.geometry) continue;
+      for (const seg of extractSegments(m.geometry)) {
+        const a = seg[0], b = seg[1];
+        const d = Math.hypot(b.x - a.x, b.y - a.y, b.z - a.z);
+        if (d < 1e-4 || d > BREAK_3D_MM) continue;
+        polylines.push(seg);
+        kept++;
+      }
+    }
+    window.__swarfLSPrePop = kept;
+    rebuild();
+  }
+
   function onMove(evt) {
     window.__swarfLSMoves = (window.__swarfLSMoves || 0) + 1;
     if (!ensure()) return;
@@ -224,7 +282,11 @@
     // stream in TOOLPATHS view (Phil markup: "one tiny weird stream").
     api.event.on('animate.end',   clearTrail);
     api.event.on('preview.begin', clearTrail);
-    api.event.on('preview.end',   clearTrail);
+    // r15c: preview.end pre-populates the ribbon from the freshly rendered
+    // print stack so the cut path is visible in TOOLPATHS view, not only
+    // during Simulate. Was clearTrail (kept the residual-stream fix; the
+    // populate path resets polylines first, so any stray ribbon is replaced).
+    api.event.on('preview.end',   populateFromPrintStack);
     return true;
   }
 
