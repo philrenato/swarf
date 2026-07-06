@@ -137,9 +137,9 @@
     "main": "app-el.js",
     "build": {
         "npmRebuild": false,
-        "appId": "space.grid.kiri",
-        "productName": "KiriMoto",
-        "artifactName": "KiriMoto-${os}-${arch}.${ext}",
+        "appId": "design.renato.swarf",
+        "productName": "swarf",
+        "artifactName": "swarf-${os}-${arch}.${ext}",
         "files": [
             {
                 "from": "tmp",
@@ -160,7 +160,7 @@
             "output": "dist"
         },
         "win": {
-            "icon": "bin/GS.ico",
+            "icon": "bin/swarf.ico",
             "target": [
                 "nsis",
                 "zip"
@@ -176,7 +176,7 @@
             "writeUpdateInfo": false
         },
         "mac": {
-            "icon": "bin/GS.icns",
+            "icon": "bin/swarf.icns",
             "category": "public.app-category.utilities",
             "hardenedRuntime": true,
             "gatekeeperAssess": false,
@@ -187,7 +187,7 @@
             ]
         },
         "linux": {
-            "icon": "bin/GS.png",
+            "icon": "bin/swarf.png",
             "target": [
                 "AppImage"
             ]
