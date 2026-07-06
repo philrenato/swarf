@@ -568,7 +568,16 @@
 
   // ---- bootstrap -------------------------------------------------------
   function bootstrap() {
-    fetch('/kiri/swarf-materials.json')
+    // relative, not "/kiri/swarf-materials.json" — that absolute path only
+    // resolves in local dev serving (page at /kiri/). The deployed site
+    // flattens everything to one root (/swarf-app/), where the absolute
+    // form 404s and silently kills the entire material system: materials
+    // stays empty, so the `if (!materials.length) return` guard below exits
+    // before setCurrent/injectDropdown/any of the feed-application event
+    // wiring ever runs. No MATERIAL dropdown, no feeds/speeds ever applied —
+    // this had been broken on the live site since whenever this path was
+    // written, not just hard to find.
+    fetch('swarf-materials.json')
       .then(r => r.json())
       .then(data => {
         materials = (data.materials || []).filter(m => m.appearance);
