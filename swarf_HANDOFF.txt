@@ -1,5 +1,69 @@
 swarf_HANDOFF.txt — for Claude
-last updated 2026-04-16 (v00000-012 r15b, chip pass + menu-label pass)
+last updated 2026-04-18 (v00000-013 r15c, ribbon pre-populate + tooltip pass + OSS publish)
+
+r15c — RIBBON PRE-POPULATE + TOOLTIP AUDIT + OSS-READINESS PASS (2026-04-18)
+  Three things shipped together. Code + docs + repo metadata.
+
+  CODE
+    • web/kiri/swarf-lightstream.js — populateFromPrintStack() walks the
+      rendered 'print' stack at preview.end and seeds the ribbon polylines
+      from segment pairs (handles BOTH THREE.LineSegments position-pair
+      format AND LineSegments2 / LineSegmentsGeometry instanceStart/End).
+      Filters segments > BREAK_3D_MM (50mm) as rapids. Replaces the prior
+      clearTrail on preview.end — ribbon now shows in TOOLPATHS view, not
+      only during Simulate. Residual-stream fix preserved (polylines reset
+      before populate; if stack is missing, falls back to clearTrail).
+    • src/kiri/app/init/menu.js — title= tooltips on swarf-added items:
+      move-panel chevrons + step inputs + center button, three Edit-menu
+      panel items (move/rotate/scale), View 'advanced (alpha)' toggle
+      (title= NOT lk= — text contains <sup>), three Help-menu items
+      (search help / concordance / reset profile / about swarf). Used
+      title= directly per swarf English-only convention; sim-bar toggles
+      already had titles.
+
+  CURTAIN BACK-PORT
+    web/kiri/index.html — the swarf-redesigned curtain (mill-red palette,
+    Reset swarf button, ?reset=1 escape hatch, status line, 5s stuck-state
+    switch) has been moved INTO the source repo. Previously it lived only
+    in the deploy artifact (philrenato-web/swarf-app/index.html), which
+    meant OSS contributors building from source would have seen the stock
+    Kiri curtain. Source + deploy artifact now match.
+
+  OSS PUBLISH (this is a milestone — see project_swarf_oss_release_v1)
+    swarf source is public at https://github.com/philrenato/swarf
+    Was already a public Kiri:Moto fork on Phil's GitHub; this session
+    presented it AS swarf:
+      • license.md — fork copyright line above upstream Stewart Allen
+        (same MIT terms; standard fork convention).
+      • package.json — name: 'swarf' (was 'grid-apps'), swarf-specific
+        description, Phil as author + Stewart Allen as contributor with
+        Kiri:Moto upstream credit, repository URL fixed to philrenato/swarf.
+      • readme.md — added 'Modifying swarf with an LLM' primer (5 sections:
+        what you gain / what you give up / how to start / what to watch
+        out for / how Phil thinks about it). Points to renato.design/ilca/
+        for the full method. Phil edited in two of his own touches:
+        'designer who holds focus' and 'don't work... you can harden'.
+      • GitHub repo: description rewritten to swarf-specific; homepage
+        set to https://renato.design/swarf/.
+      • In-app About modal — 'source · github.com/philrenato/swarf' row
+        added to the credits block (line ~431 in web/kiri/index.html).
+      • Marketing page renato.design/swarf/ — same source URL added to
+        footer ip-line beside the existing upstream attribution.
+
+  DEPLOY GOTCHA — see feedback_swarf_node_modules_gotcha
+    First deploy attempt failed because node_modules was missing AND
+    bin/* + web/obj/*.stl files had been deleted from the working tree
+    (uncommitted; tracked, just removed). Fix: git restore bin/ web/obj/
+    then npm install (1840 packages, ~21s). Deploy succeeded after.
+    The bin/ + web/obj/*.stl deletions remain uncommitted — Phil may want
+    to triage whether they were intentional cleanup.
+
+  COMMITS
+    • swarf source: b880b20e2 (r15c + OSS-readiness pass) on master
+    • philrenato.github.io: 1e83f93 (deploy artifact) + ed59cbb (marketing
+      page footer link) on main
+
+
 
 r15 / r15b — CHIP PHYSICS RETUNE (web/kiri/swarf-chips.js)
   Phil asked 2026-04-16 for "more chips, don't let them go as far" then
