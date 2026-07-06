@@ -1,5 +1,31 @@
 swarf_HANDOFF.txt — for Claude
-last updated 2026-07-06 (v00000-015 r17, PWA pass + cleanup)
+last updated 2026-07-06 (v00000-015 r17, PWA pass + cleanup + two post-deploy fixes)
+
+POST-DEPLOY FIXES (2026-07-06, after r17 shipped)
+  Two small fixes found from Phil looking at the actual deployed site:
+  1. Electron desktop build (package.json) still had Kiri:Moto's original
+     appId/productName/icon (space.grid.kiri / KiriMoto / bin/GS.icns —
+     GridSpace's own logo) — anyone building/running the desktop app saw
+     the wrong logo in the Dock. Regenerated bin/swarf.{icns,ico,png} from
+     the existing logo-cube artwork (iconutil + Pillow), renamed from
+     bin/GS.*, updated package.json's build config to match. Source-only
+     change, no deploy-artifact impact.
+  2. philrenato-web/swarf-app/index.html (the deploy artifact — never
+     synced by deploy.sh, same recurring gap as the coi-serviceworker/SEO
+     fixes) had the site-wide `<renato-launcher>` polyhedra widget
+     injected into it at some point, outside swarf's own source — this
+     was never in swarf_repo at all. It was both showing a stray
+     polyhedron icon top-right AND its own corner UI was overlapping the
+     new version-stamp/install-button in the bottom-left corner. Phil:
+     "That should be live website only in the app... delete that feature
+     from Swarf anywhere/everywhere." Removed the launcher.css/js link
+     tags + the <renato-launcher> element from the deploy artifact only
+     (source never had them, nothing to remove there). Verified via
+     screenshot — icon gone, no more corner overlap, no console errors.
+     Watch for: if some other cross-suite process re-injects this
+     launcher into swarf-app/index.html on a future site-wide pass, it
+     needs to be excluded — swarf is a CAM tool, not a renato.design
+     content page, and shouldn't carry site nav chrome.
 
 r17 — PWA PASS + CLEANUP (2026-07-06, same day as r16)
   Follow-on session to r16's Kiri:Moto sync. Made swarf a real installable,
