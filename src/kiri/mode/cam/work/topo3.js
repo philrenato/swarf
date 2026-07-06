@@ -10,6 +10,8 @@ import { Tool } from '../core/tool.js';
 
 const RAD2DEG = 180 / Math.PI;
 const DEG2RAD = Math.PI / 180;
+const SharedOrArrayBuffer = globalThis.SharedArrayBuffer || ArrayBuffer;
+const hasSharedArrays = globalThis.SharedArrayBuffer ? true : false;
 
 export class Topo {
     constructor() { }
@@ -33,7 +35,7 @@ export class Topo {
             minY = bounds.min.y,
             maxY = bounds.max.y,
             zBottom = contour.bottom ? workarea.bottom_z : 0,
-            zMin = workarea.bottom_z + 0.0001,
+            zMin = zBottom + 0.0001,
             boundsX = maxX - minX,
             boundsY = maxY - minY,
             inside = contour.inside,
@@ -56,7 +58,7 @@ export class Topo {
                 ? widtopo : undefined,
             topo = widget.topo = topoCache || {
                 axis,
-                data: new Float32Array(new SharedArrayBuffer(stepsX * stepsY * 4)),
+                data: new Float32Array(new SharedOrArrayBuffer(stepsX * stepsY * 4)),
                 stepsX,
                 stepsY,
                 bounds,
@@ -123,7 +125,7 @@ export class Topo {
             let toolData = { positions: toolPos, bounds: toolBounds };
 
             let vertices = widget.getGeoVertices({ unroll: true, translate: true });
-            let wbounds = widget.getBoundingBox();
+            let wbounds = bounds.clone();
             if (!inside) {
                 wbounds.expandByVector({ x: toolDiameter/2 + resolution, y: toolDiameter/2 + resolution, z: 0 });
             }
@@ -166,7 +168,7 @@ export class Topo {
             let output = await gpu.generateToolpaths({
                 xStep,
                 yStep,
-                zFloor: zBottom - 1,
+                zFloor: zBottom === 0 ? zBottom - 1 : zBottom,
                 onProgress(pct) { console.log({ pct }); onupdate(pct/100, 100) }
             });
             gpu.mode = 'tracing';
@@ -251,6 +253,13 @@ export class Topo {
                     for (let poly of lines)
                     for (let p of poly.points) {
                         p.swapXY();
+                    }
+                }
+                // enforce z-bottom on emitted GPU contour points
+                if (contour.bottom && zBottom !== 0)
+                for (let poly of lines) {
+                    for (let p of poly.points) {
+                        p.z = Math.max(p.z, zBottom);
                     }
                 }
                 // raise output points when inside tab boundaries
@@ -449,7 +458,7 @@ export class Topo {
 
         let complete = 0;
         // define sharded ranges
-        if (minions.running > 1) {
+        if (hasSharedArrays && minions.running > 1) {
 
             dispatch.putCache({ key: widget.id, data: vertices }, {
                 done: data => {
@@ -526,7 +535,7 @@ export class Topo {
 
     async contour(params, onupdate) {
         const trace = this.trace;
-        const concurrent = self.kiri_worker.minions.running;
+        const concurrent = hasSharedArrays ? self.kiri_worker.minions.running : 0;
 
         const { minX, maxX, minY, maxY, boundsX, boundsY, stepsX, stepsY } = params;
         const { gridDelta, resolution, density, partOff, toolStep, contourX, contourY } = params;
@@ -790,14 +799,18 @@ export class Trace {
         const object = this.object = this;
 
         this.inClip = function (clips, checkZ, point) {
-            let ok = 0;
+            let ok = 0,
+                tabZ = -Infinity;
             for (let i = 0; i < clips.length; i++) {
                 let poly = clips[i];
-                let zok = checkZ ? checkZ <= poly.z : true;
-                object.tabZ = poly.z;
+                let zok = checkZ !== undefined ? checkZ <= poly.z : true;
                 if (zok && point.isInPolygon(poly)) {
                     ok++;
+                    tabZ = Math.max(tabZ, poly.z);
                 }
+            }
+            if (ok > 0) {
+                object.tabZ = tabZ;
             }
             return ok > 0;
         }

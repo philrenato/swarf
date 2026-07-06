@@ -202,8 +202,9 @@ class Tool {
             }
         }
 
-        // convert to shared array for use with minions
-        const profile = new Float32Array(new SharedArrayBuffer(toolOffset.length * 4));
+        // convert to typed array for use with minions
+        const Buffer = globalThis.SharedArrayBuffer || ArrayBuffer;
+        const profile = new Float32Array(new Buffer(toolOffset.length * 4));
         profile.set(toolOffset);
 
         this.profile = profile;
