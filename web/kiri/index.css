@@ -1643,67 +1643,6 @@ details[open] summary::after {
     font-size: larger;
     padding-bottom: 10px;
 }
-#mod-any:has(.hotkeys-dialog) {
-    max-width: min(880px, 88vw);
-    max-height: min(620px, 72vh);
-    overflow-y: auto;
-}
-.hotkeys-dialog {
-    gap: 12px;
-}
-.hotkeys-dialog .title {
-    font-weight: bold;
-    font-size: larger;
-    justify-content: center;
-    padding-bottom: 4px;
-}
-.hotkeys-sections {
-    display: grid !important;
-    grid-template-columns: repeat(2, minmax(260px, 1fr));
-    gap: 14px 22px;
-}
-.hotkeys-sections section {
-    display: block;
-}
-.hotkeys-sections h3 {
-    margin: 0 0 6px 0;
-    padding-bottom: 3px;
-    border-bottom: 1px solid var(--blue-3);
-    color: var(--fg-gray);
-    font-size: 14px;
-}
-.hotkey-grid {
-    display: grid !important;
-    grid-template-columns: max-content 1fr;
-    gap: 5px 12px;
-    align-items: center;
-}
-.hotkey-grid kbd {
-    display: inline-flex;
-    min-width: 58px;
-    justify-content: center;
-    border: 1px solid var(--border-gray);
-    border-bottom-width: 2px;
-    border-radius: 4px;
-    padding: 2px 6px;
-    background: var(--blue-5);
-    font-family: monospace;
-    font-size: 12px;
-    white-space: nowrap;
-}
-.hotkey-grid label {
-    white-space: normal;
-    line-height: 1.25;
-}
-:root[data-theme="dark"] .hotkey-grid kbd {
-    color: #eee;
-    background: #3a3a3a;
-    border-color: #666;
-}
-:root[data-theme="dark"] .hotkeys-sections h3 {
-    color: #ddd;
-    border-bottom-color: #555;
-}
 #export-support {
     padding-top: 10px;
     text-align: center;
@@ -2329,22 +2268,6 @@ details[open] summary::after {
 }
 #panel-right .set2-group {
     border-left: 1px solid var(--border-gray);
-}
-
-html.cam-anim-view #menubar,
-html.cam-anim-view #mode-tools,
-html.cam-anim-view #panel-left,
-html.cam-anim-view #set-menu,
-html.cam-anim-view #panel-right {
-    display: none !important;
-}
-
-html.cam-anim-view #mid {
-    top: 0;
-}
-
-html.cam-anim-view #mid > .f-row.j-center {
-    display: none !important;
 }
 
 .set2-group {
