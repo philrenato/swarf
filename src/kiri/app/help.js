@@ -28,7 +28,7 @@ function showHelpFile(local,then) {
     // Reads window.SWARF_VERSION (set by swarf-version.js) rather than a
     // hardcoded copy of its own — the previous hardcoded "v00000-007" had
     // drifted silently for the entire life of the fork.
-    $('kiri-version').innerHTML = `${self.SWARF_VERSION || 'v00000-018'} · kiri:moto ${version}`;
+    $('kiri-version').innerHTML = `${self.SWARF_VERSION || 'v00000-019'} · kiri:moto ${version}`;
     modal.show('help');
     api.event.emit('help.show', local);
 }

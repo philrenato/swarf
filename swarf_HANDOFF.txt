@@ -1,5 +1,28 @@
 swarf_HANDOFF.txt — for Claude
-last updated 2026-07-06 (v00000-018 r19, live-site bug pass + drift sweep)
+last updated 2026-07-06 (v00000-019 r20, Task #7 fixed)
+
+r20 — TASK #7 FIXED: roughing toolpath offset from a moved widget
+  This bug has been open since the r10-final entry below (2026-04-15) —
+  every prior session's investigation path is preserved there. Root
+  cause found via world-position instrumentation (the exact next step
+  that entry called for): api.stacks.create's Stack constructor calls
+  view.newGroup(), but newGroup() (src/moto/space.js) unconditionally
+  attaches to the global WORLD root regardless of the `view` argument —
+  so a widget's toolpath stack is a WORLD *sibling* of widget.mesh, not
+  its child, and does not inherit the widget's transform via normal
+  scene-graph parenting the way it visually appears it should. The only
+  existing position sync (src/kiri/app/function.js, where the stack is
+  created/reused on every slice) set Z only, for zcut compensation —
+  nothing ever synced X/Y. Fix: sync widget.stack.obj.view.position.x/y
+  from widget.track.pos alongside the existing Z line. Verified
+  empirically (not assumed) that widget.mesh.position and
+  widget.track.pos match 1:1 with no axis remapping first, then
+  confirmed the actual fix: single-widget move+reslice now correctly
+  repositions the toolpath (screenshot + position check), two
+  independently-moved widgets each track correctly, and the standard
+  rough/outline/pocket/contour regression suite on an unmoved widget
+  is byte-identical to before (34 slices, no errors — this is a no-op
+  when track.pos is {0,0,0}).
 
 r19 — LIVE-SITE BUG PASS + SOURCE/DEPLOY DRIFT SWEEP (2026-07-06, after r18)
   A run of real bugs Phil hit on the actual live site, one leading to the
