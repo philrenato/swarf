@@ -37,7 +37,7 @@ cp src/pack/kiri-main.js "$WEB_APP/lib/main/kiri.js"
 cp src/pack/kiri-work.js "$WEB_APP/lib/kiri/run/worker.js"
 # swarf overlay scripts + stylesheet live at /swarf-app/ root (flattened from
 # /kiri/). Sync any that changed — fast and harmless when they're already current.
-for f in web/kiri/swarf*.js web/kiri/swarf.css web/kiri/swarf-materials.json; do
+for f in web/kiri/swarf*.js web/kiri/swarf.css web/kiri/swarf-materials.json web/kiri/coi-serviceworker.js; do
   [ -f "$f" ] || continue
   dst="$WEB_APP/$(basename "$f")"
   cp "$f" "$dst"
@@ -68,7 +68,8 @@ echo "      ok — no broken paths remain"
 echo "[4/5] commit web repo"
 cd "$WEB_REPO"
 git add swarf-app/lib/main/kiri.js swarf-app/lib/kiri/run/worker.js \
-  swarf-app/swarf*.js swarf-app/swarf.css swarf-app/swarf-materials.json 2>/dev/null || true
+  swarf-app/swarf*.js swarf-app/swarf.css swarf-app/swarf-materials.json \
+  swarf-app/coi-serviceworker.js 2>/dev/null || true
 git -c commit.gpgsign=false commit -m "$MSG
 
 Co-Authored-By: Claude Opus 4.7 (1M context) <noreply@anthropic.com>" || echo "      nothing to commit"
