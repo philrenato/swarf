@@ -1,5 +1,90 @@
 swarf_HANDOFF.txt — for Claude
-last updated 2026-04-18 (v00000-013 r15c, ribbon pre-populate + tooltip pass + OSS publish)
+last updated 2026-07-06 (v00000-014 r16, Kiri:Moto upstream sync + a11y pass)
+
+r16 — KIRI:MOTO UPSTREAM SYNC + ACCESSIBILITY PASS (2026-07-06)
+  swarf forked Kiri:Moto (github.com/GridSpace/grid-apps) at its v4.7.0
+  commit on 2026-04-08 and hadn't pulled since. This session brought the
+  CAM engine back in sync with upstream's v4.7.1 release plus a couple of
+  small unreleased fixes, added an accessibility layer swarf didn't have,
+  and closed a gap between swarf's source repo and its deployed build.
+
+  KIRI:MOTO SYNC (CAM engine only — SLA/MSLA and DXF-import work in the
+  same upstream window was out of scope; swarf is CNC-only)
+    • Contour ops no longer hard-require SharedArrayBuffer. Upstream added
+      an ArrayBuffer fallback across the contour/topology pipeline
+      (topo3.js, topo4.js, core/tool.js) instead of disabling Contour
+      outright when SAB is unavailable. Worth knowing: this matters most
+      for anyone building swarf from source and self-hosting it plainly
+      (see the coi-serviceworker fix below for how the actual deploy
+      already covers this).
+    • Tabs no longer bleed across widgets in a multi-part job. Tab
+      geometry synthesis and slicing both scoped tabs to their owning
+      widget (slice.js, init-ui.js) instead of applying every tab in a
+      group to every widget in it.
+    • Contour Z-bottom/GPU-bounds fixes (topo3.js): running contour on X
+      then Y no longer uses stale bounds from the first pass; CPU and GPU
+      contour paths agree on tab height and Z-bottom.
+    • Travel-move safety (prepare.js, op-drill.js): rapid moves that cross
+      between two separate offset boundary polygons are now caught
+      instead of treated as safe; drilling tightened its travel-move
+      threshold and gained a per-hole travel boundary; a thru-depth
+      setting no longer misapplies to center-mark drilling.
+    • G-code section comments now carry tool number and name
+      (export.js) — useful for a tool built to teach students to read
+      and verify their own G-code, not just trust it.
+    • Flat-face-region detection bug fix (mesh/tool.js) from upstream
+      PR #467, bundled with a matching cylinder-selection fix in slice.js.
+    • Skipped: the Onshape/iframe CAM-animation-transfer feature
+      (mods/cam-anim, most of the recent worker.js/init-ui.js growth) —
+      solves an embedding problem swarf doesn't have. Also skipped: an
+      unreleased helical entry/exit rework (op-helical.js) — Expert-mode
+      only, and its settings-schema change would need a migration-version
+      bump for limited benefit at swarf's current usage.
+    • Skipped intentionally: upstream's new keyboard hotkeys modal
+      (Shift+H). swarf suppresses every keyboard shortcut except Delete by
+      design (see the "no keyboard shortcuts" note elsewhere in this
+      file) — a reference card for shortcuts that don't fire here would
+      contradict that.
+    • Verified with a real headless-Chrome pass driving the actual
+      "add a step" UI buttons (not synthetic op objects) for
+      rough → outline → pocket → contour together, run against both this
+      sync and an unmodified pre-sync build for comparison. Same result
+      both times: clean preview, no slice errors.
+
+  DEPLOY/SOURCE PARITY FIX
+    web/kiri/coi-serviceworker.js (MIT, Guido Zuidhof — a small, well-known
+    polyfill: github.com/gzuidhof/coi-serviceworker) was already running on
+    the live deployed site to restore crossOriginIsolated/SharedArrayBuffer
+    on static hosting that can't set real COOP/COEP headers, but it only
+    lived in the deploy artifact, not in swarf's own source tree — the same
+    category of gap the r15c curtain fix closed. Moved into source, wired
+    into index.html, and added to tools/deploy.sh's asset sync so a
+    from-scratch deploy doesn't quietly lose it. Verified locally: serving
+    swarf via plain `python3 -m http.server` (swarf's own documented
+    self-hosting method) reports SharedArrayBuffer=false without the
+    polyfill in place, true with it.
+
+  ACCESSIBILITY LAYER (new: web/kiri/swarf-a11y.js)
+    Ported from Rendre's own accessibility pass (a sibling RDS app,
+    considerably further along on this front) and adapted to swarf's
+    actual markup rather than copied verbatim — Kiri's modal system
+    toggles inline style.display rather than a CSS class, and swarf's
+    sim-bar toggles use a different class convention than Rendre's. Adds,
+    self-contained with no changes to Kiri's own modal/progress/toggle
+    code:
+      • every dialog gets role=dialog, a label, and a Tab-key focus trap
+        while open, with focus restored to whatever triggered it on close
+      • the slice/preview status text is now a live region, so it's read
+        aloud as it updates rather than requiring a student to keep
+        watching the corner overlay
+      • sim-bar toggles (chips/paths/lightstreams) expose aria-pressed
+    Verified in a real browser pass: role=dialog landed on 13 of swarf's
+    14 modal dialogs (the one miss is an unused FDM-printer modal from a
+    mod outside swarf's CNC-only scope), live-region attributes present,
+    no console errors.
+
+  Everything above is on master as four commits (see git log for the
+  exact upstream commit references this pulled from) plus this entry.
 
 r15c — RIBBON PRE-POPULATE + TOOLTIP AUDIT + OSS-READINESS PASS (2026-04-18)
   Three things shipped together. Code + docs + repo metadata.
