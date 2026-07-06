@@ -1,5 +1,132 @@
 swarf_HANDOFF.txt — for Claude
-last updated 2026-07-06 (v00000-014 r16, Kiri:Moto upstream sync + a11y pass)
+last updated 2026-07-06 (v00000-015 r17, PWA pass + cleanup)
+
+r17 — PWA PASS + CLEANUP (2026-07-06, same day as r16)
+  Follow-on session to r16's Kiri:Moto sync. Made swarf a real installable,
+  offline-capable PWA, ported the version-stamp/update-button convention
+  from Rendre/Glisten, cleaned up a dead FDM leftover, and got much more
+  precise data on the long-standing Task #7 toolpath-offset bug (still
+  open, not fixed this session — see below).
+
+  PWA — manifest, service worker, install button
+    manifest.json was 100% stock Kiri:Moto content (name "Kiri:Moto
+    4.7.0", an icon path pointing at a file that doesn't exist in this
+    repo at all). Rebranded using the logo-cube icon set that was
+    already sitting in web/kiri/ unused; start_url/id switched to
+    relative "." so it resolves under both dev serving (/kiri/) and the
+    deployed site's flattened root (/swarf-app/) without deploy.sh
+    needing path rewrites for this file.
+
+    web/kiri/swarf-sw.js replaces the old standalone coi-serviceworker.js
+    with one combined service worker (a page can only be controlled by
+    one SW per scope, so a second worker wasn't an option):
+      • folds in coi-serviceworker's COOP/COEP header injection (MIT,
+        Guido Zuidhof) so SharedArrayBuffer still works on static hosts
+      • cache-first for the small UI shell (index.html, swarf*.js/css,
+        manifest) — cached eagerly at install
+      • lazy cache-on-first-use for the CAM engine bundle, wasm, and
+        sample STLs (~10MB) via stale-while-revalidate, rather than
+        eagerly prefetching all of it
+      • CACHE_STAMP placeholder that tools/deploy.sh rewrites with a
+        timestamp + short commit hash on every deploy, so a release
+        invalidates the previous cache instead of a lab machine's open
+        tab serving a stale engine indefinitely
+    index.html registers it with the same register-then-reload-once-
+    active dance the original polyfill used. Also folded the real
+    swarf-branded SEO/OG/twitter meta tags and JSON-LD schema into
+    source — they'd only ever existed in the deploy artifact, same class
+    of gap as the coi-serviceworker and curtain fixes before it. Fixed a
+    factual error while porting: a comment mislabeled Kiri:Moto's
+    license as AGPL-3.0 (it's MIT). Dropped a vestigial Chrome
+    origin-trial meta tag cryptographically bound to grid.space that
+    could never activate on renato.design.
+
+    Found and fixed two real service-worker bugs during verification:
+      1. cache-write promises in the fetch handler weren't wrapped in
+         event.waitUntil() — the browser could tear the worker down
+         mid-write before cache.put() finished, so nothing beyond the
+         install-time shell ever actually got cached.
+      2. .clone() on the cache-miss response path was deferred into an
+         async .then() callback; by the time it ran, the browser had
+         already started consuming the response body for the page, so
+         clone() threw "body is already used." Fixed by cloning
+         synchronously, same tick as creating the response.
+    Verified end-to-end against a local mirror of the real deploy
+    topology (flattened directories, plain static serving, no COOP/COEP
+    — matching both GitHub Pages and swarf's documented self-hosting
+    method): killed the server entirely, opened a fresh browser against
+    the same persisted profile, confirmed the app boots
+    (crossOriginIsolated/SharedArrayBuffer both true from cache) and
+    completes a full slice/preview with zero network requests
+    succeeding.
+
+    web/kiri/swarf-install.js adds an explicit "install swarf" button,
+    hidden until the browser actually fires beforeinstallprompt (never
+    shows a button that looks clickable but does nothing). Verified in
+    headless Chrome: hidden on load, then the real event fired on its
+    own and the button appeared.
+
+    web/kiri/swarf-version.js adds the same #ver build-stamp/tap-to-
+    update pattern Rendre and Glisten already use — tap it to force-
+    update the SW, clear every cache, and hard-reload. Unlike Rendre/
+    Glisten, no unsaved-work confirm dialog: swarf's workspace already
+    persists to IndexedDB independent of this button. Placed bottom-left
+    (screenshot-verified no overlap with any panel — Rendre/Glisten use
+    top-left, but that's where swarf's TOOLPATHS panel lives).
+
+  CLEANUP
+    Removed the dead "send to bambu" FDM panel from the export dialog
+    (web/kiri/index.html) — the Bambu mod already refuses to activate
+    outside FDM mode, so this was inert, but it still shipped a visible
+    label and two disabled buttons. Same export dialog still has other
+    FDM-only controls (filament density/weight fields, a "palette"
+    button, "3mf" export) presumably mode-gated elsewhere — worth a
+    dedicated look, not touched this session.
+
+  TASK #7 (roughing-toolpath-offset-from-widget) — STILL OPEN
+    Re-tested the original repro from the r10-final entry below: load a
+    part, generate toolpaths, move the part, regenerate. This session's
+    r16 fixes (tab-ownership, contour bounds) did NOT resolve it —
+    confirmed by direct reproduction, not assumption.
+    New, much more precise data (previous investigations only had a
+    screenshot): after moving a widget from (0,0,0) to (60,60,0) and
+    re-slicing, widget.track.pos correctly reads (60,60,0), but the
+    toolpath stack's render position (stack.obj.view.position) stays at
+    (0,0,0) — the toolpath literally never moves.
+    Strong lead, not yet confirmed as root cause: src/kiri/app/stacks.js
+    `create(name, view)` (line ~72) caches by name and returns the
+    existing stack UNCONDITIONALLY if one already exists for that name —
+    the newly-passed `view` argument on any repeat call is silently
+    discarded:
+        function create(name, view) {
+            if (stacks[name]) { return stacks[name]; }
+            ...
+        }
+    The call site is src/main/../app/function.js:235 —
+    `widget.stack = api.stacks.create(widget.id, widget.mesh)` — cached
+    by widget.id, which is stable across a move, so every re-slice of
+    the same widget hits the cache. In principle this should still be
+    fine IF the stack's THREE.Group (parented to widget.mesh at
+    construction) simply follows widget.mesh's transform when it moves —
+    but the observed behavior says it doesn't. Next step: check whether
+    _move() actually mutates widget.mesh's transform in place, or
+    whether widget.js's _updateMeshPosition (referenced in prepare.js's
+    r13 comment as "the" mesh-position sync point) has a timing/ordering
+    gap relative to when slicing reads the widget's position. Did not
+    attempt a blind fix here — this is rendering-pipeline code shared
+    across every mode, not swarf-specific, and a wrong fix risks being
+    worse than the existing bug.
+
+  BANKED, NOT STARTED: demo / self-tour mode
+    Phil asked to bank this, explicitly not a priority. Rendre and
+    Glisten both have a "living torture test" demo mode (Rendre: a
+    `demo` object driving the real UI — add/move/scale/turn — silently,
+    suppressing user-facing toasts via a `demo.running` flag checked
+    throughout the codebase, stoppable by any real user interaction).
+    swarf's equivalent would load a default part and walk through
+    Rough → Contour → Outline → Pocket with a few parameter sweeps,
+    generate toolpaths, and cycle Simulate — useful for an open-house
+    kiosk display or onboarding. Not scoped further than this.
 
 r16 — KIRI:MOTO UPSTREAM SYNC + ACCESSIBILITY PASS (2026-07-06)
   swarf forked Kiri:Moto (github.com/GridSpace/grid-apps) at its v4.7.0
