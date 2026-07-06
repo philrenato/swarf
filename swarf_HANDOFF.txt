@@ -1,5 +1,82 @@
 swarf_HANDOFF.txt — for Claude
-last updated 2026-07-06 (v00000-016 r18, post-deploy fixes)
+last updated 2026-07-06 (v00000-018 r19, live-site bug pass + drift sweep)
+
+r19 — LIVE-SITE BUG PASS + SOURCE/DEPLOY DRIFT SWEEP (2026-07-06, after r18)
+  A run of real bugs Phil hit on the actual live site, one leading to the
+  next, plus a systematic sweep once the pattern became obvious.
+
+  1. #ver/#install-swarf were overlapping #swarf-watermark. The watermark
+     (src/kiri/app/init/sync.js, "renato.design" link, position:fixed;
+     left:18px; bottom:14px; z-index:9999 — an established r5/r6 element,
+     not to be moved) sits in the exact corner I'd put the new version
+     stamp and install button. Moved #ver/#install-swarf to bottom-right
+     instead (web/kiri/swarf.css) — verified their bounding boxes clear
+     both the watermark AND #swarf-concerns (shares that corner but
+     starts higher, at bottom:90px).
+  2. Root cause of "the fix I shipped still isn't showing up": swarf-sw.js
+     was cache-first for the page shell, so a real content fix could take
+     TWO reloads to appear (reload 1 serves stale cache while refreshing
+     it in the background, reload 2 finally shows the fix). Switched the
+     page + small swarf-*.js shell files to network-first — same lesson
+     Rendre already learned in its own sw.js. Confirmed with an actual
+     regression test: changed shell content without touching swarf-sw.js's
+     own bytes (simulating a normal deploy), one reload now shows it,
+     not two.
+  3. About panel's version string was hardcoded "v00000-007" in
+     src/kiri/app/help.js since the original fork audit — completely
+     disconnected from reality. Unified: swarf-version.js now sets
+     window.SWARF_VERSION once, help.js reads it instead of its own copy.
+  4. Link-target audit (prompted by Phil asking whether web links in an
+     installed PWA should open in Safari — they should, a standalone PWA
+     has no address bar to recover from an in-place navigation): the
+     curtain's "back to renato.design" link had NO target attribute at
+     all — would have replaced swarf's own installed window with the
+     marketing site, permanently. Added target="_blank" rel="noopener".
+     The other five external links already used target="_blank" or a
+     named target (_paypal/_github/docs/_help, intentional so repeat
+     clicks reuse one window) — added rel="noopener" to those too.
+  5. THE BIG ONE: swarf-material.js fetched an absolute
+     "/kiri/swarf-materials.json" — resolves fine in local dev (page
+     served at /kiri/), 404s on the deployed site (flattened to
+     /swarf-app/ root). This is the direct answer to Phil asking "don't
+     we have a way to specify material that preloads speeds and depths
+     for tools? I don't see it" — the feature was fully built (by_tool
+     feed/plunge/spindle/stepdown/stepover data sourced from Langmuir's
+     MR-1 cutting parameters guide, applied automatically on material
+     change) but the fetch failure meant `materials` stayed empty, which
+     trips the `if (!materials.length) return` guard before
+     setCurrent()/injectDropdown()/any feed-application wiring ever ran.
+     No MATERIAL dropdown, ever, on the live site — likely broken in
+     production since whenever this path was written, not a
+     discoverability problem. Fixed to a relative fetch path. Verified
+     against a mirror of the real deploy topology AND functionally: set
+     a rough op, switched material to hardwood via the real dropdown,
+     confirmed rate/plunge/spindle/down actually changed on the op
+     (1000->1500, 250->750, 1000->8000, 2->3).
+  6. This pattern (deploy artifact and source silently disagreeing) had
+     now hit 5+ times (coi-serviceworker, SEO meta tags, the launcher
+     widget, the material path, the About version). Did a full
+     source-vs-deploy index.html diff sweep rather than wait for the next
+     symptom. Found and fixed: source had a broken /privacy.html link
+     (404, confirmed — deployed already had the correct /privacy/) and a
+     stray uppercase <A> tag; source was completely missing the
+     GoatCounter analytics tag (ported in — a from-scratch build would
+     otherwise silently ship with zero traffic tracking); deployed was
+     missing the About panel's "source" credit line (present in source,
+     never synced) and still had the AGPL-3.0 license typo (fixed
+     earlier in source, never synced) plus a dead grid.space-bound
+     origin-trial meta tag (already dropped from source). Also swept all
+     swarf-owned JS for any other hardcoded absolute-path fetch/href/src
+     — the materials.json fetch was the only one.
+
+  Remaining known divergence between source and deploy index.html is
+  now ONLY the legitimate kind: absolute paths for /moto/, /font/,
+  /lib/ in source (correct for dev serving at /kiri/) vs relative in
+  the deploy artifact (correct for the flattened /swarf-app/ root).
+  deploy.sh does NOT sync index.html at all — that's still a standing
+  gap; any future markup change needs the same manual dual-edit this
+  session did repeatedly. Worth automating properly in a future session
+  if this class of bug keeps recurring.
 
 r18 — POST-DEPLOY FIXES (2026-07-06, after r17 shipped)
   Two small fixes found from Phil looking at the actual deployed site:
