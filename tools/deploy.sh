@@ -37,7 +37,7 @@ cp src/pack/kiri-main.js "$WEB_APP/lib/main/kiri.js"
 cp src/pack/kiri-work.js "$WEB_APP/lib/kiri/run/worker.js"
 # swarf overlay scripts + stylesheet live at /swarf-app/ root (flattened from
 # /kiri/). Sync any that changed — fast and harmless when they're already current.
-for f in web/kiri/swarf*.js web/kiri/swarf.css web/kiri/swarf-materials.json web/kiri/coi-serviceworker.js; do
+for f in web/kiri/swarf*.js web/kiri/swarf.css web/kiri/swarf-materials.json web/kiri/coi-serviceworker.js web/kiri/manifest.json; do
   [ -f "$f" ] || continue
   dst="$WEB_APP/$(basename "$f")"
   cp "$f" "$dst"
