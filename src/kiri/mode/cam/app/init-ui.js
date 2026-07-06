@@ -25,7 +25,6 @@ const { BufferGeometryUtils } = THREE;
 
 const DEG2RAD = Math.PI / 180;
 const RAD2DEG = 180 / Math.PI;
-const hasSharedArrays = self.SharedArrayBuffer ? true : false;
 
 const { VIEWS, STACKS } = api.const;
 const { noop } = api;
@@ -463,9 +462,6 @@ export function opRender() {
             rec.disabled = true;
         }
         if (!env.isIndexed && (type === 'loop' || rec._numloop)) {
-            rec.disabled = true;
-        }
-        if (!hasSharedArrays && (type === 'contour' || type === 'lathe')) {
             rec.disabled = true;
         }
         if (rec.disabled) {
@@ -997,20 +993,22 @@ export function init() {
         clearPops();
         recreateTabs();
         for (let group of Widget.Groups.list()) {
-            let root = group[0];
-            if (root.tabs)
-            for (let tab of Object.values(root.tabs)) {
-                let geo = tab.box.geometry.clone();
-                if (geo.index) geo = geo.toNonIndexed();
-                geo.translate(tab.x, tab.y, tab.z);
-                let bbg = BufferGeometryUtils.mergeGeometries([ geo ]);
-                let sw = newWidget(null, group);
-                let fwp = group[0].track.pos;
-                sw.loadGeometry(bbg);
-                sw._move(fwp.x, fwp.y, fwp.z);
-                api.widgets.add(sw);
-                sw.track.synth = true;
-                sw.track.indexed = root.track.indexed;
+            for (let widget of group) {
+                if (widget.tabs)
+                for (let tab of Object.values(widget.tabs)) {
+                    let geo = tab.box.geometry.clone();
+                    if (geo.index) geo = geo.toNonIndexed();
+                    geo.translate(tab.x, tab.y, tab.z);
+                    let bbg = BufferGeometryUtils.mergeGeometries([ geo ]);
+                    let sw = newWidget(null, group);
+                    let fwp = widget.track.pos;
+                    sw.loadGeometry(bbg);
+                    sw._move(fwp.x, fwp.y, fwp.z);
+                    api.widgets.add(sw);
+                    sw.track.synth = true;
+                    sw.track.indexed = widget.track.indexed;
+                    sw.track.tabOwner = widget.id;
+                }
             }
         }
     });

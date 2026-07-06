@@ -35,8 +35,8 @@ export function cam_slice_pre(settings) {
 export async function cam_slice(settings, widget, onupdate, ondone) {
     if (widget.track.synth) return ondone();
 
-    // get tab widgets
-    let tabW = widget.group.filter(w => w != widget);
+    // get tab widgets for this specific widget
+    let tabW = widget.group.filter(w => w != widget && w.track.tabOwner === widget.id);
 
     // merge overlapping tabs
     for (let i=0; i<tabW.length; i++) {
@@ -679,20 +679,25 @@ export function cylinder_poly_find(widget, face) {
     let firstOffset = faces[0] * 9;
     let [x1, y1, z1, x2, y2, z2, x3, y3, z3] = Array.from(vert.subarray(firstOffset, firstOffset + 9));
     let zs = [z1, z2, z3].map(z => z.round(5));
-    let zmin = Math.min(...zs);
-    let zmax = Math.max(...zs);
-    let zmid = (zmin + zmax) / 2;
+    let selmin = Math.min(...zs); //min and max z of selected poly
+    let selmax = Math.max(...zs);
+    let selmid = (selmin + selmax) / 2;
     let cylVerts = new Float32Array(faces.length * 9);
     let opts = {
         dedup: true,
         edges: false,
         over: true
     };
+    //z min and max of cylinder
+    let zmin = Infinity;
+    let zmax = -Infinity;
 
     let i = 0
     //for each cylinder face index
     for (let index of faces) {
         let off = index * 9;
+        zmin = Math.min(zmin, vert[off+2], vert[off + 5], vert[off + 8]);
+        zmax = Math.max(zmax, vert[off+2], vert[off + 5], vert[off + 8]);
         //copy the 9 triangle vertices floats in
         for (let j = 0; j < 9; j++) {
             cylVerts[i] = vert[off + j];
@@ -701,7 +706,7 @@ export function cylinder_poly_find(widget, face) {
     }
 
     //slice the poly at the midpoint
-    let poly = slicer.sliceZ(zmid, cylVerts, opts)?.polys?.at(0);
+    let poly = slicer.sliceZ(selmid, cylVerts, opts)?.polys?.at(0);
     if (!poly) throw "slicing returned no poly";
 
     let circular = poly.circularity() > 0.98;
