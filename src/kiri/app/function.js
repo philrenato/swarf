@@ -234,6 +234,23 @@ function prepareSlices(callback, scale = 1, offset = 0) {
         // store slicing visuals
         widget.stack = api.stacks.create(widget.id, widget.mesh);
 
+        // swarf: stacks.create()'s `view` param isn't actually used for
+        // parenting — Stack's constructor calls view.newGroup(), but
+        // newGroup() (moto/space.js) unconditionally attaches to the
+        // global WORLD root regardless of `this`/the view passed in. So
+        // the toolpath stack is a WORLD sibling of widget.mesh, not its
+        // child — moving the widget does NOT move its toolpaths via
+        // scene-graph inheritance like it would if the stack were a real
+        // child. Confirmed via test: after widget._move(60,60,0),
+        // widget.mesh.position becomes {60,60,0} but stack.obj.view.position
+        // stays {0,0,0} until this line runs. mesh.position matches
+        // widget.track.pos 1:1 with no axis remapping (both are direct
+        // WORLD children, no relative rotation between them) — verified
+        // empirically, not assumed. This is (part of) the roughing-
+        // toolpath-offset-from-widget bug tracked in swarf_HANDOFF.txt.
+        widget.stack.obj.view.position.x = widget.track.pos.x || 0;
+        widget.stack.obj.view.position.y = widget.track.pos.y || 0;
+
         // compensate for zcut (widget moved through floor)
         widget.stack.obj.view.position.z = widget.track.zcut || 0;
 
