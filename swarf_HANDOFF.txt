@@ -1,7 +1,7 @@
 swarf_HANDOFF.txt — for Claude
-last updated 2026-07-06 (v00000-015 r17, PWA pass + cleanup + two post-deploy fixes)
+last updated 2026-07-06 (v00000-016 r18, post-deploy fixes)
 
-POST-DEPLOY FIXES (2026-07-06, after r17 shipped)
+r18 — POST-DEPLOY FIXES (2026-07-06, after r17 shipped)
   Two small fixes found from Phil looking at the actual deployed site:
   1. Electron desktop build (package.json) still had Kiri:Moto's original
      appId/productName/icon (space.grid.kiri / KiriMoto / bin/GS.icns —

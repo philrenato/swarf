@@ -15,7 +15,7 @@
     const ver = document.createElement('div');
     ver.id = 'ver';
     ver.title = 'tap to update to the latest build (clears the cache & reloads)';
-    ver.textContent = 'v00000-015 ↻';
+    ver.textContent = 'v00000-016 ↻';
     document.body.appendChild(ver);
 
     ver.addEventListener('click', async () => {
