@@ -12,10 +12,16 @@
  * re-loads that same saved state rather than discarding anything.
  */
 (function () {
+    // single source of truth for the version string — the About panel
+    // (src/kiri/app/help.js) reads this too, via window.SWARF_VERSION,
+    // instead of carrying its own separate hardcoded copy that can drift
+    // (it had silently said "v00000-007" since the very first fork audit).
+    window.SWARF_VERSION = 'v00000-017';
+
     const ver = document.createElement('div');
     ver.id = 'ver';
     ver.title = 'tap to update to the latest build (clears the cache & reloads)';
-    ver.textContent = 'v00000-016 ↻';
+    ver.textContent = window.SWARF_VERSION + ' ↻';
     document.body.appendChild(ver);
 
     ver.addEventListener('click', async () => {

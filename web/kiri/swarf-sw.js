@@ -72,12 +72,51 @@ self.addEventListener('activate', (e) => {
     );
 });
 
+// the page itself, and the small swarf-owned UI shell files (including
+// the version stamp's own script — the thing whose entire JOB is to
+// show what's actually live), are network-first, not cache-first: a
+// stale cache serving instantly means a real fix can take TWO reloads
+// to show up — reload 1 shows the old cached content while quietly
+// refreshing the cache in the background, reload 2 finally shows the
+// fix. Same lesson Rendre already learned the hard way (see its own
+// sw.js). Only the heavy, slow-changing CAM engine bundle/wasm/samples
+// stay cache-first below — that's what keeps swarf usable offline
+// without also meaning "usable but stuck on an old UI build."
+const EAGER_URL_SET = new Set(EAGER_URLS.map((u) => new URL(u, self.registration.scope).href));
+
+function isNavigation(req) {
+    return req.mode === 'navigate' || (req.headers.get('accept') || '').includes('text/html');
+}
+
 self.addEventListener('fetch', (e) => {
     const req = e.request;
     if (req.cache === 'only-if-cached' && req.mode !== 'same-origin') return;
     if (req.method !== 'GET') return;
 
     const sameOrigin = new URL(req.url).origin === self.location.origin;
+    const isShell = isNavigation(req) || EAGER_URL_SET.has(req.url);
+
+    if (sameOrigin && isShell) {
+        e.respondWith((async () => {
+            try {
+                const resp = await fetch(req, { cache: 'no-store' });
+                if (resp && resp.ok) {
+                    const patched = withCOI(resp);
+                    const forCache = patched.clone();
+                    e.waitUntil(caches.open(CACHE_NAME).then((c) => c.put(req, forCache)));
+                    return patched;
+                }
+                return withCOI(resp);
+            } catch (err) {
+                const cached = await caches.match(req);
+                if (cached) return cached;
+                return new Response('swarf is offline and this was never cached', {
+                    status: 503, statusText: 'offline'
+                });
+            }
+        })());
+        return;
+    }
 
     e.respondWith((async () => {
         const cached = await caches.match(req);

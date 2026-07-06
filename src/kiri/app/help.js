@@ -24,8 +24,11 @@ function showHelpFile(local,then) {
         // swarf: no external docs redirect. The INFO modal IS the help surface until SearchableHelp lands.
         local = true;
     }
-    // swarf: fork version replaces upstream Kiri:Moto version string
-    $('kiri-version').innerHTML = `v00000-007 · kiri:moto ${version}`;
+    // swarf: fork version replaces upstream Kiri:Moto version string.
+    // Reads window.SWARF_VERSION (set by swarf-version.js) rather than a
+    // hardcoded copy of its own — the previous hardcoded "v00000-007" had
+    // drifted silently for the entire life of the fork.
+    $('kiri-version').innerHTML = `${self.SWARF_VERSION || 'v00000-017'} · kiri:moto ${version}`;
     modal.show('help');
     api.event.emit('help.show', local);
 }

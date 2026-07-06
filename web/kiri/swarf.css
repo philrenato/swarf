@@ -1883,13 +1883,17 @@ body.swarf-phone > *:not(#swarf-phone-wall) { display: none !important; }
   color: rgba(230,230,230,0.3);
 }
 
-/* build-version stamp (bottom-left, RDS-family convention shared with
-   Rendre/Glisten) — always visible, doubles as a "force latest build"
-   tap target for anyone whose PWA cache is stuck on an old release. */
+/* build-version stamp (bottom-right, RDS-family convention shared with
+   Rendre/Glisten — those use bottom-left, but swarf's bottom-left is
+   already permanently occupied by #swarf-watermark's "renato.design"
+   link at z-index 9999, and the two were overlapping there). Always
+   visible, doubles as a "force latest build" tap target for anyone
+   whose PWA cache is stuck on an old release. #swarf-concerns sits in
+   this same corner but starts at bottom:90px, so bottom:8px is clear. */
 #ver {
   position: fixed;
   bottom: 8px;
-  left: 8px;
+  right: 8px;
   z-index: 65;
   font-size: 11px;
   letter-spacing: 0.08em;
@@ -1920,7 +1924,7 @@ body.swarf-phone > *:not(#swarf-phone-wall) { display: none !important; }
   display: none;
   position: fixed;
   bottom: 8px;
-  left: 96px;
+  right: 130px;
   z-index: 65;
   font-size: 11px;
   letter-spacing: 0.08em;
