@@ -812,6 +812,9 @@
 <script src="swarf-sim-bar.js"></script>
 <!-- swarf lightstream: Tron-style glowing red toolpath ribbon trailing the tool -->
 <script src="swarf-lightstream.js"></script>
+<!-- swarf accessibility layer: dialog focus-trap, live-region slice progress,
+     aria-pressed on sim-bar toggles. Pattern adapted from Rendre's a11y pass. -->
+<script src="swarf-a11y.js"></script>
 <!-- swarf dev-only: markup toolbar, cross-origin to markup server on :8731 -->
 <script>
 if (new URLSearchParams(location.search).has('dev')) {
