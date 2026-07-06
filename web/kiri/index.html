@@ -790,7 +790,7 @@
 
     <!-- EU compliance -->
     <div id="gdpr" class="noshow">
-        <p>this site uses <A href="/privacy.html" target="privacy">cookies</a> to preserve application preferences</p>
+        <p>this site uses <a href="/privacy/" target="privacy">cookies</a> to preserve application preferences</p>
         <button id="gotit" class="f-col j-center">got it</button>
     </div>
 
@@ -858,5 +858,11 @@ if (new URLSearchParams(location.search).has('dev')) {
   document.body.appendChild(s);
 }
 </script>
+<!-- GoatCounter web analytics (renato.design suite convention) — without
+     this the page records zero visits in the suite's traffic dashboard.
+     Was deploy-artifact-only; brought into source so a from-scratch
+     build gets it too. -->
+<script data-goatcounter="https://philrenato.goatcounter.com/count"
+        async src="//gc.zgo.at/count.js"></script>
 </body>
 </html>
