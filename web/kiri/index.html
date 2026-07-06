@@ -2,19 +2,46 @@
 <html lang="en" data-app="kiri">
 <head>
     <meta charset="UTF-8">
-    <meta name="author" content="Stewart Allen">
-    <meta name="keywords" content="3d slicer,chromebook,slicer,3d slicing,cnc,cam,toolpaths,toolpath generation,kiri,kirimoto,kiri:moto,gcode,cura,simplify 3d,prusaslicer,fdm,sla">
-    <meta name="copyright" content="stewart allen [sa@grid.space]">
-    <meta name="description" content="Browser-based 3D slicer, gcode and CNC toolpath generator">
-    <meta property="og:description" content="Kiri:Moto is a unique 3D slicer that runs entirely in browser and creates output for your favorite maker tools: 3D Printers, CNC Mills and Laser Cutters.">
-    <meta property="og:title" content="Browser-based 3D Slicer">
+    <meta name="author" content="Phil Renato">
+    <!-- swarf is built on Kiri:Moto by Stewart Allen (https://grid.space/kiri/), MIT. -->
+    <meta name="description" content="A focused CNC carving front-end: mesh in, gcode out. Real material finishes, Tron-style toolpath ribbons, a classroom-first UX built on Kiri:Moto.">
+    <link rel="canonical" href="https://renato.design/swarf-app/">
     <meta property="og:type" content="website">
-    <meta property="og:url" content="https://grid.space/kiri/">
-    <meta property="og:image" content="https://static.grid.space/img/logo_km_og.png">
+    <meta property="og:title" content="swarf — Subtractive Workshop for Resourceful Folks">
+    <meta property="og:description" content="A CNC carving interface that shows you the cut the way a machinist sees it — material, light, and path as one readable picture. Built on Kiri:Moto.">
+    <meta property="og:url" content="https://renato.design/swarf-app/">
+    <meta property="og:image" content="https://renato.design/images/swarf/swarf-simulate-full.png">
+    <meta property="og:site_name" content="renato.design">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="swarf — Subtractive Workshop for Resourceful Folks">
+    <meta name="twitter:description" content="A CNC carving interface that shows you the cut the way a machinist sees it. Built on Kiri:Moto.">
+    <meta name="twitter:image" content="https://renato.design/images/swarf/swarf-simulate-full.png">
+    <meta name="twitter:creator" content="@formfollowsphil">
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "WebApplication",
+      "name": "swarf",
+      "alternateName": "Subtractive Workshop for Resourceful Folks",
+      "description": "A focused CNC carving front-end: mesh in, gcode out. Real material finishes, Tron-style toolpath ribbons, a classroom-first UX.",
+      "url": "https://renato.design/swarf-app/",
+      "applicationCategory": "DesignApplication",
+      "operatingSystem": "Web",
+      "creator": { "@type": "Person", "name": "Phil Renato", "url": "https://renato.design/" },
+      "isBasedOn": {
+        "@type": "SoftwareApplication",
+        "name": "Kiri:Moto",
+        "author": { "@type": "Person", "name": "Stewart Allen" },
+        "url": "https://grid.space/kiri/"
+      }
+    }
+    </script>
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="default">
-    <meta http-equiv="origin-trial" content="AvttY0bfMDdg4vBwjn5k4Yv/+OmqjNj4bTRvCgBpP7hkI6base2DxEViSebcOyglERiFV7g0DaVmI+yv79ftDw8AAAB0eyJvcmlnaW4iOiJodHRwczovL2dyaWQuc3BhY2U6NDQzIiwiZmVhdHVyZSI6IlVucmVzdHJpY3RlZFNoYXJlZEFycmF5QnVmZmVyIiwiZXhwaXJ5IjoxNzc5MTQ4ODAwLCJpc1N1YmRvbWFpbiI6dHJ1ZX0=">
+    <!-- no origin-trial meta here: Kiri:Moto's stock one is cryptographically
+         bound to grid.space and does nothing on this domain — dropped rather
+         than carry forward a token that can never activate. -->
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
     <title>swarf</title>
@@ -39,15 +66,30 @@
          with a "desktop only" wall. Loaded early so phones don't wait for
          the CAM engine bundle before seeing the message. -->
     <script src="swarf-phone.js?v=1" defer></script>
-    <!-- coi-serviceworker (MIT, Guido Zuidhof — github.com/gzuidhof/coi-serviceworker):
-         injects COOP/COEP response headers via a service worker so
-         SharedArrayBuffer/crossOriginIsolated work on static hosts (GitHub
-         Pages, a lab's `python3 -m http.server`) that can't set real HTTP
-         headers. Without it, Contour and other minion-backed CAM ops fall
-         back to a slower non-SAB path. Was previously deploy-artifact-only
-         (see swarf_HANDOFF.txt) — moved into source so a from-scratch
-         build gets it too. -->
-    <script src="coi-serviceworker.js"></script>
+    <!-- swarf-sw.js: registers the service worker (COOP/COEP header
+         injection so SharedArrayBuffer works on static hosts, folded in
+         from coi-serviceworker — MIT, Guido Zuidhof; plus the offline
+         app-shell cache). Same register-then-reload-once-active dance
+         the original coi-serviceworker polyfill used, so the very first
+         load already gets the SAB fix instead of waiting a full extra
+         visit. See web/kiri/swarf-sw.js for what's actually cached. -->
+    <script>
+    (async () => {
+        if (!('serviceWorker' in navigator)) return;
+        const need = window.crossOriginIsolated === false;
+        const r = await navigator.serviceWorker.register('swarf-sw.js');
+        if (need && r.active && !navigator.serviceWorker.controller) {
+            window.location.reload();
+        } else if (need && !r.active) {
+            await new Promise(resolve => {
+                (r.installing || r.waiting).addEventListener('statechange', e => {
+                    if (e.target.state === 'activated') resolve();
+                });
+            });
+            window.location.reload();
+        }
+    })();
+    </script>
     <link href="manifest.json" rel="manifest">
     <link href="/font/css/all.min.css" rel="stylesheet">
     <!-- <script type="module" src="/lib/kiri/run/worker.js"></script> -->

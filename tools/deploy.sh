@@ -6,8 +6,10 @@
 #   1. esbuild prod mode rebuild  → src/pack/kiri-main.js + kiri-work.js
 #   2. copy prod bundles          → philrenato-web/swarf-app/lib/...
 #   3. rewrite 4 absolute/relative paths to /swarf-app/ (see feedback_swarf_deploy_paths.md)
-#   4. stage + commit both repos
-#   5. push only the web repo (live site); leaves the source commit local
+#   4. stamp swarf-sw.js's cache version so this deploy invalidates the
+#      previous offline cache instead of a lab tab serving a stale engine
+#   5. stage + commit both repos
+#   6. push only the web repo (live site); leaves the source commit local
 #      unless you add --push-src.
 #
 # Why this script exists: r14 shipped with broken worker/wasm paths because
@@ -37,7 +39,7 @@ cp src/pack/kiri-main.js "$WEB_APP/lib/main/kiri.js"
 cp src/pack/kiri-work.js "$WEB_APP/lib/kiri/run/worker.js"
 # swarf overlay scripts + stylesheet live at /swarf-app/ root (flattened from
 # /kiri/). Sync any that changed — fast and harmless when they're already current.
-for f in web/kiri/swarf*.js web/kiri/swarf.css web/kiri/swarf-materials.json web/kiri/coi-serviceworker.js web/kiri/manifest.json; do
+for f in web/kiri/swarf*.js web/kiri/swarf.css web/kiri/swarf-materials.json web/kiri/manifest.json; do
   [ -f "$f" ] || continue
   dst="$WEB_APP/$(basename "$f")"
   cp "$f" "$dst"
@@ -65,16 +67,26 @@ if [[ -n "$bad" ]]; then
 fi
 echo "      ok — no broken paths remain"
 
-echo "[4/5] commit web repo"
+echo "[4/6] stamp swarf-sw.js cache version"
+STAMP="$(date +%Y%m%d%H%M%S)-$(git -C "$SRC_REPO" rev-parse --short HEAD)"
+sed -i '' "s|__SWARF_DEPLOY_STAMP__|$STAMP|g" "$WEB_APP/swarf-sw.js"
+remaining=$(grep -l '__SWARF_DEPLOY_STAMP__' "$WEB_APP/swarf-sw.js" || true)
+if [[ -n "$remaining" ]]; then
+  echo "[4/6] FAIL — cache-stamp placeholder still present, offline cache won't invalidate"
+  exit 1
+fi
+echo "      ok — cache version: $STAMP"
+
+echo "[5/6] commit web repo"
 cd "$WEB_REPO"
 git add swarf-app/lib/main/kiri.js swarf-app/lib/kiri/run/worker.js \
   swarf-app/swarf*.js swarf-app/swarf.css swarf-app/swarf-materials.json \
-  swarf-app/coi-serviceworker.js 2>/dev/null || true
+  swarf-app/manifest.json 2>/dev/null || true
 git -c commit.gpgsign=false commit -m "$MSG
 
 Co-Authored-By: Claude Opus 4.7 (1M context) <noreply@anthropic.com>" || echo "      nothing to commit"
 
-echo "[5/5] push web repo → renato.design/swarf-app/"
+echo "[6/6] push web repo → renato.design/swarf-app/"
 git push
 
 if [[ "$PUSH_SRC" == "1" ]]; then
