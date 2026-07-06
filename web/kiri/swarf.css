@@ -1882,3 +1882,33 @@ body.swarf-phone > *:not(#swarf-phone-wall) { display: none !important; }
   font-style: italic;
   color: rgba(230,230,230,0.3);
 }
+
+/* build-version stamp (bottom-left, RDS-family convention shared with
+   Rendre/Glisten) — always visible, doubles as a "force latest build"
+   tap target for anyone whose PWA cache is stuck on an old release. */
+#ver {
+  position: fixed;
+  bottom: 8px;
+  left: 8px;
+  z-index: 65;
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  font-family: ui-monospace, Menlo, monospace;
+  color: var(--swarf-text-2);
+  opacity: 0.85;
+  user-select: none;
+  cursor: pointer;
+  pointer-events: auto;
+  background: rgba(10, 8, 8, 0.62);
+  padding: 2px 8px;
+  border-radius: 6px;
+  border: 1px solid var(--swarf-line);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+}
+#ver:hover {
+  color: var(--swarf-accent-hi);
+  opacity: 1;
+  background: rgba(10, 8, 8, 0.8);
+  border-color: var(--swarf-accent-dim);
+}
