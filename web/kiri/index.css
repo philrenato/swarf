@@ -53,6 +53,13 @@ a, a:hover, a:visited {
 div {
     position: relative;
 }
+button.yellow {
+    border: 1px solid rgba(0,0,255,0.5);
+}
+button.yellow:hover {
+    background-color: #eea;
+
+}
 button {
     display: flex;
     border: 1px solid #ccc;
@@ -2262,6 +2269,7 @@ details[open] summary::after {
 #panel-right .set2-group {
     border-left: 1px solid var(--border-gray);
 }
+
 .set2-group {
     background-color: var(--menubar-back);
     flex-flow: column;

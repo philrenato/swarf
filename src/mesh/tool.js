@@ -353,8 +353,14 @@ class MeshTool {
         found[face] = 1;
         while (check.length) {
             const face = check.shift();
-            const froot = face * 6;
-            const vroot = face * 9
+            const froot = face * 6; // normal vector, and adjacent faces
+            const vroot = face * 9  // vertices
+
+            if (checked[face]) {
+                continue;
+            }
+
+            checked[face] = 1;
 
             // filter faces to those perpendicular to +z axis
             if (Math.abs(faces[froot + 2] > 1e-6)) continue;
@@ -364,11 +370,14 @@ class MeshTool {
                 !(vertices[vroot + 2] !== lowZ || vertices[vroot + 2] !== highZ) &&
                 !(vertices[vroot + 5] !== lowZ || vertices[vroot + 5] !== highZ) &&
                 !(vertices[vroot + 8] !== lowZ || vertices[vroot + 8] !== highZ)
-            ) continue;
+            ){ 
+                // console.log("filtered a face")
+                continue};
+            found[face] = 1;
 
             const fadj = this.getAdjacentFaces(face);
-            for (let f of fadj) {
-                if (found[f] || checked[f]) {
+            for ( let f of fadj ) {
+                if ( checked[f] ) {
                     continue;
                 }
                 const aroot = f * 6;
@@ -380,12 +389,9 @@ class MeshTool {
                 if (fn <= radianTolerance) {
                     out.push(f);
                     check.push(f)
-                    checked[f] = 1;
-                    found[f] = 1;
                 }
             }
         }
-
         return out;
     }
 

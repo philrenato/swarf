@@ -43,7 +43,7 @@ class OpDrill extends CamOp {
             if (zBottom) drill.zBottom = Math.max(zBottom, drill.zBottom);
 
             // for thru holes, follow z thru when set
-            if ((op.thru > 0)) {
+            if (op.thru > 0 && !op.mark) {
                 drill.zBottom -= op.thru;
             }
 
@@ -53,6 +53,7 @@ class OpDrill extends CamOp {
 
             slice.camTrace = { tool: op.tool, rate: op.feed, plunge: op.rate };
             slice.camLines = [poly];
+            slice.travelBounds = newPolygon().centerCircle(drill, drillToolDiam, 10);
             slice.output()
                 .setLayer(state.layername, { face: color, line: color })
                 .addPolys(slice.camLines);
@@ -64,12 +65,13 @@ class OpDrill extends CamOp {
 
     prepare(ops, progress) {
         let { op, sliceOut } = this;
-        let { setTool, setSpindle, setDrill, emitDrills } = ops;
+        let { setTool, setSpindle, setDrill, emitDrills, setTravelBoundary } = ops;
 
         if (sliceOut.length === 0) return;
 
         setTool(op.tool, undefined, op.rate);
         setDrill(op.down, op.lift, op.dwell);
+        setTravelBoundary(sliceOut.map(slice => slice.travelBounds));
         emitDrills(sliceOut.map(slice => slice.camLines).flat());
     }
 }

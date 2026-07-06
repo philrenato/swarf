@@ -39,6 +39,15 @@
          with a "desktop only" wall. Loaded early so phones don't wait for
          the CAM engine bundle before seeing the message. -->
     <script src="swarf-phone.js?v=1" defer></script>
+    <!-- coi-serviceworker (MIT, Guido Zuidhof — github.com/gzuidhof/coi-serviceworker):
+         injects COOP/COEP response headers via a service worker so
+         SharedArrayBuffer/crossOriginIsolated work on static hosts (GitHub
+         Pages, a lab's `python3 -m http.server`) that can't set real HTTP
+         headers. Without it, Contour and other minion-backed CAM ops fall
+         back to a slower non-SAB path. Was previously deploy-artifact-only
+         (see swarf_HANDOFF.txt) — moved into source so a from-scratch
+         build gets it too. -->
+    <script src="coi-serviceworker.js"></script>
     <link href="manifest.json" rel="manifest">
     <link href="/font/css/all.min.css" rel="stylesheet">
     <!-- <script type="module" src="/lib/kiri/run/worker.js"></script> -->
