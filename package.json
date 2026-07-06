@@ -1,6 +1,6 @@
 {
     "name": "swarf",
-    "version": "4.7.0",
+    "version": "4.7.1",
     "description": "focused CNC carving interface for design students — a CAM-only fork of Kiri:Moto, trimmed to two machines and four operations",
     "author": "Phil Renato <philrenato@gmail.com>",
     "contributors": [
