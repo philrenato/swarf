@@ -59,9 +59,25 @@ KNOWN DEFERRED / NOT DONE (deliberately, not forgotten):
   - webpack pin still at ^5.92.1; upstream moved to a hard 5.102.1 in
     their 4.7.1 for a real build-tooling fix. Low urgency — bundle it
     into whatever session next touches npm install.
-  - NOTICES.md (auto-generated) flags 5 deps with LGPL/GPL/unknown
-    licenses "review before ship" — never actually confirmed those are
-    all dev-only. Still an open chore, not a known problem.
+  - NOTICES.md's 5 flagged deps, actually checked this time (grepped
+    the real compiled src/pack/kiri-main.js + kiri-work.js bundles, not
+    just package.json): jszip (MIT OR GPL-3.0, dual-licensed — IS
+    shipped, 36/34 refs in the bundles, but swarf can simply elect the
+    MIT option, no compliance issue) and @salusoft89/planegcs
+    (LGPL-2.0 — present in the source tree under src/void/solver/ as a
+    build artifact of `npm run webpack-pgcs`, but zero references in
+    the actual compiled bundle; it's Kiri:Moto's newer Void:Form sketch
+    solver, unreachable from swarf's CAM-only UI, never actually
+    shipped to a browser). @img/sharp-libvips-darwin-arm64 (LGPL) is a
+    native binary, can't be bundled into browser JS by definition —
+    build-tool-only. process + require-like (both UNKNOWN license) are
+    tiny, near-universal transitive build-tooling shims that predate
+    SPDX license fields — common, low-risk, but not something I can
+    make a definitive legal claim about either way. Net: nothing
+    actually shipped to students has a real copyleft-contamination
+    risk, but I'm not a lawyer and this isn't legal advice — flag to
+    Phil if he wants a second opinion before any commercial/public
+    redistribution beyond the current MIT-fork posture.
 
 DEPLOY PIPELINE — READ THIS BEFORE DEPLOYING, IT WILL BITE YOU OTHERWISE:
   Two repos. Source: github.com/philrenato/swarf (this one). Deploy
