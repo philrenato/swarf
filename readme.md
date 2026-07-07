@@ -6,12 +6,21 @@
 swarf is a focused CNC carving front-end for design students — mesh in,
 gcode out, everything else hidden. A fork of
 [Kiri:Moto](https://github.com/GridSpace/grid-apps) (by Stewart Allen /
-grid.space, MIT) trimmed down to a single mode (CAM), two machines
-(Langmuir MR-1, ShopBot Basic), and four operations (rough, contour,
-outline, pocket).
+grid.space, MIT, currently synced to their v4.7.1) trimmed down to a
+single mode (CAM), two machines (Langmuir MR-1, ShopBot Basic), and
+four operations (rough, contour, outline, pocket).
+
+It's an installable, offline-capable PWA — "install swarf" appears in
+supported browsers once the page loads, and the CAM engine keeps working
+with no network once it's been used at least once. Picking a stock
+material (aluminum, hardwood, foam, etc.) auto-fills feed rate, plunge,
+spindle speed, and stepdown/stepover for whatever tools are in your
+current operations, sourced from Langmuir's published MR-1 cutting
+parameters.
 
 Read `swarf_README.txt` for the human version. Read `swarf_HANDOFF.txt`
-for the build state and what's next.
+for the build state and what's next — it opens with a current-state
+summary before the session-by-session history.
 
 ## Running locally
 
@@ -36,10 +45,18 @@ questions that outrun swarf's scope.
 ## Modifying swarf with an LLM
 
 swarf is a fork — almost all of the engine is Stewart Allen's Kiri:Moto.
-The swarf-specific layer is small and concentrated: `web/kiri/swarf-*.js`,
-`src/kiri/app/init/menu.js`, `tools/deploy.sh`, the loading curtain in
-`web/kiri/index.html`, and a handful of standing notes in `swarf_HANDOFF.txt`
-that explain why things are the way they are. You can read all of it.
+The swarf-specific layer is concentrated but no longer tiny:
+`web/kiri/swarf-*.js` (UI chrome, the material/feeds system, the
+service worker, the a11y layer, the version stamp), `src/kiri/app/init/menu.js`,
+`tools/deploy.sh`, the loading curtain and PWA registration in
+`web/kiri/index.html`, plus real edits inside otherwise-upstream engine
+files where swarf's own workflow needed something Kiri:Moto's generic
+one didn't provide (widget-position handling in
+`src/kiri/mode/cam/work/prepare.js`, a widget/stock auto-sizing path in
+`src/kiri/mode/cam/app/cl-stock.js`, the toolpath-position fix in
+`src/kiri/app/function.js`, and a handful more) — each one is marked
+inline with a `// swarf:` comment explaining why. `swarf_HANDOFF.txt`
+explains why things are the way they are. You can read all of it.
 
 You can also ask a model to read it for you. That's how this fork was
 built — not by typing the code, but by holding a long conversation with

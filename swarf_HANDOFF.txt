@@ -1,6 +1,119 @@
 swarf_HANDOFF.txt — for Claude
 last updated 2026-07-06 (v00000-019 r20, Task #7 fixed)
 
+════════════════════════════════════════════════════════════════════
+CURRENT STATE — read this before anything below. Everything under
+this box is a chronological session log, newest first; it's a record,
+not a spec. If something here and something further down disagree,
+THIS BOX WINS — it was written last and describes what's actually true.
+════════════════════════════════════════════════════════════════════
+
+WHAT SWARF IS: a CAM-only, UI-layer fork of Kiri:Moto (GridSpace,
+MIT), scoped to two machines (Langmuir MR-1, ShopBot Basic), ten
+tools, and four student-mode operations (rough/contour/outline/
+pocket) with Flip/Drip/Area/Gcode/Register/Level/Helical behind an
+Expert toggle. package.json version 4.7.1 — synced to Kiri:Moto's
+actual v4.7.1 release, not just a version-string bump (see r16).
+
+VERSION STAMP: v00000-019, the tap-to-update pill bottom-right in the
+app (#ver, web/kiri/swarf-version.js sets window.SWARF_VERSION — the
+single source; src/kiri/app/help.js's About panel reads it too, don't
+let these drift apart again, see r19 item 3).
+
+WHAT'S WORKING (verified this session, not assumed):
+  - Installable, offline-capable PWA. web/kiri/swarf-sw.js is ONE
+    combined service worker (a page can only have one controller):
+    folds in coi-serviceworker's COOP/COEP header injection (needed
+    for SharedArrayBuffer on static hosts) + a cache strategy that's
+    network-first for the page/UI shell (so a real fix shows up in
+    one reload, not two — see r19 item 2) and cache-first/lazy for the
+    ~10MB CAM engine bundle (so it still works fully offline). Install
+    button (web/kiri/swarf-install.js) only appears when the browser
+    actually fires beforeinstallprompt.
+  - Material-to-feeds system. web/kiri/swarf-material.js +
+    swarf-materials.json (real by_tool feed/plunge/spindle/stepdown/
+    stepover data, sourced from Langmuir's MR-1 cutting parameters
+    guide). Picking a material auto-applies those values to every
+    current op. This was BROKEN IN PRODUCTION for an unknown span of
+    time (fetched an absolute /kiri/ path that 404s on the deployed
+    site's flattened root) until r19 item 5 — if it ever looks silently
+    dead again, check swarf-material.js's fetch path FIRST.
+  - Task #7 (roughing toolpath rendered offset from a moved widget) —
+    fixed in r20, see that entry for the real root cause. This was
+    open since 2026-04-15; don't re-litigate it as if it's still open.
+  - Accessibility layer (web/kiri/swarf-a11y.js): dialog focus-trap,
+    live-region slice progress, aria-pressed sim-bar toggles.
+  - Every outbound link correctly leaves the app (target="_blank"
+    rel="noopener" or a named target + rel="noopener") — matters
+    because an installed PWA has no address bar to recover from an
+    in-place navigation to an external site.
+
+KNOWN DEFERRED / NOT DONE (deliberately, not forgotten):
+  - Helical entry/exit rework (upstream, unreleased as of r16) — skipped:
+    Expert-only op, low usage, would need a profile-reset migration
+    bump for the camHelicalEntry bool->enum schema change. Revisit if
+    an Expert-mode user actually asks for threaded-hole capability.
+  - Demo/self-tour mode (banked per Phil, r17-r18 note) — not built,
+    not prioritized. Rendre/Glisten both have one; scope is noted
+    there if picked up later.
+  - webpack pin still at ^5.92.1; upstream moved to a hard 5.102.1 in
+    their 4.7.1 for a real build-tooling fix. Low urgency — bundle it
+    into whatever session next touches npm install.
+  - NOTICES.md (auto-generated) flags 5 deps with LGPL/GPL/unknown
+    licenses "review before ship" — never actually confirmed those are
+    all dev-only. Still an open chore, not a known problem.
+
+DEPLOY PIPELINE — READ THIS BEFORE DEPLOYING, IT WILL BITE YOU OTHERWISE:
+  Two repos. Source: github.com/philrenato/swarf (this one). Deploy
+  target: github.com/philrenato/philrenato.github.io, directory
+  swarf-app/, served at renato.design/swarf-app/ — a SHARED multi-app
+  repo (Rendre, Glisten, Classicery, etc. all live there too). Touch
+  ONLY swarf-app/ files in it; never `git add -A` there.
+
+  `tools/deploy.sh "commit message"` rebuilds the prod bundle, copies
+  it + swarf's own web/kiri/swarf*.js/css/manifest.json files to the
+  deploy artifact, rewrites /lib/ and /obj/ paths to /swarf-app/
+  absolutes, stamps swarf-sw.js's cache version, commits + pushes the
+  web repo.
+
+  *** deploy.sh DOES NOT SYNC index.html. Never has. *** Any change to
+  web/kiri/index.html (new script tag, meta fix, markup change) needs
+  a SECOND manual edit applied by hand to
+  philrenato-web/swarf-app/index.html, with two adjustments every
+  time: (1) swarf-owned assets are referenced with RELATIVE paths
+  there (bare `swarf-sw.js`, `moto/palette.css`) vs absolute in source
+  (`/moto/palette.css`) — source is served at /kiri/, the deploy
+  artifact is flattened to one root; blindly copying source's
+  index.html verbatim will 404 half the page. (2) scripts that touch
+  document.body (swarf-a11y.js, swarf-version.js, swarf-install.js)
+  must go near the end of body, NOT in <head> — verified this the hard
+  way in r19 ("Cannot read properties of null (reading 'appendChild')").
+  This gap caused real, live, Phil-visible bugs THREE separate times
+  this session (r17's PWA scripts, r18's launcher removal, r19's link
+  fixes) before the pattern was obvious enough to sweep systematically.
+  If you're reading this while fixing yet another index.html drift bug,
+  strongly consider just automating deploy.sh to diff-and-sync
+  index.html properly instead of hand-patching it a fourth time.
+
+  After ANY deploy: GitHub Pages takes ~60-90s. Verify live with curl,
+  don't just trust the push succeeded — this session caught real bugs
+  (stale cache, missing script wiring) that only showed up by actually
+  checking the live URL, not by assuming the deploy pipeline is enough.
+
+FILE MAP (see readme.md's "Modifying swarf with an LLM" for the short
+version): swarf-owned UI layer is `web/kiri/swarf-*.js` + swarf.css +
+swarf-materials.json + the curtain/PWA registration in index.html.
+Real, marked (`// swarf:` comment) edits inside otherwise-upstream
+engine files: src/kiri/app/function.js (Task #7 fix), src/kiri/app/
+help.js (version display), src/kiri/app/init/sync.js (watermark, expert
+toggle), src/kiri/app/init/menu.js, src/kiri/mode/cam/work/prepare.js
+(widget-position handling), src/kiri/mode/cam/app/cl-stock.js
+(stock auto-sizing), src/kiri/mode/cam/work/slice.js (auto-rough
+injection). Everything else under src/ and web/lib is Kiri:Moto
+proper — read it, but changes there should usually go upstream instead
+of living as a permanent swarf patch, unless it's swarf-specific
+behavior by nature (like the four above).
+
 r20 — TASK #7 FIXED: roughing toolpath offset from a moved widget
   This bug has been open since the r10-final entry below (2026-04-15) —
   every prior session's investigation path is preserved there. Root
