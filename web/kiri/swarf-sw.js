@@ -39,6 +39,11 @@ const EAGER_URLS = [
     'swarf-sim-bar.js',
     'swarf-lightstream.js',
     'swarf-a11y.js',
+    'swarf-icon-64.png',
+    'swarf-icon-128.png',
+    'swarf-icon-144.png',
+    'swarf-icon-256.png',
+    'swarf-icon-512.png',
 ];
 
 function withCOI(resp) {

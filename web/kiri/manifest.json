@@ -1,18 +1,44 @@
 {
-    "name": "swarf",
-    "short_name": "swarf",
-    "description": "focused CNC carving interface for design students",
-    "start_url": ".",
-    "id": ".",
-    "display": "standalone",
-    "theme_color": "#d02020",
-    "background_color": "#0a0808",
-    "orientation": "landscape-primary",
-    "icons": [
-        { "src": "logo-cube-64.png", "type": "image/png", "sizes": "64x64" },
-        { "src": "logo-cube-128.png", "type": "image/png", "sizes": "128x128" },
-        { "src": "logo-cube-144.png", "type": "image/png", "sizes": "144x144" },
-        { "src": "logo-cube-256.png", "type": "image/png", "sizes": "256x256" },
-        { "src": "logo-cube-512.png", "type": "image/png", "sizes": "512x512" }
-    ]
+  "name": "swarf",
+  "short_name": "swarf",
+  "description": "focused CNC carving interface for design students",
+  "start_url": ".",
+  "id": ".",
+  "display": "standalone",
+  "theme_color": "#d02020",
+  "background_color": "#0a0808",
+  "orientation": "landscape-primary",
+  "icons": [
+    {
+      "src": "swarf-icon-64.png",
+      "type": "image/png",
+      "sizes": "64x64"
+    },
+    {
+      "src": "swarf-icon-128.png",
+      "type": "image/png",
+      "sizes": "128x128"
+    },
+    {
+      "src": "swarf-icon-144.png",
+      "type": "image/png",
+      "sizes": "144x144"
+    },
+    {
+      "src": "swarf-icon-256.png",
+      "type": "image/png",
+      "sizes": "256x256"
+    },
+    {
+      "src": "swarf-icon-512.png",
+      "type": "image/png",
+      "sizes": "512x512"
+    },
+    {
+      "src": "swarf-icon-512.png",
+      "type": "image/png",
+      "sizes": "512x512",
+      "purpose": "maskable"
+    }
+  ]
 }
