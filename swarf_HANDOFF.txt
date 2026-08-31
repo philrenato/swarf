@@ -1,5 +1,5 @@
 swarf_HANDOFF.txt — for Claude
-last updated 2026-07-06 (v00000-019 r20, Task #7 fixed)
+last updated 2026-08-31 (v00000-020 r21, material palette + chip cost)
 
 ════════════════════════════════════════════════════════════════════
 CURRENT STATE — read this before anything below. Everything under
@@ -9,13 +9,13 @@ THIS BOX WINS — it was written last and describes what's actually true.
 ════════════════════════════════════════════════════════════════════
 
 WHAT SWARF IS: a CAM-only, UI-layer fork of Kiri:Moto (GridSpace,
-MIT), scoped to two machines (Langmuir MR-1, ShopBot Basic), ten
+MIT), scoped to two machines (Langmuir MR-1, ShopBot Basic), seven
 tools, and four student-mode operations (rough/contour/outline/
 pocket) with Flip/Drip/Area/Gcode/Register/Level/Helical behind an
 Expert toggle. package.json version 4.7.1 — synced to Kiri:Moto's
 actual v4.7.1 release, not just a version-string bump (see r16).
 
-VERSION STAMP: v00000-019, the tap-to-update pill bottom-right in the
+VERSION STAMP: v00000-020, the tap-to-update pill bottom-right in the
 app (#ver, web/kiri/swarf-version.js sets window.SWARF_VERSION — the
 single source; src/kiri/app/help.js's About panel reads it too, don't
 let these drift apart again, see r19 item 3).
@@ -31,10 +31,21 @@ WHAT'S WORKING (verified this session, not assumed):
     button (web/kiri/swarf-install.js) only appears when the browser
     actually fires beforeinstallprompt.
   - Material-to-feeds system. web/kiri/swarf-material.js +
-    swarf-materials.json (real by_tool feed/plunge/spindle/stepdown/
-    stepover data, sourced from Langmuir's MR-1 cutting parameters
-    guide). Picking a material auto-applies those values to every
-    current op. This was BROKEN IN PRODUCTION for an unknown span of
+    swarf-materials.json. TEN materials x THREE endmill diameters
+    (1/16, 1/8, 1/4), each carrying feed/plunge/spindle/stepdown/
+    stepover plus a ramp angle. Picking a material applies the feeds
+    to every current op AND writes camEaseDown/camEaseAngle into the
+    process (ease-down is process-level in prepare.js, not an op
+    field). Values are STUDENT-SAFE HSS starting points, not the
+    Langmuir chart's carbide numbers — spindle RPM falls as the tool
+    gets wider because cutting speed, not RPM, is the limit. Do not
+    "fix" that by flattening every material back to 8000.
+    `node tools/check_materials.mjs` holds the table to its invariants
+    (plunge 30-40% of feed, step-down under half the tool diameter,
+    machine ceilings, feed monotonic at constant spindle).
+    `node tools/probe_materials.mjs <url>` drives the real dropdown and
+    reads the presets back out of exported G-code.
+    This was BROKEN IN PRODUCTION for an unknown span of
     time (fetched an absolute /kiri/ path that 404s on the deployed
     site's flattened root) until r19 item 5 — if it ever looks silently
     dead again, check swarf-material.js's fetch path FIRST.
@@ -531,6 +542,93 @@ r15c — RIBBON PRE-POPULATE + TOOLTIP AUDIT + OSS-READINESS PASS (2026-04-18)
       page footer link) on main
 
 
+
+r21 — MATERIAL PALETTE REBUILT + CHIP COST CUT (2026-08-31)
+
+  1. swarf-materials.json rebuilt for HSS. Was 5 materials x 2 tools
+     with carbide-speed numbers off Langmuir's MR-1 chart. Now 10
+     materials x 3 endmills, derived from conservative cutting speeds
+     for HSS (aluminum 60, brass 45, mild steel 20 m/min) as
+     rpm = Vc x 1000 / (pi x D) capped at the machine's 8000, then
+     feed = rpm x flutes x fz at the low end of fz. The chart is still
+     the cross-reference and still cited in the file, but its numbers
+     are for coated carbide and would burn HSS. Phil, this session:
+     "We don't need fast/optimal. We need student safe and conservative
+     and starting values - mostly HSS tooling."
+
+  2. Ramp presets. Each material carries ramp.ease + ramp.angle, pushed
+     into process.camEaseDown / camEaseAngle by applyRamp(). 1.8 degrees
+     for metals (the chart's helical-ramp figure), out to 10 for foam.
+     VERIFIED BY ARITHMETIC, not by eye: prepare.js emits the ease-down
+     feed as plunge + (feed - plunge) * (90 - angle) / 180. Angle 2 put
+     F173.1111 in the G-code; angle 45 put F132.5. Both exact.
+     NOTE the obvious control FAILS — writing camEaseDown = false from
+     the console is undone in the same tick because applyRamp() re-pins
+     it on slice.end. Vary the source table instead.
+
+  3. TWO INERT FEATURES FOUND AND FIXED:
+     a. Langmuir.MR-1.json had "gcodeSpindle": []. export.js reads
+        `device.gcodeSpindle || ["M3 S{speed}"]` and an empty array is
+        TRUTHY, so no spindle command was ever emitted and every program
+        ran at the header's hardcoded S20000 — above the machine's own
+        8000 rpm limit. Header is now a slow S1500, a value no preset
+        uses so a probe can tell header from op, plus a real
+        gcodeSpindle template.
+     b. The Concerns drawer's rules 2 and 3 in init/sync.js read
+        op.feed and op.depth. Op records name those `rate` and `down`
+        (cl-ops.js createPopOp), and api.conf.get_tool does not exist at
+        all — so two of the three safety rules could never fire.
+
+  4. Tool library now matches the shop: every endmill is 0.5 inch flute
+     length on a 1 inch shank (defaults.js). Was 1.5-2 inch flutes.
+     There is no flute-count field anywhere in Kiri, so the assumed
+     cutter (2-flute, 4 for steel) lives in the JSON as `flutes` and
+     CANNOT adapt on its own.
+
+  5. Chip layer made cheaper (web/kiri/swarf-chips.js), Phil: "chips are
+     a little too graphics intensive."
+     - curl and coil were TubeGeometry. They are now ribbon strips:
+       48 -> 16 and 36 -> 12 triangles. Weighted mean per chip 34.6 ->
+       12.2, so a full load of 1340 chips went 46,391 -> 16,375
+       triangles, a 65% cut. MEASURED by tools/probe_chip_geometry.mjs,
+       which builds the old tube in the page's own THREE and counts
+       against the live pools.
+     - writeMatrix skips the Euler -> Quaternion -> compose round trip.
+     - settled pool uploads once per frame instead of once per landing.
+     - instanceMatrix marked DynamicDrawUsage.
+     - physics steps at most 60/sec, so a 120Hz display does half the
+       per-chip work for no visible change.
+     ONE REAL VISUAL DIFFERENCE: a ribbon is infinitely thin, so a chip
+     passing exactly edge-on briefly vanishes where a tube never did.
+     Real shavings do this. If it reads wrong, the revert is the two
+     geometry functions.
+
+  6. Chip layer init no longer gives up. The bridge poll ran 100 x 150ms
+     and then stopped forever — on a cold or slow load moto.space is not
+     up inside 15s and the chip layer stayed permanently dead with
+     nothing logged. It just looked like a machine that makes no chips.
+     Now backs off and keeps trying for two minutes, then warns.
+
+  7. CANNOT BE MEASURED HEADLESS, so don't try: chips never spawn under
+     headless Chrome (the spawn gate needs real tool motion), and frame
+     time is vsync-clamped at 16.67ms so any cost inside the budget is
+     invisible. probe_chip_perf.mjs was written for this and deleted —
+     it could not fail. Judge chip smoothness on real hardware.
+
+  8. Upstream sync. 36 grid-apps commits since the fork, 8 CAM-relevant.
+     Only TWO were genuinely missing (drill marking with a latent thru
+     setting, DXF z-scaling on extrude) — cherry-picked. Four others
+     reported CONFLICT because the change was ALREADY IN THE FILE
+     though absent from our history. On any future cherry-pick conflict,
+     grep the target for the added line before resolving. The other 28
+     are SLA/MSLA resin and Bambu work that CAM-only swarf never uses.
+
+  9. Docs/help updated to match: the search-help glossary entries for
+     stepover, step-down, spindle speed, ease down and end-mill all
+     stated carbide/router numbers that now contradict what the app
+     loads. Added a `material` entry. readme.md, swarf_README.txt and
+     the marketing page's material paragraph updated. The marketing
+     page also still claimed source was unreleased; it is out.
 
 r15 / r15b — CHIP PHYSICS RETUNE (web/kiri/swarf-chips.js)
   Phil asked 2026-04-16 for "more chips, don't let them go as far" then

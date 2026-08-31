@@ -50,10 +50,24 @@
     init(space);
     return true;
   };
-  let tries = 0;
-  const poll = setInterval(() => {
-    if (ready() || ++tries > 100) clearInterval(poll);
-  }, 150);
+  // The bridge appears when moto.space and THREE are both up. On a cold load
+  // over a slow link that can take well past a minute, and a poll that gives
+  // up leaves the chip layer permanently dead with nothing logged — it just
+  // looks like a machine that makes no chips. Poll fast at first, then back
+  // off, and keep trying for two minutes.
+  let waited = 0;
+  const POLL_GIVE_UP_MS = 120000;
+  const nextPoll = () => (waited < 10000 ? 150 : 1000);
+  const step = () => {
+    if (ready()) return;
+    waited += nextPoll();
+    if (waited >= POLL_GIVE_UP_MS) {
+      console.warn('swarf-chips: moto.space never appeared, chip layer inactive');
+      return;
+    }
+    setTimeout(step, nextPoll());
+  };
+  setTimeout(step, 150);
 
   function init(space) {
     const THREE = window.THREE;
@@ -85,25 +99,48 @@
     applyMaterialToChips();
     window.addEventListener('swarf.material.change', applyMaterialToChips);
 
-    // curl: a thin helical ribbon — the characteristic "long chip" from
-    // ductile cuts. swarf r6: poly-count cut ~4× from r5 (8 tubular × 3
-    // radial = ~48 tris vs the prior 18×4 = ~144). Curl shape is preserved
-    // because at chip scale the difference is invisible.
-    function curlGeometry() {
-      const pts = [];
-      const turns = 1.6;
-      const steps = 8;
+    // A chip is a thin ribbon, so build one: a strip of quads swept along a
+    // path, two triangles per step. The tube these used to be spent its
+    // triangles on a cross-section nothing can resolve — a curl is well under
+    // a millimetre on screen — and the material is DoubleSide, so a strip
+    // reads the same from either face at a third of the cost.
+    function ribbonGeometry(steps, halfWidth, pathFn) {
+      const pos = new Float32Array((steps + 1) * 2 * 3);
+      const idx = [];
       for (let i = 0; i <= steps; i++) {
-        const t = i / steps;
-        const a = t * turns * Math.PI * 2;
-        pts.push(new THREE.Vector3(
-          Math.cos(a) * (0.6 - t * 0.3),
-          t * 2.4 - 1.2,
-          Math.sin(a) * (0.6 - t * 0.3)
-        ));
+        const { c, side } = pathFn(i / steps);
+        const o = i * 6;
+        pos[o    ] = c.x + side.x * halfWidth;
+        pos[o + 1] = c.y + side.y * halfWidth;
+        pos[o + 2] = c.z + side.z * halfWidth;
+        pos[o + 3] = c.x - side.x * halfWidth;
+        pos[o + 4] = c.y - side.y * halfWidth;
+        pos[o + 5] = c.z - side.z * halfWidth;
+        if (i < steps) {
+          const a = i * 2;
+          idx.push(a, a + 1, a + 2, a + 1, a + 3, a + 2);
+        }
       }
-      const curve = new THREE.CatmullRomCurve3(pts);
-      return new THREE.TubeGeometry(curve, 8, 0.12, 3, false);
+      const g = new THREE.BufferGeometry();
+      g.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+      g.setIndex(idx);
+      g.computeVertexNormals();
+      return g;
+    }
+
+    // curl: a thin helical ribbon — the characteristic "long chip" from a
+    // ductile cut. The ribbon's width runs radially, the way a real shaving
+    // curls about its own length.
+    function curlGeometry() {
+      const turns = 1.6;
+      return ribbonGeometry(8, 0.12, t => {
+        const a = t * turns * Math.PI * 2;
+        const r = 0.6 - t * 0.3;
+        return {
+          c: { x: Math.cos(a) * r, y: t * 2.4 - 1.2, z: Math.sin(a) * r },
+          side: { x: Math.cos(a), y: 0, z: Math.sin(a) },
+        };
+      });
     }
     // flake: a small triangular shard — brittle-material chip
     function flakeGeometry() {
@@ -117,17 +154,15 @@
       g.computeVertexNormals();
       return g;
     }
-    // coil: tight C-shape — aluminum-style short curl. r6 reduced from
-    // 10×4 = 80 tris to 6×3 = ~36 tris.
+    // coil: tight C-shape — the short curl an aluminum cut throws off.
     function coilGeometry() {
-      const pts = [];
-      const steps = 6;
-      for (let i = 0; i <= steps; i++) {
-        const a = (i / steps) * Math.PI * 1.3;
-        pts.push(new THREE.Vector3(Math.cos(a) * 0.5, 0, Math.sin(a) * 0.5));
-      }
-      const curve = new THREE.CatmullRomCurve3(pts);
-      return new THREE.TubeGeometry(curve, 6, 0.10, 3, false);
+      return ribbonGeometry(6, 0.10, t => {
+        const a = t * Math.PI * 1.3;
+        return {
+          c: { x: Math.cos(a) * 0.5, y: 0, z: Math.sin(a) * 0.5 },
+          side: { x: 0, y: 1, z: 0 },
+        };
+      });
     }
     // grit: tiny cube — fine powder / MDF dust
     function gritGeometry() {
@@ -147,6 +182,8 @@
       m.frustumCulled = false;
       m.visible = false;
       m.renderOrder = 5;
+      // rewritten every frame — let the driver allocate for that
+      m.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
       world.add(m);
       return m;
     });
@@ -172,6 +209,7 @@
     const chips = flavors.map(() => []); // chips[flavor][i] = {slot,pos,vel,...}
     const settledSlots = flavors.map(() => 0);
     const settledCount = flavors.map(() => 0);
+    const settledDirty = flavors.map(() => false);
 
     // ---- tool tracking ---------------------------------------------------
     let lastToolPos = null;
@@ -245,12 +283,18 @@
     const tmpEul = new THREE.Euler();
     const tmpScl = new THREE.Vector3();
 
+    // compose() routes Euler -> Quaternion -> matrix. Building the rotation
+    // matrix straight from the Euler angles and folding scale and position
+    // into the same 16 writes skips the quaternion entirely — this runs once
+    // per airborne chip per frame, so the detour is not free.
     function writeMatrix(pool, slot, c) {
-      tmpPos.set(c.pos.x, c.pos.y, c.pos.z);
       tmpEul.set(c.rot.x, c.rot.y, c.rot.z);
-      tmpQua.setFromEuler(tmpEul);
-      tmpScl.set(c.scale, c.scale, c.scale);
-      tmpMat.compose(tmpPos, tmpQua, tmpScl);
+      tmpMat.makeRotationFromEuler(tmpEul);
+      const e = tmpMat.elements, k = c.scale;
+      e[0] *= k; e[1] *= k; e[2]  *= k;
+      e[4] *= k; e[5] *= k; e[6]  *= k;
+      e[8] *= k; e[9] *= k; e[10] *= k;
+      e[12] = c.pos.x; e[13] = c.pos.y; e[14] = c.pos.z;
       pool.setMatrixAt(slot, tmpMat);
     }
 
@@ -271,14 +315,35 @@
       tmpMat.compose(tmpPos, tmpQua, tmpScl);
       pool.setMatrixAt(idx, tmpMat);
       pool.count = Math.max(pool.count, idx + 1);
-      pool.instanceMatrix.needsUpdate = true;
+      // Flag the pool, upload once at the end of the frame. Marking here
+      // re-sent the whole settled buffer for every chip that landed, and a
+      // busy cut lands several in the same frame.
+      settledDirty[flavor] = true;
     }
 
     // ---- simulation tick -------------------------------------------------
     let lastTime = performance.now();
     let _toolSpinRate = 0; // rev/s, smoothed toward target based on tool velocity
+    const PHYSICS_STEP = 1 / 70; // just under 60Hz, so a 60Hz frame always steps
+    let physicsDue = 0;
+
+    // per-frame self-timing, read by tools/probe_chip_perf.mjs. Two
+    // performance.now() calls a frame; the alternative is guessing which
+    // half of the frame cost is ours.
+    const stats = window.__swarfChipStats = { lastTickMs: 0, airborne: 0, pools: [] };
+    for (const [kind, pool] of [...airborne.map(p => ['airborne', p]), ...settled.map(p => ['settled', p])]) {
+      const g = pool.geometry;
+      stats.pools.push({
+        kind,
+        tris: (g.index ? g.index.count : g.attributes.position.count) / 3,
+        capacity: pool.instanceMatrix.count,
+        dynamic: pool.instanceMatrix.usage === THREE.DynamicDrawUsage,
+      });
+    }
+
     function tick() {
-      const now = performance.now();
+      const t0 = performance.now();
+      const now = t0;
       const dt = Math.min(0.05, (now - lastTime) / 1000);
       lastTime = now;
 
@@ -310,6 +375,20 @@
         }
       }
 
+      // Physics steps at most 60 times a second no matter how fast the
+      // display refreshes. On a 120Hz panel this halves the per-chip work
+      // for no visible difference — chips still move at the same speed,
+      // they are just integrated in the same steps a 60Hz machine takes.
+      // Below 60Hz every frame steps, so slow machines are unaffected.
+      physicsDue += dt;
+      if (physicsDue < PHYSICS_STEP) {
+        stats.lastTickMs = performance.now() - t0;
+        requestAnimationFrame(tick);
+        return;
+      }
+      const pdt = physicsDue;
+      physicsDue = 0;
+
       // per-flavor loop so swap-remove stays within a single pool's slot space
       for (let f = 0; f < chips.length; f++) {
         const arr = chips[f];
@@ -317,16 +396,16 @@
         let dirty = false;
         for (let i = arr.length - 1; i >= 0; i--) {
           const c = arr[i];
-          c.life -= dt;
-          c.vel.z -= GRAVITY * dt;
-          c.vel.x *= (1 - (1 - DRAG) * dt * 2);
-          c.vel.y *= (1 - (1 - DRAG) * dt * 2);
-          c.pos.x += c.vel.x * dt;
-          c.pos.y += c.vel.y * dt;
-          c.pos.z += c.vel.z * dt;
-          c.rot.x += c.spin.x * dt;
-          c.rot.y += c.spin.y * dt;
-          c.rot.z += c.spin.z * dt;
+          c.life -= pdt;
+          c.vel.z -= GRAVITY * pdt;
+          c.vel.x *= (1 - (1 - DRAG) * pdt * 2);
+          c.vel.y *= (1 - (1 - DRAG) * pdt * 2);
+          c.pos.x += c.vel.x * pdt;
+          c.pos.y += c.vel.y * pdt;
+          c.pos.z += c.vel.z * pdt;
+          c.rot.x += c.spin.x * pdt;
+          c.rot.y += c.spin.y * pdt;
+          c.rot.z += c.spin.z * pdt;
 
           const landed = c.pos.z <= 0.05 || c.life <= 0;
           if (landed) {
@@ -354,6 +433,15 @@
         }
         if (dirty) pool.instanceMatrix.needsUpdate = true;
       }
+
+      for (let f = 0; f < settledDirty.length; f++) {
+        if (settledDirty[f]) { settled[f].instanceMatrix.needsUpdate = true; settledDirty[f] = false; }
+      }
+
+      let live = 0;
+      for (let f = 0; f < chips.length; f++) live += chips[f].length;
+      stats.airborne = live;
+      stats.lastTickMs = performance.now() - t0;
 
       requestAnimationFrame(tick);
     }

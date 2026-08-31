@@ -1,122 +1,481 @@
 {
-  "_note": "swarf material palette — r12. Based on Langmuir MR-1 Cutting Parameters Reference Guide (Rev 11/30/2022). Values use the LOW END of Langmuir's recommended ranges for conservative starting points. MR-1 limits: max spindle 8000 RPM, max feed 100 IPM (2540 mm/min).",
-  "_units": "feed mm/min · plunge mm/min · spindle rpm · stepdown mm · stepover fraction of tool diameter",
-  "_tools": "by_tool keyed to endmill diameter in mm. 3.175 = 1/8 inch, 6.35 = 1/4 inch. Langmuir recommends 2-flute carbide high-helix for non-ferrous, 4-flute carbide variable-flute TiAlN for ferrous.",
+  "_note": "swarf material palette. STUDENT-SAFE STARTING VALUES, not optimal ones — every entry is slow, shallow and survivable, and every one of them can be pushed once you know what the cut sounds like. Feeds and speeds assume HSS tooling, which is the limiting factor: HSS runs at roughly a third the cutting speed of the coated carbide in Langmuir's MR-1 chart, so RPM here drops as the tool gets bigger rather than sitting at 8000. Machine limits: 8000 rpm, 2540 mm/min.",
+  "_tooling": "HSS, 2-flute for everything except mild steel, which assumes 4-flute. RPM comes from a conservative cutting speed (aluminum 60, brass 45, mild steel 20 m/min) as rpm = Vc x 1000 / (pi x diameter), capped at the machine's 8000. Feed comes from chip load: feed = rpm x flutes x fz, fz at the low end. The tool library has no flute-count field, so nothing adapts automatically — running a 4-flute where 2 is assumed halves the chip load (safe, though it can rub in aluminum); running a 2-flute where 4 is assumed doubles it. With carbide instead of HSS, every RPM here can roughly triple: see _source.",
+  "_units": "feed mm/min · plunge mm/min · spindle rpm · stepdown mm · stepover fraction of tool diameter · ramp angle degrees",
+  "_tools": "by_tool keyed to endmill diameter in mm, matching the endmills in the default tool library: 1.5875 = 1/16 inch, 3.175 = 1/8 inch, 6.35 = 1/4 inch. The closest diameter wins for any other tool. 1/8 and 1/4 are the shop's working sizes.",
+  "_ramp": "ramp.angle drives camEaseAngle, ramp.ease drives camEaseDown — the tool walks down into the cut instead of drilling in on a flute that may not cut at center. 1.8 degrees is the MR-1 chart's helical-ramp figure and is used for the metals. Softer materials ramp steeper so the entry move stays short.",
+  "_rules": "Invariants every entry holds, checked by tools/check_materials.mjs: plunge is 30-40% of feed; stepdown stays under half the tool diameter; feed <= 2540 mm/min and spindle <= 8000 rpm; stepover in (0, 0.5]; feed never falls while the spindle holds steady.",
   "_source": "https://assets.langmuirsystems.com/file/CuttingParameters-GettingStartedReferenceGuide-Rev11_30_2022.pdf",
+  "default": "aluminum_6061",
   "materials": [
     {
       "id": "aluminum_6061",
       "name": "aluminum 6061",
-      "note": "non-ferrous. chips should curl not powder. MR-1 cheat sheet: climb or conventional, helical ramp plunge.",
+      "flutes": 2,
+      "note": "HSS, 2-flute. cutting speed 60 m/min, so RPM drops as the tool gets bigger — a 1/4 endmill at 8000 would burn its corners off. chips should curl, not powder.",
+      "ramp": {
+        "ease": true,
+        "angle": 1.8
+      },
       "appearance": {
-        "color":       "#d4d8de",
-        "emissive":    "#3a3e46",
-        "roughness":   0.26,
-        "metalness":   0.82,
-        "opacity":     1.0,
-        "texture":     "brushed-metal",
+        "color": "#d4d8de",
+        "emissive": "#3a3e46",
+        "roughness": 0.26,
+        "metalness": 0.82,
+        "opacity": 1.0,
+        "texture": "brushed-metal",
         "textureRepeat": 6,
         "normalScale": 0.85,
         "normalStrength": 1.6,
-        "envIntensity":1.5,
-        "chipColor":   "#d0d4dc",
-        "chipEmissive":"#1a1c20"
+        "envIntensity": 1.5,
+        "chipColor": "#d0d4dc",
+        "chipEmissive": "#1a1c20"
       },
       "by_tool": {
-        "3.175": { "feed": 380, "plunge": 250, "spindle": 8000, "stepdown": 1.5, "stepover": 0.24 },
-        "6.35":  { "feed": 760, "plunge": 500, "spindle": 8000, "stepdown": 3.0, "stepover": 0.20 }
+        "1.5875": {
+          "feed": 160,
+          "plunge": 56,
+          "spindle": 8000,
+          "stepdown": 0.3,
+          "stepover": 0.2
+        },
+        "3.175": {
+          "feed": 240,
+          "plunge": 84,
+          "spindle": 6000,
+          "stepdown": 0.5,
+          "stepover": 0.2
+        },
+        "6.35": {
+          "feed": 280,
+          "plunge": 98,
+          "spindle": 3000,
+          "stepdown": 1.0,
+          "stepover": 0.15
+        }
       }
     },
     {
-      "id": "hardwood",
-      "name": "hard wood",
-      "note": "oak, maple, walnut, cherry. not on MR-1 cheat sheet — values from general CNC practice, conservative. dust mask required.",
-      "appearance": {
-        "color":       "#8a5a30",
-        "emissive":    "#2e1a08",
-        "roughness":   0.72,
-        "metalness":   0.02,
-        "opacity":     1.0,
-        "texture":     "wood-grain",
-        "textureRepeat": 4,
-        "normalScale": 0.6,
-        "normalStrength": 1.4,
-        "envIntensity":0.35,
-        "chipColor":   "#8b6238",
-        "chipEmissive":"#2a1808"
+      "id": "brass",
+      "name": "brass",
+      "flutes": 2,
+      "note": "HSS, 2-flute, cutting speed 45 m/min. brass grabs a dull or rake-heavy tool and climbs the work — sharp cutter, light cut, climb direction.",
+      "ramp": {
+        "ease": true,
+        "angle": 1.8
       },
-      "by_tool": {
-        "3.175": { "feed": 1000, "plunge": 500, "spindle": 8000, "stepdown": 1.5, "stepover": 0.40 },
-        "6.35":  { "feed": 1500, "plunge": 750, "spindle": 8000, "stepdown": 3.0, "stepover": 0.40 }
-      }
-    },
-    {
-      "id": "foam",
-      "name": "foam",
-      "note": "rigid PU, EPS, blue/pink insulation. not on MR-1 cheat sheet — very forgiving, main risk is tool deflection on long flutes.",
       "appearance": {
-        "color":       "#dcd6c4",
-        "emissive":    "#383428",
-        "roughness":   0.98,
-        "metalness":   0.0,
-        "opacity":     1.0,
-        "texture":     "foam-pores",
+        "color": "#c9a227",
+        "emissive": "#3a2c08",
+        "roughness": 0.3,
+        "metalness": 0.85,
+        "opacity": 1.0,
+        "texture": "brushed-metal",
         "textureRepeat": 6,
-        "normalScale": 1.2,
-        "normalStrength": 2.0,
-        "envIntensity":0.15,
-        "chipColor":   "#e8e2d2",
-        "chipEmissive":"#1a1818"
+        "normalScale": 0.7,
+        "normalStrength": 1.4,
+        "envIntensity": 1.4,
+        "chipColor": "#d8b43a",
+        "chipEmissive": "#2a1e04"
       },
       "by_tool": {
-        "3.175": { "feed": 1500, "plunge": 750,  "spindle": 8000, "stepdown": 3.0, "stepover": 0.50 },
-        "6.35":  { "feed": 2000, "plunge": 1000, "spindle": 8000, "stepdown": 6.0, "stepover": 0.50 }
-      }
-    },
-    {
-      "id": "polycarbonate",
-      "name": "polycarbonate",
-      "note": "Lexan and similar — gummy, melts if you feed too slow. lower RPM helps. single-flute O-flute ideal.",
-      "appearance": {
-        "color":       "#d8e6ec",
-        "emissive":    "#5a7080",
-        "roughness":   0.18,
-        "metalness":   0.0,
-        "opacity":     1.0,
-        "envIntensity":1.4,
-        "texture":     "clear",
-        "textureRepeat": 2,
-        "normalScale": 0.15,
-        "normalStrength": 0.8,
-        "chipColor":   "#d8eef4",
-        "chipEmissive":"#0a1418"
-      },
-      "by_tool": {
-        "3.175": { "feed": 600,  "plunge": 300, "spindle": 6000, "stepdown": 1.0, "stepover": 0.35 },
-        "6.35":  { "feed": 1000, "plunge": 500, "spindle": 6000, "stepdown": 2.0, "stepover": 0.35 }
+        "1.5875": {
+          "feed": 160,
+          "plunge": 56,
+          "spindle": 8000,
+          "stepdown": 0.3,
+          "stepover": 0.2
+        },
+        "3.175": {
+          "feed": 180,
+          "plunge": 63,
+          "spindle": 4500,
+          "stepdown": 0.5,
+          "stepover": 0.18
+        },
+        "6.35": {
+          "feed": 200,
+          "plunge": 70,
+          "spindle": 2250,
+          "stepdown": 0.8,
+          "stepover": 0.15
+        }
       }
     },
     {
       "id": "mild_steel",
       "name": "mild steel",
-      "note": "softer ferrous — MR-1 cheat sheet. climb cut, helical ramp plunge. 4-flute carbide TiAlN coated recommended. listen for chatter and back off.",
+      "flutes": 4,
+      "note": "HSS, 4-flute, cutting speed 20 m/min. slow and shallow — this is the edge of what HSS will do. if the cut squeals or the tool discolours, stop. carbide is a different conversation.",
+      "ramp": {
+        "ease": true,
+        "angle": 1.8
+      },
       "appearance": {
-        "color":       "#a4aab2",
-        "emissive":    "#404038",
-        "roughness":   0.42,
-        "metalness":   0.70,
-        "opacity":     1.0,
-        "texture":     "scaled-steel",
+        "color": "#a4aab2",
+        "emissive": "#404038",
+        "roughness": 0.42,
+        "metalness": 0.7,
+        "opacity": 1.0,
+        "texture": "scaled-steel",
         "textureRepeat": 4,
         "normalScale": 0.6,
         "normalStrength": 1.3,
-        "envIntensity":1.1,
-        "chipColor":   "#7a8088",
-        "chipEmissive":"#1a0a08"
+        "envIntensity": 1.1,
+        "chipColor": "#7a8088",
+        "chipEmissive": "#1a0a08"
       },
       "by_tool": {
-        "3.175": { "feed": 380, "plunge": 250, "spindle": 8000, "stepdown": 1.0, "stepover": 0.16 },
-        "6.35":  { "feed": 500, "plunge": 250, "spindle": 8000, "stepdown": 2.0, "stepover": 0.12 }
+        "1.5875": {
+          "feed": 120,
+          "plunge": 42,
+          "spindle": 4000,
+          "stepdown": 0.2,
+          "stepover": 0.12
+        },
+        "3.175": {
+          "feed": 130,
+          "plunge": 46,
+          "spindle": 2000,
+          "stepdown": 0.35,
+          "stepover": 0.12
+        },
+        "6.35": {
+          "feed": 140,
+          "plunge": 49,
+          "spindle": 1000,
+          "stepdown": 0.6,
+          "stepover": 0.1
+        }
+      }
+    },
+    {
+      "id": "acrylic",
+      "name": "acrylic",
+      "flutes": 2,
+      "note": "HSS, 2-flute — a single- or O-flute is better if you have one. cast PMMA. if the chip welds back into the cut, feed FASTER: melting comes from too little chip, not too much.",
+      "ramp": {
+        "ease": true,
+        "angle": 3
+      },
+      "appearance": {
+        "color": "#dfeff2",
+        "emissive": "#4a6a72",
+        "roughness": 0.1,
+        "metalness": 0.0,
+        "opacity": 1.0,
+        "texture": "clear",
+        "textureRepeat": 2,
+        "normalScale": 0.1,
+        "normalStrength": 0.6,
+        "envIntensity": 1.6,
+        "chipColor": "#e8f6f8",
+        "chipEmissive": "#0a1214"
+      },
+      "by_tool": {
+        "1.5875": {
+          "feed": 240,
+          "plunge": 84,
+          "spindle": 8000,
+          "stepdown": 0.4,
+          "stepover": 0.3
+        },
+        "3.175": {
+          "feed": 360,
+          "plunge": 126,
+          "spindle": 6000,
+          "stepdown": 0.8,
+          "stepover": 0.3
+        },
+        "6.35": {
+          "feed": 440,
+          "plunge": 154,
+          "spindle": 4000,
+          "stepdown": 1.5,
+          "stepover": 0.25
+        }
+      }
+    },
+    {
+      "id": "polycarbonate",
+      "name": "polycarbonate",
+      "flutes": 2,
+      "note": "HSS, 2-flute. Lexan and similar — gummier than acrylic, it strings rather than chips. same rule: if it melts, feed faster.",
+      "ramp": {
+        "ease": true,
+        "angle": 3
+      },
+      "appearance": {
+        "color": "#d8e6ec",
+        "emissive": "#5a7080",
+        "roughness": 0.18,
+        "metalness": 0.0,
+        "opacity": 1.0,
+        "envIntensity": 1.4,
+        "texture": "clear",
+        "textureRepeat": 2,
+        "normalScale": 0.15,
+        "normalStrength": 0.8,
+        "chipColor": "#d8eef4",
+        "chipEmissive": "#0a1418"
+      },
+      "by_tool": {
+        "1.5875": {
+          "feed": 240,
+          "plunge": 84,
+          "spindle": 8000,
+          "stepdown": 0.4,
+          "stepover": 0.3
+        },
+        "3.175": {
+          "feed": 350,
+          "plunge": 122,
+          "spindle": 5000,
+          "stepdown": 0.8,
+          "stepover": 0.3
+        },
+        "6.35": {
+          "feed": 420,
+          "plunge": 147,
+          "spindle": 3500,
+          "stepdown": 1.5,
+          "stepover": 0.25
+        }
+      }
+    },
+    {
+      "id": "hdpe",
+      "name": "HDPE / Delrin",
+      "flutes": 2,
+      "note": "HSS, 2-flute. machining plastics — HDPE, UHMW, acetal. the most forgiving thing here after wax. HDPE springs back after the cut, so a finish pass measures undersized.",
+      "ramp": {
+        "ease": true,
+        "angle": 3
+      },
+      "appearance": {
+        "color": "#e6e8e4",
+        "emissive": "#33352f",
+        "roughness": 0.55,
+        "metalness": 0.0,
+        "opacity": 1.0,
+        "texture": "clear",
+        "textureRepeat": 3,
+        "normalScale": 0.25,
+        "normalStrength": 0.9,
+        "envIntensity": 0.5,
+        "chipColor": "#eceee8",
+        "chipEmissive": "#1a1c18"
+      },
+      "by_tool": {
+        "1.5875": {
+          "feed": 300,
+          "plunge": 105,
+          "spindle": 8000,
+          "stepdown": 0.5,
+          "stepover": 0.3
+        },
+        "3.175": {
+          "feed": 450,
+          "plunge": 158,
+          "spindle": 6000,
+          "stepdown": 1.0,
+          "stepover": 0.3
+        },
+        "6.35": {
+          "feed": 560,
+          "plunge": 196,
+          "spindle": 4000,
+          "stepdown": 2.0,
+          "stepover": 0.25
+        }
+      }
+    },
+    {
+      "id": "mdf",
+      "name": "MDF",
+      "flutes": 2,
+      "note": "HSS, 2-flute. abrasive — it dulls a cutter faster than hardwood does, and a dull cutter burns. dust extraction and a mask, always.",
+      "ramp": {
+        "ease": true,
+        "angle": 5
+      },
+      "appearance": {
+        "color": "#a8794a",
+        "emissive": "#35240f",
+        "roughness": 0.88,
+        "metalness": 0.01,
+        "opacity": 1.0,
+        "texture": "foam-pores",
+        "textureRepeat": 8,
+        "normalScale": 0.5,
+        "normalStrength": 1.2,
+        "envIntensity": 0.2,
+        "chipColor": "#b98d5c",
+        "chipEmissive": "#2e1f0c"
+      },
+      "by_tool": {
+        "1.5875": {
+          "feed": 320,
+          "plunge": 112,
+          "spindle": 8000,
+          "stepdown": 0.5,
+          "stepover": 0.35
+        },
+        "3.175": {
+          "feed": 550,
+          "plunge": 192,
+          "spindle": 8000,
+          "stepdown": 1.0,
+          "stepover": 0.35
+        },
+        "6.35": {
+          "feed": 750,
+          "plunge": 262,
+          "spindle": 6000,
+          "stepdown": 2.0,
+          "stepover": 0.3
+        }
+      }
+    },
+    {
+      "id": "hardwood",
+      "name": "hard wood",
+      "flutes": 2,
+      "note": "HSS, 2-flute. oak, maple, walnut, cherry. plywood cuts about the same, but the glue lines dull a cutter faster. dust mask required.",
+      "ramp": {
+        "ease": true,
+        "angle": 5
+      },
+      "appearance": {
+        "color": "#8a5a30",
+        "emissive": "#2e1a08",
+        "roughness": 0.72,
+        "metalness": 0.02,
+        "opacity": 1.0,
+        "texture": "wood-grain",
+        "textureRepeat": 4,
+        "normalScale": 0.6,
+        "normalStrength": 1.4,
+        "envIntensity": 0.35,
+        "chipColor": "#8b6238",
+        "chipEmissive": "#2a1808"
+      },
+      "by_tool": {
+        "1.5875": {
+          "feed": 350,
+          "plunge": 122,
+          "spindle": 8000,
+          "stepdown": 0.5,
+          "stepover": 0.35
+        },
+        "3.175": {
+          "feed": 600,
+          "plunge": 210,
+          "spindle": 8000,
+          "stepdown": 1.0,
+          "stepover": 0.35
+        },
+        "6.35": {
+          "feed": 800,
+          "plunge": 280,
+          "spindle": 6000,
+          "stepdown": 2.0,
+          "stepover": 0.3
+        }
+      }
+    },
+    {
+      "id": "wax",
+      "name": "machining wax",
+      "flutes": 2,
+      "note": "HSS, 2-flute. the safe rehearsal stock — cuts like butter and re-melts into a fresh block. prove a program here before cutting metal.",
+      "ramp": {
+        "ease": true,
+        "angle": 8
+      },
+      "appearance": {
+        "color": "#3b7d70",
+        "emissive": "#10241f",
+        "roughness": 0.35,
+        "metalness": 0.0,
+        "opacity": 1.0,
+        "texture": "clear",
+        "textureRepeat": 2,
+        "normalScale": 0.2,
+        "normalStrength": 0.7,
+        "envIntensity": 0.6,
+        "chipColor": "#4d9c8c",
+        "chipEmissive": "#0a1a16"
+      },
+      "by_tool": {
+        "1.5875": {
+          "feed": 450,
+          "plunge": 158,
+          "spindle": 8000,
+          "stepdown": 0.71,
+          "stepover": 0.4
+        },
+        "3.175": {
+          "feed": 800,
+          "plunge": 280,
+          "spindle": 8000,
+          "stepdown": 1.5,
+          "stepover": 0.4
+        },
+        "6.35": {
+          "feed": 1000,
+          "plunge": 350,
+          "spindle": 6000,
+          "stepdown": 3.0,
+          "stepover": 0.35
+        }
+      }
+    },
+    {
+      "id": "foam",
+      "name": "foam",
+      "flutes": 2,
+      "note": "HSS, 2-flute. rigid PU, EPS, blue/pink insulation. the risk is tool deflection on a long reach, not the cut.",
+      "ramp": {
+        "ease": true,
+        "angle": 10
+      },
+      "appearance": {
+        "color": "#dcd6c4",
+        "emissive": "#383428",
+        "roughness": 0.98,
+        "metalness": 0.0,
+        "opacity": 1.0,
+        "texture": "foam-pores",
+        "textureRepeat": 6,
+        "normalScale": 1.2,
+        "normalStrength": 2.0,
+        "envIntensity": 0.15,
+        "chipColor": "#e8e2d2",
+        "chipEmissive": "#1a1818"
+      },
+      "by_tool": {
+        "1.5875": {
+          "feed": 600,
+          "plunge": 210,
+          "spindle": 8000,
+          "stepdown": 0.71,
+          "stepover": 0.45
+        },
+        "3.175": {
+          "feed": 1000,
+          "plunge": 350,
+          "spindle": 8000,
+          "stepdown": 1.42,
+          "stepover": 0.45
+        },
+        "6.35": {
+          "feed": 1300,
+          "plunge": 455,
+          "spindle": 6000,
+          "stepdown": 2.85,
+          "stepover": 0.4
+        }
       }
     }
   ]

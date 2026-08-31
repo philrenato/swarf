@@ -64,9 +64,9 @@ A small indicator LED next to the renato.design watermark changes color with the
 
 Materials
 ─────────
-A MATERIAL row sits at the top of the TOOLPATHS panel — pick hard wood, foam, aluminum 6061, polycarbonate, or mild steel. The selection retints the stock and the chips. Hardwood looks like wood and throws brown shavings; aluminum reads as brushed silver and spits silver curls; polycarbonate goes translucent blue and the chips do too. The endmill itself is always brushed metallic silver with a helical flute pattern, regardless of stock material — a tool is a tool.
+A MATERIAL row sits at the top of the TOOLPATHS panel — aluminum 6061, brass, mild steel, acrylic, polycarbonate, HDPE, MDF, hard wood, machining wax, foam. The selection retints the stock and the chips. Hardwood looks like wood and throws brown shavings; aluminum reads as brushed silver and spits silver curls; polycarbonate goes translucent blue and the chips do too. The endmill itself is always brushed metallic silver with a helical flute pattern, regardless of stock material — a tool is a tool.
 
-Speeds and feeds for each material × tool diameter live in web/kiri/swarf-materials.json (HSS midranges cut in half for safety per Phil's prosumer-CNC rule). The selection is per-browser and persists across reloads.
+Speeds and feeds for each material × tool diameter live in web/kiri/swarf-materials.json, along with the angle the tool eases down into the cut at. They are student-safe starting values for HSS tooling, not optimal ones: spindle speed follows a conservative cutting speed, so RPM drops as the tool gets wider, and no step-down is more than half the tool diameter. Langmuir's MR-1 chart is the cross-reference, but it is written for coated carbide and would burn HSS. The selection is per-browser and persists across reloads.
 
 Student mode vs. Expert mode
 ────────────────────────────

@@ -4,6 +4,7 @@
  *   - stock mesh (the part widget): color + roughness + metalness + opacity
  *   - chip particles (via global tint that swarf-chips.js reads)
  *   - tool mesh: subtle helical flute pattern via procedural canvas texture
+ *   - op feeds/speeds and the global ease-down ramp
  *   - small "MATERIAL" dropdown injected into the TOOLPATHS panel header
  *
  * Procedural textures (no binary assets) — generated on-the-fly with a
@@ -411,6 +412,28 @@
     notify();
   }
 
+  // Push the material's ramp preset into the process. Ease-down is global
+  // (prepare.js reads camEaseDown / camEaseAngle off the process, not off an
+  // op), so this is a settings write, not an op write. Shallow angles for
+  // metal, steep for foam: a hard material wants the tool to walk down into
+  // the cut rather than drill in on a flute that may not cut at center.
+  function applyRamp() {
+    if (!current || !current.ramp) return;
+    const api = window.kiri && window.kiri.api;
+    if (!api || !api.conf) return;
+    const settings = api.conf.get();
+    const proc = settings && settings.process;
+    if (!proc) return;
+    const ease = current.ramp.ease !== false;
+    const angle = current.ramp.angle;
+    if (proc.camEaseDown === ease && proc.camEaseAngle === angle) return;
+    proc.camEaseDown = ease;
+    if (typeof angle === 'number') proc.camEaseAngle = angle;
+    try { api.conf.save(); } catch (e) {}
+    // repaint the expert-panel inputs so they don't show the stale angle
+    try { api.conf.update_fields(); } catch (e) {}
+  }
+
   // Apply a material preset to a single op record.
   function applyPresetToOp(op, tools, byTool, diameters) {
     // find the tool diameter for this op — convert inches to mm
@@ -440,6 +463,7 @@
   // Push the material's by_tool feed/speed/stepdown/stepover into all
   // current ops. Picks the closest tool diameter match from by_tool.
   function applyFeedsToOps() {
+    applyRamp();
     if (!current || !current.by_tool) return;
     const api = window.kiri && window.kiri.api;
     if (!api || !api.conf) return;
@@ -548,7 +572,7 @@
     label.style.cssText = 'font-size:13px; letter-spacing:0.18em; text-transform:uppercase; color:var(--swarf-accent-hi, #ff3a2a); font-weight:600; flex:0 0 auto;';
     const select = document.createElement('select');
     select.id = 'swarf-material-select';
-    select.title = 'stock material — sets PBR surface, chip physics, and starting feeds/speeds';
+    select.title = 'stock material — sets PBR surface, chip physics, and starting feeds, speeds and ramp angle';
     select.style.cssText = 'flex:1; font-size:13px; padding:6px 8px; background:rgba(0,0,0,0.55); border:1px solid var(--swarf-accent, #7a2a1a); color:#fff; border-radius:2px; font-family:"JetBrains Mono","IBM Plex Mono",ui-monospace,monospace;';
     for (const m of materials) {
       const opt = document.createElement('option');
@@ -583,8 +607,12 @@
         materials = (data.materials || []).filter(m => m.appearance);
         if (!materials.length) return;
         const stored = localStorage.getItem(STORAGE_KEY);
+        // `default` is declared in the JSON so the dropdown can be ordered
+        // for reading (hardest first) without that order deciding what a
+        // first-time student lands on.
+        const fallback = materials.find(m => m.id === data.default) || materials[0];
         const initialId = stored && materials.find(m => m.id === stored)
-          ? stored : materials[0].id;
+          ? stored : fallback.id;
         setCurrent(initialId);
         // apply when widgets arrive (seed cube etc.)
         const apiPoll = setInterval(() => {

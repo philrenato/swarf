@@ -16,7 +16,7 @@
     // (src/kiri/app/help.js) reads this too, via window.SWARF_VERSION,
     // instead of carrying its own separate hardcoded copy that can drift
     // (it had silently said "v00000-007" since the very first fork audit).
-    window.SWARF_VERSION = 'v00000-019';
+    window.SWARF_VERSION = 'v00000-020';
 
     const ver = document.createElement('div');
     ver.id = 'ver';

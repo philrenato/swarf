@@ -832,6 +832,9 @@ export const conf = {
         // CAM only
         origin: {},
         stock: {},
+        // swarf: the shop's actual tooling — 1/8 and 1/4 endmills with matching
+        // shanks, a 1/2 inch cutting region and an inch of shank above it. Flute
+        // length bounds how deep a part these can reach in one setup.
         tools:[
             {
                 id: 1000,
@@ -842,7 +845,7 @@ export const conf = {
                 shaft_diam: 0.25,
                 shaft_len:  1,
                 flute_diam: 0.25,
-                flute_len:  2,
+                flute_len:  0.5,
                 taper_tip: 0,
             },
             {
@@ -854,7 +857,7 @@ export const conf = {
                 shaft_diam: 0.125,
                 shaft_len:  1,
                 flute_diam: 0.125,
-                flute_len:  1.5,
+                flute_len:  0.5,
                 taper_tip: 0,
             },
             {
@@ -866,7 +869,7 @@ export const conf = {
                 shaft_diam: 0.0625,
                 shaft_len:  1,
                 flute_diam: 0.0625,
-                flute_len:  1.5,
+                flute_len:  0.5,
                 taper_tip: 0,
             },
             {
@@ -891,7 +894,7 @@ export const conf = {
                 shaft_diam: 0.125,
                 shaft_len:  1,
                 flute_diam: 0.125,
-                flute_len:  1.5,
+                flute_len:  0.5,
                 taper_tip: 0,
             },
             {

@@ -8,7 +8,7 @@
 #   3. rewrite 4 absolute/relative paths to /swarf-app/ (see feedback_swarf_deploy_paths.md)
 #   4. stamp swarf-sw.js's cache version so this deploy invalidates the
 #      previous offline cache instead of a lab tab serving a stale engine
-#   5. stage + commit both repos
+#   5. stage + commit the WEB repo only — commit the source repo yourself
 #   6. push only the web repo (live site); leaves the source commit local
 #      unless you add --push-src.
 #

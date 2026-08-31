@@ -480,6 +480,8 @@ function setup_keybd_nav() {
     // swarf: Concerns drawer (markup Apr 15, locked rule) — bottom-bar count badge,
     // click opens a list of rule-based warnings. Starter ruleset: stepover too wide
     // on finishing, plunge rate same as feed rate, depth-of-cut > 1× tool diameter.
+    // Op records name these fields `rate` and `down` (see cl-ops.js createPopOp) —
+    // reading `feed`/`depth` here made rules 2 and 3 unfireable.
     // More rules land during the coaching pass.
     (function(){
         if (document.getElementById('swarf-concerns')) return;
@@ -511,9 +513,14 @@ function setup_keybd_nav() {
                 const settings = api.conf.get();
                 const proc = settings.process || {};
                 const ops = (proc.ops || proc.ops2 || []).filter(Boolean);
+                const tools = settings.tools || [];
                 for (const op of ops) {
-                    const tool = op.tool ? api.conf.get_tool?.(op.tool) : null;
-                    const td = tool?.metric ? tool.flute_diam : (tool?.flute_diam || 3);
+                    // op.tool holds a tool id; the library stores imperial
+                    // tools in inches, and every op field here is mm.
+                    const tool = tools.find(t => t.id === op.tool || t.number === op.tool);
+                    const td = tool
+                        ? (tool.flute_diam || 0) * (tool.metric ? 1 : 25.4)
+                        : 3.175;
                     // rule 1 — stepover > 50% on a finishing pass
                     if ((op.type === 'contour' || op.type === 'finish') && op.step != null) {
                         if (op.step > 0.5) {
@@ -525,18 +532,18 @@ function setup_keybd_nav() {
                         }
                     }
                     // rule 2 — plunge rate equal to or greater than feed rate
-                    if (op.feed && op.plunge && op.plunge >= op.feed * 0.95) {
+                    if (op.rate && op.plunge && op.plunge >= op.rate * 0.95) {
                         warnings.push({
                             title: `plunge rate ≈ feed rate`,
-                            body: `plunging at ${op.plunge} mm/min vs feed ${op.feed} mm/min — most tools want plunge at 30–50% of feed.`,
+                            body: `plunging at ${op.plunge} mm/min vs feed ${op.rate} mm/min — most tools want plunge at 30–50% of feed.`,
                             hint: 'too fast a plunge snaps end-mills'
                         });
                     }
                     // rule 3 — depth of cut > 1× tool diameter
-                    if (op.depth && td && op.depth > td * 1.0) {
+                    if (op.down && td && op.down > td * 1.0) {
                         warnings.push({
                             title: `step-down deeper than tool diameter`,
-                            body: `${op.depth.toFixed(2)} mm step-down on a ${td.toFixed(2)} mm tool — chip evacuation gets bad past 1× diameter.`,
+                            body: `${op.down.toFixed(2)} mm step-down on a ${td.toFixed(2)} mm tool — chip evacuation gets bad past 1× diameter.`,
                             hint: 'split into shallower passes for safer cutting'
                         });
                     }
@@ -596,18 +603,19 @@ function setup_keybd_nav() {
             { kind:'op', name:'contour', body:'smooth surface pass. cutter crawls across the X or Y axis at a fine stepover, riding part curves. typical stepover 5–15% of tool diameter.', tags:'contouring finishing surface 2.5d' },
             { kind:'op', name:'outline', body:"cuts the part free from the stock by following its silhouette. usually the last cutting op. add tabs so the part doesn't fly out.", tags:'outline cutout silhouette' },
             { kind:'op', name:'pocket', body:'clears flat-bottomed cavities — trays, countersinks, recesses. selection-driven; pick the floor face and swarf walls down.', tags:'pocket cavity tray' },
-            { kind:'param', name:'stepover', body:'how far the tool moves sideways between passes. % of tool diameter. roughing 40–60%, finishing 5–15%.', tags:'stepover sideways pass spacing' },
-            { kind:'param', name:'step-down', body:'depth of cut per layer. wood/plastic up to 1× tool diameter; aluminum 0.25–0.5×; steel 0.1–0.25×.', tags:'depth of cut step down doc layer' },
+            { kind:'param', name:'stepover', body:'how far the tool moves sideways between passes, as a fraction of tool diameter. swarf loads 10–20% for metal and 30–45% for wood, foam and plastic. wider cuts faster and loads the tool harder.', tags:'stepover sideways pass spacing' },
+            { kind:'param', name:'step-down', body:'depth of cut per layer. swarf keeps every preset under half the tool diameter, which is conservative for wood and about right for metal. deeper than the tool is wide and the flutes cannot clear the chips.', tags:'depth of cut step down doc layer' },
             { kind:'param', name:'feed rate', body:'how fast the tool moves through material, in mm/min. when in doubt: slower is safer.', tags:'feed feedrate mm/min cutting speed' },
             { kind:'param', name:'plunge rate', body:'how fast the tool drives down into material. usually 30–50% of feed rate. too fast snaps end-mills.', tags:'plunge plungerate descent' },
-            { kind:'param', name:'spindle speed', body:'RPM of the cutter. wood 12k–24k, aluminum 10k–18k, steel 4k–10k.', tags:'spindle rpm cutter speed' },
-            { kind:'param', name:'ease down', body:'ramp into the cut at an angle instead of plunging straight down. easier on the tool, especially for end-mills with no center cut. on by default in swarf.', tags:'ease down ramp helix descent' },
+            { kind:'param', name:'spindle speed', body:'RPM of the cutter. it follows the material and the tool width, not a fixed number — a wider tool at the same RPM cuts faster at its edge, so it has to slow down. swarf loads 8000 for foam and wood, dropping to 1000 for a 1/4 inch tool in steel. the MR-1 tops out at 8000.', tags:'spindle rpm cutter speed' },
+            { kind:'param', name:'ease down', body:'ramp into the cut at an angle instead of plunging straight down. easier on the tool, especially for end-mills with no center cut. on by default, and the material sets the angle — 1.8 degrees for metal, up to 10 for foam.', tags:'ease down ramp helix descent' },
             { kind:'param', name:'depth first', body:'finish each Z layer top-to-bottom in one region before moving to the next. opposite is layer-first (sweep all regions per layer).', tags:'depth first order strategy' },
             { kind:'param', name:'tab', body:"small uncut bridge of stock that holds the part during the outline cut so it doesn't shift or fly out. break/sand off after.", tags:'tab tabs holding bridge' },
+            { kind:'param', name:'material', body:'what you are cutting. the MATERIAL row at the top of TOOLPATHS sets the feed, plunge, spindle speed, step-down, stepover and ramp angle for every operation, and retints the stock and the chips. the values are conservative starting points for HSS tooling — slow enough to survive a first cut, not fast.', tags:'material stock feeds speeds preset palette' },
             { kind:'param', name:'stock', body:'the raw block of material on the machine bed. defaults to part-bbox in student mode; expert mode lets you size it independently.', tags:'stock material block bed' },
             { kind:'param', name:'z top / z bottom', body:'upper and lower Z bounds for the carving. defines the slab swarf will work inside.', tags:'z top bottom bounds height' },
             { kind:'param', name:'z clearance', body:'how high above stock the tool retracts during rapids. high enough to clear clamps; low enough not to waste time.', tags:'z clearance retract rapid' },
-            { kind:'tool', name:'end-mill', body:'flat-bottomed cutter, the workhorse. fewer flutes = better chip clearance for soft material.', tags:'endmill flat cutter mill' },
+            { kind:'tool', name:'end-mill', body:'flat-bottomed cutter, the workhorse. fewer flutes clear chips better in soft material; more flutes give a finer finish in metal. swarf assumes 2-flute HSS, or 4-flute for steel.', tags:'endmill flat cutter mill flutes' },
             { kind:'tool', name:'ball-end', body:'spherical tip. for 3D contour finishing on curved surfaces. leaves a cusp pattern proportional to stepover.', tags:'ballend spherical 3d finishing' },
             { kind:'tool', name:'v-bit', body:'conical cutter for engraving and chamfering. depth controls the line width.', tags:'vbit cone engraving chamfer' },
             { kind:'tool', name:'drill', body:'plunges straight down to make holes. paired with the drill operation (expert mode).', tags:'drill hole plunge' },
