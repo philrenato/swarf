@@ -10,7 +10,7 @@
     "gcodePre": [
         "G21 ; set units to MM (required)",
         "G90 ; absolute position mode (required)",
-        "M03 S1500 ; spindle on slow, each operation sets its own speed below"
+        "M03 S1500 ; spindle on, slow"
     ],
     "gcodePost": [
         "M05 ; spindle off",

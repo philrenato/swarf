@@ -1944,3 +1944,33 @@ body.swarf-phone > *:not(#swarf-phone-wall) { display: none !important; }
   background: var(--swarf-accent);
   color: #fff;
 }
+
+/* ---------------------------------------------------------------------
+   gcode macro row — the HEADER / FOOTER / TOOL / DWELL / SPINDLE tabs in
+   the device dialog. Stock gives each button `flex: 1 1 0` with the default
+   auto min-width, so the buttons cannot shrink below their label and past
+   four of them the row overflows the panel: the last tab is clipped off the
+   right edge with no scroll and no way to reach it. SPINDLE is the one that
+   falls off, and it is the tab that carries the per-operation speed macro.
+   Wrap instead of overflowing.
+   --------------------------------------------------------------------- */
+.ext-buttons.gcode-macros {
+    flex-wrap: wrap;
+}
+.ext-buttons.gcode-macros button {
+    flex: 1 1 auto;
+    min-width: 5.5em;
+}
+
+/* ---------------------------------------------------------------------
+   device dialog sizing. Stock #mod-setup declares min-width: 725px while
+   the modal box around it does not grow to match, so on a narrower window
+   the right-hand column is simply cut off at the box edge — the SPINDLE
+   macro tab disappears with no scrollbar to reach it. Let the dialog shrink
+   to the box, and scroll its own content if it still cannot fit.
+   --------------------------------------------------------------------- */
+#mod-setup {
+    min-width: 0;
+    max-width: 100%;
+    overflow-x: auto;
+}
