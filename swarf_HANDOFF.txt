@@ -623,7 +623,32 @@ r21 — MATERIAL PALETTE REBUILT + CHIP COST CUT (2026-08-31)
      grep the target for the added line before resolving. The other 28
      are SLA/MSLA resin and Bambu work that CAM-only swarf never uses.
 
-  9. Docs/help updated to match: the search-help glossary entries for
+  9. Device dialog was clipping its own gcode macro tabs. Stock #mod-setup
+     declares min-width: 725px while the modal box does not grow to match,
+     so the right-hand column ran past the box edge with NO scrollbar and
+     the SPINDLE tab — the one carrying the per-op speed macro — was simply
+     unreachable. #mod-setup can now shrink and scrolls its own content;
+     .gcode-macros wraps. Both rules live in swarf.css, not index.css, so
+     an upstream merge cannot quietly drop them.
+     `node tools/probe_overflow.mjs <url>` walks the visible DOM for content
+     that exceeds its box while its own overflow is hidden or visible, and
+     names the CHILD that sticks out rather than the box it sticks out of.
+     It ignores absolutely positioned elements — the modal close X sits
+     outside its parent on purpose. It reported the 85px clip before the fix
+     and reports nothing after, on localhost and live.
+
+ 10. The `?nochips=1` kill switch WORKS — verified on the live site. An
+     earlier read this session suggested the query string was being eaten by
+     a boot reload; that was wrong, and it was wrong because the init-poll
+     bug in item 6 meant neither arm had chips. Use it to judge chip
+     smoothness on real hardware, which is the only place it can be judged.
+
+ 11. Concerns drawer verified end to end after the field-name fix in item 3b:
+     silent on every shipped preset (aluminum, mild steel, foam, three ops
+     each), and six warnings when plunge is set to feed and step-down to
+     99mm. Before the fix it could not have fired at all.
+
+ 12. Docs/help updated to match: the search-help glossary entries for
      stepover, step-down, spindle speed, ease down and end-mill all
      stated carbide/router numbers that now contradict what the app
      loads. Added a `material` entry. readme.md, swarf_README.txt and
