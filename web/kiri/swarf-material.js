@@ -408,6 +408,7 @@
     window.__swarfMaterial = m;
     try { localStorage.setItem(STORAGE_KEY, m.id); } catch (e) {}
     applyToStock();
+    applyRamp();
     applyFeedsToOps();
     notify();
   }
@@ -434,53 +435,95 @@
     try { api.conf.update_fields(); } catch (e) {}
   }
 
-  // Apply a material preset to a single op record.
-  function applyPresetToOp(op, tools, byTool, diameters) {
-    // find the tool diameter for this op — convert inches to mm
-    const tool = tools.find(t => t.id === op.tool || t.number === op.tool);
-    let toolDiam = tool
-      ? (tool.flute_diam || tool.shaft_diam || 0.25)
-      : 0.25;
-    // KM stores imperial tools in inches; by_tool is keyed in mm
-    const isMetric = tool && tool.metric;
-    if (!isMetric) toolDiam *= 25.4;
-    // find closest diameter match in by_tool
-    let best = diameters[0];
-    let bestDist = Math.abs(toolDiam - best);
-    for (const d of diameters) {
-      const dist = Math.abs(toolDiam - d);
-      if (dist < bestDist) { best = d; bestDist = dist; }
-    }
-    const preset = byTool[String(best)];
-    if (!preset) return;
-    if (preset.feed !== undefined)     op.rate    = preset.feed;
-    if (preset.plunge !== undefined)   op.plunge  = preset.plunge;
-    if (preset.spindle !== undefined)  op.spindle = preset.spindle;
-    if (preset.stepdown !== undefined) op.down    = preset.stepdown;
-    if (preset.stepover !== undefined) op.step    = preset.stepover;
+  // One material record, one tool diameter, one device: the numbers an op
+  // gets. Pure, so tools/check_materials.mjs runs this exact function over
+  // the whole tool library. lim = { spindleMin, spindleMax, feedMax, feedMaxZ }
+  // in rpm and mm/min, 0 = no limit.
+  function derive(m, diamMm, lim) {
+    const c = m && m.cut;
+    if (!c || !(diamMm > 0)) return null;
+    lim = lim || {};
+    let rpm = c.vc * 1000 / (Math.PI * diamMm);
+    if (lim.spindleMax > 0) rpm = Math.min(rpm, lim.spindleMax);
+    if (lim.spindleMin > 0) rpm = Math.max(rpm, lim.spindleMin);
+    rpm = Math.floor(rpm / 50) * 50;
+    let feed = rpm * c.flutes * c.chip * diamMm;
+    if (lim.feedMax > 0) feed = Math.min(feed, lim.feedMax);
+    feed = Math.round(feed / 10) * 10;
+    let plunge = feed * 0.35;
+    if (lim.feedMaxZ > 0) plunge = Math.min(plunge, lim.feedMaxZ);
+    plunge = Math.round(plunge / 5) * 5;
+    let down = c.down * diamMm;
+    if (c.downMax > 0) down = Math.min(down, c.downMax);
+    down = Math.round(down * 20) / 20;
+    return {
+      spindle: rpm,
+      feed,
+      plunge,
+      stepdown: down,
+      stepover: c.stepover,
+      // the cutting speed the tool actually sees once the spindle clamps
+      vc: Math.round(Math.PI * diamMm * rpm / 1000),
+    };
+  }
+  window.__swarfDerive = derive;
+
+  function toolDiamMm(tool) {
+    if (!tool) return 6.35;
+    const d = tool.flute_diam || tool.shaft_diam || 0;
+    return tool.metric ? d : d * 25.4;
+  }
+  function deviceLimits(settings) {
+    const dev = settings.device || {};
+    const proc = settings.process || {};
+    const zcaps = [dev.feedMaxZ, proc.camFastFeedZ].filter(v => v > 0);
+    return {
+      spindleMin: dev.spindleMin || 0,
+      spindleMax: dev.spindleMax || 0,
+      feedMax: dev.feedMax || 0,
+      feedMaxZ: zcaps.length ? Math.min(...zcaps) : 0,
+    };
   }
 
-  // Push the material's by_tool feed/speed/stepdown/stepover into all
-  // current ops. Picks the closest tool diameter match from by_tool.
+  // Ops keep the student's edits. An op is re-derived only when its stamp
+  // no longer matches — the material, the op's tool or the device changed —
+  // or when it has no stamp yet (a new op, or the auto-added rough).
+  const OP_TYPES = ['rough', 'outline', 'contour', 'pocket', 'drill'];
+  function opValues(type, p) {
+    // a drill's `rate` is its plunge (cl-ops.js maps it to camDrillDownSpeed)
+    if (type === 'drill') return { spindle: p.spindle, rate: p.plunge, down: p.stepdown };
+    if (type === 'contour') return { spindle: p.spindle, rate: p.feed, step: p.stepover };
+    return { spindle: p.spindle, rate: p.feed, plunge: p.plunge, down: p.stepdown, step: p.stepover };
+  }
+  let applying = false;
   function applyFeedsToOps() {
-    applyRamp();
-    if (!current || !current.by_tool) return;
+    if (applying || !current || !current.cut) return;
     const api = window.kiri && window.kiri.api;
     if (!api || !api.conf) return;
     const settings = api.conf.get();
-    if (!settings || !settings.process || !settings.process.ops) return;
+    const proc = settings && settings.process;
+    if (!proc) return;
     const tools = settings.tools || [];
-    const byTool = current.by_tool;
-    const diameters = Object.keys(byTool).map(Number).sort((a, b) => a - b);
-    if (!diameters.length) return;
+    const lim = deviceLimits(settings);
+    const devName = (settings.device && settings.device.deviceName) || '';
+    const findTool = id => tools.find(t => t.id == id);
+    let changed = false;
 
-    for (const op of settings.process.ops) {
-      if (!op || !op.type || op.type === '|') continue;
-      applyPresetToOp(op, tools, byTool, diameters);
+    for (const op of proc.ops || []) {
+      if (!op || !OP_TYPES.includes(op.type)) continue;
+      const stamp = `${current.id}:${op.tool}:${devName}`;
+      if (op.preset === stamp) continue;
+      const p = derive(current, toolDiamMm(findTool(op.tool)), lim);
+      if (!p) continue;
+      Object.assign(op, opValues(op.type, p));
+      op.preset = stamp;
+      changed = true;
     }
+    if (!changed) return;
+    applying = true;
     try { api.conf.save(); } catch (e) {}
-    // re-render the entire op list so drawers pick up new values
     try { api.event.emit('cam.op.render'); } catch (e) {}
+    applying = false;
   }
   function notify() {
     try { window.dispatchEvent(new CustomEvent('swarf.material.change', { detail: current })); } catch (e) {}
@@ -619,12 +662,12 @@
           if (window.kiri && window.kiri.api && window.kiri.api.event) {
             clearInterval(apiPoll);
             window.kiri.api.event.on('widget.add', () => setTimeout(applyToStock, 50));
-            // apply material feeds after slice (incl. auto-inject) and when ops change
-            try { window.kiri.api.event.on('slice.end', () => setTimeout(applyFeedsToOps, 100)); } catch (e) {}
-            try { window.kiri.api.event.on('preview.end', () => setTimeout(applyFeedsToOps, 100)); } catch (e) {}
-            // when a new op is added via the UI, apply material feeds to it
-            try { window.kiri.api.event.on('cam.op.add', () => setTimeout(applyFeedsToOps, 50)); } catch (e) {}
-            try { window.kiri.api.event.on('cam.op.list', () => setTimeout(applyFeedsToOps, 50)); } catch (e) {}
+            // every op add/edit and device change lands in conf.save
+            // ('settings.saved') or the device dialog ('settings'); run
+            // synchronously so an auto-added rough carries the material's
+            // numbers before act-paths reads the process
+            try { window.kiri.api.event.on('settings.saved', applyFeedsToOps); } catch (e) {}
+            try { window.kiri.api.event.on('settings', applyFeedsToOps); } catch (e) {}
             // swarf v010 debt: re-apply after slice/view rebuilds the mesh
             try { window.kiri.api.event.on('slice.end', () => setTimeout(applyToStock, 30)); } catch (e) {}
             try { window.kiri.api.event.on('view.set',  () => setTimeout(applyToStock, 30)); } catch (e) {}

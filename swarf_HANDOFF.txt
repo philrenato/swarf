@@ -1,5 +1,5 @@
 swarf_HANDOFF.txt — for Claude
-last updated 2026-08-31 (v00000-020 r21, material palette + chip cost)
+last updated 2026-09-18 (v00000-021 r22, Fable review: tool library, derived palette, both devices)
 
 ════════════════════════════════════════════════════════════════════
 CURRENT STATE — read this before anything below. Everything under
@@ -9,13 +9,14 @@ THIS BOX WINS — it was written last and describes what's actually true.
 ════════════════════════════════════════════════════════════════════
 
 WHAT SWARF IS: a CAM-only, UI-layer fork of Kiri:Moto (GridSpace,
-MIT), scoped to two machines (Langmuir MR-1, ShopBot Basic), seven
-tools, and four student-mode operations (rough/contour/outline/
+MIT), scoped to two machines (Langmuir MR-1, ShopBot Basic), twenty
+tools (every ER-20/ER-25 collet size to 1/2", inch and metric), and
+four student-mode operations (rough/contour/outline/
 pocket) with Flip/Drip/Area/Gcode/Register/Level/Helical behind an
 Expert toggle. package.json version 4.7.1 — synced to Kiri:Moto's
 actual v4.7.1 release, not just a version-string bump (see r16).
 
-VERSION STAMP: v00000-020, the tap-to-update pill bottom-right in the
+VERSION STAMP: v00000-021, the tap-to-update pill bottom-right in the
 app (#ver, web/kiri/swarf-version.js sets window.SWARF_VERSION — the
 single source; src/kiri/app/help.js's About panel reads it too, don't
 let these drift apart again, see r19 item 3).
@@ -31,20 +32,35 @@ WHAT'S WORKING (verified this session, not assumed):
     button (web/kiri/swarf-install.js) only appears when the browser
     actually fires beforeinstallprompt.
   - Material-to-feeds system. web/kiri/swarf-material.js +
-    swarf-materials.json. TEN materials x THREE endmill diameters
-    (1/16, 1/8, 1/4), each carrying feed/plunge/spindle/stepdown/
-    stepover plus a ramp angle. Picking a material applies the feeds
-    to every current op AND writes camEaseDown/camEaseAngle into the
-    process (ease-down is process-level in prepare.js, not an op
-    field). Values are STUDENT-SAFE HSS starting points, not the
+    swarf-materials.json. TEN materials, each ONE `cut` record
+    (vc m/min, flutes, chip load per mm of diameter, stepdown as a
+    fraction of diameter + an absolute cap for the metals, stepover)
+    plus a ramp angle. Every op's numbers are DERIVED at apply time
+    by derive() (window.__swarfDerive) for the op's actual tool
+    diameter inside the device's limits (spindleMin/spindleMax/
+    feedMax/feedMaxZ in src/kiri/dev/cam/*.json, whitelisted in
+    defaults.js cam.d — fill_cull_once drops any device key not
+    there). Values are STUDENT-SAFE HSS starting points, not the
     Langmuir chart's carbide numbers — spindle RPM falls as the tool
     gets wider because cutting speed, not RPM, is the limit. Do not
     "fix" that by flattening every material back to 8000.
-    `node tools/check_materials.mjs` holds the table to its invariants
-    (plunge 30-40% of feed, step-down under half the tool diameter,
-    machine ceilings, feed monotonic at constant spindle).
-    `node tools/probe_materials.mjs <url>` drives the real dropdown and
-    reads the presets back out of exported G-code.
+    EDITS STICK: each op carries `preset` = material:tool:device; an
+    op is re-derived only when that stamp no longer matches or is
+    absent (new op, auto-added rough). Applied synchronously on
+    'settings.saved' (every conf.save) and 'settings' (device dialog),
+    so the auto-added rough already carries the material before
+    act-paths reads the process. Ramp (camEaseDown/camEaseAngle) is
+    written on material change only.
+    `node tools/check_materials.mjs` runs the app's own derive() over
+    every default tool on both devices and holds it to the invariants
+    (plunge 30-40% of feed unless the Z ceiling capped it, step-down
+    under half the tool, spindle/feed inside the device, vc never over
+    the material's on a floorless spindle, feed never falls with size,
+    every default tool inside 0.5-13 mm). `node tools/probe_materials.mjs`
+    drives the real dropdown, edits a feed and previews (edit must
+    survive), retools an op (must re-derive), exports on BOTH devices.
+    `tools/probe_concerns.mjs` and `tools/probe_tool_migration.mjs`
+    cover the drawer rules and the returning-browser library merge.
     This was BROKEN IN PRODUCTION for an unknown span of
     time (fetched an absolute /kiri/ path that 404s on the deployed
     site's flattened root) until r19 item 5 — if it ever looks silently
@@ -140,6 +156,160 @@ injection). Everything else under src/ and web/lib is Kiri:Moto
 proper — read it, but changes there should usually go upstream instead
 of living as a permanent swarf patch, unless it's swarf-specific
 behavior by nature (like the four above).
+
+r22 — FABLE REVIEW IMPLEMENTED: tool library, derived palette, both devices (2026-09-18)
+  Phil: "Give a Fable review to Swarf to recommend changes ... make the
+  tool library more robust: standard metric and in collet sizes for
+  ShopBot and MR-1 up to 1/2"." Fable (adversarial second opinion, given
+  the code + web research) returned 12 findings; every mechanism was
+  re-read in the code before building. All shipped except tools.js:67
+  (upstream dead branch, inert) and the SBP dwell unit (tossup).
+
+  TOOL LIBRARY (defaults.js template.tools): 20 tools. MR-1 spindle is
+  ER-20 (1-13 mm, 1/2" max shank, 0-8000 rpm, 100/40 IPM XY/Z); ShopBot
+  HSD spindle is ER-25 (1/2" max on the stock set, 9,000-18,000 rpm).
+  Endmills 1/16 1/8 3/16 1/4 5/16 3/8 1/2 and 3 4 5 6 8 10 12 mm, ball
+  1/8 1/4 6mm, vee 1/8, drill 1/8 1/4. Flute lengths are HSS catalog
+  numbers (DIN 844 short for metric); 1/8 and 1/4 keep the shop's 1/2"
+  flute on 1" shank. Each tool stored in its own unit with `metric`
+  (tool.js unitScale) — do not convert metric tools to inch decimals.
+  Ordered by type, inch before metric, then size; tools.js toolOrder()
+  is the one comparator (tool editor + swarf's op drawer both use it),
+  the op select reads settings.tools in stored order. T numbers 1-20
+  in that order; ops reference tools by id, never number.
+    * vee 1/8 was 0.125 mm — `metric: true` with inch numbers, an
+      UPSTREAM defect (commit 609755760, Stewart Allen 2025-02-16),
+      not r21's. Every consumer honored the flag: contour stepover
+      0.025 mm, material snap to the 1/16 preset, Concerns rule 3
+      firing on every preset. Restored to 3.175/25/3.175/17 metric.
+      check_materials.mjs now asserts every default tool is 0.5-13 mm.
+    * RETURNING BROWSERS: src/kiri/app/init/sync.js init_sync() (runs
+      after conf.restore(), before load-done — NOT swarf-sky's hook,
+      which can fire before restore) merges the default library into
+      the stored one: adds missing defaults by id, takes each default's
+      T number, replaces tool 1003 only if it still carries the 0.125
+      defect, renumbers a student-added tool that collides. Ops and
+      student tools untouched. probe_tool_migration.mjs plants an r21
+      profile + a student tool + an op and boots it.
+    * swarf's op drawer wrote `rec.tool = inp.value` — a STRING from
+      the select. Kiri's Tool() uses == so the engine was fine, but
+      sync.js/anim-2d.js/swarf-material.js used === and silently fell
+      back to 3.175/6.35. Now Number(); the three lookups use == for
+      profiles that already hold a string.
+    * add-tool defaults: inch 0.25/1/0.25/0.5, metric 6/44/6/13.
+
+  PALETTE → DERIVATION (Fable's (b), chosen over 10x20 hand records):
+  swarf-materials.json is per-material `cut` {vc, flutes, chip, down,
+  downMax, stepover}; derive(m, D, lim) in swarf-material.js:
+    rpm  = floor50(clamp(vc·1000/(π·D), spindleMin, spindleMax))
+    feed = round10(min(rpm·flutes·chip·D, feedMax))
+    plunge = round5(min(0.35·feed, feedMaxZ))   feedMaxZ = min(device
+             feedMaxZ, process camFastFeedZ=300 — export.js:302 caps
+             every downward move at camFastFeedZ, so a plunge above it
+             never reached the program anyway; wax/foam had 350-455)
+    stepdown = round0.05(min(down·D, downMax))  downMax 1.5/1.2/0.8 mm
+             for aluminum/brass/steel so a 1/2" HSS in steel is not a
+             1.3 mm slot on a 2 HP spindle; 0 = uncapped
+  Constants fitted so the 1/4" entries reproduce r21's shipped numbers;
+  plastics take vc from their 1/8" rpm (60/50/60) so the 1/4" runs
+  slower than r21, not faster. With the r21 closest-key snap a 1/2" in
+  aluminum would have taken the 1/4"'s 3000 rpm = 120 m/min, double
+  the HSS figure; 12 mm 113, 10 mm 94, 3/8" 90. The rpm FLOORS to 50
+  so vc never rounds above the material's (the gate asserts this on
+  the MR-1, which has no spindle floor).
+  ShopBot floor: 9000 rpm puts a 1/4" HSS in aluminum at 180 m/min.
+  The derivation still hands out the chip-load feed at the clamped rpm
+  (safe) and Concerns rule 4 says so — a readout, not a refusal.
+
+  EDITS STICK (Fable #1, conviction, confirmed): applyFeedsToOps ran on
+  slice.end/preview.end and overwrote every op field unconditionally,
+  so a student's slower feed was reverted between slice and preview
+  and the panel repainted to the preset. Now: stamp
+  `op.preset = material:tool:device`, re-derive only on mismatch or no
+  stamp, run synchronously on settings.saved/settings. Consequence
+  for r21 profiles: ops without a stamp take the material's numbers
+  ONCE on first boot (r21 overwrote them every slice anyway). The
+  process-default write (camRoughSpeed etc.) was tried and dropped: it
+  double-saved on every keystroke and only fed the worker's CLI
+  safety-net rough, which the main-thread inject already pre-empts.
+  Fable #2 (auto-rough ran generic Kiri numbers once) falls out of the
+  same change: build.js opAdd → conf.save → settings.saved → derive,
+  all before api.function.print() runs.
+  opRender (init-ui.js) now keeps open drawers open across a
+  re-render (wasOpen set keyed on el.rec), so a retool shows the new
+  numbers in place instead of snapping the drawer shut.
+
+  BOTH DEVICES (Fable B + #6 + #7, all confirmed):
+    * ShopBot.Basic.json had gcodeSpindle [] AND spindleMax 0 — the
+      empty-array-is-truthy defect fixed for the MR-1 in r21 was never
+      swept to the second machine, and it was locked three times:
+      export.js:34 takes [], :227 needs spindleMax truthy, prepare.js
+      setSpindle clamps to min(speed, 0), cl-ops.js hasSpindle() hides
+      the op field. Every ShopBot program ran at the header's TR,4000
+      — a speed no ShopBot spindle (9-18k) or router (8-24k) has. Now
+      spindleMax 18000, spindleMin 9000, feedMax 15240 (600 IPM),
+      feedMaxZ 2540, gcodeSpindle ["TR,{speed}","C6","PAUSE 2"],
+      gcodeDwell ["PAUSE {time}"] ({time} is SECONDS — export.js:204;
+      the MR-1 JSON's old "ms" comment was wrong), header no longer
+      starts the spindle.
+    * ShopBot tool change was "M6 T{tool}" — the line Phil himself
+      reported as a startup error on the grid.space forum (thread
+      "new to kirimoto shopbot", 1396). Now C7 / &Tool ={tool} / C9;
+      the spindle emit (TR + C6) follows because export.js emits the
+      spindle on changeTool. probe: no M6, an &Tool line, TR words
+      equal to the ops' spindles, inside 9000-18000.
+    * MR-1 gcodeChange was [] and CutControl has no tool change: a
+      rough on the 1/4 followed by an outline on the 1/8 cut the
+      outline with the 1/4, no pause. CutControl runs M0 (forum list
+      "MR-1 Working (and not) G and M code list", 30483). Now
+      ["M05", "M00 ; load T{tool} {tool_name}, then cycle start"];
+      the M03 S{speed} follows from the spindle emit. Do NOT put
+      "M03 S{spindle}" in gcodeChange — at the first tool change
+      newSpindle is 0 and it emitted "M03 S0". Header's M03 S1500
+      dropped (it turned the spindle on to turn it off two lines
+      later). MR-1 also gained spindleMin 0, feedMax 2540, feedMaxZ
+      1016 (40 IPM Z).
+
+  CONCERNS DRAWER (Fable #4, #5): it subscribed to op.add/op.del/
+  op.update, events nothing emits — the badge showed the state at the
+  last device switch. Now settings.saved + cam.op.render +
+  swarf.material.change. Rule 3 was down > 1.0·D, unreachable by
+  anything the app produces (palette < 0.5·D by gate) — now 0.5·D.
+  Rule 2 fires at plunge > 50% of feed and quotes the palette's 30-40%.
+  Rule 4 (new): cutting speed at op.spindle on the op's tool > 1.5x
+  the material's vc — the ShopBot floor, or a hand-typed rpm.
+  probe_concerns.mjs: each rule from a real edit, count back to 0 on
+  revert, rule 4 on aluminum@ShopBot and silent on hardwood@ShopBot.
+
+  DRILL OPS (Fable #8): a drill's `rate` is its plunge (cl-ops.js maps
+  it to camDrillDownSpeed); the palette wrote the XY feed there. Now
+  opValues() writes plunge to rate and no stepover for drills; contour
+  gets no plunge/down (its map has none).
+
+  ALSO: four console.log lines out of anim-2d.js's simulate path.
+
+  NOT DONE, deliberately: tools.js:67 `tool === 'drill'` (upstream,
+  object-vs-string, inert); camFastFeedZ stays 300 (Z rapids at 300
+  mm/min on the MR-1 is slow but the palette now respects it rather
+  than raising it — raise per device if students complain about
+  retract time); ShopBot programs still carry G0/G1/F lines in an .sbp
+  file (ShopBot documents G-code/SBP intermix; pre-existing).
+
+  VERIFIED (all local, port 8099, then live after deploy):
+    node tools/check_materials.mjs        — 10 x 20 x 2, falsified by
+      mutation first: vee back to 0.125 (15 reds), ShopBot spindleMax
+      0 (201 reds), aluminum down 0.6 (7 reds)
+    node tools/probe_materials.mjs        — PASS (edit survives
+      preview + F333 in program; retool 1/4→1/16 re-derives; MR-1
+      steel/aluminum S 1000/4000 vs 3000/8000 + two M00; ShopBot
+      TR 9000/18000, &Tool lines, no M6, no TR,4000)
+    node tools/probe_tool_migration.mjs   — PASS (21 tools, vee 3.175,
+      student's T8 renumbered to 21, op keeps its tool)
+    node tools/probe_concerns.mjs         — PASS
+    node tools/probe_real_ops.mjs         — rough/outline/pocket/
+      contour, preview.end, 79 slices, no errors
+    screenshots: op drawer stays open across a retool, tool editor
+      lists 20 in order.
 
 r20 — TASK #7 FIXED: roughing toolpath offset from a moved widget
   This bug has been open since the r10-final entry below (2026-04-15) —

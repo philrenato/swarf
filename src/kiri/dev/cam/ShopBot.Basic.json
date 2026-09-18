@@ -6,16 +6,14 @@
     "bedDepth": 1200,
     "maxHeight": 150,
     "originCenter": false,
-    "spindleMax": 0,
+    "spindleMax": 18000,
+    "spindleMin": 9000,
+    "feedMax": 15240,
+    "feedMaxZ": 2540,
     "gcodePre": [
         "'UNITS:MM",
         "'",
         "CN, 90               'Set program to absolute coordinate mode",
-        "&Tool =1             'Tool number to change to",
-        "C9                   'Change tool",
-        "TR,4000              'Set spindle RPM",
-        "C6                   'Spindle on",
-        "PAUSE 2",
         "'"
     ],
     "gcodePost": [
@@ -28,11 +26,17 @@
         "END"
     ],
     "gcodeDwell": [
-        "G4 P{time} ; dwell for {time}ms"
+        "PAUSE {time}"
     ],
-    "gcodeSpindle": [],
+    "gcodeSpindle": [
+        "TR,{speed}",
+        "C6",
+        "PAUSE 2"
+    ],
     "gcodeChange": [
-        "M6 T{tool} ; change tool to '{tool_name}'"
+        "C7                   'Spindle off for tool change",
+        "&Tool ={tool}        'Load {tool_name}",
+        "C9                   'Change tool"
     ],
     "gcodeFExt": ".sbp",
     "gcodeSpace": true,

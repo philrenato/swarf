@@ -14,13 +14,19 @@ It's an installable, offline-capable PWA — "install swarf" appears in
 supported browsers once the page loads, and the CAM engine keeps working
 with no network once it's been used at least once. Picking a stock
 material (aluminum, brass, mild steel, acrylic, polycarbonate, HDPE,
-MDF, hard wood, wax, foam) auto-fills feed rate, plunge, spindle speed,
-stepdown, stepover and the ease-down ramp angle for whatever tools are
-in your current operations. The values are conservative starting points
-for HSS tooling — spindle speed follows cutting speed, so RPM falls as
-the tool gets wider. Langmuir's published MR-1 parameters are the
-cross-reference; they are written for coated carbide and run far faster.
-`tools/check_materials.mjs` holds the table to its invariants.
+MDF, hard wood, wax, foam) fills in feed rate, plunge, spindle speed,
+stepdown, stepover and the ease-down ramp angle for every operation,
+derived from the material's cutting speed and chip load for whatever
+tool each operation holds, inside the machine's own spindle and feed
+limits. The values are conservative starting points for HSS tooling —
+spindle speed follows cutting speed, so RPM falls as the tool gets
+wider. Edit a number and it stays edited; change the tool or the
+material and it re-derives. The tool library carries every shank the
+two machines' collets hold, inch and metric, up to 1/2". Langmuir's
+published MR-1 parameters are the cross-reference; they are written for
+coated carbide and run far faster. `tools/check_materials.mjs` runs the
+app's own derivation over the whole library on both machines and holds
+it to its invariants.
 
 Read `swarf_README.txt` for the human version. Read `swarf_HANDOFF.txt`
 for the build state and what's next — it opens with a current-state
