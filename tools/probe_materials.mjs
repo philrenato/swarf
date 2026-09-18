@@ -1,17 +1,35 @@
 /**
- * Probe: drive the MATERIAL dropdown like a student and check that the
- * selected material's preset actually lands on the ops and on the process
- * ramp — and, for one material, that the feed reaches the G-code.
+ * Probe: drive the MATERIAL dropdown like a student and check that every
+ * material's derived numbers land on the ops and on the process ramp, that
+ * a student's own edit survives a preview, that changing an op's tool
+ * re-derives for the new diameter, and that the preset reaches the program
+ * on BOTH devices (S words on the MR-1, TR words on the ShopBot).
  *
  * Usage: node tools/probe_materials.mjs [url]
  */
 import puppeteer from 'puppeteer-core';
 import { readFileSync } from 'node:fs';
+import vm from 'node:vm';
 
 const CHROME = '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';
 const URL = process.argv[2] || 'http://localhost:8099/kiri/';
 const STL = '/Users/philrenato/Documents/claude/swarf/swarf_repo/web/obj/cube.stl';
 const TABLE = JSON.parse(readFileSync('web/kiri/swarf-materials.json', 'utf8'));
+const MR1 = JSON.parse(readFileSync('src/kiri/dev/cam/Langmuir.MR-1.json', 'utf8'));
+const SHOPBOT = JSON.parse(readFileSync('src/kiri/dev/cam/ShopBot.Basic.json', 'utf8'));
+
+// the same derive() the app runs, so the expectation is the app's own arithmetic
+const win = { localStorage: { getItem() { return null; }, setItem() {} } };
+win.window = win;
+win.document = { readyState: 'loading', addEventListener() {} };
+win.fetch = () => new Promise(() => {});
+win.console = console;
+vm.runInNewContext(readFileSync('web/kiri/swarf-material.js', 'utf8'), win);
+const derive = win.__swarfDerive;
+const limits = (dev, camFastFeedZ) => ({
+    spindleMin: dev.spindleMin || 0, spindleMax: dev.spindleMax || 0, feedMax: dev.feedMax || 0,
+    feedMaxZ: Math.min(...[dev.feedMaxZ, camFastFeedZ].filter(v => v > 0)),
+});
 
 const stlB64 = readFileSync(STL).toString('base64');
 const browser = await puppeteer.launch({
@@ -20,7 +38,8 @@ const browser = await puppeteer.launch({
     defaultViewport: { width: 1600, height: 1000 },
     args: ['--enable-webgl', '--use-gl=angle', '--enable-unsafe-swiftshader', '--disable-dev-shm-usage'],
 });
-const out = { errors: [], dropdown: null, perMaterial: [], gcode: null, verdict: 'unknown' };
+const out = { errors: [], dropdown: null, tools: null, perMaterial: [], edit: null, retool: null, gcode: {}, verdict: 'unknown' };
+const wait = ms => new Promise(r => setTimeout(r, ms));
 
 try {
     const page = await browser.newPage();
@@ -30,11 +49,11 @@ try {
     // swarf's profile migration reloads the page once on a fresh browser
     // profile. A handle grabbed before that is torn out from under us, and
     // the failure reads as "kiri.api is undefined" long after boot.
-    await new Promise(r => setTimeout(r, 5000));
+    await wait(5000);
     await page.waitForFunction(
         () => !!(window.kiri?.api?.event && window.kiri.api.new && window.kiri.api.platform),
         { timeout: 60000, polling: 200 });
-    await new Promise(r => setTimeout(r, 1500));
+    await wait(1500);
 
     await page.evaluate(b64 => {
         const bin = atob(b64);
@@ -52,61 +71,51 @@ try {
         widget.loadVertices(verts);
         window.kiri.api.platform.add(widget);
     }, stlB64);
-    await new Promise(r => setTimeout(r, 1500));
+    await wait(1500);
 
-    // wait for the swarf material dropdown to be injected into #camops
     await page.waitForFunction(() => !!document.getElementById('swarf-material-select'), { timeout: 20000 });
     out.dropdown = await page.evaluate(() =>
         Array.from(document.getElementById('swarf-material-select').options).map(o => o.value));
+    out.tools = await page.evaluate(() => (window.kiri.api.conf.get().tools || []).map(t => ({
+        id: t.id, number: t.number, name: t.name, metric: t.metric,
+        mm: +((t.flute_diam || 0) * (t.metric ? 1 : 25.4)).toFixed(4),
+    })));
 
-    // add a rough op and a contour op through the real "add a step" grid
-    for (const label of ['rough', 'contour']) {
-        await page.evaluate(lbl => {
-            const list = document.getElementById('op-add-list');
-            const el = Array.from(list.children).find(c => c.innerText.trim().toLowerCase() === lbl);
-            el?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
-        }, label);
-        await new Promise(r => setTimeout(r, 400));
-    }
-
-    for (const id of out.dropdown) {
-        await page.evaluate(mid => {
-            const sel = document.getElementById('swarf-material-select');
-            sel.value = mid;
-            sel.dispatchEvent(new Event('change', { bubbles: true }));
-        }, id);
-        await new Promise(r => setTimeout(r, 350));
-        const read = await page.evaluate(() => {
-            const s = window.kiri.api.conf.get();
-            const tools = s.tools || [];
-            return {
-                ease: s.process.camEaseDown,
-                angle: s.process.camEaseAngle,
-                ops: (s.process.ops || []).filter(o => o && o.type && o.type !== '|').map(o => {
-                    const t = tools.find(t => t.id === o.tool || t.number === o.tool);
-                    return {
-                        type: o.type,
-                        toolMM: t ? +((t.flute_diam || 0) * (t.metric ? 1 : 25.4)).toFixed(4) : null,
-                        rate: o.rate, plunge: o.plunge, spindle: o.spindle, down: o.down, step: o.step,
-                    };
-                }),
-            };
-        });
-        out.perMaterial.push({ id, ...read });
-    }
-
-    // Does the preset reach the G-code? Cut two materials that disagree on
-    // every number. One material alone proves nothing: the device header
-    // opens with a fixed M03, so a spindle speed that never varies would be
-    // that header, not the material.
-    out.gcode = {};
-    for (const mid of ['mild_steel', 'aluminum_6061']) {
+    const setMaterial = async mid => {
         await page.evaluate(m => {
             const sel = document.getElementById('swarf-material-select');
             sel.value = m;
             sel.dispatchEvent(new Event('change', { bubbles: true }));
         }, mid);
-        await new Promise(r => setTimeout(r, 500));
+        await wait(350);
+    };
+    const readOps = () => page.evaluate(() => {
+        const s = window.kiri.api.conf.get();
+        const tools = s.tools || [];
+        return {
+            device: s.device.deviceName,
+            camFastFeedZ: s.process.camFastFeedZ,
+            ease: s.process.camEaseDown,
+            angle: s.process.camEaseAngle,
+            ops: (s.process.ops || []).filter(o => o && o.type && o.type !== '|').map(o => {
+                const t = tools.find(t => t.id == o.tool);
+                return {
+                    type: o.type, tool: o.tool, toolName: t?.name,
+                    toolMM: t ? +((t.flute_diam || 0) * (t.metric ? 1 : 25.4)).toFixed(4) : null,
+                    rate: o.rate, plunge: o.plunge, spindle: o.spindle, down: o.down, step: o.step,
+                };
+            }),
+        };
+    });
+    const addOp = async label => {
+        await page.evaluate(lbl => {
+            const list = document.getElementById('op-add-list');
+            const el = Array.from(list.children).find(c => c.innerText.trim().toLowerCase() === lbl);
+            el?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+        }, label);
+        await wait(400);
+    };
+    const exportGcode = async () => {
         await page.evaluate(() => document.getElementById('act-paths')?.click());
         const preview = await page.evaluate(() => new Promise(res => {
             window.kiri.api.event.on('preview.end', () => res('preview.end'));
@@ -118,25 +127,90 @@ try {
             catch (e) { res('ERR ' + e.message); }
             setTimeout(() => res('ERR timeout'), 30000);
         }));
-        out.gcode[mid] = {
+        return {
             preview,
             bytes: gcode.length,
             feeds: [...new Set((gcode.match(/F[\d.]+/g) || []).map(f => +f.slice(1)))].sort((a, b) => a - b),
             spindles: [...new Set((gcode.match(/\bS\d+/g) || []).map(s => +s.slice(1)))].sort((a, b) => a - b),
+            tr: [...new Set((gcode.match(/^TR,\d+/gm) || []).map(s => +s.slice(3)))].sort((a, b) => a - b),
+            toolLines: (gcode.match(/^(M00|M6|&Tool ?=\d+).*$/gm) || []),
+            head: gcode.split('\n').slice(0, 12),
         };
+    };
+
+    // rough + contour through the real "add a step" grid
+    await addOp('rough');
+    await addOp('contour');
+
+    for (const id of out.dropdown) {
+        await setMaterial(id);
+        out.perMaterial.push({ id, ...(await readOps()) });
     }
+
+    // EDITED FIXTURE: a student slows the rough feed through swarf's own
+    // drawer input, previews, and the program must carry the edit
+    await setMaterial('hardwood');
+    const edited = await page.evaluate(() => {
+        const inp = document.querySelector('[data-swarf-field="rate"]');
+        if (!inp) return null;
+        inp.value = '333';
+        inp.dispatchEvent(new Event('change', { bubbles: true }));
+        return 333;
+    });
+    const afterEdit = await readOps();
+    const editGcode = await exportGcode();
+    const afterPreview = await readOps();
+    out.edit = { edited, afterEdit: afterEdit.ops[0], afterPreview: afterPreview.ops[0], feeds: editGcode.feeds };
+
+    // RETOOL: the contour op moves from its default tool to the 1/16 endmill
+    // through the drawer's tool select — the numbers must re-derive
+    const before = (await readOps()).ops[1];
+    const retoolId = out.tools.find(t => t.name === 'end 1/16')?.id;
+    await page.evaluate(id => {
+        const sel = document.querySelectorAll('[data-swarf-field="tool"]')[1];
+        sel.value = String(id);
+        sel.dispatchEvent(new Event('change', { bubbles: true }));
+    }, retoolId);
+    await wait(300);
+    const after = (await readOps()).ops[1];
+    out.retool = { before, after };
+
+    // G-CODE on the MR-1: two materials that disagree on every number, and a
+    // second tool so a tool change has to appear
+    for (const mid of ['mild_steel', 'aluminum_6061']) {
+        await setMaterial(mid);
+        out.gcode[`mr1:${mid}`] = { ...(await exportGcode()), ops: (await readOps()).ops };
+    }
+    // G-CODE on the ShopBot: same program, SBP dialect
+    await page.evaluate(() => window.kiri.api.devices.select('ShopBot.Basic'));
+    await wait(800);
+    await setMaterial('hardwood');
+    out.gcode['shopbot:hardwood'] = { ...(await exportGcode()), ops: (await readOps()).ops, device: (await readOps()).device };
+    await page.evaluate(() => window.kiri.api.devices.select('Langmuir.MR-1'));
+    await wait(500);
 } catch (e) {
     out.errors.push('host: ' + e.message);
 } finally {
     await browser.close();
 }
 
-// ---- verdict: every material's ops must carry ITS OWN numbers -----------
+// ---- verdict -----------------------------------------------------------
 const table = Object.fromEntries(TABLE.materials.map(m => [m.id, m]));
 const problems = [];
 if (out.dropdown?.length !== TABLE.materials.length) {
     problems.push(`dropdown lists ${out.dropdown?.length} of ${TABLE.materials.length} materials`);
 }
+const vee = out.tools?.find(t => t.name === 'vee 1/8');
+if (!vee || Math.abs(vee.mm - 3.175) > 0.01) problems.push(`vee 1/8 is ${vee?.mm} mm in the live library`);
+if ((out.tools?.length || 0) < 20) problems.push(`live library has ${out.tools?.length} tools, expected the 20 defaults`);
+
+const expect = (row, op, dev) => {
+    const lim = limits(dev, row.camFastFeedZ);
+    const p = derive(table[row.id], op.toolMM, lim);
+    if (op.type === 'drill') return { rate: p.plunge, spindle: p.spindle, down: p.stepdown };
+    if (op.type === 'contour') return { rate: p.feed, spindle: p.spindle, step: p.stepover };
+    return { rate: p.feed, plunge: p.plunge, spindle: p.spindle, down: p.stepdown, step: p.stepover };
+};
 for (const row of out.perMaterial) {
     const m = table[row.id];
     if (!m) { problems.push(`${row.id}: not in the table`); continue; }
@@ -144,45 +218,61 @@ for (const row of out.perMaterial) {
     if (row.angle !== m.ramp.angle) problems.push(`${row.id}: camEaseAngle ${row.angle} != ${m.ramp.angle}`);
     if (!row.ops.length) problems.push(`${row.id}: no ops to check`);
     for (const op of row.ops) {
-        const diams = Object.keys(m.by_tool).map(Number);
-        const best = diams.reduce((a, b) => Math.abs(b - op.toolMM) < Math.abs(a - op.toolMM) ? b : a);
-        const p = m.by_tool[String(best)];
-        const cmp = [['rate', 'feed'], ['plunge', 'plunge'], ['spindle', 'spindle'], ['down', 'stepdown'], ['step', 'stepover']];
-        for (const [opk, mk] of cmp) {
-            if (op[opk] !== p[mk]) problems.push(`${row.id}/${op.type} (${op.toolMM}mm→${best}): ${opk}=${op[opk]}, expected ${p[mk]}`);
+        if (!op.toolMM) { problems.push(`${row.id}/${op.type}: tool ${op.tool} not found in the library`); continue; }
+        for (const [k, v] of Object.entries(expect(row, op, MR1))) {
+            if (op[k] !== v) problems.push(`${row.id}/${op.type} (${op.toolMM}mm): ${k}=${op[k]}, expected ${v}`);
         }
     }
 }
-// a preset that never applied would look identical across every material
 const sig = new Set(out.perMaterial.map(r => JSON.stringify([r.angle, r.ops.map(o => o.rate)])));
 if (out.perMaterial.length > 1 && sig.size === 1) problems.push('every material produced identical numbers — nothing is being applied');
-for (const [mid, g] of Object.entries(out.gcode || {})) {
-    const presets = Object.values(table[mid].by_tool);
-    const feeds = presets.map(v => v.feed), spins = presets.map(v => v.spindle);
+
+// the edit survives the preview and reaches the program
+if (!out.edit || out.edit.edited !== 333) problems.push('edit: the drawer feed input was not found');
+else {
+    if (out.edit.afterEdit?.rate !== 333) problems.push(`edit: rate ${out.edit.afterEdit?.rate} right after the edit — something overwrote it`);
+    if (out.edit.afterPreview?.rate !== 333) problems.push(`edit: rate ${out.edit.afterPreview?.rate} after preview — the preset overwrote the student's edit`);
+    if (!out.edit.feeds.includes(333)) problems.push(`edit: F333 missing from the program (F words: ${out.edit.feeds})`);
+}
+// the retool re-derives
+if (!out.retool?.after?.toolMM) problems.push('retool: contour op lost its tool');
+else {
+    const row = { id: 'hardwood', camFastFeedZ: out.perMaterial[0]?.camFastFeedZ };
+    const want = expect(row, out.retool.after, MR1);
+    if (Math.abs(out.retool.after.toolMM - 1.5875) > 0.01) problems.push(`retool: contour tool is ${out.retool.after.toolMM} mm, wanted 1.5875`);
+    for (const [k, v] of Object.entries(want)) {
+        if (out.retool.after[k] !== v) problems.push(`retool: contour ${k}=${out.retool.after[k]}, expected ${v} for the 1/16`);
+    }
+    if (out.retool.after.rate === out.retool.before.rate && out.retool.after.spindle === out.retool.before.spindle) {
+        problems.push('retool: contour numbers did not change with the tool');
+    }
+}
+// MR-1 programs
+for (const mid of ['mild_steel', 'aluminum_6061']) {
+    const g = out.gcode[`mr1:${mid}`];
+    if (!g) { problems.push(`${mid}: no MR-1 export`); continue; }
     if (g.preview !== 'preview.end') problems.push(`${mid}: toolpaths did not finish (${g.preview})`);
-    if (!g.feeds.some(f => feeds.includes(f))) {
-        problems.push(`${mid}: no preset feed (${feeds}) in the G-code F words: ${g.feeds}`);
-    }
-    if (!g.spindles.some(s => spins.includes(s))) {
-        problems.push(`${mid}: no preset spindle (${spins}) in the G-code S words: ${g.spindles}`);
-    }
-    // the MR-1 caps at 8000 rpm; an S word above that is a program no machine can run
-    if (g.spindles.some(s => s > 8000)) {
-        problems.push(`${mid}: G-code commands ${g.spindles.filter(s => s > 8000)} rpm, over the 8000 rpm limit`);
-    }
-    // the device header opens at 1500 rpm, a speed no preset uses — so an
-    // op-driven speed has to show up alongside it
-    if (!g.spindles.some(s => s !== 1500)) {
-        problems.push(`${mid}: the only S word is the device header's 1500 — no operation set its own speed`);
-    }
+    const spins = g.ops.map(o => o.spindle);
+    if (!g.spindles.some(s => spins.includes(s))) problems.push(`${mid}: no op spindle (${spins}) in the S words: ${g.spindles}`);
+    if (g.spindles.some(s => s > MR1.spindleMax)) problems.push(`${mid}: S words ${g.spindles} exceed ${MR1.spindleMax}`);
+    // two tools in the program (rough on the 1/4, contour on the 1/16) need a pause
+    if (!g.toolLines.some(l => l.startsWith('M00'))) problems.push(`${mid}: no M00 tool-change pause between two tools (${g.toolLines})`);
 }
-// two materials that disagree in the table must disagree in the G-code
-const gcs = Object.values(out.gcode || {});
-if (gcs.length > 1 && JSON.stringify(gcs[0].spindles) === JSON.stringify(gcs[1].spindles)) {
-    problems.push(`both materials exported the same spindle speeds (${gcs[0].spindles}) — the device header is speaking, not the material`);
-}
-if (gcs.length > 1 && JSON.stringify(gcs[0].feeds) === JSON.stringify(gcs[1].feeds)) {
-    problems.push(`both materials exported the same feeds (${gcs[0].feeds}) — the preset is not reaching the program`);
+const a = out.gcode['mr1:mild_steel'], b = out.gcode['mr1:aluminum_6061'];
+if (a && b && JSON.stringify(a.spindles) === JSON.stringify(b.spindles)) problems.push(`both MR-1 materials exported the same spindles (${a.spindles})`);
+if (a && b && JSON.stringify(a.feeds) === JSON.stringify(b.feeds)) problems.push(`both MR-1 materials exported the same feeds (${a.feeds})`);
+// ShopBot program
+const sb = out.gcode['shopbot:hardwood'];
+if (!sb) problems.push('shopbot: no export');
+else {
+    if (sb.device !== 'ShopBot.Basic') problems.push(`shopbot: device is ${sb.device}`);
+    if (sb.preview !== 'preview.end') problems.push(`shopbot: toolpaths did not finish (${sb.preview})`);
+    const spins = sb.ops.map(o => o.spindle);
+    if (!sb.tr.some(s => spins.includes(s))) problems.push(`shopbot: no op spindle (${spins}) in the TR words: ${sb.tr}`);
+    if (sb.tr.some(s => s < SHOPBOT.spindleMin || s > SHOPBOT.spindleMax)) problems.push(`shopbot: TR words ${sb.tr} outside ${SHOPBOT.spindleMin}–${SHOPBOT.spindleMax}`);
+    if (sb.toolLines.some(l => l.startsWith('M6'))) problems.push(`shopbot: M6 in an SBP program (${sb.toolLines})`);
+    if (!sb.toolLines.some(l => l.startsWith('&Tool'))) problems.push(`shopbot: no &Tool line (${sb.toolLines})`);
+    if (sb.head.some(l => /TR,4000/.test(l))) problems.push('shopbot: header still fixes TR,4000');
 }
 
 out.verdict = problems.length ? 'FAIL' : 'PASS';

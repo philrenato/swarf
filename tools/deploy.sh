@@ -90,7 +90,7 @@ git add swarf-app/lib/main/kiri.js swarf-app/lib/kiri/run/worker.js \
 # patch, but do not add it to the copy loop above.
 git -c commit.gpgsign=false commit -m "$MSG
 
-Co-Authored-By: Claude Opus 4.7 (1M context) <noreply@anthropic.com>" || echo "      nothing to commit"
+Co-Authored-By: Claude Opus 5 (1M context) <noreply@anthropic.com>" || echo "      nothing to commit"
 
 echo "[6/6] push web repo → renato.design/swarf-app/"
 git push

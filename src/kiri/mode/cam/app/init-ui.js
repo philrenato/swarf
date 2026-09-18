@@ -18,6 +18,7 @@ import { Stack } from '../../../app/stack.js';
 import { surfaceOn, surfaceDone } from './cl-surface.js';
 import { tabAdd, tabDone, tabClear, restoreTabs, rotateTabs, updateTabs, clearTabs, mirrorTabs } from './cl-tab.js';
 import { traceOn, traceDone, unselectTraces } from './cl-trace.js';
+import { toolOrder } from './tools.js';
 import { Widget, newWidget } from '../../../app/widget.js';
 import { zPlaneStart, zPlaneDone, zPlaneSelecting } from './cl-zplane.js';
 
@@ -300,6 +301,8 @@ export function opRender() {
         return;
     }
     oplist = oplist.filter(rec => !Array.isArray(rec));
+    // swarf: a re-render (material re-derive, op edit) keeps open drawers open
+    const wasOpen = new Set([...document.querySelectorAll('.swarf-params-open')].map(el => el.rec));
     let mark = Date.now();
     let html = [];
     let bind = {};
@@ -406,7 +409,7 @@ export function opRender() {
             const drawerEl = $(`${id}-p`);
             const chevEl = $(`${id}-c`);
             if (drawerEl && chevEl) {
-                const tools = (api.conf.get().tools || []).slice().sort((a,b) => (a.name||'').localeCompare(b.name||''));
+                const tools = (api.conf.get().tools || []).slice().sort(toolOrder);
                 drawerEl.querySelectorAll('[data-swarf-field]').forEach(inp => {
                     const f = inp.dataset.swarfField;
                     if (f === 'tool') {
@@ -422,7 +425,10 @@ export function opRender() {
                     }
                     inp.addEventListener('change', () => {
                         if (f === 'tool') {
-                            rec.tool = inp.value;
+                            // a select yields a string; tool ids are numbers and
+                            // every strict lookup (sync.js, anim-2d.js, the
+                            // material system) misses a string id
+                            rec.tool = Number(inp.value);
                         } else if (inp.type === 'checkbox') {
                             rec[f] = inp.checked;
                         } else {
@@ -458,6 +464,7 @@ export function opRender() {
             indexing = false;
         }
         let el = $(id);
+        if (wasOpen.has(rec)) el.classList.add('swarf-params-open');
         if (!env.isIndexed && type === 'lathe') {
             rec.disabled = true;
         }

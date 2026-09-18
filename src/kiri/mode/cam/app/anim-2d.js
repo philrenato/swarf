@@ -46,7 +46,6 @@ export function animate_clear(api) {
 }
 
 export function animate(api, delay) {
-    console.log('[swarf anim-2d] animate() called');
     api.show.busy("building animation");
     let settings = api.conf.get();
     // swarf r12: add a thin skin of material around the part for the
@@ -63,7 +62,7 @@ export function animate(api, delay) {
             const ops = proc.ops || [];
             const firstOp = ops.find(o => o && o.type && o.type !== '|');
             if (firstOp && firstOp.tool) {
-                const tool = (settings.tools || []).find(t => t.id === firstOp.tool || t.number === firstOp.tool);
+                const tool = (settings.tools || []).find(t => t.id == firstOp.tool);
                 if (tool) {
                     toolDiam = tool.metric
                         ? (tool.flute_diam || tool.shaft_diam || 6.35)
@@ -80,12 +79,6 @@ export function animate(api, delay) {
     } catch (e) {}
     let sawMeshAdd = false;
     client.animate_setup(settings, data => {
-        try {
-            console.log('[swarf anim-2d] animate_setup callback', {
-                hasData: !!data,
-                keys: data ? Object.keys(data) : null
-            });
-        } catch (e) {}
         try { checkMeshCommands(data); } catch (e) { console.error('[swarf anim-2d] checkMeshCommands threw', e); }
         if (!(data && data.mesh_add)) {
             if (!sawMeshAdd) {
@@ -94,7 +87,6 @@ export function animate(api, delay) {
             return;
         }
         sawMeshAdd = true;
-        console.log('[swarf anim-2d] mesh_add received, setting up UI');
 
         let { anim } = api.ui;
         Object.assign(button, {

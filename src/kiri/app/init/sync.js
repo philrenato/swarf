@@ -8,6 +8,7 @@ import { local as sdb } from '../../../data/local.js';
 import { preferences } from '../preferences.js';
 import { settings as set_ctrl } from '../conf/manager.js';
 import { settingsOps } from '../conf/settings.js';
+import { conf } from '../conf/defaults.js';
 import { space } from '../../../moto/space.js';
 import { VIEWS } from '../consts.js';
 import * as view_tools from '../face-tool.js';
@@ -25,6 +26,46 @@ export async function init_sync() {
     const proto = location.protocol;
 
     api.event.emit('init.two');
+
+    // swarf: bring a stored profile's tool library up to the default one.
+    // Runs after conf.restore() so it edits the real profile, not the
+    // template. Adds default tools the profile lacks, takes each default's
+    // T number, and replaces the vee 1/8 record if it still carries the
+    // upstream 0.125 mm defect (inch numbers under metric: true). Tools the
+    // student added (ids from Date.now()) are untouched, as are ops.
+    try {
+        const s = api.conf.get();
+        if (s && Array.isArray(s.tools)) {
+            let changed = false;
+            for (const def of conf.template.tools) {
+                const i = s.tools.findIndex(t => t.id == def.id);
+                if (i < 0) {
+                    s.tools.push(Object.clone(def));
+                    changed = true;
+                    continue;
+                }
+                const t = s.tools[i];
+                if (def.id === 1003 && t.metric && t.flute_diam < 1) {
+                    s.tools[i] = Object.clone(def);
+                    changed = true;
+                } else if (t.number !== def.number) {
+                    t.number = def.number;
+                    changed = true;
+                }
+            }
+            // a student-added tool keeps its T number unless a default now holds it
+            const defNums = new Set(conf.template.tools.map(t => t.number));
+            const defIds = new Set(conf.template.tools.map(t => t.id));
+            let next = Math.max(...s.tools.map(t => t.number || 0)) + 1;
+            for (const t of s.tools) {
+                if (!defIds.has(t.id) && defNums.has(t.number)) {
+                    t.number = next++;
+                    changed = true;
+                }
+            }
+            if (changed) api.conf.save();
+        }
+    } catch (e) { console.warn('swarf: tool library migration failed', e); }
 
     // load script extensions
     if (SETUP.s) SETUP.s.forEach(function(lib) {
@@ -517,7 +558,7 @@ function setup_keybd_nav() {
                 for (const op of ops) {
                     // op.tool holds a tool id; the library stores imperial
                     // tools in inches, and every op field here is mm.
-                    const tool = tools.find(t => t.id === op.tool || t.number === op.tool);
+                    const tool = tools.find(t => t.id == op.tool);
                     const td = tool
                         ? (tool.flute_diam || 0) * (tool.metric ? 1 : 25.4)
                         : 3.175;
@@ -531,21 +572,35 @@ function setup_keybd_nav() {
                             });
                         }
                     }
-                    // rule 2 — plunge rate equal to or greater than feed rate
-                    if (op.rate && op.plunge && op.plunge >= op.rate * 0.95) {
+                    // rule 2 — plunge faster than the 30–40% of feed the palette holds
+                    if (op.rate && op.plunge && op.plunge > op.rate * 0.5) {
                         warnings.push({
-                            title: `plunge rate ≈ feed rate`,
-                            body: `plunging at ${op.plunge} mm/min vs feed ${op.rate} mm/min — most tools want plunge at 30–50% of feed.`,
+                            title: `plunge rate near feed rate`,
+                            body: `plunging at ${op.plunge} mm/min vs feed ${op.rate} mm/min — the palette holds plunge at 30–40% of feed.`,
                             hint: 'too fast a plunge snaps end-mills'
                         });
                     }
-                    // rule 3 — depth of cut > 1× tool diameter
-                    if (op.down && td && op.down > td * 1.0) {
+                    // rule 3 — step-down past half the tool diameter, the palette's ceiling
+                    if (op.down && td && op.down > td * 0.5) {
                         warnings.push({
-                            title: `step-down deeper than tool diameter`,
-                            body: `${op.down.toFixed(2)} mm step-down on a ${td.toFixed(2)} mm tool — chip evacuation gets bad past 1× diameter.`,
+                            title: `step-down over half the tool diameter`,
+                            body: `${op.down.toFixed(2)} mm step-down on a ${td.toFixed(2)} mm tool — the palette stays under ${(td / 2).toFixed(2)} mm.`,
                             hint: 'split into shallower passes for safer cutting'
                         });
+                    }
+                    // rule 4 — cutting speed past the material's HSS figure: the
+                    // machine's spindle floor (ShopBot 9000) or a hand-typed rpm
+                    const mat = window.__swarfMaterial;
+                    const vcMax = mat && mat.cut && mat.cut.vc;
+                    if (vcMax && op.spindle && td) {
+                        const vc = Math.PI * td * op.spindle / 1000;
+                        if (vc > vcMax * 1.5) {
+                            warnings.push({
+                                title: `spindle too fast for HSS in ${mat.name}`,
+                                body: `${vc.toFixed(0)} m/min cutting speed at ${op.spindle} rpm on a ${td.toFixed(2)} mm tool — HSS in ${mat.name} wants ${vcMax}.`,
+                                hint: 'carbide, a smaller tool, or a slower spindle'
+                            });
+                        }
                     }
                 }
             } catch (e) { /* swallow until ops shape is finalised */ }
@@ -564,8 +619,11 @@ function setup_keybd_nav() {
         }
         evaluate();
         // re-evaluate on settings + op changes
-        ['settings','op.add','op.del','op.update','widget.add','widget.delete']
+        // conf.save emits settings.saved on every op add/edit; the material
+        // system emits cam.op.render after a re-derive
+        ['settings','settings.saved','cam.op.render','widget.add','widget.delete']
             .forEach(ev => api.event.on(ev, evaluate));
+        window.addEventListener('swarf.material.change', evaluate);
     })();
 
     // swarf: clicking the TOOLPATHS step bar opens the operation list details

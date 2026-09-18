@@ -247,6 +247,15 @@ function setToolChanged(changed) {
     api.ui.toolsSave.disabled = !changed;
 }
 
+// swarf: one order for every tool list — by type, inch before metric, then size
+const TOOL_TYPE_ORDER = { endmill: 0, ballmill: 1, tapermill: 2, drill: 3 };
+export function toolOrder(a, b) {
+    const mm = t => (t.flute_diam || t.shaft_diam || 0) * (t.metric ? 1 : 25.4);
+    return (TOOL_TYPE_ORDER[a.type] ?? 9) - (TOOL_TYPE_ORDER[b.type] ?? 9)
+        || (a.metric ? 1 : 0) - (b.metric ? 1 : 0)
+        || mm(a) - mm(b);
+}
+
 export function showTools() {
     if (api.mode.get_id() !== MODES.CAM) return;
     setconf.sync.get().then(_showTools);
@@ -255,9 +264,8 @@ export function showTools() {
 function _showTools() {
     const { ui } = api;
 
-    editTools = settings().tools.slice().sort((a,b) => {
-        return a.name > b.name ? 1 : -1;
-    });
+    // swarf: type, then inch before metric, then size — the library's own order
+    editTools = settings().tools.slice().sort(toolOrder);
 
     setToolChanged(false);
 
@@ -275,15 +283,16 @@ function _showTools() {
             taper_tip: 0,
             metric
         }, metric ? {
-            shaft_diam: 2,
-            shaft_len: 15,
-            flute_diam: 2,
-            flute_len: 20,
+            shaft_diam: 6,
+            shaft_len: 44,
+            flute_diam: 6,
+            flute_len: 13,
         } : {
+            // swarf: the shop's 1/4 — 1/2 inch flute on an inch of shank
             shaft_diam: 0.25,
-            shaft_len: 1.5,
+            shaft_len: 1,
             flute_diam: 0.25,
-            flute_len: 2,
+            flute_len: 0.5,
         }));
         setToolChanged(true);
         renderTools();

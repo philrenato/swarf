@@ -1,18 +1,25 @@
 {
-  "_note": "swarf material palette. STUDENT-SAFE STARTING VALUES, not optimal ones — every entry is slow, shallow and survivable, and every one of them can be pushed once you know what the cut sounds like. Feeds and speeds assume HSS tooling, which is the limiting factor: HSS runs at roughly a third the cutting speed of the coated carbide in Langmuir's MR-1 chart, so RPM here drops as the tool gets bigger rather than sitting at 8000. Machine limits: 8000 rpm, 2540 mm/min.",
-  "_tooling": "HSS, 2-flute for everything except mild steel, which assumes 4-flute. RPM comes from a conservative cutting speed (aluminum 60, brass 45, mild steel 20 m/min) as rpm = Vc x 1000 / (pi x diameter), capped at the machine's 8000. Feed comes from chip load: feed = rpm x flutes x fz, fz at the low end. The tool library has no flute-count field, so nothing adapts automatically — running a 4-flute where 2 is assumed halves the chip load (safe, though it can rub in aluminum); running a 2-flute where 4 is assumed doubles it. With carbide instead of HSS, every RPM here can roughly triple: see _source.",
-  "_units": "feed mm/min · plunge mm/min · spindle rpm · stepdown mm · stepover fraction of tool diameter · ramp angle degrees",
-  "_tools": "by_tool keyed to endmill diameter in mm, matching the endmills in the default tool library: 1.5875 = 1/16 inch, 3.175 = 1/8 inch, 6.35 = 1/4 inch. The closest diameter wins for any other tool. 1/8 and 1/4 are the shop's working sizes.",
+  "_note": "swarf material palette. STUDENT-SAFE STARTING VALUES, not optimal ones — every entry is slow, shallow and survivable, and every one can be pushed once you know what the cut sounds like. Feeds and speeds assume HSS tooling, which is the limiting factor: HSS runs at roughly a third the cutting speed of the coated carbide in Langmuir's MR-1 chart, so RPM drops as the tool gets bigger rather than sitting at the machine's ceiling.",
+  "_cut": "Each material carries one `cut` record and every tool's numbers are derived from it at apply time (window.__swarfDerive in swarf-material.js): rpm = vc x 1000 / (pi x D) clamped to the device's spindleMin..spindleMax; feed = rpm x flutes x chip x D (chip is chip load per mm of tool diameter, so the chip scales with the tool); plunge = 0.35 x feed, capped at the device's feedMaxZ and the process camFastFeedZ; stepdown = down x D, capped at downMax mm when set; stepover is a fraction of D. Device limits live in src/kiri/dev/cam/*.json. With carbide instead of HSS, vc can roughly triple.",
+  "_tooling": "HSS, 2-flute for everything except mild steel, which assumes 4-flute. The tool library has no flute-count field, so nothing adapts automatically — running a 4-flute where 2 is assumed halves the chip load (safe, though it can rub in aluminum); running a 2-flute where 4 is assumed doubles it.",
+  "_units": "vc m/min · chip mm per tooth per mm of diameter · down fraction of diameter · downMax mm · stepover fraction of diameter · ramp angle degrees. Derived: feed and plunge mm/min, spindle rpm, stepdown mm.",
   "_ramp": "ramp.angle drives camEaseAngle, ramp.ease drives camEaseDown — the tool walks down into the cut instead of drilling in on a flute that may not cut at center. 1.8 degrees is the MR-1 chart's helical-ramp figure and is used for the metals. Softer materials ramp steeper so the entry move stays short.",
-  "_rules": "Invariants every entry holds, checked by tools/check_materials.mjs: plunge is 30-40% of feed; stepdown stays under half the tool diameter; feed <= 2540 mm/min and spindle <= 8000 rpm; stepover in (0, 0.5]; feed never falls while the spindle holds steady.",
+  "_rules": "Invariants held over every tool in the default library on both devices, checked by tools/check_materials.mjs through the same derive function the app runs: plunge is 30-40% of feed unless the Z ceiling capped it; stepdown stays under half the tool diameter; spindle and feed inside the device limits; stepover in (0, 0.5]; feed never falls as the tool grows while the spindle holds steady.",
   "_source": "https://assets.langmuirsystems.com/file/CuttingParameters-GettingStartedReferenceGuide-Rev11_30_2022.pdf",
   "default": "aluminum_6061",
   "materials": [
     {
       "id": "aluminum_6061",
       "name": "aluminum 6061",
-      "flutes": 2,
       "note": "HSS, 2-flute. cutting speed 60 m/min, so RPM drops as the tool gets bigger — a 1/4 endmill at 8000 would burn its corners off. chips should curl, not powder.",
+      "cut": {
+        "vc": 60,
+        "flutes": 2,
+        "chip": 0.0073,
+        "down": 0.16,
+        "downMax": 1.5,
+        "stepover": 0.2
+      },
       "ramp": {
         "ease": true,
         "angle": 1.8
@@ -30,36 +37,20 @@
         "envIntensity": 1.5,
         "chipColor": "#d0d4dc",
         "chipEmissive": "#1a1c20"
-      },
-      "by_tool": {
-        "1.5875": {
-          "feed": 160,
-          "plunge": 56,
-          "spindle": 8000,
-          "stepdown": 0.3,
-          "stepover": 0.2
-        },
-        "3.175": {
-          "feed": 240,
-          "plunge": 84,
-          "spindle": 6000,
-          "stepdown": 0.5,
-          "stepover": 0.2
-        },
-        "6.35": {
-          "feed": 280,
-          "plunge": 98,
-          "spindle": 3000,
-          "stepdown": 1.0,
-          "stepover": 0.15
-        }
       }
     },
     {
       "id": "brass",
       "name": "brass",
-      "flutes": 2,
       "note": "HSS, 2-flute, cutting speed 45 m/min. brass grabs a dull or rake-heavy tool and climbs the work — sharp cutter, light cut, climb direction.",
+      "cut": {
+        "vc": 45,
+        "flutes": 2,
+        "chip": 0.007,
+        "down": 0.13,
+        "downMax": 1.2,
+        "stepover": 0.18
+      },
       "ramp": {
         "ease": true,
         "angle": 1.8
@@ -77,36 +68,20 @@
         "envIntensity": 1.4,
         "chipColor": "#d8b43a",
         "chipEmissive": "#2a1e04"
-      },
-      "by_tool": {
-        "1.5875": {
-          "feed": 160,
-          "plunge": 56,
-          "spindle": 8000,
-          "stepdown": 0.3,
-          "stepover": 0.2
-        },
-        "3.175": {
-          "feed": 180,
-          "plunge": 63,
-          "spindle": 4500,
-          "stepdown": 0.5,
-          "stepover": 0.18
-        },
-        "6.35": {
-          "feed": 200,
-          "plunge": 70,
-          "spindle": 2250,
-          "stepdown": 0.8,
-          "stepover": 0.15
-        }
       }
     },
     {
       "id": "mild_steel",
       "name": "mild steel",
-      "flutes": 4,
-      "note": "HSS, 4-flute, cutting speed 20 m/min. slow and shallow — this is the edge of what HSS will do. if the cut squeals or the tool discolours, stop. carbide is a different conversation.",
+      "note": "HSS, 4-flute, cutting speed 20 m/min. slow and shallow — this is the edge of what HSS will do. if the cut squeals or the tool discolors, stop. carbide is a different conversation.",
+      "cut": {
+        "vc": 20,
+        "flutes": 4,
+        "chip": 0.0055,
+        "down": 0.095,
+        "downMax": 0.8,
+        "stepover": 0.12
+      },
       "ramp": {
         "ease": true,
         "angle": 1.8
@@ -124,36 +99,20 @@
         "envIntensity": 1.1,
         "chipColor": "#7a8088",
         "chipEmissive": "#1a0a08"
-      },
-      "by_tool": {
-        "1.5875": {
-          "feed": 120,
-          "plunge": 42,
-          "spindle": 4000,
-          "stepdown": 0.2,
-          "stepover": 0.12
-        },
-        "3.175": {
-          "feed": 130,
-          "plunge": 46,
-          "spindle": 2000,
-          "stepdown": 0.35,
-          "stepover": 0.12
-        },
-        "6.35": {
-          "feed": 140,
-          "plunge": 49,
-          "spindle": 1000,
-          "stepdown": 0.6,
-          "stepover": 0.1
-        }
       }
     },
     {
       "id": "acrylic",
       "name": "acrylic",
-      "flutes": 2,
       "note": "HSS, 2-flute — a single- or O-flute is better if you have one. cast PMMA. if the chip welds back into the cut, feed FASTER: melting comes from too little chip, not too much.",
+      "cut": {
+        "vc": 60,
+        "flutes": 2,
+        "chip": 0.0087,
+        "down": 0.24,
+        "downMax": 0,
+        "stepover": 0.3
+      },
       "ramp": {
         "ease": true,
         "angle": 3
@@ -171,36 +130,20 @@
         "envIntensity": 1.6,
         "chipColor": "#e8f6f8",
         "chipEmissive": "#0a1214"
-      },
-      "by_tool": {
-        "1.5875": {
-          "feed": 240,
-          "plunge": 84,
-          "spindle": 8000,
-          "stepdown": 0.4,
-          "stepover": 0.3
-        },
-        "3.175": {
-          "feed": 360,
-          "plunge": 126,
-          "spindle": 6000,
-          "stepdown": 0.8,
-          "stepover": 0.3
-        },
-        "6.35": {
-          "feed": 440,
-          "plunge": 154,
-          "spindle": 4000,
-          "stepdown": 1.5,
-          "stepover": 0.25
-        }
       }
     },
     {
       "id": "polycarbonate",
       "name": "polycarbonate",
-      "flutes": 2,
       "note": "HSS, 2-flute. Lexan and similar — gummier than acrylic, it strings rather than chips. same rule: if it melts, feed faster.",
+      "cut": {
+        "vc": 50,
+        "flutes": 2,
+        "chip": 0.0095,
+        "down": 0.24,
+        "downMax": 0,
+        "stepover": 0.3
+      },
       "ramp": {
         "ease": true,
         "angle": 3
@@ -218,36 +161,20 @@
         "normalStrength": 0.8,
         "chipColor": "#d8eef4",
         "chipEmissive": "#0a1418"
-      },
-      "by_tool": {
-        "1.5875": {
-          "feed": 240,
-          "plunge": 84,
-          "spindle": 8000,
-          "stepdown": 0.4,
-          "stepover": 0.3
-        },
-        "3.175": {
-          "feed": 350,
-          "plunge": 122,
-          "spindle": 5000,
-          "stepdown": 0.8,
-          "stepover": 0.3
-        },
-        "6.35": {
-          "feed": 420,
-          "plunge": 147,
-          "spindle": 3500,
-          "stepdown": 1.5,
-          "stepover": 0.25
-        }
       }
     },
     {
       "id": "hdpe",
       "name": "HDPE / Delrin",
-      "flutes": 2,
       "note": "HSS, 2-flute. machining plastics — HDPE, UHMW, acetal. the most forgiving thing here after wax. HDPE springs back after the cut, so a finish pass measures undersized.",
+      "cut": {
+        "vc": 60,
+        "flutes": 2,
+        "chip": 0.011,
+        "down": 0.32,
+        "downMax": 0,
+        "stepover": 0.3
+      },
       "ramp": {
         "ease": true,
         "angle": 3
@@ -265,36 +192,20 @@
         "envIntensity": 0.5,
         "chipColor": "#eceee8",
         "chipEmissive": "#1a1c18"
-      },
-      "by_tool": {
-        "1.5875": {
-          "feed": 300,
-          "plunge": 105,
-          "spindle": 8000,
-          "stepdown": 0.5,
-          "stepover": 0.3
-        },
-        "3.175": {
-          "feed": 450,
-          "plunge": 158,
-          "spindle": 6000,
-          "stepdown": 1.0,
-          "stepover": 0.3
-        },
-        "6.35": {
-          "feed": 560,
-          "plunge": 196,
-          "spindle": 4000,
-          "stepdown": 2.0,
-          "stepover": 0.25
-        }
       }
     },
     {
       "id": "mdf",
       "name": "MDF",
-      "flutes": 2,
       "note": "HSS, 2-flute. abrasive — it dulls a cutter faster than hardwood does, and a dull cutter burns. dust extraction and a mask, always.",
+      "cut": {
+        "vc": 120,
+        "flutes": 2,
+        "chip": 0.0098,
+        "down": 0.32,
+        "downMax": 0,
+        "stepover": 0.35
+      },
       "ramp": {
         "ease": true,
         "angle": 5
@@ -312,36 +223,20 @@
         "envIntensity": 0.2,
         "chipColor": "#b98d5c",
         "chipEmissive": "#2e1f0c"
-      },
-      "by_tool": {
-        "1.5875": {
-          "feed": 320,
-          "plunge": 112,
-          "spindle": 8000,
-          "stepdown": 0.5,
-          "stepover": 0.35
-        },
-        "3.175": {
-          "feed": 550,
-          "plunge": 192,
-          "spindle": 8000,
-          "stepdown": 1.0,
-          "stepover": 0.35
-        },
-        "6.35": {
-          "feed": 750,
-          "plunge": 262,
-          "spindle": 6000,
-          "stepdown": 2.0,
-          "stepover": 0.3
-        }
       }
     },
     {
       "id": "hardwood",
       "name": "hard wood",
-      "flutes": 2,
       "note": "HSS, 2-flute. oak, maple, walnut, cherry. plywood cuts about the same, but the glue lines dull a cutter faster. dust mask required.",
+      "cut": {
+        "vc": 120,
+        "flutes": 2,
+        "chip": 0.0105,
+        "down": 0.32,
+        "downMax": 0,
+        "stepover": 0.35
+      },
       "ramp": {
         "ease": true,
         "angle": 5
@@ -359,36 +254,20 @@
         "envIntensity": 0.35,
         "chipColor": "#8b6238",
         "chipEmissive": "#2a1808"
-      },
-      "by_tool": {
-        "1.5875": {
-          "feed": 350,
-          "plunge": 122,
-          "spindle": 8000,
-          "stepdown": 0.5,
-          "stepover": 0.35
-        },
-        "3.175": {
-          "feed": 600,
-          "plunge": 210,
-          "spindle": 8000,
-          "stepdown": 1.0,
-          "stepover": 0.35
-        },
-        "6.35": {
-          "feed": 800,
-          "plunge": 280,
-          "spindle": 6000,
-          "stepdown": 2.0,
-          "stepover": 0.3
-        }
       }
     },
     {
       "id": "wax",
       "name": "machining wax",
-      "flutes": 2,
       "note": "HSS, 2-flute. the safe rehearsal stock — cuts like butter and re-melts into a fresh block. prove a program here before cutting metal.",
+      "cut": {
+        "vc": 120,
+        "flutes": 2,
+        "chip": 0.013,
+        "down": 0.47,
+        "downMax": 0,
+        "stepover": 0.4
+      },
       "ramp": {
         "ease": true,
         "angle": 8
@@ -406,36 +285,20 @@
         "envIntensity": 0.6,
         "chipColor": "#4d9c8c",
         "chipEmissive": "#0a1a16"
-      },
-      "by_tool": {
-        "1.5875": {
-          "feed": 450,
-          "plunge": 158,
-          "spindle": 8000,
-          "stepdown": 0.71,
-          "stepover": 0.4
-        },
-        "3.175": {
-          "feed": 800,
-          "plunge": 280,
-          "spindle": 8000,
-          "stepdown": 1.5,
-          "stepover": 0.4
-        },
-        "6.35": {
-          "feed": 1000,
-          "plunge": 350,
-          "spindle": 6000,
-          "stepdown": 3.0,
-          "stepover": 0.35
-        }
       }
     },
     {
       "id": "foam",
       "name": "foam",
-      "flutes": 2,
       "note": "HSS, 2-flute. rigid PU, EPS, blue/pink insulation. the risk is tool deflection on a long reach, not the cut.",
+      "cut": {
+        "vc": 120,
+        "flutes": 2,
+        "chip": 0.017,
+        "down": 0.45,
+        "downMax": 0,
+        "stepover": 0.45
+      },
       "ramp": {
         "ease": true,
         "angle": 10
@@ -453,29 +316,6 @@
         "envIntensity": 0.15,
         "chipColor": "#e8e2d2",
         "chipEmissive": "#1a1818"
-      },
-      "by_tool": {
-        "1.5875": {
-          "feed": 600,
-          "plunge": 210,
-          "spindle": 8000,
-          "stepdown": 0.71,
-          "stepover": 0.45
-        },
-        "3.175": {
-          "feed": 1000,
-          "plunge": 350,
-          "spindle": 8000,
-          "stepdown": 1.42,
-          "stepover": 0.45
-        },
-        "6.35": {
-          "feed": 1300,
-          "plunge": 455,
-          "spindle": 6000,
-          "stepdown": 2.85,
-          "stepover": 0.4
-        }
       }
     }
   ]
