@@ -26,6 +26,9 @@
   };
   const SPINDLE = 0x001;                                        // output 1 ([1 & 2 enable Router/Spindles])
   const ORIGIN_KEY = 'swarf-shopbot-origin';
+  const FLIP_KEY = 'swarf-shopbot-flip';
+  const LOG_MAX = 20000;
+  const BIT = { x: 1, y: 2, z: 4 };
 
   class DirectMachine extends M.Base {
     constructor(cfg = {}) {
@@ -38,7 +41,57 @@
       this.steps = { x: 0, y: 0, z: 0 };
       this.outputs = 0;
       this.job = null;        // { ops, resumeAt } while a program runs
+      this.flip = { x: false, y: false, z: false };
+      this.traffic = [];
       try { Object.assign(this.origin, JSON.parse(localStorage.getItem(ORIGIN_KEY)) || {}); } catch (e) { /* none saved */ }
+      try { Object.assign(this.flip, JSON.parse(localStorage.getItem(FLIP_KEY)) || {}); } catch (e) { /* none saved */ }
+      this.planner.m.invert = this.invertMask();
+    }
+
+    invertMask() { return (this.flip.x ? 1 : 0) | (this.flip.y ? 2 : 0) | (this.flip.z ? 4 : 0); }
+
+    // A motor that runs backwards: the card's count for that axis is negated
+    // from here on, and the axis is zeroed where it stands.
+    setFlip(axis, on) {
+      if (this.busy() || this.flip[axis] === !!on) return;
+      this.flip[axis] = !!on;
+      this.planner.m.invert = this.invertMask();
+      this.steps[axis] = -this.steps[axis];
+      this.origin[axis] = this.steps[axis];
+      try { localStorage.setItem(FLIP_KEY, JSON.stringify(this.flip)); localStorage.setItem(ORIGIN_KEY, JSON.stringify(this.origin)); } catch (e) { /* private window */ }
+      this.set({ pos: this.work(this.steps), flip: { ...this.flip }, note: `${axis.toUpperCase()} runs the other way now; ${axis.toUpperCase()} is zero here` });
+    }
+
+    // Output n (1-12) on for `ms`, then back as it was. Idle only.
+    async testOutput(n, ms = 2000) {
+      if (this.busy()) return false;
+      const on = this.outputs | (1 << (n - 1));
+      const word = w => [0xF0, w & 0xFF, (w >> 8) & 0x0F, 0xFF, 0xFF, 0xFF];
+      this.testing = true;
+      try {
+        await this.card.cmd(word(on));
+        this.set({ spindle: n === 1, note: `output ${n} on` });
+        await new Promise(r => setTimeout(r, ms));
+      } finally {
+        await this.card.cmd(word(this.outputs)).catch(() => {});
+        this.testing = false;
+        this.set({ spindle: false, note: `output ${n} off` });
+      }
+      return true;
+    }
+
+    record(dir, b) {
+      this.traffic.push([performance.now(), dir, b]);
+      if (this.traffic.length > LOG_MAX) this.traffic.splice(0, this.traffic.length - LOG_MAX);
+    }
+
+    // The card traffic as text: ms since connect, > to the card / < from it, hex.
+    logText() {
+      const t0 = this.traffic.length ? this.traffic[0][0] : 0;
+      const hex = b => Array.from(b, x => x.toString(16).padStart(2, '0')).join(' ');
+      const head = [`swarf ${root.SWARF_VERSION || ''} ShopBot USB log ${new Date().toISOString()}`,
+        `flip ${JSON.stringify(this.flip)} origin ${JSON.stringify(this.origin)} steps ${JSON.stringify(this.steps)}`];
+      return head.concat(this.traffic.map(([t, d, b]) => `${(t - t0).toFixed(1)} ${d} ${hex(b)}`)).join('\n') + '\n';
     }
 
     static supported() { return !!(root.navigator && root.navigator.usb); }
@@ -54,6 +107,9 @@
       const m = await link.modem().catch(() => null);
       this.link = link;
       this.card = new ShopBotCard(link, { size: 149, timeoutMs: this.cfg.timeoutMs || 2000 });
+      const write = link.write.bind(link), recv = link.onData;
+      link.write = b => { this.record('>', b); return write(b); };
+      link.onData = b => { this.record('<', b); recv(b); };
       try {
         const st = await this.card.status();
         await this.card.setBlocks(3);
@@ -77,9 +133,9 @@
     }
 
     read(st) {
-      this.steps = { x: st.steps.x, y: st.steps.y, z: st.steps.z };
-      this.inputs = st.inputs;
-      this.set({ pos: this.work(this.steps) });
+      const f = this.flip;
+      this.steps = { x: f.x ? -st.steps.x : st.steps.x, y: f.y ? -st.steps.y : st.steps.y, z: f.z ? -st.steps.z : st.steps.z };
+      this.set({ pos: this.work(this.steps), inputs: { p6: st.inputs, p2: st.inputs2 }, flip: { ...f } });
     }
 
     work(s) {
@@ -95,7 +151,7 @@
     poll() {
       clearTimeout(this.timer);
       const loop = async () => {
-        if (this.card && !this.card.streaming && !this.state.running) {
+        if (this.card && !this.card.streaming && !this.state.running && !this.testing) {
           try { this.read(await this.card.status()); } catch (e) { /* busy or gone; onClose reports loss */ }
         }
         this.timer = setTimeout(loop, 400);
@@ -103,7 +159,7 @@
       this.timer = setTimeout(loop, 400);
     }
 
-    busy() { return !this.card || this.card.streaming || this.state.running; }
+    busy() { return !this.card || this.card.streaming || this.state.running || !!this.testing; }
 
     // Run ops (machine mm) as one stack; resolves with the end report.
     async stack(ops) {
@@ -112,7 +168,7 @@
       this.set({ moving: true });
       const p = this.planner;
       const end = await this.card.run(p.items(ops, start), {
-        onAck: () => { if (p.st) this.set({ pos: this.work(p.st.cur), line: p.st.line > 0 ? p.st.line : this.state.line }); }
+        onAck: ack => { if (p.st) this.set({ pos: this.work(p.st.cur), line: p.st.line > 0 ? p.st.line : this.state.line, inputs: { p6: ack.inputs, p2: ack.inputs2 } }); }
       });
       this.read(end);
       this.set({ moving: false });

@@ -1,5 +1,14 @@
 swarf_HANDOFF.txt — for Claude
-last updated 2026-10-22 (v00000-024 r25, Run mode drives the ShopBot over USB)
+last updated 2026-10-22 (v00000-025 r26, machine check for the USB ShopBot)
+
+r26 — MACHINE CHECK (USB only). Opens on the first USB connection, again from
+  "check the machine" in the machine panel: per axis +1 mm with right way /
+  wrong way (wrong way flips that axis: planner invert mask + card count
+  negated, axis re-zeroed; saved in localStorage swarf-shopbot-flip), inputs
+  1-12 lit when changed (1-8 = P6 bits 0-7, 9-12 = P2 bits 0-3), output 1
+  test (two presses, 2 s), save log (card traffic as hex text). Card commands
+  queue (ShopBotCard.cmd) so a poll never collides with a test or a move.
+
 
 ════════════════════════════════════════════════════════════════════
 r25 — RUN MODE OVER USB (WebUSB, no ShopBot 3, no helper). Protocol

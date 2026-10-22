@@ -47,6 +47,7 @@
       this.rx = [];
       this.want = null;           // { n, resolve, reject, timer }
       this.streaming = false;
+      this.queue = Promise.resolve();
       link.onData = b => { for (const x of b) this.rx.push(x); this.drain(); };
     }
 
@@ -71,11 +72,17 @@
       });
     }
 
-    async cmd(bytes, reply = 50) {
-      if (this.streaming) throw new Error('card: busy moving');
-      const p = reply ? this.expect(reply) : null;
-      await this.link.write(Uint8Array.from(bytes));
-      return p ? p : new Uint8Array(0);
+    // Commands queue: each waits for the one before to be answered.
+    cmd(bytes, reply = 50) {
+      const go = async () => {
+        if (this.streaming) throw new Error('card: busy moving');
+        const p = reply ? this.expect(reply) : null;
+        await this.link.write(Uint8Array.from(bytes));
+        return p ? p : new Uint8Array(0);
+      };
+      const r = this.queue.then(go, go);
+      this.queue = r.catch(() => {});
+      return r;
     }
 
     async status() { return parseReport(await this.cmd([0xE0, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF])); }
@@ -103,6 +110,7 @@
     async run(items, { onAck } = {}) {
       if (this.streaming) throw new Error('card: busy moving');
       this.streaming = true;
+      await this.queue;
       const it = items[Symbol.iterator]();
       let ended = false, k = 0, data = 0;
       try {
@@ -171,11 +179,11 @@
    *   p.items(moves, startSteps)   -> iterator of item bytes
    *   p.stop() / p.hold()          -> ramp down at the next tick it plans
    * machine: { unit: {x,y,z} steps/mm, rampSpeed mm/s, rampRate mm,
-   *            maxTickHz, minTickHz }
+   *            maxTickHz, minTickHz, invert: direction bits to flip (X 1, Y 2, Z 4) }
    */
   class Planner {
     constructor(m) {
-      this.m = Object.assign({ rampSpeed: 10.16, rampRate: 5.08, maxTickHz: 25000, minTickHz: 20 }, m);
+      this.m = Object.assign({ rampSpeed: 10.16, rampRate: 5.08, maxTickHz: 25000, minTickHz: 20, invert: 0 }, m);
       this.k = 50.8 / this.m.rampRate;             // (mm/s) per mm
       this.halt = null;                             // 'stop' | null
       this.at = null;                               // { steps, line, v } as planned so far
@@ -254,7 +262,7 @@
       const n = Math.ceil(Math.max(0, seconds) * TICK_HZ / 0xFFFF);
       if (!n) return;
       st.reload = 1; st.line = (ln || 0) & 0xFFFF;
-      yield 0x40; yield Math.max(0, st.dirs); yield st.line >> 8; yield st.line & 0xFF; yield 0x00; yield 0x01;
+      yield 0x40; yield Math.max(0, st.dirs) ^ this.m.invert; yield st.line >> 8; yield st.line & 0xFF; yield 0x00; yield 0x01;
       for (let i = 0; i < n && !this.halt; i++) yield 0x00;
     }
 
@@ -290,7 +298,7 @@
           if (reload >= 0 && Math.abs(r - reload) <= (0x10000 - reload) * 0.005) r = reload;   // ramp in 0.5% steps
           if (nd !== dirs || ln !== line || (r !== reload && r < 0xF000)) {
             dirs = nd; line = st.line = ln; reload = r;
-            yield 0x40; yield dirs; yield ln >> 8; yield ln & 0xFF; yield r >> 8; yield r & 0xFF;
+            yield 0x40; yield dirs ^ this.m.invert; yield ln >> 8; yield ln & 0xFF; yield r >> 8; yield r & 0xFF;
           } else if (r !== reload) {
             reload = r;
             yield 0x60 | ((r >> 8) & 0x0F); yield r & 0xFF;

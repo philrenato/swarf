@@ -157,6 +157,16 @@
 .sr-card .row { display: flex; gap: 8px; justify-content: flex-end; margin-top: 14px; }
 .sr-card .row button { border-radius: 10px; padding: 10px 16px; background: var(--swarf-bg-3, #1c1817); border: 1px solid var(--swarf-line-2, #3a1e18); }
 .sr-card .row .go { background: var(--swarf-accent, #d02020); border-color: var(--swarf-accent, #d02020); color: #fff; font-weight: 600; }
+.sr-chk { display: grid; grid-template-columns: 28px auto 1fr auto auto; gap: 8px; align-items: center; padding: 5px 0; }
+.sr-chk b { font-size: 15px; }
+.sr-chk span { color: var(--swarf-text-2, #8a857c); font-size: 12px; }
+.sr-chk button, .sr-card .sr-out { border-radius: 8px; padding: 6px 10px; background: var(--swarf-bg-3, #1c1817); border: 1px solid var(--swarf-line-2, #3a1e18); }
+.sr-chk button.ok { border-color: #2f9e5a; color: #6fd39a; }
+.sr-card h3 { margin: 14px 0 4px; font-size: 12px; letter-spacing: .12em; text-transform: uppercase; color: var(--swarf-text-2, #8a857c); }
+.sr-dots { display: flex; gap: 6px; flex-wrap: wrap; margin: 4px 0 8px; }
+.sr-dots i { width: 26px; height: 26px; border-radius: 50%; display: grid; place-items: center; font: 600 11px "JetBrains Mono", ui-monospace, monospace; font-style: normal; border: 1px solid var(--swarf-line-2, #3a1e18); color: var(--swarf-text-2, #8a857c); }
+.sr-dots i.on { background: var(--swarf-accent, #d02020); border-color: var(--swarf-accent, #d02020); color: #fff; }
+.sr-card .sr-out.armed { border-color: var(--swarf-accent, #d02020); color: #fff; }
 body.swarf-run-open { filter: none !important; }
 #swarf-run-enter { margin-left: 8px; background: var(--swarf-accent, #d02020); color: #fff; border: none; border-radius: 999px; padding: 4px 14px;
   font: 600 12px "JetBrains Mono", ui-monospace, monospace; letter-spacing: .1em; cursor: pointer; align-self: center; }
@@ -310,7 +320,8 @@ body.swarf-run-open { filter: none !important; }
       el.simCtl.append(b);
     }
     el.note = h('div', { class: 'sr-note', text: 'The red stop button on the machine stops everything, always. The stop here stops motion through ShopBot.' });
-    el.stat.append(h('div', { class: 'sr-stat' }, el.big, el.rows, el.ask, el.simCtl, el.note));
+    el.checkBtn = h('button', { class: 'sr-out', text: 'check the machine', onclick: () => openCheck() });
+    el.stat.append(h('div', { class: 'sr-stat' }, el.big, el.rows, el.ask, el.simCtl, el.checkBtn, el.note));
 
     grid.append(h('div', { class: 'sr-col' }, el.view, el.prog), h('div', { class: 'sr-col' }, el.jog, el.stat));
 
@@ -705,6 +716,68 @@ body.swarf-run-open { filter: none !important; }
     el.sheet.classList.add('on');
   }
 
+  // ------------------------------------------------------------ machine check (USB)
+  // Once per machine: which way each axis runs, which input is which switch,
+  // whether output 1 is the spindle. Opens on the first USB connection.
+  const CHECKED = 'swarf-shopbot-checked';
+  const AXIS_HINT = { x: 'should go away from the home corner, along the long side', y: 'should go away from the home corner, across the table', z: 'should go up' };
+  function isDirect() { return !!(M.DirectMachine && S.machine instanceof M.DirectMachine); }
+  function openCheck() {
+    const m = S.machine;
+    if (!isDirect() || !m.state.connected) return;
+    S.checkShown = true;
+    const st = m.state;
+    S.check = { base: st.inputs ? { ...st.inputs } : null, dots: [] };
+    el.card.innerHTML = '';
+    const axes = ['x', 'y', 'z'].map(a => {
+      const ok = h('button', { text: 'right way', onclick: () => ok.classList.add('ok') });
+      return h('div', { class: 'sr-chk' },
+        h('b', { text: a.toUpperCase() }),
+        h('button', { text: a === 'z' ? '+1 mm up' : '+1 mm', onclick: () => { ok.classList.remove('ok'); m.jog(a, 1); } }),
+        h('span', { text: AXIS_HINT[a] }),
+        ok,
+        h('button', { text: 'wrong way', onclick: () => { ok.classList.remove('ok'); m.setFlip(a, !m.flip[a]); } }));
+    });
+    const dots = h('div', { class: 'sr-dots' });
+    for (let i = 1; i <= 12; i++) { const d = h('i', { text: String(i) }); S.check.dots.push(d); dots.append(d); }
+    const out = h('button', { class: 'sr-out', text: 'test output 1 (spindle) for 2 s' });
+    out.onclick = async () => {
+      if (!out.classList.contains('armed')) { out.classList.add('armed'); out.textContent = 'press again: the spindle may start'; return; }
+      out.classList.remove('armed'); out.disabled = true; out.textContent = 'output 1 on…';
+      await m.testOutput(1, 2000).catch(e => say(e.message, 'bad'));
+      out.disabled = false; out.textContent = 'test output 1 (spindle) for 2 s';
+    };
+    el.card.append(
+      h('h2', { text: 'Check the machine' }),
+      h('p', { text: 'Once per machine. Keep a hand near the red stop button.' }),
+      ...axes,
+      h('h3', { text: 'inputs' }),
+      h('p', { text: 'Press a limit switch, or touch the plate to the bit. The number that lights is that input.' }),
+      dots,
+      h('h3', { text: 'spindle' }),
+      out,
+      h('div', { class: 'row' },
+        h('button', { text: 'save log', onclick: saveLog }),
+        h('button', { class: 'go', text: 'done', onclick: () => { try { localStorage.setItem(CHECKED, '1'); } catch (e) {} S.check = null; el.sheet.classList.remove('on'); } })));
+    el.sheet.classList.add('on');
+    updateCheck(st);
+  }
+  // inputs 1-8 = P6 bits 0-7, 9-12 = P2 bits 0-3; lit = changed since the card opened
+  function updateCheck(st) {
+    const c = S.check;
+    if (!c || !st.inputs) return;
+    if (!c.base) c.base = { ...st.inputs };
+    c.dots.forEach((d, i) => {
+      const [now, was] = i < 8 ? [st.inputs.p6 >> i & 1, c.base.p6 >> i & 1] : [st.inputs.p2 >> (i - 8) & 1, c.base.p2 >> (i - 8) & 1];
+      d.classList.toggle('on', now !== was);
+    });
+  }
+  function saveLog() {
+    if (!isDirect()) return;
+    const a = h('a', { href: URL.createObjectURL(new Blob([S.machine.logText()], { type: 'text/plain' })), download: `shopbot-usb-${new Date().toISOString().replace(/[:.]/g, '-')}.txt` });
+    document.body.append(a); a.click(); a.remove();
+  }
+
   function pauseResume() {
     const st = S.machine.state;
     if (st.paused) S.machine.resume(); else S.machine.pause();
@@ -772,6 +845,16 @@ body.swarf-run-open { filter: none !important; }
     if (st.running) row('line', `${st.line || 0} of ${S.prog ? S.prog.parsed.lines : '—'}`);
     if (!sim && st.note) row('note', st.note);
     el.ask.classList.toggle('on', !!st.dialog);
+    el.checkBtn.style.display = isDirect() && st.connected ? '' : 'none';
+    el.note.textContent = isDirect()
+      ? 'The red stop button on the machine stops everything, always. The stop here slows the machine to a stop and turns the spindle off.'
+      : 'The red stop button on the machine stops everything, always. The stop here stops motion through ShopBot.';
+    if (S.check) updateCheck(st);
+    if (isDirect() && st.connected && !S.checkShown && !st.running) {
+      let done = false;
+      try { done = localStorage.getItem(CHECKED) === '1'; } catch (e) {}
+      if (!done) setTimeout(openCheck, 0); else S.checkShown = true;
+    }
     if (st.dialog) el.askText.textContent = st.dialog.caption || st.dialog.message || '';
     // a finished trace completes the trace step; a stopped one does not
     if (st.kind === 'shopbot' && st.running) st.line = lineAt(st.pos);
