@@ -14,6 +14,14 @@ export function cam_export(print, online) {
 
     const { settings } = print;
     const { device } = settings;
+    // remap a copy: print.output is what SIMULATE replays, in the slice frame.
+    // layers carry mode and spindle as array properties; keep them.
+    const printOutput = print.output.map(layer => {
+        if (!Array.isArray(layer)) return layer;
+        const copy = layer.map(out => out.point ? { ...out, point: { ...out.point } } : out);
+        for (const key of Object.keys(layer)) if (isNaN(key)) copy[key] = layer[key];
+        return copy;
+    });
 
     let i,
         time = 0,
@@ -29,6 +37,8 @@ export function cam_export(print, online) {
         origin = settings.origin || { x: 0, y: 0, z: 0 },
         space = device.gcodeSpace ? ' ' : '',
         isRML = device.gcodeFExt?.toLowerCase() === 'rml',
+        isSBP = /^\.?sbp$/i.test(device.gcodeFExt ?? ''),
+        sbpFeed,
         stripComments = device.gcodeStrip || false,
         cmdToolChange = device.gcodeChange || ["M6 T{tool}"],
         cmdSpindle = device.gcodeSpindle || ["M3 S{speed}"],
@@ -358,6 +368,17 @@ export function cam_export(print, online) {
             }
         }
 
+        // OpenSBP (ShopBot part files): positional moves, speeds in units/sec
+        if (isSBP) {
+            // J moves run at the machine's jog speed; MS sets cutting speed only
+            if (gv !== 0 && feed && feed !== sbpFeed) {
+                sbpFeed = feed;
+                const ups = add0(feed * factor / 60, true);
+                append(`MS,${ups},${ups}`);
+            }
+            nl = [gv === 0 ? 'J3' : 'M3', ',', add0(pos.x * factor), ',', add0(pos.y * factor), ',', add0(pos.z * factor)];
+        }
+
         if (!lasering && laser) {
             // enable laser
             filterEmit(laserOp.on, consts);
@@ -443,7 +464,7 @@ export function cam_export(print, online) {
     let toolz = {}, ctool;
     const isOffset = offset && (offset.x || offset.y || offset.z);
     // remap points as necessary for origins, offsets, inversions
-    print.output.forEach(layer => {
+    printOutput.forEach(layer => {
         // console.log(layer);
         if (!Array.isArray(layer)) {
             return;
@@ -493,7 +514,7 @@ export function cam_export(print, online) {
     filterEmit(gcodePre, consts);
 
     // emit all points in layer/point order
-    for (let layerout of print.output) {
+    for (let layerout of printOutput) {
         const newmode = layerout.mode;
         if (newmode) {
             if (newmode.type === 'laser on') {

@@ -841,7 +841,8 @@ export async function prepare_one(widget, settings, print, firstPoint, update) {
      * @returns {Point} - the last point emitted (in widget coordinates)
      */
     function polyEmit(poly, index, engage = false) {
-        let arcing = camArcEnabled && !contouring;
+        // OpenSBP part files take no G2/G3 arcs
+        let arcing = camArcEnabled && !contouring && !/^\.?sbp$/i.test(device.gcodeFExt ?? '');
         let points = poly.points;
 
         if (poly.isClosed()) {

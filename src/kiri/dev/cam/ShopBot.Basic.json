@@ -14,6 +14,7 @@
         "'UNITS:MM",
         "'",
         "CN, 90               'Set program to absolute coordinate mode",
+        "IF %(25)=0 THEN GOTO UNIT_ERROR   'stop if the machine is set to inches",
         "'"
     ],
     "gcodePost": [
