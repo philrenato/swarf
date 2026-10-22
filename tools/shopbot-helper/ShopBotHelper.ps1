@@ -216,6 +216,29 @@ Write-Host '  ShopBot helper for swarf' -ForegroundColor Red
 Write-Host '  Leave this window open while you use the ShopBot. Close it when you are done.'
 Write-Host ''
 
+# Run from a USB stick: copy the helper onto this laptop and put a Desktop
+# shortcut there, so later sessions need only the shortcut.
+if (-not $Fake) {
+    try {
+        $here = Split-Path -Parent $MyInvocation.MyCommand.Path
+        $drive = New-Object IO.DriveInfo ([IO.Path]::GetPathRoot($here))
+        if ($drive.DriveType -eq 'Removable') {
+            $installDir = 'C:\SbParts\swarf-helper'
+            New-Item -ItemType Directory -Path $installDir -Force | Out-Null
+            Copy-Item -LiteralPath (Join-Path $here 'ShopBotHelper.ps1') -Destination $installDir -Force
+            Copy-Item -LiteralPath (Join-Path $here 'START SHOPBOT.bat') -Destination $installDir -Force
+            $lnk = Join-Path ([Environment]::GetFolderPath('Desktop')) 'ShopBot + swarf.lnk'
+            $sc = (New-Object -ComObject WScript.Shell).CreateShortcut($lnk)
+            $sc.TargetPath = Join-Path $installDir 'START SHOPBOT.bat'
+            $sc.WorkingDirectory = $installDir
+            $exe = Find-Sb3
+            if ($exe) { $sc.IconLocation = "$exe,0" }
+            $sc.Save()
+            Note "installed on this laptop; next time use the 'ShopBot + swarf' shortcut on the Desktop"
+        }
+    } catch { Note "could not install a copy on this laptop: $($_.Exception.Message)" }
+}
+
 if (-not $Fake -and -not (Sb3-Process)) {
     $exe = Find-Sb3
     if ($exe) { Note "opening ShopBot 3"; Start-Process -FilePath $exe -WorkingDirectory (Split-Path $exe) | Out-Null }
