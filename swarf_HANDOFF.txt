@@ -1,5 +1,25 @@
 swarf_HANDOFF.txt — for Claude
-last updated 2026-10-22 (v00000-023 r24, Run mode drives the ShopBot)
+last updated 2026-10-22 (v00000-024 r25, Run mode drives the ShopBot over USB)
+
+════════════════════════════════════════════════════════════════════
+r25 — RUN MODE OVER USB (WebUSB, no ShopBot 3, no helper). Protocol
+authority: ~/Documents/claude/shopbot_probe/re/PROTOCOL.md
+────────────────────────────────────────────────────────────────────
+  web/kiri/swarf-shopbot-usb.js     CP210x 10C4:83C4 over WebUSB, 921600 8N1
+  web/kiri/swarf-shopbot-card.js    card protocol (6-byte commands, 150-byte
+                                    blocks + sum, 6-byte acks, 50-byte report)
+                                    + Planner: host-planned ticks with VR ramps
+  web/kiri/swarf-shopbot-direct.js  DirectMachine (Run back end #3); defaults
+                                    from the shop's shopbot.ini (VU/VS/VR/VL)
+  swarf-run.js connect(): a box this page was allowed before connects by
+  itself; "connect" asks once (Chrome chooser); else helper; else simulator.
+  Tool change / untimed PAUSE after the first move ends the job (spindle
+  off, Z to 25.4) and sets "cut from line". Home over USB not built.
+  Gates: tools/shopbot/ (own package.json, `npm i` there for `usb`):
+  test-link, test-card-emu / test-stop-emu / test-direct-emu (the V204
+  firmware in shopbot_probe/re/emu, needs pypy3.11), test-direct-stub,
+  probe_direct_ui.mjs (npm run dev). NOT YET ON THE REAL BOX: axis wiring +
+  direction, input bits, output 1 = spindle relay, ramp feel.
 
 ════════════════════════════════════════════════════════════════════
 r24 — RUN MODE (ShopBot only). Read with ~/Documents/claude/shopbot_probe/PLAN.md

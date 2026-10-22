@@ -285,5 +285,5 @@
     answer(v) { this.req('/answer', { value: v }).catch(() => {}); }
   }
 
-  root.SwarfRunMachine = { SimMachine, BridgeMachine, LIMITS, HELPER };
+  root.SwarfRunMachine = { Base, SimMachine, BridgeMachine, LIMITS, HELPER };
 })(window);

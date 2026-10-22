@@ -555,7 +555,9 @@ body.swarf-run-open { filter: none !important; }
     const rpm = p.events.filter(e => e.kind === 'rpm').map(e => e.value).filter(v => v > 0);
     if (rpm.length) add(`spindle ${[...new Set(rpm)].join(', ')} rpm`);
     const changes = p.events.filter(e => e.kind === 'tool-change');
-    if (changes.length > 1) add(`${changes.length} tool changes: ShopBot will stop and ask at each one`, 'w');
+    if (changes.length > 1) add(M.DirectMachine && S.machine instanceof M.DirectMachine
+      ? `${changes.length} tool changes: a change after cutting starts ends the cut there, with the spindle off and Z up; change the bit, zero Z, then cut from the line it names`
+      : `${changes.length} tool changes: ShopBot will stop and ask at each one`, 'w');
     else if (tools.length) add('one tool');
     const pr = problems();
     for (const t of pr.block) add(t, 'b');
@@ -614,6 +616,7 @@ body.swarf-run-open { filter: none !important; }
     }
     if (S.checking) return say('Checking that ShopBot takes commands from swarf. This is a preview: nothing moves.');
     if (S.linkBad) return say('ShopBot did not take the test file from swarf. Close ShopBot 3 and the helper window, then double-click the helper again. If it happens again, use ShopBot 3 by itself today.', 'bad');
+    if (st && !st.connected && M.DirectMachine && S.machine instanceof M.DirectMachine) return say(`Not connected: ${st.note}. Plug the box's USB cable into this computer and press connect.`, 'bad');
     if (st && !st.connected) return say(st.note && st.kind === 'shopbot' ? `Not connected: ${st.note}. Start the helper on the shop laptop and open ShopBot 3.` : 'Not connected to the machine.', 'bad');
     const o = originText();
     switch (now) {
@@ -624,6 +627,7 @@ body.swarf-run-open { filter: none !important; }
         return say(`Lower the bit until it just touches ${o.z}, then press zero z.`);
       case 'trace': return say('Press trace. The bit runs around the outline 25 mm up with the spindle off. Watch that it stays over your stock.');
       case 'cut':
+        if (S.stoppedAt && st && st.resumeLine === S.stoppedAt) return say(`${st.note[0].toUpperCase()}${st.note.slice(1)}. The spindle is off and the bit is up.`, 'warn');
         if (S.stoppedAt) return say(`Stopped at line ${S.stoppedAt}. Raise the bit with +Z first. To finish the job press cut from line (it is set to ${S.stoppedAt}); to start over press cut.`, 'warn');
         return say(S.lastDone === 'cut' || S.lastDone === 'from' ? 'Finished. Vacuum, then lift the bit away before you unclamp.' : 'Ready. Press cut. You will confirm a short checklist first.');
     }
@@ -708,6 +712,22 @@ body.swarf-run-open { filter: none !important; }
 
   // ------------------------------------------------------------ machine
   async function connect(manual) {
+    // Chrome/Edge: the box straight over USB. A box this page was allowed
+    // before connects by itself; the connect button asks once.
+    const D = M.DirectMachine;
+    if (D && D.supported() && (manual || await D.known())) {
+      if (S.machine instanceof D && S.machine.state.connected) return;
+      const d = new D();
+      const ok = await d.connect(manual).catch(e => { d.set({ note: e.message }); return false; });
+      if (ok) {
+        if (S.unsub) S.unsub();
+        if (S.machine && S.machine.timer) clearTimeout(S.machine.timer);
+        S.machine = d;
+        S.unsub = d.on(onState);
+        return;
+      }
+      if (manual && d.state.note !== 'no ShopBot on USB') { say(`ShopBot over USB: ${d.state.note}.`, 'bad'); return; }
+    }
     const real = await M.BridgeMachine.available();
     if (S.machine && real && S.machine.state.kind === 'shopbot') return;
     if (!real && S.machine && !manual) return;
@@ -763,7 +783,7 @@ body.swarf-run-open { filter: none !important; }
         S.lastDone = S.job;
         S.stoppedAt = 0;
       } else if (S.job === 'cut' || S.job === 'from') {
-        S.stoppedAt = S.lastLine || 0;
+        S.stoppedAt = st.resumeLine || S.lastLine || 0;
         if (S.stoppedAt) el.fromLine.value = String(S.stoppedAt);
       }
       S.job = null;

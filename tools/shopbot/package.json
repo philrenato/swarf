@@ -1,0 +1,7 @@
+{
+  "name": "swarf-shopbot-tools",
+  "private": true,
+  "type": "module",
+  "description": "Mac-side tools for the ShopBot control box: link check, listener, card emulator tests",
+  "dependencies": { "usb": "^3.2.1" }
+}
