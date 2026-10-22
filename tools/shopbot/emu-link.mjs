@@ -5,8 +5,8 @@ import { spawn } from 'node:child_process';
 import os from 'node:os';
 import path from 'node:path';
 export const EMU = process.env.SHOPBOT_EMU || path.join(os.homedir(), 'Documents/claude/shopbot_probe/re/emu');
-export function emuLink({ python = 'pypy3.11' } = {}) {
-  const p = spawn(python, ['card_server.py'], { cwd: EMU, stdio: ['pipe', 'pipe', 'pipe'] });
+export function emuLink({ python = 'pypy3.11', args = [] } = {}) {
+  const p = spawn(python, ['card_server.py', ...args], { cwd: EMU, stdio: ['pipe', 'pipe', 'pipe'] });
   let err = '';
   const link = {
     onData: null,

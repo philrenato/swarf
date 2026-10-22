@@ -31,6 +31,7 @@ const done = m => new Promise(r => { const t = setInterval(() => { if (!m.state.
 const sbp = ["SA", "C9", "C6", "PAUSE 0.05", "J3,0,0,5", "M3,10,0,-1", "M3,10,10,-1", "C9", "M3,0,10,-1", "J3,0,0,5", "C7", "END"].join('\n');
 { // cut: tool change at line 8 ends the job after line 7
   const { m, card, outs, P } = await machine();
+  card.state.noAckOnEnd = true;
   const parsed = P.parse(sbp);
   m.zero('xyz');
   m.run({ name: 't', moves: parsed.moves, sbp, spindle: true });

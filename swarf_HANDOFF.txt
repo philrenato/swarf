@@ -1,5 +1,20 @@
 swarf_HANDOFF.txt — for Claude
-last updated 2026-10-22 (v00000-025 r26, machine check for the USB ShopBot)
+last updated 2026-10-22 (v00000-026 r27, home over USB)
+
+r27 — HOME OVER USB (ShopBot C3 / XYzero.sbp). DirectMachine.home(): outputs
+  off, Z to safe height, per axis a fast seek (<= 88.9 mm/s, 149-byte blocks)
+  toward -axis, back off 25.4 mm until the sensor reads clear, a slow seek
+  (<= 25.4 mm/s, 15-byte blocks); contact = middle of the first ack window
+  that shows the sensor covered (ack ticks = ticks since the previous ack;
+  one step per tick on a one-axis move); contact = table -12.7 mm
+  (my_XYzeroOffsetX/Y -0.5 in); park at 0, 0. Needs both sensors set in the
+  machine check ("that's X home" / "that's Y home"; defaults input 2 / 3,
+  covered = 0, PRS). Firmware facts used: the card holds F9 n blocks and
+  holds a block's ack until one drains (0x263A); END can stop the stack
+  before that ack, so the last reply may be the report alone (handled).
+  Card window now 2. Gate: tools/shopbot/test-home-emu.mjs (switches in the
+  emulator: card_server.py --switch P6,1,0,-500,0) — within 1 step.
+
 
 r26 — MACHINE CHECK (USB only). Opens on the first USB connection, again from
   "check the machine" in the machine panel: per axis +1 mm with right way /

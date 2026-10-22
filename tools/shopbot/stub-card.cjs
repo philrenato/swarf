@@ -4,12 +4,21 @@
 // authority; this only mirrors what was measured there (re/PROTOCOL.md).
 (function (root) {
   function StubCard() {
-    const s = { inputs: [0xFF, 0x0F], pos: [0, 0, 0, 0, 0, 0], dirs: 0, line: 0, size: 340, buf: [], need: 0, item: [], p7: 5, blocks: 0, ticks: 0 };
+    const s = { inputs: [0xFF, 0x0F], switches: [], acked: 0, pos: [0, 0, 0, 0, 0, 0], dirs: 0, line: 0, size: 340, buf: [], need: 0, item: [], p7: 5, blocks: 0, ticks: 0 };
     const stub = { onData: null, state: s };
     const send = b => setTimeout(() => stub.onData && stub.onData(Uint8Array.from(b)), 2);
+    // switches: { port 0 = P6 / 1 = P2, bit, axis, at, hit } — reads `hit` at or below `at`
+    const inputs = () => {
+      const v = s.inputs.slice();
+      for (const w of s.switches) {
+        const level = s.pos[w.axis] <= w.at ? w.hit : 1 - w.hit;
+        v[w.port] = level ? v[w.port] | (1 << w.bit) : v[w.port] & ~(1 << w.bit);
+      }
+      return v;
+    };
     const report = () => {
       const r = new Array(50).fill(0);
-      r[0] = 0xD4; r[1] = s.inputs[0]; r[2] = s.inputs[1]; r[5] = s.blocks & 0xFF; r[6] = s.line & 0xFF; r[7] = s.line >> 8 & 0xFF;
+      const iv = inputs(); r[0] = 0xD4; r[1] = iv[0]; r[2] = iv[1]; r[5] = s.blocks & 0xFF; r[6] = s.line & 0xFF; r[7] = s.line >> 8 & 0xFF;
       r[16] = r[17] = 0xFF;
       s.pos.forEach((v, i) => { for (let k = 0; k < 4; k++) r[18 + 4 * i + k] = (v >>> (24 - 8 * k)) & 0xFF; });
       return r;
@@ -52,7 +61,10 @@
           s.item = [b]; need = dataLen(b);
           if (!need) item(s.item);
         }
-        send([3, s.blocks & 0xFF, s.inputs[0], s.inputs[1], s.ticks & 0xFF, s.ticks >> 8 & 0xFF]);
+        const iv = inputs(), d = s.ticks - s.acked; s.acked = s.ticks;
+        // noAckOnEnd: like the firmware with its window full, END stops the
+        // stack before the held ack goes out — only the report arrives
+        if (!(ended && s.noAckOnEnd)) send([3, s.blocks & 0xFF, iv[0], iv[1], d & 0xFF, d >> 8 & 0xFF]);
         if (ended) { need = 0; send(report()); }
       }
       return Promise.resolve(bytes.length);

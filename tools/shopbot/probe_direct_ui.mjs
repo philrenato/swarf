@@ -68,6 +68,18 @@ try {
   await page.evaluate(() => { window.__stub.state.inputs[0] = 0xFF & ~(1 << 2); });
   await page.waitForFunction(() => [...document.querySelectorAll('#swarf-run .sr-dots i.on')].map(d => d.textContent).join() === '3', { timeout: 3000 }).then(() => check(true, 'input 3 lights when P6.2 drops'), () => check(false, 'input 3 lights when P6.2 drops'));
   await page.evaluate(() => { window.__stub.state.inputs[0] = 0xFF; });
+  // home sensors: cover X (P6.1 -> 0), take it; then Y (P6.2 -> 0)
+  const take = async (bit, label) => {
+    await page.evaluate(b => { window.__stub.state.inputs[0] = 0xFF & ~(1 << b); }, bit);
+    await page.waitForFunction(b => [...document.querySelectorAll('#swarf-run .sr-dots i.on')].map(d => d.textContent).join() === String(b + 1), { timeout: 3000 }, bit);
+    await page.evaluate(l => [...document.querySelectorAll('#swarf-run .sr-card button')].find(b => b.textContent === l).click(), label);
+    await page.evaluate(() => { window.__stub.state.inputs[0] = 0xFF; });
+    await new Promise(r => setTimeout(r, 500));
+  };
+  await take(1, "that's X home");
+  await take(2, "that's Y home");
+  const homeText = await page.evaluate(() => [...document.querySelectorAll('#swarf-run .sr-card p')].map(p => p.textContent).find(t => t.startsWith('X home')));
+  check(homeText === 'X home: input 2 · Y home: input 3', `home sensors: "${homeText}"`);
   const p7 = [];
   const watch = setInterval(async () => p7.push(await page.evaluate(() => window.__stub.state.p7).catch(() => -1)), 100);
   await page.evaluate(() => document.querySelector('#swarf-run .sr-card .sr-out').click());
@@ -81,16 +93,31 @@ try {
   await page.screenshot({ path: `${OUT}/0-check-done.png` });
   await page.evaluate(() => [...document.querySelectorAll('#swarf-run .sr-card .row button')].find(b => b.textContent === 'done').click());
   check(await page.evaluate(() => !document.querySelector('#swarf-run .sr-sheet.on') && localStorage.getItem('swarf-shopbot-checked') === '1'), 'done closes the card and remembers');
+  // home: sensors 500 / 400 steps toward -X / -Y from here
+  const at = await page.evaluate(() => {
+    const st = window.__stub.state;
+    st.switches = [{ port: 0, bit: 1, axis: 0, at: st.pos[0] - 500, hit: 0 }, { port: 0, bit: 2, axis: 1, at: st.pos[1] - 400, hit: 0 }];
+    return [st.pos[0] - 500, st.pos[1] - 400];
+  });
+  await page.evaluate(() => [...document.querySelectorAll('#swarf-run button')].find(b => b.textContent === 'home').click());
+  await page.waitForFunction(() => /^hom(ed|ing (stopped|failed))/.test(window.__swarfRun.state.machine.state.note), { timeout: 30000 });
+  const homed = await page.evaluate(() => ({ note: window.__swarfRun.state.machine.state.note, pos: window.__swarfRun.state.machine.state.pos, card: window.__stub.state.pos.slice(0, 2), dro: [...document.querySelectorAll('.sr-axis .v')].map(e => e.textContent) }));
+  const u = 72.183661;
+  check(homed.note.startsWith('homed') && Math.abs(homed.card[0] - (at[0] + 12.7 * u)) <= 20 && Math.abs(homed.card[1] - (at[1] + 12.7 * u)) <= 20 && homed.dro[0] === '0.000',
+    `home: ${homed.note}; card ${homed.card} vs expected ~${Math.round(at[0] + 12.7 * u)},${Math.round(at[1] + 12.7 * u)}; DRO ${homed.dro.join(' ')}`);
+  await page.screenshot({ path: `${OUT}/0-homed.png` });
+  await page.evaluate(() => { window.__stub.state.switches = []; });
   await page.evaluate(() => window.__swarfRun.state.machine.zero('xyz'));
-  await page.evaluate(() => { window.__stub.state.pos[0] = 0; });
   await page.screenshot({ path: `${OUT}/1-connected.png` });
+  const x0 = await page.evaluate(() => window.__stub.state.pos[0]);
   await page.evaluate(() => [...document.querySelectorAll('.sr-modes button')].find(b => b.textContent === '10').click());
   const labels = await page.$$eval('.sr-pad button', bs => bs.map(b => b.textContent));
   await (await page.$$('.sr-pad button'))[labels.indexOf('+X')].click();
   await page.waitForFunction(() => !window.__swarfRun.state.machine.busy(), { timeout: 10000 });
   await new Promise(r => setTimeout(r, 300));
   const x = await page.$eval('.sr-axis .v', e => e.textContent);
-  check(Math.abs(parseFloat(x) - 10) < 0.02, `jog +X 10 → DRO ${x}; card X steps ${await page.evaluate(() => window.__stub.state.pos[0])}`);
+  const dx = await page.evaluate(() => window.__stub.state.pos[0]) - x0;
+  check(Math.abs(parseFloat(x) - 10) < 0.02 && dx === 722, `jog +X 10 → DRO ${x}; card X +${dx} steps`);
   if (FILE) {
     await page.evaluate((t) => window.__swarfRun.loadProgram('part.sbp', t, 'file'), readFileSync(FILE, 'latin1'));
     await new Promise(r => setTimeout(r, 500));

@@ -161,6 +161,8 @@
 .sr-chk b { font-size: 15px; }
 .sr-chk span { color: var(--swarf-text-2, #8a857c); font-size: 12px; }
 .sr-chk button, .sr-card .sr-out { border-radius: 8px; padding: 6px 10px; background: var(--swarf-bg-3, #1c1817); border: 1px solid var(--swarf-line-2, #3a1e18); }
+.sr-pair { display: flex; gap: 8px; margin: 4px 0; }
+.sr-pair button { border-radius: 8px; padding: 6px 10px; background: var(--swarf-bg-3, #1c1817); border: 1px solid var(--swarf-line-2, #3a1e18); }
 .sr-chk button.ok { border-color: #2f9e5a; color: #6fd39a; }
 .sr-card h3 { margin: 14px 0 4px; font-size: 12px; letter-spacing: .12em; text-transform: uppercase; color: var(--swarf-text-2, #8a857c); }
 .sr-dots { display: flex; gap: 6px; flex-wrap: wrap; margin: 4px 0 8px; }
@@ -740,6 +742,26 @@ body.swarf-run-open { filter: none !important; }
     });
     const dots = h('div', { class: 'sr-dots' });
     for (let i = 1; i <= 12; i++) { const d = h('i', { text: String(i) }); S.check.dots.push(d); dots.append(d); }
+    const homeText = h('p');
+    const showHome = () => {
+      const H = m.homeCfg, set = H.set || {};
+      homeText.textContent = `X home: ${set.x ? 'input ' + H.x.input : 'not set'} · Y home: ${set.y ? 'input ' + H.y.input : 'not set'}`;
+    };
+    // the one input that changed since the card opened, and its level now
+    const lit = () => {
+      const c = S.check, st = m.state;
+      if (!c || !c.base || !st.inputs) return null;
+      const changed = [];
+      for (let n = 1; n <= 12; n++) if (m.level(st.inputs, n) !== m.level(c.base, n)) changed.push(n);
+      return changed.length === 1 ? { input: changed[0], hit: m.level(st.inputs, changed[0]) } : null;
+    };
+    const take = a => {
+      const l = lit();
+      if (!l) { say(`Cover only the ${a.toUpperCase()} home sensor, so one number lights.`, 'warn'); return; }
+      m.setHomeSensor(a, l.input, l.hit);
+      showHome();
+    };
+    showHome();
     const out = h('button', { class: 'sr-out', text: 'test output 1 (spindle) for 2 s' });
     out.onclick = async () => {
       if (!out.classList.contains('armed')) { out.classList.add('armed'); out.textContent = 'press again: the spindle may start'; return; }
@@ -754,6 +776,12 @@ body.swarf-run-open { filter: none !important; }
       h('h3', { text: 'inputs' }),
       h('p', { text: 'Press a limit switch, or touch the plate to the bit. The number that lights is that input.' }),
       dots,
+      h('h3', { text: 'home sensors' }),
+      h('p', { text: 'Hold something metal at the X home sensor. When its number lights, press X; then the same for Y.' }),
+      h('div', { class: 'sr-pair' },
+        h('button', { text: "that's X home", onclick: () => take('x') }),
+        h('button', { text: "that's Y home", onclick: () => take('y') })),
+      homeText,
       h('h3', { text: 'spindle' }),
       out,
       h('div', { class: 'row' },

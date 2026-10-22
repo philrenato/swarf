@@ -14,8 +14,10 @@
  *   F9 n hi lo FF FF    block payload size (hi:lo), n = card window
  *   90 04 / 90 0C ...   motors on / off (P3.0-1)
  *   80 len ...          card identity -> len bytes
- * Blocks: `size` payload bytes + 1 byte sum mod 256. The card answers each
- * with a 6-byte ack: [window, blocks, inputs P6, inputs P2, ticks lo, hi].
+ * Blocks: `size` payload bytes + 1 byte sum mod 256. The card holds `n`
+ * (F9) blocks; past that, a block's ack waits until one has played. The card answers each
+ * with a 6-byte ack: [window, blocks, inputs P6, inputs P2, ticks lo, hi];
+ * ticks = ticks run since the previous ack (FW 0x2530 clears the count).
  * A reply starting FE/FF asks for the last block again.
  * Items inside the block stream (they may straddle blocks):
  *   0b00aaaaa0          one tick; bit n+1 steps axis n (X Y Z A B)
@@ -39,7 +41,7 @@
 
   // ------------------------------------------------------------------ card
   class ShopBotCard {
-    constructor(link, { size = 149, window = 1, timeoutMs = 2000 } = {}) {
+    constructor(link, { size = 149, window = 1, timeoutMs = 5000 } = {}) {
       this.link = link;
       this.size = size;
       this.window = window;
@@ -88,7 +90,8 @@
     async status() { return parseReport(await this.cmd([0xE0, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF])); }
     async identity(n = 20) { return this.cmd([0x80, n, 0xFF, 0xFF, 0xFF, 0xFF], n); }
     async motors(on) { return parseReport(await this.cmd([0x90, on ? 0x04 : 0x0C, 0xFF, 0xFF, 0xFF, 0xFF])); }
-    async setBlocks(window = 3) {
+    async setBlocks(window = 3, size = this.size) {
+      this.size = size;
       return parseReport(await this.cmd([0xF9, window, (this.size >> 8) & 0xFF, this.size & 0xFF, 0xFF, 0xFF]));
     }
 
@@ -129,6 +132,18 @@
             const wait = this.expect(6);
             await this.link.write(blk);
             const ack = await wait;
+            // A report (D4/D5) where an ack belongs. After the END block it is
+            // the normal end: with the card's window full the ack waits for a
+            // block to drain (FW 0x263A), and END stops the stack first.
+            // Anywhere else the card ended the stack itself.
+            if (ack[0] === 0xD4 || ack[0] === 0xD5) {
+              const rest = await this.expect(44);
+              const r = new Uint8Array(50); r.set(ack); r.set(rest, 6);
+              if (ended) return parseReport(r);
+              const err = new Error('card: the move ended early (the card ran out of data)');
+              err.report = parseReport(r);
+              throw err;
+            }
             if (ack[0] < 0xFE) { if (onAck) onAck(parseAck(ack), k); break; }
             if (tries >= 3) throw new Error('card: block refused 4 times');
           }

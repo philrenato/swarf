@@ -29,6 +29,12 @@
   const FLIP_KEY = 'swarf-shopbot-flip';
   const LOG_MAX = 20000;
   const BIT = { x: 1, y: 2, z: 4 };
+  const HOME_KEY = 'swarf-shopbot-home';
+  // XYzero.sbp on the shop machine: PRS normally-closed proximity sensors,
+  // X on input 2, Y on input 3, reading 0 when covered; my_XYzeroOffsetX/Y
+  // -0.5 in; fast seek <= 88.9 mm/s, back off 25.4 mm, slow seek <= 25.4 mm/s.
+  const HOME = { x: { input: 2, hit: 0 }, y: { input: 3, hit: 0 }, offset: { x: -12.7, y: -12.7 },
+    fast: 88.9, slow: 25.4, backOff: 25.4, travel: { x: 2600, y: 1400 }, block: 15, confirmed: false };
 
   class DirectMachine extends M.Base {
     constructor(cfg = {}) {
@@ -45,6 +51,8 @@
       this.traffic = [];
       try { Object.assign(this.origin, JSON.parse(localStorage.getItem(ORIGIN_KEY)) || {}); } catch (e) { /* none saved */ }
       try { Object.assign(this.flip, JSON.parse(localStorage.getItem(FLIP_KEY)) || {}); } catch (e) { /* none saved */ }
+      this.homeCfg = JSON.parse(JSON.stringify(HOME));
+      try { Object.assign(this.homeCfg, JSON.parse(localStorage.getItem(HOME_KEY)) || {}); } catch (e) { /* none saved */ }
       this.planner.m.invert = this.invertMask();
     }
 
@@ -106,13 +114,13 @@
       link.onClose = () => this.lost();
       const m = await link.modem().catch(() => null);
       this.link = link;
-      this.card = new ShopBotCard(link, { size: 149, timeoutMs: this.cfg.timeoutMs || 2000 });
+      this.card = new ShopBotCard(link, { size: 149, timeoutMs: this.cfg.timeoutMs || 5000 });
       const write = link.write.bind(link), recv = link.onData;
       link.write = b => { this.record('>', b); return write(b); };
       link.onData = b => { this.record('<', b); recv(b); };
       try {
         const st = await this.card.status();
-        await this.card.setBlocks(3);
+        await this.card.setBlocks(2);
         await this.card.cmd([0xF0, 0, 0, 0xFF, 0xFF, 0xFF]);
         await this.card.motors(true);
         this.read(st);
@@ -151,7 +159,7 @@
     poll() {
       clearTimeout(this.timer);
       const loop = async () => {
-        if (this.card && !this.card.streaming && !this.state.running && !this.testing) {
+        if (this.card && !this.card.streaming && !this.state.running && !this.testing && !this.homing) {
           try { this.read(await this.card.status()); } catch (e) { /* busy or gone; onClose reports loss */ }
         }
         this.timer = setTimeout(loop, 400);
@@ -159,17 +167,28 @@
       this.timer = setTimeout(loop, 400);
     }
 
-    busy() { return !this.card || this.card.streaming || this.state.running || !!this.testing; }
+    busy() { return !this.card || this.card.streaming || this.state.running || !!this.testing || !!this.homing; }
 
     // Run ops (machine mm) as one stack; resolves with the end report.
-    async stack(ops) {
+    async stack(ops, hook) {
       const from = this.work(this.steps);
       const start = this.machine(from);
       this.set({ moving: true });
       const p = this.planner;
-      const end = await this.card.run(p.items(ops, start), {
-        onAck: ack => { if (p.st) this.set({ pos: this.work(p.st.cur), line: p.st.line > 0 ? p.st.line : this.state.line, inputs: { p6: ack.inputs, p2: ack.inputs2 } }); }
-      });
+      let end;
+      try {
+        end = await this.card.run(p.items(ops, start), {
+          onAck: ack => {
+            const inputs = { p6: ack.inputs, p2: ack.inputs2 };
+            if (hook) hook(inputs, ack);
+            if (p.st) this.set({ pos: this.work(p.st.cur), line: p.st.line > 0 ? p.st.line : this.state.line, inputs });
+          }
+        });
+      } catch (e) {
+        if (e.report) this.read(e.report);
+        this.set({ moving: false });
+        throw e;
+      }
       this.read(end);
       this.set({ moving: false });
       return end;
@@ -216,7 +235,94 @@
       this.set({ pos: this.work(this.steps), note: `zeroed ${axes.toUpperCase()}` });
     }
 
-    home() { this.set({ note: 'home over USB is not built yet: zero X and Y by jogging to the corner' }); }
+    // Input n (1-12): 1-8 = P6 bits 0-7, 9-12 = P2 bits 0-3.
+    level(inputs, n) { return n <= 8 ? (inputs.p6 >> (n - 1)) & 1 : (inputs.p2 >> (n - 9)) & 1; }
+
+    // Which input a home sensor is on, and the level it reads when covered.
+    setHomeSensor(axis, input, hit) {
+      this.homeCfg[axis] = { input, hit };
+      this.homeCfg.set = Object.assign({}, this.homeCfg.set, { [axis]: true });
+      this.homeCfg.confirmed = !!(this.homeCfg.set.x && this.homeCfg.set.y);
+      const { x, y, set, confirmed } = this.homeCfg;
+      try { localStorage.setItem(HOME_KEY, JSON.stringify({ x, y, set, confirmed })); } catch (e) { /* private window */ }
+      this.set({ homeCfg: { ...this.homeCfg } });
+    }
+
+    // ShopBot C3 (XYzero.sbp): spindle off, Z to safe height, then for X
+    // and Y a fast seek toward the sensor, back off, a slow seek; the slow
+    // contact becomes the offset (table -12.7 mm), then park at 0, 0.
+    async home() {
+      if (this.busy()) return;
+      const H = this.homeCfg;
+      if (!H.confirmed) { this.set({ note: 'set the home sensors in "check the machine" first' }); return; }
+      this.read(await this.card.status());
+      const covered = ['x', 'y'].filter(a => this.level(this.state.inputs, H[a].input) === H[a].hit);
+      if (covered.length) { this.set({ note: `the ${covered.join(' and ').toUpperCase()} home sensor is already covered: jog away from the corner, then home again` }); return; }
+      this.homing = true;
+      this.homeAbort = false;
+      this.homeFail = null;
+      this.set({ moving: true, note: 'homing' });
+      const u = this.cfg.unit;
+      try {
+        await this.card.cmd([0xF0, 0, 0, 0xFF, 0xFF, 0xFF]);
+        if (this.state.pos.z < this.cfg.safeZ) await this.stack([Object.assign(this.machine({ ...this.state.pos, z: this.cfg.safeZ }), { feed: this.cfg.jog.z, line: 0 })]);
+        const fast = Math.min(this.cfg.jog.xy, H.fast), slow = Math.min(this.cfg.move.xy, H.slow);
+        for (const a of ['x', 'y']) {
+          if (this.homeAbort || this.homeFail) break;
+          if (await this.seek(a, fast, H.travel[a]) === null || this.homeAbort) break;
+          // back off until the sensor reads clear (the fast seek overshoots by its ramp)
+          for (let tries = 0; ; tries++) {
+            const back = { ...this.state.pos };
+            back[a] += H.backOff;
+            await this.stack([Object.assign(this.machine(back), { feed: fast, line: 0 })]);
+            if (this.homeAbort) break;
+            this.read(await this.card.status());
+            if (this.level(this.state.inputs, H[a].input) !== H[a].hit) break;
+            if (tries === 2) { this.homeFail = `the ${a.toUpperCase()} home sensor stays covered`; break; }
+          }
+          if (this.homeAbort || this.homeFail) break;
+          // slow pass in short blocks: an ack every few steps places the contact
+          await this.card.setBlocks(2, H.block);
+          const c = await this.seek(a, slow, H.backOff * 2);
+          await this.card.setBlocks(2, 149);
+          if (c === null) break;
+          this.origin[a] = Math.round(c - H.offset[a] * u[a]);
+        }
+        if (!this.homeAbort && !this.homeFail) {
+          try { localStorage.setItem(ORIGIN_KEY, JSON.stringify(this.origin)); } catch (e) { /* private window */ }
+          this.set({ pos: this.work(this.steps) });
+          await this.stack([Object.assign(this.machine({ x: 0, y: 0, z: this.state.pos.z }), { feed: this.cfg.jog.xy, line: 0 })]);
+        }
+      } catch (e) {
+        this.homeFail = e.message;
+      } finally {
+        await this.card.setBlocks(2, 149).catch(() => {});
+        const note = this.homeAbort ? 'homing stopped' : this.homeFail ? `homing failed: ${this.homeFail}` : 'homed: X 0, Y 0 is the table corner';
+        this.homing = false;
+        this.homeFail = null;
+        this.set({ moving: false, note });
+      }
+    }
+
+    // Move toward -axis until its sensor reads covered; the contact is the
+    // middle of the ack window it first showed in (one step per tick on a
+    // one-axis move). Returns the contact in steps, or null.
+    async seek(a, speed, travel) {
+      const H = this.homeCfg, start = this.steps[a];
+      const t = { ...this.state.pos };
+      t[a] -= travel;
+      let ran = 0, contact = null;
+      await this.stack([Object.assign(this.machine(t), { feed: speed, line: 0 })], (inputs, ack) => {
+        const was = ran;
+        ran += ack.ticks;
+        if (contact === null && this.level(inputs, H[a].input) === H[a].hit) {
+          contact = start - (was + ran) / 2;
+          this.planner.stop();
+        }
+      });
+      if (contact === null && !this.homeAbort) this.homeFail = `no ${a.toUpperCase()} home sensor within ${travel} mm`;
+      return contact;
+    }
 
     // prog.moves are work mm; rapids at jog speed. With the spindle allowed
     // (not trace/air), output 1 comes on at the start with a spin-up dwell
@@ -320,7 +426,8 @@
         this.set({ running: false, paused: false, spindle: false, note: 'stopped' });
         return;
       }
-      if (this.card && this.card.streaming) { this.halted = 'stop'; this.planner.stop(); }
+      if (this.homing) this.homeAbort = true;
+      if (this.card && this.card.streaming) { if (!this.homing) this.halted = 'stop'; this.planner.stop(); }
     }
 
     answer(v) { if (v === 1) this.resume(); else this.stop(); }
