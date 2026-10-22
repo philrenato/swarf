@@ -3,7 +3,8 @@
  * stock = part), runs SIMULATE to the end and measures the stock meshes.
  * A cube's top must stay flat at the part top, the block must sit on the
  * bed, and the bottom plate must span the padded heightmap.
- *   node tools/probe_sim_stock.mjs [workspace.kmz]   (dev server on :8080)
+ *   node tools/probe_sim_stock.mjs [workspace.kmz]   (dev server on :8080,
+ *   or SWARF_URL=https://renato.design/swarf-app/ for the live site)
  */
 import puppeteer from 'puppeteer-core';
 import { readFileSync } from 'node:fs';
@@ -13,7 +14,7 @@ const browser = await puppeteer.launch({ executablePath: '/Applications/Google C
 const problems = [];
 try {
     const page = await browser.newPage();
-    await page.goto('http://localhost:8080/kiri/', { waitUntil: 'domcontentloaded' });
+    await page.goto(process.env.SWARF_URL || 'http://localhost:8080/kiri/', { waitUntil: 'domcontentloaded' });
     await page.waitForFunction(() => !!(window.kiri && window.kiri.api), { timeout: 30000 });
     await new Promise(r => setTimeout(r, 3000));
     await page.evaluate(b64 => {
