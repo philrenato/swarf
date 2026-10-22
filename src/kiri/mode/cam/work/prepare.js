@@ -606,7 +606,8 @@ export async function prepare_one(widget, settings, print, firstPoint, update) {
             // otherwise move over before descending
             if (deltaZ <= -tolerance) {
                 if (debug) console.log('over before descend', deltaZ, -tolerance);
-                layerPush(point.clone().setZ(printPoint.z), 0, 0, tool);
+                const inStock = printPoint.z < stockZ;
+                layerPush(point.clone().setZ(printPoint.z), inStock ? 1 : 0, inStock ? feedRate : 0, tool);
                 newLayer();
             }
         } else
@@ -679,6 +680,13 @@ export async function prepare_one(widget, settings, print, firstPoint, update) {
 
         if (moveOnly) {
             return;
+        }
+
+        // a sideways move left below the stock top can run into material not
+        // yet cleared at this depth (the next loop's ramp start, a scan line):
+        // feed it, never rapid it
+        if (isMove && !upAndOver && deltaXY > toolDiamEpsilon && Math.min(point.z, printPoint.z) < stockZ) {
+            emit = 1;
         }
 
         // plunge safety catch

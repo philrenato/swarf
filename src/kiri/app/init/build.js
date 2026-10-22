@@ -45,6 +45,14 @@ const surfaces = {
                         }
                     }
                 } catch (e) {}
+                // parts closer than the widest cutter get cut into by their
+                // neighbor's toolpath: re-run the layout, which spaces them
+                try {
+                    if (env.isCamMode && api.ui.autoLayout?.checked) {
+                        const near = api.platform.camClosestParts();
+                        if (near.gap < api.platform.camPartGap() - 0.01) api.platform.layout();
+                    }
+                } catch (e) {}
                 api.function.print();
             }),
             'act-preview':  stop(() => api.function.print()),

@@ -849,6 +849,36 @@ function select_all() {
  *
  * Emits 'platform.layout' event when complete.
  */
+// widest cutter any CAM op uses (the default rough tool when there are none) + 1 mm
+function camPartGap(settings = current()) {
+    const { process, tools = [] } = settings;
+    const ids = (process.ops || []).filter(op => op && op.tool).map(op => op.tool);
+    if (!ids.length) ids.push(process.camRoughTool);
+    let diam = 0;
+    for (const id of ids) {
+        const t = tools.find(t => t.id == id);
+        if (t) diam = Math.max(diam, (t.flute_diam || t.shaft_diam || 0) * (t.metric ? 1 : 25.4));
+    }
+    return diam + 1;
+}
+
+// closest pair of parts on the bed by footprint, for the CAM spacing check
+function camClosestParts() {
+    const boxes = api.widgets.all().filter(w => w.id === w.group.id).map(w => {
+        const b = w.getBoundingBox(), p = w.track.pos;
+        return { w, x0: b.min.x + p.x, x1: b.max.x + p.x, y0: b.min.y + p.y, y1: b.max.y + p.y };
+    });
+    let best = { gap: Infinity };
+    for (let i = 0; i < boxes.length; i++) for (let j = i + 1; j < boxes.length; j++) {
+        const a = boxes[i], b = boxes[j];
+        const dx = Math.max(0, Math.max(a.x0, b.x0) - Math.min(a.x1, b.x1));
+        const dy = Math.max(0, Math.max(a.y0, b.y0) - Math.min(a.y1, b.y1));
+        const gap = Math.hypot(dx, dy);
+        if (gap < best.gap) best = { gap, a: a.w, b: b.w };
+    }
+    return best;
+}
+
 function layout() {
     const MODE = get_mode();
     const settings = current();
@@ -895,7 +925,11 @@ function layout() {
         return space.update();
     }
 
-    // TODO: in CNC mode with >1 widget, force layout min spacing @ largest tool diameter
+    // CAM toolpaths are planned one part at a time: the gap between parts
+    // must pass the widest cutter or it cuts into the neighbor
+    if (MODE === MODES.CAM) {
+        gap = Math.max(gap, camPartGap(settings));
+    }
 
     // space parts to account for anchor in belt mode
     if (isBelt) {
@@ -1240,6 +1274,8 @@ export const platform = {
     changed,
     delete: platformDelete,
     layout: layout,
+    camPartGap,
+    camClosestParts,
     group,
     group_done,
     load,
