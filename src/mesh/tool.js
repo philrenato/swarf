@@ -62,7 +62,8 @@ class MeshTool {
             zunq.push(z1,z2,z3);
             zsum = zsum + z1 + z2 + z3;
         }
-        let zavg = ((( zsum / (faceIdxs.length * 3) ) * 10000 ) | 0) / 10000;
+        const prec = 100;
+        let zavg = ((( zsum / (faceIdxs.length * 3) ) * prec ) | 0) / prec;
         for (let faceIdx of faceIdxs) {
             let fv1 = faces[faceIdx * 3 + 0];
             let fv2 = faces[faceIdx * 3 + 1];

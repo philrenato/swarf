@@ -73,6 +73,7 @@ function startTraceAdd(ids) {
             layers.setLayer("trace", { line: 0xaaaa55, fat: 4, order: -10 }, false).addPoly(poly);
             stack.addLayers(layers);
             stack.new_meshes.forEach(mesh => {
+                isolateTraceMaterial(mesh);
                 mesh.trace = { widget, poly };
                 // ensure trace poly singleton from matches
                 if (match.length > 0) {
@@ -102,6 +103,14 @@ function startTraceAdd(ids) {
             }
         });
     });
+}
+
+function isolateTraceMaterial(mesh) {
+    if (Array.isArray(mesh.material)) {
+        mesh.material = mesh.material.map(mat => mat.clone());
+    } else if (mesh.material) {
+        mesh.material = mesh.material.clone();
+    }
 }
 
 export function traceAdd(ev) {

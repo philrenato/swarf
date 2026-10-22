@@ -15,7 +15,7 @@ import {
 } from '../../../../geo/slicer.js';
 
 const timing = false;
-const zDecimal = 3;
+const zDecimal = 2;
 const epsilon = 10e-5;
 
 const begin = function () {

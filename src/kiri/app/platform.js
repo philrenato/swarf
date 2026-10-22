@@ -294,6 +294,9 @@ function update_bounds() {
     const bounds = setbounds || new THREE.Box3();
     if (!setbounds)
     api.widgets.each(widget => {
+        if (widget.track.synth) {
+            return;
+        }
         let wp = widget.track.pos;
         let wb = widget.getBoundingBox().clone();
         wb.min.x += wp.x;

@@ -87,6 +87,17 @@ const LISTS = {
         { name: "inside" },
         { name: "outside" },
     ],
+    helicalentry:[
+        { name: "neutral" },
+        { name: "center" },
+        { name: "inside" },
+        { name: "outside" },
+    ],
+    helicalexit:[
+        { name: "neutral" },
+        { name: "inside" },
+        { name: "outside" },
+    ],
     zanchor: [
         { name: "top" },
         { name: "middle" },
@@ -112,6 +123,10 @@ const LISTS = {
         { name: "adaptive" },
         { name: "legacy 1" },
         { name: "legacy 2" }
+    ],
+    roughclear: [
+        { name: "offset" },
+        { name: "linear" }
     ],
     opmode: [
         { name: "clear" },

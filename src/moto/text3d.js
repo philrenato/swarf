@@ -2,6 +2,8 @@
 
 import { THREE } from '../ext/three.js';
 
+const _vec = new THREE.Vector3();
+
 /**
  * 3D Bitmap Text Renderer using font atlas.
  * Creates a texture atlas from specified characters and renders text using
@@ -124,6 +126,92 @@ class Text3D {
             depthWrite: false,
             side: THREE.DoubleSide
         });
+        // labels are almost always all one color; cloning the material per
+        // character meant every glyph on screen cost its own draw call and a
+        // full shader program switch
+        this._matByColor = new Map();
+    }
+
+    /**
+     * Shared material for a given color.
+     * @private
+     */
+    _materialFor(color) {
+        const c = typeof color === 'string' ? new THREE.Color(color) : new THREE.Color(color);
+        const key = c.getHex();
+        let mat = this._matByColor.get(key);
+        if (!mat) {
+            mat = this.material.clone();
+            mat.color = c;
+            this._matByColor.set(key, mat);
+        }
+        return mat;
+    }
+
+    /**
+     * Append one string of text to a vertex accumulator.
+     * @private
+     */
+    _emit(out, text, size, align, kerning, scaleX, scaleY, matrix) {
+        const { uvMap } = this.atlas;
+        const spacing = kerning !== undefined ? kerning : this.kerning;
+        const sx = scaleX !== undefined ? scaleX : this.scaleX;
+        const sy = scaleY !== undefined ? scaleY : this.scaleY;
+        const charSpacing = size * spacing * sx;
+        const totalWidth = text.length * charSpacing;
+        const hw = size * sx / 2;
+        const hh = size * sy / 2;
+
+        let startX = 0;
+        if (align === 'center') startX = -totalWidth / 2;
+        else if (align === 'right') startX = -totalWidth;
+
+        const v = _vec;
+        for (let i = 0; i < text.length; i++) {
+            const uv = uvMap[text[i]];
+            if (!uv) {
+                if (self.debug) console.warn('Text3D: Character not in atlas:', text[i]);
+                continue;
+            }
+            const cx = startX + i * charSpacing + charSpacing / 2;
+            // corners in the same order PlaneGeometry uses, so winding and the
+            // vertically flipped atlas UVs match the old per-character meshes
+            const corner = [
+                [cx - hw,  hh, uv.uStart, 0],
+                [cx - hw, -hh, uv.uStart, 1],
+                [cx + hw,  hh, uv.uEnd,   0],
+                [cx - hw, -hh, uv.uStart, 1],
+                [cx + hw, -hh, uv.uEnd,   1],
+                [cx + hw,  hh, uv.uEnd,   0],
+            ];
+            for (const [x, y, u, w] of corner) {
+                v.set(x, y, 0);
+                if (matrix) v.applyMatrix4(matrix);
+                out.pos.push(v.x, v.y, v.z);
+                out.uv.push(u, w);
+            }
+        }
+    }
+
+    /**
+     * Build a single mesh holding many labels.
+     *
+     * @param {Array} labels - [{ text, size, align, kerning, scaleX, scaleY, matrix }]
+     * @param {string|number} color - shared color for the whole set
+     * @returns {THREE.Mesh|null} one mesh, one draw call, or null if empty
+     */
+    createLabelSet(labels, color = 0x333333) {
+        const out = { pos: [], uv: [] };
+        for (const l of labels) {
+            this._emit(out, l.text, l.size, l.align, l.kerning, l.scaleX, l.scaleY, l.matrix);
+        }
+        if (!out.pos.length) return null;
+        const geo = new THREE.BufferGeometry();
+        geo.setAttribute('position', new THREE.Float32BufferAttribute(out.pos, 3));
+        geo.setAttribute('uv', new THREE.Float32BufferAttribute(out.uv, 2));
+        const mesh = new THREE.Mesh(geo, this._materialFor(color));
+        mesh.matrixAutoUpdate = false;
+        return mesh;
     }
 
     /**
@@ -139,51 +227,9 @@ class Text3D {
      */
     createLabel(text, size, color = 0x333333, align = 'center', kerning, scaleX, scaleY) {
         const group = new THREE.Group();
-        const spacing = kerning !== undefined ? kerning : this.kerning;
-        const sx = scaleX !== undefined ? scaleX : this.scaleX;
-        const sy = scaleY !== undefined ? scaleY : this.scaleY;
-        const charSpacing = size * spacing * sx; // Distance between character centers (account for width scale)
-        const totalWidth = text.length * charSpacing;
-
-        // Convert CSS color string to THREE.Color if needed
-        let threeColor = color;
-        if (typeof color === 'string') {
-            threeColor = new THREE.Color(color);
-        }
-
-        // Calculate starting X based on alignment
-        let startX = 0;
-        if (align === 'center') {
-            startX = -totalWidth / 2;
-        } else if (align === 'right') {
-            startX = -totalWidth;
-        }
-
-        // Create mesh for each character using cached geometry
-        for (let i = 0; i < text.length; i++) {
-            const char = text[i];
-            const geometry = this.geometries[char];
-
-            if (!geometry) {
-                if (self.debug) {
-                    console.warn('Text3D: Character not in atlas:', char);
-                }
-                continue;
-            }
-
-            // Clone material to set per-label color
-            const material = this.material.clone();
-            material.color = threeColor;
-
-            const mesh = new THREE.Mesh(geometry, material);
-
-            // Apply size and scale
-            mesh.scale.set(size * sx, size * sy, 1);
-            mesh.position.x = startX + i * charSpacing + charSpacing / 2;
-
-            group.add(mesh);
-        }
-
+        const mesh = this.createLabelSet(
+            [{ text, size, align, kerning, scaleX, scaleY }], color);
+        if (mesh) group.add(mesh);
         return group;
     }
 
@@ -239,6 +285,10 @@ class Text3D {
         if (this.material) {
             this.material.dispose();
         }
+        for (const mat of this._matByColor?.values() ?? []) {
+            mat.dispose();
+        }
+        this._matByColor?.clear();
     }
 }
 

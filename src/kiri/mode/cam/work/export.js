@@ -299,9 +299,11 @@ export function cam_export(print, online) {
             arc = out.emit == 2 || out.emit == 3,
             center = out.center,
             nl = (compact_output && lastGn === gn) ? [] : [gn],
-            maxf = (dz < 0 ? maxZd : maxXYd) || speed,
-            feed = Math.min(speed || maxf, maxf),
             dist = Math.sqrt(dx * dx + dy * dy + dz * dz),
+            zDown = dz < 0 && dist > 0,
+            zMaxFeed = zDown && maxZd ? maxZd * dist / Math.abs(dz) : undefined,
+            maxf = zDown && zMaxFeed ? Math.min(maxXYd || zMaxFeed, zMaxFeed) : maxXYd || speed,
+            feed = Math.min(speed || maxf, maxf),
             newFeed = feed && feed !== pos.f;
 
         // catch NaN in debugging
