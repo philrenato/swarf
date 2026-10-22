@@ -38,6 +38,9 @@ const EAGER_URLS = [
     'swarf-chips.js',
     'swarf-sim-bar.js',
     'swarf-lightstream.js',
+    'swarf-run-parse.js',
+    'swarf-run-machine.js',
+    'swarf-run.js',
     'swarf-a11y.js',
     'swarf-icon-64.png',
     'swarf-icon-128.png',
@@ -98,7 +101,12 @@ self.addEventListener('fetch', (e) => {
     if (req.cache === 'only-if-cached' && req.mode !== 'same-origin') return;
     if (req.method !== 'GET') return;
 
-    const sameOrigin = new URL(req.url).origin === self.location.origin;
+    const url = new URL(req.url);
+    // the shop-laptop helper (Run mode) is live machine state: never cache it
+    if (url.hostname === 'localhost' || url.hostname === '127.0.0.1') {
+        if (url.origin !== self.location.origin) return;
+    }
+    const sameOrigin = url.origin === self.location.origin;
     const isShell = isNavigation(req) || EAGER_URL_SET.has(req.url);
 
     if (sameOrigin && isShell) {

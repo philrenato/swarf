@@ -1,5 +1,34 @@
 swarf_HANDOFF.txt — for Claude
-last updated 2026-10-22 (v00000-022 r23, simulate stock sits on the bed)
+last updated 2026-10-22 (v00000-023 r24, Run mode drives the ShopBot)
+
+════════════════════════════════════════════════════════════════════
+r24 — RUN MODE (ShopBot only). Read with ~/Documents/claude/shopbot_probe/PLAN.md
+────────────────────────────────────────────────────────────────────
+  web/kiri/swarf-run-parse.js    SBP + G-code reader (mm out), test-motion
+                                 programs (trace / air / from-line), all
+                                 with a JZ-up, J2-over lead-in
+  web/kiri/swarf-run-machine.js  SimMachine | BridgeMachine (helper at
+                                 http://localhost:8139)
+  web/kiri/swarf-run.js          the screen: preview UL, jog UR (locked
+                                 while running), program LL, machine LR;
+                                 steps load→check→zero→trace→cut, one
+                                 coaching sentence, cut checklist. Styles are
+                                 scoped under #swarf-run (index.css makes
+                                 every div a flex row). Entry = "run ▸" in
+                                 the menubar, ShopBot profile only; #run opens it.
+  swarf-sw.js                    never touches localhost; caches the 3 files
+  tools/shopbot-helper/          ShopBotHelper.ps1 + "START SHOPBOT.bat" for
+                                 the shop laptop: ShopBot 3's registry
+                                 interface (UserData uCommand/Loc/Status) as
+                                 JSON; one command per uCommand handshake.
+                                 Test on a Mac: SWARF_HELPER_FAKE=ud.json pwsh
+                                 ShopBotHelper.ps1 + node fake-sb3.mjs ud.json
+  probes: tools/probe_run_mode.mjs (sim or helper), probe_run_from_cam.mjs
+  UNPROVEN ON THE MACHINE: FP,<file> runs without the fill-in sheet; stop =
+  space bar keyed into Sb3; uResponse answers its dialogs; Chrome's local
+  network prompt from renato.design. First real session: preview + trace.
+  No keyboard shortcuts (swarf rule). torture-wip changes the SBP writer
+  (J3/M3/MS) — the reader takes both.
 
 ════════════════════════════════════════════════════════════════════
 CURRENT STATE — read this before anything below. Everything under
