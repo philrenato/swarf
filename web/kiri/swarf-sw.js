@@ -30,6 +30,10 @@ const EAGER_URLS = [
     'index.css',
     'manifest.json',
     'swarf.css',
+    'swarf-skin.js',
+    'swarf-skin-map.css',
+    'swarf-skin-glass.css',
+    'swarf-skin-classic.css',
     'swarf-phone.js',
     'swarf-sky.js',
     'swarf-phase.js',
@@ -38,6 +42,21 @@ const EAGER_URLS = [
     'swarf-chips.js',
     'swarf-sim-bar.js',
     'swarf-lightstream.js',
+    'swarf-run-parse.js',
+    'swarf-run-plan.js',
+    'swarf-sound.js',
+    'swarf-run-machine.js',
+    'swarf-shopbot-usb.js',
+    'swarf-shopbot-card.js',
+    'swarf-shopbot-direct.js',
+    'swarf-run.js',
+    'swarf-plate-model.js',
+    'swarf-prefs.js',
+    'swarf-modes.js',
+    'swarf-lessons.js',
+    'swarf-safety-words.js',
+    'swarf-tutorial.js',
+    'swarf-length.js',
     'swarf-a11y.js',
     'swarf-icon-64.png',
     'swarf-icon-128.png',
@@ -98,13 +117,45 @@ self.addEventListener('fetch', (e) => {
     if (req.cache === 'only-if-cached' && req.mode !== 'same-origin') return;
     if (req.method !== 'GET') return;
 
-    const sameOrigin = new URL(req.url).origin === self.location.origin;
+    const url = new URL(req.url);
+    // anything on this computer (localhost) is live state: never cache it
+    if (url.hostname === 'localhost' || url.hostname === '127.0.0.1') {
+        if (url.origin !== self.location.origin) return;
+    }
+    const sameOrigin = url.origin === self.location.origin;
     const isShell = isNavigation(req) || EAGER_URL_SET.has(req.url);
 
     if (sameOrigin && isShell) {
         e.respondWith((async () => {
             try {
                 const resp = await fetch(req, { cache: 'no-store' });
+                if (resp && resp.ok) {
+                    const patched = withCOI(resp);
+                    const forCache = patched.clone();
+                    e.waitUntil(caches.open(CACHE_NAME).then((c) => c.put(req, forCache)));
+                    return patched;
+                }
+                return withCOI(resp);
+            } catch (err) {
+                const cached = await caches.match(req);
+                if (cached) return cached;
+                return new Response('swarf is offline and this was never cached', {
+                    status: 503, statusText: 'offline'
+                });
+            }
+        })());
+        return;
+    }
+
+    // every other same-origin file is network-first too (10-28): serving the old build's
+    // scripts from the cache beside the new build's network-first CSS gave Phil 047's glass
+    // skin over 046's code on the first launch after a deploy (the stamp said 046, the grid
+    // was the old black, the step row broke). 'no-cache' revalidates against the server, so
+    // an unchanged file is a cheap 304; the cache is only the offline fallback.
+    if (sameOrigin) {
+        e.respondWith((async () => {
+            try {
+                const resp = await fetch(req, { cache: 'no-cache' });
                 if (resp && resp.ok) {
                     const patched = withCOI(resp);
                     const forCache = patched.clone();
