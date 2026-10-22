@@ -88,10 +88,13 @@ export async function cam_slice(settings, widget, onupdate, ondone) {
         ({ camZTop, camZBottom } = proc);
         bounds = widget.getBoundingBox();
         let pos = widget.track.pos;
+        // X/Y are this part's own footprint; Z is the shared block every
+        // part is anchored in (platform update_top_z places track.top
+        // against settings.stock.z), or a shorter part's frame slips
         stock = camStockOffset ? {
             x: bounds.dim.x + camStockX,
             y: bounds.dim.y + camStockY,
-            z: bounds.dim.z + camStockZ,
+            z: Math.max(bounds.dim.z + camStockZ, settings.stock?.z || 0),
             center: newPoint(pos.x, pos.y, pos.z)
         } : {
             x: camStockX,
@@ -195,15 +198,6 @@ export async function cam_slice(settings, widget, onupdate, ondone) {
 
     if (!proc.ops || proc.ops.length === 0) {
         return error('no processes specified');
-    }
-
-    // swarf: ensure rough ops use cutout mode (outside trace at each Z)
-    // with no stock padding. Stock = part bounds.
-    for (const op of proc.ops) {
-        if (op && op.type === 'rough') {
-            op.all = false;
-            op.inside = false;
-        }
     }
 
     if (stock.x === 0 || stock.y === 0 || stock.z === 0) {

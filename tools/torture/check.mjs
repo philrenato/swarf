@@ -237,6 +237,12 @@ function judge(dir) {
     const rec = JSON.parse(readFileSync(join(dir, 'case.json'), 'utf8'));
     const res = { id: rec.id, fail: [], warn: [], info: {} };
     if (rec.errors?.length) res.fail.push(...rec.errors.map(e => 'app error: ' + e));
+    if (rec.spec.expectError) {
+        // the case is a mistake: TOOLPATHS must report it and stop
+        if (!String(rec.preview).startsWith('error')) res.fail.push(`expected a reported error, got toolpaths: ${rec.preview}`);
+        if ((rec.timings?.paths ?? Infinity) > 30000) res.fail.push(`error took ${(rec.timings.paths / 1000).toFixed(0)} s to surface`);
+        return res;
+    }
     if (rec.preview !== 'end') res.fail.push(`toolpaths: ${rec.preview}`);
     if (!existsSync(join(dir, 'program.nc'))) { res.fail.push('no program'); return res; }
     const text = readFileSync(join(dir, 'program.nc'), 'utf8');
@@ -391,7 +397,10 @@ function judge(dir) {
         const q = f => pts[Math.floor(f * (pts.length - 1))];
         if (pts.length) console.log(`  [debug] ${pts.length} gouge cells, intrusion mm p50 ${q(0.5)?.toFixed(2)} p90 ${q(0.9)?.toFixed(2)} max ${q(1)?.toFixed(2)}`);
     }
-    if (gouge) res.fail.push(`GOUGE ${(gouge * ca).toFixed(1)} mm² cut below the part, worst ${gougeWorst.toFixed(2)} mm at x${gougeAt[0]} y${gougeAt[1]} (surface ${gougeAt[2]}, cut to ${gougeAt[3]})`);
+    // dogbones overcut inside corners on purpose so a square part seats
+    const dogbones = (rec.opsSet || []).some(op => op.dogbones);
+    if (gouge && dogbones) res.warn.push(`dogbone overcut ${(gouge * ca).toFixed(1)} mm², deepest ${gougeWorst.toFixed(2)} mm (intended)`);
+    else if (gouge) res.fail.push(`GOUGE ${(gouge * ca).toFixed(1)} mm² cut below the part, worst ${gougeWorst.toFixed(2)} mm at x${gougeAt[0]} y${gougeAt[1]} (surface ${gougeAt[2]}, cut to ${gougeAt[3]})`);
     if (bed) res.warn.push(`BED ${(bed * ca).toFixed(0)} mm² cut more than 0.5 mm below the stock bottom, worst ${bedWorst.toFixed(2)} mm`);
     res.info.removed = removable ? +(removed / removable).toFixed(3) : 1;
     if (process.env.TORTURE_DEBUG) {

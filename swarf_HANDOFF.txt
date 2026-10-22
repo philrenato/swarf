@@ -8,6 +8,67 @@ not a spec. If something here and something further down disagree,
 THIS BOX WINS — it was written last and describes what's actually true.
 ════════════════════════════════════════════════════════════════════
 
+BRANCH torture-wip (2026-10-22) — NOT MERGED, NOT DEPLOYED. master = live v00000-022.
+  Phil asked: torture-test swarf (any parts, any ops, valid paths + sims)
+  and fold in upstream Kiri changes. Work stopped mid-way so another
+  session could use the repo. State of this branch:
+
+  DONE ON THIS BRANCH (committed, each verified on its own cases):
+  - Kiri:Moto 4.7.1 -> 4.7.3 engine sync (5443d74d9). Kept swarf identity,
+    two machines (Makera Z1 left out), camRoughAll false, canvas alpha.
+  - export.js remapped print.output IN PLACE; SIMULATE replays it, so
+    TOOLPATHS -> EXPORT -> SIMULATE drew cuts shifted by origin + stock
+    height. Now remaps a copy (keeping layer .mode/.spindle props — the
+    first version dropped them and lost every M03; the gate caught it).
+  - .sbp output was G0/G1 under an OpenSBP header. Now J3/M3 + MS (units/
+    sec), no arcs, IF %(25)=0 unit guard. UNVERIFIED ON A REAL SHOPBOT.
+  - prepare.js: a sideways move left below stock top is fed, never
+    rapided (ease-down ramp start was a G0 at depth into uncut stock).
+  - CAM layout spaces parts by widest cutter + 1 mm (upstream TODO);
+    TOOLPATHS re-lays out if closer; Concerns rule when auto layout off.
+    Parts 1 mm apart were cut 22 mm into each other.
+  - swarf-grid-fade.js fog never reached the scene (no handle) and sat
+    at three.js 100/1000 — big parts drowned. Now set via a widget mesh.
+  - Concerns rule: contour as the first cut.
+  - slice.js (uncommitted at wind-down, committed here): stock Z is the
+    SHARED block (settings.stock.z) while X/Y stay per part — camZAnchor
+    "middle" floats short parts mid-block and the per-part Z put their
+    frame below the bed ("Z Bottom cannot be above Z Top" + TOOLPATHS
+    hung forever). Removed swarf's forced rough all=false/inside=false
+    (made the drawer's checkboxes do nothing).
+  - function.js: a slice error now ends the chain with preview.error
+    instead of rendering into a restarted worker (hang); render.js
+    guards the null print.
+
+  OPEN — do these next, in order:
+  1. Re-run the FULL matrix on this branch (only subsets ran after the
+     merge): npm run dev, then
+       node tools/torture/run.mjs && node tools/torture/check.mjs &&
+       node tools/torture/report.mjs   (out/index.html = contact sheet)
+     ~65 cases, ~25 min. Baseline (pre-merge) had: spacing gouges,
+     leave-dome rapid, contour-first rapids, mixed-height hang.
+  2. Mixed-height jobs (multi-scaled, multi-12-tiny+cubes) now generate
+     but the judge still reports RAPID at line 6 + GOUGE ~21 mm. The judge
+     now reads each part's real mesh position (short parts float at
+     z=11.2 under anchor "middle"); decide whether the remaining reports
+     are the judge's stock model (a box over all parts at full height)
+     or real. Check the G0 at line 6 first.
+  3. origin-corner-top-multi: "LIMITS feed 6000 > machine 2540" — G0
+     carries F6000 (camFastFeed) above the MR-1's feedMax. Judge counts
+     rapid F as feed; probably exclude rapids, but confirm the MR-1
+     controller ignores F on G0.
+  4. Other baseline reports to triage: program-pocket_islands ball
+     contour 0.66 mm into the round island's top edge; program-iso_stack
+     7.7 mm at the bore wall; multi-pockets-2 sim disagrees 44% + gouge;
+     rotated-on-side and multi-rotated-30 sim disagree (rotation — maybe
+     the judge's frame); contour-curves-torus 20 rapids;
+     aluminum-rough-pocket_islands froze the page 10 min before
+     toolpaths (rerun alone).
+  5. Then deploy (bump to v00000-023) and merge to master.
+  Not covered: drill (needs hole picking in the view), tabs, area.
+  tools/torture/parts.mjs = manifold CSG parts; cases.mjs = matrix;
+  run.mjs drives the real app; check.mjs re-simulates the program.
+
 WHAT SWARF IS: a CAM-only, UI-layer fork of Kiri:Moto (GridSpace,
 MIT), scoped to two machines (Langmuir MR-1, ShopBot Basic), twenty
 tools (every ER-20/ER-25 collet size to 1/2", inch and metric), and

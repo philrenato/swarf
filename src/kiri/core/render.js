@@ -43,7 +43,7 @@ function rate_to_color(rate, max) {
 async function path(levels, update, opts = {}) {
     levels = levels.filter(level => level.length);
     if (levels.length === 0) {
-        worker().print.maxSpeed = 0;
+        if (worker().print) worker().print.maxSpeed = 0;
         return [];
     }
 

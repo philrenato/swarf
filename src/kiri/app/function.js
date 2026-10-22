@@ -316,8 +316,12 @@ function prepareSlices(callback, scale = 1, offset = 0) {
                 setTimeout(view.set_arrange, 1);
             }
             if (errored) {
-                // terminate slicing
-                sliceDone();
+                // terminate slicing: no render, no preview on a failed slice
+                // (the worker was just restarted and holds no print)
+                if (error) {
+                    clearSliceProgress();
+                    event.emit('preview.error', error);
+                }
             } else {
                 // start next widget slice
                 sliceNext();

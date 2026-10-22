@@ -79,3 +79,6 @@ add('stockpad-level+rough-iso_stack', one('iso_stack'), [level(), rough()], { st
 add('stockpad-program-pocket_islands', one('pocket_islands'), [rough(), pocket('end 1/8'), contour('ball 1/8')], { stockPad: { x: 8, y: 8, z: 4 } });
 add('stockpad-multi-4', [{ name: 'pins' }, { name: 'dome' }, { name: 'holes' }, { name: 'tiny' }], [rough()], { stockPad: { x: 5, y: 5, z: 2 } });
 add('level-big_plate', one('big_plate'), [level('end 1/2')], { stockPad: { x: 0, y: 0, z: 1.5 } });
+
+// a mistake a student can type: bottom above top. TOOLPATHS must say so and stop.
+add('error-bottom-above-top', one('seed_cube'), [rough('end 1/4', { ov_topz: 5, ov_botz: 10 })], { expectError: true });

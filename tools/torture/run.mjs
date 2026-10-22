@@ -159,6 +159,12 @@ for (const c of cases) {
         }));
         rec.timings.paths = Date.now() - t1;
         await wait(800);
+        if (rec.preview !== 'end') {
+            // nothing to export or simulate; reset the page for the next case
+            rec.alerts.push(...await page.evaluate(() => window.__alerts.slice()));
+            await page.screenshot({ path: join(dir, 'paths.png') });
+            throw { skip: true };
+        }
         await page.evaluate(() => { window.moto.space.view.load({ left: 0.6, up: 0.9, panX: 0, panY: 0, panZ: 0 }); window.moto.space.view.fit?.(undefined, { padding: 1.2 }); });
         await wait(600);
         await page.screenshot({ path: join(dir, 'paths.png') });
@@ -171,12 +177,12 @@ for (const c of cases) {
                 const g = w.mesh.geometry.attributes.position;
                 let mn = [1e9, 1e9, 1e9];
                 for (let i = 0; i < g.count; i++) { mn[0] = Math.min(mn[0], g.getX(i)); mn[1] = Math.min(mn[1], g.getY(i)); mn[2] = Math.min(mn[2], g.getZ(i)); }
-                const tp = w.track.pos; const d = [bb.min.x - mn[0] + tp.x, bb.min.y - mn[1] + tp.y, bb.min.z - mn[2] + tp.z];
+                const tp = w.track.pos, mp = w.mesh.position; const d = [mp.x, mp.y, mp.z];
                 const arr = new Float32Array(g.count * 3);
                 for (let i = 0; i < g.count; i++) { arr[i * 3] = g.getX(i) + d[0]; arr[i * 3 + 1] = g.getY(i) + d[1]; arr[i * 3 + 2] = g.getZ(i) + d[2]; }
                 let s2 = ''; const u8 = new Uint8Array(arr.buffer);
                 for (let i = 0; i < u8.length; i += 0x8000) s2 += String.fromCharCode.apply(null, u8.subarray(i, i + 0x8000));
-                return { id: w.id, file: w.meta.file, pos: { ...tp }, bb: { min: { x: bb.min.x + tp.x, y: bb.min.y + tp.y, z: bb.min.z + tp.z }, max: { x: bb.max.x + tp.x, y: bb.max.y + tp.y, z: bb.max.z + tp.z } }, verts: btoa(s2), indexed: !!w.mesh.geometry.index };
+                return { id: w.id, file: w.meta.file, pos: { ...tp }, meshPos: { x: mp.x, y: mp.y, z: mp.z }, bb: { min: { x: mn[0] + mp.x, y: mn[1] + mp.y, z: mn[2] + mp.z }, max: { x: bb.max.x - bb.min.x + mn[0] + mp.x, y: bb.max.y - bb.min.y + mn[1] + mp.y, z: bb.max.z - bb.min.z + mn[2] + mp.z } }, verts: btoa(s2), indexed: !!w.mesh.geometry.index };
             });
             const tools = s.tools.map(t => ({ id: t.id, name: t.name, type: t.type, metric: t.metric, flute_diam: t.flute_diam, flute_len: t.flute_len, shaft_diam: t.shaft_diam, number: t.number, taper_tip: t.taper_tip }));
             return {
@@ -252,9 +258,11 @@ for (const c of cases) {
         await page.evaluate(() => document.getElementById('act-clear')?.click());
         await wait(500);
     } catch (e) {
-        rec.errors.push('host: ' + (e.message || e));
+        if (!e.skip) rec.errors.push('host: ' + (e.message || e));
+        rec.errors.push(...page.__errors);
         try { await page.close(); } catch {}
         page = await boot();
+        page.__errors = [];
     }
     rec.errors.push(...page.__errors);
     rec.timings.total = Date.now() - t0;
