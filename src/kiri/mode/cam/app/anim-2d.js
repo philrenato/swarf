@@ -24,10 +24,10 @@ let meshes = {},
     color = 0,
     material,
     origin,
-    // swarf r14+: static stock-shell mesh (4 side walls + bottom) rendered
-    // alongside the heightmap top. Without this the tool appeared to cut
-    // through air — the heightmap is a single-layer Z-grid with no sides.
+    // bottom plate under the heightmap, which carries its own walls
     stockShell,
+    // the skin-padded stock handed to the worker; the shell must match it
+    simStock,
     posOffset = { x:0, y:0, z:0 };
 
 export function animate_clear(api) {
@@ -70,12 +70,15 @@ export function animate(api, delay) {
                 }
             }
             // skin = tool radius per side so the tool at the part outline
-            // cuts exactly to the outer wall of the stock
+            // cuts exactly to the outer wall of the stock. X/Y only: the
+            // worker places the heightmap from stock.center and the toolpaths
+            // treat the stock top as the part top, so a taller block sinks
+            // below the bed and every traverse gouges the part's top.
             const skin = toolDiam; // radius per side × 2 sides = diameter total per axis
             settings.stock.x = Math.max(settings.stock.x, bb.dim.x + skin);
             settings.stock.y = Math.max(settings.stock.y, bb.dim.y + skin);
-            settings.stock.z = Math.max(settings.stock.z, bb.dim.z + toolDiam * 0.5);
         }
+        simStock = settings.stock;
     } catch (e) {}
     let sawMeshAdd = false;
     client.animate_setup(settings, data => {
@@ -201,34 +204,16 @@ Object.assign(client, {
     }
 });
 
-// swarf r14+: build a static shell — 4 side walls + bottom — sized to the
-// stock cuboid. The heightmap carves the top; this gives the block its sides
-// so the tool visibly cuts into a solid volume instead of through air.
-// Matches the heightmap material so it reads as one piece.
+// bottom plate sized to the stock, in the heightmap's material. Static side
+// walls cannot be cut, so they stood as a box around a machined part; the
+// heightmap's own edges drop to z=0 instead (work/anim-2d.js).
 function buildStockShell() {
     try {
-        const settings = api.conf.get();
-        const stock = settings && settings.stock;
+        const stock = simStock || api.conf.get()?.stock;
         if (!stock || !stock.x || !stock.y || !stock.z) return null;
-        const hx = stock.x / 2, hy = stock.y / 2, h = stock.z;
-        // vertices: 4 bottom (z=0) + 4 top (z=h) corners, CCW from (-x,-y)
-        const V = [
-            -hx,-hy, 0,   hx,-hy, 0,   hx, hy, 0,  -hx, hy, 0,  // 0..3 bottom
-            -hx,-hy, h,   hx,-hy, h,   hx, hy, h,  -hx, hy, h   // 4..7 top
-        ];
-        // faces: 2 tris per side × 4 sides + 2 tris for bottom (no top — heightmap covers it)
-        const F = [
-            // -y wall: 0-1-5-4
-            0,1,5,  0,5,4,
-            // +x wall: 1-2-6-5
-            1,2,6,  1,6,5,
-            // +y wall: 2-3-7-6
-            2,3,7,  2,7,6,
-            // -x wall: 3-0-4-7
-            3,0,4,  3,4,7,
-            // bottom: 0-3-2-1 (facing -z)
-            0,3,2,  0,2,1
-        ];
+        const hx = stock.x / 2, hy = stock.y / 2;
+        const V = [ -hx,-hy,0,  hx,-hy,0,  hx,hy,0,  -hx,hy,0 ];
+        const F = [ 0,3,2,  0,2,1 ]; // facing -z
         const geo = new THREE.BufferGeometry();
         geo.setAttribute('position', new THREE.Float32BufferAttribute(V, 3));
         geo.setIndex(F);
@@ -537,7 +522,8 @@ function add_red_neg_z(material) {
             `#include <dithering_fragment>`,
             `
             #include <dithering_fragment>
-            if (vWorldPosition.z < 0.0) {
+            // a floor cut to exactly z=0 is not a bed cut; 0.0 flickers
+            if (vWorldPosition.z < -0.01) {
                 gl_FragColor.rgb += vec3(0.5, 0.0, 0.0); // Add red tint
             }
             `

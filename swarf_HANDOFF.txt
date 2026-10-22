@@ -1,5 +1,5 @@
 swarf_HANDOFF.txt — for Claude
-last updated 2026-09-18 (v00000-021 r22, Fable review: tool library, derived palette, both devices)
+last updated 2026-10-22 (v00000-022 r23, simulate stock sits on the bed)
 
 ════════════════════════════════════════════════════════════════════
 CURRENT STATE — read this before anything below. Everything under
@@ -891,8 +891,16 @@ CRITICAL STATE — DEPLOYING BUNDLES (READ BEFORE ANY RE-DEPLOY):
 CRITICAL STATE — READ BEFORE TOUCHING ROUGHING, STOCK, TOOLPATHS, OR DOWNLOADS:
   Roughing defaults: all=false, inside=false (cutout mode). Hardcoded in
   slice.js lines ~200-208 — overrides any stored profile. NO stock padding
-  in toolpaths. Simulate adds a thin skin (tool-radius per side) in
-  anim-2d.js animate() so the tool visibly cuts through material.
+  in toolpaths. Simulate adds a thin skin (tool-radius per side, X/Y
+  ONLY) in anim-2d.js animate() so the tool visibly cuts through
+  material. Never pad Z: the worker places the heightmap from
+  stock.center and the toolpaths treat the stock top as the part top,
+  so a taller block sank 2.4 mm below the bed and every clearance move
+  gouged the part's top (2026-10-22, Phil's Kiri_Cube). The heightmap
+  carries its own walls (createGrid edge flag true); the client adds
+  only a bottom plate sized to the same padded stock. Gate:
+  `node tools/probe_sim_stock.mjs` (fixture tools/fixtures/
+  kiri_cube_rough.kmz, dev server on :8080).
 
   TOOLPATHS button (act-paths) auto-adds a rough op on the main thread
   when proc.ops contains only the separator. Lives in init/build.js —

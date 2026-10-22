@@ -35,11 +35,9 @@ export function init(worker) {
         const step = rez;
         const stepsX = Math.floor(stock.x / step);
         const stepsY = Math.floor(stock.y / step);
-        // swarf r14+: pass false — keep heightmap edges at stock.z so the
-        // flat top extends to the shell walls (anim-2d.js client). Upstream's
-        // `true` slopes edges to z=0, which leaves gaps between the heightmap
-        // perimeter and the side walls.
-        const { pos, ind, sab } = createGrid(stepsX, stepsY, stock, step, false);
+        // edges drop to z=0 so the heightmap carries its own walls, which
+        // follow the cuts down; the client adds only a bottom plate
+        const { pos, ind, sab } = createGrid(stepsX, stepsY, stock, step, true);
         const offset = {
             x: process.camOriginCenter ? 0 : stock.x / 2,
             y: process.camOriginCenter ? 0 : stock.y / 2,
