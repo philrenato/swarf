@@ -4,6 +4,7 @@ import { THREE } from '../ext/three.js';
 import { Orbit } from './orbit.js';
 import { Trackball } from './trackball.js';
 import { Text3D } from './text3d.js';
+import { occluder } from './occlude.js';
 import '../ext/tween.js';
 
 const {
@@ -713,6 +714,19 @@ function updateRulers() {
         originX: grid.origin.x, originY: grid.origin.y
     });
 
+    // every ruler label shares a color and orientation, so they all go into
+    // one mesh. one glyph per draw call used to make an empty platform cost
+    // ~120 draw calls before anything was even loaded.
+    const labels = [];
+    const at = (text, align, px, py) => {
+        labels.push({
+            text, align, size: labelSize,
+            matrix: new THREE.Matrix4()
+                .makeRotationX(Math.PI)
+                .premultiply(new THREE.Matrix4().makeTranslation(px, py, zp))
+        });
+    };
+
     if (xon && axesOn) {
         // Create X-axis numeric labels
         // Original canvas code draws at canvas X: ruler.xo + i + xPadding/2
@@ -720,25 +734,14 @@ function updateRulers() {
         // So world X = (canvasX - canvasWidth/2) = (ruler.xo + i + xPadding/2) - (x + xPadding)/2
         //            = ruler.xo + i - x/2 = ruler.xo + i - w
         for (let i = 0; i >= ruler.x1; i -= grid.unitMajor) {
-            const value = (i * factor).round(1).toString();
-            const label = text3d.createLabel(value, labelSize, rulerColor, 'center');
-            label.position.set(ruler.xo + i - w, -h - labelSize, zp);
-            label.rotation.x = Math.PI;
-            view.add(label);
+            at((i * factor).round(1).toString(), 'center', ruler.xo + i - w, -h - labelSize);
         }
         for (let i = 0; i <= ruler.x2; i += grid.unitMajor) {
-            const value = (i * factor).round(1).toString();
-            const label = text3d.createLabel(value, labelSize, rulerColor, 'center');
-            label.position.set(ruler.xo + i - w, -h - labelSize, zp);
-            label.rotation.x = Math.PI;
-            view.add(label);
+            at((i * factor).round(1).toString(), 'center', ruler.xo + i - w, -h - labelSize);
         }
 
         // Create X-axis label
-        const xLabel = text3d.createLabel(xlabel, labelSize, rulerColor, 'center');
-        xLabel.position.set(0, -h - labelSize * 3.5, zp);
-        xLabel.rotation.x = Math.PI;
-        view.add(xLabel);
+        at(xlabel, 'center', 0, -h - labelSize * 3.5);
     }
 
     if (yon && axesOn) {
@@ -748,29 +751,25 @@ function updateRulers() {
         // Canvas Y goes down, but world Y goes up, so we need to negate
         // World Y = -(canvasY - canvasHeight/2) = -(h - ruler.yo - i) = -h + ruler.yo + i
         for (let i = 0; i >= ruler.y1; i -= grid.unitMajor) {
-            const value = (i * factor).round(1).toString();
-            const label = text3d.createLabel(value, labelSize, rulerColor, 'right');
-            label.position.set(-w - labelSize + 3, -h + ruler.yo + i, zp);
-            label.rotation.x = Math.PI;
-            view.add(label);
+            at((i * factor).round(1).toString(), 'right', -w - labelSize + 3, -h + ruler.yo + i);
         }
         for (let i = 0; i <= ruler.y2; i += grid.unitMajor) {
-            const value = (i * factor).round(1).toString();
-            const label = text3d.createLabel(value, labelSize, rulerColor, 'right');
-            label.position.set(-w - labelSize + 3, -h + ruler.yo + i, zp);
-            label.rotation.x = Math.PI;
-            view.add(label);
+            at((i * factor).round(1).toString(), 'right', -w - labelSize + 3, -h + ruler.yo + i);
         }
 
         // Create Y-axis label
-        const yLabel = text3d.createLabel(ylabel, labelSize, rulerColor, 'center');
-        yLabel.position.set(-w - labelSize * 4, 0, zp);
-        yLabel.rotation.x = Math.PI;
-        view.add(yLabel);
+        at(ylabel, 'center', -w - labelSize * 4, 0);
     }
 
+    const labelMesh = labels.length ? text3d.createLabelSet(labels, rulerColor) : null;
+    if (labelMesh) view.add(labelMesh);
+
     Space.scene.remove(oldView);
+    // note: scene.add() sets rotation.x on what it is given, so the matrix can
+    // only be frozen once the group is in place
     Space.scene.add(view);
+    view.updateMatrix();
+    view.matrixAutoUpdate = false;
     requestRefresh();
 }
 
@@ -1003,6 +1002,24 @@ function setRound(bool) {
     SCENE.remove(current);
     SCENE.add(platform);
     THREE.dispose(current);
+}
+
+/** draws one frame and runs the after-render hooks (e.g. the view cube) */
+function renderFrame() {
+    renderer.render(SCENE, camera);
+    // collect this frame's occlusion probes and decide what draws next
+    occluder.update(camera);
+    for (let i=0, cb=afterRenderCallbacks; i<cb.length; i++) {
+        cb[i](renderer);
+    }
+}
+
+/**
+ * forces an immediate frame. required by the screenshot helpers now that the
+ * renderer no longer preserves its drawing buffer between frames.
+ */
+function renderNow() {
+    if (renderer) renderFrame();
 }
 
 function refresh() {
@@ -1917,10 +1934,12 @@ let Space = {
     objects         ()     { return WORLD.children },
 
     screenshot(format, options) {
+        renderNow();
         return renderer.domElement.toDataURL(format || "image/png", options);
     },
 
     screenshot2(param = {}) {
+        renderNow();
         let oco = renderer.domElement;
         let oWidth = oco.offsetWidth;
         let oHeight = oco.offsetHeight;
@@ -1939,6 +1958,7 @@ let Space = {
     },
 
     screenshot3(param = {}) {
+        renderNow();
         let oco = renderer.domElement;
         let oWidth = oco.offsetWidth;
         let oHeight = oco.offsetHeight;
@@ -2069,16 +2089,30 @@ let Space = {
         WORLD.rotation.x = -PI2;
         SCENE.add(WORLD);
 
+        // neither the scene root nor the world group ever move after this point.
+        // leaving matrixAutoUpdate on means three re-composes their matrices every
+        // frame, which sets matrixWorldNeedsUpdate and forces a full-graph world
+        // matrix rebuild -- thousands of multiplyMatrices calls per frame once a
+        // model is sliced. compose once, then opt out.
+        SCENE.updateMatrix();
+        SCENE.matrixAutoUpdate = false;
+        WORLD.updateMatrix();
+        WORLD.matrixAutoUpdate = false;
+
         domelement.style.width = width();
         domelement.style.height = height();
 
         renderer = new WebGLRenderer({
             antialias: antiAlias,
-            preserveDrawingBuffer: true,
-            logarithmicDepthBuffer: true,
+            // preserveDrawingBuffer forces the compositor to copy the back
+            // buffer every single frame instead of swapping it. the screenshot
+            // helpers re-render on demand (see renderNow) so we don't need it.
+            preserveDrawingBuffer: false,
+            // a logarithmic depth buffer writes gl_FragDepth in every fragment
+            // shader, which disables the GPU's early-Z rejection. the scene
+            // depth range here is bounded, so a normal depth buffer is fine.
+            logarithmicDepthBuffer: false,
             // swarf: alpha so the body's sky gradient shows through the canvas
-            // (markup Apr 15 — "background of scene should be textured red to blue
-            // gradient, like sky references in refs").
             alpha: true
         });
         renderer.setClearColor(0x000000, 0);
@@ -2087,6 +2121,15 @@ let Space = {
         // renderer.outputColorSpace = THREE.LinearSRGBColorSpace;
 
         renderer.localClippingEnabled = true;
+        occluder.attach(renderer);
+        // occlusion culling only pays off if potential occluders are drawn
+        // before what they hide, so order opaque objects front to back and let
+        // material batching come second
+        renderer.setOpaqueSort((a, b) =>
+            a.groupOrder - b.groupOrder ||
+            a.renderOrder - b.renderOrder ||
+            a.z - b.z ||
+            a.id - b.id);
         cameraType = ortho ? 'orthographic' : 'perspective';
         camera = ortho ?
             new THREE.OrthographicCamera(-100 * aspect(), 100 * aspect(), 100, -100, -10000, 100000) :
@@ -2150,39 +2193,32 @@ let Space = {
         ]);
 
         let animates = 0;
-        let rateStart = Date.now();
-        let renderStart;
-        let renders = [];
+        let rateStart = performance.now();
+        let slowest = 0;
 
-        function animate() {
+        function animate(now) {
             animates++;
-            const now = Date.now();
             if (now - rateStart > 1000) {
                 // compute stats roughly every second
-                const delta = now - rateStart;
-                fps = 1000 * animates / delta;
+                fps = 1000 * animates / (now - rateStart);
                 animates = 0;
                 rateStart = now;
-                // look for slowest rendered frame
-                renderTime = Math.max(0, ...renders);
-                renders.length = 0;
+                // slowest frame rendered during the last interval
+                renderTime = slowest;
+                slowest = 0;
             }
             requestAnimationFrame(animate);
             if (docVisible && !freeze && Date.now() - lastAction < 1500) {
-                renderStart = Date.now();
-                renderer.render(SCENE, camera);
-                // call after-render callbacks (e.g., for viewcube)
-                for (const callback of afterRenderCallbacks) {
-                    callback(renderer);
-                }
-                // track frame render times
-                renders.push(Date.now() - renderStart);
+                const renderStart = performance.now();
+                renderFrame();
+                const took = performance.now() - renderStart;
+                if (took > slowest) slowest = took;
             } else {
                 fps = 0;
             }
         }
 
-        animate();
+        requestAnimationFrame(animate);
 
         const ctx = renderer.getContext();
 

@@ -778,23 +778,21 @@ export function init() {
         if (env.isCamMode && env.isPreview) {
             WIDGETS.setAxisIndex(0);
         }
+
+        if (env.isCamMode) {
+            // remove tab synth before stock bounds are recalculated
+            api.widgets.filter((widget) => {
+                if (widget.track.synth) {
+                    space.world.remove(widget.mesh);
+                    Widget.Groups.remove(widget);
+                }
+                return !widget.track.synth
+            });
+        }
+
         updateStock();
         opRender();
         api.uc.setVisible($('layer-animate'), env.isAnimate && env.isCamMode);
-
-        if (!env.isCamMode) {
-            return;
-        }
-
-        // remove tab synth
-        api.widgets.filter((widget) => {
-            if (widget.track.synth) {
-                space.world.remove(widget.mesh);
-                Widget.Groups.remove(widget);
-            }
-            return !widget.track.synth
-        });
-
     });
 
     api.event.on("settings.saved", (settings) => {

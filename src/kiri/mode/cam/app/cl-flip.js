@@ -9,7 +9,7 @@ import { updateStock } from './cl-stock.js';
 export function opFlip() {
     api.view.set_arrange();
     let widgets = api.widgets.all();
-    let { process } = env.current;
+    let { process, stock } = env.current;
     let { ops, op2 } = process;
     // add flip singleton to b-side
     let add2 = op2.length === 0;
@@ -63,9 +63,8 @@ export function opFlip() {
     process.ops = op2;
     process.op2 = ops;
     // flip camZBottom
-    if (env.poppedRec.invert && process.camZBottom && env.camZBottom) {
-        const maxZ = env.camZBottom._max.z
-        process.camZBottom = maxZ - process.camZBottom;
+    if (env.poppedRec.invert && process.camZBottom !== 0) {
+        process.camZBottom = stock.z - process.camZBottom;
         api.util.rec2ui(process);
         updateStock();
     }

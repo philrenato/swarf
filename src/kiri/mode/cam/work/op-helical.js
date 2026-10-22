@@ -29,6 +29,7 @@ export class OpHelical extends CamOp {
             reverse,
             entry,
             entryOffset,
+            exit,
         } = op;
 
         let tool = new Tool(settings, op.tool),
@@ -93,6 +94,12 @@ export class OpHelical extends CamOp {
                 continue
             }
 
+            let entryMode = helicalEntryMode(entry),
+                leadDistance = Math.max(
+                    entryMode === "center" ? entryOffset || 0 : 0,
+                    Math.abs(offOver || 0) || toolDiam / 2
+                );
+
             let startPoint = center
                 .clone()
                 .setZ(zmax)
@@ -155,7 +162,7 @@ export class OpHelical extends CamOp {
                         poly.reverse();
                     }
 
-                    if (entry) {
+                    if (entryMode === "center") {
                         //get first z of poly to use for entry
                         let firstZ = poly.first().z;
                         //create new pointArray
@@ -202,6 +209,8 @@ export class OpHelical extends CamOp {
                         })
                         //append to start of poly
                         poly = newPolygon().setOpen().addPoints(entry).addPoints(poly.points);
+                    } else {
+                        prependHelicalEntry(poly, center, entryMode, leadDistance);
                     }
                     //if doing a finish pass, do a full circle at the bottom
                     if (finish && !reverse) {
@@ -216,12 +225,13 @@ export class OpHelical extends CamOp {
                             finalEnd.clone().setZ(zBottom),
                         )
                     }
+                    appendHelicalExit(poly, center, exit, leadDistance);
                     break;
                 }
                 currentZ = bottom;
             }
 
-            progress(i / faces.length, "Helical intrerpolation");
+            progress(i / faces.length, "Helical interpolation");
             polys.push(poly);
         }
 
@@ -271,4 +281,52 @@ export class OpHelical extends CamOp {
             printPoint = polyEmit(poly);
         }
     }
+}
+
+function helicalEntryMode(entry) {
+    if (entry === true) return "center";
+    if (entry === false || entry === undefined) return "neutral";
+    return entry;
+}
+
+function prependHelicalEntry(poly, center, entry, distance) {
+    if (!poly.length || entry === "neutral" || distance <= 0) return;
+
+    let first = poly.first(),
+        dx = first.x - center.x,
+        dy = first.y - center.y,
+        len = Math.sqrt(dx * dx + dy * dy);
+
+    if (len <= 0) return;
+
+    let scale = (entry === "inside" ? -distance : entry === "outside" ? distance : 0) / len;
+    if (!scale) return;
+
+    let lead = newPoint(
+        first.x + dx * scale,
+        first.y + dy * scale,
+        first.z
+    );
+
+    poly.points.unshift(lead);
+}
+
+function appendHelicalExit(poly, center, exit, distance) {
+    if (!poly.length || exit === "neutral" || distance <= 0) return;
+
+    let last = poly.last(),
+        dx = last.x - center.x,
+        dy = last.y - center.y,
+        len = Math.sqrt(dx * dx + dy * dy);
+
+    if (len <= 0) return;
+
+    let scale = (exit === "inside" ? -distance : exit === "outside" ? distance : 0) / len;
+    if (!scale) return;
+
+    poly.append(newPoint(
+        last.x + dx * scale,
+        last.y + dy * scale,
+        last.z
+    ));
 }

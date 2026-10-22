@@ -24,6 +24,88 @@ function getColorScheme() {
 let complete = {};
 let order;
 
+const CRASH_PROGRESS_KEY = "kiri-slice-progress";
+const CRASH_PROGRESS_MIN_DELTA = 0.01;
+const CRASH_PROGRESS_MAX_AGE = 1000 * 60 * 60 * 6;
+
+let crashProgressLast = { progress: -1, message: undefined, time: 0 };
+
+function localGet(key) {
+    try {
+        return self.localStorage?.getItem(key);
+    } catch (e) {
+        return undefined;
+    }
+}
+
+function localSet(key, value) {
+    try {
+        self.localStorage?.setItem(key, value);
+    } catch (e) {
+    }
+}
+
+function localRemove(key) {
+    try {
+        self.localStorage?.removeItem(key);
+    } catch (e) {
+    }
+}
+
+function recordSliceProgress(data) {
+    const now = Date.now(),
+        progress = data.progress ?? 0,
+        message = data.message,
+        changed = message !== crashProgressLast.message ||
+            Math.abs(progress - crashProgressLast.progress) >= CRASH_PROGRESS_MIN_DELTA ||
+            now - crashProgressLast.time > 5000;
+
+    if (!changed) return;
+
+    crashProgressLast = { progress, message, time: now };
+    localSet(CRASH_PROGRESS_KEY, JSON.stringify({
+        active: true,
+        time: now,
+        ...data
+    }));
+}
+
+function clearSliceProgress() {
+    localRemove(CRASH_PROGRESS_KEY);
+    crashProgressLast = { progress: -1, message: undefined, time: 0 };
+}
+
+function reportSliceCrash() {
+    const raw = localGet(CRASH_PROGRESS_KEY);
+    if (!raw) return;
+
+    try {
+        const rec = JSON.parse(raw),
+            age = Date.now() - (rec.time || 0);
+
+        if (!rec.active || rec.reported || age > CRASH_PROGRESS_MAX_AGE) {
+            localRemove(CRASH_PROGRESS_KEY);
+            return;
+        }
+
+        rec.reported = true;
+        localSet(CRASH_PROGRESS_KEY, JSON.stringify(rec));
+
+        const pct = Math.round((rec.progress || 0) * 1000) / 10,
+            msg = rec.message ? ` ${rec.message}` : "",
+            mode = rec.mode ? `${rec.mode} ` : "";
+
+        console.warn("previous slice did not complete", rec);
+        setTimeout(() => {
+            api.show.alert(`Previous ${mode}slice stopped near ${pct}%${msg}`, 10);
+        }, 1000);
+    } catch (e) {
+        localRemove(CRASH_PROGRESS_KEY);
+    }
+}
+
+reportSliceCrash();
+
 /**
  * Prepare and execute slicing for all widgets on the platform.
  * Main slicing function that:
@@ -99,6 +181,15 @@ function prepareSlices(callback, scale = 1, offset = 0) {
     if (slicing.length === 0) {
         return api.show.alert('nothing to slice');
     }
+
+    clearSliceProgress();
+    recordSliceProgress({
+        op: "slice",
+        mode: settings.mode,
+        message: "start",
+        progress: 0,
+        widgets: slicing.length
+    });
 
     const totalv = slicing.map(w => w.getVertices().count).reduce((a,v) => a + v);
     const defvert = totalv / slicing.length;
@@ -187,7 +278,17 @@ function prepareSlices(callback, scale = 1, offset = 0) {
                 for (let w of slicing) {
                     totalProgress += (track[w.id] || 0);
                 }
-                show.progress(offset + (totalProgress / slicing.length) * scale, msg);
+                const progress = offset + (totalProgress / slicing.length) * scale;
+                show.progress(progress, msg);
+                recordSliceProgress({
+                    op: "slice",
+                    mode: settings.mode,
+                    message: msg,
+                    progress,
+                    widget: widget.id,
+                    widgets: slicing.length,
+                    vertices: widget.getVertices().count
+                });
             }
         }
 
@@ -326,6 +427,7 @@ function prepareSlices(callback, scale = 1, offset = 0) {
         }
         // mark slicing complete for prep/preview
         complete.slice = true;
+        clearSliceProgress();
         event.emit('slice.end', settings.mode);
         // print stats
         segtimes.total = Date.now() - mark;
@@ -457,6 +559,7 @@ function preparePreview(callback, scale = 1, offset = 0) {
             output.forEach(layer => {
                 stack.add(layer);
             });
+            stack.compact();
             event.emit('preview.view', view);
             // rotate stack for belt beds
             if (isBelt && widgets[0].belt) {
@@ -565,6 +668,7 @@ function parseCode(code, type) {
         stacks.clear();
         const stack = stacks.create('parse', space.world);
         layers.forEach(layer => stack.add(layer));
+        stack.compact();
         view.update_slider_max(true);
         view.update_speeds(maxSpeed, minSpeed);
         show.slices();

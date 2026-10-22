@@ -28,6 +28,7 @@ function getColorScheme() {
 
 const localFilterKey ='kiri-gcode-filters';
 const localFilters = js2o(local.getItem(localFilterKey)) || [];
+const kmzImportOptionsKey = 'kiri-kmz-import-options';
 
 let settings = clone(conf.template);
 
@@ -544,7 +545,7 @@ function settingsExport(opts = {}) {
     return opts.clear ? xprt : api.util.b64enc(xprt);
 }
 
-function settingsImport(data, ask) {
+function settingsImport(data, ask, opt = {}) {
     const { uc, ui } = api;
     if (typeof(data) === 'string') {
         try {
@@ -607,11 +608,13 @@ function settingsImport(data, ask) {
             }
         }
         if (isSettings) {
-            api.space.clear();
+            if (opt.workspace !== false) {
+                api.space.clear();
+            }
             settings = normalize(data.settings);
             local.setItem('ws-settings', JSON.stringify(settings));
             if (api.const.LOCAL) console.log('settings', Object.clone(settings));
-            if (isWork) {
+            if (isWork && opt.workspace !== false) {
                 api.platform.clear();
                 // really old workspaces encoded the types as strings
                 for (let work of data.work) {
@@ -628,7 +631,13 @@ function settingsImport(data, ask) {
                 }
             }
             restoreSettings();
-            api.space.restore(() => { ui.sync() }, true);
+            if (opt.workspace === false) {
+                api.conf.update_fields();
+                api.conf.update();
+                ui.sync();
+            } else {
+                api.space.restore(() => { ui.sync() }, true);
+            }
         }
         if (isTools && Array.isArray(data.tools)) {
             const settool = settings.tools;
@@ -680,11 +689,167 @@ function settingsImportZip(data, ask) {
             if (key === "workspace.json") {
                 value.async("string").then(json => {
                     api.hide.alert(alert);
-                    settingsImport(JSON.parse(json), ask);
+                    settingsImportWorkspace(JSON.parse(json), ask);
                 });
             }
         }
     });
+}
+
+function settingsImportWorkspace(data, ask) {
+    if (!ask) {
+        return settingsImport(data, ask);
+    }
+    importWorkspaceOptions(data).then(options => {
+        if (!options) {
+            return;
+        }
+        settingsImport(filterWorkspaceImport(data, options), false, options);
+    });
+}
+
+function importWorkspaceOptions(data) {
+    const assets = workspaceImportAssets(data);
+    if (assets.length === 0) {
+        return Promise.resolve({});
+    }
+
+    const saved = js2o(local.getItem(kmzImportOptionsKey)) || {};
+    const rnd = Date.now().toString(36);
+    const rows = assets.map(asset => {
+        const id = `kmz-import-${asset.key}-${rnd}`;
+        const checked = saved[asset.key] !== false ? "checked" : "";
+        asset.id = id;
+        return [
+            `<label class="f-row a-center gap5" style="justify-content:flex-start">`,
+            `<input id="${id}" type="checkbox" ${checked}>`,
+            `<span>${asset.label}</span>`,
+            asset.detail ? `<span style="opacity:0.65">(${asset.detail})</span>` : "",
+            `</label>`
+        ].join('');
+    });
+    const opt = { pre: [
+        `<div class="f-col gap5" style="min-width:280px">`,
+        `<h3 style="margin:0 0 5px 0">Workspace Import</h3>`,
+        ...rows,
+        `</div>`
+    ]};
+
+    if (data.screen) {
+        opt.pre.push(
+            '<div class="f-col a-center mt10">',
+            `<img src="${data.screen}" style="width:300px"/>`,
+            '</div>'
+        );
+    }
+
+    return api.uc.confirm(undefined, { import: true, cancel: false }, undefined, opt).then(yes => {
+        if (!yes) {
+            return;
+        }
+        const options = {};
+        for (let asset of assets) {
+            options[asset.key] = $(asset.id).checked;
+        }
+        local.setItem(kmzImportOptionsKey, JSON.stringify(options));
+        return options;
+    });
+}
+
+function workspaceImportAssets(data) {
+    const set = data.settings || {};
+    const devices = Object.keys(set.devices || {});
+    const profiles = Object.values(set.sproc || {})
+        .map(mode => Object.keys(mode || {}).length)
+        .reduce((sum, count) => sum + count, 0);
+    const tools = Array.isArray(set.tools) ? set.tools.length : 0;
+    const assets = [];
+
+    if (data.work || data.view) {
+        assets.push({
+            key: "workspace",
+            label: "Workspace objects and view",
+            detail: data.work ? `${data.work.length} object${data.work.length === 1 ? "" : "s"}` : "view"
+        });
+    }
+    if (devices.length) {
+        assets.push({
+            key: "devices",
+            label: "Machine definitions",
+            detail: `${devices.length} machine${devices.length === 1 ? "" : "s"}`
+        });
+    }
+    if (profiles) {
+        assets.push({
+            key: "profiles",
+            label: "Process profiles",
+            detail: `${profiles} profile${profiles === 1 ? "" : "s"}`
+        });
+    }
+    if (tools) {
+        assets.push({
+            key: "tools",
+            label: "CNC tools",
+            detail: `${tools} tool${tools === 1 ? "" : "s"}`
+        });
+    }
+    if (set.controller) {
+        assets.push({
+            key: "preferences",
+            label: "Application preferences",
+            detail: set.mode || undefined
+        });
+    }
+
+    return assets;
+}
+
+function filterWorkspaceImport(data, options) {
+    const out = Object.clone(data);
+    const imported = Object.clone(out.settings || {});
+    const current = Object.clone(settings);
+
+    if (options.workspace === false) {
+        delete out.work;
+        delete out.view;
+        delete out.screen;
+        imported.widget = current.widget;
+        if (imported.controller && current.controller) {
+            imported.controller.view = current.controller.view;
+        }
+    } else if (out.view && imported.controller) {
+        imported.controller.view = out.view;
+    }
+
+    if (options.devices === false) {
+        imported.device = current.device;
+        imported.devices = current.devices;
+        imported.devproc = current.devproc;
+        imported.filter = current.filter;
+    }
+
+    if (options.profiles === false) {
+        imported.process = current.process;
+        imported.sproc = current.sproc;
+        imported.cproc = current.cproc;
+        imported.devproc = current.devproc;
+    }
+
+    if (options.tools === false) {
+        imported.tools = current.tools;
+    }
+
+    if (options.preferences === false) {
+        imported.controller = current.controller;
+        imported.hidden = current.hidden;
+        imported.mode = current.mode;
+        if (options.workspace !== false && out.view && imported.controller) {
+            imported.controller.view = out.view;
+        }
+    }
+
+    out.settings = imported;
+    return out;
 }
 
 // import and convert prusa ini file

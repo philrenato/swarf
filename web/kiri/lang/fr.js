@@ -554,6 +554,8 @@ self.lang['fr-fr'] = {
     cr_clrp_l:      ["fraiser à travers les poches","au lieu du simple contour"],
     cr_clrf_s:      "dégager les faces",
     cr_clrf_l:      ["interpoler le pas de descente pour","dégager toutes les zones plates détectées"],
+    cr_cpat_s:      "motif",
+    cr_cpat_l:      ["motif de dégagement d'ébauche","décalage utilise des retraits progressifs","linéaire utilise des lignes de remplissage"],
     cr_olin_s:      "intérieur seulement",
     cr_olin_l:      ["limiter la coupe à","l'intérieur des limites de la pièce"],
 
@@ -726,6 +728,10 @@ self.lang['fr-fr'] = {
     ct_nabl_l:      ["générer automatiquement des pattes radiales","projetées depuis le centre de la pièce","en utilisant le nombre et le décalage d'angle"],
 
     // CNC AREA OP
+    ca_slmn_s:      "pente min",
+    ca_slmn_l:      ["angle de pente minimum du parcours","depuis l'horizontale"],
+    ca_slmx_s:      "pente max",
+    ca_slmx_l:      ["angle de pente maximum du parcours","depuis l'horizontale"],
     ca_fini_s:      "coupe de finition",
     ca_fini_l:      "chemin de coupe qui suit le contour de la pièce finale. permet un pas précis lors du dégagement d'une zone plus large.",
 

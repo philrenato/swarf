@@ -698,6 +698,7 @@ class Widget {
                 stack.add(slice.layers);
             }
         }
+        stack.compact();
         return Date.now() - mark;
     }
 

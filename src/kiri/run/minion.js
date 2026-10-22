@@ -56,6 +56,18 @@ function debug() {
     // console.log(`[${name}]`, ...arguments);
 }
 
+function decodePoints(points) {
+    let i = 0,
+        p = 0,
+        realp = new Array(points.length / 3);
+
+    while (i < points.length) {
+        realp[p++] = newPoint(points[i++], points[i++], points[i++]).round(3);
+    }
+
+    return realp;
+}
+
 let invalid = 0;
 const funcs = self.minion = {
     invalid(data, seq, cmd) {
@@ -155,11 +167,11 @@ const funcs = self.minion = {
 
     sliceZ(data, seq) {
         debug('minion.sliceZ', { data, seq });
-        let { z, options } = data;
-        let { points } = cache;
+        let { z, points, options } = data;
+        let realp = points ? decodePoints(points) : cache.points;
         let state = { zero: [] };
         let output = [];
-        sliceZ(z, points, {
+        sliceZ(z, realp, {
             ...options,
             each(out) { output.push(out) }
         }).then(() => {
@@ -172,12 +184,11 @@ const funcs = self.minion = {
     },
 
     setPoints(data, seq) {
-        let { points } = data;
-        let i = 0, p = 0, realp = new Array(points.length / 3);
-        while (i < points.length) {
-            realp[p++] = newPoint(points[i++], points[i++], points[i++]).round(3);
+        if (data.points) {
+            cache.points = decodePoints(data.points);
+        } else {
+            delete cache.points;
         }
-        cache.points = realp;
     },
 
     putCache(msg) {

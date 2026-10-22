@@ -14,11 +14,19 @@ import { tip2tipJoin } from '../../../../geo/paths.js';
 import { CAM } from './init-work.js';
 
 const DEG2RAD = Math.PI / 180;
+const RAD2DEG = 180 / Math.PI;
 const clib = self.ClipperLib;
 const ctyp = clib.ClipType;
 const ptyp = clib.PolyType;
 const cfil = clib.PolyFillType;
 const ts_eps = 0.01;
+const linearClearWallGap = 0.05;
+const linearClearWallGapToolFactor = 0.05;
+const surfaceSlopeMerge = true;
+const surfaceSlopeMergeEps = 0.01;
+const surfaceSlopeMergeFlatEps = 0.05;
+const surfaceSlopeMergeColinearEps = 0.01;
+const surfaceSlopeMergePointEps = 0.00001;
 
 class OpArea extends CamOp {
     constructor(state, op) {
@@ -197,19 +205,36 @@ class OpArea extends CamOp {
                     } else {
                         POLY.subtract([ area ], shadow, clip, undefined, undefined, 0);
                     }
-                    //generate offsets to use
-                    let offsets = [ firstOff ];
-                    //if we need a finish cut, add it
-                    let finish_cut = op.finish_cut ?? 0;
-                    if (finish_cut != 0) { //todo: this should check for camInnerFirst and warn if it is not true
-                        offsets.push(-finish_cut);
+                    if (op.clearing === 'linear') {
+                        let perimeter = outs;
+                        POLY.offset(clip, [ firstOff ], {
+                            count: 1, outs: perimeter, flat: true, z: z - zMov, ...offopt
+                        });
+                        if (!op.walls && perimeter.length) {
+                            let fillArea = [],
+                                fillGap = Math.max(linearClearWallGap, toolDiam * linearClearWallGapToolFactor);
+                            POLY.offset(perimeter, [ -fillGap ], {
+                                count: 1, outs: fillArea, flat: true, z: z - zMov, ...offopt
+                            });
+                            let fill = linearClear(fillArea, toolOver, toolDiam);
+                            alignPerimeterToFill(perimeter, fill);
+                            outs.push(...fill);
+                        }
+                    } else {
+                        //generate offsets to use
+                        let offsets = [ firstOff ];
+                        //if we need a finish cut, add it
+                        let finish_cut = op.finish_cut ?? 0;
+                        if (finish_cut != 0) { //todo: this should check for camInnerFirst and warn if it is not true
+                            offsets.push(-finish_cut);
+                        }
+                        //everything else uses the tool stepover
+                        offsets.push(-toolOver);
+                        //actually offset the walls inwards
+                        POLY.offset(clip, offsets, {
+                            count: op.walls ? 1 : (op.steps ?? 999), outs, flat: true, z: z - zMov, ...offopt
+                        });
                     }
-                    //everything else uses the tool stepover
-                    offsets.push(-toolOver);
-                    //actually offset the walls inwards
-                    POLY.offset(clip, offsets, {
-                        count: op.walls ? 1 : (op.steps ?? 999), outs, flat: true, z: z - zMov, ...offopt
-                    });
                     // if we see no offsets, re-check the mesh bottom Z then exit
                     if (outs.length === 0) {
                         if (bounds && lzo > bounds.min.z) {
@@ -240,7 +265,7 @@ class OpArea extends CamOp {
                         let tab_shadows = tabs.filter(t => t.top >= z).map(t => t.poly);
                         if (tab_shadows) tool_shadow.push(...tab_shadows);
                     }
-                    POLY.setWinding(outs, direction === 'climb');
+                    POLY.setWinding(outs.filter(poly => !poly.isOpen()), direction === 'climb');
                     // store travel boundary that triggers up and over moves
                     slice.tool_shadow = [ area, ...shadow, ...tool_shadow ];
                     slice.camLines = outs;
@@ -348,7 +373,7 @@ class OpArea extends CamOp {
                 }
             } else
             if (mode === 'surface') {
-                let { sr_type, sr_angle, sr_alter, tolerance } = op;
+                let { sr_type, sr_angle, sr_alter, sr_slope_min, sr_slope_max, tolerance } = op;
 
                 let resolution = tolerance || 0.05;
                 let raster = await self.get_raster_gpu({ mode: "tracing", resolution });
@@ -426,6 +451,10 @@ class OpArea extends CamOp {
                     onProgress: pct => progress(proc + (pinc * (pct/100)))
                 });
                 raster.terminate();
+
+                let slopeMin = sr_slope_min ?? 0;
+                let slopeMax = sr_slope_max ?? 90;
+                output.paths = filterSlopePaths(output.paths, slopeMin, slopeMax, toolDiam/2);
 
                 // convert terrain raster output back to open polylines
                 // todo: add leave_z support
@@ -518,6 +547,227 @@ class OpArea extends CamOp {
             }
         }
     }
+}
+
+function linearClear(polys, spacing, toolDiam) {
+    if (!(polys && polys.length)) {
+        return [];
+    }
+
+    let best;
+    for (let angle of [ 0, 90, 45, -45, 30, -30, 60, -60 ]) {
+        let points = [];
+        POLY.fillArea(polys, angle, spacing, points, toolDiam);
+        let lines = pointPairsToLines(points);
+        if (!lines.length) {
+            continue;
+        }
+        let score = scoreLinearClear(lines);
+        if (!best || score > best.score) {
+            best = { angle, lines, score };
+        }
+    }
+
+    return best ? routeLinearLines(best.lines) : [];
+}
+
+function alignPerimeterToFill(perimeter, fill) {
+    let start = fill?.[0]?.first();
+    if (!start) {
+        return;
+    }
+
+    let closest;
+    for (let poly of perimeter) {
+        if (poly.isOpen()) {
+            continue;
+        }
+        let find = poly.findClosestPointTo(start);
+        if (!closest || find.distance < closest.distance) {
+            closest = find;
+        }
+    }
+
+    if (!(closest && closest.index)) {
+        return;
+    }
+
+    let poly = closest.poly;
+    poly.points = [
+        ...poly.points.slice(closest.index),
+        ...poly.points.slice(0, closest.index)
+    ];
+}
+
+function pointPairsToLines(points) {
+    let lines = [];
+    for (let i = 0; i < points.length; i += 2) {
+        let p1 = points[i],
+            p2 = points[i + 1];
+        if (p1 && p2) {
+            lines.push({ p1, p2, len: p1.distTo2D(p2) });
+        }
+    }
+    return lines;
+}
+
+function scoreLinearClear(lines) {
+    let cut = 0,
+        travel = 0,
+        last;
+
+    for (let line of lines) {
+        cut += line.len;
+        if (last) {
+            travel += Math.min(last.distTo2D(line.p1), last.distTo2D(line.p2));
+        }
+        last = line.p2;
+    }
+
+    return (cut / lines.length) - (travel / lines.length) * 0.5;
+}
+
+function routeLinearLines(lines) {
+    let routed = [],
+        last;
+
+    while (lines.length) {
+        let best,
+            bestIndex = 0,
+            bestReverse = false,
+            bestDist = Infinity;
+
+        for (let i = 0; i < lines.length; i++) {
+            let line = lines[i];
+            if (!last) {
+                best = line;
+                bestIndex = i;
+                break;
+            }
+            let d1 = last.distTo2D(line.p1),
+                d2 = last.distTo2D(line.p2);
+            if (d1 < bestDist) {
+                best = line;
+                bestIndex = i;
+                bestReverse = false;
+                bestDist = d1;
+            }
+            if (d2 < bestDist) {
+                best = line;
+                bestIndex = i;
+                bestReverse = true;
+                bestDist = d2;
+            }
+        }
+
+        lines.splice(bestIndex, 1);
+        let points = bestReverse ? [ best.p2, best.p1 ] : [ best.p1, best.p2 ];
+        last = points[1];
+        routed.push(newPolygon().setOpen().addPoints(points));
+    }
+
+    return routed;
+}
+
+function filterSlopePaths(paths, min, max, minRunLength = 0) {
+    min = Math.max(0, Math.min(90, min));
+    max = Math.max(0, Math.min(90, max));
+    if (min > max) {
+        let swap = min;
+        min = max;
+        max = swap;
+    }
+    if (!surfaceSlopeMerge && min <= 0 && max >= 90) {
+        return paths;
+    }
+
+    const out = [];
+    const eps = 0.00001;
+    for (let path of paths) {
+        let run;
+        let lastAngle;
+        for (let i = 3; i < path.length; i += 3) {
+            let x0 = path[i - 3],
+                y0 = path[i - 2],
+                z0 = path[i - 1],
+                x1 = path[i],
+                y1 = path[i + 1],
+                z1 = path[i + 2],
+                dxy = Math.hypot(x1 - x0, y1 - y0),
+                dz = z1 - z0,
+                angle = Math.atan2(Math.abs(dz), dxy) * RAD2DEG,
+                signedAngle = normalizeSlopeAngle(Math.atan2(dz, dxy) * RAD2DEG);
+
+            if (run && Math.hypot(dxy, dz) <= surfaceSlopeMergePointEps) {
+                run[run.length - 3] = x1;
+                run[run.length - 2] = y1;
+                run[run.length - 1] = z1;
+                continue;
+            }
+
+            if (angle + eps >= min && angle - eps <= max) {
+                if (!run) {
+                    run = [ x0, y0, z0 ];
+                } else if (surfaceSlopeMerge && canMergeSlope(run, x1, y1, signedAngle, lastAngle)) {
+                    run[run.length - 3] = x1;
+                    run[run.length - 2] = y1;
+                    run[run.length - 1] = z1;
+                    lastAngle = signedAngle;
+                    continue;
+                }
+                run.push(x1, y1, z1);
+                lastAngle = signedAngle;
+            } else if (run) {
+                emitSlopeRun(out, run, minRunLength);
+                run = undefined;
+                lastAngle = undefined;
+            }
+        }
+        if (run) emitSlopeRun(out, run, minRunLength);
+    }
+    return out;
+}
+
+function emitSlopeRun(out, run, minRunLength) {
+    if (run.length >= 6 && pathLength(run) >= minRunLength) {
+        out.push(run);
+    }
+}
+
+function pathLength(path) {
+    let length = 0;
+    for (let i = 3; i < path.length; i += 3) {
+        length += Math.hypot(path[i] - path[i - 3], path[i + 1] - path[i - 2]);
+    }
+    return length;
+}
+
+function canMergeSlope(run, x1, y1, angle, lastAngle) {
+    if (lastAngle === undefined || Math.abs(angle - lastAngle) > surfaceSlopeMergeEps || run.length < 6) {
+        return false;
+    }
+    let i = run.length;
+    let x0 = run[i - 6],
+        y0 = run[i - 5],
+        xm = run[i - 3],
+        ym = run[i - 2],
+        dx0 = xm - x0,
+        dy0 = ym - y0,
+        dx1 = x1 - xm,
+        dy1 = y1 - ym,
+        len = Math.hypot(dx0, dy0) * Math.hypot(dx1, dy1);
+
+    if (len === 0) {
+        return false;
+    }
+
+    let cross = Math.abs(dx0 * dy1 - dy0 * dx1) / len,
+        dot = dx0 * dx1 + dy0 * dy1;
+    return dot >= 0 && cross <= surfaceSlopeMergeColinearEps;
+}
+
+function normalizeSlopeAngle(angle) {
+    return Math.abs(angle) <= surfaceSlopeMergeFlatEps ? 0 : angle;
 }
 
 function omitOuter(polys) {

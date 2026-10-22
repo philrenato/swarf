@@ -6,18 +6,16 @@
  * part, ~50% more translucent at the edges of the bed); large parts get
  * a wider radius so the workspace doesn't disappear.
  *
- * Implementation: Three.js Fog (linear) on space.world.scene. Most of
- * Kiri's grid + label materials honor fog by default. The fog near/far
- * is recomputed whenever a widget is added or simulation fires, so fade
- * scales with the part actually on the bed.
+ * Implementation: linear Three.js fog on the scene. Most of Kiri's grid +
+ * label materials honor fog by default. The band is set from part size on
+ * widget add/delete only, never from the camera, so switching modes (which
+ * moves the camera) leaves the floor unchanged.
  */
 (function () {
   'use strict';
   if (window.__swarfGridFadeLoaded) return;
   window.__swarfGridFadeLoaded = true;
 
-  const FAR_MULT  = 6;   // fade ends at FAR_MULT × max-bbox-dim away
-  const NEAR_MULT = 1.5; // fade starts at NEAR_MULT × max-bbox-dim away
   const FOG_COLOR = 0x0a0808;
 
   function widgetSize(api) {
@@ -45,39 +43,36 @@
   // the camera, which shifts the fog band, which paints the grid brighter
   // or darker. Pin fog to fixed world-space distances anchored on the part
   // size, and neutralise updateFog so camera motion can't repaint the floor.
+  // three.js fog is measured from the camera. The auto-fit camera sits about
+  // 4.2x the part's largest dimension from it, so the clear band runs past the
+  // fitted camera plus the part's own depth; the grid fades beyond that.
+  // space.js keeps the THREE.Scene private: reach it through a widget mesh.
+  function sceneOf(api) {
+    for (const w of api.widgets.all()) {
+      let o = w.mesh;
+      while (o && !o.isScene) o = o.parent;
+      if (o) return o;
+    }
+    return null;
+  }
+
   function applyFog(api, space) {
     if (!space || !space.scene) return;
-    const THREE = window.THREE;
-    if (!THREE) return;
     const size = widgetSize(api) || 25.4;
-    // Near = generous "always crisp" radius around the part. Far = where the
-    // grid fully fades to background. Both fixed in world units so the fade
-    // pattern is the same regardless of camera position.
-    const near = Math.max(size * 4, 120);
-    const far  = Math.max(size * 18, near * 4);
-    const sceneObj = space.scene.scene || space.scene._scene || null;
-    // setFog works through space's API; then we pin near/far ourselves.
-    try { space.scene.setFog && space.scene.setFog(3, FOG_COLOR); } catch (e) {}
-    // Reach into the actual THREE.Scene and overwrite. setFog stores fog on
-    // the underlying SCENE; we patch through space.world.scene if exposed,
-    // else via the well-known global path moto.Space internals.
-    try {
-      const all = [
-        space.world && space.world.scene,
-        sceneObj
-      ].filter(Boolean);
-      for (const s of all) {
-        if (s && s.fog) {
-          s.fog.near = near;
-          s.fog.far  = far;
-          s.fog.color && s.fog.color.setHex(FOG_COLOR);
-        }
-      }
-    } catch (e) {}
-    // Neutralise Kiri's camera-relative fog recompute. Idempotent.
-    if (space.scene && !space.scene.__swarfFogPinned) {
-      space.scene.updateFog = function () { /* swarf: fog is world-anchored */ };
+    const near = Math.max(size * 5.5, 140);
+    const far  = near * 4;
+    // neutralise Kiri's camera-relative recompute first, so setFog's own
+    // update cannot move the band; then pin it. Idempotent.
+    if (!space.scene.__swarfFogPinned) {
+      space.scene.updateFog = function () { /* swarf: fog band fixed by part size */ };
       space.scene.__swarfFogPinned = true;
+    }
+    try { space.scene.setFog && space.scene.setFog(3, FOG_COLOR); } catch (e) {}
+    const scene = sceneOf(api);
+    if (scene && scene.fog) {
+      scene.fog.near = near;
+      scene.fog.far  = far;
+      scene.fog.color && scene.fog.color.setHex(FOG_COLOR);
     }
     try { space.refresh && space.refresh(); } catch (e) {}
   }

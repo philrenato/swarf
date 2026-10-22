@@ -603,6 +603,29 @@ function setup_keybd_nav() {
                         }
                     }
                 }
+                // rule 6 — a finishing pass first: nothing has cleared the
+                // stock, so it cuts full depth in one pass and its moves
+                // between lines cross uncut material
+                const first = ops.find(op => op.type && op.type !== '|');
+                if (first && first.type === 'contour') {
+                    warnings.push({
+                        title: `contour with nothing roughed first`,
+                        body: `the contour pass is the first cut, so it goes the full depth of the block in one pass and travels through stock nothing has cleared.`,
+                        hint: 'add a rough step before the contour'
+                    });
+                }
+                // rule 5 — parts closer than the widest cutter: each part's
+                // toolpath is planned alone, so it cuts into its neighbor
+                const near = api.platform.camClosestParts?.();
+                const need = api.platform.camPartGap?.();
+                if (near && need && near.gap < need - 0.01) {
+                    const name = w => w.meta?.file || 'part';
+                    warnings.push({
+                        title: `parts too close to cut between`,
+                        body: `${name(near.a)} and ${name(near.b)} are ${near.gap.toFixed(1)} mm apart; the widest tool here needs ${need.toFixed(1)} mm, so its path cuts into the neighbor.`,
+                        hint: 'turn on auto layout, or drag them apart'
+                    });
+                }
             } catch (e) { /* swallow until ops shape is finalised */ }
             render(warnings);
         }
@@ -621,7 +644,7 @@ function setup_keybd_nav() {
         // re-evaluate on settings + op changes
         // conf.save emits settings.saved on every op add/edit; the material
         // system emits cam.op.render after a re-derive
-        ['settings','settings.saved','cam.op.render','widget.add','widget.delete']
+        ['settings','settings.saved','cam.op.render','widget.add','widget.delete','widget.move','platform.layout']
             .forEach(ev => api.event.on(ev, evaluate));
         window.addEventListener('swarf.material.change', evaluate);
     })();

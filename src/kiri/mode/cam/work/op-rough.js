@@ -37,6 +37,7 @@ class OpRough extends CamOp {
             tool: op.tool,
             rate: op.rate,
             plunge: op.plunge,
+            clearing: op.clear,
             mode: 'clear',
             over: op.step,
             down: op.down,
@@ -55,6 +56,10 @@ class OpRough extends CamOp {
 
         if (op.flats) {
             let slicer = newSlicer({ zflatup: true });
+            let flats = Object.entries(slicer.zFlat)
+                .filter(row => row[1] > 1)
+                .map(row => parseFloat(row[0]))
+                .sort((a,b) => b-a);
             ops_list.push(new OpArea(state, {
                 rename: op.rename ?? "flats",
                 spindle: op.spindle,
@@ -62,6 +67,7 @@ class OpRough extends CamOp {
                 tool: op.tool,
                 rate: op.rate,
                 plunge: op.plunge,
+                clearing: op.clear,
                 mode: 'clear',
                 over: op.step,
                 down: op.down,
@@ -76,7 +82,7 @@ class OpRough extends CamOp {
                 rotated: true,
                 areas: { [widget.id]: areas.map(p => p.toArray()) },
                 surfaces: {},
-                flats: Object.keys(slicer.zFlat).map(v => parseFloat(v)).sort((a,b) => b-a),
+                flats,
                 flatOff: 0.01
             }));
         }

@@ -82,7 +82,10 @@ function create(name, view) {
             for (const [label, mats] of Object.entries(map)) {
                 if (!DYN[label]) {
                     let check = DYN[label] = {
-                        group: [],
+                        // a Set because layer materials are now shared across
+                        // every slice in the stack, so the same material comes
+                        // back once per slice
+                        group: new Set(),
                         toggle: UC.newBoolean(label, (abc) => {
                             ctrl.group.forEach(mat => {
                                 mat.visible = ctrl.toggle.checked;
@@ -104,18 +107,21 @@ function create(name, view) {
                     }
                 }
                 const ctrl = DYN[label];
-                ctrl.group.appendAll(mats);
+                for (const mat of mats) ctrl.group.add(mat);
                 ctrl.toggle.checked = mats.state;
             }
             tallest = Math.max(tallest, stack.obj.size());
         },
+        // collapse per-slice meshes into one draw call per material. only safe
+        // once every layer has been added, so callers invoke it explicitly
+        compact: function() {
+            stack.obj.compact();
+        },
         remove: function() {
-            view.remove(stack.obj.view);
-            THREE.dispose(stack.obj.view);
+            stack.obj.destroy();
         },
         clear: function() {
-            view.remove(stack.obj.view);
-            THREE.dispose(stack.obj.view);
+            stack.obj.destroy();
         },
         button: function(label, action) {
             UC.newRow([ UC.newButton(label, action) ]);
