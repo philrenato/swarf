@@ -12,7 +12,10 @@ export class FakeCP210x {
     if (peer) peer.onData = b => this.deliver(b);
   }
   async open() { this.opened = true; }
-  async close() { this.opened = false; }
+  async close() {
+    this.opened = false; this.uart.enabled = false;
+    for (const w of this.waiters.splice(0)) w(null);
+  }
   async selectConfiguration() {
     this.configuration = { interfaces: [{ interfaceNumber: 0, alternate: { endpoints: [
       { endpointNumber: 1, direction: 'in', type: 'bulk' }, { endpointNumber: 1, direction: 'out', type: 'bulk' }] } }] };
@@ -50,7 +53,8 @@ export class FakeCP210x {
     const b = this.inbox.shift();
     const wrap = x => ({ status: 'ok', data: new DataView(x.buffer, x.byteOffset, x.byteLength) });
     if (b) return Promise.resolve(wrap(b));
-    return new Promise(r => this.waiters.push(x => r(wrap(x))));
+    if (!this.opened) return Promise.reject(new Error('device closed'));
+    return new Promise((r, j) => this.waiters.push(x => x ? r(wrap(x)) : j(new Error('device closed'))));
   }
 }
 export const fakeUSB = dev => ({ getDevices: async () => [dev], requestDevice: async () => dev });

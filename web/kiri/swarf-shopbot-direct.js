@@ -110,7 +110,15 @@
       let link = await ShopBotUSB.known().catch(() => null);
       if (!link && ask) link = await ShopBotUSB.request();
       if (!link) { this.set({ note: 'no ShopBot on USB' }); return false; }
-      await link.open();
+      try {
+        await link.open();
+      } catch (e) {
+        await link.close();
+        this.set({ note: /claim|busy|access|in use/i.test(e.message)
+          ? 'another tab or program has the box open: close it and connect again'
+          : `the USB link would not open (${e.message})` });
+        return false;
+      }
       link.onClose = () => this.lost();
       const m = await link.modem().catch(() => null);
       this.link = link;
@@ -125,6 +133,9 @@
         await this.card.motors(true);
         this.read(st);
       } catch (e) {
+        link.onClose = null;
+        this.link = null;
+        await link.close();
         this.set({ connected: false, note: m && !m.cts && !m.dsr
           ? 'the box is not powered: switch it on, release the E-stops, press the blue reset'
           : `the box did not answer (${e.message})` });

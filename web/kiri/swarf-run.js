@@ -812,7 +812,14 @@ body.swarf-run-open { filter: none !important; }
   }
 
   // ------------------------------------------------------------ machine
-  async function connect(manual) {
+  // One connect at a time: the page's own connect and a click must not both
+  // open the box.
+  function connect(manual) {
+    S.connecting = (S.connecting || Promise.resolve()).then(() => connectNow(manual), () => connectNow(manual));
+    return S.connecting;
+  }
+
+  async function connectNow(manual) {
     // Chrome/Edge: the box straight over USB. A box this page was allowed
     // before connects by itself; the connect button asks once.
     const D = M.DirectMachine;

@@ -1,5 +1,13 @@
 swarf_HANDOFF.txt — for Claude
-last updated 2026-10-22 (v00000-026 r27, home over USB)
+last updated 2026-10-22 (v00000-027 r28, USB reconnect)
+
+r28 — USB RECONNECT. A failed connect (box off, no answer, interface busy)
+  closes the link; a second connect used to leave the first read loop on the
+  endpoint, splitting the card's replies between two readers. Connects run
+  one at a time (swarf-run.js connect chains connectNow). macOS's own
+  AppleUSBSLCOM.dext matches only 10C4:EA60/EA70, so nothing claims 83C4.
+  Gate: tools/shopbot/test-connect-retry.mjs (FakeCP210x close() now ends
+  pending reads, as Chrome does).
 
 r27 — HOME OVER USB (ShopBot C3 / XYzero.sbp). DirectMachine.home(): outputs
   off, Z to safe height, per axis a fast seek (<= 88.9 mm/s, 149-byte blocks)
