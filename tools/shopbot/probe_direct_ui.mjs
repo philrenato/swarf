@@ -65,21 +65,28 @@ try {
   check(x1 === 72 && x2 === 0 && Math.abs(parseFloat(dro) - 1) < 0.02, `X flip: card ${x1} → ${x2} steps, DRO ${dro}`);
   await chk('X', 'wrong way');
   check(await page.evaluate(() => !window.__swarfRun.state.machine.flip.x), 'X flipped back');
-  await page.evaluate(() => { window.__stub.state.inputs[0] = 0xFF & ~(1 << 2); });
+  await page.evaluate(() => { window.__stub.state.inputs[0] = 0xFE & ~(1 << 2); });
   await page.waitForFunction(() => [...document.querySelectorAll('#swarf-run .sr-dots i.on')].map(d => d.textContent).join() === '3', { timeout: 3000 }).then(() => check(true, 'input 3 lights when P6.2 drops'), () => check(false, 'input 3 lights when P6.2 drops'));
-  await page.evaluate(() => { window.__stub.state.inputs[0] = 0xFF; });
+  await page.evaluate(() => { window.__stub.state.inputs[0] = 0xFE; });
   // home sensors: cover X (P6.1 -> 0), take it; then Y (P6.2 -> 0)
   const take = async (bit, label) => {
-    await page.evaluate(b => { window.__stub.state.inputs[0] = 0xFF & ~(1 << b); }, bit);
+    await page.evaluate(b => { window.__stub.state.inputs[0] = 0xFE & ~(1 << b); }, bit);
     await page.waitForFunction(b => [...document.querySelectorAll('#swarf-run .sr-dots i.on')].map(d => d.textContent).join() === String(b + 1), { timeout: 3000 }, bit);
     await page.evaluate(l => [...document.querySelectorAll('#swarf-run .sr-card button')].find(b => b.textContent === l).click(), label);
-    await page.evaluate(() => { window.__stub.state.inputs[0] = 0xFF; });
+    await page.evaluate(() => { window.__stub.state.inputs[0] = 0xFE; });
     await new Promise(r => setTimeout(r, 500));
   };
   await take(1, "that's X home");
   await take(2, "that's Y home");
   const homeText = await page.evaluate(() => [...document.querySelectorAll('#swarf-run .sr-card p')].map(p => p.textContent).find(t => t.startsWith('X home')));
   check(homeText === 'X home: input 2 · Y home: input 3', `home sensors: "${homeText}"`);
+  // Z plate: touching it raises P6.0
+  await page.evaluate(() => { window.__stub.state.inputs[0] = 0xFF; });
+  await page.waitForFunction(() => [...document.querySelectorAll('#swarf-run .sr-dots i.on')].map(d => d.textContent).join() === '1', { timeout: 3000 });
+  await page.evaluate(() => [...document.querySelectorAll('#swarf-run .sr-card button')].find(b => b.textContent === "that's the Z plate").click());
+  await page.evaluate(() => { window.__stub.state.inputs[0] = 0xFE; });
+  const plateText = await page.evaluate(() => [...document.querySelectorAll('#swarf-run .sr-card p')].map(p => p.textContent).find(t => t.startsWith('Z plate')));
+  check(plateText === 'Z plate: input 1', `Z plate: "${plateText}"`);
   const p7 = [];
   const watch = setInterval(async () => p7.push(await page.evaluate(() => window.__stub.state.p7).catch(() => -1)), 100);
   await page.evaluate(() => document.querySelector('#swarf-run .sr-card .sr-out').click());
@@ -118,6 +125,14 @@ try {
   const x = await page.$eval('.sr-axis .v', e => e.textContent);
   const dx = await page.evaluate(() => window.__stub.state.pos[0]) - x0;
   check(Math.abs(parseFloat(x) - 10) < 0.02 && dx === 722, `jog +X 10 → DRO ${x}; card X +${dx} steps`);
+  // Z zero on the plate: contact 300 steps below here
+  const zat = await page.evaluate(() => { const st = window.__stub.state; st.switches = [{ port: 0, bit: 0, axis: 2, at: st.pos[2] - 300, hit: 1 }]; return st.pos[2] - 300; });
+  await page.evaluate(() => [...document.querySelectorAll('#swarf-run button')].find(b => b.textContent === 'z plate').click());
+  await page.waitForFunction(() => /^Z ze/.test(window.__swarfRun.state.machine.state.note), { timeout: 30000 });
+  const pz = await page.evaluate(() => ({ note: window.__swarfRun.state.machine.state.note, origin: window.__swarfRun.state.machine.origin.z, card: window.__stub.state.pos[2], dro: document.querySelectorAll('.sr-axis .v')[2].textContent }));
+  const zexp = Math.round(zat - 3.0734 * 90.229567);
+  check(/^Z zeroed/.test(pz.note) && Math.abs(pz.origin - zexp) <= 20 && Math.abs(parseFloat(pz.dro) - 25.4) < 0.02, `plate: ${pz.note}; Z origin ${pz.origin} vs ~${zexp}; DRO Z ${pz.dro}`);
+  await page.evaluate(() => { window.__stub.state.switches = []; });
   if (FILE) {
     await page.evaluate((t) => window.__swarfRun.loadProgram('part.sbp', t, 'file'), readFileSync(FILE, 'latin1'));
     await new Promise(r => setTimeout(r, 500));

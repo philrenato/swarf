@@ -107,7 +107,7 @@
 .sr-axis .v { font-size: 22px; text-align: right; padding-right: 12px; font-variant-numeric: tabular-nums; }
 .sr-axis button, .sr-zrow button { background: var(--swarf-bg-3, #1c1817); border: 1px solid var(--swarf-line-2, #3a1e18); border-radius: 6px; padding: 6px 0; }
 .sr-axis button:hover, .sr-zrow button:hover { border-color: var(--swarf-accent, #d02020); }
-.sr-zrow { margin: 6px 12px 0; display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 6px; }
+.sr-zrow { margin: 6px 12px 0; display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; gap: 6px; }
 .sr-zrow .keep { color: var(--swarf-text-2, #8a857c); }
 .sr-modes { margin: 10px 12px 0; display: flex; gap: 4px; align-items: center; }
 .sr-modes span { color: var(--swarf-text-3, #58534a); font-size: 11px; margin-right: 6px; }
@@ -259,6 +259,7 @@ body.swarf-run-open { filter: none !important; }
       h('div', { class: 'sr-zrow' },
         h('button', { text: 'zero x y', title: 'This spot becomes X 0, Y 0', onclick: () => doZero('xy') }),
         h('button', { text: 'zero z', title: 'This height becomes Z 0', onclick: () => doZero('z') }),
+        el.plateBtn = h('button', { text: 'z plate', title: 'Zero Z on the plate: plate under the bit, clip on (ShopBot C2)', onclick: plateZero }),
         el.keepZero = h('button', { class: 'keep', text: 'keep zero', title: 'Use X, Y and Z zero as they are now', onclick: keepZero })));
     el.modes = h('div', { class: 'sr-modes' }, h('span', { text: 'step' }));
     for (const v of ['cont', 0.1, 1, 10, 50]) {
@@ -637,6 +638,7 @@ body.swarf-run-open { filter: none !important; }
       case 'check': return say(problems().block[0], 'bad');
       case 'zero':
         if (!S.zeroXY) return say(`Jog the bit over ${o.xy}, then press zero x y.`);
+        if (isDirect() && S.machine.plateCfg.confirmed && /top|table/.test(o.z)) return say(`Lower the bit until it just touches ${o.z}, then press zero z; or set the plate there under the bit and press z plate.`);
         return say(`Lower the bit until it just touches ${o.z}, then press zero z.`);
       case 'trace': return say('Press trace. The bit runs around the outline 25 mm up with the spindle off. Watch that it stays over your stock.');
       case 'cut':
@@ -661,6 +663,12 @@ body.swarf-run-open { filter: none !important; }
     if (S.zx && S.zy) S.zeroXY = true;
     if (axes.includes('z')) S.zeroZ = true;
     S.traced = false;
+    refresh();
+  }
+
+  async function plateZero() {
+    if (!isDirect() || S.machine.state.running) return;
+    if (await S.machine.zZero()) { S.zeroZ = true; S.traced = false; }
     refresh();
   }
 
@@ -762,6 +770,15 @@ body.swarf-run-open { filter: none !important; }
       showHome();
     };
     showHome();
+    const plateText = h('p');
+    const showPlate = () => { plateText.textContent = `Z plate: ${m.plateCfg.confirmed ? 'input ' + m.plateCfg.input : 'not set'}`; };
+    showPlate();
+    const takePlate = () => {
+      const l = lit();
+      if (!l) { say('Touch only the plate to the bit, so one number lights.', 'warn'); return; }
+      m.setPlate(l.input, l.hit);
+      showPlate();
+    };
     const out = h('button', { class: 'sr-out', text: 'test output 1 (spindle) for 2 s' });
     out.onclick = async () => {
       if (!out.classList.contains('armed')) { out.classList.add('armed'); out.textContent = 'press again: the spindle may start'; return; }
@@ -782,6 +799,10 @@ body.swarf-run-open { filter: none !important; }
         h('button', { text: "that's X home", onclick: () => take('x') }),
         h('button', { text: "that's Y home", onclick: () => take('y') })),
       homeText,
+      h('h3', { text: 'Z plate' }),
+      h('p', { text: 'Clip on, touch the plate to the bit and hold it there.' }),
+      h('button', { text: "that's the Z plate", onclick: takePlate }),
+      plateText,
       h('h3', { text: 'spindle' }),
       out,
       h('div', { class: 'row' },
@@ -881,6 +902,7 @@ body.swarf-run-open { filter: none !important; }
     if (!sim && st.note) row('note', st.note);
     el.ask.classList.toggle('on', !!st.dialog);
     el.checkBtn.style.display = isDirect() && st.connected ? '' : 'none';
+    el.plateBtn.style.display = isDirect() && st.connected ? '' : 'none';
     el.note.textContent = isDirect()
       ? 'The red stop button on the machine stops everything, always. The stop here slows the machine to a stop and turns the spindle off.'
       : 'The red stop button on the machine stops everything, always. The stop here stops motion through ShopBot.';

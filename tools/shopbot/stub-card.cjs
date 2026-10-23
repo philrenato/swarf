@@ -4,7 +4,7 @@
 // authority; this only mirrors what was measured there (re/PROTOCOL.md).
 (function (root) {
   function StubCard() {
-    const s = { inputs: [0xFF, 0x0F], switches: [], acked: 0, pos: [0, 0, 0, 0, 0, 0], dirs: 0, line: 0, size: 340, buf: [], need: 0, item: [], p7: 5, blocks: 0, ticks: 0 };
+    const s = { inputs: [0xFE, 0x0F], switches: [], acked: 0, pos: [0, 0, 0, 0, 0, 0], dirs: 0, line: 0, size: 340, buf: [], need: 0, item: [], p7: 5, blocks: 0, ticks: 0 };
     const stub = { onData: null, state: s };
     const send = b => setTimeout(() => stub.onData && stub.onData(Uint8Array.from(b)), 2);
     // switches: { port 0 = P6 / 1 = P2, bit, axis, at, hit } — reads `hit` at or below `at`

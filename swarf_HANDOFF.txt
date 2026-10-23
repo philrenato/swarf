@@ -1,5 +1,16 @@
 swarf_HANDOFF.txt — for Claude
-last updated 2026-10-22 (v00000-027 r28, USB reconnect)
+last updated 2026-10-22 (v00000-028 r29, Z plate over USB)
+
+r29 — Z PLATE OVER USB (ShopBot C2 / Zzero.sbp + my_variables.sbc).
+  DirectMachine.zZero(): outputs off, refuse if the plate reads contact,
+  plunge 12.7 mm/s (<= 254 mm) in 15-byte blocks until contact, Z = plate
+  thickness 3.0734 mm there, lift to Z 25.4, refuse if contact persists,
+  plunge 6.35 mm/s, Z again, lift. Plate must be set in the machine check
+  ("that's the Z plate"; default input 1 reading 1 on contact, saved in
+  swarf-shopbot-plate). seek() takes any sensor. Button "z plate" beside
+  zero z (USB only). Gate: tools/shopbot/test-plate-emu.mjs (firmware
+  emulator, contact within 8 steps = 0.09 mm; measured 6); probe_direct_ui
+  covers the check-card take and the button (stub P6 idle 0xFE: plate off).
 
 r28 — USB RECONNECT. A failed connect (box off, no answer, interface busy)
   closes the link; a second connect used to leave the first read loop on the

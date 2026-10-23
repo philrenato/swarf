@@ -35,6 +35,11 @@
   // -0.5 in; fast seek <= 88.9 mm/s, back off 25.4 mm, slow seek <= 25.4 mm/s.
   const HOME = { x: { input: 2, hit: 0 }, y: { input: 3, hit: 0 }, offset: { x: -12.7, y: -12.7 },
     fast: 88.9, slow: 25.4, backOff: 25.4, travel: { x: 2600, y: 1400 }, block: 15, confirmed: false };
+  const PLATE_KEY = 'swarf-shopbot-plate';
+  // Zzero.sbp + my_variables.sbc: plate clip on input 1, reading 1 on
+  // contact; plate 0.121 in; first plunge 0.5 in/s, second 0.25 in/s, lift
+  // to my_ZzeroSafeZ 1.0 in between and after; plunge at most 10 in.
+  const PLATE = { input: 1, hit: 1, thickness: 3.0734, fast: 12.7, slow: 6.35, lift: 25.4, travel: 254, confirmed: false };
 
   class DirectMachine extends M.Base {
     constructor(cfg = {}) {
@@ -53,6 +58,8 @@
       try { Object.assign(this.flip, JSON.parse(localStorage.getItem(FLIP_KEY)) || {}); } catch (e) { /* none saved */ }
       this.homeCfg = JSON.parse(JSON.stringify(HOME));
       try { Object.assign(this.homeCfg, JSON.parse(localStorage.getItem(HOME_KEY)) || {}); } catch (e) { /* none saved */ }
+      this.plateCfg = Object.assign({}, PLATE);
+      try { Object.assign(this.plateCfg, JSON.parse(localStorage.getItem(PLATE_KEY)) || {}); } catch (e) { /* none saved */ }
       this.planner.m.invert = this.invertMask();
     }
 
@@ -315,23 +322,79 @@
       }
     }
 
-    // Move toward -axis until its sensor reads covered; the contact is the
-    // middle of the ack window it first showed in (one step per tick on a
-    // one-axis move). Returns the contact in steps, or null.
-    async seek(a, speed, travel) {
-      const H = this.homeCfg, start = this.steps[a];
+    // Which input the Z plate is on, and the level it reads on contact.
+    setPlate(input, hit) {
+      Object.assign(this.plateCfg, { input, hit, confirmed: true });
+      const { input: i, hit: h, confirmed } = this.plateCfg;
+      try { localStorage.setItem(PLATE_KEY, JSON.stringify({ input: i, hit: h, confirmed })); } catch (e) { /* private window */ }
+      this.set({ plateCfg: { ...this.plateCfg } });
+    }
+
+    // ShopBot C2 (Zzero.sbp): outputs off, plunge until the bit touches the
+    // plate, Z = plate thickness there, lift, plunge again slower, Z again,
+    // lift to safe height. Short blocks on both plunges: an ack every few
+    // steps stops the bit soon after contact. Resolves true when zeroed.
+    async zZero() {
+      if (this.busy()) return false;
+      const P = this.plateCfg, u = this.cfg.unit.z;
+      if (!P.confirmed) { this.set({ note: 'set the Z plate in "check the machine" first' }); return false; }
+      this.read(await this.card.status());
+      if (this.level(this.state.inputs, P.input) === P.hit) { this.set({ note: 'the plate already reads contact: lift the bit off the plate, then zero again' }); return false; }
+      this.homing = true;
+      this.homeAbort = false;
+      this.homeFail = null;
+      this.set({ moving: true, note: 'zeroing Z on the plate' });
+      const sensor = { input: P.input, hit: P.hit }, what = 'Z plate contact';
+      let done = false;
+      try {
+        await this.card.cmd([0xF0, 0, 0, 0xFF, 0xFF, 0xFF]);
+        await this.card.setBlocks(2, this.homeCfg.block);
+        let travel = P.travel;
+        for (const speed of [P.fast, P.slow]) {
+          const c = await this.seek('z', Math.min(speed, this.cfg.jog.z), travel, sensor, what);
+          if (c === null || this.homeAbort) break;
+          this.origin.z = Math.round(c - P.thickness * u);
+          this.set({ pos: this.work(this.steps) });
+          await this.card.setBlocks(2, 149);
+          await this.stack([Object.assign(this.machine({ ...this.state.pos, z: P.lift }), { feed: this.cfg.jog.z, line: 0 })]);
+          if (this.homeAbort) break;
+          this.read(await this.card.status());
+          if (this.level(this.state.inputs, P.input) === P.hit) { this.homeFail = 'the plate still reads contact with the bit lifted: check the clip and the plate'; break; }
+          await this.card.setBlocks(2, this.homeCfg.block);
+          travel = P.lift - P.thickness + 12.7;
+          if (speed === P.slow) done = true;
+        }
+        if (done) { try { localStorage.setItem(ORIGIN_KEY, JSON.stringify(this.origin)); } catch (e) { /* private window */ } }
+      } catch (e) {
+        this.homeFail = e.message;
+      } finally {
+        await this.card.setBlocks(2, 149).catch(() => {});
+        done = done && !this.homeAbort && !this.homeFail;
+        const note = this.homeAbort ? 'Z zero stopped' : this.homeFail ? `Z zero failed: ${this.homeFail}` : 'Z zeroed on the plate: put the plate away';
+        this.homing = false;
+        this.homeFail = null;
+        this.set({ moving: false, note });
+      }
+      return done;
+    }
+
+    // Move toward -axis until the sensor reads its hit level; the contact is
+    // the middle of the ack window it first showed in (one step per tick on
+    // a one-axis move). Returns the contact in steps, or null.
+    async seek(a, speed, travel, sensor = this.homeCfg[a], what = `${a.toUpperCase()} home sensor`) {
+      const start = this.steps[a];
       const t = { ...this.state.pos };
       t[a] -= travel;
       let ran = 0, contact = null;
       await this.stack([Object.assign(this.machine(t), { feed: speed, line: 0 })], (inputs, ack) => {
         const was = ran;
         ran += ack.ticks;
-        if (contact === null && this.level(inputs, H[a].input) === H[a].hit) {
+        if (contact === null && this.level(inputs, sensor.input) === sensor.hit) {
           contact = start - (was + ran) / 2;
           this.planner.stop();
         }
       });
-      if (contact === null && !this.homeAbort) this.homeFail = `no ${a.toUpperCase()} home sensor within ${travel} mm`;
+      if (contact === null && !this.homeAbort) this.homeFail = `no ${what} within ${Math.round(travel)} mm`;
       return contact;
     }
 
