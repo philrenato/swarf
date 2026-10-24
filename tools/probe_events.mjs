@@ -28,7 +28,7 @@ try {
     });
 
     const input = await page.$('input[type=file]');
-    await input.uploadFile('/Users/philrenato/Desktop/1.obj');
+    await input.uploadFile((process.env.SWARF_OBJ || process.env.HOME + '/Desktop/1.obj'));
     await new Promise(r => setTimeout(r, 4000));
 
     const events = await page.evaluate(() => window.__ev);

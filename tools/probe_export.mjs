@@ -9,7 +9,7 @@ import { readFileSync } from 'node:fs';
 
 const CHROME = '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';
 const URL = 'http://localhost:8181/kiri/';
-const STL = '/Users/philrenato/Desktop/1.stl';
+const STL = (process.env.SWARF_STL || process.env.HOME + '/Desktop/1.stl');
 const stlB64 = readFileSync(STL).toString('base64');
 
 const browser = await puppeteer.launch({

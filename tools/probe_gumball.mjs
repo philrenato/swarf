@@ -9,7 +9,7 @@ try {
     await new Promise(r => setTimeout(r, 2500));
 
     const input = await page.$('input[type=file]');
-    await input.uploadFile('/Users/philrenato/Desktop/1.stl');
+    await input.uploadFile((process.env.SWARF_STL || process.env.HOME + '/Desktop/1.stl'));
     await new Promise(r => setTimeout(r, 4500));
 
     const state = await page.evaluate(() => {

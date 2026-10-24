@@ -3,7 +3,7 @@ import { readFileSync } from 'node:fs';
 
 const CHROME = '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';
 const URL = 'https://renato.design/swarf-app/';
-const OBJ = '/Users/philrenato/Desktop/1.obj';
+const OBJ = (process.env.SWARF_OBJ || process.env.HOME + '/Desktop/1.obj');
 const objText = readFileSync(OBJ, 'utf8');
 
 const browser = await puppeteer.launch({
