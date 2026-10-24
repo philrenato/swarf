@@ -6,7 +6,7 @@ try {
     await page.waitForFunction(() => !!(window.kiri && window.kiri.api), { timeout: 15000 });
     await new Promise(r => setTimeout(r, 2000));
     const input = await page.$('input[type=file]');
-    await input.uploadFile('/Users/philrenato/Desktop/1.obj');
+    await input.uploadFile((process.env.SWARF_OBJ || process.env.HOME + '/Desktop/1.obj'));
     await new Promise(r => setTimeout(r, 4000));
 
     const dbg = await page.evaluate(() => {

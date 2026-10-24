@@ -13,7 +13,7 @@ import vm from 'node:vm';
 
 const CHROME = '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';
 const URL = process.argv[2] || 'http://localhost:8099/kiri/';
-const STL = '/Users/philrenato/Documents/claude/swarf/swarf_repo/web/obj/cube.stl';
+const STL = new URL('../web/obj/cube.stl', import.meta.url).pathname;
 const TABLE = JSON.parse(readFileSync('web/kiri/swarf-materials.json', 'utf8'));
 const MR1 = JSON.parse(readFileSync('src/kiri/dev/cam/Langmuir.MR-1.json', 'utf8'));
 const SHOPBOT = JSON.parse(readFileSync('src/kiri/dev/cam/ShopBot.Basic.json', 'utf8'));

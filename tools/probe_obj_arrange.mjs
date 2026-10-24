@@ -2,7 +2,7 @@ import puppeteer from 'puppeteer-core';
 
 const CHROME = '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';
 const URL = 'http://localhost:8181/kiri/';
-const OBJ = '/Users/philrenato/Desktop/1.obj';
+const OBJ = (process.env.SWARF_OBJ || process.env.HOME + '/Desktop/1.obj');
 
 const browser = await puppeteer.launch({ executablePath: CHROME, headless: 'new',
     defaultViewport: { width: 1600, height: 1000 },

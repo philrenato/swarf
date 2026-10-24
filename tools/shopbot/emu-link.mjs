@@ -2,9 +2,10 @@
 // (shopbot_probe/re/emu/card_server.py). Same shape as the USB link:
 // write(bytes), onData. close() resolves with the emulator's port report.
 import { spawn } from 'node:child_process';
-import os from 'node:os';
 import path from 'node:path';
-export const EMU = process.env.SHOPBOT_EMU || path.join(os.homedir(), 'Documents/claude/shopbot_probe/re/emu');
+import { fileURLToPath } from 'node:url';
+// shopbot_probe is checked out beside the swarf folder; SHOPBOT_EMU overrides.
+export const EMU = process.env.SHOPBOT_EMU || path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../../../shopbot_probe/re/emu');
 export function emuLink({ python = 'pypy3.11', args = [] } = {}) {
   const p = spawn(python, ['card_server.py', ...args], { cwd: EMU, stdio: ['pipe', 'pipe', 'pipe'] });
   let err = '';

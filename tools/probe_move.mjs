@@ -7,7 +7,7 @@ try {
     await page.waitForFunction(() => !!(window.kiri && window.kiri.api), { timeout: 15000 });
     await new Promise(r => setTimeout(r, 2500));
     const input = await page.$('input[type=file]');
-    await input.uploadFile('/Users/philrenato/Desktop/1.stl');
+    await input.uploadFile((process.env.SWARF_STL || process.env.HOME + '/Desktop/1.stl'));
     await new Promise(r => setTimeout(r, 4500));  // allow auto-select 300ms timer
 
     const pre = await page.evaluate(() => {

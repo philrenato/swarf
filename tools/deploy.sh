@@ -25,8 +25,8 @@ for arg in "$@"; do
   if [[ "$arg" == "--push-src" ]]; then PUSH_SRC=1; fi
 done
 
-SRC_REPO="$HOME/Documents/claude/swarf/swarf_repo"
-WEB_REPO="$HOME/Documents/claude/philrenato-web"
+SRC_REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+WEB_REPO="${SWARF_WEB_REPO:-$(cd "$SRC_REPO/../../philrenato-web" && pwd)}"
 WEB_APP="$WEB_REPO/swarf-app"
 
 cd "$SRC_REPO"

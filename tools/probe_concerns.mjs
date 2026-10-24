@@ -14,7 +14,7 @@ import { readFileSync } from 'node:fs';
 
 const CHROME = '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';
 const URL = process.argv[2] || 'http://localhost:8099/kiri/';
-const STL = '/Users/philrenato/Documents/claude/swarf/swarf_repo/web/obj/cube.stl';
+const STL = new URL('../web/obj/cube.stl', import.meta.url).pathname;
 const stlB64 = readFileSync(STL).toString('base64');
 const wait = ms => new Promise(r => setTimeout(r, ms));
 

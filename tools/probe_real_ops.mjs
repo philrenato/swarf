@@ -3,7 +3,7 @@ import { readFileSync } from 'node:fs';
 
 const CHROME = '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';
 const URL = process.argv[3] || 'http://localhost:8099/kiri/';
-const STL = process.argv[2] || '/Users/philrenato/Documents/claude/swarf/swarf_repo/web/obj/cube.stl';
+const STL = process.argv[2] || new URL('../web/obj/cube.stl', import.meta.url).pathname;
 const OP_LABELS = (process.argv[4] || 'rough,outline,pocket,contour').split(',');
 
 const stlB64 = readFileSync(STL).toString('base64');
