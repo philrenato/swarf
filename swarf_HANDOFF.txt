@@ -46,7 +46,7 @@ r26 — MACHINE CHECK (USB only). Opens on the first USB connection, again from
 
 ════════════════════════════════════════════════════════════════════
 r25 — RUN MODE OVER USB (WebUSB, no ShopBot 3, no helper). Protocol
-authority: ~/Documents/claude/shopbot_probe/re/PROTOCOL.md
+authority: shopbot_probe/re/PROTOCOL.md (sibling checkout, not in this repo)
 ────────────────────────────────────────────────────────────────────
   web/kiri/swarf-shopbot-usb.js     CP210x 10C4:83C4 over WebUSB, 921600 8N1
   web/kiri/swarf-shopbot-card.js    card protocol (6-byte commands, 150-byte
@@ -65,7 +65,7 @@ authority: ~/Documents/claude/shopbot_probe/re/PROTOCOL.md
   direction, input bits, output 1 = spindle relay, ramp feel.
 
 ════════════════════════════════════════════════════════════════════
-r24 — RUN MODE (ShopBot only). Read with ~/Documents/claude/shopbot_probe/PLAN.md
+r24 — RUN MODE (ShopBot only). Read with shopbot_probe/PLAN.md (sibling checkout)
 ────────────────────────────────────────────────────────────────────
   web/kiri/swarf-run-parse.js    SBP + G-code reader (mm out), test-motion
                                  programs (trace / air / from-line), all
@@ -1030,7 +1030,7 @@ CRITICAL STATE — READ BEFORE TOUCHING ROUGHING, STOCK, TOOLPATHS, OR DOWNLOADS
 
 NEXT SESSION — PRIORITY ITEMS (as of evening 2026-04-16):
   1. OBJ import verify on live — localhost probe (probe_obj2.mjs) slices
-     /Desktop/1.obj cleanly (48 layers, correct bounds). Phil's original
+     the test 1.obj cleanly (48 layers, correct bounds). Phil's original
      "faces welded" complaint may have been a different OBJ file OR a
      casualty of the worker-path bug that's since been fixed. Ask him to
      try a specific OBJ on live before assuming it's still broken.
@@ -1097,7 +1097,7 @@ JSON.
 
 
 HOW TO REDEPLOY swarf-app (renato.design/swarf-app/):
-  1. cd ~/Documents/claude/swarf/swarf_repo
+  1. cd swarf_repo   # your clone
   2. npm run webpack-ext && npm run webpack-src
      (builds src/ext/three.js etc, then src/pack/kiri-main.js)
   3. Copy web/* to philrenato-web/swarf-app/ (flatten kiri/ to root,
@@ -1717,7 +1717,7 @@ REMAINING OPEN (going into v00000-011 session)
   CANONICAL REPRO:
     - Load default Kiri_Cube. Click TOOLPATHS. Observe green paths
       float to one side of the cube. Compare path bbox vs widget bbox.
-    - Screenshots: ~/Desktop/Screenshot 2026-04-16 at 6.26.*.png
+    - Screenshots: maintainer's local captures, 2026-04-16 6:26 PM
 
   OTHER OPEN ITEMS (lower priority):
   ★ SIMULATE STOCK BLOCK — render solid stock material in simulate mode;
@@ -2275,7 +2275,7 @@ Chrome / identity
 - Panel headers carry a mill-red → black vertical gradient + 1px×3px grid
   texture. Panel bodies carry a 1px×3px scanline overlay. Together these push
   the chrome away from Kiri's flat pill look toward the Tron:Ares / EMCO Mill-55
-  refs in ~/Desktop/swarf_refs.
+  refs in a local swarf_refs folder.
 - Body sky backdrop rewritten (swarf.css body rule) — red horizon → violet mid →
   indigo zenith, at much higher opacity than v006's sunset. Still tempered with
   the horizontal scan-line striations.
@@ -2323,7 +2323,7 @@ v00000-006 and earlier (2026-04-14)
 
 Repo
 ────
-/Users/philrenato/Documents/claude/swarf/swarf_repo (fork of GridSpace/grid-apps)
+swarf_repo (fork of GridSpace/grid-apps)
 remote: github.com/philrenato/swarf (private, not pushed tonight)
 branch: master
 
@@ -2579,7 +2579,7 @@ Dev HUD cleanup:
 From Phil's markup pass at end of session (markup-feedback.json)
 ────────────────────────────────────────────────────────────────
 UNRESOLVED — next session picks these up. Screenshot at
-/Users/philrenato/Desktop/Screenshot 2026-04-15 at 4.17.59 PM.png
+(maintainer's screenshot, 2026-04-15 4:17 PM)
 shows the full annotated layout.
 
  1. Bottom bar declutter — shade/stock/model/etc visualization toggles
@@ -2611,7 +2611,7 @@ shows the full annotated layout.
       the student-mode lockdown (see v005 fork-audit pass).
 
 Markup feedback JSON path (canonical, shared across suite):
-  /Users/philrenato/Documents/claude/philrenato-web/tools/markup-feedback.json
+  the site repo's tools/markup-feedback.json (local only)
   Markup server on localhost:8731 (started via
   `python3 tools/markup-server.py` in philrenato-web/).
 
@@ -2872,7 +2872,7 @@ Handoff — read first next session
    r10's story is non-linear; what shipped at the end of the day is
    smaller than r10's "sprint note" suggests.
 2. Task #7 is the highest-value next win. The roughing-offset
-   screenshot (Desktop/Screenshot 2026-04-15 at 6.09.21 PM.png) is
+   screenshot (2026-04-15, 6:09 PM) is
    the canonical reproduction.
 3. If you're about to re-introduce a fly-out popover or a second
    bottom bar, STOP. Phil's line: "Those toolbars are supposed to
