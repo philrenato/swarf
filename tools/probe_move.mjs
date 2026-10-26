@@ -1,6 +1,6 @@
 import puppeteer from 'puppeteer-core';
 import { readFileSync } from 'node:fs';
-const browser = await puppeteer.launch({ executablePath: '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome', headless: 'new', defaultViewport:{width:1600,height:1000}, args:['--enable-webgl','--use-gl=angle','--enable-unsafe-swiftshader'] });
+const browser = await puppeteer.launch({ executablePath: '/Applications/Google Chrome for Testing.app/Contents/MacOS/Google Chrome for Testing', headless: 'new', defaultViewport:{width:1600,height:1000}, args:['--enable-webgl','--use-gl=angle','--enable-unsafe-swiftshader'] });
 try {
     const page = await browser.newPage();
     await page.goto('http://localhost:8181/kiri/', { waitUntil: 'domcontentloaded' });

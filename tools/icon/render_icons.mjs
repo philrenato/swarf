@@ -8,7 +8,7 @@
 import puppeteer from 'puppeteer-core';
 import { readFileSync, writeFileSync } from 'node:fs';
 
-const CHROME = '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';
+const CHROME = '/Applications/Google Chrome for Testing.app/Contents/MacOS/Google Chrome for Testing';
 // 128 and up carry the second chip; below that it reads as noise, so the
 // small sizes render from a simplified variant with only the main curl.
 const SIZES = [64, 128, 144, 256, 512];

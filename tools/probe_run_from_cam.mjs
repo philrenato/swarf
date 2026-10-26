@@ -3,7 +3,7 @@
 // and can be traced. Simulator back end unless the helper is running.
 import puppeteer from 'puppeteer-core';
 import { readFileSync } from 'node:fs';
-const CHROME = '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';
+const CHROME = '/Applications/Google Chrome for Testing.app/Contents/MacOS/Google Chrome for Testing';
 const URL = process.argv[2] || 'http://localhost:8080/kiri/';
 const stlB64 = readFileSync(process.argv[3] || 'web/obj/cube.stl').toString('base64');
 const wait = ms => new Promise(r => setTimeout(r, ms));

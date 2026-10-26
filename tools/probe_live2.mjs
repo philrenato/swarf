@@ -1,7 +1,7 @@
 import puppeteer from 'puppeteer-core';
 import { readFileSync } from 'node:fs';
 const stlB64 = readFileSync((process.env.SWARF_STL || process.env.HOME + '/Desktop/1.stl')).toString('base64');
-const browser = await puppeteer.launch({ executablePath: '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome', headless: 'new', defaultViewport:{width:1600,height:1000}, args:['--enable-webgl','--use-gl=angle','--enable-unsafe-swiftshader'] });
+const browser = await puppeteer.launch({ executablePath: '/Applications/Google Chrome for Testing.app/Contents/MacOS/Google Chrome for Testing', headless: 'new', defaultViewport:{width:1600,height:1000}, args:['--enable-webgl','--use-gl=angle','--enable-unsafe-swiftshader'] });
 try {
     const page = await browser.newPage();
     const log = [];

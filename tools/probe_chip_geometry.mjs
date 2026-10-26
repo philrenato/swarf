@@ -12,7 +12,7 @@
  */
 import puppeteer from 'puppeteer-core';
 
-const CHROME = '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';
+const CHROME = '/Applications/Google Chrome for Testing.app/Contents/MacOS/Google Chrome for Testing';
 const URL = process.argv[2] || 'http://localhost:8080/kiri/';
 
 const browser = await puppeteer.launch({

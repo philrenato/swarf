@@ -19,7 +19,7 @@ set -u
 URL_PATH="${1:-/kiri/}"
 SECS="${2:-10}"
 OUT="/tmp/swarf-console-$(date +%s).log"
-CHROME="/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"
+CHROME="/Applications/Google Chrome for Testing.app/Contents/MacOS/Google Chrome for Testing"
 DIR="/tmp/swarf-headless-$$-$(date +%s)"
 
 if [ ! -x "$CHROME" ]; then
