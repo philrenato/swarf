@@ -136,11 +136,7 @@ export async function init_sync() {
     // send init-done event
     api.event.emit('init-done', stats);
 
-    // show gdpr if it's never been seen and we're not iframed
-    const isLocal = LOCAL || WIN.location.host.split(':')[0] === 'localhost';
-    if (!sdb.gdpr && WIN.self === WIN.top && !SETUP.debug && !isLocal) {
-        $('gdpr').style.display = 'flex';
-    }
+    // swarf: no cookie banner (swarf sets no cookies; the markup is gone)
 
     // warn of degraded functionality when SharedArrayBuffers are missing
     if (api.feature.work_alerts && !window.SharedArrayBuffer) {
@@ -804,11 +800,6 @@ function setup_keybd_nav() {
     // enable modal hiding
     $('mod-x').onclick = api.modal.hide;
 
-    // dismiss gdpr alert
-    $('gotit').onclick = () => {
-        $('gdpr').style.display = 'none';
-        sdb.gdpr = Date.now();
-    };
 
     // fix file input on iOS
     try {
