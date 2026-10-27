@@ -1,6 +1,6 @@
 // CAM -> Run on the ShopBot profile: toolpaths made in swarf arrive in Run
 // mode through "use cam toolpaths", read back as millimeters with real moves,
-// and can be traced. Simulator back end unless the helper is running.
+// and can be traced. Simulator back end (no box on USB in the probe).
 import puppeteer from 'puppeteer-core';
 import { readFileSync } from 'node:fs';
 const CHROME = '/Applications/Google Chrome for Testing.app/Contents/MacOS/Google Chrome for Testing';
