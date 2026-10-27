@@ -120,7 +120,12 @@
         const v = Number(asg[2].trim());
         if (Number.isFinite(v)) st.vars[asg[1].toLowerCase()] = v;
         else st.vars[asg[1].toLowerCase()] = asg[2].trim();
-        if (asg[1].toLowerCase() === 'tool') event(n, 'tool', asg[2].trim());
+        if (asg[1].toLowerCase() === 'tool') {
+          event(n, 'tool', asg[2].trim());
+          // swarf's post names the bit in the comment: &Tool =3   'Load 6 mm flat end mill
+          const nm = raw.match(/'\s*Load\s+(.+?)\s*$/i);
+          if (nm) event(n, 'tool-name', nm[1]);
+        }
         continue;
       }
 

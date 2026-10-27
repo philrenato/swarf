@@ -35,7 +35,7 @@ try {
   log.push(['loaded', await step(), await say(), 'cut disabled=' + await dis('.sr-actions .cut'), 'trace disabled=' + await dis('.sr-actions .trace')]); await shot('2-loaded');
   // jog: +X 10 mm step
   await page.evaluate(() => [...document.querySelectorAll('.sr-modes button')].find(b => b.textContent === '10').click());
-  const px = await page.$$eval('.sr-pad button', bs => bs.map(b => b.textContent));
+  const px = await page.$$eval('.sr-pad button', bs => bs.map(b => b.dataset.axis));
   const bx = (await page.$$('.sr-pad button'))[px.indexOf('+X')];
   await bx.click(); await new Promise(r => setTimeout(r, 600));
   log.push(['jog +X 10', await page.$eval('.sr-axis .v', e => e.textContent)]);
