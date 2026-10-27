@@ -271,6 +271,11 @@ function modeTools(actions) {
             span([icon('fas fa-shapes')]),
             label({ _: 'shape' })
         ]),
+        // swarf r37: DRAW — the bed from above as a drawing: move points, draw outlines (web/kiri/swarf-draw.js)
+        span({ id: 'swarf-step-draw', class: 'swarf-step', title: 'draw: pick a part and move its points, or draw a new outline with the pen' }, [
+            span([icon('fas fa-pen-nib')]),
+            label({ _: 'draw' })
+        ]),
         // Combined TOOLPATHS — fires preview (slice + render paths). Clicking
         // also switches to arrange view so the left drawer for op editing
         // stays reachable. The old 'view-arrange' button is gone because the

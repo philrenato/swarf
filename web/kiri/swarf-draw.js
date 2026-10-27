@@ -1,0 +1,622 @@
+/*
+ * swarf draw — the bed seen from above, as a drawing (Phil 10-27: "select a
+ * point, move it, on polygons and NURBS curves, draw something, scale any of
+ * these things, give thicknesses … 2D drawing that yields machinable 3D forms").
+ *
+ * DRAW opens a board over the workspace showing every part that has a drawing
+ * (shapes, SVG/DXF/AI/PDF imports) where it sits on the bed. Pick a part, then
+ * its points: drag them, type where they go, add one (double-click an edge) or
+ * remove one (delete). The pen draws a new outline. "done" rebuilds each changed
+ * part from its drawing at its thickness, where it was drawn.
+ *
+ * Curves are Unreason's NURBS ({ degree, knots, ctrlPts: [[x, y, 0, w]…] }, mm,
+ * y up, through window.SwarfVector). A curve whose spans are all Bézier pieces
+ * (polygons, arcs, SVG paths) edits like Illustrator: anchors carry their
+ * handles. Any other NURBS edits by its control points.
+ *
+ * Each part keeps a 2D transform (meta.xf) as cam scales, turns and mirrors
+ * it, so its drawing lines up with the part exactly.
+ */
+(function () {
+  'use strict';
+  const api = () => window.kiri && window.kiri.api;
+  const V = () => window.SwarfVector;
+  const $ = id => document.getElementById(id);
+  const r3 = v => +(+v).toFixed(3);
+  const THICK = 'swarf-draw-thick';
+  const HIT = 7;                                 // px: how near a press must be to a point
+
+  // ── a part's 2D transform, kept as cam changes it ──
+  const mul = (A, B) => [A[0] * B[0] + A[1] * B[2], A[0] * B[1] + A[1] * B[3], A[2] * B[0] + A[3] * B[2], A[2] * B[1] + A[3] * B[3]];
+  // cam bakes each scale / turn / mirror into the mesh, then re-centres it on
+  // its box (track.center holds that shift) before it says so. The drawing
+  // follows both: local = xf·(p − c0) + t, on the bed = local + pos.
+  function track(w, M) {
+    const d = (w.track && w.track.center) || { dx: 0, dy: 0 };
+    for (const g of (w.group && w.group.length ? w.group : [w])) {
+      if (!g.meta || !g.meta.svg) continue;
+      const known = !!g.meta.xf;
+      g.meta.xf = mul(M, g.meta.xf || guessXf(g));
+      if (known && g.meta.t) {
+        const [tx, ty] = g.meta.t;
+        g.meta.t = [M[0] * tx + M[1] * ty - (d.dx || 0), M[2] * tx + M[3] * ty - (d.dy || 0)];
+      } else delete g.meta.t;                    // from before r37: line it up by its box instead
+    }
+  }
+  function onRotate({ widget, x, y, z }) {
+    if (typeof x !== 'number') {                 // a quaternion (lay flat, face tool): about Z only if x, y are nil
+      const q = x || {};
+      if (Math.abs(q.x || 0) > 1e-9 || Math.abs(q.y || 0) > 1e-9) return tilt(widget);
+      const t = 2 * Math.atan2(q.z || 0, q.w ?? 1);
+      return track(widget, [Math.cos(t), -Math.sin(t), Math.sin(t), Math.cos(t)]);
+    }
+    if (Math.abs(x || 0) > 1e-9 || Math.abs(y || 0) > 1e-9) return tilt(widget);
+    const t = z || 0;
+    track(widget, [Math.cos(t), -Math.sin(t), Math.sin(t), Math.cos(t)]);
+  }
+  function tilt(w) { for (const g of (w.group && w.group.length ? w.group : [w])) if (g.meta) g.meta.tilted = true; }
+  // a part from before r37: its transform from what cam tracked (mirror, then scale, then turn)
+  function guessXf(w) {
+    const t = w.track || {}, s = t.scale || {}, rz = (t.rot || {}).z || 0, m = t.mirror ? -1 : 1;
+    return mul([Math.cos(rz), -Math.sin(rz), Math.sin(rz), Math.cos(rz)], [m * (s.x || 1), 0, 0, s.y || 1]);
+  }
+
+  // ── curves ──
+  const clone = o => JSON.parse(JSON.stringify(o));
+  function boxOf(curves) {
+    const b = [Infinity, Infinity, -Infinity, -Infinity];
+    for (const c of curves) for (const C of V().cubics(c.crv)) for (const p of C) {
+      b[0] = Math.min(b[0], p[0]); b[1] = Math.min(b[1], p[1]); b[2] = Math.max(b[2], p[0]); b[3] = Math.max(b[3], p[1]);
+    }
+    return b;
+  }
+  const isClosed = crv => { const P = crv.ctrlPts, a = P[0], b = P[P.length - 1]; return Math.hypot(a[0] - b[0], a[1] - b[1]) < 1e-6; };
+  // every interior knot at full multiplicity: the curve is Bézier pieces end to end
+  function isChain(crv) {
+    const p = crv.degree, U = crv.knots, n = crv.ctrlPts.length;
+    if (U.length !== n + p + 1 || (n - 1) % p) return false;
+    for (let i = 1; i <= p; i++) if (U[i] !== U[0] || U[U.length - 1 - i] !== U[U.length - 1]) return false;
+    for (let i = p + 1; i < U.length - p - 1; i += p) for (let k = 1; k < p; k++) if (U[i + k] !== U[i]) return false;
+    return true;
+  }
+  function chainKnots(p, spans) {
+    const U = Array(p + 1).fill(0);
+    for (let s = 1; s < spans; s++) for (let k = 0; k < p; k++) U.push(s);
+    for (let k = 0; k <= p; k++) U.push(spans);
+    return U;
+  }
+  // the drawing as it sits on the bed: centred on c0, through xf, at the part's place
+  function bedCurves(w) {
+    if (typeof w.meta.svg !== 'string' || !/<svg/.test(w.meta.svg)) return [];
+    let list;
+    try { list = V().curves(w.meta.svg); } catch (e) { return []; }
+    if (!list.length) return [];
+    const c0 = w.meta.c0 || (b => [(b[0] + b[2]) / 2, (b[1] + b[3]) / 2])(boxOf(list));
+    const M = w.meta.xf || guessXf(w);
+    for (const c of list) c.crv.ctrlPts = c.crv.ctrlPts.map(([x, y, z, wt]) => {
+      const u = x - c0[0], v = y - c0[1];
+      return [M[0] * u + M[1] * v, M[2] * u + M[3] * v, 0, wt ?? 1];
+    });
+    const pos = w.track.pos;
+    let dx, dy;
+    if (w.meta.t) { dx = pos.x + w.meta.t[0]; dy = pos.y + w.meta.t[1]; }
+    else {                                       // a part from before r37: centre the drawing on the part's place
+      const b = boxOf(list);
+      dx = pos.x - (b[0] + b[2]) / 2; dy = pos.y - (b[1] + b[3]) / 2;
+    }
+    for (const c of list) for (const P of c.crv.ctrlPts) { P[0] += dx; P[1] += dy; }
+    return list;
+  }
+  function thicknessOf(w) {
+    const g = w.mesh && w.mesh.geometry;
+    if (!g) return 6;
+    g.computeBoundingBox();
+    const b = g.boundingBox;
+    return r3(b.max.z - b.min.z);
+  }
+
+  // ── the board ──
+  let S = null;                                  // open state
+  const ui = {};
+
+  function open() {
+    const a = api();
+    if (!a || !V() || S) return;
+    const dev = a.conf.get().device || {};
+    const bw = dev.bedWidth || 600, bd = dev.bedDepth || 600;
+    const parts = [], others = [];
+    for (const w of a.widgets.all()) {
+      if (w.meta && w.meta.svg && !w.meta.tilted) {
+        const curves = bedCurves(w);
+        if (curves.length) { parts.push({ w, name: w.meta.file || 'part', thick: thicknessOf(w), curves, dirty: false }); continue; }
+      }
+      const g = w.mesh.geometry; g.computeBoundingBox();
+      const b = g.boundingBox, p = w.track.pos;
+      others.push([p.x + b.min.x, p.y + b.min.y, p.x + b.max.x, p.y + b.max.y, w.meta && w.meta.file || 'part']);
+    }
+    let t0 = 6;
+    try { t0 = parseFloat(localStorage.getItem(THICK)) || 6; } catch (e) { /* private */ }
+    S = { parts, others, bed: [bw, bd], sel: -1, pts: new Set(), tool: 'select', pen: [], drag: null, undo: [], thick: t0, removed: [], hover: null };
+    build();
+    // the part picked in the workspace is the one picked here
+    const picked = a.selection.widgets ? a.selection.widgets() : [];
+    const i = parts.findIndex(p => picked.includes(p.w));
+    if (i >= 0) S.sel = i;
+    fit();
+    say(parts.length ? 'Pick a part, then a point to move it. The pen draws a new outline.' : (others.length ? 'These parts have no drawing to edit (only shapes and 2D drawings do). The pen draws a new outline.' : 'The pen draws an outline: click its corners, then click the first one to close it.'));
+    render();
+  }
+
+  function build() {
+    const el = document.createElement('div');
+    el.id = 'swarf-draw';
+    el.innerHTML = `
+      <svg id="sd-svg" tabindex="0"></svg>
+      <div class="sd-bar">
+        <button data-tool="select" title="pick parts and points (V)">select</button>
+        <button data-tool="pen" title="draw an outline: click its corners, click the first to close (P)">pen</button>
+        <span class="sd-sep"></span>
+        <button id="sd-undo" title="undo (⌘Z)">undo</button>
+        <button id="sd-fit" title="show the parts, or the whole bed (F) · pinch or ⌘-scroll to zoom, two fingers to slide">fit</button>
+        <span class="sd-grow"></span>
+        <button id="sd-cancel" title="close without changing the parts (Esc twice)">cancel</button>
+        <button id="sd-done" class="sd-go" title="rebuild the changed parts and close">done</button>
+      </div>
+      <div class="sd-card" id="sd-card"></div>
+      <p class="sd-say" id="sd-say"></p>`;
+    document.body.append(el);
+    document.body.classList.add('swarf-draw-open');
+    ui.el = el; ui.svg = $('sd-svg'); ui.card = $('sd-card');
+    for (const b of el.querySelectorAll('[data-tool]')) b.onclick = () => setTool(b.dataset.tool);
+    $('sd-undo').onclick = undo;
+    $('sd-fit').onclick = () => { fit(!S.whole); render(); ui.svg.focus(); };
+    $('sd-cancel').onclick = () => close(false);
+    $('sd-done').onclick = () => close(true);
+    ui.svg.addEventListener('pointerdown', down);
+    ui.svg.addEventListener('pointermove', move);
+    ui.svg.addEventListener('pointerup', up);
+    ui.svg.addEventListener('wheel', wheel, { passive: false });
+    window.addEventListener('keydown', key, true);
+    window.addEventListener('resize', render);
+    ui.svg.focus();
+  }
+
+  function close(apply) {
+    if (!S) return;
+    if (apply) commit();
+    window.removeEventListener('keydown', key, true);
+    window.removeEventListener('resize', render);
+    ui.el.remove();
+    document.body.classList.remove('swarf-draw-open');
+    S = null;
+  }
+
+  // ── view: mm on the bed to px on the board ──
+  // to the parts (with room around them), or to the whole bed (whole = true)
+  function fit(whole) {
+    const r = ui.svg.getBoundingClientRect();
+    const W = r.width || window.innerWidth, H = r.height || window.innerHeight;
+    const [bw, bd] = S.bed;
+    let b = [-bw / 2, -bd / 2, bw / 2, bd / 2];
+    const live = S.parts.filter(p => !p.gone);
+    if (!whole && (live.length || S.others.length)) {
+      b = [Infinity, Infinity, -Infinity, -Infinity];
+      const take = q => { b[0] = Math.min(b[0], q[0]); b[1] = Math.min(b[1], q[1]); b[2] = Math.max(b[2], q[2]); b[3] = Math.max(b[3], q[3]); };
+      for (const p of live) take(boxOf(p.curves));
+      for (const o of S.others) take(o);
+      // at least 300 mm across, so one small part is not a wall of a few points
+      const cx = (b[0] + b[2]) / 2, cy = (b[1] + b[3]) / 2, h = Math.max(150, (b[2] - b[0]) * 0.7, (b[3] - b[1]) * 0.7);
+      b = [cx - h, cy - h, cx + h, cy + h];
+    }
+    const left = 16, right = W > 900 ? 260 : 16, top = 76, bottom = 50;
+    S.k = Math.max(0.02, Math.min((W - left - right) / (b[2] - b[0]), (H - top - bottom) / (b[3] - b[1])));
+    S.ox = left + (W - left - right) / 2 - (b[0] + b[2]) / 2 * S.k;
+    S.oy = top + (H - top - bottom) / 2 + (b[1] + b[3]) / 2 * S.k;
+    S.whole = !!whole;
+  }
+  const sx = x => S.ox + x * S.k, sy = y => S.oy - y * S.k;
+  function toMM(e) { const r = ui.svg.getBoundingClientRect(); return [(e.clientX - r.left - S.ox) / S.k, -(e.clientY - r.top - S.oy) / S.k]; }
+
+  // the points a person moves: anchors (and handles) of a chain, control points otherwise
+  function handles(part) {
+    const out = [];
+    part.curves.forEach((c, ci) => {
+      const crv = c.crv, P = crv.ctrlPts, n = P.length, closed = isClosed(crv), p = crv.degree;
+      const chain = isChain(crv);
+      for (let i = 0; i < n; i++) {
+        if (closed && i === n - 1) continue;      // the closing point is the first
+        const anchor = !chain || i % p === 0;
+        out.push({ id: `${ci}:${i}`, ci, i, x: P[i][0], y: P[i][1], anchor, chain });
+      }
+    });
+    return out;
+  }
+
+  // a point and whatever moves with it: the closing twin, and an anchor's own handles
+  function moveSet(part, ids) {
+    const set = new Set();
+    for (const id of ids) {
+      const [ci, i] = id.split(':').map(Number), crv = part.curves[ci].crv, n = crv.ctrlPts.length, p = crv.degree;
+      const closed = isClosed(crv), chain = isChain(crv);
+      const add = j => { if (j < 0 || j >= n) return; set.add(`${ci}:${j}`); if (closed && j === 0) set.add(`${ci}:${n - 1}`); if (closed && j === n - 1) set.add(`${ci}:0`); };
+      add(i);
+      if (chain && p > 1 && i % p === 0) {
+        add(i + 1); add(i - 1);
+        if (closed && i === 0) add(n - 2);
+      }
+    }
+    return set;
+  }
+
+  function render() {
+    if (!S) return;
+    const k = S.k, [bw, bd] = S.bed, out = [];
+    // the bed and a 10 mm / 100 mm grid
+    out.push(`<rect class="sd-bed" x="${sx(-bw / 2)}" y="${sy(bd / 2)}" width="${bw * k}" height="${bd * k}"/>`);
+    const step = k * 10 > 6 ? 10 : 100;
+    let g = '';
+    for (let x = Math.ceil(-bw / 2 / step) * step; x <= bw / 2; x += step) g += `M${sx(x)},${sy(-bd / 2)}V${sy(bd / 2)}`;
+    for (let y = Math.ceil(-bd / 2 / step) * step; y <= bd / 2; y += step) g += `M${sx(-bw / 2)},${sy(y)}H${sx(bw / 2)}`;
+    out.push(`<path class="sd-grid${step === 100 ? ' big' : ''}" d="${g}"/>`);
+    if (step === 10) {
+      let G = '';
+      for (let x = Math.ceil(-bw / 200) * 100; x <= bw / 2; x += 100) G += `M${sx(x)},${sy(-bd / 2)}V${sy(bd / 2)}`;
+      for (let y = Math.ceil(-bd / 200) * 100; y <= bd / 2; y += 100) G += `M${sx(-bw / 2)},${sy(y)}H${sx(bw / 2)}`;
+      out.push(`<path class="sd-grid big" d="${G}"/>`);
+    }
+    for (const o of S.others) out.push(`<rect class="sd-other" x="${sx(o[0])}" y="${sy(o[3])}" width="${(o[2] - o[0]) * k}" height="${(o[3] - o[1]) * k}"><title>${o[4]}: no drawing to edit</title></rect>`);
+    S.parts.forEach((part, pi) => {
+      if (part.gone) return;
+      const d = part.curves.map(c => pathOf(c.crv)).join(' ');
+      out.push(`<path class="sd-part${pi === S.sel ? ' on' : ''}" data-part="${pi}" d="${d}"/>`);
+      // a wide, unseen edge, so a press near the outline (to add a point) lands on the part
+      if (pi === S.sel) out.push(`<path class="sd-edge" data-part="${pi}" d="${d}"/>`);
+    });
+    const part = S.parts[S.sel];
+    if (part && !part.gone) {
+      // the control lines of each curve, then its points
+      let cl = '';
+      for (const c of part.curves) {
+        const P = c.crv.ctrlPts, p = c.crv.degree, chain = isChain(c.crv);
+        if (p === 1) continue;
+        if (chain) for (let i = 0; i < P.length; i += p) {
+          if (i + 1 < P.length) cl += `M${sx(P[i][0])},${sy(P[i][1])}L${sx(P[i + 1][0])},${sy(P[i + 1][1])}`;
+          if (i - 1 >= 0) cl += `M${sx(P[i][0])},${sy(P[i][1])}L${sx(P[i - 1][0])},${sy(P[i - 1][1])}`;
+        } else cl += 'M' + P.map(q => `${sx(q[0])},${sy(q[1])}`).join('L');
+      }
+      if (cl) out.push(`<path class="sd-ctl" d="${cl}"/>`);
+      for (const h of handles(part)) {
+        const on = S.pts.has(h.id), X = sx(h.x), Y = sy(h.y);
+        out.push(h.anchor
+          ? `<rect class="sd-pt${on ? ' on' : ''}" data-pt="${h.id}" x="${X - 4}" y="${Y - 4}" width="8" height="8"/>`
+          : `<circle class="sd-hd${on ? ' on' : ''}" data-pt="${h.id}" cx="${X}" cy="${Y}" r="3.5"/>`);
+      }
+    }
+    // the pen's outline so far, and the line to the cursor
+    if (S.tool === 'pen' && S.pen.length) {
+      const P = S.pen.map(q => `${sx(q[0])},${sy(q[1])}`);
+      if (S.hover) P.push(`${sx(S.hover[0])},${sy(S.hover[1])}`);
+      out.push(`<path class="sd-pen" d="M${P.join('L')}"/>`);
+      out.push(`<rect class="sd-pt first" x="${sx(S.pen[0][0]) - 5}" y="${sy(S.pen[0][1]) - 5}" width="10" height="10"/>`);
+    }
+    if (S.box) {
+      const [a, b] = S.box;
+      out.push(`<rect class="sd-box" x="${Math.min(sx(a[0]), sx(b[0]))}" y="${Math.min(sy(a[1]), sy(b[1]))}" width="${Math.abs(a[0] - b[0]) * k}" height="${Math.abs(a[1] - b[1]) * k}"/>`);
+    }
+    ui.svg.innerHTML = out.join('');
+    for (const b of ui.el.querySelectorAll('[data-tool]')) b.classList.toggle('on', b.dataset.tool === S.tool);
+    $('sd-undo').disabled = !S.undo.length;
+    card();
+  }
+  function pathOf(crv) {
+    const C = V().cubics(crv);
+    if (!C.length) return '';
+    let d = `M${sx(C[0][0][0])},${sy(C[0][0][1])}`;
+    for (const c of C) d += `C${sx(c[1][0])},${sy(c[1][1])} ${sx(c[2][0])},${sy(c[2][1])} ${sx(c[3][0])},${sy(c[3][1])}`;
+    return d + (isClosed(crv) ? 'Z' : '');
+  }
+
+  // the card: what is picked, its numbers, typeable
+  function card() {
+    const part = S.parts[S.sel];
+    const row = (word, id, v, unit) => `<div class="sd-row"><span>${word}</span><input id="${id}" value="${v}" inputmode="decimal"><span class="u">${unit}</span></div>`;
+    let h = '';
+    if (S.tool === 'pen') {
+      h = `<div class="sd-h">pen</div><div class="sd-note">Click each corner. Click the first corner (or press Enter) to close the outline.</div>${row('thickness', 'sd-pen-t', S.thick, 'mm')}`;
+    } else if (part && !part.gone) {
+      const b = boxOf(part.curves), one = S.pts.size === 1 ? [...S.pts][0] : null;
+      h = `<div class="sd-h">${esc(part.name)}</div><div class="sd-note">${r3(b[2] - b[0])} × ${r3(b[3] - b[1])} mm</div>${row('thickness', 'sd-t', part.thick, 'mm')}`;
+      if (one) {
+        const [ci, i] = one.split(':').map(Number), P = part.curves[ci].crv.ctrlPts[i];
+        h += `<div class="sd-h">point</div>${row('x', 'sd-px', r3(P[0]), 'mm')}${row('y', 'sd-py', r3(P[1]), 'mm')}`;
+      } else if (S.pts.size) h += `<div class="sd-h">${S.pts.size} points</div>`;
+      h += `<div class="sd-h">${S.pts.size ? (S.pts.size === 1 ? 'around it' : 'the points') : 'the part'}</div>${row('scale', 'sd-scale', 100, '%')}${row('turn', 'sd-turn', 0, '°')}
+        <div class="sd-note">${S.pts.size ? 'Drag a point, or type where it goes. Delete removes it. Double-click an edge to add one.' : 'Drag the part to move it. Click a point to pick it; drag across points to pick several.'}</div>`;
+    } else if (S.parts.some(p => !p.gone)) {
+      h = '<div class="sd-note">Click a part to edit it.</div>';
+    }
+    ui.card.innerHTML = h;
+    const num = (id, fn) => { const el = $(id); if (!el) return; el.onkeydown = e => { e.stopPropagation(); if (e.key === 'Enter') { fn(parseFloat(el.value), el); el.blur(); } if (e.key === 'Escape') { render(); ui.svg.focus(); } }; el.onchange = () => fn(parseFloat(el.value), el); };
+    num('sd-t', v => { if (!(v > 0)) return say('The thickness must be more than 0 mm.'); if (v === part.thick) return; snap(); part.thick = r3(v); part.dirty = true; render(); });
+    num('sd-pen-t', v => { if (v > 0) { S.thick = r3(v); try { localStorage.setItem(THICK, String(S.thick)); } catch (e) { /* private */ } } });
+    num('sd-px', v => { if (!isFinite(v)) return; const [ci, i] = [...S.pts][0].split(':').map(Number), P = part.curves[ci].crv.ctrlPts[i]; if (v === r3(P[0])) return; snap(); shiftPts(part, [...S.pts], v - P[0], 0); render(); });
+    num('sd-py', v => { if (!isFinite(v)) return; const [ci, i] = [...S.pts][0].split(':').map(Number), P = part.curves[ci].crv.ctrlPts[i]; if (v === r3(P[1])) return; snap(); shiftPts(part, [...S.pts], 0, v - P[1]); render(); });
+    num('sd-scale', v => { if (!(v > 0)) return say('Scale is a percentage more than 0.'); if (v !== 100) { snap(); transform(part, M => [M[0] * v / 100, M[1] * v / 100]); render(); } });
+    num('sd-turn', v => { if (!isFinite(v) || !v) return; const t = v * Math.PI / 180, c = Math.cos(t), s = Math.sin(t); snap(); transform(part, ([x, y]) => [c * x - s * y, s * x + c * y]); render(); });
+  }
+  const esc = t => String(t).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  function say(t) { const el = $('sd-say'); if (el) el.textContent = t || ''; }
+
+  // ── edits ──
+  function snap() { S.undo.push(JSON.stringify({ parts: S.parts.map(p => ({ ...p, w: null })), sel: S.sel, pts: [...S.pts] })); if (S.undo.length > 200) S.undo.shift(); }
+  function undo() {
+    if (!S.undo.length) return;
+    const u = JSON.parse(S.undo.pop());
+    u.parts.forEach((p, i) => { p.w = S.parts[i] ? S.parts[i].w : null; });
+    S.parts = u.parts; S.sel = u.sel; S.pts = new Set(u.pts);
+    render();
+  }
+  function shiftPts(part, ids, dx, dy) {
+    for (const id of moveSet(part, ids)) { const [ci, i] = id.split(':').map(Number), P = part.curves[ci].crv.ctrlPts[i]; P[0] += dx; P[1] += dy; }
+    part.dirty = true;
+  }
+  // scale / turn the picked points about their centre, or the whole part about its centre
+  function transform(part, f) {
+    const ids = S.pts.size ? moveSet(part, [...S.pts]) : null;
+    const list = [];
+    part.curves.forEach((c, ci) => c.crv.ctrlPts.forEach((P, i) => { if (!ids || ids.has(`${ci}:${i}`)) list.push(P); }));
+    const b = [Infinity, Infinity, -Infinity, -Infinity];
+    for (const P of list) { b[0] = Math.min(b[0], P[0]); b[1] = Math.min(b[1], P[1]); b[2] = Math.max(b[2], P[0]); b[3] = Math.max(b[3], P[1]); }
+    const cx = ids ? (b[0] + b[2]) / 2 : (bb => (bb[0] + bb[2]) / 2)(boxOf(part.curves));
+    const cy = ids ? (b[1] + b[3]) / 2 : (bb => (bb[1] + bb[3]) / 2)(boxOf(part.curves));
+    for (const P of list) { const [x, y] = f([P[0] - cx, P[1] - cy]); P[0] = x + cx; P[1] = y + cy; }
+    part.dirty = true;
+  }
+  function deletePts() {
+    const part = S.parts[S.sel];
+    if (!part) return;
+    if (!S.pts.size) { snap(); part.gone = true; S.sel = -1; say(`${part.name} will be removed when you press done.`); render(); return; }
+    const byCurve = new Map();
+    for (const id of S.pts) { const [ci, i] = id.split(':').map(Number); if (!byCurve.has(ci)) byCurve.set(ci, []); byCurve.get(ci).push(i); }
+    const before = JSON.stringify(part.curves);
+    for (const [ci, idx] of byCurve) {
+      const crv = part.curves[ci].crv;
+      if (!isChain(crv)) { say('This curve is a free NURBS: its points move, but cannot be removed.'); continue; }
+      const p = crv.degree, closed = isClosed(crv);
+      let spans = [];
+      for (let s = 0; s + p < crv.ctrlPts.length; s += p) spans.push(crv.ctrlPts.slice(s, s + p + 1).map(q => q.slice()));
+      // remove anchors from the highest index down; each joins the span before it to the one after
+      const anchors = [...new Set(idx.map(i => (i % p ? null : i / p)).filter(v => v !== null))].sort((a, b) => b - a);
+      for (const A of anchors) {
+        if (spans.length <= (closed ? 3 : 1)) { say('A shape needs at least three corners.'); break; }
+        if (closed && A === 0) { const L = spans.pop(), R = spans.shift(); spans.push(joinSpans(L, R, p)); continue; }
+        if (A === 0) { spans.shift(); continue; }
+        if (A === spans.length) { spans.pop(); continue; }
+        const L = spans[A - 1], R = spans[A];
+        spans.splice(A - 1, 2, joinSpans(L, R, p));
+      }
+      if (closed && spans.length) spans[spans.length - 1][p] = spans[0][0].slice();
+      const P = [spans[0][0]];
+      for (const s of spans) P.push(...s.slice(1));
+      crv.ctrlPts = P; crv.knots = chainKnots(p, spans.length);
+    }
+    if (JSON.stringify(part.curves) !== before) { S.undo.push(JSON.stringify({ parts: S.parts.map(q => ({ ...q, w: null, curves: q === part ? JSON.parse(before) : q.curves })), sel: S.sel, pts: [...S.pts] })); part.dirty = true; }
+    S.pts.clear();
+    render();
+  }
+  // two Bézier spans as one: keep the outer handles
+  function joinSpans(L, R, p) {
+    if (p === 1) return [L[0], R[1]];
+    if (p === 2) return [L[0], [(L[1][0] + R[1][0]) / 2, (L[1][1] + R[1][1]) / 2, 0, (L[1][3] + R[1][3]) / 2], R[2]];
+    const h = Math.ceil(p / 2);
+    return [...L.slice(0, h), ...R.slice(h)];
+  }
+  // double-click an edge: a new anchor there, the span split where it was pressed
+  function dbl(e) {
+    const part = S.parts[S.sel];
+    if (!part || S.tool !== 'select') return;
+    const m = toMM(e), best = { d: Infinity };
+    part.curves.forEach((c, ci) => {
+      if (!isChain(c.crv)) return;
+      const p = c.crv.degree, P = c.crv.ctrlPts;
+      for (let s = 0; s + p < P.length; s += p) {
+        const H = P.slice(s, s + p + 1).map(([x, y, , w]) => [x * (w ?? 1), y * (w ?? 1), w ?? 1]);
+        for (let j = 1; j < 40; j++) {
+          const t = j / 40, q = casteljau(H, t).point, d = Math.hypot(q[0] / q[2] - m[0], q[1] / q[2] - m[1]);
+          if (d < best.d) Object.assign(best, { d, ci, s, t, p });
+        }
+      }
+    });
+    if (best.d * S.k > 10) { say(part.curves.every(c => !isChain(c.crv)) ? 'Points can be added to polygons and Bézier curves, not to a free NURBS.' : 'Double-click right on an edge to add a point there.'); return; }
+    snap();
+    const crv = part.curves[best.ci].crv, p = best.p;
+    const H = crv.ctrlPts.slice(best.s, best.s + p + 1).map(([x, y, , w]) => [x * (w ?? 1), y * (w ?? 1), w ?? 1]);
+    const { left, right } = casteljau(H, best.t);
+    const back = h => [h[0] / h[2], h[1] / h[2], 0, h[2]];
+    crv.ctrlPts.splice(best.s, p + 1, ...left.map(back), ...right.slice(1).map(back));
+    crv.knots = chainKnots(p, (crv.ctrlPts.length - 1) / p);
+    part.dirty = true;
+    S.pts = new Set([`${best.ci}:${best.s + p}`]);
+    render();
+  }
+  function casteljau(H, t) {
+    let a = H.map(x => x.slice());
+    const left = [a[0].slice()], right = [a[a.length - 1].slice()];
+    while (a.length > 1) {
+      const b = [];
+      for (let i = 0; i < a.length - 1; i++) b.push([0, 1, 2].map(c => (1 - t) * a[i][c] + t * a[i + 1][c]));
+      a = b; left.push(a[0].slice()); right.unshift(a[a.length - 1].slice());
+    }
+    return { point: a[0], left, right };
+  }
+
+  // ── pointer ──
+  function setTool(t) { S.tool = t; S.pen = []; S.hover = null; if (t === 'pen') { S.sel = -1; S.pts.clear(); } render(); ui.svg.focus(); }
+  const snapMM = v => Math.round(v * 10) / 10;
+  function down(e) {
+    if (e.button === 1 || (e.button === 0 && S.space)) { S.drag = { kind: 'pan', x: e.clientX, y: e.clientY }; ui.svg.setPointerCapture(e.pointerId); return; }
+    if (e.button !== 0) return;
+    const m = toMM(e);
+    if (S.tool === 'pen') return penClick(m, e);
+    // a second press soon and near: a double-click (the board redraws on every
+    // press, so the browser's own dblclick never sees the same element twice)
+    const last = S.lastDown, now = performance.now();
+    S.lastDown = { t: now, x: e.clientX, y: e.clientY };
+    if (last && now - last.t < 400 && Math.hypot(e.clientX - last.x, e.clientY - last.y) < 6 && S.sel >= 0 && !(e.target.dataset && e.target.dataset.pt)) { S.lastDown = null; dbl(e); return; }
+    const t = e.target, pt = t.dataset && t.dataset.pt, pi = t.dataset && t.dataset.part;
+    if (pt) {
+      if (e.shiftKey) { S.pts.has(pt) ? S.pts.delete(pt) : S.pts.add(pt); render(); return; }
+      if (!S.pts.has(pt)) S.pts = new Set([pt]);
+      snap();
+      S.drag = { kind: 'pts', at: m, moved: false };
+    } else if (pi !== undefined) {
+      const i = +pi;
+      if (i !== S.sel) { S.sel = i; S.pts.clear(); }
+      else if (!e.shiftKey) S.pts.clear();
+      snap();
+      S.drag = { kind: 'part', at: m, moved: false };
+    } else {
+      if (S.sel >= 0) S.drag = { kind: 'box', at: m, shift: e.shiftKey };
+      else { S.pts.clear(); }
+      if (!S.drag) render();
+    }
+    ui.svg.setPointerCapture(e.pointerId);
+    render();
+  }
+  function move(e) {
+    const m = toMM(e);
+    if (S.tool === 'pen') { S.hover = [snapMM(m[0]), snapMM(m[1])]; render(); say(`${r3(S.hover[0])}, ${r3(S.hover[1])} mm`); return; }
+    const d = S.drag;
+    if (!d) return;
+    if (d.kind === 'pan') { S.ox += e.clientX - d.x; S.oy += e.clientY - d.y; d.x = e.clientX; d.y = e.clientY; render(); return; }
+    if (d.kind === 'box') { S.box = [d.at, m]; render(); return; }
+    const part = S.parts[S.sel];
+    let dx = m[0] - d.at[0], dy = m[1] - d.at[1];
+    if (!d.moved && Math.hypot(dx, dy) * S.k < 3) return;
+    // whole tenths of a millimetre from where the drag began
+    dx = snapMM(dx); dy = snapMM(dy);
+    if (!dx && !dy) return;
+    if (d.kind === 'pts') shiftPts(part, [...S.pts], dx, dy);
+    else { for (const c of part.curves) for (const P of c.crv.ctrlPts) { P[0] += dx; P[1] += dy; } part.dirty = true; }
+    d.at = [d.at[0] + dx, d.at[1] + dy];
+    d.moved = true;
+    render();
+  }
+  function up(e) {
+    const d = S.drag;
+    S.drag = null;
+    if (!d) return;
+    if ((d.kind === 'pts' || d.kind === 'part') && !d.moved) S.undo.pop();          // a click, not a move
+    if (d.kind === 'box') {
+      const part = S.parts[S.sel], b = S.box;
+      S.box = null;
+      if (!b) { S.sel = -1; S.pts.clear(); render(); return; }   // a click on the empty bed
+      if (!d.shift) S.pts.clear();
+      const x0 = Math.min(b[0][0], b[1][0]), x1 = Math.max(b[0][0], b[1][0]), y0 = Math.min(b[0][1], b[1][1]), y1 = Math.max(b[0][1], b[1][1]);
+      for (const h of handles(part)) if (h.anchor && h.x >= x0 && h.x <= x1 && h.y >= y0 && h.y <= y1) S.pts.add(h.id);
+    }
+    render();
+  }
+  function penClick(m, e) {
+    const q = [snapMM(m[0]), snapMM(m[1])];
+    if (S.pen.length >= 3) {
+      const f = S.pen[0];
+      if (Math.hypot(sx(f[0]) - sx(q[0]), sy(f[1]) - sy(q[1])) <= HIT + 3) return penClose();
+    }
+    const l = S.pen[S.pen.length - 1];
+    if (l && l[0] === q[0] && l[1] === q[1]) return;
+    S.pen.push(q);
+    render();
+  }
+  function penClose() {
+    if (S.pen.length < 3) { say('An outline needs at least three corners.'); return; }
+    snap();
+    const n = S.parts.filter(p => !p.w).length + 1;
+    S.parts.push({ w: null, name: `drawing-${n}`, thick: S.thick, curves: [{ crv: V().polyCrv(S.pen, true) }], dirty: true });
+    S.pen = []; S.hover = null; S.tool = 'select'; S.sel = S.parts.length - 1; S.pts.clear();
+    say('Closed. Drag its points to shape it, or press done to make it a part.');
+    render();
+  }
+  function wheel(e) {
+    e.preventDefault();
+    if (e.ctrlKey || e.metaKey) {                 // pinch or ⌘-wheel: zoom about the cursor
+      const r = ui.svg.getBoundingClientRect(), px = e.clientX - r.left, py = e.clientY - r.top;
+      const f = Math.exp(-e.deltaY * 0.01), k = Math.max(0.05, Math.min(200, S.k * f));
+      S.ox = px - (px - S.ox) * k / S.k; S.oy = py - (py - S.oy) * k / S.k; S.k = k;
+    } else { S.ox -= e.deltaX; S.oy -= e.deltaY; }   // two fingers: slide
+    render();
+  }
+  function key(e) {
+    if (!S) return;
+    const typing = e.target && /INPUT|SELECT|TEXTAREA/.test(e.target.tagName);
+    if (typing) return;
+    e.stopPropagation();
+    const k = e.key;
+    if ((e.metaKey || e.ctrlKey) && k.toLowerCase() === 'z') { e.preventDefault(); undo(); return; }
+    if (k === ' ') { if (S.space) { e.preventDefault(); return; } S.space = true; e.preventDefault(); window.addEventListener('keyup', function u(ev) { if (ev.key === ' ') { S && (S.space = false); window.removeEventListener('keyup', u, true); } }, true); return; }
+    if (k === 'Escape') {
+      e.preventDefault();
+      if (S.pen.length) { S.pen = []; render(); return; }
+      if (S.tool !== 'select') { setTool('select'); return; }
+      if (S.pts.size) { S.pts.clear(); render(); return; }
+      if (S.sel >= 0) { S.sel = -1; render(); return; }
+      close(false); return;
+    }
+    if (k === 'Enter' && S.tool === 'pen') { e.preventDefault(); penClose(); return; }
+    if (k === 'v' || k === 'V') { setTool('select'); return; }
+    if (k === 'f' || k === 'F') { fit(!S.whole); render(); return; }
+    if (k === 'p' || k === 'P') { setTool('pen'); return; }
+    if ((k === 'Delete' || k === 'Backspace') && S.tool === 'select') { e.preventDefault(); deletePts(); return; }
+    if (k === 'Backspace' && S.tool === 'pen' && S.pen.length) { e.preventDefault(); S.pen.pop(); render(); return; }
+    const ar = { ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, 1], ArrowDown: [0, -1] }[k];
+    const part = S.parts[S.sel];
+    if (ar && part) {
+      e.preventDefault();
+      const s = e.shiftKey ? 10 : 1;
+      snap();
+      if (S.pts.size) shiftPts(part, [...S.pts], ar[0] * s, ar[1] * s);
+      else { for (const c of part.curves) for (const P of c.crv.ctrlPts) { P[0] += ar[0] * s; P[1] += ar[1] * s; } part.dirty = true; }
+      render();
+    }
+  }
+
+  // ── done: each changed part rebuilt from its drawing, where it was drawn ──
+  function commit() {
+    const a = api();
+    const changed = S.parts.filter(p => p.dirty || p.gone);
+    if (!changed.length) return;
+    // parts stay where they were drawn: auto layout would repack them
+    if (a.ui.autoLayout && a.ui.autoLayout.checked) { a.ui.autoLayout.checked = false; a.ui.autoLayout.dispatchEvent(new Event('change')); }
+    const open = [], made = [];
+    for (const p of changed) {
+      if (p.gone) { if (p.w) a.platform.delete(p.w); continue; }
+      const closed = p.curves.filter(c => isClosed(c.crv));
+      if (closed.length < p.curves.length) open.push(p.name);
+      if (!closed.length) continue;
+      const svg = V().svgOf(closed);
+      const ws = a.platform.load_svg(svg, p.name.replace(/\.(svg|dxf|ai|pdf)$/i, ''), { depth: p.thick, resolution: 2, segmin: 48, soup: true, dpi: 0, place: true });
+      if (!ws.length) { a.show.alert(`swarf could not make ${p.name} from its drawing: is the outline crossing itself?`, 8); continue; }
+      if (p.w) a.platform.delete(p.w);
+      made.push(...ws);
+    }
+    if (made.length) a.platform.select(made[0]);
+    const n = made.length;
+    a.show.alert(open.length ? `${open.join(', ')}: open lines were left out (only closed outlines get a thickness).` : `${n} part${n === 1 ? '' : 's'} rebuilt from the drawing. Next: a step (outline cuts it out), then toolpaths.`, 8);
+  }
+
+  // ── wiring ──
+  let tries = 0;
+  const t = setInterval(() => {
+    const a = api(), step = $('swarf-step-draw');
+    if ((a && a.event && step) || ++tries > 200) {
+      clearInterval(t);
+      if (!a || !a.event) return;
+      a.event.on('widget.scale', ({ widget, x, y }) => track(widget, [x || 1, 0, 0, y || 1]));
+      a.event.on('widget.rotate', onRotate);
+      a.event.on('widget.mirror', ({ widget }) => track(widget, [-1, 0, 0, 1]));
+      if (step && !step.dataset.wired) { step.dataset.wired = '1'; step.addEventListener('click', open); }
+    }
+  }, 150);
+
+  window.__swarfDraw = { open, close, bedCurves, state: () => S, isChain };
+})();

@@ -2006,3 +2006,53 @@ body.swarf-phone > *:not(#swarf-phone-wall) { display: none !important; }
 #swarf-size .ax input:focus { outline: none; border-color: #a39a90; }
 #swarf-size .ax small { color: var(--swarf-text-2); font-size: 10px; }
 #swarf-size .keep { display: flex; align-items: center; gap: 6px; margin-left: 8px; color: var(--swarf-text-2); font-size: 12px; cursor: pointer; }
+
+/* swarf draw (r37): the bed from above as a drawing, over the workspace. Quiet: no red here */
+#swarf-draw { position: fixed; inset: 0; z-index: 60; background: #121010; color: var(--swarf-text);
+  font: 13px "JetBrains Mono", "IBM Plex Mono", ui-monospace, monospace; }
+#swarf-draw svg { position: absolute; inset: 0; width: 100%; height: 100%; outline: none; cursor: default; touch-action: none; }
+#swarf-draw .sd-bed { fill: #1a1716; stroke: #3a3230; stroke-width: 1; }
+#swarf-draw .sd-grid { fill: none; stroke: #241f1d; stroke-width: 1; pointer-events: none; }
+#swarf-draw .sd-grid.big { stroke: #302926; }
+#swarf-draw .sd-other { fill: rgba(216,210,198,.05); stroke: #4f4642; stroke-dasharray: 4 3; }
+#swarf-draw .sd-part { fill: rgba(216,210,198,.12); fill-rule: evenodd; stroke: #a39a90; stroke-width: 1.2; cursor: move; }
+#swarf-draw .sd-part:hover { fill: rgba(216,210,198,.18); }
+#swarf-draw .sd-part.on { fill: rgba(216,210,198,.2); stroke: #f2ede4; stroke-width: 1.6; }
+#swarf-draw .sd-ctl { fill: none; stroke: #7d736b; stroke-width: 1; stroke-dasharray: 3 3; pointer-events: none; }
+#swarf-draw .sd-pt { fill: #121010; stroke: #f2ede4; stroke-width: 1.4; cursor: pointer; }
+#swarf-draw .sd-pt.on { fill: #f2ede4; }
+#swarf-draw .sd-pt.first { fill: none; stroke: #f2ede4; pointer-events: none; }
+#swarf-draw .sd-hd { fill: #121010; stroke: #a39a90; stroke-width: 1.2; cursor: pointer; }
+#swarf-draw .sd-hd.on { fill: #a39a90; }
+#swarf-draw .sd-pen { fill: none; stroke: #f2ede4; stroke-width: 1.4; pointer-events: none; }
+#swarf-draw .sd-box { fill: rgba(242,237,228,.06); stroke: #a39a90; stroke-dasharray: 4 3; pointer-events: none; }
+#swarf-draw .sd-bar { position: absolute; top: 14px; left: 50%; transform: translateX(-50%); display: flex; gap: 6px; align-items: center;
+  padding: 6px 8px; background: rgba(27,23,21,.95); border: 1px solid #3a3230; border-radius: 8px; min-width: 520px; }
+#swarf-draw button { font: inherit; color: var(--swarf-text); background: #2a2523; border: 1px solid #4f4642; border-radius: 6px; padding: 6px 12px; cursor: pointer; }
+#swarf-draw button:hover { border-color: #a39a90; }
+#swarf-draw button.on { background: #f2ede4; color: #121010; border-color: #f2ede4; }
+#swarf-draw button:disabled { opacity: .35; cursor: default; }
+#swarf-draw button.sd-go { background: #d8d2c6; color: #121010; border-color: #d8d2c6; }
+#swarf-draw .sd-sep { width: 1px; height: 22px; background: #3a3230; margin: 0 4px; }
+#swarf-draw .sd-grow { flex: 1; }
+#swarf-draw .sd-card { position: absolute; top: 70px; right: 16px; width: 220px; padding: 10px 14px; background: rgba(27,23,21,.95);
+  border: 1px solid #3a3230; border-radius: 8px; }
+#swarf-draw .sd-card:empty { display: none; }
+#swarf-draw .sd-card .sd-h { margin: 12px 0 6px; font-size: 12px; font-weight: 600; color: #f2ede4; }
+#swarf-draw .sd-card .sd-h:first-child { margin-top: 0; overflow-wrap: anywhere; }
+#swarf-draw .sd-card .sd-row { display: flex; align-items: center; gap: 8px; margin: 5px 0; color: var(--swarf-text-2); font-size: 12px; }
+#swarf-draw .sd-card .sd-row > span:first-child { flex: 1; }
+#swarf-draw .sd-card .sd-row .u { width: 22px; }
+#swarf-draw .sd-card input { width: 84px; flex: none; text-align: right; background: #322c29; border: 1px solid #4f4642; border-radius: 6px; color: #fff; padding: 4px 7px; font: inherit; margin: 0; }
+#swarf-draw .sd-card input:focus { outline: none; border-color: #a39a90; }
+#swarf-draw .sd-card .sd-note { margin: 6px 0; font-size: 12px; line-height: 1.45; color: var(--swarf-text-2); }
+#swarf-draw button { text-transform: none; letter-spacing: 0; }
+#swarf-draw .sd-say { position: absolute; left: 50%; bottom: 18px; transform: translateX(-50%); margin: 0; color: var(--swarf-text-2); font-size: 12px; pointer-events: none; }
+@media (max-width: 640px) { #swarf-draw .sd-bar { min-width: 0; left: 16px; right: 16px; transform: none; flex-wrap: wrap; } #swarf-draw .sd-card { top: auto; bottom: 48px; left: 16px; right: 16px; width: auto; } }
+#swarf-draw .sd-edge { fill: none; stroke: transparent; stroke-width: 12; pointer-events: stroke; cursor: copy; }
+/* cam lays every div out as a row: the draw card is a column */
+#swarf-draw .sd-card { display: flex; flex-direction: column; align-items: stretch; }
+#swarf-draw .sd-card > div { display: block; }
+#swarf-draw .sd-card > .sd-row { display: flex; flex-direction: row; }
+#swarf-draw .sd-card:empty { display: none; }
+body.swarf-draw-open #swarf-concerns, body.swarf-draw-open #swarf-size { display: none !important; }

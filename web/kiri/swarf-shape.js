@@ -151,7 +151,8 @@
       if (!w.meta || !w.meta.svg) { flat.push(w.meta && w.meta.file || 'a part'); return; }
       const t = w.track || {}, r = t.rot || {};
       if (Math.abs(r.x || 0) > 1e-6 || Math.abs(r.y || 0) > 1e-6) { tilted.push(w.meta.file); return; }
-      parts.push({ svg: w.meta.svg, sx: (t.scale || {}).x || 1, sy: (t.scale || {}).y || 1, rz: r.z || 0, mirror: !!t.mirror, px: (t.pos || {}).x || 0, py: (t.pos || {}).y || 0 });
+      if (w.meta.tilted) { tilted.push(w.meta.file); return; }
+      parts.push({ w, svg: w.meta.svg, sx: (t.scale || {}).x || 1, sy: (t.scale || {}).y || 1, rz: r.z || 0, mirror: !!t.mirror, px: (t.pos || {}).x || 0, py: (t.pos || {}).y || 0 });
     });
     if (!parts.length) { a.show.alert(flat.length || tilted.length ? 'Only shapes and imported drawings (SVG, DXF, AI, PDF) have a drawing to save.' : 'Nothing to save yet.', 8); return; }
     const pre = [
@@ -160,7 +161,9 @@
     ];
     a.uc.confirm(undefined, { dxf: 'dxf', ai: 'ai', svg: 'svg', pdf: 'pdf', cancel: false }, undefined, { pre }).then(kind => {
       if (!kind) return;
-      const out = V.writeParts(kind, parts);
+      // placed exactly as the parts sit (swarf-draw.js keeps each part's transform)
+      const D = window.__swarfDraw;
+      const out = D && V.writeCurves ? V.writeCurves(kind, parts.flatMap(p => D.bedCurves(p.w))) : V.writeParts(kind, parts);
       const type = { dxf: 'application/dxf', ai: 'application/postscript', svg: 'image/svg+xml', pdf: 'application/pdf' }[kind];
       const name = (parts.length === 1 && a.widgets.all().find(w => w.meta && w.meta.svg === parts[0].svg)?.meta.file || 'swarf-drawing').replace(/[^\w.-]+/g, '-');
       const link = Object.assign(document.createElement('a'), { href: URL.createObjectURL(new Blob([out], { type })), download: `${name}.${kind}` });

@@ -535,6 +535,13 @@ function group() {
 function group_done(skipLayout) {
     grouping = false;
     Widget.Groups.loadDone();
+    // swarf: parts from a drawing learn how far the group's centring moved them (load_svg_into)
+    for (const w of api.widgets.all()) {
+        if (!w.meta || !w.meta.tFix) continue;
+        const d = (w.group && w.group[0] && w.group[0].track.center) || { dx: w.meta.c0[0], dy: w.meta.c0[1] };
+        w.meta.t = [w.meta.c0[0] - d.dx, w.meta.c0[1] - d.dy];
+        delete w.meta.tFix;
+    }
     if (api.feature.drop_layout && !skipLayout) {
         platform.layout();
     }
@@ -973,18 +980,42 @@ function load_verts(group, vertices, filename) {
 function load_svg(text, name, opt = {}) {
     platform.group();
     const made = load_svg_into([], text, name, opt);
-    platform.group_done();
+    // opt.place: the drawing is in bed millimetres (DRAW), so each part goes where it was drawn
+    if (opt.place) for (const w of made) w.move(w.meta.c0[0], w.meta.c0[1], w.track.pos.z, true);
+    platform.group_done(!!opt.place);
     return made;
 }
 
-// parts from SVG text into a load group; each part keeps its drawing (meta.svg) for export
+// parts from SVG text into a load group. Each part keeps its own drawing
+// (meta.svg), the drawing's centre for that part (meta.c0, where cam centred
+// it) and a 2D transform (meta.xf, kept by swarf-draw.js as the part is scaled,
+// turned and mirrored, with meta.t the shift cam's re-centring adds), so DRAW
+// and "save drawing" put it where the part is.
 function load_svg_into(group, text, name, opt = {}) {
-    const made = [];
+    const made = [], boxes = [];
     let ind = 0;
     for (const v of file_load.SVG.parse(text, opt)) {
+        const b = [Infinity, Infinity, -Infinity, -Infinity];
+        for (let i = 0; i < v.length; i += 3) {
+            b[0] = Math.min(b[0], v[i]); b[1] = Math.min(b[1], v[i + 1]);
+            b[2] = Math.max(b[2], v[i]); b[3] = Math.max(b[3], v[i + 1]);
+        }
         const w = load_verts(group, v, ind++ ? `${name}-${ind}` : name);
         w.meta.svg = text;
+        w.meta.c0 = [(b[0] + b[2]) / 2, (b[1] + b[3]) / 2];
+        w.meta.xf = [1, 0, 0, 1];
+        w.meta.t = [0, 0];
         made.push(w);
+        boxes.push(b);
+    }
+    // cam centres the load group as one in group_done (Widget.Groups.loadDone):
+    // a part's offset from its own drawing centre is what that moves it
+    for (const w of made) w.meta.tFix = true;
+    // two parts from one drawing: each keeps only its own shapes
+    const V = window.SwarfVector;
+    if (made.length > 1 && V && V.split) {
+        const own = V.split(text, boxes);
+        made.forEach((w, i) => { if (own[i]) w.meta.svg = own[i]; });
     }
     return made;
 }
