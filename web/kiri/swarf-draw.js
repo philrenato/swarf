@@ -128,7 +128,7 @@
     for (const w of a.widgets.all()) {
       if (w.meta && w.meta.svg && !w.meta.tilted) {
         const curves = bedCurves(w);
-        if (curves.length) { parts.push({ w, name: w.meta.file || 'part', thick: thicknessOf(w), curves, dirty: false }); continue; }
+        if (curves.length) { parts.push({ w, name: w.meta.file || 'part', thick: thicknessOf(w), edge: w.meta.edge ? { ...w.meta.edge } : { kind: 'straight', size: 2 }, curves, dirty: false }); continue; }
       }
       const g = w.mesh.geometry; g.computeBoundingBox();
       const b = g.boundingBox, p = w.track.pos;
@@ -136,7 +136,7 @@
     }
     let t0 = 6;
     try { t0 = parseFloat(localStorage.getItem(THICK)) || 6; } catch (e) { /* private */ }
-    S = { parts, others, bed: [bw, bd], sel: -1, pts: new Set(), tool: 'select', pen: [], drag: null, undo: [], thick: t0, removed: [], hover: null };
+    S = { parts, others, bed: [bw, bd], sel: -1, pts: new Set(), tool: 'select', pen: [], drag: null, undo: [], thick: t0, edge: { kind: 'straight', size: 2 }, removed: [], hover: null };
     build();
     // the part picked in the workspace is the one picked here
     const picked = a.selection.widgets ? a.selection.widgets() : [];
@@ -320,12 +320,13 @@
   function card() {
     const part = S.parts[S.sel];
     const row = (word, id, v, unit) => `<div class="sd-row"><span>${word}</span><input id="${id}" value="${v}" inputmode="decimal"><span class="u">${unit}</span></div>`;
+    const edgeRows = e => `<div class="sd-row"><span>top edge</span><select id="sd-edge">${['straight', 'chamfer', 'round'].map(k => `<option${k === e.kind ? ' selected' : ''}>${k}</option>`).join('')}</select><span class="u"></span></div>${e.kind === 'straight' ? '' : row('edge size', 'sd-es', e.size, 'mm')}`;
     let h = '';
     if (S.tool === 'pen') {
-      h = `<div class="sd-h">pen</div><div class="sd-note">Click each corner. Click the first corner (or press Enter) to close the outline.</div>${row('thickness', 'sd-pen-t', S.thick, 'mm')}`;
+      h = `<div class="sd-h">pen</div><div class="sd-note">Click each corner. Click the first corner (or press Enter) to close the outline.</div>${row('thickness', 'sd-pen-t', S.thick, 'mm')}${edgeRows(S.edge)}`;
     } else if (part && !part.gone) {
       const b = boxOf(part.curves), one = S.pts.size === 1 ? [...S.pts][0] : null;
-      h = `<div class="sd-h">${esc(part.name)}</div><div class="sd-note">${r3(b[2] - b[0])} × ${r3(b[3] - b[1])} mm</div>${row('thickness', 'sd-t', part.thick, 'mm')}`;
+      h = `<div class="sd-h">${esc(part.name)}</div><div class="sd-note">${r3(b[2] - b[0])} × ${r3(b[3] - b[1])} mm</div>${row('thickness', 'sd-t', part.thick, 'mm')}${edgeRows(part.edge)}`;
       if (one) {
         const [ci, i] = one.split(':').map(Number), P = part.curves[ci].crv.ctrlPts[i];
         h += `<div class="sd-h">point</div>${row('x', 'sd-px', r3(P[0]), 'mm')}${row('y', 'sd-py', r3(P[1]), 'mm')}`;
@@ -338,11 +339,25 @@
     ui.card.innerHTML = h;
     const num = (id, fn) => { const el = $(id); if (!el) return; el.onkeydown = e => { e.stopPropagation(); if (e.key === 'Enter') { fn(parseFloat(el.value), el); el.blur(); } if (e.key === 'Escape') { render(); ui.svg.focus(); } }; el.onchange = () => fn(parseFloat(el.value), el); };
     num('sd-t', v => { if (!(v > 0)) return say('The thickness must be more than 0 mm.'); if (v === part.thick) return; snap(); part.thick = r3(v); part.dirty = true; render(); });
+    // the top edge: the pen's next outline, or the picked part
+    const E = S.tool === 'pen' ? S.edge : part && part.edge;
+    const sel = $('sd-edge');
+    if (sel && E) sel.onchange = () => { if (S.tool !== 'pen') { snap(); part.dirty = true; } E.kind = sel.value; render(); edgeSay(); };
+    num('sd-es', v => { if (!(v > 0)) return say('The edge size must be more than 0 mm.'); if (!E || v === E.size) return; if (S.tool !== 'pen') { snap(); part.dirty = true; } E.size = r3(v); render(); edgeSay(); });
     num('sd-pen-t', v => { if (v > 0) { S.thick = r3(v); try { localStorage.setItem(THICK, String(S.thick)); } catch (e) { /* private */ } } });
     num('sd-px', v => { if (!isFinite(v)) return; const [ci, i] = [...S.pts][0].split(':').map(Number), P = part.curves[ci].crv.ctrlPts[i]; if (v === r3(P[0])) return; snap(); shiftPts(part, [...S.pts], v - P[0], 0); render(); });
     num('sd-py', v => { if (!isFinite(v)) return; const [ci, i] = [...S.pts][0].split(':').map(Number), P = part.curves[ci].crv.ctrlPts[i]; if (v === r3(P[1])) return; snap(); shiftPts(part, [...S.pts], 0, v - P[1]); render(); });
     num('sd-scale', v => { if (!(v > 0)) return say('Scale is a percentage more than 0.'); if (v !== 100) { snap(); transform(part, M => [M[0] * v / 100, M[1] * v / 100]); render(); } });
     num('sd-turn', v => { if (!isFinite(v) || !v) return; const t = v * Math.PI / 180, c = Math.cos(t), s = Math.sin(t); snap(); transform(part, ([x, y]) => [c * x - s * y, s * x + c * y]); render(); });
+  }
+  // whether the picked part's edge fits its outline, said at once rather than at done
+  function edgeSay() {
+    const a = api(), part = S.parts[S.sel];
+    if (!part || S.tool === 'pen' || part.edge.kind === 'straight' || !a.platform.edge_problem) return;
+    const closed = part.curves.filter(c => isClosed(c.crv));
+    if (!closed.length) return;
+    const why = a.platform.edge_problem(V().svgOf(closed), { depth: part.thick, resolution: 2, segmin: 48, soup: true, dpi: 0, edge: part.edge });
+    say(why || `A ${part.edge.size} mm ${part.edge.kind} fits. Press done to shape it.`);
   }
   const esc = t => String(t).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
   function say(t) { const el = $('sd-say'); if (el) el.textContent = t || ''; }
@@ -532,7 +547,7 @@
     if (S.pen.length < 3) { say('An outline needs at least three corners.'); return; }
     snap();
     const n = S.parts.filter(p => !p.w).length + 1;
-    S.parts.push({ w: null, name: `drawing-${n}`, thick: S.thick, curves: [{ crv: V().polyCrv(S.pen, true) }], dirty: true });
+    S.parts.push({ w: null, name: `drawing-${n}`, thick: S.thick, edge: { ...S.edge }, curves: [{ crv: V().polyCrv(S.pen, true) }], dirty: true });
     S.pen = []; S.hover = null; S.tool = 'select'; S.sel = S.parts.length - 1; S.pts.clear();
     say('Closed. Drag its points to shape it, or press done to make it a part.');
     render();
@@ -587,21 +602,22 @@
     if (!changed.length) return;
     // parts stay where they were drawn: auto layout would repack them
     if (a.ui.autoLayout && a.ui.autoLayout.checked) { a.ui.autoLayout.checked = false; a.ui.autoLayout.dispatchEvent(new Event('change')); }
-    const open = [], made = [];
+    const open = [], made = [], failed = [];
     for (const p of changed) {
       if (p.gone) { if (p.w) a.platform.delete(p.w); continue; }
       const closed = p.curves.filter(c => isClosed(c.crv));
       if (closed.length < p.curves.length) open.push(p.name);
       if (!closed.length) continue;
       const svg = V().svgOf(closed);
-      const ws = a.platform.load_svg(svg, p.name.replace(/\.(svg|dxf|ai|pdf)$/i, ''), { depth: p.thick, resolution: 2, segmin: 48, soup: true, dpi: 0, place: true });
-      if (!ws.length) { a.show.alert(`swarf could not make ${p.name} from its drawing: is the outline crossing itself?`, 8); continue; }
+      const ws = a.platform.load_svg(svg, p.name.replace(/\.(svg|dxf|ai|pdf)$/i, ''), { depth: p.thick, resolution: 2, segmin: 48, soup: true, dpi: 0, place: true, edge: p.edge });
+      if (!ws.length) { failed.push(`${p.name}: ${ws.error || 'swarf could not make it from its drawing. Is the outline crossing itself?'}`); continue; }
       if (p.w) a.platform.delete(p.w);
       made.push(...ws);
     }
     if (made.length) a.platform.select(made[0]);
     const n = made.length;
-    a.show.alert(open.length ? `${open.join(', ')}: open lines were left out (only closed outlines get a thickness).` : `${n} part${n === 1 ? '' : 's'} rebuilt from the drawing. Next: a step (outline cuts it out), then toolpaths.`, 8);
+    if (failed.length) { a.show.alert(`Not changed: ${failed.join(' ')}`, 12); return; }
+    a.show.alert(open.length ? `${open.join(', ')}: open lines were left out (only closed outlines get a thickness).` : `${n} part${n === 1 ? '' : 's'} rebuilt from the drawing. Next: a step (${made.some(w => w.meta.edge) ? 'contour shapes the edge, outline cuts it out' : 'outline cuts it out'}), then toolpaths.`, 8);
   }
 
   // ── wiring ──

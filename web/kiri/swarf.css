@@ -2056,3 +2056,4 @@ body.swarf-phone > *:not(#swarf-phone-wall) { display: none !important; }
 #swarf-draw .sd-card > .sd-row { display: flex; flex-direction: row; }
 #swarf-draw .sd-card:empty { display: none; }
 body.swarf-draw-open #swarf-concerns, body.swarf-draw-open #swarf-size { display: none !important; }
+#swarf-draw .sd-card select { width: 98px; flex: none; background: #322c29; border: 1px solid #4f4642; border-radius: 6px; color: #fff; padding: 3px 5px; font: inherit; margin: 0; }

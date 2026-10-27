@@ -12,6 +12,7 @@ import { Packer } from './pack.js';
 import { space } from '../../moto/space.js';
 import { THREE } from '../../ext/three.js';
 import { Widget, newWidget } from './widget.js';
+import { profileSolid } from './swarf-profile.js';
 
 const V0 = new THREE.Vector3(0,0,0);
 
@@ -994,7 +995,9 @@ function load_svg(text, name, opt = {}) {
 function load_svg_into(group, text, name, opt = {}) {
     const made = [], boxes = [];
     let ind = 0;
-    for (const v of file_load.SVG.parse(text, opt)) {
+    const solids = svg_solids(text, opt);
+    if (solids.error) { made.error = solids.error; return made; }
+    for (const v of solids) {
         const b = [Infinity, Infinity, -Infinity, -Infinity];
         for (let i = 0; i < v.length; i += 3) {
             b[0] = Math.min(b[0], v[i]); b[1] = Math.min(b[1], v[i + 1]);
@@ -1004,6 +1007,7 @@ function load_svg_into(group, text, name, opt = {}) {
         w.meta.svg = text;
         w.meta.c0 = [(b[0] + b[2]) / 2, (b[1] + b[3]) / 2];
         w.meta.xf = [1, 0, 0, 1];
+        if (opt.edge && opt.edge.kind !== 'straight') w.meta.edge = { kind: opt.edge.kind, size: +opt.edge.size };
         w.meta.t = [0, 0];
         made.push(w);
         boxes.push(b);
@@ -1018,6 +1022,32 @@ function load_svg_into(group, text, name, opt = {}) {
         made.forEach((w, i) => { if (own[i]) w.meta.svg = own[i]; });
     }
     return made;
+}
+
+// the solids an SVG makes at opt.depth: straight walls, or with a shaped top
+// edge (opt.edge = { kind: 'chamfer' | 'round', size }, swarf-profile.js).
+// Returns vertex arrays, or { error } when the edge cannot fit the shape.
+function svg_solids(text, opt = {}) {
+    const edge = opt.edge;
+    if (!edge || edge.kind === 'straight' || !(+edge.size > 0)) return file_load.SVG.parse(text, opt);
+    const depth = parseFloat(opt.depth) || 5;
+    const out = [];
+    for (const poly of file_load.SVG.parse(text, { ...opt, flat: true })) {
+        const r = profileSolid(poly, depth, edge);
+        if (r.error) return { error: r.error };
+        out.push(r.vertices);
+    }
+    return out;
+}
+
+// why this edge cannot be made on this drawing, or null (for the shape and draw dialogs)
+function edge_problem(text, opt = {}) {
+    try {
+        const r = svg_solids(text, opt);
+        return r.error || (r.length ? null : 'Nothing closed to give a thickness to.');
+    } catch (e) {
+        return `swarf could not shape that edge (${e.message}).`;
+    }
 }
 
 /**
@@ -1319,6 +1349,7 @@ export const platform = {
     load_files,
     load_verts,
     load_svg,
+    edge_problem,
     deselect,
     select,
     select_all,

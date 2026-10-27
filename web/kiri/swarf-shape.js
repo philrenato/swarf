@@ -31,6 +31,15 @@
     i:  { label: 'inner size', unit: '%', value: 44 }      // ReLeaf's star
   };
   const LAST = 'swarf-shape-last';
+  const EDGES = { straight: 'straight', chamfer: 'chamfer', round: 'round' };
+
+  // the edge must be a size, no taller than the part, and fit the shape's tightest curve
+  function edgeProblem(a, kind, v, t, edge, es) {
+    if (edge === 'straight') return null;
+    if (!(es > 0)) return 'The edge size must be more than 0 mm.';
+    if (es > t) return `The edge can be at most the thickness, ${f(t)} mm.`;
+    return a.platform.edge_problem ? a.platform.edge_problem(svgFor(kind, v), { depth: t, resolution: 2, segmin: 48, soup: true, dpi: 0, edge: { kind: edge, size: es } }) : null;
+  }
 
   const api = () => window.kiri && window.kiri.api;
   const $ = id => document.getElementById(id);
@@ -97,6 +106,8 @@
       `  <tr><th>shape</th><td><select id="shape-kind">${Object.keys(SHAPES).map(k => `<option value="${k}"${k === kind0 ? ' selected' : ''}>${SHAPES[k].label}</option>`).join('')}</select></td></tr>`,
       rows,
       `  <tr><th>thickness</th><td><input id="shape-t" value="${last.t > 0 ? last.t : 6}" size="6" inputmode="decimal"> mm</td></tr>`,
+      `  <tr><th>top edge</th><td><select id="shape-edge">${Object.keys(EDGES).map(k => `<option value="${k}"${k === (EDGES[last.edge] ? last.edge : 'straight') ? ' selected' : ''}>${EDGES[k]}</option>`).join('')}</select></td></tr>`,
+      `  <tr data-e="1"><th>edge size</th><td><input id="shape-es" value="${last.es > 0 ? last.es : 2}" size="6" inputmode="decimal"> mm</td></tr>`,
       "  </table></div>",
       "  <div id='shape-prev' class='swarf-shape-prev'></div>",
       "  <p id='shape-why' class='swarf-shape-why'></p>",
@@ -105,17 +116,18 @@
     const read = () => {
       const kind = $('shape-kind').value, v = {};
       for (const k of Object.keys(FIELD)) v[k] = parseFloat(($(`shape-${k}`) || {}).value);
-      return { kind, v, t: parseFloat($('shape-t').value) };
+      return { kind, v, t: parseFloat($('shape-t').value), edge: $('shape-edge').value, es: parseFloat($('shape-es').value) };
     };
     const dev = (a.conf.get().device || {});
     const bed = dev.bedWidth && dev.bedDepth ? { w: dev.bedWidth, h: dev.bedDepth } : null;
     const show = () => {
-      const { kind, v, t } = read();
+      const { kind, v, t, edge, es } = read();
       for (const tr of document.querySelectorAll('.swarf-shape tr[data-f]')) tr.style.display = SHAPES[kind].fields.includes(tr.dataset.f) ? '' : 'none';
+      document.querySelector('.swarf-shape tr[data-e]').style.display = edge === 'straight' ? 'none' : '';
       // the size field says what it measures for this shape
       const dl = document.querySelector('.swarf-shape tr[data-f="d"] th');
       if (dl) dl.textContent = { polygon: 'across the corners', star: 'across the points' }[kind] || 'diameter';
-      const why = problem(kind, v, t, bed);
+      const why = problem(kind, v, t, bed) || edgeProblem(a, kind, v, t, edge, es);
       $('shape-why').textContent = why || '';
       // a small picture of it, to scale within its box
       const svg = !why && svgFor(kind, v);
@@ -125,17 +137,19 @@
     };
     a.uc.confirm(undefined, { make: true, cancel: false }, undefined, { pre }).then(go => {
       if (!go) return;
-      const { kind, v, t } = read();
-      const why = problem(kind, v, t, bed);
+      const { kind, v, t, edge, es } = read();
+      const why = problem(kind, v, t, bed) || edgeProblem(a, kind, v, t, edge, es);
       if (why) { a.show.alert(why, 6); return; }
-      try { localStorage.setItem(LAST, JSON.stringify({ kind, v, t })); } catch (e) { /* private window */ }
-      const made = a.platform.load_svg(svgFor(kind, v), nameFor(kind, v, t), { depth: t, resolution: 2, segmin: 48, soup: true, dpi: 0 });
-      if (!made.length) { a.show.alert('swarf could not make that shape.', 6); return; }
-      a.show.alert(`Made a ${SHAPES[kind].label}, ${f(t)} mm thick. Next: add a step (outline cuts it out), then toolpaths.`, 8);
+      try { localStorage.setItem(LAST, JSON.stringify({ kind, v, t, edge, es })); } catch (e) { /* private window */ }
+      const made = a.platform.load_svg(svgFor(kind, v), nameFor(kind, v, t), { depth: t, resolution: 2, segmin: 48, soup: true, dpi: 0, edge: { kind: edge, size: es } });
+      if (!made.length) { a.show.alert(made.error || 'swarf could not make that shape.', 6); return; }
+      const shaped = edge === 'straight' ? '' : ` with a ${f(es)} mm ${EDGES[edge]} top edge`;
+      a.show.alert(`Made a ${SHAPES[kind].label}, ${f(t)} mm thick${shaped}. Next: add a step (${edge === 'straight' ? 'outline cuts it out' : 'contour shapes the edge, outline cuts it out'}), then toolpaths.`, 8);
     });
     setTimeout(() => {
       if (!$('shape-kind')) return;
       $('shape-kind').addEventListener('change', show);
+      $('shape-edge').addEventListener('change', show);
       for (const el of document.querySelectorAll('.swarf-shape input')) el.addEventListener('input', show);
       show();
     }, 0);
