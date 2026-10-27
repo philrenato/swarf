@@ -1988,3 +1988,21 @@ body.swarf-phone > *:not(#swarf-phone-wall) { display: none !important; }
     max-width: 100%;
     overflow-x: auto;
 }
+
+/* swarf shape (r36): the reason a shape can't be made, under its fields */
+.swarf-shape-why { min-height: 1.4em; margin: 6px 0 0; color: var(--swarf-accent-hi); font-size: 12px; max-width: 300px; text-align: center; }
+.swarf-shape select, .swarf-shape input { font: inherit; }
+.swarf-shape-prev { width: 140px; height: 110px; margin: 8px auto 0; display: flex; align-items: center; justify-content: center; }
+.swarf-shape-prev svg { fill: var(--swarf-text); fill-opacity: .85; stroke: none; }
+
+/* swarf size (r36): the selected part's size in mm, at the bottom of the workspace */
+#swarf-size { position: fixed; left: 50%; bottom: 22px; transform: translateX(-50%); z-index: 30; display: none; align-items: center; gap: 8px;
+  padding: 8px 14px; background: rgba(27,23,21,.95); border: 1px solid #3a3230; border-radius: 8px; box-shadow: 0 8px 28px rgba(0,0,0,.45);
+  color: var(--swarf-text); font: 13px "JetBrains Mono", "IBM Plex Mono", ui-monospace, monospace; }
+#swarf-size.on { display: flex; }
+#swarf-size .lbl, #swarf-size .mm, #swarf-size .x { color: var(--swarf-text-2); font-size: 12px; }
+#swarf-size .ax { display: flex; flex-direction: column; align-items: center; gap: 1px; }
+#swarf-size .ax input { width: 78px; text-align: right; background: #322c29; border: 1px solid #4f4642; border-radius: 6px; color: #fff; padding: 5px 8px; font: inherit; font-size: 15px; }
+#swarf-size .ax input:focus { outline: none; border-color: #a39a90; }
+#swarf-size .ax small { color: var(--swarf-text-2); font-size: 10px; }
+#swarf-size .keep { display: flex; align-items: center; gap: 6px; margin-left: 8px; color: var(--swarf-text-2); font-size: 12px; cursor: pointer; }

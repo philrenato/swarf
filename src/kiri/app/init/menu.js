@@ -163,11 +163,13 @@ function content(actions) {
                     menuItem(actions, { id: 'file-recent', lk: 'recent', text: 'recent', iconClass: 'fas fa-list' }),
                     menuItem(actions, {
                         id: 'file-import', lk: 'import', text: 'import', iconClass: 'fas fa-file-upload', children:
-                            input({ id: 'load-file', type: 'file', name: 'loadme', style: 'display:none', accept: '.km,.kmz,.stl,.obj,.svg,.dxf,.png,.jpg,.jpeg,.gcode,.nc' })
+                            input({ id: 'load-file', type: 'file', name: 'loadme', style: 'display:none', accept: '.km,.kmz,.stl,.obj,.svg,.dxf,.ai,.pdf,.png,.jpg,.jpeg,.gcode,.nc' })
                     }),
                     hr(),
                     menuItem(actions, { id: 'mesh-export-obj', lk: 'export-obj', text: 'save as OBJ', iconClass: 'fas fa-dice-d20' }),
                     menuItem(actions, { id: 'mesh-export-stl', lk: 'export-stl', text: 'save as  STL', iconClass: 'fas fa-dice-d20' }),
+                    // swarf r36: the drawing behind shapes and 2D imports, true size (web/kiri/swarf-shape.js)
+                    menuItem(actions, { id: 'swarf-save-drawing', text: 'save drawing (DXF, AI, SVG, PDF)', iconClass: 'fas fa-bezier-curve' }),
                     hr(),
                     menuItem(actions, { id: 'app-export', lk: 'rc_xpws', text: 'export work', iconClass: 'fas fa-download' }),
                     hr({ class: "app-hide" }),
@@ -263,6 +265,11 @@ function modeTools(actions) {
         span({ id: 'swarf-step-file', class: 'swarf-step', title: 'import a part — STL, OBJ, or supported mesh', onclick() { $('load-file').click(); } }, [
             span([icon('fas fa-file-arrow-up')]),
             label({ _: 'import' })
+        ]),
+        // swarf r36: SHAPE — make a circle, rectangle, ring… with a thickness (web/kiri/swarf-shape.js)
+        span({ id: 'swarf-step-shape', class: 'swarf-step', title: 'make a shape: circle, rectangle, ring, polygon, slot, with a thickness' }, [
+            span([icon('fas fa-shapes')]),
+            label({ _: 'shape' })
         ]),
         // Combined TOOLPATHS — fires preview (slice + render paths). Clicking
         // also switches to arrange view so the left drawer for op editing

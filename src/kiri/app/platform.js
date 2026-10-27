@@ -966,6 +966,30 @@ function load_verts(group, vertices, filename) {
 }
 
 /**
+ * swarf: make parts from SVG text (the shape tool, and 2D files converted to SVG).
+ * opt as the SVG import dialog's: { depth, resolution, segmin, soup, dpi }.
+ * Returns the widgets made.
+ */
+function load_svg(text, name, opt = {}) {
+    platform.group();
+    const made = load_svg_into([], text, name, opt);
+    platform.group_done();
+    return made;
+}
+
+// parts from SVG text into a load group; each part keeps its drawing (meta.svg) for export
+function load_svg_into(group, text, name, opt = {}) {
+    const made = [];
+    let ind = 0;
+    for (const v of file_load.SVG.parse(text, opt)) {
+        const w = load_verts(group, v, ind++ ? `${name}-${ind}` : name);
+        w.meta.svg = text;
+        made.push(w);
+    }
+    return made;
+}
+
+/**
  * Load multiple files from File objects.
  * Supports: STL, OBJ, 3MF, SVG, PNG, JPG, KMZ, Gerber (.gbr), gcode, raw vertex data.
  * Also handles settings import (.b64, .km, .ini files).
@@ -986,6 +1010,7 @@ function load_files(files, group) {
             is3mf = lower.endsWith(".3mf"),
             issvg = lower.endsWith(".svg"),
             isdxf = lower.endsWith(".dxf"),
+            isai = lower.endsWith(".ai") || lower.endsWith(".pdf"),
             ispng = lower.endsWith(".png"),
             isjpg = lower.endsWith(".jpg"),
             iskmz = lower.endsWith(".kmz"),
@@ -1087,6 +1112,24 @@ function load_files(files, group) {
                     }
                     load_dec();
                 });
+            } else if (isai) {
+                // swarf r36: Illustrator / PDF drawings through Unreason's reader (web/kiri/swarf-vector.mjs),
+                // as SVG in mm into the same thickness dialog as an SVG
+                const V = window.SwarfVector;
+                if (!V) { api.show.alert('the drawing reader is still loading: try again', 6); load_dec(); return; }
+                V.toSVG(name, new Uint8Array(data)).then(r => {
+                    if (!r.svg) {
+                        api.show.alert(r.open ? `${r.open} open line${r.open > 1 ? 's' : ''} and no closed shape: only closed shapes can be given a thickness` : 'no shapes found in that drawing', 10);
+                        load_dec();
+                        return;
+                    }
+                    if (r.open) api.show.alert(`${r.open} open line${r.open > 1 ? 's were' : ' was'} left out: only closed shapes can be given a thickness`, 10);
+                    loadSVGDialog(opt => {
+                        group = group || [];
+                        load_svg_into(group, r.svg, name.replace(/\.(ai|pdf)$/i, ''), opt);
+                        load_dec();
+                    });
+                }).catch(e => { api.show.alert(`could not read that drawing: ${e.message}`, 10); load_dec(); });
             } else if (isdxf) {
                 loadDXFDialog(opt => {
                     group = group || [];
@@ -1244,6 +1287,7 @@ export const platform = {
     load_url,
     load_files,
     load_verts,
+    load_svg,
     deselect,
     select,
     select_all,
