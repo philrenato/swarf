@@ -14,7 +14,8 @@ try {
   const page = await browser.newPage();
   await page.setViewport({ width: 1440, height: 900 });
   page.on('pageerror', e => problems.push('pageerror: ' + e.message));
-  page.on('console', m => { if (m.type() === 'error') problems.push('console: ' + m.text()); });
+  // analytics (gc.zgo.at) is not the app
+  page.on('console', m => { if (m.type() === 'error' && !/gc\.zgo\.at/.test((m.location() || {}).url || '')) problems.push('console: ' + m.text()); });
   await page.goto(URL, { waitUntil: 'networkidle2', timeout: 60000 });
   await page.waitForFunction(() => window.__swarfRun && window.kiri && window.kiri.api, { timeout: 60000 });
   const shot = async n => page.screenshot({ path: `${OUT}/${n}.png` });
