@@ -348,12 +348,18 @@
     const first = rest[0];
     const on = parsed.events.filter(e => e.line < line && (e.kind === 'spindle-on' || e.kind === 'spindle-off')).pop();
     const rpm = parsed.events.filter(e => e.line < line && e.kind === 'rpm').pop();
+    // up to safe Z where the bit is (liftFirst: the machine adds that move from its own
+    // position), over at safe Z, then down slowly to where line N starts
     const lead = [
+      { x0: first.x0, y0: first.y0, z0: safeZ, x: first.x0, y: first.y0, z: safeZ, rapid: true, line, liftFirst: true },
       { x0: first.x0, y0: first.y0, z0: safeZ, x: first.x0, y: first.y0, z: first.z0, rapid: false, feed: 10, line }
     ];
     const moves = lead.concat(rest);
     const sbp = movesToSbp(moves, { name: `${name} from line ${line}`, spindle: on && on.kind === 'spindle-on', rpm: rpm && rpm.value, safeZ });
-    return { name: `${name} (from line ${line})`, moves, sbp, spindle: !!(on && on.kind === 'spindle-on') };
+    // the original file's own events from line N on: the written file numbers its lines
+    // afresh, the moves keep the original numbers (review 10-27)
+    const events = parsed.events.filter(e => e.line >= line);
+    return { name: `${name} (from line ${line})`, moves, sbp, events, spindle: !!(on && on.kind === 'spindle-on') };
   }
 
   const api = { parse, boundsOf, cutBounds, movesToSbp, traceProgram, airProgram, fromLineProgram };
