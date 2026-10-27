@@ -59,8 +59,10 @@ try {
   await new Promise(r => setTimeout(r, 1500));
   log.push(['cutting', await say()]); await shot('5-cutting');
   await page.click('.sr-actions .pause'); await new Promise(r => setTimeout(r, 300));
-  log.push(['paused', await say()]);
-  await page.click('.sr-actions .stop'); await new Promise(r => setTimeout(r, 400));
+  log.push(['paused', await say(), 'veil=' + await page.evaluate(() => document.querySelector('#swarf-run .sr-veil').classList.contains('on'))]);
+  // a paused job greys all of control; the way out is the veil's own button
+  await page.evaluate(() => [...document.querySelectorAll('#swarf-run .sr-veil button')].find(b => b.textContent === 'end the job').click());
+  await new Promise(r => setTimeout(r, 400));
   log.push(['stopped', await step(), await say(), 'jog locked=' + await page.$eval('.sr-jog', e => e.classList.contains('locked'))]); await shot('6-stopped');
   // inch file must block at check
   await page.evaluate(() => window.__swarfRun.loadProgram('inch.sbp', "IF %(25)=1 THEN GOTO UNIT_ERROR\nM3,1,1,-0.1\nM3,2,1,-0.1\n", 'file'));

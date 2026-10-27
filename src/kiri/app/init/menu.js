@@ -220,7 +220,7 @@ function content(actions) {
             // swarf: Setup moved to left (Mac app convention — markup Apr 15)
             topMenu(actions, {
                 text: 'setup', items: [
-                    menuItem(actions, { id: 'set-device', text: 'machines', iconClass: 'fas fa-cube' }),
+                    menuItem(actions, { id: 'set-device', text: 'machine', iconClass: 'fas fa-cube' }),
                     menuItem(actions, { id: 'set-tools', text: 'tool library', iconClass: 'fas fa-tools', className: 'swarf-expert-only' }),
                     menuItem(actions, { id: 'set-prefs', text: 'preferences', iconClass: 'fa-solid fa-square-check' }),
                     hr({ class: "el-app-hide" }),
@@ -284,6 +284,12 @@ function modeTools(actions) {
         span({ id: 'act-export', ...on(actions, 'act-export'), class: 'swarf-step', title: 'export gcode for the machine' }, [
             span([icon('fas fa-file-export')]),
             label({ id: 'label-export', _: 'export' })
+        ]),
+        // swarf r32 (Phil 10-27): CONTROL is the last step — swarf has two modes, cam
+        // and control; control runs these toolpaths on the ShopBot (web/kiri/swarf-run.js)
+        span({ id: 'swarf-step-run', class: 'swarf-step swarf-step-run', title: 'control the ShopBot: bring these toolpaths, jog, zero, trace, cut' }, [
+            span([icon('fas fa-circle-play')]),
+            label({ id: 'label-run', _: 'control' })
         ]),
         // legacy hidden hooks — upstream slice/preview codepaths still expect
         // these ids. act-paths wires to the same action as act-preview below.

@@ -495,6 +495,20 @@ body.swarf-menu-open #swarf-concerns  { z-index: -1 !important; pointer-events: 
 }
 .swarf-step label { cursor: pointer; }
 #mode-tools > span.selected .swarf-step label { color: #fff; }
+/* RUN (r32): the last step, after export — red like the machine's own end of the flow;
+   faded when the chosen machine is not the ShopBot (the MR-1 uses export) */
+.swarf-step-run { border-left: 1px solid var(--swarf-line-2); }
+.swarf-step-run label, .swarf-step-run i { color: var(--swarf-accent-hi); }
+.swarf-step-run.swarf-step-off { opacity: .4; }
+#mode-tools > span.swarf-step-run.swarf-step-on { background: var(--swarf-accent) !important; box-shadow: inset 0 0 14px rgba(0,0,0,.35), 0 0 16px var(--swarf-glow); }
+#mode-tools > span.swarf-step-run.swarf-step-on label, #mode-tools > span.swarf-step-run.swarf-step-on i { color: #fff !important; }
+/* control mode sits inside swarf: the step row stays on top, cam's own panels step aside */
+body.swarf-run-open #mode-tools { z-index: 80 !important; }
+body.swarf-run-open #mode-tools > span.selected:not(.swarf-step-run) { background: var(--swarf-bg-2) !important; box-shadow: none !important; }
+body.swarf-run-open #panel-right, body.swarf-run-open #swarf-right-rail, body.swarf-run-open #swarf-concerns,
+body.swarf-run-open #gdpr, body.swarf-run-open #install-swarf, body.swarf-run-open #swarf-watermark { visibility: hidden !important; }
+#mode-tools > span.swarf-step-run.swarf-step-on { opacity: 1 !important; }
+.swarf-step-run.swarf-step-off label, .swarf-step-run.swarf-step-off i { color: var(--swarf-text-2); }
 
 /* ---- About / INFO modal: toned down, three roles, swarf plate register ---- */
 /* The whole modal-box wrapper when it's hosting swarf-about gets stripped of Kiri chrome */
