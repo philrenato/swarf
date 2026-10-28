@@ -80,6 +80,24 @@ try {
   check(Math.abs(fl.x) < 1e-6 && Math.abs(fl.y) < 1e-6 && Math.abs(fr.pos.x + fr.w) < 1e-6 && Math.abs(fr.pos.y) < 1e-6, `corners: front left X ${fl.x} Y ${fl.y}; front right X ${fr.pos.x} (table ${fr.w})`);
   await page.screenshot({ path: (process.env.OUT || '/tmp') + '/r49-control.png' });
 
+  // test cuts (10-28): the board's size, screwed down, the bit, then control's steps; measuring takes the bit out
+  await page.evaluate(() => window.__swarfLessons.choose()); await wait(300);
+  await page.evaluate(() => [...document.querySelectorAll('#swarf-run .sr-needrow')][0].querySelector('button').click()); await wait(300);
+  await page.evaluate(() => { const i = document.querySelectorAll('#swarf-run .sr-sheet.on .sr-plate-t input'); i[0].value = '220'; i[1].value = '160'; i[2].value = '12';
+    for (const c of document.querySelectorAll('#swarf-run .sr-sheet.on input[type=checkbox]')) c.click();
+    [...document.querySelectorAll('#swarf-run .sr-sheet.on button')].find(b => /next: the bit/.test(b.textContent)).click(); });
+  await wait(300);
+  await page.evaluate(() => [...document.querySelectorAll('#swarf-run .sr-sheet.on button')].find(b => /make the test cut/.test(b.textContent)).click());
+  await wait(500);
+  const ls = await page.evaluate(() => ({ src: window.__swarfRun.state.prog?.source, name: window.__swarfRun.state.prog?.name, card: document.querySelector('#swarf-run .sr-sheet.on .sr-card')?.textContent || '' }));
+  check(ls.src === 'lesson' && /square-and-circle/.test(ls.name) && /100 mm square and a 60 mm circle/.test(ls.card) && /220 × 160/.test(ls.card), `test cut 1 loads, sized to the board ("${ls.card.slice(0, 90)}…")`);
+  await page.evaluate(() => [...document.querySelectorAll('#swarf-run .sr-sheet.on button')].find(b => b.textContent === 'start').click());
+  await wait(600);
+  const lsay = await page.$eval('#swarf-run .sr-say', e => e.textContent);
+  check(/front-left corner of your plywood/.test(lsay), `the sentence says where to zero ("${lsay.slice(0, 90)}")`);
+  const an = await page.evaluate(() => { const L = window.__swarfLessons.state(); return window.__swarfLessons.analyse({ ox: L.size + 9.6, ix: L.size - 9.4, oy: L.size + 9.5, iy: L.size - 9.5, dp: 3.1 }); });
+  check(Math.abs(an.data.X - 0.1) < 1e-6 && Math.abs(an.data.Y) < 1e-9 && Math.abs(an.data.width - 9.5) < 1e-6, `measuring: X +${an.data.X}%, Y ${an.data.Y}%, groove ${an.data.width} mm, the bit's width out`);
+
   // the row folds: cam · draw · control
   const fold = await page.evaluate(() => [...document.querySelectorAll('#mode-tools > span')].filter(s => s.offsetParent).map(s => s.textContent.trim().toLowerCase()));
   check(fold.join(',') === 'cam,draw,control', `control folds the row to cam · draw · control (${fold.join(' · ')})`);
