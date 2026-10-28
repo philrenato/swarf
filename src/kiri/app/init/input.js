@@ -57,62 +57,14 @@ function updateTool(ev) {
 }
 
 function checkSeed(then) {
-    // swarf: always load a stock cube when the workspace is empty so the viewport and
-    // Objects panel are never blank on arrival. Named simply 'cube' (markup Apr 15).
     const widgets = (api.widgets && api.widgets.all && api.widgets.all()) || [];
-    if (widgets.length === 0 && !SETUP.s && api.feature.seed && !SETUP.debug) {
-        platform.load_stl('/obj/cube.stl', function(vert, seedWidget) {
-            catalog.putFile('cube', vert);
-            // swarf: mark the seed cube so any subsequent user import evicts it.
-            // Without this, Phil's "Raised Snap..." STL sits next to the seed cube
-            // as two objects (markup Apr 15 round 4 — "one part into two").
-            if (seedWidget) {
-                seedWidget.meta = seedWidget.meta || {};
-                seedWidget.meta.swarfSeed = true;
-                // swarf r6: name the seed cube Kiri_Cube so the OBJECTS panel
-                // doesn't show "no name" (markup Apr 15 r6).
-                seedWidget.meta.file = 'Kiri_Cube';
-                try { seedWidget.mesh.userData.swarfSeed = true; } catch (e) {}
-                const evictSeed = (addedWidget) => {
-                    try {
-                        const list = Array.isArray(addedWidget) ? addedWidget : [addedWidget];
-                        const incomingIsSeed = list.some(w => w === seedWidget || (w && w.meta && w.meta.swarfSeed));
-                        if (incomingIsSeed) return;
-                        if (seedWidget && !seedWidget.__swarfEvicted) {
-                            seedWidget.__swarfEvicted = true;
-                            platform.delete(seedWidget);
-                        }
-                        api.event.off && api.event.off('widget.add', evictSeed);
-                    } catch (e) {}
-                };
-                api.event.on('widget.add', evictSeed);
-            }
-            // swarf: viewport sometimes painted black on first load (markup #3, Apr 15).
-            // Container can be 0x0 at this moment because of fixed-position panel reparenting.
-            // Trigger a resize first so the renderer picks up real dimensions, then home
-            // the camera on the next animation frame, then re-home once more after a tick
-            // to cover any late layout pass.
-            try { space.event.onResize(); } catch (e) {}
-            try { WIN.dispatchEvent(new Event('resize')); } catch (e) {}
-            platform.update_bounds();
-            const tightFit = () => {
-                try { space.event.onResize(); } catch (e) {}
-                try {
-                    const meshes = (api.widgets.all() || []).map(w => w.mesh).filter(Boolean);
-                    if (space.view.fit && meshes.length) {
-                        space.view.fit(undefined, { padding: 1.8, visibleOnly: true, objects: meshes });
-                    } else space.view.home();
-                } catch (e) { space.view.home(); }
-            };
-            requestAnimationFrame(() => {
-                tightFit();
-                setTimeout(tightFit, 250);
-            });
-            sdb[SEED] = sdb[SEED] || new Date().getTime();
-            sdb[LAST] = version;
-            then();
-        });
-        return true;
+    // swarf r44 (review 10-28, Phil: "Empty bed with prompt works"): no demo cube. An empty
+    // bed shows the start prompt (web/kiri/swarf-start.js); the camera homes on the bed.
+    if (widgets.length === 0) {
+        try { space.event.onResize(); } catch (e) {}
+        requestAnimationFrame(() => { try { space.view.home(); } catch (e) {} });
+        sdb[SEED] = sdb[SEED] || new Date().getTime();
+        sdb[LAST] = version;
     }
     then();
     return false;

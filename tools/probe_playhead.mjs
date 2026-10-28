@@ -45,9 +45,9 @@ try {
   // the shop's ShopBot: the bed (with the job) slides in X, the gantry stands still, the carriage takes Y and Z
   const g = await page.evaluate(() => { const v = window.__swarfRun.view(), G = v.ghostParts; return { gx: +G.gantry.position.x.toFixed(2), tx: +v.tool.position.x.toFixed(2), wx: +v.work.position.x.toFixed(2), cy: +(G.carriage.position.y + G.gantry.position.y).toFixed(2), cz: +G.carriage.position.z.toFixed(2) }; });
   check(g.gx === 110 && g.tx === 0 && g.wx === -mid.x && g.cy === mid.y && g.cz === mid.z, `the bed slides ${g.wx} mm in X under a still gantry; the carriage is at Y ${g.cy}, Z ${g.cz}`);
-  // play from the top at 200×
+  // play from the top at 10× (in wood the whole job runs in under a second at 200×)
   await page.evaluate(() => { const s = document.querySelector('.sr-scrub input'); s.value = '0'; s.dispatchEvent(new Event('input', { bubbles: true })); });
-  while ((await page.evaluate(() => document.querySelector('.sr-rate').textContent)) !== 'preview 200×') await page.click('.sr-rate');
+  while ((await page.evaluate(() => document.querySelector('.sr-rate').textContent)) !== 'preview 10×') await page.click('.sr-rate');
   await page.click('.sr-play');
   const a = await tool(); await wait(700); const b = await tool();
   check(b.line > a.line && (a.x !== b.x || a.y !== b.y || a.z !== b.z) && (a.x === b.x || a.wx !== b.wx) && (await page.evaluate(() => document.querySelector('.sr-play').textContent)) === '❚❚', `▶ plays: line ${a.line} → ${b.line}, the bit moves`);
@@ -56,7 +56,8 @@ try {
   await page.click('.sr-play');
   const c = await tool(); await wait(500); const d = await tool();
   check(c.line === d.line && c.x === d.x && c.y === d.y, `❚❚ pauses at line ${c.line}`);
-  // play to the end: it stops by itself at the last line
+  // play to the end at 200×: it stops by itself at the last line
+  while ((await page.evaluate(() => document.querySelector('.sr-rate').textContent)) !== 'preview 200×') await page.click('.sr-rate');
   await page.click('.sr-play');
   const last = await page.evaluate(() => { const M = window.__swarfRun.state.prog.parsed.moves; return M[M.length - 1].line; });
   await page.waitForFunction(l => +document.querySelector('.sr-scrub input').value === l && document.querySelector('.sr-play').textContent === '▶', { timeout: 120000 }, last).then(() => check(true, `plays to the end (line ${last}) and stops`), () => check(false, 'plays to the end and stops'));

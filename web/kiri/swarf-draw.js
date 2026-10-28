@@ -189,7 +189,11 @@
 
   function close(apply) {
     if (!S) return;
-    if (apply) commit();
+    if (apply) {
+      const bad = S.parts.find(p => !p.gone && p.dirty && checkCross(p));
+      if (bad) { S.sel = S.parts.indexOf(bad); render(); say(crossSay(bad, bad.cross) + ' Then press done.'); return; }
+      commit();
+    }
     window.removeEventListener('keydown', key, true);
     window.removeEventListener('resize', render);
     ui.el.remove();
@@ -281,10 +285,22 @@
       out.push(`<path class="sd-scale" d="M${x},${y - 4}V${y}H${x + len * k}V${y - 4}"/><text class="sd-lab" x="${x}" y="${y - 8}">${len >= 1000 ? len / 1000 + ' m' : len + ' mm'}</text>`);
     }
     for (const o of S.others) out.push(`<rect class="sd-other" x="${sx(o[0])}" y="${sy(o[3])}" width="${(o[2] - o[0]) * k}" height="${(o[3] - o[1]) * k}"><title>${o[4]}: no drawing to edit</title></rect>`);
+    // wider places to press (review 10-28 #12), under the parts so a press on a part wins:
+    // near any outline picks its part, and so does anywhere in a word's box (inside an o, between letters)
+    S.parts.forEach((part, pi) => {
+      if (part.gone || pi === S.sel) return;
+      if (part.text) {
+        let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+        for (const c of part.curves) for (const q of c.crv.ctrlPts) { x0 = Math.min(x0, q[0]); x1 = Math.max(x1, q[0]); y0 = Math.min(y0, q[1]); y1 = Math.max(y1, q[1]); }
+        if (isFinite(x0)) out.push(`<rect class="sd-hit" data-part="${pi}" x="${sx(x0) - 4}" y="${sy(y1) - 4}" width="${(x1 - x0) * k + 8}" height="${(y1 - y0) * k + 8}"/>`);
+      }
+      out.push(`<path class="sd-near" data-part="${pi}" d="${part.curves.map(c => pathOf(c.crv)).join(' ')}"/>`);
+    });
     S.parts.forEach((part, pi) => {
       if (part.gone) return;
       const d = part.curves.map(c => pathOf(c.crv)).join(' ');
-      out.push(`<path class="sd-part${pi === S.sel ? ' on' : ''}" data-part="${pi}" d="${d}"/>`);
+      out.push(`<path class="sd-part${pi === S.sel ? ' on' : ''}${part.cross ? ' cross' : ''}" data-part="${pi}" d="${d}"/>`);
+      if (part.cross) out.push(`<circle class="sd-cross" cx="${sx(part.cross[0])}" cy="${sy(part.cross[1])}" r="7"/>`);
       // a wide, unseen edge, so a press near the outline (to add a point) lands on the part
       if (pi === S.sel) out.push(`<path class="sd-edge" data-part="${pi}" d="${d}"/>`);
     });
@@ -301,7 +317,11 @@
         } else cl += 'M' + P.map(q => `${sx(q[0])},${sy(q[1])}`).join('L');
       }
       if (cl) out.push(`<path class="sd-ctl" d="${cl}"/>`);
-      for (const h of handles(part)) {
+      // unseen rings round the points, so a press a few pixels off still takes one; under
+      // the points themselves, so a press right on a point never goes to a crowding neighbour
+      const H = handles(part);
+      for (const h of H) out.push(`<circle class="sd-pthit" data-pt="${h.id}" cx="${sx(h.x)}" cy="${sy(h.y)}" r="${h.anchor ? 9 : 7}"/>`);
+      for (const h of H) {
         const on = S.pts.has(h.id), X = sx(h.x), Y = sy(h.y);
         out.push(h.anchor
           ? `<rect class="sd-pt${on ? ' on' : ''}" data-pt="${h.id}" x="${X - 4}" y="${Y - 4}" width="8" height="8"/>`
@@ -339,6 +359,38 @@
     let d = `M${sx(C[0][0][0])},${sy(C[0][0][1])}`;
     for (const c of C) d += `C${sx(c[1][0])},${sy(c[1][1])} ${sx(c[2][0])},${sy(c[2][1])} ${sx(c[3][0])},${sy(c[3][1])}`;
     return d + (isClosed(crv) ? 'Z' : '');
+  }
+
+  // where an outline crosses itself, or null (review 10-28 #11): cam cannot tell inside from
+  // outside past a crossing. Each closed curve on its own, as a fine polyline.
+  function crossing(part) {
+    for (const c of part.curves) {
+      const L = [];
+      for (const b of V().cubics(c.crv)) for (let i = L.length ? 1 : 0; i <= 8; i++) {
+        const t = i / 8, u = 1 - t;
+        L.push([u * u * u * b[0][0] + 3 * u * u * t * b[1][0] + 3 * u * t * t * b[2][0] + t * t * t * b[3][0],
+                u * u * u * b[0][1] + 3 * u * u * t * b[1][1] + 3 * u * t * t * b[2][1] + t * t * t * b[3][1]]);
+      }
+      for (let i = L.length - 1; i > 0; i--) if (Math.hypot(L[i][0] - L[i - 1][0], L[i][1] - L[i - 1][1]) < 1e-9) L.splice(i, 1);
+      const n = L.length - 1;
+      for (let i = 0; i < n; i++) for (let j = i + 2; j < n; j++) {
+        if (i === 0 && j === n - 1) continue;                 // the closing pair share a point
+        const [a, b2] = [L[i], L[i + 1]], [q, r] = [L[j], L[j + 1]];
+        const d = (b2[0] - a[0]) * (r[1] - q[1]) - (b2[1] - a[1]) * (r[0] - q[0]);
+        if (Math.abs(d) < 1e-12) continue;
+        const s = ((q[0] - a[0]) * (r[1] - q[1]) - (q[1] - a[1]) * (r[0] - q[0])) / d;
+        const t = ((q[0] - a[0]) * (b2[1] - a[1]) - (q[1] - a[1]) * (b2[0] - a[0])) / d;
+        // half-open, so a crossing that falls right on a sample is still seen
+        if (s >= 0 && s < 1 - 1e-9 && t >= 0 && t < 1 - 1e-9) return [a[0] + s * (b2[0] - a[0]), a[1] + s * (b2[1] - a[1])];
+      }
+    }
+    return null;
+  }
+  const crossSay = (part, x) => `${part.name} crosses itself near ${r3(x[0])}, ${r3(x[1])} mm: past a crossing, cam cannot tell inside from outside. Move a point so its lines don't cross.`;
+  function checkCross(part) {
+    part.cross = part.text ? null : crossing(part);
+    if (part.cross) say(crossSay(part, part.cross));
+    return part.cross;
   }
 
   // the card: what is picked, its numbers, typeable
@@ -652,6 +704,7 @@
       return;
     }
     if ((d.kind === 'pts' || d.kind === 'part') && !d.moved) S.undo.pop();          // a click, not a move
+    if (d.kind === 'pts' && d.moved && S.parts[S.sel]) checkCross(S.parts[S.sel]);
     if (d.kind === 'box') {
       const part = S.parts[S.sel], b = S.box;
       S.box = null;
@@ -751,6 +804,7 @@
     S.parts.push({ w: null, name: `${word}-${n}`, thick: S.thick, edge: { ...S.edge }, curves: [{ crv }], dirty: true });
     S.pen = []; S.hover = null; S.tool = 'select'; S.sel = S.parts.length - 1; S.pts.clear();
     say('Made. Drag its points to shape it, or press done to make it a part.');
+    checkCross(S.parts[S.sel]);
     render();
   }
   // a smooth point stays smooth: turning one handle turns the other the opposite way, keeping its length

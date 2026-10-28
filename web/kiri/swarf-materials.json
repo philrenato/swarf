@@ -6,7 +6,7 @@
   "_ramp": "ramp.angle drives camEaseAngle, ramp.ease drives camEaseDown — the tool walks down into the cut instead of drilling in on a flute that may not cut at center. 1.8 degrees is the MR-1 chart's helical-ramp figure and is used for the metals. Softer materials ramp steeper so the entry move stays short.",
   "_rules": "Invariants held over every tool in the default library on both devices, checked by tools/check_materials.mjs through the same derive function the app runs: plunge is 30-40% of feed unless the Z ceiling capped it; stepdown stays under half the tool diameter; spindle and feed inside the device limits; stepover in (0, 0.5]; feed never falls as the tool grows while the spindle holds steady.",
   "_source": "https://assets.langmuirsystems.com/file/CuttingParameters-GettingStartedReferenceGuide-Rev11_30_2022.pdf",
-  "default": "aluminum_6061",
+  "default": "hardwood",
   "materials": [
     {
       "id": "aluminum_6061",

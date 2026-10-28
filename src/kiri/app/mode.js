@@ -70,6 +70,11 @@ function setMode(mode, lock, then) {
     // restore cached device profile for this mode
     if (current.cdev[mode]) {
         current.device = clone(current.cdev[mode]);
+        // swarf r44: the ShopBot's 4 x 8 ft bed is 2438.4 x 1219.2, not the 2400 x 1200 kept before
+        if (current.filter[mode] === 'ShopBot.Basic' && current.device.bedWidth === 2400 && current.device.bedDepth === 1200) {
+            current.device.bedWidth = current.cdev[mode].bedWidth = 2438.4;
+            current.device.bedDepth = current.cdev[mode].bedDepth = 1219.2;
+        }
         api.event.emit('device.select', api.device.get());
     }
     // hide/show

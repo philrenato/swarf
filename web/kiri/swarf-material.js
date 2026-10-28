@@ -598,7 +598,8 @@
         const mats = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
         for (const mat of mats) {
           if (mat && mat.color) applyAppearance(mat, a);
-          if (mat && mat.emissive && picked.has(w)) { mat.emissive.set('#6a5638'); mat.needsUpdate = true; }
+          // and only the picked: a part let go loses its glow
+          if (mat && mat.emissive) { mat.emissive.set(picked.has(w) ? '#6a5638' : (a.emissive || '#000000')); mat.needsUpdate = true; }
           // the part is never fogged: the fade is for the floor (swarf-grid-fade.js)
           if (mat && mat.fog !== false) { mat.fog = false; mat.needsUpdate = true; }
         }
@@ -668,7 +669,8 @@
         const apiPoll = setInterval(() => {
           if (window.kiri && window.kiri.api && window.kiri.api.event) {
             clearInterval(apiPoll);
-            window.kiri.api.event.on('widget.add', () => setTimeout(applyToStock, 50));
+            window.kiri.api.event.on('widget.add', () => { setTimeout(applyToStock, 50); setTimeout(applyToStock, 400); });
+            try { window.kiri.api.event.on('widget.duplicate', () => setTimeout(applyToStock, 50)); } catch (e) {}
             // every op add/edit and device change lands in conf.save
             // ('settings.saved') or the device dialog ('settings'); run
             // synchronously so an auto-added rough carries the material's

@@ -10,6 +10,7 @@ import { settings as set_ctrl } from '../conf/manager.js';
 import { settingsOps } from '../conf/settings.js';
 import { conf } from '../conf/defaults.js';
 import { space } from '../../../moto/space.js';
+import { THREE } from '../../../ext/three.js';
 import { VIEWS } from '../consts.js';
 import * as view_tools from '../face-tool.js';
 
@@ -432,38 +433,52 @@ function setup_keybd_nav() {
         document.addEventListener('keydown', (ev) => { if (ev.key === 'Escape') close(); });
     })();
 
-    // swarf: auto-fit camera on every widget add (markup Apr 15 — "approx default
-    // zoom to any/all 3D in scene, on startup and as new things come in" + "zoom
-    // cube to almost whole screen"). Use space.view.fit() with tight padding so
-    // the part fills most of the viewport; home() only sets angles, not zoom.
-    //
-    // r14+ fix: the rAF fit fires before mesh bounding boxes are computed or
-    // before the camera's matrixWorld has settled, producing a tiny blob on
-    // the platform. Force computeBoundingBox on each mesh, then fit once
-    // immediately AND once after a short delay as a safety net for slow
-    // imports (OBJ with quads, 3MF, etc).
+    // swarf r44 (review 10-28 #7): one camera rule. The view frames all the parts with one
+    // margin, and moves only when it has to: a part arrives off screen or onto an empty
+    // bed, or a project loads. Deleting, duplicating beside, or redrawing in place leaves
+    // the camera where the student put it; an emptied bed goes home.
     (function(){
-        const doFit = () => {
+        const FILL = 1.0;            // space.view.fit padding: the parts span about a third of the view
+        const meshes = () => (api.widgets.all() || []).map(w => w.mesh).filter(Boolean);
+        const inView = list => {
+            const cam = space.internals && space.internals().camera;
+            if (!cam) return false;
+            cam.updateMatrixWorld();
+            const box = new THREE.Box3();
+            for (const m of list) { try { m.geometry && m.geometry.computeBoundingBox(); } catch (e) {} box.expandByObject(m); }
+            if (box.isEmpty()) return true;
+            const v = new THREE.Vector3();
+            for (let i = 0; i < 8; i++) {
+                v.set(i & 1 ? box.max.x : box.min.x, i & 2 ? box.max.y : box.min.y, i & 4 ? box.max.z : box.min.z).project(cam);
+                if (Math.abs(v.x) > 0.9 || Math.abs(v.y) > 0.9 || v.z > 1) return false;
+            }
+            return true;
+        };
+        const frame = () => {
             try { space.event.onResize(); } catch (e) {}
             try { api.platform.update_bounds(); } catch (e) {}
             try {
-                const meshes = (api.widgets.all() || []).map(w => w.mesh).filter(Boolean);
-                for (const m of meshes) {
-                    try { m.geometry && m.geometry.computeBoundingBox(); } catch (e) {}
-                }
-                if (space.view.fit && meshes.length) {
-                    space.view.fit(undefined, { padding: 1.8, visibleOnly: true, objects: meshes });
-                } else space.view.home();
+                const all = meshes();
+                for (const m of all) { try { m.geometry && m.geometry.computeBoundingBox(); } catch (e) {} }
+                if (space.view.fit && all.length) space.view.fit(undefined, { padding: FILL, visibleOnly: true, objects: all });
+                else space.view.home();
             } catch (e) {}
         };
-        const fit = () => {
-            requestAnimationFrame(doFit);
-            setTimeout(doFit, 250);
+        const always = () => { requestAnimationFrame(frame); setTimeout(frame, 250); };
+        let wasEmpty = true;
+        const added = payload => {
+            const empty = wasEmpty;
+            setTimeout(() => {
+                const list = (Array.isArray(payload) ? payload : [payload]).map(w => w && w.mesh).filter(Boolean);
+                wasEmpty = !meshes().length;
+                if (empty || !inView(list.length ? list : meshes())) frame();
+            }, 60);
         };
-        api.event.on('widget.add', fit);
-        api.event.on('widget.delete', fit);
-        api.event.on('widgets.loaded', fit);
-        api.event.on('load.url', fit);
+        api.event.on('widget.add', added);
+        api.event.on('widget.delete', () => setTimeout(() => { if (!meshes().length) { wasEmpty = true; frame(); } }, 60));
+        api.event.on('widgets.loaded', () => { wasEmpty = !meshes().length; always(); });
+        api.event.on('load.url', always);
+        api.frame = frame;
 
         // swarf r14+: force-select newly-added widgets after a short delay so
         // drag-to-move works on first import. platform.add calls platform.select
@@ -790,7 +805,7 @@ function setup_keybd_nav() {
         view_tools.startFocus(ev => api.space.set_focus(undefined, ev.object.point));
     };
     // $('context-contents').onclick = api.const.SPACE.view.fit;
-    $('view-fit').onclick = api.const.SPACE.view.fit;
+    $('view-fit').onclick = () => (api.frame ? api.frame() : api.const.SPACE.view.fit());
     // swarf: 'wassup'/'suppopp' GridSpace support-dev element removed from mod-help; skip binding
 
     if ($('panel-move')) makePanelDraggable('panel-move', 'panel-move-head', 'win.move');

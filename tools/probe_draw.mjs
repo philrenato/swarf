@@ -87,7 +87,7 @@ try {
   // DRAW opens with the L picked
   await page.click('#swarf-step-draw');
   await page.waitForFunction(() => window.__swarfDraw.state() && document.querySelector('#sd-svg [data-pt]'), { timeout: 5000 });
-  let st = await page.evaluate(() => { const S = window.__swarfDraw.state(); return { sel: S.sel, parts: S.parts.length, pts: document.querySelectorAll('#sd-svg [data-pt]').length }; });
+  let st = await page.evaluate(() => { const S = window.__swarfDraw.state(); return { sel: S.sel, parts: S.parts.length, pts: document.querySelectorAll('#sd-svg [data-pt]:not(.sd-pthit)').length }; });
   check(st.sel === 0 && st.parts === 1 && st.pts === 6, `DRAW opens on the L with its 6 corners: ${JSON.stringify(st)}`);
   await page.screenshot({ path: `${OUT}-open.png` });
 
@@ -105,12 +105,12 @@ try {
   const [mx, my] = await px(page, mid[0], mid[1]);
   await page.mouse.click(mx, my); await wait(120); await page.mouse.click(mx, my);
   await wait(100);
-  let n = await page.evaluate(() => document.querySelectorAll('#sd-svg [data-pt]').length);
+  let n = await page.evaluate(() => document.querySelectorAll('#sd-svg [data-pt]:not(.sd-pthit)').length);
   const under = await page.evaluate((x, y) => { const e = document.elementFromPoint(x, y), S = window.__swarfDraw.state(); return { hit: e && e.getAttribute('class'), sel: S.sel, say: document.getElementById('sd-say').textContent }; }, mx, my);
   check(n === 7, `double-click an edge adds a point (${n}) ${JSON.stringify(under)}`);
   await page.keyboard.press('Delete');
   await wait(100);
-  n = await page.evaluate(() => document.querySelectorAll('#sd-svg [data-pt]').length);
+  n = await page.evaluate(() => document.querySelectorAll('#sd-svg [data-pt]:not(.sd-pthit)').length);
   check(n === 6, `Delete removes it again (${n})`);
   // type a point: corner 3 to an exact place
   await page.mouse.click(...(await page.evaluate(() => { const el = document.querySelector('#sd-svg [data-pt="0:3"]').getBoundingClientRect(); return [el.left + 4, el.top + 4]; })));

@@ -12,7 +12,7 @@
   const api = () => window.kiri && window.kiri.api;
   const AX = [['x', 'width'], ['y', 'depth'], ['z', 'thickness']];
   const KEEP = 'swarf-size-keep';
-  let card, fields = {}, keep, edit, count;
+  let card, fields = {}, keep, edit, count, edge;
 
   function build() {
     card = document.createElement('div');
@@ -33,6 +33,9 @@
       if (a !== 'z') card.append(Object.assign(document.createElement('span'), { className: 'x', textContent: '×' }));
     }
     card.append(Object.assign(document.createElement('span'), { className: 'mm', textContent: 'mm' }));
+    // a shaped top edge, said where the size is (review 10-28 #8)
+    edge = Object.assign(document.createElement('span'), { className: 'edge', title: 'the top edge: change it in draw' });
+    card.append(edge);
     keep = document.createElement('label'); keep.className = 'keep';
     const box = document.createElement('input'); box.type = 'checkbox';
     try { box.checked = localStorage.getItem(KEEP) !== '0'; } catch (e) { box.checked = true; }
@@ -80,6 +83,9 @@
     count.title = n > 1 ? 'shift-click a part to add it or leave it out' : '';
     const picked = a.selection.widgets ? a.selection.widgets() : [];
     edit.style.display = picked.some(w => w.meta && w.meta.svg) ? '' : 'none';
+    const e = picked[0] && picked[0].meta && picked[0].meta.edge;
+    edge.textContent = e && e.kind && e.kind !== 'straight' && e.size > 0 ? `${e.kind} ${+(+e.size).toFixed(2)} mm edge` : '';
+    edge.style.display = edge.textContent ? '' : 'none';
     for (const [b] of AX) {
       const src = $(`size_${b}`);
       if (src && !fields[b].dataset.typed) fields[b].value = (+parseFloat(src.value || 0).toFixed(2)).toString();
