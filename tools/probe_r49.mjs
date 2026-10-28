@@ -10,6 +10,7 @@ import puppeteer from 'puppeteer-core';
 const CHROME = process.env.CHROME || '/Applications/Google Chrome for Testing.app/Contents/MacOS/Google Chrome for Testing';
 const PAGE = process.argv[2] || 'http://127.0.0.1:8139/swarf-app/';
 const wait = ms => new Promise(r => setTimeout(r, ms));
+const sp = t => typeof t === 'string' ? t.replace(/\u00a0/g, ' ') : t;   // the app ties last words with a no-break space (no orphans)
 const browser = await puppeteer.launch({ executablePath: CHROME, headless: 'new', args: ['--window-size=1440,900'] });
 const errors = [], bad = [];
 const check = (ok, what) => { console.log(ok ? 'ok  ' : 'FAIL', what); if (!ok) bad.push(what); };
@@ -41,21 +42,21 @@ try {
   await wait(800);
   const c = await page.evaluate(() => {
     const q = s => document.querySelector('#swarf-run ' + s);
-    return { start: !!q('.sr-start')?.offsetParent, trace: q('.sr-actions .trace').className, disabled: q('.sr-actions .trace').disabled, need: q('.sr-need')?.textContent || '' };
+    return { start: !!q('.sr-start')?.offsetParent, trace: q('.sr-actions .trace').className, disabled: q('.sr-actions .trace').disabled, need: (q('.sr-need')?.textContent || '').replace(/\u00a0/g, ' ') };
   });
   check(c.start, 'control on an empty bed offers make a part / open a file');
   check(/wait/.test(c.trace) && !c.disabled, `trace waits but takes the press (${c.trace}, disabled ${c.disabled})`);
   check(/to run:.*a program.*X Y zeroed.*Z zeroed/.test(c.need), `the to-run line names each need ("${c.need}")`);
   await page.click('#swarf-run .sr-actions .trace');
   await wait(400);
-  const said = await page.evaluate(() => document.querySelector('#swarf-run .sr-sheet.on .sr-card')?.textContent || '');
+  const said = sp(await page.evaluate(() => document.querySelector('#swarf-run .sr-sheet.on .sr-card')?.textContent || ''));
   check(/Before you can trace/.test(said) && /make a part/.test(said), `pressing a waiting trace opens what it waits for ("${said.slice(0, 80)}…")`);
   await page.evaluate(() => document.querySelector('#swarf-run .sr-sheet').classList.remove('on'));
 
   // 10-28b: a waiting cut opens what is left to do; trace and in the air ask first; every move swarf makes asks
   await page.evaluate(() => window.__swarfRun.loadProgram('square.sbp', ['MS,10,5', 'J3,0,0,5', 'M3,0,0,-1', 'M3,40,0,-1', 'M3,40,40,-1', 'M3,0,40,-1', 'M3,0,0,-1', 'J3,0,0,5', 'END'].join('\n'), 'file'));
   await wait(400);
-  const sheet = () => page.evaluate(() => { const c = document.querySelector('#swarf-run .sr-sheet.on .sr-card'); return c ? c.textContent : ''; });
+  const sheet = () => page.evaluate(() => { const c = document.querySelector('#swarf-run .sr-sheet.on .sr-card'); return c ? c.textContent : ''; }).then(sp);
   const shut = () => page.evaluate(() => document.querySelector('#swarf-run .sr-sheet').classList.remove('on'));
   await page.click('#swarf-run .sr-actions .cut'); await wait(300);
   let t = await sheet();
@@ -105,11 +106,11 @@ try {
   await wait(300);
   await page.evaluate(() => [...document.querySelectorAll('#swarf-run .sr-sheet.on button')].find(b => /make the test cut/.test(b.textContent)).click());
   await wait(500);
-  const ls = await page.evaluate(() => ({ src: window.__swarfRun.state.prog?.source, name: window.__swarfRun.state.prog?.name, card: document.querySelector('#swarf-run .sr-sheet.on .sr-card')?.textContent || '' }));
+  const ls = await page.evaluate(() => ({ src: window.__swarfRun.state.prog?.source, name: window.__swarfRun.state.prog?.name, card: (document.querySelector('#swarf-run .sr-sheet.on .sr-card')?.textContent || '').replace(/\u00a0/g, ' ') }));
   check(ls.src === 'lesson' && /square-and-circle/.test(ls.name) && /100 mm square and a 60 mm circle/.test(ls.card) && /220 × 160/.test(ls.card), `test cut 1 loads, sized to the board ("${ls.card.slice(0, 90)}…")`);
   await page.evaluate(() => [...document.querySelectorAll('#swarf-run .sr-sheet.on button')].find(b => b.textContent === 'start').click());
   await wait(600);
-  const lsay = await page.$eval('#swarf-run .sr-say', e => e.textContent);
+  const lsay = sp(await page.$eval('#swarf-run .sr-say', e => e.textContent));
   check(/front-left corner of your plywood/.test(lsay), `the sentence says where to zero ("${lsay.slice(0, 90)}")`);
   const an = await page.evaluate(() => { const L = window.__swarfLessons.state(); return window.__swarfLessons.analyse({ ox: L.size + 9.6, ix: L.size - 9.4, oy: L.size + 9.5, iy: L.size - 9.5, dp: 3.1 }); });
   check(Math.abs(an.data.X - 0.1) < 1e-6 && Math.abs(an.data.Y) < 1e-9 && Math.abs(an.data.width - 9.5) < 1e-6, `measuring: X +${an.data.X}%, Y ${an.data.Y}%, groove ${an.data.width} mm, the bit's width out`);

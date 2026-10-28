@@ -308,3 +308,6 @@ html[data-skin="glass"] #panel-right .set2-group summary.set-header a, html[data
 @media (prefers-contrast: more) {
   html[data-skin="glass"] { --swarf-text-2: #3a3b3c; --swarf-text-3: #4a4b4c; --g-pane: rgba(255,255,255,.96); }
 }
+
+/* the stop stays red under the pointer (Fable review 3 #4: it went pale grey on hover) */
+html[data-skin="glass"] #swarf-run .sr-actions .stop:hover, html[data-skin="glass"] #swarf-run .sr-actions .stop:active { background: var(--g-red) !important; color: #fff !important; filter: brightness(1.08); }
