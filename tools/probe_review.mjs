@@ -68,11 +68,13 @@ try {
   // #2
   await page.evaluate(() => window.kiri.api.devices.select('Langmuir.MR-1'));
   await wait(1000);
+  // 10-28: control is the ShopBot's alone; on the MR-1 the step is hidden, back on the ShopBot it opens
+  const hiddenOnMr1 = await page.evaluate(() => !document.getElementById('swarf-step-run').offsetParent);
+  await page.evaluate(() => window.kiri.api.devices.select('ShopBot.Basic'));
+  await wait(1000);
   await page.click('#swarf-step-run');
-  const offered = await page.waitForFunction(() => document.getElementById('dialog').open && [...document.querySelectorAll('#dialog button')].some(b => b.textContent.trim() === 'use the ShopBot'), { timeout: 5000 }).then(() => true, () => false);
-  if (offered) await page.evaluate(() => [...document.querySelectorAll('#dialog button')].find(b => b.textContent.trim() === 'use the ShopBot').click());
   const opened = await page.waitForFunction(() => window.__swarfRun.state.open && /shopbot/i.test(window.kiri.api.conf.get().device.deviceName), { timeout: 15000 }).then(() => true, () => false);
-  check(offered && opened, `CONTROL on the MR-1 offers the ShopBot (${offered}) and opens on it (${opened})`);
+  check(hiddenOnMr1 && opened, `CONTROL hidden on the MR-1 (${hiddenOnMr1}), opens on the ShopBot (${opened})`);
   // #19: hold continuous +X at 250 mm/min for a second, simulator at 1×
   await page.evaluate(() => { const M = window.__swarfRun.state.machine; M.timeScale = 1; });
   const pick = t => page.evaluate(t => [...document.querySelectorAll('#swarf-run .sr-modes button')].find(b => b.textContent === t).click(), t);

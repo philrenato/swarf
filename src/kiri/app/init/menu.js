@@ -262,6 +262,12 @@ function modeTools(actions) {
     // previews them. CLEAR (X) un-previews and wipes any sim state so the
     // scene returns to a clean arrange.
     return [
+        // swarf (Phil 10-28): CAM — shown only in another mode (draw, control), where it
+        // stands for all of cam's steps and leads back to them (web/kiri/swarf-modes.js)
+        span({ id: 'swarf-step-cam', class: 'swarf-step swarf-step-cam', title: 'back to cam: import, shape, toolpaths, simulate, export' }, [
+            span([icon('fas fa-cube')]),
+            label({ _: 'cam' })
+        ]),
         span({ id: 'swarf-step-file', class: 'swarf-step', title: 'import a part — STL, OBJ, or supported mesh', onclick() { $('load-file').click(); } }, [
             span([icon('fas fa-file-arrow-up')]),
             label({ _: 'import' })

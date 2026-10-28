@@ -2109,3 +2109,45 @@ body.swarf-run-busy #mode-tools > span:not(.swarf-step-run):hover svg { fill: va
 .swarf-skin-head { pointer-events: none; }
 .swarf-skin-row span { visibility: hidden; }
 .swarf-skin-row.swarf-skin-on span { visibility: visible; }
+
+/* ---- setup › preferences, regrouped (swarf-prefs.js, Phil 10-28: "needs work again") ----
+   Two columns, the view and the bed, then advanced folded across the width. */
+#mod-prefs.swarf-prefs { min-width: 0 !important; width: min(620px, 92vw); padding: 18px 22px 20px !important; }
+#mod-prefs.swarf-prefs .menu-title { font-size: 13px !important; letter-spacing: .08em; text-transform: none; color: var(--swarf-text) !important; padding: 0 0 12px; align-self: flex-start; }
+#mod-prefs.swarf-prefs .menu-title::before, #mod-prefs.swarf-prefs .menu-title::after { content: none !important; }
+.swarf-prefs-body { display: grid; grid-template-columns: 1fr 1fr; gap: 12px 16px; width: 100%; }
+.swarf-prefs-group { display: flex; flex-direction: column; min-width: 0; }
+.swarf-prefs-group > h4, .swarf-prefs-group > summary { margin: 0 0 6px; font-size: 11px; font-weight: 600; letter-spacing: .08em; color: var(--swarf-text-2); text-transform: none; }
+.swarf-prefs-adv { grid-column: 1 / -1; border-top: 1px solid var(--swarf-line); padding-top: 10px; }
+.swarf-prefs-adv > summary { cursor: pointer; list-style: revert; }
+.swarf-prefs-adv .swarf-prefs-rows { display: grid; grid-template-columns: 1fr 1fr; column-gap: 16px; margin-top: 6px; }
+.swarf-prefs-rows { display: flex; flex-direction: column; }
+#mod-prefs .swarf-prefs-rows > .var-row { display: flex !important; align-items: center; justify-content: space-between; gap: 10px; min-height: 30px; padding: 2px 0 !important; border-bottom: 1px solid var(--swarf-line); background: none !important; }
+#mod-prefs .swarf-prefs-rows > .var-row:last-child { border-bottom: 0; }
+#mod-prefs .swarf-prefs-rows > .var-row.hide { display: none !important; }
+#mod-prefs .swarf-prefs-rows > .var-row label { font-size: 12px !important; text-transform: none !important; letter-spacing: 0 !important; flex: 1; min-width: 0; }
+#mod-prefs .swarf-prefs-rows > .var-row input[type="text"], #mod-prefs .swarf-prefs-rows > .var-row input:not([type]) { width: 56px; text-align: right; }
+#mod-prefs .swarf-prefs-rows > .var-row select { min-width: 72px; }
+#mod-prefs .swarf-prefs-dark { display: none !important; }
+html:not([data-skin]) #mod-prefs .swarf-prefs-dark { display: flex !important; }
+/* the skins: their own dialog, not the red-sky plate's clipped corner, red edge and scanlines */
+html[data-skin] #mod-prefs.swarf-prefs { clip-path: none !important; border-left-width: 1px !important; }
+html[data-skin] #mod-prefs.swarf-prefs::before { display: none !important; }
+html[data-skin="glass"] #mod-prefs.swarf-prefs { background: rgba(250, 250, 251, .82) !important; backdrop-filter: blur(26px) saturate(1.2); -webkit-backdrop-filter: blur(26px) saturate(1.2);
+  border: 1px solid rgba(255,255,255,.95) !important; border-radius: 22px !important; box-shadow: 0 30px 80px -20px rgba(20,22,26,.4), inset 0 1px 0 rgba(255,255,255,.95) !important; font-family: var(--g-font) !important; }
+html[data-skin="glass"] #mod-prefs.swarf-prefs label, html[data-skin="glass"] #mod-prefs.swarf-prefs .menu-title, html[data-skin="glass"] .swarf-prefs-group > h4, html[data-skin="glass"] .swarf-prefs-group > summary { font-family: var(--g-font) !important; }
+html[data-skin="glass"] .swarf-prefs-group > h4, html[data-skin="glass"] .swarf-prefs-group > summary { font-size: 12px; letter-spacing: 0; color: #5c5d5e; }
+html[data-skin="glass"] #mod-prefs .swarf-prefs-rows > .var-row { border-bottom-color: rgba(0,0,0,.06); }
+html[data-skin="glass"] .swarf-prefs-adv { border-top-color: rgba(0,0,0,.08); }
+html[data-skin="classic"] #mod-prefs.swarf-prefs { border-radius: 0 !important; }
+
+/* ---- modes (swarf-modes.js, Phil 10-28): in draw or control the row folds to cam · draw · control ---- */
+#swarf-step-cam { display: none !important; }
+body.swarf-focus #swarf-step-cam { display: flex !important; }
+body.swarf-focus #mode-tools > span:not(#swarf-step-cam):not(#swarf-step-draw):not(#swarf-step-run) { display: none !important; }
+body.swarf-focus #mode-tools { z-index: 80 !important; }
+body.swarf-focus #mode-tools > span.selected:not(.swarf-step-on) { background: transparent !important; box-shadow: none !important; }
+#mode-tools > span#swarf-step-draw.swarf-step-on { background: var(--swarf-accent) !important; }
+#mode-tools > span#swarf-step-draw.swarf-step-on label, #mode-tools > span#swarf-step-draw.swarf-step-on i, #mode-tools > span#swarf-step-draw.swarf-step-on svg { color: #fff !important; fill: #fff !important; }
+html[data-skin="glass"] #mode-tools > span#swarf-step-draw.swarf-step-on { background: var(--g-aqua) !important; box-shadow: var(--g-aqua-shadow) !important; }
+body.swarf-focus #swarf-step-cam { border-right: 1px solid var(--swarf-line-2); }

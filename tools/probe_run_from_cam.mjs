@@ -57,9 +57,10 @@ try {
   await page.evaluate(() => window.__swarfRun.close());
   await page.evaluate(() => window.kiri.api.devices.select('Langmuir.MR-1'));
   await wait(600);
-  const mr1 = await page.evaluate(() => { const r = document.getElementById('swarf-step-run'); r.click(); return { off: r.classList.contains('swarf-step-off'), open: window.__swarfRun.state.open }; });
+  // control is the ShopBot's alone (Phil 10-28): on the MR-1 the step is not there at all
+  const mr1 = await page.evaluate(() => { const r = document.getElementById('swarf-step-run'); return { shown: !!(r && r.offsetParent), open: window.__swarfRun.state.open }; });
   console.log('run step on MR-1 profile:', JSON.stringify(mr1));
-  if (!mr1.off || mr1.open) bad.push('RUN on the MR-1 should be faded and not open Run');
+  if (mr1.shown || mr1.open) bad.push('CONTROL on the MR-1 should be hidden');
 } finally {
   await browser.close();
   console.log(errors.length ? 'PAGE ERRORS:\n' + errors.join('\n') : 'no page errors');
