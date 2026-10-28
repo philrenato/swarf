@@ -23,13 +23,15 @@
   let last = '';
   function sync() {
     const m = mode();
+    // DRAW builds a new sheet every time it opens: place each one, even when a close and an
+    // open land in one batch and the mode never seems to change (the sheet sat under the row)
+    if (m === 'draw') { placeDraw(); requestAnimationFrame(placeDraw); }
     if (m === last) return;
     last = m;
     body.classList.toggle('swarf-focus', m !== 'cam');
     body.dataset.swarfMode = m;
     const draw = $('swarf-step-draw');
     if (draw) draw.classList.toggle('swarf-step-on', m === 'draw');
-    if (m === 'draw') requestAnimationFrame(placeDraw);
   }
   // leaving draw: as done does. A drawing that can't be made (a crossing) keeps draw open and says why.
   function leaveDraw() {
@@ -44,7 +46,7 @@
     if ((tools && cam && body) || ++tries > 200) {
       clearInterval(t);
       if (!tools || !cam) return;
-      new MutationObserver(sync).observe(body, { attributes: true, attributeFilter: ['class'] });
+      new MutationObserver(sync).observe(body, { attributes: true, attributeFilter: ['class'], childList: true });
       window.addEventListener('resize', () => { if (mode() === 'draw') placeDraw(); });
       // first in the capture order: draw closes before control or cam take the press
       tools.addEventListener('click', e => {

@@ -168,7 +168,8 @@ try {
   const ap = c0.deg;                              // anchor 1 sits at index = degree
   const el = await page.evaluate(i => { const r = document.querySelector(`#sd-svg [data-pt="0:${i}"]`).getBoundingClientRect(); return [r.left + r.width / 2, r.top + r.height / 2]; }, ap);
   console.log('hit', await page.evaluate(([x, y]) => { const h = document.elementFromPoint(x, y); return h && (h.tagName + ' ' + (h.dataset.pt || h.dataset.part || h.id || h.className)); }, el), JSON.stringify(el), await page.evaluate(() => [...window.__swarfDraw.state().pts]));
-  await page.mouse.move(el[0], el[1]); await page.mouse.down();
+  await page.mouse.move(el[0], el[1]); await wait(250); await page.mouse.down();   // a hand rests on the point first; the hover redraw lands
+  console.log('drag', await page.evaluate(() => { const S = window.__swarfDraw.state(); return JSON.stringify({ kind: S.drag && S.drag.kind, pts: [...S.pts], top: document.getElementById('swarf-draw').style.top, svgTop: document.getElementById('sd-svg').getBoundingClientRect().top }); }));
   for (let i = 1; i <= 6; i++) { await page.mouse.move(el[0], el[1] - i * 5); await wait(20); }
   await page.mouse.up();
   const c1 = await page.evaluate(() => { const S = window.__swarfDraw.state(); return S.parts[S.sel].curves[0].crv.ctrlPts.map(q => [q[0], q[1]]); });
