@@ -4,7 +4,7 @@
  * plastic/liquid glass and classic OS").
  *
  *   swarf    the red-sky mill look (no data-skin attribute: the base stylesheets alone)
- *   glass    wet plastic and liquid glass: frosted panes, jelly buttons, a pale sky
+ *   glass    wet plastic: frosted panes, jelly buttons, a pale sky
  *   classic  BeOS, Windows 95 and Mac OS 9 mixed: bevels, a yellow tab, pinstripes
  *
  * Loaded in <head>, before anything paints, so a page never opens in the wrong skin.
@@ -19,11 +19,11 @@
   const KEY = 'swarf-skin';
   const SKINS = [
     { id: 'swarf', name: 'swarf', title: 'the red-sky mill: hot red on warm black', bar: '#d02020' },
-    { id: 'glass', name: 'liquid glass', title: 'wet plastic and liquid glass: frosted panes, jelly buttons, a pale sky', bar: '#ededee' },
+    { id: 'glass', name: 'wet plastic', title: 'wet plastic: frosted panes, jelly buttons, a pale sky', bar: '#ededee' },
     { id: 'classic', name: 'classic', title: 'a classic desktop: BeOS tabs, Windows 95 bevels, Mac OS 9 pinstripes', bar: '#d6d6d6' }
   ];
   const root = document.documentElement;
-  // liquid glass is the default (Phil 10-28: "Make the wet plastic aesthetic the default")
+  // wet plastic is the default (Phil 10-28: "Make the wet plastic aesthetic the default")
   let current = 'glass';
   try { const s = localStorage.getItem(KEY); if (SKINS.some(k => k.id === s)) current = s; } catch (e) { /* private window */ }
   // ?skin=glass in the address opens in that skin (and keeps it)
