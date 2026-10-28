@@ -745,10 +745,15 @@ function delete_post() {
  * Highlights widgets on hover. Updates when widgets are added/removed/modified.
  */
 function changed() {
-    h.bind($('ws-widgets'), api.widgets.all().map(w => {
+    // swarf r45 (review 10-28b #9, #10): one row per group (a word is one row, "swarf (5 pieces)"),
+    // and the whole name, cut at its end by CSS if it must be, never in the middle
+    const lead = w => !w.group || w.group.length < 2 || w.group[0] === w;
+    h.bind($('ws-widgets'), api.widgets.all().filter(lead).map(w => {
         let color;
+        const many = w.group && w.group.length > 1;
         let file = w.meta.file || 'no name';
-        let fsho = file.length > 25 ? file.slice(0,20) + '..' + file.slice(-2) : file;
+        if (many) file = `${file.replace(/-\d+$/, '')} (${w.group.length} pieces)`;
+        let fsho = file;
         return [
             h.div({
                 onmouseenter() {
@@ -800,7 +805,7 @@ function changed() {
                         h.button(
                             {
                                 title: "delete",
-                                onclick() { platformDelete(w) }
+                                onclick() { platformDelete(many ? w.group.slice() : w) }
                             },
                             [ h.i({ class:"fas fa-trash" }), ]
                         )
@@ -821,7 +826,7 @@ function changed() {
                     //     w.setColor(color, null, false);
                     // },
                     onclick() {
-                        select(w, true, false);
+                        select(w, true, !many ? false : true);
                         color = w.getColor();
                     }
                 })

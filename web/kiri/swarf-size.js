@@ -84,7 +84,10 @@
     const picked = a.selection.widgets ? a.selection.widgets() : [];
     edit.style.display = picked.some(w => w.meta && w.meta.svg) ? '' : 'none';
     const e = picked[0] && picked[0].meta && picked[0].meta.edge;
-    edge.textContent = e && e.kind && e.kind !== 'straight' && e.size > 0 ? `${e.kind} ${+(+e.size).toFixed(2)} mm edge` : '';
+    // scaled in width and depth, the edge stretched with it (its height did not): say so (review 10-28b #32)
+    const xf = picked[0] && picked[0].meta && picked[0].meta.xf;
+    const stretched = xf && (Math.abs(Math.hypot(xf[0], xf[1]) - 1) > 1e-3 || Math.abs(Math.hypot(xf[2], xf[3]) - 1) > 1e-3);
+    edge.textContent = e && e.kind && e.kind !== 'straight' && e.size > 0 ? `${e.kind} ${+(+e.size).toFixed(2)} mm edge${stretched ? ', stretched with the part' : ''}` : '';
     edge.style.display = edge.textContent ? '' : 'none';
     for (const [b] of AX) {
       const src = $(`size_${b}`);
@@ -99,6 +102,15 @@
       clearInterval(t);
       if (!a || !a.event) return;
       build();
+      // the sentence stays true: each act on the bed rewrites it, and toolpaths clears it (review 10-28b #3)
+      const said = t => { try { a.event.alerts(true); if (t) a.show.alert(t, 6); } catch (e) { /* no alerts */ } };
+      const nm = w => (w && w.meta && w.meta.file) || 'the part';
+      let resizing = 0;
+      a.event.on('selection.scale', () => { clearTimeout(resizing); resizing = setTimeout(() => { const v = AX.map(([b]) => +parseFloat(($(`size_${b}`) || {}).value || 0).toFixed(2)); said(`Resized to ${v.join(' × ')} mm.`); }, 120); });
+      a.event.on('widget.duplicate', nw => said(`Made a copy, ${nm(nw)}, beside it.`));
+      // (not DRAW's done, which swaps parts and says so itself)
+      a.event.on('widget.delete', w => !document.body.classList.contains('swarf-draw-open') && setTimeout(() => { const n = a.widgets.all().length; said(n ? `Deleted ${nm(Array.isArray(w) ? w[0] : w)}. ${n} part${n === 1 ? '' : 's'} left.` : ''); }, 0));
+      a.event.on('preview.begin', () => said(''));
       for (const ev of ['widget.select', 'widget.deselect', 'selection.scale', 'selection.move', 'selection.rotate', 'platform.layout', 'widget.add', 'widget.delete']) a.event.on(ev, () => setTimeout(show, 0));
       new MutationObserver(show).observe(document.body, { attributes: true, attributeFilter: ['class'] });
       show();

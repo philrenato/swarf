@@ -126,10 +126,17 @@
     chip = document.createElement('button');
     chip.id = 'swarf-sim-machine';
     chip.textContent = 'machine';
-    chip.title = 'Show the ShopBot: the bed slides in X under the gantry, as it does in the shop';
+    chip.title = 'Show the ShopBot: its 4 × 8 ft bed slides in X under the gantry, as it does in the shop';
+    // turning it on steps back to show the machine; off comes back to the parts (review 10-28b #17)
     chip.onclick = () => {
       try { localStorage.setItem(KEY, wanted() ? '0' : '1'); } catch (e) { /* private window */ }
       apply();
+      try {
+        const s = space(), a = api();
+        if (wanted() && bed) s.view.fit(undefined, { padding: 0.9, objects: [bed] });
+        else if (a.frame) a.frame();
+        setTimeout(near, 450);
+      } catch (e) { /* no view */ }
     };
     host.append(chip);
   }

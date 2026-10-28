@@ -39,8 +39,8 @@ function setViewMode(mode) {
     // clear any bounds forced by, for example, WireEDM previews
     api.platform.set_bounds();
     // disable clear in non-arrange modes
-    ['view-arrange','act-slice','act-preview','act-animate'].forEach(el => {
-        $(el).classList.remove('selected')
+    ['view-arrange','act-slice','act-preview','act-animate','act-paths'].forEach(el => {
+        $(el)?.classList.remove('selected')
     });
     // $('render-tools').classList.add('hide');
     switch (mode) {
@@ -67,6 +67,8 @@ function setViewMode(mode) {
             break;
         case VIEWS.PREVIEW:
             $('act-preview').classList.add('selected');
+            // swarf r45 (review 10-28b #1): the visible TOOLPATHS step lights as "you are here", as SIMULATE does
+            $('act-paths')?.classList.add('selected');
             api.visuals.set_widget_visibility(true);
             // Hide edges without persisting (preserve user preference)
             !isCAM && api.view.set_edges(false, false);

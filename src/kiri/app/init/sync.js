@@ -461,9 +461,16 @@ function setup_keybd_nav() {
                 const all = meshes();
                 for (const m of all) { try { m.geometry && m.geometry.computeBoundingBox(); } catch (e) {} }
                 if (space.view.fit && all.length) space.view.fit(undefined, { padding: FILL, visibleOnly: true, objects: all });
-                else space.view.home();
+                else bed();
             } catch (e) {}
         };
+        // an empty bed: the home angle, framing the whole bed (review 10-28b #14)
+        const bed = () => {
+            const plat = space.internals && space.internals().platform;
+            space.view.home();
+            if (plat && space.view.fit) setTimeout(() => { try { if (!meshes().length) space.view.fit(undefined, { padding: 0.75, objects: [plat] }); } catch (e) {} }, 380);
+        };
+        api.frame_bed = bed;
         const always = () => { requestAnimationFrame(frame); setTimeout(frame, 250); };
         let wasEmpty = true;
         const added = payload => {
@@ -478,7 +485,10 @@ function setup_keybd_nav() {
         api.event.on('widget.delete', () => setTimeout(() => { if (!meshes().length) { wasEmpty = true; frame(); } }, 60));
         api.event.on('widgets.loaded', () => { wasEmpty = !meshes().length; always(); });
         api.event.on('load.url', always);
+        api.event.on('device.select', () => setTimeout(() => { if (!meshes().length) bed(); }, 300));
         api.frame = frame;
+        // frame only if these parts are not all in view (the same rule, for code that moved parts)
+        api.reveal = list => { if (!inView((list && list.length ? list : api.widgets.all()).map(w => w.mesh).filter(Boolean))) frame(); };
 
         // swarf r14+: force-select newly-added widgets after a short delay so
         // drag-to-move works on first import. platform.add calls platform.select

@@ -55,12 +55,19 @@ try {
   const c0 = await cam();
   await page.evaluate(() => [...document.querySelectorAll('#swarf-size .act')].find(b => b.textContent === 'duplicate').click());
   await wait(1200);
+  // the copy lands 12 mm to the right (r45); the camera moves only if it would be off screen, and then all is in view
+  const allIn = () => page.evaluate(() => {
+    const T = window.THREE, c = window.moto.space.internals().camera, b = new T.Box3();
+    for (const w of window.kiri.api.widgets.all()) b.expandByObject(w.mesh);
+    for (let i = 0; i < 8; i++) { const v = new T.Vector3(i & 1 ? b.max.x : b.min.x, i & 2 ? b.max.y : b.min.y, i & 4 ? b.max.z : b.min.z).project(c); if (Math.abs(v.x) > 0.95 || Math.abs(v.y) > 0.95) return false; }
+    return true;
+  });
   const c1 = await cam();
-  check(c1 === c0, `a duplicate beside it, in view, leaves the camera (${c0} → ${c1})`);
+  check(await allIn(), `after a duplicate both parts are in view (${c0} → ${c1})`);
   await page.evaluate(() => [...document.querySelectorAll('#swarf-size .act')].find(b => b.textContent === 'delete').click());
   await wait(1200);
   const c2 = await cam();
-  check(c2 === c0, `a delete leaves the camera (${c2})`);
+  check(c2 === c1, `a delete leaves the camera (${c1} → ${c2})`);
   await page.evaluate(() => { for (const w of window.kiri.api.widgets.all()) window.kiri.api.platform.delete(w); });
   await wait(1200);
   check(await page.evaluate(() => document.getElementById('swarf-start').classList.contains('on')), 'an emptied bed shows the start card again');

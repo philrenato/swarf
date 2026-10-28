@@ -24,7 +24,7 @@
     d:  { label: 'diameter', unit: 'mm', value: 100 },
     di: { label: 'hole diameter', unit: 'mm', value: 50 },
     w:  { label: 'width', unit: 'mm', value: 150 },
-    h:  { label: 'height', unit: 'mm', value: 100 },
+    h:  { label: 'depth', unit: 'mm', value: 100 },
     r:  { label: 'corner radius', unit: 'mm', value: 10 },
     n:  { label: 'sides', unit: '', value: 6 },
     p:  { label: 'points', unit: '', value: 5 },
@@ -131,7 +131,13 @@
       $('shape-why').textContent = why || '';
       // a small picture of it, to scale within its box
       const svg = !why && svgFor(kind, v);
-      $('shape-prev').innerHTML = svg ? svg.replace(/width="[^"]*" height="[^"]*"/, 'width="100%" height="100%" preserveAspectRatio="xMidYMid meet"') : '';
+      let pic = svg ? svg.replace(/width="[^"]*" height="[^"]*"/, 'width="100%" height="100%" preserveAspectRatio="xMidYMid meet"') : '';
+      // a shaped edge shows as a lighter band its size inside the outline (review 10-28b #8)
+      if (pic && edge !== 'straight' && es > 0) {
+        const m = pic.match(/^(<svg[^>]*>)([\s\S]*)<\/svg>$/);
+        if (m) pic = `${m[1]}<defs><clipPath id="shape-clip">${m[2].replace(/fill-rule="evenodd"/g, 'clip-rule="evenodd"')}</clipPath></defs>${m[2]}<g class="band" clip-path="url(#shape-clip)" fill="none" stroke-width="${2 * es}">${m[2].replace(/<(rect|circle|ellipse|path|polygon)\b/g, '<$1 fill="none"')}</g></svg>`;
+      }
+      $('shape-prev').innerHTML = pic;
       const ok = [...document.querySelectorAll('#dialog button')].find(b => /^make$/i.test(b.textContent.trim()));
       if (ok) ok.disabled = !!why;
     };

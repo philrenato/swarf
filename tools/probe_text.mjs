@@ -47,7 +47,7 @@ try {
   await page.mouse.click(cx, cy);
   await wait(200);
   let p = await part(page);
-  check(p && /text/.test(p.name) && p.n === 2 && Math.abs(p.box[1]) < 0.05 && Math.abs(p.box[3] - 40) < 0.3 && Math.abs(p.box[0] + 100) < 6, `"HI" 40 mm capitals on the baseline at y 0, from x -100: ${JSON.stringify(p)}`);
+  check(p && p.name === 'HI' && p.n === 2 && Math.abs(p.box[1]) < 0.05 && Math.abs(p.box[3] - 40) < 0.3 && Math.abs(p.box[0] + 100) < 6, `"HI" 40 mm capitals on the baseline at y 0, from x -100: ${JSON.stringify(p)}`);
   await setInput(page, 'sd-str', 'OH');
   await wait(150);
   p = await part(page);

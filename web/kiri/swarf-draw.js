@@ -156,11 +156,11 @@
     el.innerHTML = `
       <svg id="sd-svg" tabindex="0"></svg>
       <div class="sd-bar">
-        <button data-tool="select" title="pick parts and points (V)">select</button>
-        <button data-tool="pen" title="draw an outline: click for a corner, drag for a smooth point, click the first to close (P)">pen</button>
-        <button data-tool="rect" title="drag a rectangle from corner to corner; shift for a square (R)">rectangle</button>
-        <button data-tool="ellipse" title="drag an ellipse from corner to corner; shift for a circle (E)">ellipse</button>
-        <button data-tool="text" title="click where the text starts; type it in the card (T)">text</button>
+        <button data-tool="select" title="pick parts and points (V)">select <kbd>V</kbd></button>
+        <button data-tool="pen" title="draw an outline: click for a corner, drag for a smooth point, click the first to close (P)">pen <kbd>P</kbd></button>
+        <button data-tool="rect" title="drag a rectangle from corner to corner; shift for a square (R)">rectangle <kbd>R</kbd></button>
+        <button data-tool="ellipse" title="drag an ellipse from corner to corner; shift for a circle (E)">ellipse <kbd>E</kbd></button>
+        <button data-tool="text" title="click where the text starts; type it in the card (T)">text <kbd>T</kbd></button>
         <span class="sd-sep"></span>
         <button id="sd-undo" title="undo (⌘Z)">undo</button>
         <button id="sd-fit" title="show the parts, or the whole bed (F) · pinch or ⌘-scroll to zoom, two fingers to slide">fit</button>
@@ -183,10 +183,14 @@
     ui.svg.addEventListener('pointerup', up);
     ui.svg.addEventListener('wheel', wheel, { passive: false });
     window.addEventListener('keydown', key, true);
+    // cam's own letter keys listen for keypress (r opened recent files, e the machine dialog):
+    // none of them reach cam while drawing
+    window.addEventListener('keypress', hush, true);
     window.addEventListener('resize', render);
     ui.svg.focus();
   }
 
+  const hush = e => e.stopPropagation();
   function close(apply) {
     if (!S) return;
     if (apply) {
@@ -195,6 +199,7 @@
       commit();
     }
     window.removeEventListener('keydown', key, true);
+    window.removeEventListener('keypress', hush, true);
     window.removeEventListener('resize', render);
     ui.el.remove();
     document.body.classList.remove('swarf-draw-open');
@@ -299,13 +304,19 @@
     S.parts.forEach((part, pi) => {
       if (part.gone) return;
       const d = part.curves.map(c => pathOf(c.crv)).join(' ');
-      out.push(`<path class="sd-part${pi === S.sel ? ' on' : ''}${part.cross ? ' cross' : ''}" data-part="${pi}" d="${d}"/>`);
+      out.push(`<path class="sd-part${pi === S.sel ? ' on' : ''}${part.cross || part.over ? ' cross' : ''}" data-part="${pi}" d="${d}"/>`);
       if (part.cross) out.push(`<circle class="sd-cross" cx="${sx(part.cross[0])}" cy="${sy(part.cross[1])}" r="7"/>`);
       // a wide, unseen edge, so a press near the outline (to add a point) lands on the part
       if (pi === S.sel) out.push(`<path class="sd-edge" data-part="${pi}" d="${d}"/>`);
     });
     const part = S.parts[S.sel];
-    if (part && !part.gone) {
+    // a picked word shows its box, not every letter's points: it is edited by its words (review 10-28b #11)
+    if (part && !part.gone && part.text) {
+      let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+      for (const c of part.curves) for (const q of c.crv.ctrlPts) { x0 = Math.min(x0, q[0]); x1 = Math.max(x1, q[0]); y0 = Math.min(y0, q[1]); y1 = Math.max(y1, q[1]); }
+      out.push(`<rect class="sd-wordbox" data-part="${S.sel}" x="${sx(x0) - 6}" y="${sy(y1) - 6}" width="${(x1 - x0) * k + 12}" height="${(y1 - y0) * k + 12}"/>`);
+    }
+    if (part && !part.gone && !part.text) {
       // the control lines of each curve, then its points
       let cl = '';
       for (const c of part.curves) {
@@ -363,14 +374,41 @@
 
   // where an outline crosses itself, or null (review 10-28 #11): cam cannot tell inside from
   // outside past a crossing. Each closed curve on its own, as a fine polyline.
+  function polyOf(crv) {
+    const L = [];
+    for (const b of V().cubics(crv)) for (let i = L.length ? 1 : 0; i <= 8; i++) {
+      const t = i / 8, u = 1 - t;
+      L.push([u * u * u * b[0][0] + 3 * u * u * t * b[1][0] + 3 * u * t * t * b[2][0] + t * t * t * b[3][0],
+              u * u * u * b[0][1] + 3 * u * u * t * b[1][1] + 3 * u * t * t * b[2][1] + t * t * t * b[3][1]]);
+    }
+    return L;
+  }
+  const segX = (a, b, q, r) => {
+    const d = (b[0] - a[0]) * (r[1] - q[1]) - (b[1] - a[1]) * (r[0] - q[0]);
+    if (Math.abs(d) < 1e-12) return false;
+    const s = ((q[0] - a[0]) * (r[1] - q[1]) - (q[1] - a[1]) * (r[0] - q[0])) / d, t = ((q[0] - a[0]) * (b[1] - a[1]) - (q[1] - a[1]) * (b[0] - a[0])) / d;
+    return s >= 0 && s <= 1 && t >= 0 && t <= 1;
+  };
+  const inside = (p, L) => { let n = false; for (let i = 0, j = L.length - 1; i < L.length; j = i++) if ((L[i][1] > p[1]) !== (L[j][1] > p[1]) && p[0] < (L[j][0] - L[i][0]) * (p[1] - L[i][1]) / (L[j][1] - L[i][1]) + L[i][0]) n = !n; return n; };
+  // the first other part this one overlaps (outlines cross, or one sits inside the other), or null
+  // (review 10-28b #5: a rectangle drawn over a part became a solid inside it, and both were cut)
+  function overlapOf(part) {
+    const mine = part.curves.map(c => polyOf(c.crv)), mb = boxOf(part.curves);
+    for (const o of S.parts) {
+      if (o === part || o.gone) continue;
+      const ob = boxOf(o.curves);
+      if (ob[0] > mb[2] || mb[0] > ob[2] || ob[1] > mb[3] || mb[1] > ob[3]) continue;
+      const theirs = o.curves.map(c => polyOf(c.crv));
+      for (const A of mine) for (const B of theirs) {
+        if (inside(A[0], B) || inside(B[0], A)) return o;
+        for (let i = 0; i < A.length - 1; i++) for (let j = 0; j < B.length - 1; j++) if (segX(A[i], A[i + 1], B[j], B[j + 1])) return o;
+      }
+    }
+    return null;
+  }
   function crossing(part) {
     for (const c of part.curves) {
-      const L = [];
-      for (const b of V().cubics(c.crv)) for (let i = L.length ? 1 : 0; i <= 8; i++) {
-        const t = i / 8, u = 1 - t;
-        L.push([u * u * u * b[0][0] + 3 * u * u * t * b[1][0] + 3 * u * t * t * b[2][0] + t * t * t * b[3][0],
-                u * u * u * b[0][1] + 3 * u * u * t * b[1][1] + 3 * u * t * t * b[2][1] + t * t * t * b[3][1]]);
-      }
+      const L = polyOf(c.crv);
       for (let i = L.length - 1; i > 0; i--) if (Math.hypot(L[i][0] - L[i - 1][0], L[i][1] - L[i - 1][1]) < 1e-9) L.splice(i, 1);
       const n = L.length - 1;
       for (let i = 0; i < n; i++) for (let j = i + 2; j < n; j++) {
@@ -386,10 +424,13 @@
     }
     return null;
   }
-  const crossSay = (part, x) => `${part.name} crosses itself near ${r3(x[0])}, ${r3(x[1])} mm: past a crossing, cam cannot tell inside from outside. Move a point so its lines don't cross.`;
+  const crossSay = (part, x) => `${part.name} crosses itself near ${r3(x[0])}, ${r3(x[1])} mm: past a crossing, swarf cannot tell inside from outside. Move a point so its lines don't cross.`;
   function checkCross(part) {
     part.cross = part.text ? null : crossing(part);
     if (part.cross) say(crossSay(part, part.cross));
+    const o = overlapOf(part);
+    part.over = o ? o.name : null;
+    if (o && !part.cross) say(`${part.name} overlaps ${o.name}: move it, or the toolpaths will cut them as one.`);
     return part.cross;
   }
 
@@ -454,7 +495,9 @@
         if (S.tool === 'text') { TEXT.str = str; TEXT.h = hh; return; }
         const t = { ...part.text, str, h: hh }, c = textCurves(t);
         if (!c.length) return say('Type some letters: an empty text has nothing to cut.');
-        snap(); part.text = t; part.curves = c; part.dirty = true; render();
+        snap(); part.text = t; part.curves = c; part.dirty = true;
+        if (part.named) part.name = wordName(str, part.name);
+        render();
       };
       strEl.onkeydown = e => { e.stopPropagation(); if (e.key === 'Enter') { strEl.blur(); } };
       strEl.oninput = () => { if (S.tool === 'text') TEXT.str = strEl.value; };
@@ -704,14 +747,14 @@
       return;
     }
     if ((d.kind === 'pts' || d.kind === 'part') && !d.moved) S.undo.pop();          // a click, not a move
-    if (d.kind === 'pts' && d.moved && S.parts[S.sel]) checkCross(S.parts[S.sel]);
+    if ((d.kind === 'pts' || d.kind === 'part') && d.moved && S.parts[S.sel]) { checkCross(S.parts[S.sel]); for (const p of S.parts) if (p !== S.parts[S.sel] && p.over) p.over = overlapOf(p) ? p.over : null; }
     if (d.kind === 'box') {
       const part = S.parts[S.sel], b = S.box;
       S.box = null;
       if (!b) { S.sel = -1; S.pts.clear(); render(); return; }   // a click on the empty bed
       if (!d.shift) S.pts.clear();
       const x0 = Math.min(b[0][0], b[1][0]), x1 = Math.max(b[0][0], b[1][0]), y0 = Math.min(b[0][1], b[1][1]), y1 = Math.max(b[0][1], b[1][1]);
-      for (const h of handles(part)) if (h.anchor && h.x >= x0 && h.x <= x1 && h.y >= y0 && h.y <= y1) S.pts.add(h.id);
+      if (!part.text) for (const h of handles(part)) if (h.anchor && h.x >= x0 && h.x <= x1 && h.y >= y0 && h.y <= y1) S.pts.add(h.id);
     }
     render();
   }
@@ -786,6 +829,8 @@
     const b = path.getBoundingBox(), W = Math.max(1e-3, b.x2 - b.x1), H = Math.max(1e-3, b.y2 - b.y1);
     return V().curves(`<svg xmlns="http://www.w3.org/2000/svg" width="${W}mm" height="${H}mm" viewBox="${b.x1} ${b.y1} ${W} ${H}"><path d="${d}"/></svg>`).filter(c => isClosed(c.crv));
   }
+  // a word is named by its words, so the list reads "HIM (3 pieces)" (review 10-28b #9)
+  const wordName = (str, or) => (String(str).trim().replace(/\s+/g, '-').replace(/[^\w.-]/g, '').slice(0, 24)) || or;
   async function placeText(m) {
     try { await fontReady(); } catch (e) { say(`Text needs its font: ${e.message}.`); return; }
     const t = { str: TEXT.str, h: TEXT.h, at: [snapMM(m[0]), snapMM(m[1])], font: TEXT.name };
@@ -793,9 +838,10 @@
     if (!curves.length) { say('Type some letters in the card first.'); return; }
     snap();
     const n = S.parts.filter(p => !p.w).length + 1;
-    S.parts.push({ w: null, name: `text-${n}`, thick: S.thick, edge: { ...S.edge }, curves, text: t, dirty: true });
+    S.parts.push({ w: null, name: wordName(t.str, `text-${n}`), named: true, thick: S.thick, edge: { ...S.edge }, curves, text: t, dirty: true });
     S.tool = 'select'; S.sel = S.parts.length - 1; S.pts.clear(); S.ghost = null;
     say('Text placed. Change its words or height in the card; drag it to move it.');
+    checkCross(S.parts[S.sel]);
     render();
   }
   function addPart(word, crv) {
@@ -852,6 +898,12 @@
       if (S.tool !== 'select') { setTool('select'); return; }
       if (S.pts.size) { S.pts.clear(); render(); return; }
       if (S.sel >= 0) { S.sel = -1; render(); return; }
+      // the last Escape leaves, but never throws away drawing without asking (review 10-28b #18)
+      if (S.parts.some(p => p.dirty || (p.gone && p.w)) && !(S.escAt && performance.now() - S.escAt < 3000)) {
+        S.escAt = performance.now();
+        say('Press Escape again to leave without your changes, or done to make them.');
+        return;
+      }
       close(false); return;
     }
     if (k === 'Enter' && S.tool === 'pen' && S.pen.length) { e.preventDefault(); penClose(); return; }

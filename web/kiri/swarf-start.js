@@ -21,7 +21,8 @@
     const h = document.createElement('h2'); h.textContent = 'The bed is empty';
     const p = document.createElement('p'); p.textContent = 'Make a shape, draw one, or open a file.';
     const s = document.createElement('small'); s.textContent = 'or drop a file anywhere on the bed';
-    card.append(h, p, row, s);
+    const m = document.createElement('small'); m.className = 'bed';
+    card.append(h, p, row, s, m);
     document.body.append(card);
   }
 
@@ -31,6 +32,8 @@
     const empty = a.widgets.all().length === 0;
     const cls = document.body.classList;
     card.classList.toggle('on', empty && !cls.contains('swarf-run-open') && !cls.contains('swarf-draw-open'));
+    // which machine, and its bed, as DRAW names it
+    try { const d = a.conf.get().device; card.querySelector('.bed').textContent = `${(d.deviceName || 'machine').replace(/\./g, ' ')} · bed ${Math.round(d.bedWidth)} × ${Math.round(d.bedDepth)} mm`; } catch (e) { /* no device yet */ }
   }
 
   let tries = 0;
@@ -40,10 +43,34 @@
       clearInterval(t);
       if (!a || !a.event) return;
       build();
-      for (const ev of ['widget.add', 'widget.delete', 'platform.layout', 'mode.set']) a.event.on(ev, () => setTimeout(show, 0));
+      for (const ev of ['widget.add', 'widget.delete', 'platform.layout', 'mode.set', 'device.select']) a.event.on(ev, () => setTimeout(show, 0));
       new MutationObserver(show).observe(document.body, { attributes: true, attributeFilter: ['class'] });
       show();
       setTimeout(show, 600);
+      // on an empty bed, toolpaths and export say why nothing happens (review 10-28b #16)
+      for (const id of ['act-paths', 'act-export', 'act-animate']) {
+        const b = $(id);
+        if (b) b.addEventListener('click', e => {
+          if (a.widgets.all().length) return;
+          e.stopPropagation();
+          const p = card.querySelector('p');
+          p.textContent = 'Nothing to cut yet: make a shape, draw one, or open a file.';
+          p.classList.add('nudge');
+          clearTimeout(p.t); p.t = setTimeout(() => { p.textContent = 'Make a shape, draw one, or open a file.'; p.classList.remove('nudge'); }, 2500);
+        }, true);
+      }
+      // a faded step says why it is off (review 10-28b #15)
+      const sim = $('act-animate');
+      if (sim) {
+        const why = () => {
+          const off = sim.classList.contains('disabled');
+          if (off && !sim.dataset.title) sim.dataset.title = sim.title;
+          sim.title = off ? (a.widgets.all().length ? 'simulate: press toolpaths first' : 'simulate: put a part on the bed, then press toolpaths') : (sim.dataset.title || sim.title);
+        };
+        new MutationObserver(why).observe(sim, { attributes: true, attributeFilter: ['class'] });
+        for (const ev of ['widget.add', 'widget.delete']) a.event.on(ev, () => setTimeout(why, 0));
+        why();
+      }
     }
   }, 150);
 

@@ -222,8 +222,10 @@ function duplicate() {
         }
         nw.anno = ow.annotations();
         const op = ow.track.pos;
-        nw.move(op.x + bb.max.x - bb.min.x + 1, op.y, op.z, true);
-        api.platform.add(nw, true);
+        // swarf r45 (review 10-28b #4): 12 mm to the right, the layout's gap, and no re-pack,
+        // so the original stays where it was put
+        nw.move(op.x + bb.max.x - bb.min.x + 12, op.y, op.z, true);
+        api.platform.add(nw, false, true);      // the copy is the one picked
         api.event.emit("widget.duplicate", nw, ow);
     });
 }

@@ -606,7 +606,7 @@
       }
       // swarf v010: also re-tint the SIMULATE stock mesh material if live
       const animMat = window.__swarfAnimStockMaterial;
-      if (animMat) applyAppearance(animMat, a);
+      if (animMat) { applyAppearance(animMat, a); if (animMat.fog !== false) { animMat.fog = false; animMat.needsUpdate = true; } }   // far out it went black (review 10-28b #17)
       try { window.moto.space.refresh && window.moto.space.refresh(); } catch (e) {}
     } catch (e) { console.warn('swarf-material: applyToStock failed', e); }
   }

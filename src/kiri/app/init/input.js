@@ -62,7 +62,7 @@ function checkSeed(then) {
     // bed shows the start prompt (web/kiri/swarf-start.js); the camera homes on the bed.
     if (widgets.length === 0) {
         try { space.event.onResize(); } catch (e) {}
-        requestAnimationFrame(() => { try { space.view.home(); } catch (e) {} });
+        requestAnimationFrame(() => { try { api.frame_bed ? api.frame_bed() : space.view.home(); } catch (e) {} });
         sdb[SEED] = sdb[SEED] || new Date().getTime();
         sdb[LAST] = version;
     }
