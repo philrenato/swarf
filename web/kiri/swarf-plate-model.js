@@ -15,6 +15,10 @@
  *                           circuit check) or 'away' (put back, off to the side)
  *   m.anchors()             world points for labels: bit, clip, collar, plate, leads
  *   m.reskin(colors)        repaint from a { part: [fill, edge] } map (skins)
+ *
+ * Not wired in yet. For the plate card: 'test' while it waits for the circuit check,
+ * 'flat' once the check passes, the bit lowering on touch off, 'away' when the card asks
+ * for the plate and clip to be put back. Load it beside swarf-shopbot-model.js.
  */
 (function (root) {
   'use strict';
@@ -68,32 +72,46 @@
     const collar = cyl(COLLAR.r, COLLAR.z0, COLLAR.z1, M.alu, head, 32);   // the clamp ring
     box(26, 22, 50, M.alu, head, 0, -COLLAR.r - 8, COLLAR.z0 + 30);        // its clamp ear and slot
     box(2, 24, 52, M.dark, head, 0, -COLLAR.r - 8, COLLAR.z0 + 30);
-    cyl(COLLAR.r + 2, COLLAR.z1, COLLAR.z1 + 60, M.dark, head, 32);       // the motor above
+    cyl(COLLAR.r + 2, COLLAR.z1, COLLAR.z1 + 26, M.dark, head, 32);       // the motor above, cut short
 
     // ---- the ground clip, biting the ring's lower lip at the front right
     const clip = new THREE.Group(); head.add(clip);
     const ca = -Math.PI / 5;                                      // where on the ring
-    clip.position.set(Math.cos(ca) * COLLAR.r, Math.sin(ca) * COLLAR.r, COLLAR.z0 + 4);
-    clip.rotation.z = ca;                                         // +x of the clip points out from the ring
-    const jaw = (tilt) => {
-      const j = new THREE.Group(); clip.add(j);
-      box(46, 9, 3, M.copper, j, 10, 0, 0);                       // a jaw and its lever, one stamping
-      for (let k = 0; k < 4; k++) box(2, 9, 2.4, M.copper, j, -9 + k * 4, 0, tilt > 0 ? -2 : 2);   // teeth
-      j.rotation.y = tilt; return j;
+    clip.position.set(Math.cos(ca) * (COLLAR.r + 3), Math.sin(ca) * (COLLAR.r + 3), COLLAR.z0 - 11);
+    clip.rotation.set(0, 0, ca); clip.rotateY(1.2);                // +x points out from the ring; tipped up so
+                                                                  // the jaws bite the lip from below, levers hanging
+    // two stampings on a pin at x 14: the tips meet on the lip, the levers spread behind the spring
+    const jaw = (dz, tilt) => {
+      const j = new THREE.Group(); j.position.set(14, 0, dz); j.rotation.y = tilt; clip.add(j);
+      box(46, 8, 2.4, M.copper, j, -4, 0, 0);
+      box(4, 9.4, 4, M.copper, j, 16, 0, dz > 0 ? 2 : -2);          // the lever's rolled end
+      for (let k = 0; k < 5; k++) box(1.6, 8, 1.6, M.copper, j, -25 + k * 3.6, 0, dz > 0 ? -1.8 : 1.8);   // teeth
+      return j;
     };
-    const up = jaw(-0.16), dn = jaw(0.16);
-    up.position.set(0, 0, 4); dn.position.set(0, 0, -4);
-    const spring = new THREE.CylinderGeometry(3.2, 3.2, 11, 10); spring.rotateX(Math.PI / 2);
-    solid(spring, M.copper, clip, 14, 0, 0);
-    const clipEnd = new THREE.Vector3(34, 0, -6);                 // where its lead leaves
-    // its lead: down past the bit and off to the right, toward the controller
-    const clipLead = tube([[34, 0, -6], [44, 0, -40], [60, -10, -70], [110, -40, -90], [190, -70, -96]], 1.8, M.lead, clip);
+    jaw(4.4, -0.11); jaw(-4.4, 0.11);
+    solid(new THREE.CylinderGeometry(3.4, 3.4, 12, 12), M.copper, clip, 14, 0, 0);   // spring on its pin
+    const clipEnd = new THREE.Vector3(32, 0, -4);                  // the lead leaves the lower lever
 
-    // ---- the plate and its lead
+    // the clip's lead, coiled, drops to the board and runs off right toward the controller;
+    // rebuilt in set() because it hangs from the moving head down to the still board
+    let clipLead = null;
+    function hangLead() {
+      if (clipLead) { group.remove(clipLead); clipLead.traverse(o => o.geometry && o.geometry.dispose()); }
+      group.updateMatrixWorld(true);
+      const a = clip.localToWorld(clipEnd.clone());
+      const pts = [[a.x, a.y, a.z], [a.x + 8, a.y - 4, a.z * 0.55], [a.x + 16, a.y - 10, 8]];
+      const c0 = new THREE.Vector3(a.x + 26, a.y - 16, 7);            // a coil lying on the board
+      for (let i = 0; i <= 64; i++) { const t = i / 64, an = t * Math.PI * 2 * 7; pts.push([c0.x + t * 110 + 6 * Math.sin(an), c0.y - t * 30, c0.z + 6 * Math.cos(an)]); }
+      pts.push([c0.x + 150, c0.y - 40, 3], [c0.x + 230, c0.y - 60, 2]);
+      const curve = new THREE.CatmullRomCurve3(pts.map(p => new THREE.Vector3(...p)));
+      clipLead = solid(new THREE.TubeGeometry(curve, 400, 1.6, 6), M.lead, group);
+    }
+
+    // ---- the plate and its thin lead
     const plate = new THREE.Group(); group.add(plate);
     box(PLATE.x, PLATE.y, PLATE.t, M.plate, plate, -PLATE.x / 2 + 30, 0, PLATE.t / 2);
-    cyl(3, PLATE.t, PLATE.t + 3, M.plate, plate, 10).position.set(-PLATE.x + 42, 0, PLATE.t + 1.5);   // the screw and its lead's eye
-    const plateLead = tube([[-PLATE.x + 42, 0, PLATE.t + 3], [-PLATE.x + 10, 12, 6], [-PLATE.x - 40, 40, 4], [-PLATE.x - 110, 70, 2]], 1.4, M.lead, plate);
+    cyl(3, PLATE.t, PLATE.t + 3, M.plate, plate, 10).position.set(-PLATE.x + 42, 0, PLATE.t + 1.5);   // the screw holding its lead
+    tube([[-PLATE.x + 42, 0, PLATE.t + 3], [-PLATE.x + 30, -8, 4], [-PLATE.x + 15, -30, 1.2], [-PLATE.x - 5, -60, 1.2], [-PLATE.x + 5, -100, 1.2]], 1, M.lead, plate);
 
     const POSE = {
       flat: { p: [0, 0, 0], r: [0, 0, -0.25] },
@@ -104,9 +122,8 @@
       head.position.set(0, 0, bitZ);
       const P = POSE[pose] || POSE.flat;
       plate.position.set(...P.p); plate.rotation.set(...P.r);
-      if (pose === 'test') {                                      // lift the plate's near end to the bit's tip
-        plate.position.z = bitZ - 2; plate.rotation.y = 0;
-      }
+      if (pose === 'test') plate.position.z = bitZ - PLATE.t;    // held up so its top meets the bit's tip
+      hangLead();
     }
     set();
 
@@ -117,7 +134,6 @@
         bit: w(head, new THREE.Vector3(0, 0, 14)),
         collar: w(head, new THREE.Vector3(-COLLAR.r * 0.7, -COLLAR.r * 0.7, (COLLAR.z0 + COLLAR.z1) / 2)),
         clip: w(clip, new THREE.Vector3(14, 0, 0)),
-        clipLead: w(clip, clipEnd),
         plate: w(plate, new THREE.Vector3(-PLATE.x / 2, 0, PLATE.t)),
         plateLead: w(plate, new THREE.Vector3(-PLATE.x - 60, 52, 3))
       };
