@@ -327,3 +327,4 @@ html[data-skin="classic"] #swarf-watermark { color: #000 !important; text-shadow
 html[data-skin="classic"] #swarf-run .sr-step.done .n, html[data-skin="classic"] #swarf-run .sr-step .n { background: #404040 !important; color: #fff !important; }
 html[data-skin="classic"] #swarf-run .sr-step.now .n { background: #000080 !important; }
 html[data-skin="classic"] #swarf-run .sr-actions button.wait { box-shadow: inset -1px -1px #0a0a0a, inset 1px 1px #fff, inset -2px -2px #808080, inset 2px 2px #dfdfdf !important; }
+html[data-skin="classic"] #swarf-run .sr-mach .sr-out { color: #fff !important; text-shadow: 1px 1px 0 #000 !important; }   /* links in the machine box sit on the blue desktop */
