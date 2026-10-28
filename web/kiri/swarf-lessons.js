@@ -87,7 +87,10 @@
     checks.forEach(([c]) => c.addEventListener('change', update)); update();
     r.card([el('h2', { text: `Test cut: ${lesson.name}` }),
       el('p', { text: 'A scrap of plywood, 12 mm or so, about 200 × 150 mm (any size from 80 mm square up). How big is yours?' }),
-      el('div', { class: 'sr-plate-t' }, el('span', { text: 'width' }), w, el('span', { text: '× depth' }), d, el('span', { text: '× thick' }), t, el('span', { text: 'mm' })),
+      el('div', { class: 'sr-board-size' },
+        el('label', {}, w, el('small', { text: 'width' })), el('span', { text: '×' }),
+        el('label', {}, d, el('small', { text: 'depth' })), el('span', { text: '×' }),
+        el('label', {}, t, el('small', { text: 'thickness' })), el('span', { text: 'mm' })),
       ...checks.map(c => c[1]), say,
       row(btn('back', choose), go)]);
   }
@@ -179,6 +182,7 @@
     const ins = {};
     const rows = fields.map(([k, t]) => { ins[k] = el('input', { type: 'text', inputmode: 'decimal', style: 'width:84px;text-align:right' }); ins[k].addEventListener('keydown', e => e.stopPropagation()); return el('div', { class: 'sr-plate-t' }, el('span', { text: t, style: 'flex:1' }), ins[k], el('span', { text: 'mm' })); });
     const out = el('div', {});
+    const copy = btn('copy the numbers', null); copy.style.display = 'none';
     const calc = () => {
       const v = {}; for (const k in ins) v[k] = num(ins[k].value, NaN);
       const res = analyse(v);
@@ -187,14 +191,14 @@
       if (res.lines.length) {
         const all = JSON.stringify({ test: L.lesson.id, bit: L.bit.name, board: L.board, size: L.size, circle: L.circle, depth: L.depth, measured: v, result: res.data, at: new Date().toISOString() });
         try { const list = JSON.parse(localStorage.getItem(RESULTS) || '[]'); list.push(JSON.parse(all)); localStorage.setItem(RESULTS, JSON.stringify(list.slice(-20))); } catch (e) { /* private */ }
-        out.append(row(btn('copy the numbers', () => { try { navigator.clipboard.writeText(all); r.tell('The numbers are copied.'); } catch (e) {} })));
+        copy.style.display = ''; copy.onclick = () => { try { navigator.clipboard.writeText(all); r.tell('The numbers are copied.'); } catch (e) {} };
       }
     };
     r.card([el('h2', { text: 'Measure what you made' }),
       el('p', { text: L.lesson.id === 'square'
         ? `With calipers, before you unscrew the board. The square was drawn ${L.size} mm (the bit's centre), the circle ${L.circle} mm, ${L.depth} mm deep.`
         : `Unscrew the board, cut the tabs, sand them flush. The part was drawn ${L.size} × ${L.size} mm.` }),
-      ...rows, out, row(btn('later', () => r.card(null)), btn('work it out', calc, 'go'))]);
+      ...rows, out, row(btn('later', () => r.card(null)), copy, btn('work it out', calc, 'go'))]);
   }
   function analyse(v) {
     const lines = [], data = {};

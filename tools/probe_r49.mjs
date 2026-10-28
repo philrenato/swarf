@@ -100,7 +100,7 @@ try {
   // test cuts (10-28): the board's size, screwed down, the bit, then control's steps; measuring takes the bit out
   await page.evaluate(() => window.__swarfLessons.choose()); await wait(300);
   await page.evaluate(() => [...document.querySelectorAll('#swarf-run .sr-needrow')][0].querySelector('button').click()); await wait(300);
-  await page.evaluate(() => { const i = document.querySelectorAll('#swarf-run .sr-sheet.on .sr-plate-t input'); i[0].value = '220'; i[1].value = '160'; i[2].value = '12';
+  await page.evaluate(() => { const i = document.querySelectorAll('#swarf-run .sr-sheet.on .sr-board-size input'); i[0].value = '220'; i[1].value = '160'; i[2].value = '12';
     for (const c of document.querySelectorAll('#swarf-run .sr-sheet.on input[type=checkbox]')) c.click();
     [...document.querySelectorAll('#swarf-run .sr-sheet.on button')].find(b => /next: the bit/.test(b.textContent)).click(); });
   await wait(300);

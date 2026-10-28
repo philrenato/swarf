@@ -141,6 +141,8 @@
       const cmdm = s.match(/^([A-Za-z][A-Za-z0-9]*)\s*,?\s*(.*)$/);
       const cmd = cmdm[1].toUpperCase();
       const p = cmdm[2] === '' ? [] : cmdm[2].split(',');
+      const NUMERIC = /^(M[23XYZ]|J[23XYZ]|MS|JS|TR|TS|SO|VS|PAUSE)$/;
+      if (NUMERIC.test(cmd) && p.some(t => t.trim() !== '' && Number.isNaN(val(t)))) { out.unsupported.push({ line: n, text: s }); continue; }
       switch (cmd) {
         case 'MX': seg(target(st.x, p[0]), st.y, st.z, false, sbpFeed(NaN, st.y, false), n); break;
         case 'MY': seg(st.x, target(st.y, p[0]), st.z, false, sbpFeed(st.x, NaN, false), n); break;
@@ -198,14 +200,15 @@
         case 'CN': {
           const c = val(p[0]);
           if (c === 90) break;                                  // absolute-mode macro
-          event(n, 'macro', 'C' + c); break;
+          out.unsupported.push({ line: n, text: s }); break;     // any other: swarf does not run it
         }
         default: {
           const cm = cmd.match(/^C(\d+)$/);
           if (cm) {
             const k = Number(cm[1]);
             const kind = { 6: 'spindle-on', 7: 'spindle-off', 9: 'tool-change', 2: 'zero-z', 3: 'home' }[k];
-            event(n, kind || 'macro', 'C' + k);
+            if (!kind) { out.unsupported.push({ line: n, text: s }); break; }   // a macro swarf does not run (follow-up review #1)
+            event(n, kind, 'C' + k);
             if (k === 3) out.warnings.push({ line: n, text: 'C3 homes the machine; the preview cannot place it' });
           } else if (/^(PAUSE|MSG|GOSUB|GOTO|IF|RETURN|ON|INPUT)\b/.test(cmd)) {
             out.unsupported.push({ line: n, text: s });
@@ -217,6 +220,10 @@
     }
 
     function gcodeLine(U, n) {
+      // the whole line must be words swarf knows, each with a number (follow-up review #1:
+      // "Xbad" or a stray Q999 were silently dropped)
+      const rest = U.replace(/^N\d+\s*/, '').replace(/[GMXYZIJFSTN]\s*[-+]?(\d+\.?\d*|\.\d+)/g, '').trim();
+      if (rest) { out.unsupported.push({ line: n, text: U.trim() }); return; }
       const words = {};
       const re = /([A-Z])\s*([-+]?\d*\.?\d+)/g;
       let m, gs = [], ms = [];
@@ -228,8 +235,10 @@
       // an allowlist, not a blacklist (design review 10-28 #2): a G or M code swarf does not
       // carry out exactly (G92 offsets, G18/G19 planes, G41/42 compensation, canned cycles,
       // G93 feed modes …) makes the whole line unreadable, which blocks the run
-      const G_OK = new Set([0, 1, 2, 3, 17, 20, 21, 40, 49, 54, 61, 64, 80, 90, 94]);
-      const M_OK = { 3: 'spindle-on', 4: 'spindle-on', 5: 'spindle-off', 6: 'tool-change', 7: 'coolant', 8: 'coolant', 9: 'coolant', 0: 'pause', 1: 'pause' };
+      // G17 XY plane, G20/21 units, G40/49/80 cancels, G54 the one work offset, G90/91, G94: all
+      // what swarf does anyway. M3 router on, M5 off, M6 tool change, M0/M1 pause. Nothing else.
+      const G_OK = new Set([0, 1, 2, 3, 17, 20, 21, 40, 49, 54, 80, 90, 91, 94]);
+      const M_OK = { 3: 'spindle-on', 5: 'spindle-off', 6: 'tool-change', 0: 'pause', 1: 'pause' };
       if (gs.some(g => !G_OK.has(g)) || ms.some(c => !(c in M_OK) && c !== 2 && c !== 30)) { out.unsupported.push({ line: n, text: U.trim() }); return; }
       for (const c of ms) {
         if (c === 2 || c === 30) { st.ended = true; return; }
