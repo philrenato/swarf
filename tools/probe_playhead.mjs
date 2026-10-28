@@ -47,7 +47,7 @@ try {
   check(g.gx === 110 && g.tx === 0 && g.wx === -mid.x && g.cy === mid.y && g.cz === mid.z, `the bed slides ${g.wx} mm in X under a still gantry; the carriage is at Y ${g.cy}, Z ${g.cz}`);
   // play from the top at 200×
   await page.evaluate(() => { const s = document.querySelector('.sr-scrub input'); s.value = '0'; s.dispatchEvent(new Event('input', { bubbles: true })); });
-  while ((await page.evaluate(() => document.querySelector('.sr-rate').textContent)) !== '200×') await page.click('.sr-rate');
+  while ((await page.evaluate(() => document.querySelector('.sr-rate').textContent)) !== 'preview 200×') await page.click('.sr-rate');
   await page.click('.sr-play');
   const a = await tool(); await wait(700); const b = await tool();
   check(b.line > a.line && (a.x !== b.x || a.y !== b.y || a.z !== b.z) && (a.x === b.x || a.wx !== b.wx) && (await page.evaluate(() => document.querySelector('.sr-play').textContent)) === '❚❚', `▶ plays: line ${a.line} → ${b.line}, the bit moves`);

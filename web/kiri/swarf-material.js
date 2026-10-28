@@ -588,12 +588,17 @@
       // on the next selection change. Just set properties on whatever
       // material Kiri gave us. Fields the material doesn't support (e.g.
       // transmission on MeshPhong) are silently ignored.
+      // the picked parts glow warm (review 10-28: "a picked part looks exactly like an
+      // unpicked one": the appearance wrote over cam's selection colour)
+      let picked = new Set();
+      try { picked = new Set(window.kiri.api.selection.widgets()); } catch (e) { /* none */ }
       for (const w of widgets) {
         const mesh = w.mesh;
         if (!mesh) continue;
         const mats = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
         for (const mat of mats) {
           if (mat && mat.color) applyAppearance(mat, a);
+          if (mat && mat.emissive && picked.has(w)) { mat.emissive.set('#6a5638'); mat.needsUpdate = true; }
           // the part is never fogged: the fade is for the floor (swarf-grid-fade.js)
           if (mat && mat.fog !== false) { mat.fog = false; mat.needsUpdate = true; }
         }

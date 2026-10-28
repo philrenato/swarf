@@ -10,7 +10,7 @@
   'use strict';
   const $ = id => document.getElementById(id);
   const api = () => window.kiri && window.kiri.api;
-  const AX = [['x', 'width'], ['y', 'depth'], ['z', 'height']];
+  const AX = [['x', 'width'], ['y', 'depth'], ['z', 'thickness']];
   const KEEP = 'swarf-size-keep';
   let card, fields = {}, keep, edit, count;
 
@@ -21,8 +21,11 @@
     for (const [a, word] of AX) {
       const inp = document.createElement('input');
       inp.inputMode = 'decimal'; inp.title = `${word} in mm: type a size, then Enter`;
-      inp.addEventListener('keydown', e => { if (e.key === 'Enter') { apply(a); inp.blur(); } if (e.key === 'Escape') { show(); inp.blur(); } e.stopPropagation(); });
+      inp.addEventListener('keydown', e => { if (e.key === 'Enter') { inp.dataset.typed = '1'; apply(a); inp.blur(); } if (e.key === 'Escape') { delete inp.dataset.typed; show(); inp.blur(); } e.stopPropagation(); });
       inp.addEventListener('blur', () => apply(a));
+      // only a box typed in is applied on blur; the rest show cam's numbers, focused or not
+      // (review 10-28: Tab into depth kept its old 100, and leaving it squashed the part back)
+      inp.addEventListener('input', () => { inp.dataset.typed = '1'; });
       fields[a] = inp;
       const w = document.createElement('label'); w.className = 'ax';
       w.append(inp, Object.assign(document.createElement('small'), { textContent: word }));
@@ -34,7 +37,7 @@
     const box = document.createElement('input'); box.type = 'checkbox';
     try { box.checked = localStorage.getItem(KEEP) !== '0'; } catch (e) { box.checked = true; }
     box.addEventListener('change', () => { try { localStorage.setItem(KEEP, box.checked ? '1' : '0'); } catch (e) { /* private */ } });
-    keep.title = 'width and depth change together; the height (thickness) stays as it is';
+    keep.title = 'width and depth change together; the thickness stays as it is';
     keep.append(box, document.createTextNode('keep proportions'));
     keep.box = box;
     card.append(keep);
@@ -52,6 +55,8 @@
 
   // type a size: cam's own field, locks as "keep proportions" says, then cam applies it on blur
   function apply(a) {
+    if (!fields[a].dataset.typed) return;
+    delete fields[a].dataset.typed;
     const src = $(`size_${a}`), v = parseFloat(fields[a].value);
     if (!src || !(v > 0)) { show(); return; }
     if (Math.abs(v - parseFloat(src.was ?? src.value)) < 1e-6) return;
@@ -77,7 +82,7 @@
     edit.style.display = picked.some(w => w.meta && w.meta.svg) ? '' : 'none';
     for (const [b] of AX) {
       const src = $(`size_${b}`);
-      if (src && document.activeElement !== fields[b]) fields[b].value = (+parseFloat(src.value || 0).toFixed(2)).toString();
+      if (src && !fields[b].dataset.typed) fields[b].value = (+parseFloat(src.value || 0).toFixed(2)).toString();
     }
   }
 

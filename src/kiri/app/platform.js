@@ -878,6 +878,10 @@ function layout() {
             gap = gap || (process.slaSupportLayers && process.slaSupportDensity ? 2 : 1);
             break;
         case MODES.CAM:
+            // swarf (review 10-28): parts packed 1 mm apart read as one part, and no bit
+            // fits between them: room for a 1/4 in bit and some
+            gap = Math.max(gap || process.ctOutTileSpacing || 1, 12);
+            break;
         case MODES.LASER:
             gap = gap || process.ctOutTileSpacing || 1;
             break;

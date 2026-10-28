@@ -46,7 +46,7 @@ try {
   await page.evaluate(() => [...document.querySelectorAll('#swarf-size .act')].find(b => b.textContent === 'duplicate').click());
   await wait(800);
   const dup = await page.evaluate(() => window.kiri.api.widgets.all().map(w => ({ x: +w.track.pos.x.toFixed(1), svg: /<svg/.test(w.meta.svg || ''), t: w.meta.t })));
-  check(dup.length === 2 && dup.every(d => d.svg) && Math.abs(Math.abs(dup[1].x - dup[0].x) - 901) < 1.5, `the copy keeps its drawing and sits beside it: ${JSON.stringify(dup)}`);
+  check(dup.length === 2 && dup.every(d => d.svg) && Math.abs(dup[1].x - dup[0].x) - 900 >= 11.9 && Math.abs(dup[1].x - dup[0].x) - 900 < 20, `the copy keeps its drawing and sits beside it, room for a bit between: ${JSON.stringify(dup)}`);
   // delete the copy (the picked one)
   await page.evaluate(() => { const a = window.kiri.api, ws = a.widgets.all(); a.platform.deselect(); a.platform.select(ws[1]); });
   await wait(300);

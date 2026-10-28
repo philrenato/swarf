@@ -209,7 +209,12 @@ function duplicate() {
         const bb = mesh.getBoundingBox();
         const ow = widget;
         const nw = api.widgets.new().loadGeometry(mesh.geometry.clone());
-        nw.meta.file = ow.meta.file;
+        // swarf: a copy has its own name ("…-2", "…-3"), so the list tells them apart
+        const base = String(ow.meta.file || 'part').replace(/-\d+$/, '');
+        const taken = new Set(api.widgets.all().map(w => w.meta.file));
+        let n = 2;
+        while (taken.has(`${base}-${n}`)) n++;
+        nw.meta.file = `${base}-${n}`;
         nw.meta.vertices = ow.meta.vertices;
         // swarf: the copy keeps its drawing (DRAW, save drawing) and sits beside the original
         for (const k of ['svg', 'c0', 'xf', 't', 'edge', 'tilted']) {

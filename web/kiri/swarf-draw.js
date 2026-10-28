@@ -357,7 +357,8 @@
         h += `<div class="sd-h">point</div>${row('x', 'sd-px', r3(P[0]), 'mm')}${row('y', 'sd-py', r3(P[1]), 'mm')}`;
       } else if (S.pts.size) h += `<div class="sd-h">${S.pts.size} points</div>`;
       h += `<div class="sd-h">${S.pts.size ? (S.pts.size === 1 ? 'around it' : 'the points') : 'the part'}</div>${row('scale', 'sd-scale', 100, '%')}${row('turn', 'sd-turn', 0, '°')}
-        <div class="sd-note">${S.pts.size ? 'Drag a point, or type where it goes. Delete removes it. Double-click an edge to add one.' : 'Drag the part to move it. Click a point to pick it; drag across points to pick several.'}</div>`;
+        <div class="sd-note">${S.pts.size ? 'Drag a point, or type where it goes. Delete removes it. Double-click an edge to add one.' : 'Drag the part to move it. Click a point to pick it; drag across points to pick several.'}</div>
+        ${S.pts.size ? '' : '<div class="sd-row"><button id="sd-del" title="remove this part (when you press done)">delete this part</button></div>'}`;
     } else if (S.parts.some(p => !p.gone)) {
       h = '<div class="sd-note">Click a part to edit it.</div>';
     }
@@ -415,6 +416,8 @@
         inp.click();
       };
     }
+    const del = $('sd-del');
+    if (del) del.onclick = () => { S.pts.clear(); deletePts(); ui.svg.focus(); };
     num('sd-w', v => size(0, v));
     num('sd-d', v => size(1, v));
     num('sd-scale', v => { if (!(v > 0)) return say('Scale is a percentage more than 0.'); if (v !== 100) { snap(); transform(part, M => [M[0] * v / 100, M[1] * v / 100]); render(); } });
