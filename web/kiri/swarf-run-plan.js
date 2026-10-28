@@ -55,8 +55,14 @@
     let at = { ...pos };
     for (const m of moves) {
       if (hold) break;
-      // a continue starts by going straight up from wherever the bit is, then the router at height
-      if (m.liftFirst) { move({ x: at.x, y: at.y, z: Math.max(at.z, m.z) }, cfg.rapid.z, m.line, 'entry'); at.z = Math.max(at.z, m.z); continue; }
+      // a continue starts by going straight up from wherever the bit is, then over at that height
+      // (the lift-first move itself), the router on there, then slowly down to the line's start
+      if (m.liftFirst) {
+        move({ x: at.x, y: at.y, z: Math.max(at.z, m.z) }, cfg.rapid.z, m.line, 'entry');
+        move({ x: m.x, y: m.y, z: Math.max(at.z, m.z) }, cfg.rapid.xy, m.line, 'entry');
+        at = { x: m.x, y: m.y, z: Math.max(at.z, m.z) };
+        continue;
+      }
       if (!started) { if (live) say(true, m.line); started = true; }
       while (e < events.length && events[e].line < m.line) event(events[e++]);
       if (hold) break;
@@ -67,7 +73,7 @@
         feed = Math.min(feed, cfg.move.xy);
         if (dz > 1e-9 && L > 0) feed = Math.min(feed, cfg.move.z * L / dz);
       }
-      move(m, feed, m.line, m.liftFirst ? 'entry' : 'program', m);
+      move(m, feed, m.line, m.lead ? 'entry' : 'program', m);
       at = { x: m.x, y: m.y, z: m.z };
       moved = true;
     }

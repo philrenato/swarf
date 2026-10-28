@@ -404,13 +404,17 @@
     // position), over at safe Z, then down slowly to where line N starts
     const lead = [
       { x0: first.x0, y0: first.y0, z0: safeZ, x: first.x0, y: first.y0, z: safeZ, rapid: true, line, liftFirst: true },
-      { x0: first.x0, y0: first.y0, z0: safeZ, x: first.x0, y: first.y0, z: first.z0, rapid: false, feed: 10, line }
+      { x0: first.x0, y0: first.y0, z0: safeZ, x: first.x0, y: first.y0, z: first.z0, rapid: false, feed: 10, line, lead: true }
     ];
     const moves = lead.concat(rest);
     const sbp = movesToSbp(moves, { name: `${name} from line ${line}`, spindle: on && on.kind === 'spindle-on', rpm: rpm && rpm.value, safeZ });
     // the original file's own events from line N on: the written file numbers its lines
     // afresh, the moves keep the original numbers (review 10-27)
-    const events = parsed.events.filter(e => e.line >= line);
+    // the machine as the file left it at that line (the follow-up review: reconstruct the modal
+    // state or refuse): every other output's last switch before the line is made again on the way in
+    const outs = new Map();
+    for (const e of parsed.events) if (e.line < line && e.kind === 'output' && e.value[0] >= 2) outs.set(e.value[0], e);
+    const events = [...[...outs.values()].map(e => ({ ...e, line: line - 0.5 })), ...parsed.events.filter(e => e.line >= line)];
     return { name: `${name} (from line ${line})`, moves, sbp, events, spindle: !!(on && on.kind === 'spindle-on') };
   }
 
