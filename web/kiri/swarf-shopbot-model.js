@@ -27,7 +27,7 @@
       const f = new THREE.MeshBasicMaterial({ color: c, transparent: true, opacity: o, depthWrite: false });
       const l = new THREE.LineBasicMaterial({ color: e, transparent: true, opacity: eo });
       f.fog = l.fog = false;
-      return { f, l };
+      return { f, l, base: { c, o, e, eo } };
     };
     const M = {
       steel: mat(0x2c3aa8, 0.12, 0x7286f0, 0.42),     // the blue powder-coated steel
@@ -159,7 +159,23 @@
       setChain(Math.min(BED.y, Math.max(0, y)));
     }
     set(0, 0);
-    return { gantry, bed, carriage, head, set, OFFSET, BED };
+    // skins (swarf-skin.js): each part's fill and edge from --sk3d-m-<part>[-edge], and
+    // one alpha scale for fills and one for edges (a pale sky wants darker, stronger lines)
+    function recolor() {
+      const S = window.SwarfSkin;
+      const fa = S ? S.number('m-fill-a', 1) : 1, ea = S ? S.number('m-edge-a', 1) : 1;
+      for (const k in M) {
+        const { f, l, base } = M[k];
+        f.color.setHex(S ? S.color('m-' + k, base.c) : base.c);
+        l.color.setHex(S ? S.color('m-' + k + '-edge', base.e) : base.e);
+        f.opacity = Math.min(1, base.o * fa); l.opacity = Math.min(1, base.eo * ea);
+      }
+      chainM.color.setHex(S ? S.color('m-chain', 0x9a9a9a) : 0x9a9a9a);
+      chainM.opacity = Math.min(1, 0.5 * ea);
+    }
+    recolor();
+    window.addEventListener('swarf.skin', recolor);
+    return { gantry, bed, carriage, head, set, recolor, OFFSET, BED };
   }
 
   root.SwarfShopBotModel = { build, OFFSET, BED, REACH };

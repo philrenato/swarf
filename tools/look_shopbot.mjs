@@ -11,13 +11,19 @@ await page.waitForFunction(() => window.THREE && window.THREE.WebGLRenderer && w
 await new Promise(r => setTimeout(r, 6000));   // the service worker may reload the page once
 await page.waitForFunction(() => window.THREE && window.THREE.WebGLRenderer && window.kiri && window.kiri.api && window.SwarfShopBotModel, { timeout: 90000 });
 // one model on its own canvas, from about where the photos stood (tools/look_shopbot.mjs [url] [outdir])
-const shots = [
+const MR1 = process.env.MODEL === 'mr1';
+const shots = MR1 ? [
+  ['mr1-front', [-900, -1500, 900], [0, 0, 100], 0, 60],
+  ['mr1-side', [-1700, 0, 300], [0, 0, 100], 200, 120],
+  ['mr1-back-left', [900, 1400, 1000], [0, 0, 100], -200, 20],
+] : [
   ['front-right', [-1900, -2600, 1500], [0, 600, 100], 600, 120],
   ['front', [-2300, 300, 700], [0, 600, 250], 300, 60],
   ['chainL', [-1500, -1400, 1300], [0, 600, 300], 100, 40],
   ['chainR', [-1500, -1400, 1300], [0, 600, 300], 1150, 180],
   ['side', [0, -2800, 300], [-200, 600, 0], 600, 100],
 ];
+await page.evaluate(v => { window.__lbMR1 = v; }, MR1);
 for (const [name, cam, tgt, y, z] of shots) {
   await page.evaluate((cam, tgt, y, z) => {
     const T = window.THREE;
@@ -25,10 +31,9 @@ for (const [name, cam, tgt, y, z] of shots) {
     if (!c) { c = document.createElement('canvas'); c.id = 'lookbot'; c.style.cssText = 'position:fixed;inset:0;width:1200px;height:900px;z-index:99999;background:#1a1420'; document.body.append(c); }
     const r = window.__lbR || (window.__lbR = new T.WebGLRenderer({ canvas: c, antialias: true, preserveDrawingBuffer: true }));
     r.setSize(1200, 900, false); r.setClearColor(0x1a1420, 1);
-    const s = new T.Scene(), m = window.__lbM || (window.__lbM = window.SwarfShopBotModel.build(T));
-    s.add(m.gantry, m.bed);
-    m.bed.position.set(-900, 0, 0);
-    m.set(y, z);
+    const s = new T.Scene();
+    if (window.__lbMR1) { const m = window.__lbM || (window.__lbM = window.SwarfMR1Model.build(T)); s.add(m.root); m.set(y * 0.6, y, z); }
+    else { const m = window.__lbM || (window.__lbM = window.SwarfShopBotModel.build(T)); s.add(m.gantry, m.bed); m.bed.position.set(-900, 0, 0); m.set(y, z); }
     const cm = new T.PerspectiveCamera(40, 1200 / 900, 1, 50000); cm.up.set(0, 0, 1);
     cm.position.set(...cam); cm.lookAt(new T.Vector3(...tgt));
     r.render(s, cm);

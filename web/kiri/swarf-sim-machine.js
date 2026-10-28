@@ -18,8 +18,19 @@
   const KEY = 'swarf-run-ghost';
   const api = () => window.kiri && window.kiri.api;
   const space = () => window.moto && window.moto.space;
-  let WORLD = null, gantry = null, rail = null, bed = null, chip = null;
-  let active = false, x0 = null;
+  let WORLD = null, gantry = null, rail = null, bed = null, chip = null, mr1 = null;
+  let active = false, x0 = null, kind = null;
+  // which machine: the ShopBot's bed slides under a fixed gantry ('bed'); the MR-1's
+  // bed stays and the gantry, carriage and spindle move over it ('gantry', Phil 10-28)
+  function machineKind() {
+    let n = '';
+    try { n = String(api().conf.get().device.deviceName || ''); } catch (e) { return null; }
+    return /shopbot/i.test(n) ? 'bed' : /mr-1|langmuir/i.test(n) ? 'gantry' : null;
+  }
+  const TITLE = {
+    bed: 'Show the ShopBot: its 4 × 8 ft bed slides in X under the gantry, as it does in the shop',
+    gantry: 'Show the MR-1: its table stays still; the gantry moves in Y, the carriage in X and the spindle in Z'
+  };
 
   const wanted = () => { try { return localStorage.getItem(KEY) !== '0'; } catch (e) { return true; } };
 
@@ -67,9 +78,17 @@
     return { x: x - 50, y: y - 50 };
   }
 
+  function buildMR1() {
+    mr1 = window.SwarfMR1Model.build(window.THREE);
+    world().add(mr1.root);                          // in the world: the table is where the stock is
+    mr1.root.visible = false;
+  }
+
   function start() {
     if (!world()) return;
-    if (!gantry) build();
+    kind = machineKind();
+    if (kind === 'bed' && !gantry) build();
+    if (kind === 'gantry' && !mr1 && window.SwarfMR1Model) buildMR1();
     active = true; x0 = null;
     showChip();
     apply();
@@ -78,26 +97,41 @@
     active = false; x0 = null;
     if (WORLD) WORLD.position.x = 0;
     if (gantry) gantry.visible = bed.visible = false;
+    if (mr1) mr1.root.visible = false;
     try { space().refresh(); } catch (e) { /* gone */ }
   }
   function apply() {
     const on = active && wanted();
-    if (!gantry) return;
-    gantry.visible = bed.visible = on;
+    if (gantry) gantry.visible = bed.visible = on && kind === 'bed';
+    if (mr1) mr1.root.visible = on && kind === 'gantry';
     if (on) near();
-    if (!on && WORLD) WORLD.position.x = 0;
-    if (on) { const b = placeBed(); rail.position.set(0, b.y, 0); }
-    if (chip) chip.classList.toggle('on', wanted());
+    if ((!on || kind !== 'bed') && WORLD) WORLD.position.x = 0;
+    if (on && kind === 'bed' && gantry) { const b = placeBed(); rail.position.set(0, b.y, 0); }
+    if (chip) { chip.classList.toggle('on', wanted()); chip.title = TITLE[kind] || 'Show the machine'; }
     try { space().refresh(); } catch (e) { /* gone */ }
   }
 
   // close in on the job the gantry would fill the view: only the bed shows until you zoom out (as in CONTROL)
   function near() {
-    try { gantry.visible = active && wanted() && space().internals().camera.position.length() > 1800; } catch (e) { /* no camera */ }
+    try {
+      const d = space().internals().camera.position.length();
+      if (kind === 'bed' && gantry) gantry.visible = active && wanted() && d > 1800;
+      // the MR-1's gantry is small: it steps aside only when the camera is right at the job
+      if (kind === 'gantry' && mr1) mr1.gantry.visible = active && wanted() && d > 650;
+    } catch (e) { /* no camera */ }
   }
   // each step of the simulation: the world slides back by the bit's X travel
   function onTool({ pos }) {
-    if (!active || !gantry || !pos) return;
+    if (!active || !pos) return;
+    // the MR-1: the table and the stock hold still; the axes go to the bit
+    if (kind === 'gantry') {
+      if (!mr1) return;
+      if (WORLD) WORLD.position.x = 0;
+      if (x0 === null) x0 = pos.x;
+      if (wanted()) { mr1.set(pos.x, pos.y, pos.z); near(); }
+      return;
+    }
+    if (!gantry) return;
     if (x0 === null) x0 = pos.x;
     const on = wanted();
     WORLD.position.x = on ? -(pos.x - x0) : 0;
@@ -113,14 +147,15 @@
     chip = document.createElement('button');
     chip.id = 'swarf-sim-machine';
     chip.textContent = 'machine';
-    chip.title = 'Show the ShopBot: its 4 × 8 ft bed slides in X under the gantry, as it does in the shop';
+    chip.title = TITLE[kind] || 'Show the machine';
     // turning it on steps back to show the machine; off comes back to the parts (review 10-28b #17)
     chip.onclick = () => {
       try { localStorage.setItem(KEY, wanted() ? '0' : '1'); } catch (e) { /* private window */ }
       apply();
       try {
         const s = space(), a = api();
-        if (wanted() && bed) s.view.fit(undefined, { padding: 0.9, visibleOnly: false, objects: [bed, model.gantry] });
+        if (wanted() && kind === 'bed' && bed) s.view.fit(undefined, { padding: 0.9, visibleOnly: false, objects: [bed, model.gantry] });
+        else if (wanted() && kind === 'gantry' && mr1) s.view.fit(undefined, { padding: 0.9, visibleOnly: false, objects: [mr1.root] });
         else if (a.frame) a.frame();
         setTimeout(near, 450);
       } catch (e) { /* no view */ }
@@ -142,5 +177,6 @@
     }
   }, 150);
 
-  window.__swarfSimMachine = { state: () => ({ active, x0, worldX: WORLD ? WORLD.position.x : null, on: wanted(), gantryX: gantry ? gantry.position.x : null }), stop };
+  window.__swarfSimMachine = { state: () => ({ active, x0, kind, worldX: WORLD ? WORLD.position.x : null, on: wanted(), gantryX: gantry ? gantry.position.x : null,
+    mr1: mr1 ? { shown: mr1.root.visible, y: mr1.gantry.position.y, x: mr1.carriage.position.x, z: mr1.head.position.z } : null }), stop };
 })();

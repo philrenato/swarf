@@ -1,0 +1,296 @@
+/* swarf skin: CLASSIC — a desktop from the late nineties (Phil 10-28: "classic OS —
+   use a mix of BeOS and Win95 and OS9 type features").
+   Each piece borrows from the system that did it best:
+     BeOS      the desktop blue, the yellow tab on each panel, yellow for a toggle that is on
+     Windows 95  the silver two-pixel bevels, the navy title bars on dialogs, the taskbar step row,
+               navy for a chosen row
+     Mac OS 9  the Platinum menubar and its blue-highlight menus, pinstripes on the start card,
+               the default-button ring, Geneva and Monaco, the yellow help balloon
+   The recipes come from Phil's own rooms: Sbalzo (BeOS), Classicery dw and fcp (Platinum),
+   Classicery wrdz (Windows 95). The colour layer is swarf-skin-map.css, driven below. */
+
+html[data-skin="classic"] {
+  --sk-n0: 192 192 192;  --sk-n1: 212 208 200;  --sk-n2: 223 223 223;  --sk-n3: 236 236 236;
+  --sk-n4: 160 160 160;  --sk-n5: 128 128 128;  --sk-n6: 96 96 96;     --sk-n7: 64 64 64;
+  --sk-n8: 16 16 16;     --sk-n9: 0 0 0;
+  --sk-shadow: 0 0 0; --sk-a-shadow: .5; --sk-glint: 255 255 255;
+  --sk-acc-dim: 0 0 96; --sk-acc: 0 0 128; --sk-acc-hi: 16 132 208;
+  --sk-warn: 176 112 0; --sk-ok: 0 128 0; --sk-info: 0 0 128; --sk-violet: 96 64 160;
+
+  --swarf-bg: #c0c0c0;  --swarf-bg-2: #d4d0c8;  --swarf-bg-3: #dfdfdf;
+  --swarf-line: #808080;  --swarf-line-2: #404040;
+  --swarf-text: #000;  --swarf-text-1: #000;  --swarf-text-2: #333;  --swarf-text-3: #666;
+  --swarf-accent: #000080;  --swarf-accent-hi: #1084d0;  --swarf-accent-dim: #000060;
+  --swarf-glow: transparent;  --swarf-amber: #b07000;  --swarf-green: #008000;
+
+  --sk3d-fog: #336698;  --sk3d-floor: #c0c0c0;  --sk3d-floor-opacity: .85;  --sk3d-floor-light: .5;
+  --sk3d-grid-major: #6f6f6f;  --sk3d-grid-minor: #a4a4a4;  --sk3d-ruler: #000000;
+  --sk3d-bedname: #000080;  --sk3d-bedname-opacity: .4;
+  --sk3d-trail-additive: 0;  --sk3d-trail-core: #ffcb00;  --sk3d-trail-halo: #ff9a00;  --sk3d-trail-bloom: #ffe680;
+  --sk3d-m-fill-a: 1.6;  --sk3d-m-edge-a: 2;
+  --sk3d-m-steel: #2c3aa8;  --sk3d-m-steel-edge: #101c80;  --sk3d-m-alu: #d8d8d8;  --sk3d-m-alu-edge: #4a4a4a;
+  --sk3d-m-router: #202020;  --sk3d-m-router-edge: #101010;  --sk3d-m-white: #ffffff;  --sk3d-m-white-edge: #505050;
+  --sk3d-m-brush: #000;  --sk3d-m-brush-edge: #202020;  --sk3d-m-hose: #e8e8e8;  --sk3d-m-hose-edge: #606060;
+  --sk3d-m-mdf: #c9a77a;  --sk3d-m-mdf-edge: #6a4a20;  --sk3d-m-ply: #b8935e;  --sk3d-m-ply-edge: #604018;  --sk3d-m-chain: #202020;
+  --sk3d-c-grid: #8c8c8c;  --sk3d-c-grid-axis: #000080;  --sk3d-c-path-hidden: #b4b4b4;  --sk3d-c-path-rapid: #6a6a6a;
+  --sk3d-c-path-done: #000080;  --sk3d-c-path-todo: #7080c0;  --sk3d-c-tool: #000000;
+
+  /* recipes */
+  --c-out: inset -1px -1px #000, inset 1px 1px #fff, inset -2px -2px #808080, inset 2px 2px #dfdfdf;   /* Windows 95 raised */
+  --c-in: inset -1px -1px #fff, inset 1px 1px #000, inset -2px -2px #dfdfdf, inset 2px 2px #808080;    /* Windows 95 sunken */
+  --c-field: inset -1px -1px #fff, inset 1px 1px #808080, inset -2px -2px #dfdfdf, inset 2px 2px #404040;
+  --c-title: linear-gradient(90deg, #000080, #1084d0);                                                /* Windows 95/98 title */
+  --c-tab: linear-gradient(180deg, #ffd84a 0%, #f2c230 55%, #d9a514 100%);                              /* BeOS tab */
+  --c-stripes: repeating-linear-gradient(180deg, #fff 0 1px, #a8a8a8 1px 2px);                          /* Mac OS 9 pinstripes */
+  --c-dither: repeating-conic-gradient(#c0c0c0 0% 25%, #fff 0% 50%) 0 0 / 2px 2px;                      /* the pressed taskbar */
+  --c-font: Geneva, Tahoma, Verdana, "Lucida Grande", "MS Sans Serif", sans-serif;
+  --c-bold: Charcoal, Chicago, "Charcoal CY", Geneva, Tahoma, sans-serif;
+  --c-mono: Monaco, "Lucida Console", "Courier New", monospace;
+  color-scheme: light;
+}
+
+/* ---- the desktop: BeOS blue, with a faint Mac OS 9 texture ---- */
+html[data-skin="classic"], html[data-skin="classic"] body { background: #336698 !important; color: #000; }
+html[data-skin="classic"] body {
+  background-image:
+    radial-gradient(circle at 25% 35%, rgba(255,255,255,.07) 0 1px, transparent 1px),
+    radial-gradient(circle at 75% 65%, rgba(0,0,0,.08) 0 1px, transparent 1px) !important;
+  background-size: 6px 6px, 6px 6px !important;
+}
+html[data-skin="classic"] body::before { display: none !important; }
+html[data-skin="classic"] #container::before { display: none !important; }
+
+/* ---- type: Geneva for words, Monaco for numbers, Title Case for the chrome ---- */
+html[data-skin="classic"] body, html[data-skin="classic"] .set-header, html[data-skin="classic"] label, html[data-skin="classic"] button,
+html[data-skin="classic"] select, html[data-skin="classic"] input, html[data-skin="classic"] .opdiv, html[data-skin="classic"] #op-add-list > div,
+html[data-skin="classic"] #swarf-run, html[data-skin="classic"] #swarf-draw, html[data-skin="classic"] #swarf-watermark, html[data-skin="classic"] #alert-text {
+  font-family: var(--c-font) !important;
+}
+html[data-skin="classic"] .set-header, html[data-skin="classic"] #menubar, html[data-skin="classic"] label[class*="set-"],
+html[data-skin="classic"] .swarf-step, html[data-skin="classic"] #mode-tools > span, html[data-skin="classic"] #menubar.content > div,
+html[data-skin="classic"] .swarf-plate-head, html[data-skin="classic"] #swarf-run .sr-box h3 {
+  text-transform: capitalize !important; letter-spacing: 0 !important;
+}
+html[data-skin="classic"] button { text-transform: none !important; letter-spacing: 0 !important; }
+html[data-skin="classic"] .sr-axis .v, html[data-skin="classic"] #swarf-size .ax input, html[data-skin="classic"] #ver, html[data-skin="classic"] .sr-mpos,
+html[data-skin="classic"] #swarf-run .sr-plan, html[data-skin="classic"] textarea { font-family: var(--c-mono) !important; }
+
+/* ---- the menubar: Mac OS 9 Platinum ---- */
+html[data-skin="classic"] #menubar, html[data-skin="classic"] #menubar.content {
+  background: linear-gradient(180deg, #f2f2f2, #dcdcdc) !important; border-bottom: 1px solid #000 !important; box-shadow: none !important;
+}
+html[data-skin="classic"] #menubar.content > div, html[data-skin="classic"] #menubar label { color: #000 !important; font-size: 12px !important; font-family: var(--c-bold) !important; }
+html[data-skin="classic"] #menubar .top-menu > span.swarf-open, html[data-skin="classic"] #menubar.content > div:hover,
+html[data-skin="classic"] .top-menu > span.selected { background: #3a5ca8 !important; color: #fff !important; box-shadow: none !important; }
+html[data-skin="classic"] #menubar .top-menu > span.swarf-open label { color: #fff !important; }
+html[data-skin="classic"] .top-menu-drop { background: transparent !important; border: 0 !important; box-shadow: none !important; }
+html[data-skin="classic"] .top-menu-drop > .content {
+  background: #f4f4f4 !important; border: 1px solid #000 !important; border-radius: 0 !important;
+  box-shadow: 2px 2px 0 rgba(0,0,0,.35) !important; padding: 3px 0 !important;
+}
+html[data-skin="classic"] #menubar .top-menu > span.swarf-open .top-menu-drop label,
+html[data-skin="classic"] #menubar .top-menu > span.swarf-open .top-menu-drop i { color: #000 !important; }
+html[data-skin="classic"] #menubar .top-menu > span.swarf-open .top-menu-drop div:hover label,
+html[data-skin="classic"] #menubar .top-menu > span.swarf-open .top-menu-drop div:hover i { color: #fff !important; }
+html[data-skin="classic"] .top-menu-drop div { color: #000 !important; border-radius: 0 !important; }
+html[data-skin="classic"] .top-menu-drop div:hover { background: #3a5ca8 !important; color: #fff !important; }
+html[data-skin="classic"] .top-menu-drop div:hover label, html[data-skin="classic"] .top-menu-drop div:hover i { color: #fff !important; }
+html[data-skin="classic"] .top-menu-drop hr { border-top: 1px solid #b0b0b0 !important; opacity: 1 !important; }
+
+/* ---- the step row: the Windows 95 taskbar ---- */
+html[data-skin="classic"] #mode-tools {
+  background: #c0c0c0 !important; border: 0 !important; border-left: 0 !important; border-radius: 0 !important; clip-path: none !important;
+  box-shadow: var(--c-out), 2px 2px 0 rgba(0,0,0,.3) !important; padding: 3px !important; gap: 3px !important; top: 34px !important;
+}
+html[data-skin="classic"] #mode-tools > span {
+  background: #c0c0c0 !important; border: 0 !important; border-radius: 0 !important; box-shadow: var(--c-out) !important;
+  color: #000 !important; font-size: 12px !important; text-shadow: none !important; padding: 5px 12px !important;
+}
+html[data-skin="classic"] #mode-tools > span:hover { color: #000 !important; text-shadow: none !important; }
+html[data-skin="classic"] #mode-tools > span.selected, html[data-skin="classic"] #mode-tools > span.swarf-step-run.swarf-step-on {
+  background: var(--c-dither) !important; box-shadow: var(--c-in) !important; font-weight: 700;
+}
+html[data-skin="classic"] #mode-tools svg, html[data-skin="classic"] #mode-tools i { fill: #000 !important; color: #000 !important; }
+html[data-skin="classic"] #mode-tools > span.selected svg, html[data-skin="classic"] #mode-tools > span.selected i, html[data-skin="classic"] #mode-tools > span.selected label,
+html[data-skin="classic"] #mode-tools > span.swarf-step-run.swarf-step-on label, html[data-skin="classic"] #mode-tools > span.swarf-step-run.swarf-step-on i { fill: #000 !important; color: #000 !important; }
+html[data-skin="classic"] #mode-tools > span.disabled, html[data-skin="classic"] #act-animate.disabled { background: #c0c0c0 !important; color: #808080 !important; text-shadow: 1px 1px 0 #fff !important; opacity: 1 !important; }
+html[data-skin="classic"] #mode-tools > span.disabled svg, html[data-skin="classic"] #mode-tools > span.disabled label { fill: #808080 !important; color: #808080 !important; }
+html[data-skin="classic"] .swarf-step-run label, html[data-skin="classic"] .swarf-step-run i { color: #000080 !important; }
+html[data-skin="classic"] .swarf-step-run { border-left: 0 !important; }
+html[data-skin="classic"] body.swarf-run-open #mode-tools > span.selected:not(.swarf-step-run) { background: #c0c0c0 !important; box-shadow: var(--c-out) !important; font-weight: 400; }
+
+/* ---- the panels: Platinum windows, Windows 95 bevels, a BeOS yellow tab for the title ---- */
+html[data-skin="classic"] #panel-right .set2-group, html[data-skin="classic"] #swarf-right-rail .set2-group,
+html[data-skin="classic"] #panel-left .set2-group, html[data-skin="classic"] .swarf-plate {
+  background: #d4d0c8 !important; border: 0 !important; border-left: 0 !important; border-radius: 0 !important; clip-path: none !important;
+  box-shadow: var(--c-out), 3px 3px 0 rgba(0,0,0,.28) !important; padding: 3px !important;
+}
+html[data-skin="classic"] #panel-right .set2-group::before, html[data-skin="classic"] #swarf-right-rail .set2-group::before, html[data-skin="classic"] .swarf-plate::before,
+html[data-skin="classic"] #panel-right .set2-group > *:first-child::before, html[data-skin="classic"] #panel-right .set2-group > *:first-child::after { display: none !important; }
+html[data-skin="classic"] #panel-right .set2-group summary.set-header, html[data-skin="classic"] #swarf-right-rail .set2-group summary.set-header,
+html[data-skin="classic"] #panel-right .set2-group > .set-header, html[data-skin="classic"] #swarf-right-rail .set2-group > .set-header,
+html[data-skin="classic"] #panel-left .set-header {
+  display: block !important; width: fit-content; min-width: 120px; padding: 3px 14px 3px 10px !important; margin: 0 0 4px !important;
+  background: var(--c-tab) !important; color: #000 !important; font-family: var(--c-bold) !important; font-size: 12px !important; font-weight: 700 !important;
+  border: 0 !important; box-shadow: inset 1px 1px 0 #fff3b0, inset -1px 0 0 #8a6a00, 0 1px 0 #8a6a00 !important;
+}
+html[data-skin="classic"] #panel-right .set2-group summary.set-header::before { color: #000 !important; }
+html[data-skin="classic"] #panel-left .set-header::before { color: #000 !important; }
+html[data-skin="classic"] .set-header { background-image: none; }
+html[data-skin="classic"] #swarf-material-row { background: transparent !important; border-bottom: 1px solid #808080 !important; box-shadow: 0 1px 0 #fff; }
+html[data-skin="classic"] #swarf-material-row span { color: #000 !important; letter-spacing: 0 !important; text-transform: capitalize !important; font-size: 12px !important; }
+
+/* ---- buttons: Windows 95, with a Mac OS 9 ring on the one that goes ahead ---- */
+html[data-skin="classic"] button, html[data-skin="classic"] #op-add-list > div, html[data-skin="classic"] #swarf-run button, html[data-skin="classic"] #swarf-draw button {
+  background: #c0c0c0 !important; border: 0 !important; border-radius: 0 !important; box-shadow: var(--c-out) !important;
+  color: #000 !important; text-shadow: none !important; font-size: 12px !important;
+}
+html[data-skin="classic"] button:hover, html[data-skin="classic"] #op-add-list > div:hover, html[data-skin="classic"] #swarf-run button:not(:disabled):hover,
+html[data-skin="classic"] #swarf-draw button:hover { background: #cacaca !important; color: #000 !important; }
+html[data-skin="classic"] button:active, html[data-skin="classic"] #op-add-list > div:active, html[data-skin="classic"] #swarf-run button:active,
+html[data-skin="classic"] #swarf-run .sr-pad button.held { box-shadow: var(--c-in) !important; background: #c0c0c0 !important; color: #000 !important; }
+/* a toggle that is on: BeOS yellow, pressed in */
+html[data-skin="classic"] button.selected, html[data-skin="classic"] #swarf-run .sr-modes button.on, html[data-skin="classic"] #swarf-run .sr-jog .sr-modes button.on,
+html[data-skin="classic"] #swarf-run .sr-sim button.on, html[data-skin="classic"] #swarf-run .sr-vtools button.on, html[data-skin="classic"] #swarf-draw .sd-bar button.on,
+html[data-skin="classic"] #swarf-sim-machine.on, html[data-skin="classic"] #layer-animate button:nth-of-type(2) {
+  background: var(--c-tab) !important; box-shadow: var(--c-in) !important; color: #000 !important;
+}
+/* the button that goes ahead: bold, with the Platinum default ring */
+html[data-skin="classic"] #swarf-draw .sd-bar .sd-go, html[data-skin="classic"] #swarf-run .sr-card .row .go, html[data-skin="classic"] #swarf-run .sr-actions .cut,
+html[data-skin="classic"] #swarf-start button:first-of-type, html[data-skin="classic"] #dialog button:first-of-type {
+  font-weight: 700 !important; box-shadow: var(--c-out), 0 0 0 2px #c0c0c0, 0 0 0 3px #000 !important; margin: 3px !important;
+}
+html[data-skin="classic"] #swarf-run .sr-actions .stop { background: #c0c0c0 !important; color: #c00000 !important; font-weight: 700 !important; }
+html[data-skin="classic"] #swarf-run button:disabled, html[data-skin="classic"] button:disabled { color: #808080 !important; text-shadow: 1px 1px 0 #fff !important; opacity: 1 !important; }
+html[data-skin="classic"] kbd { background: #fff !important; border: 1px solid #808080 !important; border-radius: 0 !important; color: #000 !important; font-family: var(--c-mono) !important; box-shadow: none !important; }
+
+/* chosen rows in a list: Windows 95 navy */
+html[data-skin="classic"] #panel-right #oplist > div, html[data-skin="classic"] #ws-widgets button {
+  background: #fff !important; box-shadow: none !important; border: 1px solid #fff !important; border-radius: 0 !important; color: #000 !important;
+}
+html[data-skin="classic"] #panel-right #oplist > div.selected, html[data-skin="classic"] #panel-right #oplist > div:hover,
+html[data-skin="classic"] #ws-widgets button.selected, html[data-skin="classic"] #ws-widgets button:hover { background: #000080 !important; color: #fff !important; border: 1px dotted #ffff80 !important; }
+html[data-skin="classic"] #panel-right #oplist, html[data-skin="classic"] #ws-widgets { background: #fff !important; box-shadow: var(--c-field) !important; padding: 3px !important; }
+
+/* ---- fields: white and sunken; pop-ups with the Platinum arrow ---- */
+html[data-skin="classic"] input, html[data-skin="classic"] input[type="text"], html[data-skin="classic"] input[type="number"], html[data-skin="classic"] textarea,
+html[data-skin="classic"] .set2-group input, html[data-skin="classic"] .set2-group .value, html[data-skin="classic"] #swarf-size .ax input,
+html[data-skin="classic"] #swarf-draw .sd-card input, html[data-skin="classic"] #swarf-run .sr-modes input, html[data-skin="classic"] #swarf-run .sr-from input {
+  background-color: #fff !important; color: #000 !important; border: 0 !important; border-radius: 0 !important; box-shadow: var(--c-field) !important; caret-color: #000;
+}
+html[data-skin="classic"] select, html[data-skin="classic"] #swarf-material-select {
+  appearance: none; -webkit-appearance: none; background-color: #fff !important; color: #000 !important; border: 1px solid #000 !important; border-radius: 0 !important;
+  box-shadow: 1px 1px 0 #000 !important; padding-right: 22px !important;
+  background-image: linear-gradient(#000, #000), linear-gradient(45deg, transparent 50%, #000 50%), linear-gradient(-45deg, transparent 50%, #000 50%) !important;
+  background-size: 1px 100%, 5px 5px, 5px 5px !important; background-repeat: no-repeat !important;
+  background-position: right 16px top 0, right 8px center, right 4px center !important;
+}
+html[data-skin="classic"] input:focus, html[data-skin="classic"] textarea:focus, html[data-skin="classic"] select:focus { outline: 1px dotted #000 !important; outline-offset: 1px; }
+html[data-skin="classic"] input[type="checkbox"] {
+  appearance: none; -webkit-appearance: none; width: 13px !important; height: 13px !important; padding: 0 !important; background: #fff !important; box-shadow: var(--c-field) !important; position: relative;
+}
+html[data-skin="classic"] input[type="checkbox"]:checked::after { content: "✓"; position: absolute; left: 2px; top: -2px; font: 700 11px var(--c-font); color: #000; }
+html[data-skin="classic"] input[type="radio"], html[data-skin="classic"] input[type="range"] { accent-color: #000080 !important; box-shadow: none !important; }
+
+/* ---- the sentence after an act: a Mac OS help balloon ---- */
+html[data-skin="classic"] #alert-border {
+  background: #ffffcc !important; border: 1px solid #000 !important; border-radius: 10px !important; box-shadow: 2px 2px 0 rgba(0,0,0,.35) !important;
+}
+html[data-skin="classic"] #alert-text { color: #000 !important; font-size: 12px !important; }
+
+/* ---- dialogs: Windows 95 windows with a navy title bar ---- */
+html[data-skin="classic"] #dialog, html[data-skin="classic"] #modal-box, html[data-skin="classic"] .mdialog, html[data-skin="classic"] .image-convert-dialog,
+html[data-skin="classic"] #swarf-run .sr-card {
+  background: #c0c0c0 !important; color: #000 !important; border: 0 !important; border-radius: 0 !important;
+  box-shadow: var(--c-out), 4px 4px 0 rgba(0,0,0,.35) !important; padding-top: 26px !important; position: relative;
+}
+html[data-skin="classic"] #dialog::before, html[data-skin="classic"] #modal-box::before, html[data-skin="classic"] .image-convert-dialog::before, html[data-skin="classic"] #swarf-run .sr-card::before {
+  content: "swarf"; position: absolute; top: 3px; left: 3px; right: 3px; height: 18px; padding: 0 6px; display: flex; align-items: center;
+  background: var(--c-title); color: #fff; font: 700 12px var(--c-font); letter-spacing: 0;
+}
+html[data-skin="classic"] #dialog::after, html[data-skin="classic"] #modal-box::after, html[data-skin="classic"] #swarf-run .sr-card::after {
+  content: "×"; position: absolute; top: 5px; right: 6px; width: 15px; height: 13px; display: grid; place-items: center;
+  background: #c0c0c0; color: #000; font: 700 12px/1 var(--c-font); box-shadow: var(--c-out); pointer-events: none;
+}
+html[data-skin="classic"] #dialog::backdrop { background: transparent; }
+html[data-skin="classic"] #modal { background: transparent !important; border: 0 !important; }
+html[data-skin="classic"] #dialog h3, html[data-skin="classic"] .image-convert-title, html[data-skin="classic"] #swarf-run .sr-card h2 { color: #000 !important; font-family: var(--c-bold) !important; }
+html[data-skin="classic"] #swarf-run .sr-sheet { background: rgba(0,0,0,.25) !important; }
+
+/* ---- the empty bed's card: a Mac OS 9 window with pinstripes ---- */
+html[data-skin="classic"] #swarf-start {
+  background: #dddddd !important; border: 1px solid #000 !important; border-radius: 0 !important;
+  box-shadow: inset 1px 1px 0 #fff, inset -1px -1px 0 #999, 3px 3px 0 rgba(0,0,0,.3) !important; padding-top: 0 !important; overflow: hidden;
+}
+html[data-skin="classic"] #swarf-start h2 {
+  align-self: stretch; text-align: center; margin: 0 -40px 6px !important; padding: 2px 0 !important;
+  background: var(--c-stripes) !important; border-bottom: 1px solid #000; color: #000 !important; font: 700 12px var(--c-bold) !important;
+}
+html[data-skin="classic"] #swarf-start p, html[data-skin="classic"] #swarf-start .bed, html[data-skin="classic"] #swarf-start .drop { color: #000 !important; }
+
+/* ---- the size card: a BeOS toolbar ---- */
+html[data-skin="classic"] #swarf-size {
+  background: #d4d0c8 !important; border: 0 !important; border-radius: 0 !important; box-shadow: var(--c-out), 3px 3px 0 rgba(0,0,0,.3) !important;
+}
+html[data-skin="classic"] #swarf-size .lbl, html[data-skin="classic"] #swarf-size .mm, html[data-skin="classic"] #swarf-size .x { color: #000 !important; }
+
+/* ---- the corner things: the system tray ---- */
+html[data-skin="classic"] #ver, html[data-skin="classic"] #swarf-concerns-tab {
+  background: #c0c0c0 !important; color: #000 !important; border: 0 !important; border-radius: 0 !important; box-shadow: var(--c-in) !important;
+}
+html[data-skin="classic"] #swarf-concerns-body { background: #ffffe1 !important; color: #000 !important; border: 1px solid #000 !important; border-radius: 0 !important; box-shadow: 2px 2px 0 rgba(0,0,0,.35) !important; }
+html[data-skin="classic"] #install-swarf { background: #c0c0c0 !important; color: #000 !important; border: 0 !important; border-radius: 0 !important; box-shadow: var(--c-out) !important; font-weight: 700; }
+html[data-skin="classic"] #swarf-watermark { color: #dfe8f4 !important; border-left-color: #fff !important; opacity: .8; }
+
+/* ---- simulate's bar: a Windows 95 toolbar ---- */
+html[data-skin="classic"] #layer-animate { background: #c0c0c0 !important; border: 0 !important; border-radius: 0 !important; clip-path: none !important; box-shadow: var(--c-out), 3px 3px 0 rgba(0,0,0,.3) !important; }
+html[data-skin="classic"] #layer-animate::before { display: none !important; }
+html[data-skin="classic"] #layer-animate svg, html[data-skin="classic"] #layer-animate button:nth-of-type(2) svg { color: #000 !important; }
+html[data-skin="classic"] #layer-animate label { color: #000 !important; font-weight: 700; }
+
+/* ---- DRAW: white paper, black ink, as MacDraw had it ---- */
+html[data-skin="classic"] #swarf-draw { background: #808080 !important; color: #000 !important; }
+html[data-skin="classic"] #swarf-draw .sd-bed { fill: #fff !important; stroke: #000 !important; }
+html[data-skin="classic"] #swarf-draw .sd-grid { stroke: #e4e4e4 !important; }
+html[data-skin="classic"] #swarf-draw .sd-grid.big { stroke: #c4c4c4 !important; }
+html[data-skin="classic"] #swarf-draw .sd-part { fill: rgba(0,0,0,.12) !important; stroke: #000 !important; }
+html[data-skin="classic"] #swarf-draw .sd-part:hover { fill: rgba(0,0,0,.18) !important; }
+html[data-skin="classic"] #swarf-draw .sd-part.on { fill: rgba(0,0,128,.14) !important; stroke: #000 !important; stroke-dasharray: 4 3; }
+html[data-skin="classic"] #swarf-draw .sd-other { fill: rgba(0,0,0,.04) !important; stroke: #808080 !important; }
+html[data-skin="classic"] #swarf-draw .sd-bar { background: #c0c0c0 !important; border: 0 !important; border-radius: 0 !important; box-shadow: var(--c-out), 3px 3px 0 rgba(0,0,0,.3) !important; }
+html[data-skin="classic"] #swarf-draw .sd-card { background: #d4d0c8 !important; border: 0 !important; border-radius: 0 !important; box-shadow: var(--c-out), 3px 3px 0 rgba(0,0,0,.3) !important; color: #000 !important; }
+html[data-skin="classic"] #swarf-draw .sd-card .sd-h { background: var(--c-tab); display: inline-block; padding: 2px 10px; color: #000 !important; font-family: var(--c-bold) !important; }
+html[data-skin="classic"] #swarf-draw .sd-card .sd-row { color: #000 !important; }
+
+/* ---- CONTROL: windows on the desktop ---- */
+html[data-skin="classic"] #swarf-run { background: #336698 !important; color: #000 !important; }
+html[data-skin="classic"] #swarf-run .sr-box, html[data-skin="classic"] #swarf-run .sr-col > .sr-box {
+  background: #c0c0c0 !important; border: 0 !important; border-radius: 0 !important; box-shadow: var(--c-out), 3px 3px 0 rgba(0,0,0,.3) !important;
+}
+html[data-skin="classic"] #swarf-run .sr-box h3 { background: var(--c-title); color: #fff !important; margin: 3px 3px 6px !important; padding: 2px 6px !important; font: 700 12px var(--c-font) !important; }
+html[data-skin="classic"] #swarf-run .sr-view { background: #a8a8a8 !important; box-shadow: var(--c-in) !important; }
+html[data-skin="classic"] #swarf-run .sr-axis { background: #fff !important; border: 0 !important; border-radius: 0 !important; box-shadow: var(--c-field) !important; }
+html[data-skin="classic"] #swarf-run .sr-say { color: #fff !important; text-shadow: 1px 1px 0 #00264d; }
+html[data-skin="classic"] #swarf-run .sr-step { background: #c0c0c0 !important; border: 0 !important; border-radius: 0 !important; box-shadow: var(--c-out) !important; color: #606060 !important; }
+html[data-skin="classic"] #swarf-run .sr-step.done { color: #000 !important; }
+html[data-skin="classic"] #swarf-run .sr-step.now { background: var(--c-dither) !important; box-shadow: var(--c-in) !important; color: #000 !important; font-weight: 700; }
+html[data-skin="classic"] #swarf-run .sr-step .n { border-radius: 0 !important; }
+html[data-skin="classic"] #swarf-run .sr-step.now .n { background: #000080 !important; color: #fff !important; }
+html[data-skin="classic"] #swarf-run .sr-step.done .n { background: #808080 !important; color: #fff !important; }
+html[data-skin="classic"] #swarf-run .sr-facts, html[data-skin="classic"] #swarf-run .sr-scrub { color: #000 !important; }
+html[data-skin="classic"] #swarf-run .sr-strip.on { background: repeating-linear-gradient(90deg, #000080 0 10px, transparent 10px 12px) !important; animation: none !important; height: 6px; box-shadow: var(--c-in); }
+html[data-skin="classic"] #swarf-run .sr-dot { border-radius: 0 !important; }
+
+/* ---- scrollbars: Windows 95 ---- */
+html[data-skin="classic"] ::-webkit-scrollbar { width: 16px; height: 16px; background: var(--c-dither); }
+html[data-skin="classic"] ::-webkit-scrollbar-thumb { background: #c0c0c0; box-shadow: var(--c-out); }
+html[data-skin="classic"] ::-webkit-scrollbar-button:single-button { background: #c0c0c0; box-shadow: var(--c-out); height: 16px; width: 16px; }
+html[data-skin="classic"] ::selection { background: #000080; color: #fff; }
+
+/* the yellow tabs' words are black, not link blue; the SHAPE preview a mid grey, as MacDraw filled */
+html[data-skin="classic"] #panel-right .set2-group summary.set-header a, html[data-skin="classic"] #swarf-right-rail .set2-group summary.set-header a,
+html[data-skin="classic"] #swarf-right-rail .set2-group summary.set-header, html[data-skin="classic"] #swarf-right-rail .set2-group summary.set-header * { color: #000 !important; }
+html[data-skin="classic"] .swarf-shape-prev svg { fill: #808080 !important; fill-opacity: 1 !important; }
+/* words that sit straight on the desktop read white */
+html[data-skin="classic"] #swarf-run .sr-note, html[data-skin="classic"] #swarf-run .sr-sim, html[data-skin="classic"] #swarf-run .sr-col > .sr-mach { color: #f0f4fa !important; }
+html[data-skin="classic"] #swarf-run .sr-actions .cut:disabled { box-shadow: var(--c-out) !important; font-weight: 400 !important; margin: 0 !important; }

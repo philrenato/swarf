@@ -148,6 +148,11 @@ function update_origin(update_bounds = true) {
  *
  * @param {boolean} [updateDark=true] - Whether to update dark mode styling
  */
+// the floor's own colour, kept when a skin first recolours it, so the swarf look gets it back
+let baseFloor;
+// a new skin repaints the floor, its grid and its rulers
+if (self.addEventListener) self.addEventListener('swarf.skin', () => { try { update_size(); } catch (e) { /* not ready */ } });
+
 function update_size(updateDark = true) {
     const { process, device, controller } = current();
     const { showRulers, units } = controller;
@@ -181,10 +186,19 @@ function update_size(updateDark = true) {
        // soft gray grid (was red mill-rails, too hot); rulers thinned via faint bone
        // color so they read as helvetica-neue-thin in spirit (real font swap requires
        // a new bitmap atlas — deferred).
-       space.platform.set({ light: 0.06 });
-       space.platform.setFont({rulerColor:'#7a7670'}); // faint bone, thin-weight feel
-       space.platform.setGrid(gridMajor, gridMinor, 0x6a6660, 0x3a3833);
-       space.platform.opacity(0.10);
+       // swarf skins (10-28): the floor's colours come from the skin (swarf-skin.js),
+       // the red-sky look's own when no skin is set
+       const SK = self.SwarfSkin, hex = n => '#' + n.toString(16).padStart(6, '0');
+       const skc = (k, d) => SK ? SK.color(k, d) : d, skn = (k, d) => SK ? SK.number(k, d) : d;
+       space.platform.set({ light: skn('floor-light', 0.06) });
+       space.platform.setFont({ rulerColor: hex(skc('ruler', 0x7a7670)) }); // faint bone, thin-weight feel
+       space.platform.setGrid(gridMajor, gridMinor, skc('grid-major', 0x6a6660), skc('grid-minor', 0x3a3833));
+       {
+           const f = skc('floor', null);
+           if (f !== null) { const was = space.platform.setColor(f); if (baseFloor === undefined) baseFloor = was; }
+           else if (baseFloor !== undefined) space.platform.setColor(baseFloor);
+       }
+       space.platform.opacity(skn('floor-opacity', 0.10));
        // swarf: null sky color = transparent scene background, so the body's
        // red-sky CSS gradient shows through canvas alpha (markup Apr 15 round 4).
        space.sky.set({ color: null, ambient: { intensity: 0.6 } });

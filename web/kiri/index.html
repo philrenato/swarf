@@ -64,6 +64,11 @@
     <link rel="stylesheet" type="text/css" href="/moto/menubar.css">
     <link rel="stylesheet" type="text/css" href="index.css">
     <link rel="stylesheet" type="text/css" href="swarf.css">
+    <!-- swarf skins (10-28): liquid glass (default), classic, swarf; swarf-skin.js stamps html[data-skin] before first paint -->
+    <link rel="stylesheet" type="text/css" href="swarf-skin-map.css">
+    <link rel="stylesheet" type="text/css" href="swarf-skin-glass.css">
+    <link rel="stylesheet" type="text/css" href="swarf-skin-classic.css">
+    <script src="swarf-skin.js"></script>
     <!-- swarf phone takeover: detects narrow viewport and replaces the UI
          with a "desktop only" wall. Loaded early so phones don't wait for
          the CAM engine bundle before seeing the message. -->
@@ -847,6 +852,7 @@
 <!-- swarf run: drive the ShopBot (preview, jog, trace, cut) -->
 <script src="swarf-run-parse.js"></script>
 <script src="swarf-shopbot-model.js"></script>
+<script src="swarf-mr1-model.js"></script>
 <script src="swarf-run-machine.js"></script>
 <script src="swarf-shopbot-usb.js"></script>
 <script src="swarf-shopbot-card.js"></script>

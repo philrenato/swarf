@@ -18,7 +18,8 @@
 
   const FAR_MULT  = 6;   // fade ends at FAR_MULT × max-bbox-dim away
   const NEAR_MULT = 1.5; // fade starts at NEAR_MULT × max-bbox-dim away
-  const FOG_COLOR = 0x0a0808;
+  // the colour the grid fades into: the skin's background (swarf-skin.js), the red sky's warm black by default
+  const fogColor = () => window.SwarfSkin ? window.SwarfSkin.color('fog', 0x0a0808) : 0x0a0808;
 
   function widgetSize(api) {
     try {
@@ -64,7 +65,7 @@
     const far  = Math.max(size * 18, near * 4);
     const sceneObj = space.scene.scene || space.scene._scene || null;
     // setFog works through space's API; then we pin near/far ourselves.
-    try { space.scene.setFog && space.scene.setFog(3, FOG_COLOR); } catch (e) {}
+    try { space.scene.setFog && space.scene.setFog(3, fogColor()); } catch (e) {}
     // Reach into the actual THREE.Scene and overwrite. setFog stores fog on
     // the underlying SCENE; we patch through space.world.scene if exposed,
     // else via the well-known global path moto.Space internals.
@@ -74,7 +75,7 @@
         if (s && s.fog) {
           s.fog.near = near;
           s.fog.far  = far;
-          s.fog.color && s.fog.color.setHex(FOG_COLOR);
+          s.fog.color && s.fog.color.setHex(fogColor());
         }
       }
     } catch (e) {}
@@ -111,6 +112,7 @@
       applyFog(api, space);
       api.event.on('widget.add',    () => setTimeout(() => applyFog(api, space), 50));
       api.event.on('widget.delete', () => setTimeout(() => applyFog(api, space), 50));
+      window.addEventListener('swarf.skin', () => applyFog(api, space));
       // v010-r10: do NOT re-apply on animate/function.animate. Fog is now
       // world-anchored to part size; mode transitions must not change it.
     }

@@ -22,7 +22,8 @@
     let d;
     try { d = a.conf.get().device; } catch (e) { return false; }
     if (!d || !(d.bedWidth > 0) || !(d.bedDepth > 0)) return false;
-    const text = label(d), key = `${text}|${d.bedWidth}|${d.bedDepth}|${d.originCenter}`;
+    const S = window.SwarfSkin, skin = S ? S.get() : 'swarf';
+    const text = label(d), key = `${text}|${d.bedWidth}|${d.bedDepth}|${d.originCenter}|${skin}`;
     if (key === shown && mesh) return true;
     shown = key;
     if (mesh) { space.world.remove(mesh); mesh = null; }
@@ -36,12 +37,12 @@
     c.width = tw; c.height = Math.ceil(px * 1.25);
     g.font = font;
     g.textBaseline = 'middle';
-    g.fillStyle = '#e8e0d2';
+    g.fillStyle = '#' + (S ? S.color('bedname', 0xe8e0d2) : 0xe8e0d2).toString(16).padStart(6, '0');
     g.fillText(text, 4, c.height / 2);
     const tex = new THREE.CanvasTexture(c);
     tex.anisotropy = 4;
     const w = h * 1.25 * c.width / c.height;
-    const mat = new THREE.MeshBasicMaterial({ map: tex, transparent: true, opacity: 0.4, depthWrite: false, fog: false });
+    const mat = new THREE.MeshBasicMaterial({ map: tex, transparent: true, opacity: S ? S.number('bedname-opacity', 0.4) : 0.4, depthWrite: false, fog: false });
     mesh = new THREE.Mesh(new THREE.PlaneGeometry(w, h * 1.25), mat);
     mesh.name = 'swarf-bed-name';
     mesh.renderOrder = 1;
@@ -63,6 +64,7 @@
       if (!a || !a.event) return;
       for (const ev of ['device.selected', 'device.select', 'settings', 'settings.saved'])
         try { a.event.on(ev, () => setTimeout(draw, 80)); } catch (e) { /* no event */ }
+      window.addEventListener('swarf.skin', () => setTimeout(draw, 30));
     }
   }, 150);
 })();

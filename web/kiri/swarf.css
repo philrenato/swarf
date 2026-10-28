@@ -2103,3 +2103,9 @@ body.swarf-run-busy #mode-tools > span:not(.swarf-step-run):hover svg { fill: va
 #swarf-start small.bed { color: var(--swarf-text-2); margin-top: -4px; }
 #swarf-draw .sd-wordbox { fill: transparent; stroke: #a39a90; stroke-width: 1; stroke-dasharray: 4 3; cursor: move; pointer-events: fill; }
 @media (max-width: 1100px) { #swarf-size { flex-wrap: wrap; left: 16px; right: 16px; transform: none; justify-content: center; } }
+
+/* ---- VIEW › skin (swarf-skin.js): the current one ticked ---- */
+.swarf-skin-head label { opacity: .6; font-size: .9em; }
+.swarf-skin-head { pointer-events: none; }
+.swarf-skin-row span { visibility: hidden; }
+.swarf-skin-row.swarf-skin-on span { visibility: visible; }

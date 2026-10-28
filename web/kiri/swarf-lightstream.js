@@ -151,8 +151,24 @@
     space.world.add(bloom);
     space.world.add(halo);
     space.world.add(core);
+    reskin();
     return true;
   }
+
+  // skins (swarf-skin.js): the trail's colours, and normal blending where the sky is pale
+  // (additive light adds nothing to white)
+  function reskin() {
+    const S = window.SwarfSkin, THREE = window.THREE;
+    if (!core || !THREE) return;
+    const add = !S || S.number('trail-additive', 1) > 0.5;
+    const set = (o, key, base) => {
+      o.material.color.setHex(S ? S.color(key, base) : base);
+      o.material.blending = add ? THREE.AdditiveBlending : THREE.NormalBlending;
+      o.material.needsUpdate = true;
+    };
+    set(bloom, 'trail-bloom', BLOOM_COLOR); set(halo, 'trail-halo', HALO_COLOR); set(core, 'trail-core', CORE_COLOR);
+  }
+  window.addEventListener('swarf.skin', reskin);
 
   function clearTrail() {
     polylines = [[]];

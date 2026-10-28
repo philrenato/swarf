@@ -39,7 +39,7 @@ cp src/pack/kiri-main.js "$WEB_APP/lib/main/kiri.js"
 cp src/pack/kiri-work.js "$WEB_APP/lib/kiri/run/worker.js"
 # swarf overlay scripts + stylesheet live at /swarf-app/ root (flattened from
 # /kiri/). Sync any that changed — fast and harmless when they're already current.
-for f in web/kiri/swarf*.js web/kiri/swarf*.mjs web/kiri/swarf.css web/kiri/swarf-materials.json \
+for f in web/kiri/swarf*.js web/kiri/swarf*.mjs web/kiri/swarf*.css web/kiri/swarf-materials.json \
          web/kiri/swarf-icon-*.png web/kiri/manifest.json; do
   [ -f "$f" ] || continue
   dst="$WEB_APP/$(basename "$f")"
@@ -83,7 +83,7 @@ echo "      ok — cache version: $STAMP"
 echo "[5/6] commit web repo"
 cd "$WEB_REPO"
 git add swarf-app/lib/main/kiri.js swarf-app/lib/kiri/run/worker.js \
-  swarf-app/swarf*.js swarf-app/swarf*.mjs swarf-app/vendor swarf-app/swarf.css swarf-app/swarf-materials.json \
+  swarf-app/swarf*.js swarf-app/swarf*.mjs swarf-app/vendor swarf-app/swarf*.css swarf-app/swarf-materials.json \
   swarf-app/swarf-icon-*.png swarf-app/manifest.json swarf-app/index.html 2>/dev/null || true
 # NOTE: index.html is staged but NEVER copied from source. The deploy copy has
 # its own SEO metadata and RELATIVE css/font paths (moto/palette.css, not
