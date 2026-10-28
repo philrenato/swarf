@@ -13,7 +13,7 @@ endorsed or supported by any of them; the names only say which machines and file
 Kiri:Moto (grid-apps), the engine swarf is a fork of 4.7 line
 License: MIT
 ------------------------------------------------------------------------------
-Copyright 2026 Phil Renato <philrenato@gmail.com> (swarf fork)
+Copyright 2026 Phil Renato (swarf fork)
 Copyright 2014-2018 Stewart Allen <sa@grid.space> (Kiri:Moto upstream)
 
 Permission is hereby granted, free of charge, to any person obtaining a

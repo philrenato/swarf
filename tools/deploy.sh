@@ -61,6 +61,8 @@ mkdir -p "$WEB_APP/vendor" && cp -R web/kiri/vendor/. "$WEB_APP/vendor/"
 # the licenses travel with the copy (MIT, Apache, Boost and OFL all ask for it); the About panel links them
 node tools/make_notices.mjs >/dev/null
 cp license.md THIRD_PARTY_NOTICES.txt "$WEB_APP/"
+# the site carries the notices without the author's email (the publish gate keeps addresses off the web)
+sed -i '' -E 's/ <[A-Za-z0-9._%+-]+@gmail\.com>//g' "$WEB_APP/license.md" "$WEB_APP/THIRD_PARTY_NOTICES.txt"
 echo "[3/5] rewrite worker + wasm + asset paths to /swarf-app/ absolutes"
 # worker + wasm (fatal — toolpaths break without these)
 sed -i '' 's|"\.\./lib/kiri/run/worker\.js"|"/swarf-app/lib/kiri/run/worker.js"|g' "$WEB_APP/lib/main/kiri.js"

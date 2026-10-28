@@ -55,7 +55,8 @@ SOFTWARE.`;
 const OFL = file(nm('three/examples/fonts/MPLUSRounded1c/OFL.txt')).replace(/^[\s\S]*?(-{20,}\s*\nSIL OPEN FONT LICENSE)/, '$1');
 
 const E = [
-  ['Kiri:Moto (grid-apps), the engine swarf is a fork of', '4.7 line', 'MIT', file('license.md')],
+  // the fork's own notice, without its author's email (the notices travel to the public site)
+  ['Kiri:Moto (grid-apps), the engine swarf is a fork of', '4.7 line', 'MIT', file('license.md').replace(/ <[^>]*@gmail\.com>/g, '')],
   ['three.js', ver('three'), 'MIT', lic('three')],
   ['three-mesh-bvh', ver('three-mesh-bvh'), 'MIT', lic('three-mesh-bvh')],
   ['JSZip (used under MIT, of its MIT or GPLv3 choice)', ver('jszip'), 'MIT', lic('jszip')],
