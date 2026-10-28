@@ -1247,6 +1247,15 @@ function load_files(files, group) {
     }
 }
 
+// swarf: the thickness SHAPE last used, so an import starts where a shape would
+function lastThickness() {
+    try {
+        const t = JSON.parse(localStorage.getItem('swarf-shape-last')).t;
+        if (t > 0) return t;
+    } catch (e) { /* none yet */ }
+    return 6;
+}
+
 /**
  * Show dialog to configure SVG import settings.
  * Prompts for extrusion depth, arc resolution, DPI, and nesting.
@@ -1254,23 +1263,28 @@ function load_files(files, group) {
  * @private
  */
 function loadSVGDialog(doit) {
+    // swarf: the dialog speaks SHAPE's words (review 10-28b #7), and starts at
+    // the last thickness SHAPE used, so a drawing and a shape come out alike
+    const t = lastThickness();
     const opt = {pre: [
-        "<div class='f-col a-center'>",
-        "  <h3>Import SVG</h3>",
-        "  <p class='t-just' style='width:300px;line-height:1.5em'>",
-        "  Extrude a 3D model from a 2D SVG.",
-        "  Fonts must be converted to paths in an SVG editor.",
+        "<div class='f-col a-center swarf-import'>",
+        "  <h3>make parts from a drawing</h3>",
+        "  <p class='t-just' style='width:320px;line-height:1.5em'>",
+        "  Each closed outline becomes a part, this thick.",
+        "  Text must be turned into outlines first (in Illustrator: Type › Create Outlines).",
         "  </p>",
         "  <div class='f-row t-right'><table>",
-        "  <tr><th>z height in mm</th><td><input id='svg-depth' value='5' size='3'></td></tr>",
-        "  <tr><th title='higher values results in more points. floating point values like 0.5 are accepted'>arc segments / mm</th><td><input id='svg-arcs' value='1' size='3'></td></tr>",
-        "  <tr><th title='minimum number of segments in an arc. helps better represent small arcs'>minimum arc segments</th><td><input id='svg-marc' value='10' size='3'></td></tr>",
-        "  <tr><th title='interpret dimensions as pixels using dpi'>pixel dpi (optional)</th><td><input id='svg-dpi' value='0' size='3'></td></tr>",
-        "  <tr><th>nest shapes</th><td><input id='svg-nest' value='1' type='checkbox' checked></td></tr>",
+        `  <tr><th>thickness</th><td><input id='svg-depth' value='${t}' size='4' inputmode='decimal'> mm</td></tr>`,
+        "  <tr><th title='an outline inside another is cut out of it, as a hole'>holes stay holes</th><td><input id='svg-nest' value='1' type='checkbox' checked></td></tr>",
         "  </table></div>",
+        "  <details style='width:320px'><summary>finer settings</summary><table>",
+        "  <tr><th title='more points follow a curve more closely; 0.5 is accepted'>points per mm on a curve</th><td><input id='svg-arcs' value='1' size='3'></td></tr>",
+        "  <tr><th title='so a small circle stays round'>fewest points on a curve</th><td><input id='svg-marc' value='10' size='3'></td></tr>",
+        "  <tr><th title='only if the drawing is measured in pixels; 0 reads it in mm'>pixels per inch</th><td><input id='svg-dpi' value='0' size='3'></td></tr>",
+        "  </table></details>",
         "</div>"
     ]};
-    api.uc.confirm(undefined, {convert:true, cancel:false}, undefined, opt).then((ok) => {
+    api.uc.confirm(undefined, {'make parts':true, cancel:false}, undefined, opt).then((ok) => {
         let depth = Math.max(0.1, parseFloat($('svg-depth').value));
         let arcs = Math.max(0.01, parseFloat($('svg-arcs').value));
         let marc = Math.max(1, parseInt($('svg-marc').value));
@@ -1290,21 +1304,22 @@ function loadDXFDialog(doit) {
     const rnd = Date.now().toString(36);
     const host = $('mod-any');
     host.innerHTML = [
-        `<div class="image-convert-dialog f-col a-center">`,
-        `  <h3 class="image-convert-title">Import DXF</h3>`,
+        `<div class="image-convert-dialog f-col a-center swarf-import">`,
+        `  <h3 class="image-convert-title">make parts from a drawing</h3>`,
         `  <p class="image-convert-copy t-just">`,
-        `  Extrude a 3D model from a 2D DXF.`,
-        `  Supports POLYLINE, LWPOLYLINE, LINE, CIRCLE, ARC, and SPLINE entities.`,
+        `  Each closed outline becomes a part, this thick.`,
         `  </p>`,
         `  <div class="f-row t-right image-convert-fields"><table>`,
-        `  <tr><th>units</th><td><select id="dxf-units-${rnd}"><option value="auto" selected>auto</option><option value="mm">millimeters</option><option value="inch">inches</option></select></td></tr>`,
-        `  <tr><th>z height</th><td><input id="dxf-depth-${rnd}" value="5" size="3"></td></tr>`,
-        `  <tr><th title="target length of each line segment when converting arcs and circles">arc segment size</th><td><input id="dxf-seg-${rnd}" value="1" size="3"></td></tr>`,
-        `  <tr><th title="minimum number of segments for very small arcs to avoid degenerate geometry">minimum arc segments</th><td><input id="dxf-min-${rnd}" value="4" size="3"></td></tr>`,
-        `  <tr><th>nest shapes</th><td><input id="dxf-nest-${rnd}" type="checkbox" checked></td></tr>`,
+        `  <tr><th>thickness</th><td><input id="dxf-depth-${rnd}" value="${lastThickness()}" size="4" inputmode="decimal"> mm</td></tr>`,
+        `  <tr><th title="most drawings say their units; pick one if the parts come out 25 times too big or too small">units</th><td><select id="dxf-units-${rnd}"><option value="auto" selected>as the file says</option><option value="mm">millimeters</option><option value="inch">inches</option></select></td></tr>`,
+        `  <tr><th title="an outline inside another is cut out of it, as a hole">holes stay holes</th><td><input id="dxf-nest-${rnd}" type="checkbox" checked></td></tr>`,
         `  </table></div>`,
+        `  <details class="image-convert-fields"><summary>finer settings</summary><table>`,
+        `  <tr><th title="shorter pieces follow a curve more closely">length of each piece of a curve</th><td><input id="dxf-seg-${rnd}" value="1" size="3"> mm</td></tr>`,
+        `  <tr><th title="so a small circle stays round">fewest pieces on a curve</th><td><input id="dxf-min-${rnd}" value="4" size="3"></td></tr>`,
+        `  </table></details>`,
         `  <div class="f-row j-end image-convert-actions">`,
-        `    <button id="dxf-convert-ok-${rnd}">import</button>`,
+        `    <button id="dxf-convert-ok-${rnd}">make parts</button>`,
         `    <button id="dxf-convert-cancel-${rnd}">cancel</button>`,
         `  </div>`,
         `</div>`

@@ -4,7 +4,7 @@
  * reachable from a real edit. Fixture: one rough op, then
  *   1. plunge typed up to the feed          → rule 2 fires
  *   2. stepdown typed past half the tool    → rule 3 fires
- *   3. aluminum on the ShopBot (9000 floor) → rule 4 fires
+ *   3. aluminum on the ShopBot → not offered (soft materials only): falls back to hardwood, no concern
  * and the count must fall back to 0 when the edits are reverted.
  *
  * Usage: node tools/probe_concerns.mjs [url]
@@ -13,8 +13,8 @@ import puppeteer from 'puppeteer-core';
 import { readFileSync } from 'node:fs';
 
 const CHROME = '/Applications/Google Chrome for Testing.app/Contents/MacOS/Google Chrome for Testing';
-const URL = process.argv[2] || 'http://localhost:8099/kiri/';
-const STL = new URL('../web/obj/cube.stl', import.meta.url).pathname;
+const PAGE = process.argv[2] || 'http://localhost:8099/kiri/';
+const STL = new globalThis.URL('../web/obj/cube.stl', import.meta.url).pathname;
 const stlB64 = readFileSync(STL).toString('base64');
 const wait = ms => new Promise(r => setTimeout(r, ms));
 
@@ -28,7 +28,7 @@ const out = { errors: [], steps: [], verdict: 'unknown', problems: [] };
 try {
     const page = await browser.newPage();
     page.on('pageerror', e => out.errors.push(e.message));
-    await page.goto(URL, { waitUntil: 'domcontentloaded', timeout: 30000 });
+    await page.goto(PAGE, { waitUntil: 'domcontentloaded', timeout: 30000 });
     await wait(5000);
     await page.waitForFunction(() => !!(window.kiri?.api?.event && window.kiri.api.new && window.kiri.api.platform), { timeout: 60000, polling: 200 });
     await wait(1500);
@@ -90,7 +90,7 @@ try {
     out.steps.push({ step: 'reverted', ...(await concerns()) });
     await page.evaluate(() => window.kiri.api.devices.select('ShopBot.Basic'));
     await wait(800);
-    out.steps.push({ step: 'aluminum on the ShopBot', op: await page.evaluate(() => {
+    out.steps.push({ step: 'aluminum on the ShopBot', material: await page.evaluate(() => window.__swarfMaterial.id), op: await page.evaluate(() => {
         const o = window.kiri.api.conf.get().process.ops.find(o => o && o.type === 'rough');
         return { rate: o.rate, spindle: o.spindle };
     }), ...(await concerns()) });
@@ -111,7 +111,7 @@ if (s['aluminum, preset']?.count !== 0) p.push(`preset shows ${s['aluminum, pres
 if (!has('plunge = feed', 'plunge')) p.push(`rule 2 did not fire on plunge = feed: ${s['plunge = feed']?.titles}`);
 if (!has('stepdown 4 mm on the 1/4', 'step-down')) p.push(`rule 3 did not fire on a 4 mm stepdown: ${s['stepdown 4 mm on the 1/4']?.titles}`);
 if (s['reverted']?.count !== 0) p.push(`count did not return to 0 after reverting: ${s['reverted']?.titles}`);
-if (!has('aluminum on the ShopBot', 'spindle too fast')) p.push(`rule 4 did not fire for aluminum at the ShopBot floor: ${s['aluminum on the ShopBot']?.titles}`);
+if (s['aluminum on the ShopBot']?.material !== 'hardwood') p.push(`aluminum stayed on the ShopBot (${s['aluminum on the ShopBot']?.material}); it cuts soft materials only`);
 if (s['hardwood on the ShopBot']?.count !== 0) p.push(`hardwood on the ShopBot shows ${s['hardwood on the ShopBot']?.count}: ${s['hardwood on the ShopBot']?.titles}`);
 if (out.errors.length) p.push(`page errors: ${out.errors.join(' | ')}`);
 out.verdict = p.length ? 'FAIL' : 'PASS';

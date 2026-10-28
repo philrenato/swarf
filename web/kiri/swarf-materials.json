@@ -7,10 +7,18 @@
   "_rules": "Invariants held over every tool in the default library on both devices, checked by tools/check_materials.mjs through the same derive function the app runs: plunge is 30-40% of feed unless the Z ceiling capped it; stepdown stays under half the tool diameter; spindle and feed inside the device limits; stepover in (0, 0.5]; feed never falls as the tool grows while the spindle holds steady.",
   "_source": "https://assets.langmuirsystems.com/file/CuttingParameters-GettingStartedReferenceGuide-Rev11_30_2022.pdf",
   "default": "hardwood",
+  "_soft": "A machine can be marked soft-only in `machines`: its MATERIAL list then leaves out every entry with \"metal\": true, and a metal already chosen falls back to the default. The ShopBot in the shop is a wood router: wood, plastics, foam and wax, never metal.",
+  "machines": {
+    "ShopBot": {
+      "soft": true,
+      "why": "The ShopBot cuts wood, plastic, foam and wax, not metal."
+    }
+  },
   "materials": [
     {
       "id": "aluminum_6061",
       "name": "aluminum 6061",
+      "metal": true,
       "note": "HSS, 2-flute. cutting speed 60 m/min, so RPM drops as the tool gets bigger — a 1/4 endmill at 8000 would burn its corners off. chips should curl, not powder.",
       "cut": {
         "vc": 60,
@@ -42,6 +50,7 @@
     {
       "id": "brass",
       "name": "brass",
+      "metal": true,
       "note": "HSS, 2-flute, cutting speed 45 m/min. brass grabs a dull or rake-heavy tool and climbs the work — sharp cutter, light cut, climb direction.",
       "cut": {
         "vc": 45,
@@ -73,6 +82,7 @@
     {
       "id": "mild_steel",
       "name": "mild steel",
+      "metal": true,
       "note": "HSS, 4-flute, cutting speed 20 m/min. slow and shallow — this is the edge of what HSS will do. if the cut squeals or the tool discolors, stop. carbide is a different conversation.",
       "cut": {
         "vc": 20,

@@ -85,9 +85,16 @@
     return null;
   }
 
-  function nameFor(kind, v, t) {
-    const s = { star: `${Math.round(v.p)}-${f(v.d)}`, ellipse: `${f(v.w)}x${f(v.h)}`, circle: `${f(v.d)}`, rect: `${f(v.w)}x${f(v.h)}`, rounded: `${f(v.w)}x${f(v.h)}`, slot: `${f(v.w)}x${f(v.h)}`, ring: `${f(v.d)}-${f(v.di)}`, polygon: `${Math.round(v.n)}-${f(v.d)}` }[kind];
-    return `${SHAPES[kind].label.replace(/ /g, '-')}-${s}mm-${f(t)}thick`;
+  // a part is named by what it is, "rectangle", then "rectangle 2"; its size is
+  // on the size card, and a name with the size baked in went stale at the first
+  // resize (review 10-28b #9)
+  function nameFor(kind) {
+    const base = SHAPES[kind].label;
+    let taken = [];
+    try { taken = api().widgets.all().map(w => w.meta && w.meta.file); } catch (e) { /* no bed */ }
+    let n = 1;
+    while (taken.includes(n === 1 ? base : `${base} ${n}`)) n++;
+    return n === 1 ? base : `${base} ${n}`;
   }
 
   function open() {
@@ -147,7 +154,7 @@
       const why = problem(kind, v, t, bed) || edgeProblem(a, kind, v, t, edge, es);
       if (why) { a.show.alert(why, 6); return; }
       try { localStorage.setItem(LAST, JSON.stringify({ kind, v, t, edge, es })); } catch (e) { /* private window */ }
-      const made = a.platform.load_svg(svgFor(kind, v), nameFor(kind, v, t), { depth: t, resolution: 2, segmin: 48, soup: true, dpi: 0, edge: { kind: edge, size: es } });
+      const made = a.platform.load_svg(svgFor(kind, v), nameFor(kind), { depth: t, resolution: 2, segmin: 48, soup: true, dpi: 0, edge: { kind: edge, size: es } });
       if (!made.length) { a.show.alert(made.error || 'swarf could not make that shape.', 6); return; }
       const shaped = edge === 'straight' ? '' : ` with a ${f(es)} mm ${EDGES[edge]} top edge`;
       a.show.alert(`Made a ${SHAPES[kind].label}, ${f(t)} mm thick${shaped}. Next: add a step (${edge === 'straight' ? 'outline cuts it out' : 'contour shapes the edge, outline cuts it out'}), then toolpaths.`, 8);

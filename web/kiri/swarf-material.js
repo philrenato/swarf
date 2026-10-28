@@ -19,7 +19,19 @@
 
   let materials = [];
   let current = null;
+  let machines = {}, defaultId = null;
   const STORAGE_KEY = 'swarf.material.current';
+
+  // A machine marked soft in swarf-materials.json `machines` (the ShopBot: a
+  // wood router) never offers a metal. Matched on the device name, so a
+  // renamed copy of the profile ("ShopBot Basic (mine)") keeps the rule.
+  function softRule() {
+    let name = '';
+    try { name = String(window.kiri.api.conf.get().device.deviceName || ''); } catch (e) { return null; }
+    const key = Object.keys(machines).find(k => machines[k].soft && name.toLowerCase().includes(k.toLowerCase()));
+    return key ? machines[key] : null;
+  }
+  const offered = () => softRule() ? materials.filter(m => !m.metal) : materials;
 
   // ---- procedural textures ---------------------------------------------
   function makeBrushedMetal() {
@@ -402,7 +414,8 @@
 
   // ---- material state --------------------------------------------------
   function setCurrent(id) {
-    const m = materials.find(x => x.id === id) || materials[0];
+    const list = offered();
+    const m = list.find(x => x.id === id) || list.find(x => x.id === defaultId) || list[0];
     if (!m) return;
     current = m;
     window.__swarfMaterial = m;
@@ -612,6 +625,37 @@
   }
 
   // ---- material dropdown UI -------------------------------------------
+  function fillOptions(select) {
+    select.textContent = '';
+    for (const m of offered()) {
+      const opt = document.createElement('option');
+      opt.value = m.id;
+      opt.textContent = m.name;
+      if (current && current.id === m.id) opt.selected = true;
+      select.appendChild(opt);
+    }
+    const rule = softRule();
+    select.title = 'stock material — sets PBR surface, chip physics, and starting feeds, speeds and ramp angle' + (rule ? `. ${rule.why}` : '');
+  }
+
+  // after a machine change: a metal on a soft-only machine falls back to the
+  // default (hardwood) and the sentence says why; the list follows the machine
+  function machineChanged() {
+    const rule = softRule();
+    if (rule && current && current.metal) {
+      const was = current.name;
+      setCurrent(defaultId);
+      try {
+        const a = window.kiri.api;
+        a.event.alerts(true);
+        a.show.alert(`${rule.why} The material is now ${current.name}, not ${was}.`, 8);
+      } catch (e) { /* no alerts */ }
+    }
+    const select = document.getElementById('swarf-material-select');
+    if (select) fillOptions(select);
+  }
+  window.__swarfMaterialsOffered = () => offered().map(m => m.id);
+
   function injectDropdown() {
     const camops = document.getElementById('camops');
     if (!camops || camops.querySelector('#swarf-material-row')) return;
@@ -625,13 +669,7 @@
     select.id = 'swarf-material-select';
     select.title = 'stock material — sets PBR surface, chip physics, and starting feeds, speeds and ramp angle';
     select.style.cssText = 'flex:1; font-size:13px; padding:6px 8px; background:rgba(0,0,0,0.55); border:1px solid var(--swarf-accent, #7a2a1a); color:#fff; border-radius:2px; font-family:"JetBrains Mono","IBM Plex Mono",ui-monospace,monospace;';
-    for (const m of materials) {
-      const opt = document.createElement('option');
-      opt.value = m.id;
-      opt.textContent = m.name;
-      if (current && current.id === m.id) opt.selected = true;
-      select.appendChild(opt);
-    }
+    fillOptions(select);
     select.addEventListener('change', () => setCurrent(select.value));
     row.appendChild(label);
     row.appendChild(select);
@@ -656,6 +694,8 @@
       .then(r => r.json())
       .then(data => {
         materials = (data.materials || []).filter(m => m.appearance);
+        machines = data.machines || {};
+        defaultId = data.default;
         if (!materials.length) return;
         const stored = localStorage.getItem(STORAGE_KEY);
         // `default` is declared in the JSON so the dropdown can be ordered
@@ -687,6 +727,10 @@
             try { window.kiri.api.event.on('selection.*',      () => setTimeout(applyToStock, 10)); } catch (e) {}
             try { window.kiri.api.event.on('widget.select',    () => setTimeout(applyToStock, 10)); } catch (e) {}
             try { window.kiri.api.event.on('widget.deselect',  () => setTimeout(applyToStock, 10)); } catch (e) {}
+            // the list depends on the machine (no metals on the ShopBot)
+            try { window.kiri.api.event.on('device.selected', () => setTimeout(machineChanged, 50)); } catch (e) {}
+            try { window.kiri.api.event.on('device.select', () => setTimeout(machineChanged, 50)); } catch (e) {}
+            machineChanged();
             applyToStock();
             injectDropdown();
             // keep trying in case camops renders late

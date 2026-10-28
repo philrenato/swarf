@@ -847,7 +847,7 @@
   function addPart(word, crv) {
     snap();
     const n = S.parts.filter(p => !p.w).length + 1;
-    S.parts.push({ w: null, name: `${word}-${n}`, thick: S.thick, edge: { ...S.edge }, curves: [{ crv }], dirty: true });
+    S.parts.push({ w: null, name: `${word} ${n}`, thick: S.thick, edge: { ...S.edge }, curves: [{ crv }], dirty: true });
     S.pen = []; S.hover = null; S.tool = 'select'; S.sel = S.parts.length - 1; S.pts.clear();
     say('Made. Drag its points to shape it, or press done to make it a part.');
     checkCross(S.parts[S.sel]);

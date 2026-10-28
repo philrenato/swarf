@@ -12,8 +12,8 @@ import { readFileSync } from 'node:fs';
 import vm from 'node:vm';
 
 const CHROME = '/Applications/Google Chrome for Testing.app/Contents/MacOS/Google Chrome for Testing';
-const URL = process.argv[2] || 'http://localhost:8099/kiri/';
-const STL = new URL('../web/obj/cube.stl', import.meta.url).pathname;
+const PAGE = process.argv[2] || 'http://localhost:8099/kiri/';
+const STL = new globalThis.URL('../web/obj/cube.stl', import.meta.url).pathname;
 const TABLE = JSON.parse(readFileSync('web/kiri/swarf-materials.json', 'utf8'));
 const MR1 = JSON.parse(readFileSync('src/kiri/dev/cam/Langmuir.MR-1.json', 'utf8'));
 const SHOPBOT = JSON.parse(readFileSync('src/kiri/dev/cam/ShopBot.Basic.json', 'utf8'));
@@ -45,7 +45,7 @@ try {
     const page = await browser.newPage();
     page.on('pageerror', e => out.errors.push(e.message));
 
-    await page.goto(URL, { waitUntil: 'domcontentloaded', timeout: 30000 });
+    await page.goto(PAGE, { waitUntil: 'domcontentloaded', timeout: 30000 });
     // swarf's profile migration reloads the page once on a fresh browser
     // profile. A handle grabbed before that is torn out from under us, and
     // the failure reads as "kiri.api is undefined" long after boot.

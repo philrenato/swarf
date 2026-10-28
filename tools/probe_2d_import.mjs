@@ -27,8 +27,8 @@ try {
     await page.evaluate(() => { const a = window.kiri.api.show.alert; window.kiri.api.show.alert = (t, s) => { window.__alert(String(t)); return a(t, s); }; });
     const input = await page.$('#load-file');
     await input.uploadFile(FIX + file);
-    await page.waitForFunction(() => [...document.querySelectorAll('#dialog button')].some(b => /convert/i.test(b.textContent)), { timeout: 15000 });
-    await page.evaluate(() => { document.getElementById('svg-depth').value = '6'; [...document.querySelectorAll('#dialog button')].find(b => /convert/i.test(b.textContent)).click(); });
+    await page.waitForFunction(() => [...document.querySelectorAll('#dialog button')].some(b => /make parts/i.test(b.textContent)), { timeout: 15000 });
+    await page.evaluate(() => { document.getElementById('svg-depth').value = '6'; [...document.querySelectorAll('#dialog button')].find(b => /make parts/i.test(b.textContent)).click(); });
     await page.waitForFunction(() => window.kiri.api.widgets.all().length >= 2, { timeout: 15000 }).catch(() => {});
     await wait(800);
     const sizes = await page.evaluate(() => window.kiri.api.widgets.all().map(w => {
