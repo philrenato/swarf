@@ -524,9 +524,14 @@
 
     for (const op of proc.ops || []) {
       if (!op || !OP_TYPES.includes(op.type)) continue;
-      const stamp = `${current.id}:${op.tool}:${devName}`;
+      // the stamp carries what the numbers came from (design review 10-28 #9): the tool's own
+      // diameter and the machine's limits, so editing either re-derives, not only a new id
+      const tool = findTool(op.tool), dia = toolDiamMm(tool);
+      const stamp = `${current.id}:${op.tool}:${devName}:${(+dia || 0).toFixed(3)}:${lim ? [lim.spindleMin, lim.spindleMax, lim.feedMax, lim.feedMaxZ].join(',') : ''}`;
       if (op.preset === stamp) continue;
-      const p = derive(current, toolDiamMm(findTool(op.tool)), lim);
+      // a stamp from before carries no geometry: take it as matching once, so a student's edits survive the upgrade
+      if (op.preset === `${current.id}:${op.tool}:${devName}`) { op.preset = stamp; changed = true; continue; }
+      const p = derive(current, dia, lim);
       if (!p) continue;
       Object.assign(op, opValues(op.type, p));
       op.preset = stamp;
