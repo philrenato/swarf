@@ -16,10 +16,9 @@
 (function () {
   'use strict';
   const KEY = 'swarf-run-ghost';
-  const BED = { x: 2438.4, y: 1219.2, t: 38 }, BEAM_Z = 260, REACH = 120;
   const api = () => window.kiri && window.kiri.api;
   const space = () => window.moto && window.moto.space;
-  let WORLD = null, gantry = null, rail = null, carriage = null, bed = null, chip = null;
+  let WORLD = null, gantry = null, rail = null, bed = null, chip = null;
   let active = false, x0 = null;
 
   const wanted = () => { try { return localStorage.getItem(KEY) !== '0'; } catch (e) { return true; } };
@@ -36,30 +35,18 @@
     return WORLD;
   }
 
+  let model = null;
   function build() {
     const THREE = window.THREE, s = space();
-    const fill = new THREE.MeshBasicMaterial({ color: 0x8fa6c0, transparent: true, opacity: 0.05, depthWrite: false });
-    const edge = new THREE.LineBasicMaterial({ color: 0xb8c8da, transparent: true, opacity: 0.16 });
-    for (const m of [fill, edge]) m.fog = false;
-    const box = (sx, sy, sz, x, y, z, parent) => {
-      const g = new THREE.BoxGeometry(sx, sy, sz);
-      const o = new THREE.Group();
-      o.add(new THREE.Mesh(g, fill), new THREE.LineSegments(new THREE.EdgesGeometry(g), edge));
-      o.position.set(x, y, z); parent.add(o); return o;
-    };
+    // one model for SIMULATE and CONTROL: swarf-shopbot-model.js (Phil 10-28, from photos)
+    model = window.SwarfShopBotModel.build(THREE);
     // the gantry: in the scene (space.scene.add turns it to match the world), so it stays put
     gantry = new THREE.Group();
     rail = new THREE.Group(); gantry.add(rail);                        // model frame: z up
-    box(110, BED.y + 2 * REACH, 140, 0, BED.y / 2, BEAM_Z + 70, rail);
-    box(110, 60, BEAM_Z + 340, 0, -REACH + 30, (BEAM_Z + 140) / 2 - 100, rail);
-    box(110, 60, BEAM_Z + 340, 0, BED.y + REACH - 30, (BEAM_Z + 140) / 2 - 100, rail);
-    carriage = new THREE.Group(); rail.add(carriage);
-    box(150, 170, 260, -110, 0, BEAM_Z - 10, carriage);                // carriage + Z slide
-    box(95, 95, 170, -110, 0, 85, carriage);                          // router body, bit tip at z 0
+    rail.add(model.gantry);
     s.scene.add(gantry);
     // the bed: in the world, so it slides with the stock
-    bed = new THREE.Group();
-    box(BED.x, BED.y, BED.t, BED.x / 2, BED.y / 2, -BED.t / 2, bed);
+    bed = model.bed;
     world().add(bed);
     gantry.visible = bed.visible = false;
   }
@@ -115,8 +102,8 @@
     const on = wanted();
     WORLD.position.x = on ? -(pos.x - x0) : 0;
     if (!on) return;
-    gantry.position.x = x0 + 110;                 // the carriage hangs 110 mm behind the bit
-    carriage.position.set(0, pos.y - rail.position.y, pos.z);
+    gantry.position.x = x0 + model.OFFSET;        // the beam stands OFFSET mm behind the bit
+    model.set(pos.y - rail.position.y, pos.z);
     near();
   }
 
@@ -133,7 +120,7 @@
       apply();
       try {
         const s = space(), a = api();
-        if (wanted() && bed) s.view.fit(undefined, { padding: 0.9, objects: [bed] });
+        if (wanted() && bed) s.view.fit(undefined, { padding: 0.9, visibleOnly: false, objects: [bed, model.gantry] });
         else if (a.frame) a.frame();
         setTimeout(near, 450);
       } catch (e) { /* no view */ }

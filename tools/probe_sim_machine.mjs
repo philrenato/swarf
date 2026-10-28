@@ -32,13 +32,16 @@ try {
   await page.evaluate(() => { const b = [...document.querySelectorAll('.swarf-step, #act-animate, button')].find(e => /^\s*simulate\s*$/i.test(e.textContent)); b && b.click(); });
   await page.waitForFunction(() => window.__swarfSimMachine.state().active && window.__toolX.length > 30, { timeout: 60000 }).catch(() => {});
   await wait(1500);
-  const s = await page.evaluate(() => ({ st: window.__swarfSimMachine.state(), samples: window.__toolX.slice(-200), chip: !!document.getElementById('swarf-sim-machine') }));
+  const s = await page.evaluate(() => ({ st: window.__swarfSimMachine.state(), samples: window.__toolX.slice(-200), off: window.SwarfShopBotModel.OFFSET, chip: !!document.getElementById('swarf-sim-machine') }));
   const spread = s.samples.length ? Math.max(...s.samples.map(q => q[0])) - Math.min(...s.samples.map(q => q[0])) : 0;
   // the world's slide undoes the bit's X travel: bit x + world x stays at the first bit x
   const worst = s.samples.reduce((m, [x, wx]) => Math.max(m, Math.abs(x + wx - s.st.x0)), 0);
-  check(s.st.active && s.chip && spread > 20 && worst < 1e-6 && Math.abs(s.st.gantryX - s.st.x0 - 110) < 1e-6, `the bed slides under a still gantry: bit travelled ${spread.toFixed(1)} mm in X, held to within ${worst.toExponential(1)} mm of the gantry line (${s.samples.length} steps)`);
+  check(s.st.active && s.chip && spread > 20 && worst < 1e-6 && Math.abs(s.st.gantryX - s.st.x0 - s.off) < 1e-6, `the bed slides under a still gantry: bit travelled ${spread.toFixed(1)} mm in X, held to within ${worst.toExponential(1)} mm of the gantry line (${s.samples.length} steps)`);
   await page.screenshot({ path: `${OUT}-on.png` });
   { const c = await page.evaluate(() => { const r = document.querySelector('canvas').getBoundingClientRect(); return [r.left + r.width / 2, r.top + r.height / 2]; }); await page.mouse.move(c[0], c[1]); for (let i = 0; i < 30; i++) { await page.mouse.wheel({ deltaY: -400 }); await wait(50); } await wait(700); await page.screenshot({ path: `${OUT}-far.png` }); }
+  // off and on again: turning it on steps back to the whole machine
+  await page.click('#swarf-sim-machine'); await wait(400); await page.click('#swarf-sim-machine'); await wait(1500);
+  await page.screenshot({ path: `${OUT}-machine.png` });
   // machine off: the world stops sliding
   await page.click('#swarf-sim-machine');
   await wait(600);

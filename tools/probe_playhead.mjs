@@ -43,8 +43,8 @@ try {
   let t = await tool();
   check(t.x === mid.x && t.y === mid.y && t.z === mid.z && t.dro === '0.000', `scrubbed to line ${mid.line}: the bit is at its end (${t.x}, ${t.y}, ${t.z}), the numbers stay the machine's (${t.dro})`);
   // the shop's ShopBot: the bed (with the job) slides in X, the gantry stands still, the carriage takes Y and Z
-  const g = await page.evaluate(() => { const v = window.__swarfRun.view(), G = v.ghostParts; return { gx: +G.gantry.position.x.toFixed(2), tx: +v.tool.position.x.toFixed(2), wx: +v.work.position.x.toFixed(2), cy: +(G.carriage.position.y + G.gantry.position.y).toFixed(2), cz: +G.carriage.position.z.toFixed(2) }; });
-  check(g.gx === 110 && g.tx === 0 && g.wx === -mid.x && g.cy === mid.y && g.cz === mid.z, `the bed slides ${g.wx} mm in X under a still gantry; the carriage is at Y ${g.cy}, Z ${g.cz}`);
+  const g = await page.evaluate(() => { const v = window.__swarfRun.view(), G = v.ghostParts; return { gx: +G.gantry.position.x.toFixed(2), tx: +v.tool.position.x.toFixed(2), wx: +v.work.position.x.toFixed(2), cy: +(G.model.carriage.position.y + G.gantry.position.y).toFixed(2), cz: +G.model.head.position.z.toFixed(2), off: G.model.OFFSET }; });
+  check(g.gx === g.off && g.tx === 0 && g.wx === -mid.x && g.cy === mid.y && g.cz === mid.z, `the bed slides ${g.wx} mm in X under a still gantry; the carriage is at Y ${g.cy}, Z ${g.cz}`);
   // play from the top at 10× (in wood the whole job runs in under a second at 200×)
   await page.evaluate(() => { const s = document.querySelector('.sr-scrub input'); s.value = '0'; s.dispatchEvent(new Event('input', { bubbles: true })); });
   while ((await page.evaluate(() => document.querySelector('.sr-rate').textContent)) !== 'preview 10×') await page.click('.sr-rate');
