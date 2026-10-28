@@ -1010,10 +1010,44 @@ function load_verts(group, vertices, filename) {
 function load_svg(text, name, opt = {}) {
     platform.group();
     const made = load_svg_into([], text, name, opt);
+    flagDoubled(made, text);
     // opt.place: the drawing is in bed millimetres (DRAW), so each part goes where it was drawn
     if (opt.place) for (const w of made) w.move(w.meta.c0[0], w.meta.c0[1], w.track.pos.z, true);
     platform.group_done(!!opt.place);
     return made;
+}
+
+// swarf (KCAD's guidelines, via the poster session 10-28): a drawing with an outline drawn twice,
+// or two outlines lying on top of each other, cuts the same place twice or leaves a sliver. Say
+// so when the parts arrive: same size at the same place is a doubled line, a big overlap is two
+// outlines on top of each other.
+function flagDoubled(made, text) {
+    if (!api.show || !api.show.alert) return;
+    // the same shape written twice: under even-odd filling the copies cancel, so look at the
+    // drawing's own elements, not the parts (two equal rectangles make no part at all)
+    try {
+        const doc = new DOMParser().parseFromString(text, 'image/svg+xml'), seen = new Map();
+        let twice = 0;
+        for (const e of doc.querySelectorAll('path, rect, circle, ellipse, polygon, polyline, line')) {
+            const key = e.tagName + '|' + ['d', 'points', 'x', 'y', 'width', 'height', 'cx', 'cy', 'r', 'rx', 'ry', 'x1', 'y1', 'x2', 'y2', 'transform'].map(a => (e.getAttribute(a) || '').replace(/\s+/g, ' ').trim()).join('|');
+            if (seen.has(key)) twice++; else seen.set(key, 1);
+        }
+        if (twice) { api.show.alert(`${twice} shape${twice > 1 ? 's are' : ' is'} drawn twice in this drawing, on top of ${twice > 1 ? 'themselves' : 'itself'}: the copies cancel or cut twice. Delete the extra in your drawing and open it again.`, 12); return; }
+    } catch (e) { /* not parseable here: the parts' own check below */ }
+    if (!made || made.length < 2) return;
+    const box = w => { const g = w.mesh.geometry; g.computeBoundingBox(); const b = g.boundingBox, c = w.meta && w.meta.c0 || [0, 0]; return { x0: c[0] + b.min.x, x1: c[0] + b.max.x, y0: c[1] + b.min.y, y1: c[1] + b.max.y }; };
+    const B = made.map(box);
+    let doubled = 0, over = 0;
+    for (let i = 0; i < B.length; i++) for (let j = i + 1; j < B.length; j++) {
+        const a = B[i], b = B[j];
+        const same = Math.abs(a.x0 - b.x0) < 0.05 && Math.abs(a.x1 - b.x1) < 0.05 && Math.abs(a.y0 - b.y0) < 0.05 && Math.abs(a.y1 - b.y1) < 0.05;
+        if (same) { doubled++; continue; }
+        const ix = Math.min(a.x1, b.x1) - Math.max(a.x0, b.x0), iy = Math.min(a.y1, b.y1) - Math.max(a.y0, b.y0);
+        const small = Math.min((a.x1 - a.x0) * (a.y1 - a.y0), (b.x1 - b.x0) * (b.y1 - b.y0));
+        if (ix > 0 && iy > 0 && small > 0 && ix * iy > small * 0.5) over++;
+    }
+    if (doubled) api.show.alert(`${doubled} outline${doubled > 1 ? 's are' : ' is'} drawn twice in this drawing: swarf would cut ${doubled > 1 ? 'them' : 'it'} twice. Delete the extra in your drawing, or here (select it, delete).`, 12);
+    else if (over) api.show.alert(`${over} pair${over > 1 ? 's' : ''} of outlines lie on top of each other: check the drawing; overlapping parts cut into each other.`, 12);
 }
 
 // parts from SVG text into a load group. Each part keeps its own drawing

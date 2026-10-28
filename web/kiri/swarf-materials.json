@@ -267,6 +267,99 @@
       }
     },
     {
+      "id": "plywood",
+      "name": "plywood",
+      "note": "HSS, 2-flute. birch or Baltic ply cuts like hard wood, but its glue lines dull a cutter faster and the top veneer can tear out: a sharp bit, the good face up. dust mask.",
+      "cut": {
+        "vc": 120,
+        "flutes": 2,
+        "chip": 0.0098,
+        "down": 0.32,
+        "downMax": 0,
+        "stepover": 0.35
+      },
+      "ramp": {
+        "ease": true,
+        "angle": 5
+      },
+      "appearance": {
+        "color": "#c8a26e",
+        "emissive": "#2e1a08",
+        "roughness": 0.72,
+        "metalness": 0.02,
+        "opacity": 1.0,
+        "texture": "wood-grain",
+        "textureRepeat": 4,
+        "normalScale": 0.6,
+        "normalStrength": 1.4,
+        "envIntensity": 0.35,
+        "chipColor": "#c9a77a",
+        "chipEmissive": "#2a1808"
+      }
+    },
+    {
+      "id": "osb",
+      "name": "OSB",
+      "note": "HSS, 2-flute. strand board: glue-heavy and uneven, it dulls a cutter fast and chips at its edges. for rough parts and jigs. dust extraction and a mask.",
+      "cut": {
+        "vc": 120,
+        "flutes": 2,
+        "chip": 0.009,
+        "down": 0.32,
+        "downMax": 0,
+        "stepover": 0.35
+      },
+      "ramp": {
+        "ease": true,
+        "angle": 5
+      },
+      "appearance": {
+        "color": "#b8915a",
+        "emissive": "#35240f",
+        "roughness": 0.88,
+        "metalness": 0.01,
+        "opacity": 1.0,
+        "texture": "foam-pores",
+        "textureRepeat": 8,
+        "normalScale": 0.5,
+        "normalStrength": 1.2,
+        "envIntensity": 0.2,
+        "chipColor": "#c09a62",
+        "chipEmissive": "#2e1f0c"
+      }
+    },
+    {
+      "id": "hardboard",
+      "name": "hardboard (masonite)",
+      "note": "HSS, 2-flute. dense, thin and abrasive, like MDF pressed hard: shallow passes, and screw it down well, it is often under 1/4 in (then the laser may suit it better).",
+      "cut": {
+        "vc": 120,
+        "flutes": 2,
+        "chip": 0.0098,
+        "down": 0.25,
+        "downMax": 0,
+        "stepover": 0.35
+      },
+      "ramp": {
+        "ease": true,
+        "angle": 5
+      },
+      "appearance": {
+        "color": "#6e4a2a",
+        "emissive": "#35240f",
+        "roughness": 0.88,
+        "metalness": 0.01,
+        "opacity": 1.0,
+        "texture": "foam-pores",
+        "textureRepeat": 8,
+        "normalScale": 0.5,
+        "normalStrength": 1.2,
+        "envIntensity": 0.2,
+        "chipColor": "#7a5432",
+        "chipEmissive": "#2e1f0c"
+      }
+    },
+    {
       "id": "wax",
       "name": "machining wax",
       "note": "HSS, 2-flute. the safe rehearsal stock — cuts like butter and re-melts into a fresh block. prove a program here before cutting metal.",

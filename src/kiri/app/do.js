@@ -108,6 +108,17 @@ function action(rec) {
             }
             api.selection.update_info();
             break;
+        // swarf (Interfacing review 10-28: delete could not be undone): a deleted part comes
+        // back where it was, and undo-redo deletes it again
+        case 'restore':
+            quiet = true;
+            try { for (let w of rec.widgets) api.platform.add(w, true, true); } finally { quiet = false; }
+            message(rec.widgets.length > 1 ? `${rec.widgets.length} parts are back` : 'the part is back');
+            break;
+        case 'remove':
+            quiet = true;
+            try { api.platform.delete(rec.widgets.slice()); } finally { quiet = false; }
+            break;
     }
     space.update();
     updateButtons();
@@ -124,12 +135,18 @@ function pushActions(ur) {
     updateButtons();
 }
 
+let quiet = false;   // an undo or redo of a delete must not clear the stack it came from
 event.on([
     'platform.layout',
-    'widget.add',
-    'widget.delete'
+    'widget.add'
 ], (widget) => {
-    clear();
+    if (!quiet) clear();
+});
+event.on('widget.delete', (widget) => {
+    if (quiet) return;
+    const widgets = (Array.isArray(widget) ? widget : [widget]).map(w => w && (w.widget || w)).filter(Boolean);
+    if (!widgets.length) return;
+    pushActions({ undo: { type: 'restore', widgets }, redo: { type: 'remove', widgets } });
 });
 
 event.on('view.set', mode => {
