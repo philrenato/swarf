@@ -18,9 +18,9 @@
   'use strict';
   const KEY = 'swarf-skin';
   const SKINS = [
-    { id: 'swarf', name: 'swarf', title: 'the red-sky mill: hot red on warm black' },
-    { id: 'glass', name: 'liquid glass', title: 'wet plastic and liquid glass: frosted panes, jelly buttons, a pale sky' },
-    { id: 'classic', name: 'classic', title: 'a classic desktop: BeOS tabs, Windows 95 bevels, Mac OS 9 pinstripes' }
+    { id: 'swarf', name: 'swarf', title: 'the red-sky mill: hot red on warm black', bar: '#d02020' },
+    { id: 'glass', name: 'liquid glass', title: 'wet plastic and liquid glass: frosted panes, jelly buttons, a pale sky', bar: '#ededee' },
+    { id: 'classic', name: 'classic', title: 'a classic desktop: BeOS tabs, Windows 95 bevels, Mac OS 9 pinstripes', bar: '#d6d6d6' }
   ];
   const root = document.documentElement;
   // liquid glass is the default (Phil 10-28: "Make the wet plastic aesthetic the default")
@@ -32,6 +32,12 @@
   function stamp() {
     if (current === 'swarf') root.removeAttribute('data-skin');
     else root.setAttribute('data-skin', current);
+    // the installed app's title bar: the manifest's red, unless the page names its own colour
+    try {
+      let m = document.querySelector('meta[name="theme-color"]');
+      if (!m) { m = document.createElement('meta'); m.name = 'theme-color'; document.head.appendChild(m); }
+      m.content = SKINS.find(k => k.id === current).bar;
+    } catch (e) { /* no head yet */ }
   }
   stamp();
 
