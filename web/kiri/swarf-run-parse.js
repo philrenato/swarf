@@ -133,6 +133,7 @@
       // after the first token makes it SBP: "M3,1,2,0" is a move, "M3 S9000" a spindle.
       if (!/^[A-Z][A-Z0-9]*\s*,/.test(U) && /^(N\d+\s*)?[GMTSFXYZIJ][-+.\d]/.test(U)) {
         gcodeLine(U, n);
+        if (st.ended) break;          // M2 / M30: the program ends here
         continue;
       }
 
@@ -163,7 +164,7 @@
           if (jv !== undefined) st.J = jv * st.scale;
           const dir = val(p[6]);
           const plunge = val(p[7]), reps = val(p[8]);
-          if ((plunge && plunge !== 0) || (reps && reps > 1)) out.warnings.push({ line: n, text: 'CG plunge/repetitions drawn as one pass' });
+          if ((plunge && plunge !== 0) || (reps && reps > 1)) { out.unsupported.push({ line: n, text: s }); break; }
           arc(x, y, st.z, st.I, st.J, dir !== -1, st.moveXY, false, n);
           break;
         }
@@ -218,11 +219,21 @@
     function gcodeLine(U, n) {
       const words = {};
       const re = /([A-Z])\s*([-+]?\d*\.?\d+)/g;
-      let m, gs = [];
+      let m, gs = [], ms = [];
       while ((m = re.exec(U))) {
         if (m[1] === 'G') gs.push(Number(m[2]));
-        else if (m[1] === 'M') { const c = Number(m[2]); event(n, { 3: 'spindle-on', 4: 'spindle-on', 5: 'spindle-off', 6: 'tool-change' }[c] || 'm', 'M' + c); }
+        else if (m[1] === 'M') ms.push(Number(m[2]));
         else words[m[1]] = Number(m[2]);
+      }
+      // an allowlist, not a blacklist (design review 10-28 #2): a G or M code swarf does not
+      // carry out exactly (G92 offsets, G18/G19 planes, G41/42 compensation, canned cycles,
+      // G93 feed modes …) makes the whole line unreadable, which blocks the run
+      const G_OK = new Set([0, 1, 2, 3, 17, 20, 21, 40, 49, 54, 61, 64, 80, 90, 94]);
+      const M_OK = { 3: 'spindle-on', 4: 'spindle-on', 5: 'spindle-off', 6: 'tool-change', 7: 'coolant', 8: 'coolant', 9: 'coolant', 0: 'pause', 1: 'pause' };
+      if (gs.some(g => !G_OK.has(g)) || ms.some(c => !(c in M_OK) && c !== 2 && c !== 30)) { out.unsupported.push({ line: n, text: U.trim() }); return; }
+      for (const c of ms) {
+        if (c === 2 || c === 30) { st.ended = true; return; }
+        event(n, M_OK[c], c === 0 || c === 1 ? 0 : 'M' + c);
       }
       for (const g of gs) {
         if (g === 20) setUnits('in', n);
@@ -325,6 +336,25 @@
     return out.concat(footer()).join('\r\n');
   }
 
+  // The way into any run from where the bit is (design review 10-28 #1), shared by the real
+  // machine and the simulator: up to safe Z (or the first move's own height, if higher), the
+  // router may start there, over to the first move's start at that height, slowly down to it.
+  // Steps: { move: {x,y,z,kind:'up'|'over'|'down',line} } and one { routerHere: true }.
+  // A first move that is a rapid starts from where the reader assumed the bit was, not from
+  // anywhere real: the entry goes to that rapid's END instead, and the rapid is skipped.
+  function entryMoves(pos, m0, safeZ) {
+    const out = [], line = m0.line || 0;
+    const t = m0.rapid ? { x: m0.x, y: m0.y, z: m0.z } : { x: m0.x0, y: m0.y0, z: m0.z0 };
+    let z = pos.z;
+    const up = Math.max(safeZ, t.z);
+    if (z < up - 1e-6) { out.push({ move: { x: pos.x, y: pos.y, z: up, kind: 'up', line } }); z = up; }
+    out.push({ routerHere: true });
+    if (Math.hypot(pos.x - t.x, pos.y - t.y) > 0.01) out.push({ move: { x: t.x, y: t.y, z, kind: 'over', line } });
+    if (t.z < z - 1e-6) out.push({ move: { x: t.x, y: t.y, z: t.z, kind: 'down', line } });
+    if (m0.rapid) out.skipFirst = true;
+    return out;
+  }
+
   // Trace: the cut footprint's rectangle at safe Z, spindle off.
   function traceProgram(parsed, safeZ, name) {
     const b = cutBounds(parsed);
@@ -373,7 +403,7 @@
     return { name: `${name} (from line ${line})`, moves, sbp, events, spindle: !!(on && on.kind === 'spindle-on') };
   }
 
-  const api = { parse, boundsOf, cutBounds, movesToSbp, traceProgram, airProgram, fromLineProgram };
+  const api = { parse, boundsOf, cutBounds, movesToSbp, traceProgram, airProgram, fromLineProgram, entryMoves };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.SwarfRunParse = api;
 })(typeof window !== 'undefined' ? window : globalThis);
