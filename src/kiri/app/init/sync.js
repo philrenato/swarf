@@ -703,6 +703,12 @@ function setup_keybd_nav() {
         const results = document.getElementById('swarf-search-results');
         if (!input || !results) return;
         const INDEX = [
+            { kind:'shop', name:'permission', body:"the ShopBot runs with a faculty member or the technician's say-so. ask before you start.", tags:'permission faculty technician rules kcad shop' },
+            { kind:'shop', name:'your board', body:'bring your own board, flat and labelled with your name, with extra for a test cut. 1/4 to 2 1/2 in thick, up to 4 × 8 ft; thinner sheet goes to the laser.', tags:'board material thickness size laser kcad' },
+            { kind:'shop', name:'your drawing', body:'closed outlines only, and no doubled lines on top of each other: swarf cuts every line it is given.', tags:'closed paths duplicate lines drawing kcad' },
+            { kind:'shop', name:'protection', body:'safety glasses and hearing protection on, dust collection on, hair and sleeves back.', tags:'safety glasses hearing dust kcad' },
+            { kind:'shop', name:'the floor e-stop', body:'the red button on the floor, pressed with your foot. in an emergency, step on it and keep clear until everything has stopped.', tags:'e-stop emergency stop floor foot kcad' },
+            { kind:'shop', name:'hours', body:'the ShopBot runs when the woodshop is open; check its hours.', tags:'hours woodshop open kcad' },
             { kind:'run', name:'control', body:'drives the ShopBot from swarf over its USB cable, in Chrome or Edge only. jog, zero, trace, run in the air, cut. only shows when the ShopBot is the machine; the MR-1 uses export.', tags:'control shopbot usb run machine chrome edge' },
             { kind:'run', name:'trace / in the air / cut', body:'each one opens a checklist first. trace runs the outline of the cut, router off; in the air runs the whole file above the board; cut starts the router. a button that is waiting tells you what it still needs.', tags:'trace air cut run checklist' },
             { kind:'run', name:'jog', body:'moves at once, by the step you pick. go-to buttons and home ask first. space or esc stops; while a job runs, any key pauses it.', tags:'jog move step keys arrows' },
