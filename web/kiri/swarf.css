@@ -2065,3 +2065,6 @@ body.swarf-draw-open #swarf-concerns, body.swarf-draw-open #swarf-size { display
 #swarf-size .act:hover { border-color: #a39a90; }
 #swarf-size .n { color: var(--swarf-text-2); font-size: 12px; }
 @media (max-width: 760px) { #swarf-size { flex-wrap: wrap; left: 16px; right: 16px; transform: none; justify-content: center; } }
+/* r41: the ShopBot in simulate (swarf-sim-machine.js) */
+#layer-animate #swarf-sim-machine { margin-left: 10px; text-transform: none !important; letter-spacing: 0 !important; }
+#layer-animate #swarf-sim-machine.on { border-color: #a39a90 !important; color: #fff !important; }
