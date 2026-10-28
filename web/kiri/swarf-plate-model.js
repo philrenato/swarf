@@ -1,8 +1,8 @@
 /*
  * swarf plate model — the Z plate, its lead, and the ground clip on the router, for the
  * plate card and the shop poster (Phil 10-28, from a photo of the shop's setup: an
- * aluminium strip on a coiled black lead, a copper alligator clip biting the lower lip
- * of the router's aluminium clamp, the bit hanging between them).
+ * aluminium strip on a coiled black lead, a copper alligator clip biting the black Allen
+ * screw in the side of the router's clamp (Phil 10-28), the bit hanging between them).
  * Same drawing as the ShopBot model: a faint fill and its creases, boxes and low
  * cylinders, a few hundred triangles.
  *
@@ -74,12 +74,20 @@
     box(2, 24, 52, M.dark, head, 0, -COLLAR.r - 8, COLLAR.z0 + 30);
     cyl(COLLAR.r + 2, COLLAR.z1, COLLAR.z1 + 26, M.dark, head, 32);       // the motor above, cut short
 
-    // ---- the ground clip, biting the ring's lower lip at the front right
+    // ---- the black Allen screw in the side of the clamp ear (Phil 10-28: the clip "needs to go
+    // on the black allen head screw in the side of the housing for the router"), and the ground
+    // clip biting its head, the clip's levers hanging out and down to the side
+    const EAR = { x: 13, y: -COLLAR.r - 8, z: COLLAR.z0 + 30 };
+    const screw = new THREE.Group(); head.add(screw);
+    screw.position.set(EAR.x, EAR.y, EAR.z);
+    { const g = new THREE.CylinderGeometry(5.5, 5.5, 5.5, 20); g.rotateZ(Math.PI / 2); solid(g, M.dark, screw, 2.75, 0, 0); }   // the socket head
+    { const hex = []; for (let k = 0; k <= 6; k++) { const a = k / 6 * Math.PI * 2; hex.push(new THREE.Vector3(5.6, 2.6 * Math.cos(a), 2.6 * Math.sin(a))); }
+      screw.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(hex), M.alu.l)); }   // its hex socket
+    const SCREW_HEAD = new THREE.Vector3(EAR.x + 3, EAR.y, EAR.z);
     const clip = new THREE.Group(); head.add(clip);
-    const ca = -Math.PI / 5;                                      // where on the ring
-    clip.position.set(Math.cos(ca) * (COLLAR.r + 3), Math.sin(ca) * (COLLAR.r + 3), COLLAR.z0 - 11);
-    clip.rotation.set(0, 0, ca); clip.rotateY(1.2);                // +x points out from the ring; tipped up so
-                                                                  // the jaws bite the lip from below, levers hanging
+    const tilt = 0.45, dir = new THREE.Vector3(Math.cos(tilt), 0, -Math.sin(tilt));
+    clip.position.copy(SCREW_HEAD).addScaledVector(dir, 13);    // the jaw tips (clip x -13: the jaws run -13 to 33 from the pin at 14) on the screw head
+    clip.rotation.set(0, tilt, 0);
     // two stampings on a pin at x 14: the tips meet on the lip, the levers spread behind the spring
     const jaw = (dz, tilt) => {
       const j = new THREE.Group(); j.position.set(14, 0, dz); j.rotation.y = tilt; clip.add(j);
@@ -134,6 +142,7 @@
         bit: w(head, new THREE.Vector3(0, 0, 14)),
         collar: w(head, new THREE.Vector3(-COLLAR.r * 0.7, -COLLAR.r * 0.7, (COLLAR.z0 + COLLAR.z1) / 2)),
         clip: w(clip, new THREE.Vector3(14, 0, 0)),
+        screw: w(head, SCREW_HEAD),
         plate: w(plate, new THREE.Vector3(-PLATE.x / 2, 0, PLATE.t)),
         plateLead: w(plate, new THREE.Vector3(-PLATE.x - 60, 52, 3))
       };

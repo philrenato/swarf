@@ -2203,3 +2203,6 @@ html:not([data-skin]) .set-header a, html:not([data-skin]) summary.set-header a 
 .swarf-concern { display: block !important; }
 .swarf-concern strong, .swarf-concern em { display: block !important; }
 .swarf-concern em { margin-top: 3px; }
+/* the menus open over control and draw, never under them (Phil 10-28: setup's list was cut off in control) */
+#menubar { position: relative; z-index: 95 !important; }
+#menubar .top-menu-drop { z-index: 96 !important; }

@@ -170,7 +170,7 @@
       </div>
       <div class="sd-card" id="sd-card"></div>
       <p class="sd-say" id="sd-say"></p>`;
-    document.body.append(el);
+    (document.getElementById("app") || document.body).append(el);   // inside #app, so the menus open over draw (as over control)
     document.body.classList.add('swarf-draw-open');
     ui.el = el; ui.svg = $('sd-svg'); ui.card = $('sd-card');
     for (const b of el.querySelectorAll('[data-tool]')) b.onclick = () => setTool(b.dataset.tool);

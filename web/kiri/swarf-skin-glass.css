@@ -343,3 +343,6 @@ html[data-skin="glass"] .swarf-wordmark .swarf-mark-arf { color: #55585d !import
 html[data-skin="glass"] #swarf-run .sr-jog.locked .sr-modes button.on { background: #2b2d31 !important; }   /* still readable at the locked panel's .85 */
 html[data-skin="glass"] #swarf-run .sr-jog .sr-modes.sr-steprow button.on, html[data-skin="glass"] #swarf-run .sr-jog .sr-modes button.on { color: #fff !important; background: var(--g-aqua) !important; border-color: #2c2e32 !important; }
 html[data-skin="glass"] #swarf-run .sr-jog.locked .sr-modes.sr-steprow button.on, html[data-skin="glass"] #swarf-run .sr-jog.locked .sr-modes button.on { background: #2b2d31 !important; }
+/* the control step, on: its label and play icon white on the graphite (the legibility pass's label colour must not reach it) */
+html[data-skin="glass"] #mode-tools > span.swarf-step-run.swarf-step-on label, html[data-skin="glass"] #mode-tools > span.swarf-step-run.swarf-step-on i,
+html[data-skin="glass"] #mode-tools > span.swarf-step-run.swarf-step-on svg, html[data-skin="glass"] #mode-tools > span.swarf-step-run.swarf-step-on svg * { color: #fff !important; fill: #fff !important; }
