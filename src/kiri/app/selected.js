@@ -211,8 +211,13 @@ function duplicate() {
         const nw = api.widgets.new().loadGeometry(mesh.geometry.clone());
         nw.meta.file = ow.meta.file;
         nw.meta.vertices = ow.meta.vertices;
+        // swarf: the copy keeps its drawing (DRAW, save drawing) and sits beside the original
+        for (const k of ['svg', 'c0', 'xf', 't', 'edge', 'tilted']) {
+            if (ow.meta[k] !== undefined) nw.meta[k] = JSON.parse(JSON.stringify(ow.meta[k]));
+        }
         nw.anno = ow.annotations();
-        nw.move(bb.max.x - bb.min.x + 1, 0, 0);
+        const op = ow.track.pos;
+        nw.move(op.x + bb.max.x - bb.min.x + 1, op.y, op.z, true);
         api.platform.add(nw, true);
         api.event.emit("widget.duplicate", nw, ow);
     });

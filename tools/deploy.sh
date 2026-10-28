@@ -46,8 +46,8 @@ for f in web/kiri/swarf*.js web/kiri/swarf*.mjs web/kiri/swarf.css web/kiri/swar
   cp "$f" "$dst"
 done
 
-# r36: Unreason's 2D readers/writers (swarf-vector.mjs imports them)
-mkdir -p "$WEB_APP/vendor/unreason" && cp web/kiri/vendor/unreason/*.mjs "$WEB_APP/vendor/unreason/"
+# r36: Unreason's 2D readers/writers (swarf-vector.mjs imports them); r40: opentype.js (DRAW text)
+mkdir -p "$WEB_APP/vendor" && cp -R web/kiri/vendor/. "$WEB_APP/vendor/"
 echo "[3/5] rewrite worker + wasm + asset paths to /swarf-app/ absolutes"
 # worker + wasm (fatal — toolpaths break without these)
 sed -i '' 's|"\.\./lib/kiri/run/worker\.js"|"/swarf-app/lib/kiri/run/worker.js"|g' "$WEB_APP/lib/main/kiri.js"
@@ -83,7 +83,7 @@ echo "      ok — cache version: $STAMP"
 echo "[5/6] commit web repo"
 cd "$WEB_REPO"
 git add swarf-app/lib/main/kiri.js swarf-app/lib/kiri/run/worker.js \
-  swarf-app/swarf*.js swarf-app/swarf*.mjs swarf-app/vendor/unreason swarf-app/swarf.css swarf-app/swarf-materials.json \
+  swarf-app/swarf*.js swarf-app/swarf*.mjs swarf-app/vendor swarf-app/swarf.css swarf-app/swarf-materials.json \
   swarf-app/swarf-icon-*.png swarf-app/manifest.json swarf-app/index.html 2>/dev/null || true
 # NOTE: index.html is staged but NEVER copied from source. The deploy copy has
 # its own SEO metadata and RELATIVE css/font paths (moto/palette.css, not

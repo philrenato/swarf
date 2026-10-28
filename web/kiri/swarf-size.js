@@ -12,7 +12,7 @@
   const api = () => window.kiri && window.kiri.api;
   const AX = [['x', 'width'], ['y', 'depth'], ['z', 'height']];
   const KEEP = 'swarf-size-keep';
-  let card, fields = {}, keep;
+  let card, fields = {}, keep, edit, count;
 
   function build() {
     card = document.createElement('div');
@@ -38,6 +38,15 @@
     keep.append(box, document.createTextNode('keep proportions'));
     keep.box = box;
     card.append(keep);
+    // what you can do with the picked parts, where you can see it (Phil 10-27:
+    // "after I make something, how do I select, delete etc?")
+    const act = (word, title, fn) => { const b = document.createElement('button'); b.className = 'act'; b.textContent = word; b.title = title; b.onclick = fn; card.append(b); return b; };
+    card.append(Object.assign(document.createElement('span'), { className: 'sep' }));
+    edit = act('edit in draw', 'move its points, reshape it, change its thickness or edge', () => window.__swarfDraw && window.__swarfDraw.open());
+    act('duplicate', 'a copy beside it', () => { const a = api(); a.selection.duplicate(); });
+    act('delete', 'remove the picked parts (or press Delete)', () => { const a = api(); a.selection.delete(); setTimeout(show, 0); });
+    count = Object.assign(document.createElement('span'), { className: 'n' });
+    card.prepend(count);
     document.body.append(card);
   }
 
@@ -59,8 +68,13 @@
     if (!card || !a || !a.platform) return;
     const n = a.platform.selected_count ? a.platform.selected_count() : 0;
     const inControl = document.body.classList.contains('swarf-run-open');
-    card.classList.toggle('on', n > 0 && !inControl);
+    card.classList.toggle('on', n > 0 && !inControl && !document.body.classList.contains('swarf-draw-open'));
     if (!n) return;
+    // several picked: the size is the first one's; the buttons act on all of them
+    count.textContent = n > 1 ? `${n} parts ·` : '';
+    count.title = n > 1 ? 'shift-click a part to add it or leave it out' : '';
+    const picked = a.selection.widgets ? a.selection.widgets() : [];
+    edit.style.display = picked.some(w => w.meta && w.meta.svg) ? '' : 'none';
     for (const [b] of AX) {
       const src = $(`size_${b}`);
       if (src && document.activeElement !== fields[b]) fields[b].value = (+parseFloat(src.value || 0).toFixed(2)).toString();

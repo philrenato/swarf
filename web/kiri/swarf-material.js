@@ -594,6 +594,8 @@
         const mats = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
         for (const mat of mats) {
           if (mat && mat.color) applyAppearance(mat, a);
+          // the part is never fogged: the fade is for the floor (swarf-grid-fade.js)
+          if (mat && mat.fog !== false) { mat.fog = false; mat.needsUpdate = true; }
         }
       }
       // swarf v010: also re-tint the SIMULATE stock mesh material if live

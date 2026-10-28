@@ -3,7 +3,7 @@
 import { $, h } from '../../moto/webui.js';
 import { ajax, js2o } from '../core/utils.js';
 import { api } from './api.js';
-import { MODES } from './consts.js';
+import { MODES, VIEWS } from './consts.js';
 import { colorSchemeRegistry } from './color/schemes.js';
 import { load as file_load } from '../../load/file.js';
 import { load_url as url_load } from '../../load/url.js';
@@ -367,6 +367,12 @@ function update_selected() {
 function select(widget, shift, recurse = true) {
     const { event, selection, view } = api;
 
+    // swarf: a click on a part while looking at its toolpaths goes back to
+    // arranging, with that part picked (Phil 10-27: "after I make something,
+    // how do I select, delete etc?"). Not while a simulation plays.
+    if (!view.is_arrange() && widget && view.get && view.get() === VIEWS.PREVIEW) {
+        view.set_arrange();
+    }
     if (!view.is_arrange()) {
         return;
     }
@@ -998,6 +1004,7 @@ function load_svg_into(group, text, name, opt = {}) {
     const solids = svg_solids(text, opt);
     if (solids.error) { made.error = solids.error; return made; }
     for (const v of solids) {
+        faceOut(v);
         const b = [Infinity, Infinity, -Infinity, -Infinity];
         for (let i = 0; i < v.length; i += 3) {
             b[0] = Math.min(b[0], v[i]); b[1] = Math.min(b[1], v[i + 1]);
@@ -1022,6 +1029,21 @@ function load_svg_into(group, text, name, opt = {}) {
         made.forEach((w, i) => { if (own[i]) w.meta.svg = own[i]; });
     }
     return made;
+}
+
+// a solid's faces turned outward: an outline drawn clockwise extrudes inside
+// out (negative volume), which renders dark from above (Phil 10-27: "too dark")
+function faceOut(v) {
+    let vol = 0;
+    for (let i = 0; i + 8 < v.length; i += 9) {
+        const ax = v[i], ay = v[i + 1], az = v[i + 2], bx = v[i + 3], by = v[i + 4], bz = v[i + 5], cx = v[i + 6], cy = v[i + 7], cz = v[i + 8];
+        vol += ax * (by * cz - bz * cy) - ay * (bx * cz - bz * cx) + az * (bx * cy - by * cx);
+    }
+    if (vol >= 0) return v;
+    for (let i = 0; i + 8 < v.length; i += 9) {
+        for (let k = 3; k < 6; k++) { const t = v[i + k]; v[i + k] = v[i + k + 3]; v[i + k + 3] = t; }
+    }
+    return v;
 }
 
 // the solids an SVG makes at opt.depth: straight walls, or with a shaped top

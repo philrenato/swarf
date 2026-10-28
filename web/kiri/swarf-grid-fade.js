@@ -45,6 +45,13 @@
   // the camera, which shifts the fog band, which paints the grid brighter
   // or darker. Pin fog to fixed world-space distances anchored on the part
   // size, and neutralise updateFog so camera motion can't repaint the floor.
+  const FOG = { near: 120, far: 480 };
+  // space keeps its THREE.Scene private: the platform's root is it
+  const scenes = space => {
+    const out = [space.world && space.world.scene, space.scene && (space.scene.scene || space.scene._scene)].filter(Boolean);
+    try { let o = space.internals().platform; while (o && o.parent) o = o.parent; if (o && o.isScene && !out.includes(o)) out.push(o); } catch (e) { /* not built yet */ }
+    return out;
+  };
   function applyFog(api, space) {
     if (!space || !space.scene) return;
     const THREE = window.THREE;
@@ -62,10 +69,7 @@
     // the underlying SCENE; we patch through space.world.scene if exposed,
     // else via the well-known global path moto.Space internals.
     try {
-      const all = [
-        space.world && space.world.scene,
-        sceneObj
-      ].filter(Boolean);
+      const all = scenes(space);
       for (const s of all) {
         if (s && s.fog) {
           s.fog.near = near;
@@ -74,11 +78,27 @@
         }
       }
     } catch (e) {}
-    // Neutralise Kiri's camera-relative fog recompute. Idempotent.
+    // 10-27 (Phil: "when done drawing and we zoom away things are too dark"):
+    // three's fog counts from the CAMERA, so a fixed near/far fogged the whole
+    // view, part and all, once you zoomed out past it. Kiri's own recompute
+    // puts fog.near at the camera-to-target distance; ride on that and add our
+    // band, so the fade sits the same distance from what you are looking at
+    // at any zoom (and the floor still reads the same in every mode).
+    FOG.near = near; FOG.far = far;
     if (space.scene && !space.scene.__swarfFogPinned) {
-      space.scene.updateFog = function () { /* swarf: fog is world-anchored */ };
+      const kiri = space.scene.updateFog;
+      space.scene.updateFog = function () {
+        try { kiri.call(this); } catch (e) { /* no camera yet */ }
+        for (const s of scenes(space)) {
+          if (!s.fog) continue;
+          const dist = s.fog.near;               // kiri: the camera's distance to its target
+          s.fog.near = dist + FOG.near;
+          s.fog.far = dist + FOG.far;
+        }
+      };
       space.scene.__swarfFogPinned = true;
     }
+    try { space.scene.updateFog(); } catch (e) {}
     try { space.refresh && space.refresh(); } catch (e) {}
   }
 

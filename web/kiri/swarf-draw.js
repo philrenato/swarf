@@ -7,7 +7,9 @@
  * (shapes, SVG/DXF/AI/PDF imports) where it sits on the bed. Pick a part, then
  * its points: drag them, type where they go, add one (double-click an edge) or
  * remove one (delete). The pen draws a new outline (click a corner, drag a smooth
- * point); rectangle and ellipse drag out from corner to corner. "done" rebuilds
+ * point); rectangle and ellipse drag out from corner to corner; text sets a
+ * word in a real font (opentype.js reads the glyph outlines: the built-in Russo
+ * One, or any .ttf / .otf the person picks). "done" rebuilds
  * each changed part from its drawing at its thickness, where it was drawn.
  *
  * Curves are Unreason's NURBS ({ degree, knots, ctrlPts: [[x, y, 0, w]…] }, mm,
@@ -158,6 +160,7 @@
         <button data-tool="pen" title="draw an outline: click for a corner, drag for a smooth point, click the first to close (P)">pen</button>
         <button data-tool="rect" title="drag a rectangle from corner to corner; shift for a square (R)">rectangle</button>
         <button data-tool="ellipse" title="drag an ellipse from corner to corner; shift for a circle (E)">ellipse</button>
+        <button data-tool="text" title="click where the text starts; type it in the card (T)">text</button>
         <span class="sd-sep"></span>
         <button id="sd-undo" title="undo (⌘Z)">undo</button>
         <button id="sd-fit" title="show the parts, or the whole bed (F) · pinch or ⌘-scroll to zoom, two fingers to slide">fit</button>
@@ -310,6 +313,7 @@
       out.push(`<rect class="sd-pt first" x="${sx(S.pen[0].p[0]) - 5}" y="${sy(S.pen[0].p[1]) - 5}" width="10" height="10"/>`);
     }
     if (S.ghost) out.push(`<path class="sd-pen" d="${pathOf(S.ghost)}"/>`);
+    if (S.tool === 'text' && S.ghostText && S.ghostText.length) out.push(`<path class="sd-pen" d="${S.ghostText.map(c => pathOf(c.crv)).join(' ')}"/>`);
     if (S.box) {
       const [a, b] = S.box;
       out.push(`<rect class="sd-box" x="${Math.min(sx(a[0]), sx(b[0]))}" y="${Math.min(sy(a[1]), sy(b[1]))}" width="${Math.abs(a[0] - b[0]) * k}" height="${Math.abs(a[1] - b[1]) * k}"/>`);
@@ -331,18 +335,23 @@
   function card() {
     const part = S.parts[S.sel];
     const row = (word, id, v, unit) => `<div class="sd-row"><span>${word}</span><input id="${id}" value="${v}" inputmode="decimal"><span class="u">${unit}</span></div>`;
+    const textRows = (str, hh) => `<div class="sd-row"><span>words</span><input id="sd-str" class="wide" value="${esc(str)}"></div>${row('letter height', 'sd-th', hh, 'mm')}
+      <div class="sd-row"><span>font</span><span class="sd-font">${esc(TEXT.name)}</span><button id="sd-font" title="use a .ttf or .otf font from this computer">change…</button></div>`;
     const edgeRows = e => `<div class="sd-row"><span>top edge</span><select id="sd-edge">${['straight', 'chamfer', 'round'].map(k => `<option${k === e.kind ? ' selected' : ''}>${k}</option>`).join('')}</select><span class="u"></span></div>${e.kind === 'straight' ? '' : row('edge size', 'sd-es', e.size, 'mm')}`;
     let h = '';
     if (S.tool !== 'select') {
       const how = {
         pen: 'Click for a corner. Drag for a smooth point. Click the first point (or press Enter) to close the outline.',
         rect: 'Drag from one corner to the other. Hold shift for a square.',
-        ellipse: 'Drag from one corner of its box to the other. Hold shift for a circle.'
+        ellipse: 'Drag from one corner of its box to the other. Hold shift for a circle.',
+        text: 'Type the words, then click where they start (the left end of the baseline).'
       }[S.tool];
-      h = `<div class="sd-h">${S.tool === 'rect' ? 'rectangle' : S.tool}</div><div class="sd-note">${how}</div>${row('thickness', 'sd-pen-t', S.thick, 'mm')}${edgeRows(S.edge)}`;
+      h = `<div class="sd-h">${S.tool === 'rect' ? 'rectangle' : S.tool}</div><div class="sd-note">${how}</div>`;
+      if (S.tool === 'text') h += textRows(TEXT.str, TEXT.h);
+      h += `${row('thickness', 'sd-pen-t', S.thick, 'mm')}${edgeRows(S.edge)}`;
     } else if (part && !part.gone) {
       const b = boxOf(part.curves), one = S.pts.size === 1 ? [...S.pts][0] : null;
-      h = `<div class="sd-h">${esc(part.name)}</div>${row('width', 'sd-w', r3(b[2] - b[0]), 'mm')}${row('depth', 'sd-d', r3(b[3] - b[1]), 'mm')}${row('thickness', 'sd-t', part.thick, 'mm')}${edgeRows(part.edge)}`;
+      h = `<div class="sd-h">${esc(part.name)}</div>${part.text ? textRows(part.text.str, part.text.h) : ''}${row('width', 'sd-w', r3(b[2] - b[0]), 'mm')}${row('depth', 'sd-d', r3(b[3] - b[1]), 'mm')}${row('thickness', 'sd-t', part.thick, 'mm')}${edgeRows(part.edge)}`;
       if (one) {
         const [ci, i] = one.split(':').map(Number), P = part.curves[ci].crv.ctrlPts[i];
         h += `<div class="sd-h">point</div>${row('x', 'sd-px', r3(P[0]), 'mm')}${row('y', 'sd-py', r3(P[1]), 'mm')}`;
@@ -375,6 +384,37 @@
       S.pts = keep;
       render();
     };
+    // text: the words and their height, for the tool's next text or the picked text part
+    const strEl = $('sd-str');
+    if (strEl) {
+      const setText = (str, hh) => {
+        if (S.tool === 'text') { TEXT.str = str; TEXT.h = hh; return; }
+        const t = { ...part.text, str, h: hh }, c = textCurves(t);
+        if (!c.length) return say('Type some letters: an empty text has nothing to cut.');
+        snap(); part.text = t; part.curves = c; part.dirty = true; render();
+      };
+      strEl.onkeydown = e => { e.stopPropagation(); if (e.key === 'Enter') { strEl.blur(); } };
+      strEl.oninput = () => { if (S.tool === 'text') TEXT.str = strEl.value; };
+      strEl.onchange = () => setText(strEl.value, S.tool === 'text' ? TEXT.h : part.text.h);
+      num('sd-th', v => { if (!(v > 0)) return say('The letter height must be more than 0 mm.'); setText(S.tool === 'text' ? TEXT.str : part.text.str, r3(v)); });
+      const fb = $('sd-font');
+      if (fb) fb.onclick = () => {
+        const inp = Object.assign(document.createElement('input'), { type: 'file', accept: '.ttf,.otf' });
+        inp.onchange = async () => {
+          const file = inp.files && inp.files[0];
+          if (!file) return;
+          try {
+            if (!window.opentype) await loadScript('vendor/opentype/opentype.min.js');
+            TEXT.font = window.opentype.parse(await file.arrayBuffer());
+            TEXT.name = file.name.replace(/\.(ttf|otf)$/i, '');
+            if (S.tool !== 'text' && part && part.text) setText(part.text.str, part.text.h);
+            say(`Letters now in ${TEXT.name}.`);
+            render();
+          } catch (e) { say(`That font could not be read (${e.message}). Try a .ttf or .otf.`); }
+        };
+        inp.click();
+      };
+    }
     num('sd-w', v => size(0, v));
     num('sd-d', v => size(1, v));
     num('sd-scale', v => { if (!(v > 0)) return say('Scale is a percentage more than 0.'); if (v !== 100) { snap(); transform(part, M => [M[0] * v / 100, M[1] * v / 100]); render(); } });
@@ -402,11 +442,15 @@
     render();
   }
   function shiftPts(part, ids, dx, dy) {
+    delete part.text;                            // its letters are curves now
+
     for (const id of moveSet(part, ids)) { const [ci, i] = id.split(':').map(Number), P = part.curves[ci].crv.ctrlPts[i]; P[0] += dx; P[1] += dy; }
     part.dirty = true;
   }
   // scale / turn the picked points about their centre, or the whole part about its centre
   function transform(part, f) {
+    delete part.text;
+
     const ids = S.pts.size ? moveSet(part, [...S.pts]) : null;
     const list = [];
     part.curves.forEach((c, ci) => c.crv.ctrlPts.forEach((P, i) => { if (!ids || ids.has(`${ci}:${i}`)) list.push(P); }));
@@ -420,6 +464,7 @@
   function deletePts() {
     const part = S.parts[S.sel];
     if (!part) return;
+    if (S.pts.size) delete part.text;
     if (!S.pts.size) { snap(); part.gone = true; S.sel = -1; say(`${part.name} will be removed when you press done.`); render(); return; }
     const byCurve = new Map();
     for (const id of S.pts) { const [ci, i] = id.split(':').map(Number); if (!byCurve.has(ci)) byCurve.set(ci, []); byCurve.get(ci).push(i); }
@@ -481,6 +526,7 @@
     crv.ctrlPts.splice(best.s, p + 1, ...left.map(back), ...right.slice(1).map(back));
     crv.knots = chainKnots(p, (crv.ctrlPts.length - 1) / p);
     part.dirty = true;
+    delete part.text;
     S.pts = new Set([`${best.ci}:${best.s + p}`]);
     render();
   }
@@ -496,13 +542,19 @@
   }
 
   // ── pointer ──
-  function setTool(t) { S.tool = t; S.pen = []; S.hover = null; S.ghost = null; if (t !== 'select') { S.sel = -1; S.pts.clear(); } render(); ui.svg.focus(); }
+  function setTool(t) {
+    S.tool = t; S.pen = []; S.hover = null; S.ghost = null; S.ghostText = null;
+    if (t !== 'select') { S.sel = -1; S.pts.clear(); }
+    if (t === 'text') fontReady().then(() => S && render()).catch(e => say(`Text needs its font: ${e.message}.`));
+    render(); ui.svg.focus();
+  }
   const snapMM = v => Math.round(v * 10) / 10;
   function down(e) {
     if (e.button === 1 || (e.button === 0 && S.space)) { S.drag = { kind: 'pan', x: e.clientX, y: e.clientY }; ui.svg.setPointerCapture(e.pointerId); return; }
     if (e.button !== 0) return;
     const m = toMM(e);
     if (S.tool === 'pen') { penDown(m, e); ui.svg.setPointerCapture(e.pointerId); return; }
+    if (S.tool === 'text') { placeText(m); return; }
     if (S.tool === 'rect' || S.tool === 'ellipse') { S.drag = { kind: 'shape', at: [snapMM(m[0]), snapMM(m[1])] }; ui.svg.setPointerCapture(e.pointerId); return; }
     // a second press soon and near: a double-click (the board redraws on every
     // press, so the browser's own dblclick never sees the same element twice)
@@ -546,6 +598,10 @@
       S.hover = q; render(); say(`${r3(q[0])}, ${r3(q[1])} mm`);
       return;
     }
+    if (S.tool === 'text' && TEXT.font) {
+      const c = textCurves({ str: TEXT.str, h: TEXT.h, at: [snapMM(m[0]), snapMM(m[1])] });
+      S.ghostText = c; render(); return;
+    }
     if (!d) return;
     if (d.kind === 'shape') {
       let b = [snapMM(m[0]), snapMM(m[1])];
@@ -565,7 +621,7 @@
     dx = snapMM(dx); dy = snapMM(dy);
     if (!dx && !dy) return;
     if (d.kind === 'pts') { shiftPts(part, [...S.pts], dx, dy); keepSmooth(part); }
-    else { for (const c of part.curves) for (const P of c.crv.ctrlPts) { P[0] += dx; P[1] += dy; } part.dirty = true; }
+    else { for (const c of part.curves) for (const P of c.crv.ctrlPts) { P[0] += dx; P[1] += dy; } if (part.text) part.text.at = [part.text.at[0] + dx, part.text.at[1] + dy]; part.dirty = true; }
     d.at = [d.at[0] + dx, d.at[1] + dy];
     d.moved = true;
     render();
@@ -638,6 +694,44 @@
     const P = [[cx + rx, cy, 1], [cx + rx, cy + ry, w], [cx, cy + ry, 1], [cx - rx, cy + ry, w], [cx - rx, cy, 1], [cx - rx, cy - ry, w], [cx, cy - ry, 1], [cx + rx, cy - ry, w], [cx + rx, cy, 1]];
     return { degree: 2, knots: [0, 0, 0, 1, 1, 2, 2, 3, 3, 4, 4, 4], ctrlPts: P.map(([x, y, wt]) => [x, y, 0, wt]) };
   }
+  // ── text: real glyph outlines ──
+  const TEXT = { str: 'swarf', h: 30, font: null, name: 'Russo One' };
+  function loadScript(src) {
+    return new Promise((res, rej) => { const el = document.createElement('script'); el.src = src; el.onload = res; el.onerror = () => rej(new Error(`${src} did not load`)); document.head.append(el); });
+  }
+  async function fontReady() {
+    if (TEXT.font) return TEXT.font;
+    if (!window.opentype) await loadScript('vendor/opentype/opentype.min.js');
+    for (const u of ['moto/russo-one.ttf', '../moto/russo-one.ttf']) {
+      try { const r = await fetch(u); if (r.ok) { TEXT.font = window.opentype.parse(await r.arrayBuffer()); return TEXT.font; } } catch (e) { /* the next place */ }
+    }
+    throw new Error('the built-in font did not load');
+  }
+  // the words as closed curves in board mm, the first letter's baseline starting at `at`,
+  // capitals `h` mm tall
+  function textCurves(t) {
+    const f = TEXT.font;
+    if (!f || !t.str.trim()) return [];
+    const os2 = f.tables.os2;
+    const cap = (os2 && os2.sCapHeight) || (g => g.y2 - g.y1)(f.charToGlyph('H').getBoundingBox()) || f.unitsPerEm * 0.7;
+    const path = f.getPath(t.str, t.at[0], -t.at[1], t.h * f.unitsPerEm / cap);
+    const d = path.toPathData(4);
+    if (!d) return [];
+    const b = path.getBoundingBox(), W = Math.max(1e-3, b.x2 - b.x1), H = Math.max(1e-3, b.y2 - b.y1);
+    return V().curves(`<svg xmlns="http://www.w3.org/2000/svg" width="${W}mm" height="${H}mm" viewBox="${b.x1} ${b.y1} ${W} ${H}"><path d="${d}"/></svg>`).filter(c => isClosed(c.crv));
+  }
+  async function placeText(m) {
+    try { await fontReady(); } catch (e) { say(`Text needs its font: ${e.message}.`); return; }
+    const t = { str: TEXT.str, h: TEXT.h, at: [snapMM(m[0]), snapMM(m[1])], font: TEXT.name };
+    const curves = textCurves(t);
+    if (!curves.length) { say('Type some letters in the card first.'); return; }
+    snap();
+    const n = S.parts.filter(p => !p.w).length + 1;
+    S.parts.push({ w: null, name: `text-${n}`, thick: S.thick, edge: { ...S.edge }, curves, text: t, dirty: true });
+    S.tool = 'select'; S.sel = S.parts.length - 1; S.pts.clear(); S.ghost = null;
+    say('Text placed. Change its words or height in the card; drag it to move it.');
+    render();
+  }
   function addPart(word, crv) {
     snap();
     const n = S.parts.filter(p => !p.w).length + 1;
@@ -699,6 +793,7 @@
     if (k === 'p' || k === 'P') { setTool('pen'); return; }
     if (k === 'r' || k === 'R') { setTool('rect'); return; }
     if (k === 'e' || k === 'E') { setTool('ellipse'); return; }
+    if (k === 't' || k === 'T') { setTool('text'); return; }
     if ((k === 'Delete' || k === 'Backspace') && S.tool === 'select') { e.preventDefault(); deletePts(); return; }
     if (k === 'Backspace' && S.tool === 'pen' && S.pen.length) { e.preventDefault(); S.pen.pop(); render(); return; }
     const ar = { ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, 1], ArrowDown: [0, -1] }[k];
@@ -752,5 +847,5 @@
     }
   }, 150);
 
-  window.__swarfDraw = { open, close, bedCurves, state: () => S, isChain };
+  window.__swarfDraw = { open, close, bedCurves, state: () => S, isChain, text: TEXT };
 })();
