@@ -21,8 +21,7 @@
     { id: 'bed', title: 'the bed', rows: [
       ['autoSave', 'save my work as I go', 'Parts and steps come back when you reopen swarf'],
       ['autoLayout', 'place new parts by themselves', 'A new part is laid out beside the others'],
-      ['freeLayout', 'drag parts anywhere', 'Off: parts stay where the layout put them'],
-      ['spaceLayout', 'space between parts', 'The gap swarf leaves between parts it lays out']
+      ['freeLayout', 'drag parts anywhere', 'Off: parts stay where the layout put them']
     ] },
     { id: 'adv', title: 'advanced', fold: true, rows: [
       ['edgeangle', 'edge angle', 'How sharp a fold must be, in degrees, to count as an edge'],
@@ -74,6 +73,8 @@
       col.append(list);
       wrap.append(col);
     }
+    // Kiri's layout spacing is not the gap swarf keeps (12 mm, r42): the row would say the wrong number (Fable review 3 #22)
+    const sp = rowOf(ui.spaceLayout); if (sp) { sp.style.display = 'none'; used.add(sp); }
     // dark mode is the skin's job now (VIEW › skin): its row stays, out of sight, with the old look
     const dark = rowOf(ui.dark);
     if (dark) { dark.classList.add('swarf-prefs-dark'); wrap.querySelector('.swarf-prefs-adv .swarf-prefs-rows').append(dark); const l = dark.querySelector('label'); if (l) l.textContent = 'dark mode'; }

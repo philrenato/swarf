@@ -543,6 +543,7 @@
   // ── edits ──
   function snap() { S.undo.push(JSON.stringify({ parts: S.parts.map(p => ({ ...p, w: null })), sel: S.sel, pts: [...S.pts] })); if (S.undo.length > 200) S.undo.shift(); }
   function undo() {
+    if (S.dropped && !S.pen.length) { const d = S.dropped; S.dropped = null; setTool('pen'); S.pen = d; say('The open outline is back. Click its first point to close it.'); render(); return; }
     if (!S.undo.length) return;
     const u = JSON.parse(S.undo.pop());
     u.parts.forEach((p, i) => { p.w = S.parts[i] ? S.parts[i].w : null; });
@@ -650,7 +651,15 @@
   }
 
   // ── pointer ──
+  // an outline left open by a tool switch or Escape is kept for undo, and said (Fable review 3 #16)
+  function dropPen() {
+    if (S.pen.length < 2) { S.pen = []; return false; }
+    S.dropped = S.pen.slice(); S.pen = [];
+    say('The open outline was dropped: ⌘Z brings it back.');
+    return true;
+  }
   function setTool(t) {
+    const had = S.tool === 'pen' && t !== 'pen' && dropPen();
     S.tool = t; S.pen = []; S.hover = null; S.ghost = null; S.ghostText = null;
     if (t !== 'select') { S.sel = -1; S.pts.clear(); }
     if (t === 'text') fontReady().then(() => S && render()).catch(e => say(`Text needs its font: ${e.message}.`));
@@ -849,6 +858,7 @@
     const n = S.parts.filter(p => !p.w).length + 1;
     S.parts.push({ w: null, name: `${word} ${n}`, thick: S.thick, edge: { ...S.edge }, curves: [{ crv }], dirty: true });
     S.pen = []; S.hover = null; S.tool = 'select'; S.sel = S.parts.length - 1; S.pts.clear();
+    if (S.parts.length === 1 && !S.others.length) fit();   // Fable review 3 #19: the first drawing, not a fingernail on a 2.4 m bed
     say('Made. Drag its points to shape it, or press done to make it a part.');
     checkCross(S.parts[S.sel]);
     render();
@@ -894,7 +904,7 @@
     if (k === ' ') { if (S.space) { e.preventDefault(); return; } S.space = true; e.preventDefault(); window.addEventListener('keyup', function u(ev) { if (ev.key === ' ') { S && (S.space = false); window.removeEventListener('keyup', u, true); } }, true); return; }
     if (k === 'Escape') {
       e.preventDefault();
-      if (S.pen.length) { S.pen = []; render(); return; }
+      if (S.pen.length) { dropPen(); render(); return; }
       if (S.tool !== 'select') { setTool('select'); return; }
       if (S.pts.size) { S.pts.clear(); render(); return; }
       if (S.sel >= 0) { S.sel = -1; render(); return; }
@@ -930,6 +940,7 @@
   // ── done: each changed part rebuilt from its drawing, where it was drawn ──
   function commit() {
     const a = api();
+    let fresh = false;
     const changed = S.parts.filter(p => p.dirty || p.gone);
     if (!changed.length) return;
     // parts stay where they were drawn: auto layout would repack them
@@ -944,11 +955,13 @@
       const svg = V().svgOf(closed);
       const ws = a.platform.load_svg(svg, p.name.replace(/\.(svg|dxf|ai|pdf)$/i, ''), { depth: p.thick, resolution: 2, segmin: 48, soup: true, dpi: 0, place: true, edge: p.edge });
       if (!ws.length) { failed.push(`${p.name}: ${ws.error || 'swarf could not make it from its drawing. Is the outline crossing itself?'}`); continue; }
+      if (!p.w) fresh = true;
       if (p.w) a.platform.delete(p.w);
       made.push(...ws);
       built++;
     }
     if (made.length) a.platform.select(made[0]);
+    if (fresh && a.frame) setTimeout(() => a.frame(), 120);   // Fable review 3 #17: done counts as a landing
     // a word, or any one drawing, counts as one, however many parts its letters make
     const n = built;
     if (failed.length) { a.show.alert(`Not changed: ${failed.join(' ')}`, 12); return; }

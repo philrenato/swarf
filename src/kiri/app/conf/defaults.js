@@ -1153,7 +1153,7 @@ export const conf = {
             reverseZoom: true,
             scrolls: true,
             shiny: true,
-            showOrigin: false,
+            showOrigin: true,   // swarf (Fable review 3 #20): the 0, 0 the student zeroes on is always marked
             showRulers: true,
             showSpeeds: true,
             spaceLayout: 1,

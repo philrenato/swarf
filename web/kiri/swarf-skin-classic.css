@@ -294,3 +294,7 @@ html[data-skin="classic"] .swarf-shape-prev svg { fill: #808080 !important; fill
 /* words that sit straight on the desktop read white */
 html[data-skin="classic"] #swarf-run .sr-note, html[data-skin="classic"] #swarf-run .sr-sim, html[data-skin="classic"] #swarf-run .sr-col > .sr-mach { color: #f0f4fa !important; }
 html[data-skin="classic"] #swarf-run .sr-actions .cut:disabled { box-shadow: var(--c-out) !important; font-weight: 400 !important; margin: 0 !important; }
+
+/* the navy cut button reads white (Fable review 3 #23) */
+html[data-skin="classic"] #swarf-run .sr-actions .cut, html[data-skin="classic"] #swarf-run .sr-actions .cut * { color: #fff !important; }
+html[data-skin="classic"] #swarf-run .sr-actions .cut.wait, html[data-skin="classic"] #swarf-run .sr-actions .cut.quiet { color: #000 !important; }

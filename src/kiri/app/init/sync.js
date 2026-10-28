@@ -625,6 +625,31 @@ function setup_keybd_nav() {
                     }
                 }
             } catch (e) { /* swallow until ops shape is finalised */ }
+            // the bed is a limit on both machines (Fable review 3 #13): a part bigger than the bed,
+            // or hanging off it, is a concern in cam, not only a blocked file in control
+            try {
+                const dev = api.conf.get().device || {}, bw = dev.bedWidth, bd = dev.bedDepth;
+                const mach = (dev.deviceName || 'machine').replace(/\./g, ' ').replace(/^(\w+) Basic$/, '$1');
+                const soft = /shopbot/i.test(dev.deviceName || '');
+                for (const w of api.widgets.all()) {
+                    const g = w.mesh.geometry; g.computeBoundingBox();
+                    const b = g.boundingBox, p = w.track.pos, name = (w.meta && w.meta.file || 'a part').replace(/\.[^.]+$/, '');
+                    const sx = b.max.x - b.min.x, sy = b.max.y - b.min.y, sz = b.max.z - b.min.z;
+                    if (bw && bd && (sx > bw + 0.5 || sy > bd + 0.5)) warnings.push({
+                        title: `${name} is bigger than the ${mach}'s bed`,
+                        body: `${sx.toFixed(0)} × ${sy.toFixed(0)} mm; the bed is ${bw.toFixed(0)} × ${bd.toFixed(0)} mm. The machine cannot cut it as it is.`,
+                        hint: 'make it smaller, or choose the other machine (setup › machine)' });
+                    else if (bw && bd && (p.x + b.min.x < -bw / 2 - 0.5 || p.x + b.max.x > bw / 2 + 0.5 || p.y + b.min.y < -bd / 2 - 0.5 || p.y + b.max.y > bd / 2 + 0.5)) warnings.push({
+                        title: `${name} hangs off the bed`,
+                        body: `part of it sits outside the ${mach}'s ${bw.toFixed(0)} × ${bd.toFixed(0)} mm bed.`,
+                        hint: 'drag it back onto the bed' });
+                    // the shop's ShopBot rule (KCAD guidelines): boards from 1/4 to 2 1/2 in; thinner goes to the laser
+                    if (soft && (sz < 6.35 - 0.05 || sz > 63.5 + 0.05)) warnings.push({
+                        title: `${name} is ${sz.toFixed(1)} mm thick`,
+                        body: sz < 6.35 ? 'the ShopBot takes boards from 1/4 in (6.35 mm) up. Thinner sheet goes to the laser.' : 'the ShopBot takes boards up to 2 1/2 in (63.5 mm) thick.',
+                        hint: sz < 6.35 ? 'use the laser for thin sheet' : 'ask the technician about thicker stock' });
+                }
+            } catch (e) { /* no device yet */ }
             render(warnings);
         }
         function render(warnings) {
@@ -642,7 +667,7 @@ function setup_keybd_nav() {
         // re-evaluate on settings + op changes
         // conf.save emits settings.saved on every op add/edit; the material
         // system emits cam.op.render after a re-derive
-        ['settings','settings.saved','cam.op.render','widget.add','widget.delete']
+        ['settings','settings.saved','cam.op.render','widget.add','widget.delete','device.selected','selection.move','selection.scale','selection.drag']
             .forEach(ev => api.event.on(ev, evaluate));
         window.addEventListener('swarf.material.change', evaluate);
     })();
@@ -727,7 +752,7 @@ function setup_keybd_nav() {
                 return;
             }
             results.innerHTML = matches.map(e =>
-                `<div class="swarf-result"><span class="swarf-result-kind ${e.kind}">${e.kind}</span><strong>${e.name}</strong><p>${e.body}</p></div>`
+                `<div class="swarf-result"><span class="swarf-result-kind ${e.kind}">${e.kind === 'run' ? 'control' : e.kind}</span><strong>${e.name}</strong><p>${e.body}</p></div>`
             ).join('');
         }
         input.addEventListener('keyup', () => render(input.value));

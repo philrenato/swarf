@@ -18,7 +18,7 @@
   function placeDraw() {
     const d = $('swarf-draw'), tools = $('mode-tools');
     if (!d || !tools) return;
-    d.style.top = Math.round(tools.getBoundingClientRect().bottom) + 8 + 'px';
+    d.style.top = Math.round(tools.getBoundingClientRect().bottom) + 'px';   // no band of the 3D scene between (Fable review 3 #18)
   }
   let last = '';
   function sync() {

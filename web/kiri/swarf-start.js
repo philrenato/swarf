@@ -31,6 +31,9 @@
     if (!card || !a || !a.widgets) return;
     const empty = a.widgets.all().length === 0;
     const cls = document.body.classList;
+    // never over a dialog (Fable review 3 #14: it floated over setup › machine)
+    const modal = (document.getElementById('dialog') || {}).open || [...document.querySelectorAll('#modal, .mdialog')].some(m => m.offsetParent && getComputedStyle(m).display !== 'none' && m.id !== 'swarf-start');
+    if (modal) { card.classList.remove('on'); return; }
     card.classList.toggle('on', empty && !cls.contains('swarf-run-open') && !cls.contains('swarf-draw-open'));
     // which machine, and its bed, as DRAW names it
     try { const d = a.conf.get().device; card.querySelector('.bed').textContent = `${(d.deviceName || 'machine').replace(/\./g, ' ')} · bed ${Math.round(d.bedWidth)} × ${Math.round(d.bedDepth)} mm`; } catch (e) { /* no device yet */ }
@@ -59,6 +62,27 @@
       new MutationObserver(show).observe(document.body, { attributes: true, attributeFilter: ['class'] });
       show();
       setTimeout(show, 600);
+      // setup › machine: the two machines, plainly; Kiri's own editor behind "machine settings"
+      // (Fable review 3 #14: the student met gcode macros and firmware flags there)
+      const dev = $('set-device');
+      if (dev) dev.addEventListener('click', e => {
+        e.stopImmediatePropagation(); e.preventDefault();
+        const cur = (a.conf.get().device || {}).deviceName || '';
+        const pre = ["<div class='f-col a-center swarf-shape'><h3>Which machine?</h3>",
+          `<p class='swarf-shape-why' style='color:inherit;max-width:340px'>Now: ${cur.replace(/\./g, ' ')}. The ShopBot is the shop's 4 × 8 ft router, run from swarf's control. The MR-1 is the benchtop mill; it takes the exported file.</p></div>`];
+        a.uc.confirm(undefined, { 'ShopBot (4 × 8 ft bed)': 'ShopBot.Basic', 'MR-1 (500 × 500 mm bed)': 'Langmuir.MR-1', 'machine settings': 'edit', cancel: false }, undefined, { pre }).then(v => {
+          if (v === 'edit') return a.show.devices();
+          if (v && v !== cur) a.devices.select(v);
+        });
+      }, true);
+      // switching machine says at once what no longer fits (Fable review 3 #13)
+      a.event.on('device.selected', () => setTimeout(() => {
+        try {
+          const d = a.conf.get().device || {}, big = [];
+          for (const w of a.widgets.all()) { const g = w.mesh.geometry; g.computeBoundingBox(); const b = g.boundingBox; if (b.max.x - b.min.x > d.bedWidth + 0.5 || b.max.y - b.min.y > d.bedDepth + 0.5) big.push(`${(w.meta && w.meta.file || 'a part').replace(/\.[^.]+$/, '')} is ${(b.max.x - b.min.x).toFixed(0)} × ${(b.max.y - b.min.y).toFixed(0)} mm`); }
+          if (big.length) a.show.alert(`${big.join('; ')}: bigger than this machine's ${d.bedWidth.toFixed(0)} × ${d.bedDepth.toFixed(0)} mm bed.`, 10);
+        } catch (e) { /* no parts yet */ }
+      }, 300));
       // on an empty bed, toolpaths and export say why nothing happens (review 10-28b #16)
       for (const id of ['act-paths', 'act-export', 'act-animate']) {
         const b = $(id);

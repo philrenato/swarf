@@ -698,6 +698,8 @@
         const box = api.ui && api.ui.camOriginCenter;
         if (box && box.checked !== centre) { box.checked = centre; if (box.onclick) box.onclick(); else { api.conf.get().process.camOriginCenter = centre; api.conf.save(); } }
         if (api.function.clear_progress) api.function.clear_progress();   // toolpaths made for the other zero are stale
+        // one line, so the move of the zero is never silent (Fable review 3 #20)
+        if (box && api.show && api.show.alert) api.show.alert(centre ? 'Zero at the centre: in control, put the bit on the centre of your board.' : 'Zero at the front-left corner: in control, put the bit on that corner of your board.', 6);
       } catch (e) { /* cam not ready */ }
       show();
     };
