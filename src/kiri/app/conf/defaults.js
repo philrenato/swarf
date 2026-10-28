@@ -555,7 +555,7 @@ export const conf = {
                 camLevelStock: true,
                 camLevelTool: 1000,
                 camMillDirection: "climb",
-                camOriginCenter: true, // swarf: gcode origin at part center (markup Apr 15)
+                camOriginCenter: false, // swarf: X 0, Y 0 at the stock's front-left (lower-left) corner (Phil 10-28; was the centre)
                 camOriginOffX: 0,
                 camOriginOffY: 0,
                 camOriginOffZ: 0,

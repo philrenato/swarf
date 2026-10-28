@@ -43,6 +43,18 @@
       clearInterval(t);
       if (!a || !a.event) return;
       build();
+      // Phil 10-28: "we should default to lower left as 0, not center": saved jobs from
+      // before carry the old centre origin; move them over once (a choice made after stays)
+      try {
+        if (!localStorage.getItem('swarf-origin-front-left')) {
+          const s = a.conf.get();
+          if (s.process) s.process.camOriginCenter = false;
+          const saved = s.sproc && (s.sproc.CAM || s.sproc.cam);
+          if (saved) for (const k in saved) if (saved[k] && typeof saved[k] === 'object') saved[k].camOriginCenter = false;
+          a.conf.save();
+          localStorage.setItem('swarf-origin-front-left', '1');
+        }
+      } catch (e) { /* private window: the default already says front-left */ }
       for (const ev of ['widget.add', 'widget.delete', 'platform.layout', 'mode.set', 'device.select']) a.event.on(ev, () => setTimeout(show, 0));
       new MutationObserver(show).observe(document.body, { attributes: true, attributeFilter: ['class'] });
       show();
