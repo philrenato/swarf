@@ -15,13 +15,14 @@
  *   SwarfVector.split(svg, boxes) -> [svg]   one drawing into one per part: each curve goes
  *     to the smallest part box [x0,y0,x1,y1] that holds it
  *   SwarfVector.polyCrv(pts, closed)   a polygon as a degree-1 curve
+ *   SwarfVector.bezierChainCrv(pieces)   cubic pieces [[p0,p1,p2,p3]…] end to end as one curve
  *   SwarfVector.writeCurves(kind, curves) -> string   curves already placed (DRAW's bedCurves)
  *   SwarfVector.writeParts(kind, parts) -> string
  *     parts: [{ svg, sx, sy, rz, mirror, px, py }] — each part's own drawing,
  *     as cam has scaled, mirrored, turned and placed it on the bed.
  */
 import { buildShapes, writeSVG, writeDXF, writeAI, writePDF, projectCrv, crvToCubics } from './vendor/unreason/exchange-2d.mjs';
-import { parseSVG, parseDXF, parsePDF, polyCrv } from './vendor/unreason/exchange-2d-read.mjs';
+import { parseSVG, parseDXF, parsePDF, polyCrv, bezierChainCrv } from './vendor/unreason/exchange-2d-read.mjs';
 
 async function inflate(bytes) {
   const ds = new DecompressionStream('deflate');
@@ -112,4 +113,4 @@ function split(svg, boxes) {
   return out.map(l => l.length ? svgOf(l) : null);
 }
 
-window.SwarfVector = { toSVG, write, writeParts, writeCurves, read, curves, cubics, svgOf, split, polyCrv };
+window.SwarfVector = { toSVG, write, writeParts, writeCurves, read, curves, cubics, svgOf, split, polyCrv, bezierChainCrv };

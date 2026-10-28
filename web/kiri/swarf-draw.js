@@ -6,8 +6,9 @@
  * DRAW opens a board over the workspace showing every part that has a drawing
  * (shapes, SVG/DXF/AI/PDF imports) where it sits on the bed. Pick a part, then
  * its points: drag them, type where they go, add one (double-click an edge) or
- * remove one (delete). The pen draws a new outline. "done" rebuilds each changed
- * part from its drawing at its thickness, where it was drawn.
+ * remove one (delete). The pen draws a new outline (click a corner, drag a smooth
+ * point); rectangle and ellipse drag out from corner to corner. "done" rebuilds
+ * each changed part from its drawing at its thickness, where it was drawn.
  *
  * Curves are Unreason's NURBS ({ degree, knots, ctrlPts: [[x, y, 0, w]…] }, mm,
  * y up, through window.SwarfVector). A curve whose spans are all Bézier pieces
@@ -154,7 +155,9 @@
       <svg id="sd-svg" tabindex="0"></svg>
       <div class="sd-bar">
         <button data-tool="select" title="pick parts and points (V)">select</button>
-        <button data-tool="pen" title="draw an outline: click its corners, click the first to close (P)">pen</button>
+        <button data-tool="pen" title="draw an outline: click for a corner, drag for a smooth point, click the first to close (P)">pen</button>
+        <button data-tool="rect" title="drag a rectangle from corner to corner; shift for a square (R)">rectangle</button>
+        <button data-tool="ellipse" title="drag an ellipse from corner to corner; shift for a circle (E)">ellipse</button>
         <span class="sd-sep"></span>
         <button id="sd-undo" title="undo (⌘Z)">undo</button>
         <button id="sd-fit" title="show the parts, or the whole bed (F) · pinch or ⌘-scroll to zoom, two fingers to slide">fit</button>
@@ -294,11 +297,19 @@
     }
     // the pen's outline so far, and the line to the cursor
     if (S.tool === 'pen' && S.pen.length) {
-      const P = S.pen.map(q => `${sx(q[0])},${sy(q[1])}`);
-      if (S.hover) P.push(`${sx(S.hover[0])},${sy(S.hover[1])}`);
-      out.push(`<path class="sd-pen" d="M${P.join('L')}"/>`);
-      out.push(`<rect class="sd-pt first" x="${sx(S.pen[0][0]) - 5}" y="${sy(S.pen[0][1]) - 5}" width="10" height="10"/>`);
+      const pen = S.hover && !S.drag ? S.pen.concat([{ p: S.hover, h: null }]) : S.pen;
+      const C = penPieces(pen, false);
+      let d = `M${sx(pen[0].p[0])},${sy(pen[0].p[1])}`;
+      for (const c of C) d += `C${sx(c[1][0])},${sy(c[1][1])} ${sx(c[2][0])},${sy(c[2][1])} ${sx(c[3][0])},${sy(c[3][1])}`;
+      out.push(`<path class="sd-pen" d="${d}"/>`);
+      // the smooth points' handles, both sides
+      let hl = '';
+      for (const q of S.pen) if (q.h) { const o = [2 * q.p[0] - q.h[0], 2 * q.p[1] - q.h[1]]; hl += `M${sx(o[0])},${sy(o[1])}L${sx(q.h[0])},${sy(q.h[1])}`; }
+      if (hl) out.push(`<path class="sd-ctl" d="${hl}"/>`);
+      for (const q of S.pen.slice(1)) out.push(`<rect class="sd-pt" x="${sx(q.p[0]) - 3}" y="${sy(q.p[1]) - 3}" width="6" height="6" style="pointer-events:none"/>`);
+      out.push(`<rect class="sd-pt first" x="${sx(S.pen[0].p[0]) - 5}" y="${sy(S.pen[0].p[1]) - 5}" width="10" height="10"/>`);
     }
+    if (S.ghost) out.push(`<path class="sd-pen" d="${pathOf(S.ghost)}"/>`);
     if (S.box) {
       const [a, b] = S.box;
       out.push(`<rect class="sd-box" x="${Math.min(sx(a[0]), sx(b[0]))}" y="${Math.min(sy(a[1]), sy(b[1]))}" width="${Math.abs(a[0] - b[0]) * k}" height="${Math.abs(a[1] - b[1]) * k}"/>`);
@@ -322,11 +333,16 @@
     const row = (word, id, v, unit) => `<div class="sd-row"><span>${word}</span><input id="${id}" value="${v}" inputmode="decimal"><span class="u">${unit}</span></div>`;
     const edgeRows = e => `<div class="sd-row"><span>top edge</span><select id="sd-edge">${['straight', 'chamfer', 'round'].map(k => `<option${k === e.kind ? ' selected' : ''}>${k}</option>`).join('')}</select><span class="u"></span></div>${e.kind === 'straight' ? '' : row('edge size', 'sd-es', e.size, 'mm')}`;
     let h = '';
-    if (S.tool === 'pen') {
-      h = `<div class="sd-h">pen</div><div class="sd-note">Click each corner. Click the first corner (or press Enter) to close the outline.</div>${row('thickness', 'sd-pen-t', S.thick, 'mm')}${edgeRows(S.edge)}`;
+    if (S.tool !== 'select') {
+      const how = {
+        pen: 'Click for a corner. Drag for a smooth point. Click the first point (or press Enter) to close the outline.',
+        rect: 'Drag from one corner to the other. Hold shift for a square.',
+        ellipse: 'Drag from one corner of its box to the other. Hold shift for a circle.'
+      }[S.tool];
+      h = `<div class="sd-h">${S.tool === 'rect' ? 'rectangle' : S.tool}</div><div class="sd-note">${how}</div>${row('thickness', 'sd-pen-t', S.thick, 'mm')}${edgeRows(S.edge)}`;
     } else if (part && !part.gone) {
       const b = boxOf(part.curves), one = S.pts.size === 1 ? [...S.pts][0] : null;
-      h = `<div class="sd-h">${esc(part.name)}</div><div class="sd-note">${r3(b[2] - b[0])} × ${r3(b[3] - b[1])} mm</div>${row('thickness', 'sd-t', part.thick, 'mm')}${edgeRows(part.edge)}`;
+      h = `<div class="sd-h">${esc(part.name)}</div>${row('width', 'sd-w', r3(b[2] - b[0]), 'mm')}${row('depth', 'sd-d', r3(b[3] - b[1]), 'mm')}${row('thickness', 'sd-t', part.thick, 'mm')}${edgeRows(part.edge)}`;
       if (one) {
         const [ci, i] = one.split(':').map(Number), P = part.curves[ci].crv.ctrlPts[i];
         h += `<div class="sd-h">point</div>${row('x', 'sd-px', r3(P[0]), 'mm')}${row('y', 'sd-py', r3(P[1]), 'mm')}`;
@@ -340,20 +356,34 @@
     const num = (id, fn) => { const el = $(id); if (!el) return; el.onkeydown = e => { e.stopPropagation(); if (e.key === 'Enter') { fn(parseFloat(el.value), el); el.blur(); } if (e.key === 'Escape') { render(); ui.svg.focus(); } }; el.onchange = () => fn(parseFloat(el.value), el); };
     num('sd-t', v => { if (!(v > 0)) return say('The thickness must be more than 0 mm.'); if (v === part.thick) return; snap(); part.thick = r3(v); part.dirty = true; render(); });
     // the top edge: the pen's next outline, or the picked part
-    const E = S.tool === 'pen' ? S.edge : part && part.edge;
+    const E = S.tool !== 'select' ? S.edge : part && part.edge;
     const sel = $('sd-edge');
-    if (sel && E) sel.onchange = () => { if (S.tool !== 'pen') { snap(); part.dirty = true; } E.kind = sel.value; render(); edgeSay(); };
-    num('sd-es', v => { if (!(v > 0)) return say('The edge size must be more than 0 mm.'); if (!E || v === E.size) return; if (S.tool !== 'pen') { snap(); part.dirty = true; } E.size = r3(v); render(); edgeSay(); });
+    if (sel && E) sel.onchange = () => { if (S.tool === 'select') { snap(); part.dirty = true; } E.kind = sel.value; render(); edgeSay(); };
+    num('sd-es', v => { if (!(v > 0)) return say('The edge size must be more than 0 mm.'); if (!E || v === E.size) return; if (S.tool === 'select') { snap(); part.dirty = true; } E.size = r3(v); render(); edgeSay(); });
     num('sd-pen-t', v => { if (v > 0) { S.thick = r3(v); try { localStorage.setItem(THICK, String(S.thick)); } catch (e) { /* private */ } } });
     num('sd-px', v => { if (!isFinite(v)) return; const [ci, i] = [...S.pts][0].split(':').map(Number), P = part.curves[ci].crv.ctrlPts[i]; if (v === r3(P[0])) return; snap(); shiftPts(part, [...S.pts], v - P[0], 0); render(); });
     num('sd-py', v => { if (!isFinite(v)) return; const [ci, i] = [...S.pts][0].split(':').map(Number), P = part.curves[ci].crv.ctrlPts[i]; if (v === r3(P[1])) return; snap(); shiftPts(part, [...S.pts], 0, v - P[1]); render(); });
+    // width / depth: the whole part stretched about its centre to that size
+    const size = (axis, v) => {
+      if (!(v > 0)) return say('A size must be more than 0 mm.');
+      const b = boxOf(part.curves), was = axis ? b[3] - b[1] : b[2] - b[0];
+      if (!(was > 0) || Math.abs(v - was) < 1e-6) return;
+      const f = v / was;
+      snap();
+      const keep = S.pts; S.pts = new Set();
+      transform(part, ([x, y]) => (axis ? [x, y * f] : [x * f, y]));
+      S.pts = keep;
+      render();
+    };
+    num('sd-w', v => size(0, v));
+    num('sd-d', v => size(1, v));
     num('sd-scale', v => { if (!(v > 0)) return say('Scale is a percentage more than 0.'); if (v !== 100) { snap(); transform(part, M => [M[0] * v / 100, M[1] * v / 100]); render(); } });
     num('sd-turn', v => { if (!isFinite(v) || !v) return; const t = v * Math.PI / 180, c = Math.cos(t), s = Math.sin(t); snap(); transform(part, ([x, y]) => [c * x - s * y, s * x + c * y]); render(); });
   }
   // whether the picked part's edge fits its outline, said at once rather than at done
   function edgeSay() {
     const a = api(), part = S.parts[S.sel];
-    if (!part || S.tool === 'pen' || part.edge.kind === 'straight' || !a.platform.edge_problem) return;
+    if (!part || S.tool !== 'select' || part.edge.kind === 'straight' || !a.platform.edge_problem) return;
     const closed = part.curves.filter(c => isClosed(c.crv));
     if (!closed.length) return;
     const why = a.platform.edge_problem(V().svgOf(closed), { depth: part.thick, resolution: 2, segmin: 48, soup: true, dpi: 0, edge: part.edge });
@@ -466,13 +496,14 @@
   }
 
   // ── pointer ──
-  function setTool(t) { S.tool = t; S.pen = []; S.hover = null; if (t === 'pen') { S.sel = -1; S.pts.clear(); } render(); ui.svg.focus(); }
+  function setTool(t) { S.tool = t; S.pen = []; S.hover = null; S.ghost = null; if (t !== 'select') { S.sel = -1; S.pts.clear(); } render(); ui.svg.focus(); }
   const snapMM = v => Math.round(v * 10) / 10;
   function down(e) {
     if (e.button === 1 || (e.button === 0 && S.space)) { S.drag = { kind: 'pan', x: e.clientX, y: e.clientY }; ui.svg.setPointerCapture(e.pointerId); return; }
     if (e.button !== 0) return;
     const m = toMM(e);
-    if (S.tool === 'pen') return penClick(m, e);
+    if (S.tool === 'pen') { penDown(m, e); ui.svg.setPointerCapture(e.pointerId); return; }
+    if (S.tool === 'rect' || S.tool === 'ellipse') { S.drag = { kind: 'shape', at: [snapMM(m[0]), snapMM(m[1])] }; ui.svg.setPointerCapture(e.pointerId); return; }
     // a second press soon and near: a double-click (the board redraws on every
     // press, so the browser's own dblclick never sees the same element twice)
     const last = S.lastDown, now = performance.now();
@@ -483,6 +514,7 @@
       if (e.shiftKey) { S.pts.has(pt) ? S.pts.delete(pt) : S.pts.add(pt); render(); return; }
       if (!S.pts.has(pt)) S.pts = new Set([pt]);
       snap();
+      S.smooth = S.pts.size === 1 ? smoothPair(S.parts[S.sel], pt) : null;
       S.drag = { kind: 'pts', at: m, moved: false };
     } else if (pi !== undefined) {
       const i = +pi;
@@ -500,9 +532,30 @@
   }
   function move(e) {
     const m = toMM(e);
-    if (S.tool === 'pen') { S.hover = [snapMM(m[0]), snapMM(m[1])]; render(); say(`${r3(S.hover[0])}, ${r3(S.hover[1])} mm`); return; }
     const d = S.drag;
+    if (S.tool === 'pen') {
+      const q = [snapMM(m[0]), snapMM(m[1])];
+      // dragging out from the point just placed: its handle, mirrored behind it
+      if (d && d.kind === 'penh') {
+        const a = S.pen[d.i];
+        if (Math.hypot(q[0] - a.p[0], q[1] - a.p[1]) * S.k >= 3) a.h = q;
+        else a.h = null;
+        render(); say(a.h ? 'a smooth point: let go to keep its curve' : '');
+        return;
+      }
+      S.hover = q; render(); say(`${r3(q[0])}, ${r3(q[1])} mm`);
+      return;
+    }
     if (!d) return;
+    if (d.kind === 'shape') {
+      let b = [snapMM(m[0]), snapMM(m[1])];
+      if (e.shiftKey) { const s = Math.max(Math.abs(b[0] - d.at[0]), Math.abs(b[1] - d.at[1])); b = [d.at[0] + Math.sign(b[0] - d.at[0] || 1) * s, d.at[1] + Math.sign(b[1] - d.at[1] || 1) * s]; }
+      d.to = b;
+      const w = Math.abs(b[0] - d.at[0]), h = Math.abs(b[1] - d.at[1]);
+      S.ghost = w > 0 && h > 0 ? shapeCrv(S.tool, d.at, b) : null;
+      render(); say(`${r3(w)} × ${r3(h)} mm`);
+      return;
+    }
     if (d.kind === 'pan') { S.ox += e.clientX - d.x; S.oy += e.clientY - d.y; d.x = e.clientX; d.y = e.clientY; render(); return; }
     if (d.kind === 'box') { S.box = [d.at, m]; render(); return; }
     const part = S.parts[S.sel];
@@ -511,7 +564,7 @@
     // whole tenths of a millimetre from where the drag began
     dx = snapMM(dx); dy = snapMM(dy);
     if (!dx && !dy) return;
-    if (d.kind === 'pts') shiftPts(part, [...S.pts], dx, dy);
+    if (d.kind === 'pts') { shiftPts(part, [...S.pts], dx, dy); keepSmooth(part); }
     else { for (const c of part.curves) for (const P of c.crv.ctrlPts) { P[0] += dx; P[1] += dy; } part.dirty = true; }
     d.at = [d.at[0] + dx, d.at[1] + dy];
     d.moved = true;
@@ -521,6 +574,14 @@
     const d = S.drag;
     S.drag = null;
     if (!d) return;
+    if (d.kind === 'penh') { render(); return; }
+    if (d.kind === 'shape') {
+      S.ghost = null;
+      const b = d.to;
+      if (!b || Math.abs(b[0] - d.at[0]) < 1 || Math.abs(b[1] - d.at[1]) < 1) { say('Drag farther: a shape needs to be at least 1 mm each way.'); render(); return; }
+      addPart(S.tool === 'rect' ? 'rectangle' : 'ellipse', shapeCrv(S.tool, d.at, b));
+      return;
+    }
     if ((d.kind === 'pts' || d.kind === 'part') && !d.moved) S.undo.pop();          // a click, not a move
     if (d.kind === 'box') {
       const part = S.parts[S.sel], b = S.box;
@@ -532,25 +593,80 @@
     }
     render();
   }
-  function penClick(m, e) {
+  function penDown(m) {
     const q = [snapMM(m[0]), snapMM(m[1])];
-    if (S.pen.length >= 3) {
-      const f = S.pen[0];
+    if (S.pen.length >= 3 || (S.pen.length >= 2 && S.pen.some(q => q.h))) {
+      const f = S.pen[0].p;
       if (Math.hypot(sx(f[0]) - sx(q[0]), sy(f[1]) - sy(q[1])) <= HIT + 3) return penClose();
     }
     const l = S.pen[S.pen.length - 1];
-    if (l && l[0] === q[0] && l[1] === q[1]) return;
-    S.pen.push(q);
+    if (l && l.p[0] === q[0] && l.p[1] === q[1]) return;
+    S.pen.push({ p: q, h: null });
+    S.drag = { kind: 'penh', i: S.pen.length - 1 };
     render();
   }
+  // the pen's points as cubic pieces: a smooth point's handle on its way out,
+  // mirrored on its way in; a corner's handles a third of the way along its edge
+  function penPieces(pen, closed) {
+    const n = pen.length, out = [];
+    const third = (a, b) => [a[0] + (b[0] - a[0]) / 3, a[1] + (b[1] - a[1]) / 3];
+    for (let i = 0; i < (closed ? n : n - 1); i++) {
+      const a = pen[i], b = pen[(i + 1) % n];
+      const o = a.h || third(a.p, b.p);
+      const inb = b.h ? [2 * b.p[0] - b.h[0], 2 * b.p[1] - b.h[1]] : third(b.p, a.p);
+      out.push([a.p, o, inb, b.p]);
+    }
+    return out;
+  }
   function penClose() {
-    if (S.pen.length < 3) { say('An outline needs at least three corners.'); return; }
+    if (S.pen.length < 3 && !S.pen.some(q => q.h)) { say('An outline needs at least three corners, or a smooth point.'); return; }
+    if (S.pen.length < 2) { say('An outline needs at least two points.'); return; }
+    const pen = S.pen;
+    const crv = pen.some(q => q.h)
+      ? V().bezierChainCrv(penPieces(pen, true))
+      : V().polyCrv(pen.map(q => q.p), true);
+    // the chain must end exactly where it began
+    const P = crv.ctrlPts; P[P.length - 1] = P[0].slice();
+    S.drag = null;
+    addPart('drawing', crv);
+  }
+  // a rectangle, or an ellipse as four exact rational arcs, in the box from a to b
+  function shapeCrv(tool, a, b) {
+    const x0 = Math.min(a[0], b[0]), x1 = Math.max(a[0], b[0]), y0 = Math.min(a[1], b[1]), y1 = Math.max(a[1], b[1]);
+    if (tool === 'rect') return V().polyCrv([[x0, y0], [x1, y0], [x1, y1], [x0, y1]], true);
+    const cx = (x0 + x1) / 2, cy = (y0 + y1) / 2, rx = (x1 - x0) / 2, ry = (y1 - y0) / 2, w = Math.SQRT1_2;
+    const P = [[cx + rx, cy, 1], [cx + rx, cy + ry, w], [cx, cy + ry, 1], [cx - rx, cy + ry, w], [cx - rx, cy, 1], [cx - rx, cy - ry, w], [cx, cy - ry, 1], [cx + rx, cy - ry, w], [cx + rx, cy, 1]];
+    return { degree: 2, knots: [0, 0, 0, 1, 1, 2, 2, 3, 3, 4, 4, 4], ctrlPts: P.map(([x, y, wt]) => [x, y, 0, wt]) };
+  }
+  function addPart(word, crv) {
     snap();
     const n = S.parts.filter(p => !p.w).length + 1;
-    S.parts.push({ w: null, name: `drawing-${n}`, thick: S.thick, edge: { ...S.edge }, curves: [{ crv: V().polyCrv(S.pen, true) }], dirty: true });
+    S.parts.push({ w: null, name: `${word}-${n}`, thick: S.thick, edge: { ...S.edge }, curves: [{ crv }], dirty: true });
     S.pen = []; S.hover = null; S.tool = 'select'; S.sel = S.parts.length - 1; S.pts.clear();
-    say('Closed. Drag its points to shape it, or press done to make it a part.');
+    say('Made. Drag its points to shape it, or press done to make it a part.');
     render();
+  }
+  // a smooth point stays smooth: turning one handle turns the other the opposite way, keeping its length
+  function keepSmooth(part) {
+    if (S.pts.size !== 1 || !S.smooth) return;
+    const { ci, o, a, len } = S.smooth, P = part.curves[ci].crv.ctrlPts, h = P[[...S.pts][0].split(':').map(Number)[1]];
+    const dx = h[0] - P[a][0], dy = h[1] - P[a][1], l = Math.hypot(dx, dy);
+    if (!(l > 1e-9)) return;
+    P[o][0] = P[a][0] - dx / l * len; P[o][1] = P[a][1] - dy / l * len;
+  }
+  // when one handle is picked: its anchor and the handle across it, if the two are in line
+  function smoothPair(part, id) {
+    const [ci, i] = id.split(':').map(Number), crv = part.curves[ci].crv, P = crv.ctrlPts, n = P.length, p = crv.degree;
+    if (!isChain(crv) || p < 2 || i % p === 0) return null;
+    const closed = isClosed(crv);
+    let a, o;
+    if (i % p === 1) { a = i - 1; o = a - 1; if (o < 0) o = closed ? n - 2 : -1; }
+    else { a = i + 1; o = a + 1; if (o >= n) o = closed ? 1 : n; }
+    if (o < 0 || o >= n) return null;
+    const ux = P[i][0] - P[a][0], uy = P[i][1] - P[a][1], vx = P[a][0] - P[o][0], vy = P[a][1] - P[o][1];
+    const lu = Math.hypot(ux, uy), lv = Math.hypot(vx, vy);
+    if (!(lu > 1e-9 && lv > 1e-9) || (ux * vx + uy * vy) / (lu * lv) < Math.cos(2 * Math.PI / 180)) return null;
+    return { ci, o, a, len: lv };
   }
   function wheel(e) {
     e.preventDefault();
@@ -577,10 +693,12 @@
       if (S.sel >= 0) { S.sel = -1; render(); return; }
       close(false); return;
     }
-    if (k === 'Enter' && S.tool === 'pen') { e.preventDefault(); penClose(); return; }
+    if (k === 'Enter' && S.tool === 'pen' && S.pen.length) { e.preventDefault(); penClose(); return; }
     if (k === 'v' || k === 'V') { setTool('select'); return; }
     if (k === 'f' || k === 'F') { fit(!S.whole); render(); return; }
     if (k === 'p' || k === 'P') { setTool('pen'); return; }
+    if (k === 'r' || k === 'R') { setTool('rect'); return; }
+    if (k === 'e' || k === 'E') { setTool('ellipse'); return; }
     if ((k === 'Delete' || k === 'Backspace') && S.tool === 'select') { e.preventDefault(); deletePts(); return; }
     if (k === 'Backspace' && S.tool === 'pen' && S.pen.length) { e.preventDefault(); S.pen.pop(); render(); return; }
     const ar = { ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, 1], ArrowDown: [0, -1] }[k];
