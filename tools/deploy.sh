@@ -88,6 +88,8 @@ echo "      ok — no broken paths remain"
 echo "[4/6] stamp swarf-sw.js cache version"
 STAMP="$(date +%Y%m%d%H%M%S)-$(git -C "$SRC_REPO" rev-parse --short HEAD)"
 sed -i '' "s|__SWARF_DEPLOY_STAMP__|$STAMP|g" "$WEB_APP/swarf-sw.js"
+# every machine-control file and the version stamp carry the same build (connect checks they agree)
+for f in swarf-version.js swarf-run.js swarf-run-parse.js swarf-run-machine.js swarf-shopbot-usb.js swarf-shopbot-card.js swarf-shopbot-direct.js; do sed -i '' "s|__SWARF_BUILD__|$STAMP|g" "$WEB_APP/$f"; done
 remaining=$(grep -l '__SWARF_DEPLOY_STAMP__' "$WEB_APP/swarf-sw.js" || true)
 if [[ -n "$remaining" ]]; then
   echo "[4/6] FAIL — cache-stamp placeholder still present, offline cache won't invalidate"

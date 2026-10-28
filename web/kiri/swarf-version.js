@@ -17,6 +17,7 @@
     // instead of carrying its own separate hardcoded copy that can drift
     // (it had silently said "v00000-007" since the very first fork audit).
     window.SWARF_VERSION = 'v00000-051';
+    window.SWARF_BUILD = '__SWARF_BUILD__';   // stamped by the deploy, as is every machine-control file
 
     const ver = document.createElement('div');
     ver.id = 'ver';

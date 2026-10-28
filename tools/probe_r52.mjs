@@ -73,6 +73,15 @@ try {
   await page.evaluate(() => document.querySelector('#swarf-run .sr-from button').click()); await wait(300);
   card = sp(await page.evaluate(() => document.querySelector('#swarf-run .sr-sheet.on .sr-card')?.textContent || ''));
   check(/3 mm ball end mill this file uses at line 10/.test(card), `continue names the bit at that line ("${(card.match(/the bit in the router[^.]*?(line \d+|for)/) || [''])[0]}")`);
+  // every machine-control file carries one build; a page that mixes two will not connect
+  await page.evaluate(() => [...document.querySelectorAll('#swarf-run .sr-sheet.on button')].find(b => b.textContent === 'not yet')?.click());
+  const builds = await page.evaluate(() => ({ want: window.SWARF_BUILD, got: Object.values(window.SWARF_BUILDS || {}) }));
+  check(builds.got.length === 6 && builds.got.every(v => v === builds.want), `six control files, one build (${builds.want}; ${[...new Set(builds.got)].join(',')})`);
+  await page.evaluate(() => { window.SWARF_BUILD = 'another'; });
+  await page.evaluate(() => [...document.querySelectorAll('#swarf-run button')].find(b => b.textContent.trim() === 'connect')?.click());
+  await wait(600);
+  const mix = sp(await page.$eval('#swarf-run .sr-say', e => e.textContent));
+  check(/two swarf builds/.test(mix), `a mixed page refuses to connect ("${mix.slice(0, 60)}")`);
 } finally {
   await browser.close();
   console.log(errors.length ? 'PAGE ERRORS:\n' + errors.join('\n') : 'no page errors');

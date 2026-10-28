@@ -15,6 +15,8 @@
  */
 (function (root) {
   'use strict';
+  // the deploy stamps every machine-control file; connect refuses a page that mixes two builds
+  (typeof window !== 'undefined' ? window : globalThis).SWARF_BUILDS = Object.assign((typeof window !== 'undefined' ? window : globalThis).SWARF_BUILDS || {}, { 'swarf-run-parse.js': '__SWARF_BUILD__' });
 
   const IN = 25.4;
 
