@@ -82,6 +82,11 @@ try {
   await wait(600);
   const mix = sp(await page.$eval('#swarf-run .sr-say', e => e.textContent));
   check(/two swarf builds/.test(mix), `a mixed page refuses to connect ("${mix.slice(0, 60)}")`);
+  // sounds: made by the browser, the chip turns them off and on
+  const snd = await page.evaluate(() => { const S = window.SwarfSound; if (!S) return null; S.set(0.6); const on = S.play('move'); S.set(0); const off = S.play('move'); S.set(0.6);
+    const b = [...document.querySelectorAll('#swarf-run button')].find(x => /^sounds (on|off)$/.test(x.textContent)); const t0 = b && b.textContent; b && b.click(); const t1 = b && b.textContent; b && b.click();
+    return { on, off, t0, t1 }; });
+  check(snd && snd.on === true && snd.off === false && snd.t0 === 'sounds on' && snd.t1 === 'sounds off', `sounds play, mute, and the chip says which ${JSON.stringify(snd)}`);
 } finally {
   await browser.close();
   console.log(errors.length ? 'PAGE ERRORS:\n' + errors.join('\n') : 'no page errors');
