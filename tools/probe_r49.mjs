@@ -78,7 +78,7 @@ try {
   await shut();
   await page.click('#swarf-run .sr-actions .air'); await wait(300);
   t = await sheet();
-  check(/in the air/.test(t) && /deepest point 5 mm above Z 0/.test(t), `in the air asks first ("${t.slice(0, 80)}…")`);
+  check(/in the air/.test(t) && /deepest point \d+ mm above Z 0 \(5 mm over the highest point it cuts\)/.test(t), `in the air asks first ("${t.slice(0, 80)}…")`);
   await shut();
   await press('go to x y 0'); await wait(300);
   t = await sheet();
