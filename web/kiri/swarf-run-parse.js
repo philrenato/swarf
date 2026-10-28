@@ -185,7 +185,14 @@
         case 'PAUSE': event(n, 'pause', val(p[0])); break;
         case 'SO': event(n, 'output', [val(p[0]), val(p[1])]); break;
         case 'TS': event(n, 'rpm', val(p[0])); break;
-        case 'VD': case 'VU': case 'VS': case 'VR': case 'VC': case 'VL': case 'VN': case 'VI':
+        case 'VS': {
+          // VS move XY, move Z, …, jog XY, jog Z: the speeds a file sets for itself
+          const a = val(p[0]), b = val(p[1]), c = val(p[4]), d = val(p[5]);
+          if (a > 0) st.moveXY = a * st.scale; if (b > 0) st.moveZ = b * st.scale;
+          if (c > 0) st.jogXY = c * st.scale; if (d > 0) st.jogZ = d * st.scale;
+          event(n, 'setting', cmd); break;
+        }
+        case 'VD': case 'VU': case 'VR': case 'VC': case 'VL': case 'VN': case 'VI':
           event(n, 'setting', cmd); break;
         case 'CN': {
           const c = val(p[0]);
@@ -233,6 +240,9 @@
       const x = ax(st.x, 'X'), y = ax(st.y, 'Y'), z = ax(st.z, 'Z');
       const rapid = st.gmode === 0;
       const feed = rapid ? st.jogXY : (st.gfeed || st.moveXY);
+      if ((st.gmode === 2 || st.gmode === 3) && words.R !== undefined && words.I === undefined && words.J === undefined) {
+        out.unsupported.push({ line: n, text: U.trim() }); st.x = x; st.y = y; st.z = z; return;
+      }
       if (st.gmode === 2 || st.gmode === 3) {
         const i = (words.I || 0) * st.scale, j = (words.J || 0) * st.scale;
         arc(x, y, z, i, j, st.gmode === 2, feed, false, n);
@@ -346,7 +356,8 @@
     const rest = parsed.moves.filter(m => m.line >= line);
     if (!rest.length) return null;
     const first = rest[0];
-    const on = parsed.events.filter(e => e.line < line && (e.kind === 'spindle-on' || e.kind === 'spindle-off')).pop();
+    const on = parsed.events.filter(e => e.line < line && (e.kind === 'spindle-on' || e.kind === 'spindle-off' || (e.kind === 'output' && e.value[0] === 1)))
+      .map(e => e.kind === 'output' ? { ...e, kind: e.value[1] === 1 ? 'spindle-on' : 'spindle-off' } : e).pop();
     const rpm = parsed.events.filter(e => e.line < line && e.kind === 'rpm').pop();
     // up to safe Z where the bit is (liftFirst: the machine adds that move from its own
     // position), over at safe Z, then down slowly to where line N starts

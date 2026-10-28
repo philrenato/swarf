@@ -167,11 +167,13 @@ try {
   check(/disc/.test(c0.name) && c0.chain && c0.anchors >= 4 && c0.hd >= 4, `the circle edits as anchors + handles: ${JSON.stringify({ ...c0, P: c0.P.length })}`);
   const ap = c0.deg;                              // anchor 1 sits at index = degree
   const el = await page.evaluate(i => { const r = document.querySelector(`#sd-svg [data-pt="0:${i}"]`).getBoundingClientRect(); return [r.left + r.width / 2, r.top + r.height / 2]; }, ap);
+  console.log('hit', await page.evaluate(([x, y]) => { const h = document.elementFromPoint(x, y); return h && (h.tagName + ' ' + (h.dataset.pt || h.dataset.part || h.id || h.className)); }, el), JSON.stringify(el), await page.evaluate(() => [...window.__swarfDraw.state().pts]));
   await page.mouse.move(el[0], el[1]); await page.mouse.down();
   for (let i = 1; i <= 6; i++) { await page.mouse.move(el[0], el[1] - i * 5); await wait(20); }
   await page.mouse.up();
   const c1 = await page.evaluate(() => { const S = window.__swarfDraw.state(); return S.parts[S.sel].curves[0].crv.ctrlPts.map(q => [q[0], q[1]]); });
   const dy = i => c1[i][1] - c0.P[i][1];
+  console.log('dy', JSON.stringify(c1.map((q, i) => +(q[1] - c0.P[i][1]).toFixed(3))));
   check(dy(ap) > 1 && Math.abs(dy(ap - 1) - dy(ap)) < 1e-9 && Math.abs(dy(ap + 1) - dy(ap)) < 1e-9 && Math.abs(dy(ap + 2)) < 1e-9 && Math.abs(dy(0)) < 1e-9, `anchor moved ${dy(ap).toFixed(1)} mm with both handles, the rest stayed`);
   await page.screenshot({ path: `${OUT}-curve.png` });
   await page.click('#sd-done');

@@ -6,8 +6,8 @@
     "bedDepth": 1219.2,
     "maxHeight": 150,
     "originCenter": false,
-    "spindleMax": 18000,
-    "spindleMin": 9000,
+    "spindleMax": 21000,
+    "spindleMin": 10000,
     "feedMax": 15240,
     "feedMaxZ": 2540,
     "gcodePre": [
