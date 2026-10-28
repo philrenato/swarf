@@ -129,7 +129,7 @@ try {
   await page.waitForFunction(() => window.__swarfRun.state.prog && document.querySelector('.sr-play'), { timeout: 60000 });
   await wait(800);
   const why = await page.evaluate(() => document.querySelector('#swarf-run button.trace').title);
-  check(why === 'trace: zero X Y first', `at the zero step trace says "${why}"`);
+  check(/^Trace needs: jog the bit over your X 0, Y 0/.test(why), `at the zero step trace says "${why}"`);
   const r = await page.evaluate(() => { const c = document.querySelector('#swarf-run canvas'); for (let i = 0; i < 40; i++) c.dispatchEvent(new WheelEvent('wheel', { deltaY: 120, bubbles: true, cancelable: true })); return window.__swarfRun.view().sph.r; });
   check(r <= 6000, `the wheel stops at 6 m (r ${Math.round(r)})`);
   check(errors.length === 0, `no page errors ${errors.slice(0, 3).join(' | ')}`);

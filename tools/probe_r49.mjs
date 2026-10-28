@@ -39,9 +39,46 @@ try {
   check(/wait/.test(c.trace) && !c.disabled, `trace waits but takes the press (${c.trace}, disabled ${c.disabled})`);
   check(/to run:.*a program.*X Y zeroed.*Z zeroed/.test(c.need), `the to-run line names each need ("${c.need}")`);
   await page.click('#swarf-run .sr-actions .trace');
-  await wait(1500);
-  const said = await page.$eval('#swarf-run .sr-say', e => e.textContent);
-  check(/Trace needs: .*make a part/.test(said), `pressing trace says what it waits for, and it stays 1.5 s later ("${said}")`);
+  await wait(400);
+  const said = await page.evaluate(() => document.querySelector('#swarf-run .sr-sheet.on .sr-card')?.textContent || '');
+  check(/Before you can trace/.test(said) && /make a part/.test(said), `pressing a waiting trace opens what it waits for ("${said.slice(0, 80)}…")`);
+  await page.evaluate(() => document.querySelector('#swarf-run .sr-sheet').classList.remove('on'));
+
+  // 10-28b: a waiting cut opens what is left to do; trace and in the air ask first; every move swarf makes asks
+  await page.evaluate(() => window.__swarfRun.loadProgram('square.sbp', ['MS,10,5', 'J3,0,0,5', 'M3,0,0,-1', 'M3,40,0,-1', 'M3,40,40,-1', 'M3,0,40,-1', 'M3,0,0,-1', 'J3,0,0,5', 'END'].join('\n'), 'file'));
+  await wait(400);
+  const sheet = () => page.evaluate(() => { const c = document.querySelector('#swarf-run .sr-sheet.on .sr-card'); return c ? c.textContent : ''; });
+  const shut = () => page.evaluate(() => document.querySelector('#swarf-run .sr-sheet').classList.remove('on'));
+  await page.click('#swarf-run .sr-actions .cut'); await wait(300);
+  let t = await sheet();
+  check(/Before you can cut/.test(t) && /X Y zeroed/.test(t) && /traced/.test(t), `a waiting cut lists what is left ("${t.slice(0, 90)}…")`);
+  await shut();
+  const press = txt => page.evaluate(txt => [...document.querySelectorAll('#swarf-run button')].find(b => b.textContent.trim() === txt && b.offsetParent).click(), txt);
+  await press('zero x y'); await press('zero z'); await wait(300);
+  await page.click('#swarf-run .sr-actions .trace'); await wait(300);
+  t = await sheet();
+  const moved0 = await page.evaluate(() => window.__swarfRun.state.machine.state.running);
+  check(/Trace the border/.test(t) && /about to move/.test(t) && /router stays off/.test(t) && !moved0, `trace asks first, nothing moves yet ("${t.slice(0, 80)}…")`);
+  await shut();
+  await page.click('#swarf-run .sr-actions .air'); await wait(300);
+  t = await sheet();
+  check(/in the air/.test(t) && /deepest point 5 mm above Z 0/.test(t), `in the air asks first ("${t.slice(0, 80)}…")`);
+  await shut();
+  await press('go to x y 0'); await wait(300);
+  t = await sheet();
+  const moving = await page.evaluate(() => window.__swarfRun.state.machine.state.moving);
+  check(/about to move/.test(t) && !moving, `go to x y 0 asks first, the bit still ("${t.slice(0, 60)}…")`);
+  await shut();
+  // the table's corners: learn front-left here, then front right becomes X 0: here reads -table length
+  await press('table corners'); await wait(300);
+  await press('the bit is over the front-left corner'); await wait(200);
+  await press('make it X 0, Y 0');   // the first row: front left
+  const fl = await page.evaluate(() => ({ ...window.__swarfRun.state.machine.state.pos }));
+  await press('table corners'); await wait(300);
+  await page.evaluate(() => [...document.querySelectorAll('#swarf-run .sr-needrow')].find(r => /front right/.test(r.textContent)).querySelector('button').click());
+  const fr = await page.evaluate(() => ({ pos: { ...window.__swarfRun.state.machine.state.pos }, w: window.kiri.api.conf.get().device.bedWidth }));
+  check(Math.abs(fl.x) < 1e-6 && Math.abs(fl.y) < 1e-6 && Math.abs(fr.pos.x + fr.w) < 1e-6 && Math.abs(fr.pos.y) < 1e-6, `corners: front left X ${fl.x} Y ${fl.y}; front right X ${fr.pos.x} (table ${fr.w})`);
+  await page.screenshot({ path: (process.env.OUT || '/tmp') + '/r49-control.png' });
 
   // the row folds: cam · draw · control
   const fold = await page.evaluate(() => [...document.querySelectorAll('#mode-tools > span')].filter(s => s.offsetParent).map(s => s.textContent.trim().toLowerCase()));
