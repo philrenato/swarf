@@ -2068,3 +2068,6 @@ body.swarf-draw-open #swarf-concerns, body.swarf-draw-open #swarf-size { display
 /* r41: the ShopBot in simulate (swarf-sim-machine.js) */
 #layer-animate #swarf-sim-machine { margin-left: 10px; text-transform: none !important; letter-spacing: 0 !important; }
 #layer-animate #swarf-sim-machine.on { border-color: #a39a90 !important; color: #fff !important; }
+#swarf-draw .sd-lab { fill: #7d736b; font: 11px "JetBrains Mono", ui-monospace, monospace; pointer-events: none; }
+#swarf-draw .sd-origin { stroke: #a39a90; stroke-width: 1.2; fill: none; pointer-events: none; }
+#swarf-draw .sd-scale { stroke: #a39a90; stroke-width: 1.2; fill: none; pointer-events: none; }

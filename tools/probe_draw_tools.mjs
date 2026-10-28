@@ -66,6 +66,8 @@ try {
   const mir = s && s.n === 10 && Math.abs(s.P[2][0] - (2 * s.P[3][0] - s.P[4][0])) < 1e-9 && Math.abs(s.P[2][1] - (2 * s.P[3][1] - s.P[4][1])) < 1e-9;
   check(s && /drawing/.test(s.name) && s.chain && s.deg === 3 && mir && s.P[4][0] === -30 && s.P[4][1] === 70, `pen with a smooth point: ${JSON.stringify(s && { n: s.n, a: s.P[3], h: s.P[4], o: s.P[2] })}`);
   await page.screenshot({ path: `${OUT}-pen.png` });
+  const ground = await page.evaluate(() => [...document.querySelectorAll('#sd-svg .sd-lab')].map(t => t.textContent));
+  check(ground.some(t => /^bed \d+ × \d+ mm$/.test(t)) && ground.includes('0, 0') && ground.some(t => / mm$| m$/.test(t) && !/bed/.test(t)), `the board shows its ground: ${JSON.stringify(ground)}`);
 
   // turn the out-handle down 20 mm: the in-handle turns the other way, keeping its length
   const before = s.P;

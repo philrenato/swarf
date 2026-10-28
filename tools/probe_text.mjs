@@ -67,6 +67,10 @@ try {
   await wait(1500);
   const ws = await page.evaluate(() => window.kiri.api.widgets.all().map(w => { const g = w.mesh.geometry; g.computeBoundingBox(); const b = g.boundingBox; return { name: w.meta.file, t: +(b.max.z - b.min.z).toFixed(2), w: +(b.max.x - b.min.x).toFixed(1) }; }));
   check(ws.length === 2 && ws.every(w => w.t === 6), `done: the O and the H are parts, 6 mm thick ${JSON.stringify(ws)}`);
+  // the letters stay together: picking one picks the word
+  const together = await page.evaluate(() => { const a = window.kiri.api; a.platform.deselect(); a.platform.select(a.widgets.all()[0]); return a.selection.count(); });
+  const said = await page.evaluate(() => [...document.querySelectorAll('.alert, #alert-area, .swarf-alert, #alerts')].map(e => e.textContent).join(' '));
+  check(together === 2, `picking one letter picks the word (${together} picked)`);
   // the O keeps its counter: its top face has a hole (inner ring of vertices)
   const holed = await page.evaluate(() => {
     const w = window.kiri.api.widgets.all().reduce((a, b) => (a.mesh.geometry.attributes.position.count > b.mesh.geometry.attributes.position.count ? a : b));

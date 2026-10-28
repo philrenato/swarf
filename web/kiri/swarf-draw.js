@@ -270,6 +270,16 @@
       for (let y = Math.ceil(-bd / 200) * 100; y <= bd / 2; y += 100) G += `M${sx(-bw / 2)},${sy(y)}H${sx(bw / 2)}`;
       out.push(`<path class="sd-grid big" d="${G}"/>`);
     }
+    // the ground (review 10-28: "no bed, origin, scale or units"): the bed's size in its
+    // corner, the origin, and a scale bar of a round length about 100 px long
+    out.push(`<text class="sd-lab" x="${sx(-bw / 2) + 6}" y="${sy(bd / 2) + 14}">bed ${Math.round(bw)} × ${Math.round(bd)} mm</text>`);
+    out.push(`<path class="sd-origin" d="M${sx(0) - 8},${sy(0)}H${sx(0) + 8}M${sx(0)},${sy(0) - 8}V${sy(0) + 8}"/><text class="sd-lab" x="${sx(0) + 6}" y="${sy(0) + 14}">0, 0</text>`);
+    {
+      const r = ui.svg.getBoundingClientRect(), want = 100 / k;
+      const len = [1, 2, 5, 10, 20, 50, 100, 200, 500, 1000, 2000].find(v => v >= want * 0.6) || 2000;
+      const x = 20, y = (r.height || window.innerHeight) - 46;
+      out.push(`<path class="sd-scale" d="M${x},${y - 4}V${y}H${x + len * k}V${y - 4}"/><text class="sd-lab" x="${x}" y="${y - 8}">${len >= 1000 ? len / 1000 + ' m' : len + ' mm'}</text>`);
+    }
     for (const o of S.others) out.push(`<rect class="sd-other" x="${sx(o[0])}" y="${sy(o[3])}" width="${(o[2] - o[0]) * k}" height="${(o[3] - o[1]) * k}"><title>${o[4]}: no drawing to edit</title></rect>`);
     S.parts.forEach((part, pi) => {
       if (part.gone) return;
@@ -819,6 +829,7 @@
     // parts stay where they were drawn: auto layout would repack them
     if (a.ui.autoLayout && a.ui.autoLayout.checked) { a.ui.autoLayout.checked = false; a.ui.autoLayout.dispatchEvent(new Event('change')); }
     const open = [], made = [], failed = [];
+    let built = 0;
     for (const p of changed) {
       if (p.gone) { if (p.w) a.platform.delete(p.w); continue; }
       const closed = p.curves.filter(c => isClosed(c.crv));
@@ -829,11 +840,13 @@
       if (!ws.length) { failed.push(`${p.name}: ${ws.error || 'swarf could not make it from its drawing. Is the outline crossing itself?'}`); continue; }
       if (p.w) a.platform.delete(p.w);
       made.push(...ws);
+      built++;
     }
     if (made.length) a.platform.select(made[0]);
-    const n = made.length;
+    // a word, or any one drawing, counts as one, however many parts its letters make
+    const n = built;
     if (failed.length) { a.show.alert(`Not changed: ${failed.join(' ')}`, 12); return; }
-    a.show.alert(open.length ? `${open.join(', ')}: open lines were left out (only closed outlines get a thickness).` : `${n} part${n === 1 ? '' : 's'} rebuilt from the drawing. Next: a step (${made.some(w => w.meta.edge) ? 'contour shapes the edge, outline cuts it out' : 'outline cuts it out'}), then toolpaths.`, 8);
+    a.show.alert(open.length ? `${open.join(', ')}: open lines were left out (only closed outlines get a thickness).` : `${n === 1 ? (made.length > 1 ? `Made from the drawing: ${made.length} pieces, kept together.` : '1 part rebuilt from the drawing.') : `${n} drawings made into parts.`} Next: a step (${made.some(w => w.meta.edge) ? 'contour shapes the edge, outline cuts it out' : 'outline cuts it out'}), then toolpaths.`, 8);
   }
 
   // ── wiring ──
