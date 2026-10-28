@@ -33,7 +33,7 @@
   const el = (tag, attrs, ...kids) => {
     const e = document.createElement(tag);
     for (const k in attrs || {}) {
-      if (k === 'text') e.textContent = attrs[k];
+      if (k === 'text') e.textContent = tag === 'button' ? attrs[k] : tie(attrs[k]);
       else if (k === 'class') e.className = attrs[k];
       else if (k.startsWith('on')) e.addEventListener(k.slice(2), attrs[k]);
       else e.setAttribute(k, attrs[k]);
@@ -41,6 +41,8 @@
     for (const c of kids) if (c != null) e.append(c);
     return e;
   };
+  // no orphans: a sentence's last two words stay together (Phil 10-28)
+  const tie = t => typeof t === 'string' && t.trim().split(/\s+/).length > 3 ? t.replace(/ (\S+)\s*$/, '\u00a0$1') : t;
   const num = (v, d) => { const n = parseFloat(String(v).replace(',', '.')); return isFinite(n) ? n : d; };
   const f3 = v => (Math.round(v * 1000) / 1000).toString();
   let L = null;   // the lesson in hand: { lesson, board, bit, size, depth, … }

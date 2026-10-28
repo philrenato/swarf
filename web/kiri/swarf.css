@@ -2158,3 +2158,9 @@ body.swarf-focus #swarf-step-cam { border-right: 1px solid var(--swarf-line-2); 
   #swarf-run .sr-strip.on { animation: none !important; background-size: 100% 100% !important; }
   body, body::before, body::after { animation: none !important; }
 }
+
+/* no orphans, anywhere (Phil 10-28: "be maniacal culling orphans"): body text wraps so its last
+   line is never one word; headings and one-line notices balance their lines */
+html, body, #swarf-run, #swarf-draw, .mdialog, #dialog, #alert-text, #swarf-start, #swarf-size, .swarf-help, #mod-help { text-wrap: pretty; }
+h1, h2, h3, h4, .sr-card h2, .sr-veilcard h2, #swarf-start h2, .menu-title, #swarf-run .sr-say, #alert-text { text-wrap: balance; }
+#mode-tools span, .sr-step, kbd { text-wrap: nowrap; }
