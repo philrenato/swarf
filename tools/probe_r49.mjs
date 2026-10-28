@@ -61,6 +61,14 @@ try {
   check(/Before you can cut/.test(t) && /X Y zeroed/.test(t) && /traced/.test(t), `a waiting cut lists what is left ("${t.slice(0, 90)}…")`);
   await shut();
   const press = txt => page.evaluate(txt => [...document.querySelectorAll('#swarf-run button')].find(b => b.textContent.trim() === txt && b.offsetParent).click(), txt);
+  // the plate card shows the plate model, posed for the circuit check
+  await press('z plate'); await wait(800);
+  const pv = await page.evaluate(() => { const v = document.querySelector('#swarf-run .sr-sheet.on .sr-plate-view'); return v ? { canvas: !!v.querySelector('canvas'), labels: [...v.querySelectorAll('span')].map(s => s.textContent) } : null; });
+  check(pv && pv.canvas && pv.labels.includes('ground clip'), `the plate card shows the plate model ${JSON.stringify(pv)}`);
+  await page.screenshot({ path: (process.env.OUT || '/tmp') + '/r49-plate.png' });
+  await page.evaluate(() => [...document.querySelectorAll('#swarf-run .sr-sheet.on button')].find(b => b.textContent === 'touch the plate to the bit')?.click()); await wait(1200);
+  await page.screenshot({ path: (process.env.OUT || '/tmp') + '/r49-plate-flat.png' });
+  await page.keyboard.press('Escape'); await wait(300);
   await press('zero x y'); await press('zero z'); await wait(300);
   await page.click('#swarf-run .sr-actions .trace'); await wait(300);
   t = await sheet();
