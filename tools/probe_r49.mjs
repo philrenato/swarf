@@ -20,6 +20,7 @@ try {
   await page.setViewport({ width: 1440, height: 900 });
   page.on('pageerror', e => errors.push(e.message));
   await page.goto(PAGE, { waitUntil: 'domcontentloaded', timeout: 60000 });
+  await wait(5000);   // the service worker may reload the page once
   await page.waitForFunction(ready, { timeout: 90000, polling: 200 });
   await page.evaluate(() => { window.kiri.api.devices.select('ShopBot.Basic'); for (const w of window.kiri.api.widgets.all()) window.kiri.api.platform.delete(w); });
   await wait(1500);
@@ -160,6 +161,7 @@ try {
   p2.on('pageerror', e => errors.push(e.message));
   await p2.evaluateOnNewDocument(() => { try { Object.defineProperty(Navigator.prototype, 'usb', { get: () => undefined, configurable: true }); } catch (e) {} });
   await p2.goto(PAGE, { waitUntil: 'domcontentloaded', timeout: 60000 });
+  await wait(5000);
   await p2.waitForFunction(ready, { timeout: 90000, polling: 200 });
   await p2.evaluate(() => window.kiri.api.devices.select('ShopBot.Basic'));
   await wait(1500);
