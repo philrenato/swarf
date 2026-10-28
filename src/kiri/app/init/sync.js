@@ -653,6 +653,8 @@ function setup_keybd_nav() {
             render(warnings);
         }
         function render(warnings) {
+            const seen = new Set();
+            warnings = warnings.filter(w => { const k = w.title + '|' + w.body; if (seen.has(k)) return false; seen.add(k); return true; });
             count.textContent = String(warnings.length);
             tab.classList.toggle('has-warnings', warnings.length > 0);
             if (warnings.length === 0) {

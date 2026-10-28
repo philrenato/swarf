@@ -377,7 +377,7 @@ select:focus, input:focus { outline: none; border-color: var(--swarf-accent); }
 #mode-tools > span.disabled {
   background: var(--swarf-bg-2) !important;
   color: var(--swarf-text-3) !important;
-  opacity: 0.4;
+  opacity: 0.82;
 }
 
 /* ---- Menubar top menu (FILE EDIT VIEW RENDER INFO SETUP) ---- */
@@ -1427,7 +1427,7 @@ body:not(.swarf-expert) .swarf-add-op-grid > .swarf-expert-only {
 }
 /* the PLAY button (second button in the row) is the primary affordance —
    give it mill-red fill so it reads as "hit this to start" */
-#layer-animate button:nth-of-type(2) {
+#layer-animate button:nth-of-type(2):not(.swarf-toggle) {   /* the play button, not a toggle that lands second */
   background: var(--swarf-accent, #7a2a1a) !important;
   border-color: var(--swarf-accent-hi, #a8382a) !important;
   box-shadow: 0 0 10px rgba(208, 32, 32, 0.35);
@@ -2086,7 +2086,7 @@ body.swarf-draw-open #swarf-concerns, body.swarf-draw-open #swarf-size { display
 #swarf-start button:hover, #swarf-start button:focus-visible { border-color: #d8d2c6; outline: none; }
 #swarf-start small { color: #7d736b; font-size: 11px; }
 /* r44: while a job is on the machine, cam's steps sleep (review 10-28 #20: SHAPE went red while paused) */
-body.swarf-run-busy #mode-tools > span:not(.swarf-step-run) { opacity: .35; cursor: not-allowed; }
+body.swarf-run-busy #mode-tools > span:not(.swarf-step-run) { opacity: .82; cursor: not-allowed; }
 body.swarf-run-busy #mode-tools > span:not(.swarf-step-run):hover { background: transparent !important; color: inherit !important; text-shadow: none; }
 body.swarf-run-busy #mode-tools > span:not(.swarf-step-run):hover svg { fill: var(--swarf-text-2) !important; color: var(--swarf-text-2) !important; }
 /* r44: wider hit places in DRAW (review 10-28 #12) */
@@ -2105,7 +2105,7 @@ body.swarf-run-busy #mode-tools > span:not(.swarf-step-run):hover svg { fill: va
 @media (max-width: 1100px) { #swarf-size { flex-wrap: wrap; left: 16px; right: 16px; transform: none; justify-content: center; } }
 
 /* ---- VIEW › skin (swarf-skin.js): the current one ticked ---- */
-.swarf-skin-head label { opacity: .6; font-size: .9em; }
+.swarf-skin-head label { opacity: 1; font-size: .9em; color: var(--swarf-text-2); }
 .swarf-skin-head { pointer-events: none; }
 .swarf-skin-row span { visibility: hidden; }
 .swarf-skin-row.swarf-skin-on span { visibility: visible; }
@@ -2182,3 +2182,24 @@ html[data-skin="classic"] :focus-visible { outline: 1px dotted #000 !important; 
    MR-1, KCAD) as they are spelled. Kiri's few capitalised labels are lowercased here. */
 #menubar label, #menubar span, .top-menu-drop label, #mode-tools label, .set-header, .set-header a,
 .var-row > label, #camops label, #camops span, .mdialog label:not(.menu-title) { text-transform: lowercase; }
+
+/* ---- legibility pass, the swarf skin (Phil 10-28: "make sure legibility is never compromised") ----
+   measured with tools/look_legibility.mjs: 4.5:1 for every text on the dark plates and the red sky */
+html:not([data-skin]) { --swarf-text-2: #b8b0a4; --swarf-text-3: #9a9286; }
+html:not([data-skin]) #swarf-watermark { color: #efe6d8 !important; opacity: 1 !important; text-shadow: 0 1px 2px rgba(0,0,0,.6); }
+html:not([data-skin]) #swarf-tools-row > span, html:not([data-skin]) .swarf-add-op-label, html:not([data-skin]) .swarf-concern em,
+html:not([data-skin]) #swarf-start small, html:not([data-skin]) #ver, html:not([data-skin]) #mode-tools > span.disabled label { color: #b8b0a4 !important; }
+html:not([data-skin]) #swarf-run .sr-sim button.on, html:not([data-skin]) #swarf-run .sr-vtools button.on { color: #fff !important; }
+html:not([data-skin]) #swarf-run button:disabled, html:not([data-skin]) button:disabled { opacity: .75 !important; }
+html:not([data-skin]) #swarf-run .sr-card .row .go:disabled { opacity: 1 !important; color: #f2dede !important; background: #6a1c1a !important; }
+html:not([data-skin]) kbd { color: #d4ccc0 !important; }
+html:not([data-skin]) #swarf-draw .sd-bar button.on kbd, html:not([data-skin]) #swarf-draw button.on kbd { color: #2a2522 !important; }
+html:not([data-skin]) .swarf-toggle-on { background-color: #7e0e0e !important; color: #fff !important; }
+html:not([data-skin]) #panel-right .set2-group summary.set-header a, html:not([data-skin]) #swarf-right-rail .set2-group summary.set-header a { color: #ff8a7e !important; }
+html:not([data-skin]) #swarf-run .sr-pad button small, html:not([data-skin]) #swarf-run .sr-jog .sr-modes .lbl small, html:not([data-skin]) #swarf-run .sr-jog .sr-modes .lbl { color: #cfc7bb !important; }
+html:not([data-skin]) .set-header a, html:not([data-skin]) summary.set-header a { color: #ff8a7e !important; }
+
+/* a concern reads top to bottom: its title, what is wrong, then what to do (legibility pass 10-28) */
+.swarf-concern { display: block !important; }
+.swarf-concern strong, .swarf-concern em { display: block !important; }
+.swarf-concern em { margin-top: 3px; }

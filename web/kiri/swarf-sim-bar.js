@@ -71,7 +71,7 @@
     b.textContent = on ? cfg.onLabel : cfg.offLabel;
     // ON = mill-red. OFF = solid black with a faint red hairline so the
     // button is fully visible in its "off" state (Phil markup r10-c).
-    b.style.background   = on ? 'var(--swarf-accent-hi, #d02020)' : '#000';
+    b.style.background   = on ? '#7e0e0e' : '#000';   // the deeper red: white text reads on it (legibility pass)
     b.style.borderColor  = on ? 'var(--swarf-accent-hi, #d02020)' : 'var(--swarf-accent, #7a2a1a)';
     b.style.color        = '#fff';
     b.title              = on ? cfg.onTitle : cfg.offTitle;

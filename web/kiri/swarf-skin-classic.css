@@ -11,16 +11,16 @@
 
 html[data-skin="classic"] {
   --sk-n0: 192 192 192;  --sk-n1: 212 208 200;  --sk-n2: 223 223 223;  --sk-n3: 236 236 236;
-  --sk-n4: 160 160 160;  --sk-n5: 128 128 128;  --sk-n6: 96 96 96;     --sk-n7: 64 64 64;
+  --sk-n4: 160 160 160;  --sk-n5: 96 96 96;  --sk-n6: 48 48 48;     --sk-n7: 40 40 40;
   --sk-n8: 16 16 16;     --sk-n9: 0 0 0;
   --sk-shadow: 0 0 0; --sk-a-shadow: .5; --sk-glint: 255 255 255;
-  --sk-acc-dim: 0 0 96; --sk-acc: 0 0 128; --sk-acc-hi: 16 132 208;
-  --sk-warn: 176 112 0; --sk-ok: 0 128 0; --sk-info: 0 0 128; --sk-violet: 96 64 160;
+  --sk-acc-dim: 0 0 96; --sk-acc: 0 0 128; --sk-acc-hi: 0 0 160;
+  --sk-warn: 122 78 0; --sk-ok: 0 128 0; --sk-info: 0 0 128; --sk-violet: 96 64 160;
 
   --swarf-bg: #c0c0c0;  --swarf-bg-2: #d4d0c8;  --swarf-bg-3: #dfdfdf;
   --swarf-line: #808080;  --swarf-line-2: #404040;
-  --swarf-text: #000;  --swarf-text-1: #000;  --swarf-text-2: #333;  --swarf-text-3: #666;
-  --swarf-accent: #000080;  --swarf-accent-hi: #1084d0;  --swarf-accent-dim: #000060;
+  --swarf-text: #000;  --swarf-text-1: #000;  --swarf-text-2: #262626;  --swarf-text-3: #3a3a3a;
+  --swarf-accent: #000080;  --swarf-accent-hi: #0000a0;  --swarf-accent-dim: #000060;
   --swarf-glow: transparent;  --swarf-amber: #b07000;  --swarf-green: #008000;
 
   --sk3d-fog: #336698;  --sk3d-floor: #c0c0c0;  --sk3d-floor-opacity: .85;  --sk3d-floor-light: .5;
@@ -298,3 +298,32 @@ html[data-skin="classic"] #swarf-run .sr-actions .cut:disabled { box-shadow: var
 /* the navy cut button reads white (Fable review 3 #23) */
 html[data-skin="classic"] #swarf-run .sr-actions .cut, html[data-skin="classic"] #swarf-run .sr-actions .cut * { color: #fff !important; }
 html[data-skin="classic"] #swarf-run .sr-actions .cut.wait, html[data-skin="classic"] #swarf-run .sr-actions .cut.quiet { color: #000 !important; }
+
+/* ---- legibility pass (Phil 10-28: "make sure legibility is never compromised") ----
+   measured with tools/look_legibility.mjs. Windows 95's engraved grey for disabled text was the
+   look, and it failed: disabled words are dark grey on silver here, with the same white emboss. */
+html[data-skin="classic"] button:disabled, html[data-skin="classic"] #swarf-run button:disabled, html[data-skin="classic"] #mode-tools > span.disabled,
+html[data-skin="classic"] #mode-tools > span.disabled label, html[data-skin="classic"] #swarf-run .sr-card .row .go:disabled {
+  color: #3c3c3c !important; text-shadow: 1px 1px 0 #fff !important; opacity: 1 !important; }
+html[data-skin="classic"] #swarf-run .sr-actions .cut.wait { background: #c0c0c0 !important; color: #000 !important; }
+html[data-skin="classic"] button.selected, html[data-skin="classic"] #swarf-origin-row button.selected,
+html[data-skin="classic"] #swarf-run .sr-modes button.on, html[data-skin="classic"] #swarf-run .sr-jog .sr-modes button.on, html[data-skin="classic"] #swarf-run .sr-sim button.on,
+html[data-skin="classic"] #swarf-run .sr-vtools button.on { background: #000080 !important; color: #fff !important; }
+html[data-skin="classic"] #swarf-concerns-count { color: #fff !important; background: #000080 !important; }
+html[data-skin="classic"] #swarf-run .sr-box h3, html[data-skin="classic"] #swarf-run .sr-box h3 span { color: #000 !important; }
+html[data-skin="classic"] #swarf-watermark, html[data-skin="classic"] #swarf-start small, html[data-skin="classic"] #swarf-tools-row > span,
+html[data-skin="classic"] .swarf-add-op-label, html[data-skin="classic"] #swarf-run .sr-keys, html[data-skin="classic"] #swarf-run .sr-other,
+html[data-skin="classic"] #swarf-run .sr-need, html[data-skin="classic"] #swarf-run .sr-need .ok, html[data-skin="classic"] #swarf-run .sr-needrow small,
+html[data-skin="classic"] #swarf-run .sr-jog .sr-modes .lbl, html[data-skin="classic"] #swarf-run .sr-jog .sr-modes .lbl small, html[data-skin="classic"] #swarf-run .sr-pad button small,
+html[data-skin="classic"] #swarf-run .sr-step { color: #262626 !important; opacity: 1 !important; }
+html[data-skin="classic"] #swarf-run .sr-step .n { background: #404040 !important; color: #fff !important; border-color: transparent !important; }
+html[data-skin="classic"] #swarf-run .sr-step.now .n { background: #000080 !important; }
+html[data-skin="classic"] #panel-right .set2-group summary.set-header a, html[data-skin="classic"] #swarf-right-rail .set2-group summary.set-header a,
+html[data-skin="classic"] .set-header a { color: #000080 !important; }
+html[data-skin="classic"] .swarf-concern strong { color: #7a4e00 !important; }
+html[data-skin="classic"] #swarf-run .sr-plate-view .sr-plate-note { background: #fff; padding: 1px 6px; color: #262626; }
+html[data-skin="classic"] .swarf-wordmark .swarf-mark-arf { color: #000080 !important; -webkit-text-fill-color: #000080 !important; text-shadow: none !important; }
+html[data-skin="classic"] #swarf-watermark { color: #000 !important; text-shadow: none !important; background: #c0c0c0 !important; padding: 1px 6px !important; box-shadow: inset -1px -1px #808080, inset 1px 1px #fff !important; }
+html[data-skin="classic"] #swarf-run .sr-step.done .n, html[data-skin="classic"] #swarf-run .sr-step .n { background: #404040 !important; color: #fff !important; }
+html[data-skin="classic"] #swarf-run .sr-step.now .n { background: #000080 !important; }
+html[data-skin="classic"] #swarf-run .sr-actions button.wait { box-shadow: inset -1px -1px #0a0a0a, inset 1px 1px #fff, inset -2px -2px #808080, inset 2px 2px #dfdfdf !important; }
