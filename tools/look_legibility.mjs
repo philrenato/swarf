@@ -104,6 +104,11 @@ try {
     await page.click('#swarf-step-draw').catch(() => {}); await wait(1200);
     await audit(page, skin, '07-draw', found);
     await page.evaluate(() => [...document.querySelectorAll('#swarf-draw button')].find(b => /cancel/i.test(b.textContent))?.click()); await wait(800);
+    for (const [id, name] of [['swarf-concordance', '07c-concordance'], ['swarf-help-search', '07d-help-search'], ['app-help', '07e-about']]) {
+      await page.evaluate(id => document.getElementById(id)?.click(), id); await wait(700);
+      await audit(page, skin, name, found);
+      await page.evaluate(() => { try { window.kiri.api.modal.hide(); } catch (e) {} }); await page.keyboard.press('Escape'); await wait(400);
+    }
     await page.evaluate(() => window.__swarfTutorial && window.__swarfTutorial.open(4)); await wait(500);
     await audit(page, skin, '07b-quickstart', found);
     await page.keyboard.press('Escape'); await wait(300);
