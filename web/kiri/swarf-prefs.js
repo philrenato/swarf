@@ -83,7 +83,7 @@
       for (const c of old.querySelectorAll(':scope > .f-col')) {
         for (const r of [...c.children]) if (r.classList.contains('var-row') && !used.has(r) && r !== dark) wrap.querySelector('.swarf-prefs-adv .swarf-prefs-rows').append(r);
       }
-      old.style.display = 'none';
+      old.classList.add('swarf-prefs-old');   // swarf.css forces this grid on; the class puts it away
     }
     const hr = box.querySelector('hr');
     if (hr) hr.style.display = 'none';

@@ -2151,3 +2151,4 @@ body.swarf-focus #mode-tools > span.selected:not(.swarf-step-on) { background: t
 #mode-tools > span#swarf-step-draw.swarf-step-on label, #mode-tools > span#swarf-step-draw.swarf-step-on i, #mode-tools > span#swarf-step-draw.swarf-step-on svg { color: #fff !important; fill: #fff !important; }
 html[data-skin="glass"] #mode-tools > span#swarf-step-draw.swarf-step-on { background: var(--g-aqua) !important; box-shadow: var(--g-aqua-shadow) !important; }
 body.swarf-focus #swarf-step-cam { border-right: 1px solid var(--swarf-line-2); }
+#mod-prefs .f-row.gap10.swarf-prefs-old { display: none !important; }
