@@ -669,7 +669,7 @@
     row.style.cssText = 'display:flex; gap:8px; padding:8px 6px; align-items:center; border-bottom:1px solid var(--swarf-accent, #7a2a1a); background:rgba(208,32,32,0.04); margin-bottom:6px;';
     const label = document.createElement('span');
     label.textContent = 'material';
-    label.style.cssText = 'font-size:13px; letter-spacing:0.18em; text-transform:uppercase; color:var(--swarf-accent-hi, #ff3a2a); font-weight:600; flex:0 0 auto;';
+    label.style.cssText = 'font-size:13px; letter-spacing:0.02em; text-transform:none; color:var(--swarf-accent-hi, #ff3a2a); font-weight:600; flex:0 0 auto;';
     const select = document.createElement('select');
     select.id = 'swarf-material-select';
     select.title = 'what your board is made of: its look in simulate and its starting speeds';

@@ -11,7 +11,7 @@ body.swarf-expert .swarf-expert-only { display: initial !important; }
   font-size: 0.62em;
   font-weight: 600;
   letter-spacing: 0.04em;
-  text-transform: uppercase;
+  text-transform: none;
   margin-left: 2px;
   top: -0.45em;
   opacity: 0.75;
@@ -183,7 +183,7 @@ body.swarf-sky-working {
 #swarf-watermark {
   position: fixed; left: 18px; bottom: 14px; z-index: 9999;
   font-family: "JetBrains Mono", "IBM Plex Mono", ui-monospace, monospace;
-  font-size: 10px; letter-spacing: 0.18em; text-transform: uppercase;
+  font-size: 10px; letter-spacing: 0.02em; text-transform: none;
   color: var(--swarf-text-3); text-decoration: none; opacity: 0.55;
   pointer-events: auto; padding: 2px 6px;
   border-left: 1px solid var(--swarf-line);
@@ -218,7 +218,7 @@ body, .set-header, label, button, select, input, .opdiv, #op-add-list > div {
   font-family: "JetBrains Mono", "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace !important;
 }
 .set-header, #menubar, label[class*="set-"] {
-  text-transform: uppercase;
+  text-transform: none;
   letter-spacing: 0.08em;
   font-size: 11px;
   color: var(--swarf-text-2);
@@ -251,7 +251,7 @@ button {
   border: 1px solid var(--swarf-line-2);
   border-radius: 2px;
   padding: 4px 10px;
-  text-transform: uppercase;
+  text-transform: none;
   letter-spacing: 0.06em;
   font-size: 11px;
   transition: background 120ms linear, border-color 120ms linear;
@@ -303,7 +303,7 @@ a:hover { color: var(--swarf-text); }
 }
 #curtain img, #loading { display: none !important; } /* kill Kiri gear spinner — swarf mark later */
 .swarf-loading {
-  font-size: 12px; color: var(--swarf-text-2); letter-spacing: 0.22em; text-transform: uppercase;
+  font-size: 12px; color: var(--swarf-text-2); letter-spacing: 0.02em; text-transform: none;
 }
 
 /* form controls */
@@ -351,7 +351,7 @@ select:focus, input:focus { outline: none; border-color: var(--swarf-accent); }
   background: var(--swarf-bg-2) !important;
   color: var(--swarf-text) !important;
   border-color: var(--swarf-line) !important;
-  text-transform: uppercase;
+  text-transform: none;
   letter-spacing: 0.08em;
   font-size: 11px;
   padding: 6px 14px !important;
@@ -385,9 +385,9 @@ select:focus, input:focus { outline: none; border-color: var(--swarf-accent); }
 #menubar.content > div {
   color: var(--swarf-text-2);
   padding: 0 14px;
-  letter-spacing: 0.1em;
+  letter-spacing: 0.02em;
   font-size: 11px;
-  text-transform: uppercase;
+  text-transform: none;
 }
 #menubar.content > div:hover,
 .top-menu > span.selected,
@@ -490,7 +490,7 @@ body.swarf-menu-open #swarf-concerns  { z-index: -1 !important; pointer-events: 
 .swarf-step {
   display: inline-flex; align-items: center; gap: 8px;
   padding: 7px 14px !important;
-  text-transform: uppercase; letter-spacing: 0.1em;
+  text-transform: none; letter-spacing: 0.02em;
   font-size: 11px;
 }
 .swarf-step label { cursor: pointer; }
@@ -549,7 +549,7 @@ body.swarf-run-open #gdpr, body.swarf-run-open #install-swarf, body.swarf-run-op
    Explicit none on every <sup> in the about/credits block kills it. */
 .swarf-about sup, .swarf-credits sup { text-decoration: none; }
 .swarf-about-sub {
-  font-size: 9px; letter-spacing: 0.14em; text-transform: uppercase;
+  font-size: 9px; letter-spacing: 0.02em; text-transform: none;
   color: var(--swarf-text-2);
 }
 .swarf-about-body p {
@@ -565,7 +565,7 @@ body.swarf-run-open #gdpr, body.swarf-run-open #install-swarf, body.swarf-run-op
   font-size: 10px; line-height: 1.45;
 }
 .swarf-credit-role {
-  text-transform: uppercase; letter-spacing: 0.12em;
+  text-transform: none; letter-spacing: 0.02em;
   color: var(--swarf-text-3);
 }
 .swarf-credit-who { color: var(--swarf-text); white-space: nowrap; letter-spacing: 0.02em; }
@@ -575,11 +575,11 @@ body.swarf-run-open #gdpr, body.swarf-run-open #install-swarf, body.swarf-run-op
   display: flex; justify-content: space-between; align-items: center;
   padding: 8px 20px 12px 20px;
   border-top: 1px solid var(--swarf-line);
-  font-size: 9px; letter-spacing: 0.14em; text-transform: uppercase;
+  font-size: 9px; letter-spacing: 0.02em; text-transform: none;
   color: var(--swarf-text-3);
 }
 .swarf-about-links { display: flex; gap: 8px; align-items: center; }
-.swarf-about-links a { color: var(--swarf-text-2); text-decoration: none; letter-spacing: 0.12em; }
+.swarf-about-links a { color: var(--swarf-text-2); text-decoration: none; letter-spacing: 0.02em; }
 .swarf-about-links a:hover { color: var(--swarf-accent-hi); }
 .swarf-about-links .sep { opacity: 0.4; }
 
@@ -602,7 +602,7 @@ body.swarf-run-open #gdpr, body.swarf-run-open #install-swarf, body.swarf-run-op
   display: flex; flex-direction: column; gap: 10px;
 }
 .swarf-help-title {
-  font-size: 10px; letter-spacing: 0.22em; text-transform: uppercase;
+  font-size: 10px; letter-spacing: 0.02em; text-transform: none;
   color: var(--swarf-text-2);
 }
 .swarf-help-sub {
@@ -665,8 +665,8 @@ body.swarf-run-open #gdpr, body.swarf-run-open #install-swarf, body.swarf-run-op
   display: flex; align-items: center; gap: 8px;
   padding: 8px 10px 7px 12px;
   border-bottom: 1px solid var(--swarf-line);
-  text-transform: uppercase;
-  letter-spacing: 0.18em;
+  text-transform: none;
+  letter-spacing: 0.02em;
   font-size: 10px;
   color: var(--swarf-text);
   font-weight: 600;
@@ -745,8 +745,8 @@ body.swarf-run-open #gdpr, body.swarf-run-open #install-swarf, body.swarf-run-op
   list-style: none;
   padding: 10px 12px 9px 14px !important;
   border-bottom: 1px solid var(--swarf-line) !important;
-  text-transform: uppercase;
-  letter-spacing: 0.18em;
+  text-transform: none;
+  letter-spacing: 0.02em;
   font-size: 13px;
   color: var(--swarf-text) !important;
   font-weight: 600;
@@ -854,8 +854,8 @@ body.swarf-run-open #gdpr, body.swarf-run-open #install-swarf, body.swarf-run-op
   list-style: none;
   padding: 10px 12px 9px 14px !important;
   border-bottom: 1px solid var(--swarf-line) !important;
-  text-transform: uppercase;
-  letter-spacing: 0.18em;
+  text-transform: none;
+  letter-spacing: 0.02em;
   font-size: 13px;
   color: var(--swarf-text) !important;
   font-weight: 600;
@@ -928,8 +928,8 @@ body.swarf-run-open #gdpr, body.swarf-run-open #install-swarf, body.swarf-run-op
 #panel-left .set2-group > details > summary.set-header {
   padding: 10px 12px 9px 14px !important;
   border-bottom: 1px solid var(--swarf-line) !important;
-  text-transform: uppercase;
-  letter-spacing: 0.18em;
+  text-transform: none;
+  letter-spacing: 0.02em;
   font-size: 13px;
   color: var(--swarf-text-2) !important;
   font-weight: 600;
@@ -1086,7 +1086,7 @@ hr:not(.swarf-keep) {
 .swarf-concordance section { margin-bottom: 22px; display: block; }
 .swarf-concordance section h3 {
   font-family: "JetBrains Mono", "IBM Plex Mono", ui-monospace, monospace;
-  font-size: 11px; letter-spacing: 0.22em; text-transform: uppercase;
+  font-size: 11px; letter-spacing: 0.02em; text-transform: none;
   color: var(--swarf-accent); margin: 0 0 10px 0;
   padding-bottom: 4px;
   border-bottom: 1px solid var(--swarf-line);
@@ -1129,7 +1129,7 @@ hr:not(.swarf-keep) {
 }
 .swarf-search .swarf-result-kind {
   display: inline-block; padding: 1px 8px;
-  font-size: 9px; letter-spacing: 0.18em; text-transform: uppercase;
+  font-size: 9px; letter-spacing: 0.02em; text-transform: none;
   border: 1px solid var(--swarf-line);
   color: var(--swarf-text-3);
   background: var(--swarf-bg-3);
@@ -1160,7 +1160,7 @@ hr:not(.swarf-keep) {
   background: var(--swarf-bg-2);
   border: 1px solid var(--swarf-line);
   border-left: 2px solid var(--swarf-amber);
-  font-size: 10px; letter-spacing: 0.18em; text-transform: uppercase;
+  font-size: 10px; letter-spacing: 0.02em; text-transform: none;
   color: var(--swarf-text-2);
   cursor: pointer;
   transition: color 120ms, border-color 120ms;
@@ -1198,7 +1198,7 @@ hr:not(.swarf-keep) {
 #swarf-concerns-body .swarf-concern strong {
   color: var(--swarf-amber); font-weight: 600;
   display: block; margin-bottom: 2px;
-  letter-spacing: 0.08em; text-transform: uppercase; font-size: 10px;
+  letter-spacing: 0.08em; text-transform: none; font-size: 10px;
 }
 #swarf-concerns-body .swarf-concern em {
   color: var(--swarf-text-3); font-style: normal;
@@ -1212,7 +1212,7 @@ hr:not(.swarf-keep) {
 /* swarf: always-visible add-op grid inside the toolpaths panel
    (markup Apr 15 — "I still don't see a way to make/add/change/see toolpaths") */
 .swarf-add-op-label {
-  font-size: 9px; letter-spacing: 0.22em; text-transform: uppercase;
+  font-size: 9px; letter-spacing: 0.02em; text-transform: none;
   color: var(--swarf-text-3);
   padding: 10px 4px 6px 4px;
   border-top: 1px dashed var(--swarf-line);
@@ -1238,7 +1238,7 @@ hr:not(.swarf-keep) {
   color: var(--swarf-text);
   font-family: "JetBrains Mono", "IBM Plex Mono", ui-monospace, monospace;
   font-size: 12px;
-  letter-spacing: 0.1em;
+  letter-spacing: 0.02em;
   text-transform: lowercase;
   cursor: pointer;
   transition: background 120ms, border-color 120ms, color 120ms;
@@ -1263,7 +1263,7 @@ body:not(.swarf-expert) .swarf-add-op-grid > .swarf-expert-only {
   font-family: "JetBrains Mono", "IBM Plex Mono", ui-monospace, monospace;
 }
 .swarf-license-title {
-  font-size: 10px; letter-spacing: 0.18em; text-transform: uppercase;
+  font-size: 10px; letter-spacing: 0.02em; text-transform: none;
   color: var(--swarf-text-2); margin-bottom: 6px;
 }
 .swarf-license-body {
@@ -1292,7 +1292,7 @@ body:not(.swarf-expert) .swarf-add-op-grid > .swarf-expert-only {
   border-radius: 2px;
   transition: transform 140ms, color 140ms, background 140ms, border-color 140ms;
   display: inline-flex; align-items: center; gap: 5px;
-  letter-spacing: 0.14em; text-transform: uppercase; font-weight: 600;
+  letter-spacing: 0.02em; text-transform: none; font-weight: 600;
 }
 #oplist .draggable .swarf-op-chevron::before {
   content: "edit";
@@ -1342,7 +1342,7 @@ body:not(.swarf-expert) .swarf-add-op-grid > .swarf-expert-only {
   align-items: center;
   gap: 6px;
   font-size: 10px;
-  letter-spacing: 0.1em;
+  letter-spacing: 0.02em;
   text-transform: lowercase;
   color: var(--swarf-text-2, #aaa);
 }
@@ -1406,8 +1406,8 @@ body:not(.swarf-expert) .swarf-add-op-grid > .swarf-expert-only {
   padding: 0 12px;
   margin-right: 8px;
   font-size: 11px;
-  letter-spacing: 0.20em;
-  text-transform: uppercase;
+  letter-spacing: 0.02em;
+  text-transform: none;
   color: var(--swarf-accent-hi, #ff3a2a);
   border-right: 1px solid var(--swarf-line, #2a2a2a);
   height: 100%;
@@ -1447,7 +1447,7 @@ body:not(.swarf-expert) .swarf-add-op-grid > .swarf-expert-only {
   color: var(--swarf-text-2, #aaa) !important;
   font-weight: normal !important;
   text-transform: lowercase;
-  letter-spacing: 0.1em;
+  letter-spacing: 0.02em;
   font-size: 11px;
   padding: 4px 8px !important;
   border-radius: 2px !important;
@@ -1467,7 +1467,7 @@ body:not(.swarf-expert) .swarf-add-op-grid > .swarf-expert-only {
 .swarf-sim-extra {
   margin-left: 8px !important;
   font-family: "JetBrains Mono", "IBM Plex Mono", ui-monospace, monospace !important;
-  letter-spacing: 0.16em !important;
+  letter-spacing: 0.02em !important;
   text-transform: lowercase !important;
   font-size: 10px !important;
   font-weight: 600 !important;
@@ -1523,8 +1523,8 @@ body.swarf-phase-exported   #swarf-watermark::after { background: #6a6a6a; }
   top: -18px; left: 50%; transform: translateX(-50%);
   font-family: "JetBrains Mono", "IBM Plex Mono", monospace;
   font-size: 9px;
-  letter-spacing: 0.2em;
-  text-transform: uppercase;
+  letter-spacing: 0.02em;
+  text-transform: none;
   color: var(--swarf-text-2);
   white-space: nowrap;
   pointer-events: none;
@@ -1584,8 +1584,8 @@ body:not(.swarf-expert) #speeds { display: none !important; }
   padding: 5px 12px !important;
   font-family: "JetBrains Mono", "IBM Plex Mono", monospace !important;
   font-size: 10px !important;
-  letter-spacing: 0.18em;
-  text-transform: uppercase;
+  letter-spacing: 0.02em;
+  text-transform: none;
   font-weight: 600;
   white-space: nowrap;
 }
@@ -1649,7 +1649,7 @@ body:not(.swarf-expert) #speeds { display: none !important; }
 .mod-print .f-row.box button {
   min-height: 32px;
   font-size: 11px;
-  letter-spacing: 0.14em;
+  letter-spacing: 0.02em;
 }
 
 /* red-link support line */
@@ -1671,8 +1671,8 @@ body:not(.swarf-expert) #speeds { display: none !important; }
 #mod-prefs .menu-title {
   font-family: "JetBrains Mono", "IBM Plex Mono", monospace !important;
   font-size: 11px;
-  letter-spacing: 0.22em;
-  text-transform: uppercase;
+  letter-spacing: 0.02em;
+  text-transform: none;
   color: var(--swarf-text-2);
   padding: 4px 0 10px 0;
 }
@@ -1716,8 +1716,8 @@ body:not(.swarf-expert) #speeds { display: none !important; }
   margin: 0 0 6px 0;
   font-family: "JetBrains Mono", "IBM Plex Mono", monospace;
   font-size: 11px;
-  letter-spacing: 0.2em;
-  text-transform: uppercase;
+  letter-spacing: 0.02em;
+  text-transform: none;
   color: var(--swarf-text);
   text-align: center;
 }
@@ -1746,7 +1746,7 @@ body:not(.swarf-expert) #speeds { display: none !important; }
 #mod-any .confirm button {
   min-width: 64px;
   padding: 5px 14px !important;
-  letter-spacing: 0.14em;
+  letter-spacing: 0.02em;
 }
 
 /* toggle buttons share their inline styling whether in sim-bar or tp-bar */
@@ -1819,8 +1819,8 @@ body.swarf-phone > *:not(#swarf-phone-wall) { display: none !important; }
 
 .swarf-phone-sub {
   font-size: 11.5px;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
+  letter-spacing: 0.02em;
+  text-transform: none;
   color: rgba(230,230,230,0.55);
   margin-bottom: 28px;
 }
@@ -2175,3 +2175,10 @@ h1, h2, h3, h4, .sr-card h2, .sr-veilcard h2, #swarf-start h2, .menu-title, #swa
 html[data-skin="glass"] :focus-visible { outline-color: #303236 !important; }
 html[data-skin="classic"] :focus-visible { outline: 1px dotted #000 !important; outline-offset: -4px !important; }
 .swarf-search .swarf-result-kind.shop { color: var(--swarf-text); }
+
+/* one casing rule in every skin (Phil 10-28: "Your call on casing, just make it consistent"):
+   no skin turns words to capitals or Title Case (the uppercase and capitalize rules are gone);
+   controls and labels are lowercase, sentences and card headings sentence case, names (ShopBot,
+   MR-1, KCAD) as they are spelled. Kiri's few capitalised labels are lowercased here. */
+#menubar label, #menubar span, .top-menu-drop label, #mode-tools label, .set-header, .set-header a,
+.var-row > label, #camops label, #camops span, .mdialog label:not(.menu-title) { text-transform: lowercase; }

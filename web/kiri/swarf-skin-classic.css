@@ -69,7 +69,7 @@ html[data-skin="classic"] #swarf-run, html[data-skin="classic"] #swarf-draw, htm
 html[data-skin="classic"] .set-header, html[data-skin="classic"] #menubar, html[data-skin="classic"] label[class*="set-"],
 html[data-skin="classic"] .swarf-step, html[data-skin="classic"] #mode-tools > span, html[data-skin="classic"] #menubar.content > div,
 html[data-skin="classic"] .swarf-plate-head, html[data-skin="classic"] #swarf-run .sr-box h3 {
-  text-transform: capitalize !important; letter-spacing: 0 !important;
+  text-transform: none !important; letter-spacing: 0 !important;
 }
 html[data-skin="classic"] button { text-transform: none !important; letter-spacing: 0 !important; }
 html[data-skin="classic"] .sr-axis .v, html[data-skin="classic"] #swarf-size .ax input, html[data-skin="classic"] #ver, html[data-skin="classic"] .sr-mpos,
@@ -138,7 +138,7 @@ html[data-skin="classic"] #panel-right .set2-group summary.set-header::before { 
 html[data-skin="classic"] #panel-left .set-header::before { color: #000 !important; }
 html[data-skin="classic"] .set-header { background-image: none; }
 html[data-skin="classic"] #swarf-material-row { background: transparent !important; border-bottom: 1px solid #808080 !important; box-shadow: 0 1px 0 #fff; }
-html[data-skin="classic"] #swarf-origin-row span, html[data-skin="classic"] #swarf-material-row span { color: #000 !important; letter-spacing: 0 !important; text-transform: capitalize !important; font-size: 12px !important; }
+html[data-skin="classic"] #swarf-origin-row span, html[data-skin="classic"] #swarf-material-row span { color: #000 !important; letter-spacing: 0 !important; text-transform: none !important; font-size: 12px !important; }
 
 /* ---- buttons: Windows 95, with a Mac OS 9 ring on the one that goes ahead ---- */
 html[data-skin="classic"] button, html[data-skin="classic"] #op-add-list > div, html[data-skin="classic"] #swarf-run button, html[data-skin="classic"] #swarf-draw button {

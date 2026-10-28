@@ -68,7 +68,7 @@ button {
     padding: 3px 7px 3px 7px;
     margin: 1px 1px 2px;
     cursor: pointer;
-    text-transform: capitalize;
+    text-transform: none;
     white-space: nowrap;
 }
 button:not([disabled]):hover {
@@ -384,7 +384,7 @@ details[open] summary::after {
 /* top menu bar, drop menus */
 #app-name {
     background-color: #fff;
-    text-transform: capitalize;
+    text-transform: none;
     font-family: sans-serif;
     z-index: 15;
     color: var(--appname-blue);
@@ -986,7 +986,7 @@ details[open] summary::after {
     flex-direction: row;
 }
 #mode-tools > span {
-    text-transform: capitalize;
+    text-transform: none;
     display: flex;
     flex-direction: row;
     align-items: center;
@@ -2248,7 +2248,7 @@ details[open] summary::after {
     overflow-y: auto;
     overflow-x: hidden;
     align-items: stretch;
-    text-transform: capitalize;
+    text-transform: none;
 }
 .settings .set-header a {
     font-size: smaller;

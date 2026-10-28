@@ -146,7 +146,7 @@
     }
     #curtain .swarf-pill {
       font-family: inherit; font-size: 0.85rem; font-weight: 600;
-      letter-spacing: 0.06em; text-transform: uppercase;
+      letter-spacing: 0.06em; text-transform:none;
       color: #8a857c; background: transparent;
       border: 1px solid #3a1e18; padding: 0.7em 1.6em; border-radius: 3px;
       cursor: pointer; transition: color 0.2s, border-color 0.2s, background 0.2s, box-shadow 0.2s;
@@ -389,7 +389,7 @@
                     <div id="camops" class="f-col a-stretch grow">
                         <!-- swarf: tool library opener (markup Apr 15) — endmills / drills / bits -->
                         <div id="swarf-tools-row" class="f-row" style="gap:6px; padding:4px 0; align-items:center">
-                            <span style="font-size:10px; letter-spacing:0.14em; text-transform:uppercase; color:var(--swarf-text-3); flex:1">tool library</span>
+                            <span style="font-size:10px; letter-spacing:0.02em; text-transform:none; color:var(--swarf-text-3); flex:1">tool library</span>
                             <button id="swarf-open-tools" title="manage endmills, drills, and bits" style="font-size:11px; padding:3px 10px">endmills &amp; bits</button>
                         </div>
 
@@ -602,8 +602,8 @@
                 <section>
                     <h3>making and running</h3>
                     <dl>
-                        <dt>control</dt><dd>drives the ShopBot from swarf over its USB cable, in Chrome or Edge only. jog, zero, trace, run in the air, cut. only shows when the ShopBot is the machine; the MR-1 uses export.</dd>
-                        <dt>trace / in the air / cut</dt><dd>each one opens a checklist first. trace runs the outline of the cut, router off; in the air runs the whole file above the board; cut starts the router. a button that is waiting tells you what it still needs.</dd>
+                        <dt>control</dt><dd>drives the ShopBot from swarf over its USB cable, in Chrome or Edge only. jog, zero, trace, air cut, cut. only shows when the ShopBot is the machine; the MR-1 uses export.</dd>
+                        <dt>trace / air cut / cut</dt><dd>each one opens a checklist first. trace runs the outline of the cut, router off; an air cut runs the whole file above the board; cut starts the router. a button that is waiting tells you what it still needs.</dd>
                         <dt>jog</dt><dd>moves at once, by the step you pick. go-to buttons and home ask first. space or esc stops; while a job runs, any key pauses it.</dd>
                         <dt>table corners</dt><dd>no home switches on this machine: put the bit over the table's front-left corner once and swarf learns it until the machine is switched off. then zero at, or go to, the front-left or front-right corner.</dd>
                         <dt>z plate</dt><dd>finds the top of the board by touching the bit to a metal plate. put the plate and its clip away before you cut.</dd>
@@ -882,6 +882,7 @@
 <script src="swarf-lightstream.js"></script>
 <!-- swarf run: drive the ShopBot (preview, jog, trace, cut) -->
 <script src="swarf-run-parse.js"></script>
+<script src="swarf-run-plan.js"></script>
 <script src="swarf-shopbot-model.js"></script>
 <script src="swarf-plate-model.js"></script>
 <script src="swarf-mr1-model.js"></script>
