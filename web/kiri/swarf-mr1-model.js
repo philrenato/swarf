@@ -3,12 +3,12 @@
  * machine is a stationary bed machine. It needs its own basic model to show ... the
  * axes in motion over a fixed bed where work happens"). From Langmuir's product
  * render (~/Documents/claude/swarf/reference_shopbot_photos/MR-1_reference.png):
- * a black splayed-leg stand, a blue-grey slotted table, two black side rails with
+ * a black splayed-leg stand, a blue-gray slotted table, two black side rails with
  * silver rods running front to back, a gantry beam riding them in Y, the carriage
  * crossing it in X, and the tall black "MR-1" column carrying the spindle in Z.
  * Work envelope 22.8 × 21.8 × 6 in (579 × 554 × 152 mm).
  *
- * Frame: z up, mm, the table's top at z 0, the work envelope centred on x 0, y 0
+ * Frame: z up, mm, the table's top at z 0, the work envelope centered on x 0, y 0
  * (as cam's platform is), so set(x, y, z) takes the bit's own position.
  *
  *   const m = SwarfMR1Model.build(THREE)
@@ -18,7 +18,7 @@
 (function (root) {
   'use strict';
   const ENV = { x: 579, y: 554, z: 152 };
-  const RAIL_X = ENV.x / 2 + 110;          // the side rails' centre lines
+  const RAIL_X = ENV.x / 2 + 110;          // the side rails' center lines
   const BEAM_Y = 135;                      // the beam stands behind the bit
   const TABLE = { x: 900, y: 820 };
 
@@ -44,7 +44,7 @@
     };
     const box = (x0, x1, y0, y1, z0, z1, m, parent) =>
       solid(new THREE.BoxGeometry(x1 - x0, y1 - y0, z1 - z0), m, parent, (x0 + x1) / 2, (y0 + y1) / 2, (z0 + z1) / 2);
-    // a cylinder along an axis ('x', 'y' or 'z'), centred at (x, y, z)
+    // a cylinder along an axis ('x', 'y' or 'z'), centered at (x, y, z)
     const rod = (r, len, axis, m, parent, x, y, z, seg = 12) => {
       const g = new THREE.CylinderGeometry(r, r, len, seg);
       if (axis === 'x') g.rotateZ(Math.PI / 2); else if (axis === 'z') g.rotateX(Math.PI / 2);

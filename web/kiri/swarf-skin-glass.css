@@ -1,13 +1,13 @@
 /* swarf skin: WET PLASTIC (Phil 10-28; achromatic 10-28:
-   "more achromatic, fewer/less intense color cues" — greys and a graphite jelly; only
-   the red stop, a muted warn/ok and the wood keep colour).
+   "more achromatic, fewer/less intense color cues" — grays and a graphite jelly; only
+   the red stop, a muted warn/ok and the wood keep color).
    Pale luminous sky; frosted panes with a bright inner rim; jelly buttons with a
    specular top half and a lit bottom lip; graphite for anything chosen. Text is dark
-   slate on light glass. The colour layer (swarf-skin-map.css) is driven by the
+   slate on light glass. The color layer (swarf-skin-map.css) is driven by the
    role tokens below; the rest of this file is the glass itself.            */
 
 html[data-skin="glass"] {
-  /* role tokens, "r g b": n0 was the darkest colour of the red-sky look, n9 its lightest */
+  /* role tokens, "r g b": n0 was the darkest color of the red-sky look, n9 its lightest */
   --sk-n0: 243 243 243;  --sk-n1: 246 246 246;  --sk-n2: 249 249 250;  --sk-n3: 239 239 240;
   --sk-n4: 211 212 213;  --sk-n5: 150 151 152;  --sk-n6: 88 89 90;  --sk-n7: 70 71 72;
   --sk-n8: 50 51 52;     --sk-n9: 24 24 24;
@@ -58,7 +58,7 @@ html[data-skin="glass"] {
   color-scheme: light;
 }
 
-/* ---- the sky: pale, luminous, with slow liquid colour pools ---- */
+/* ---- the sky: pale, luminous, with slow liquid color pools ---- */
 html[data-skin="glass"], html[data-skin="glass"] body {
   background: #f3f3f4 !important; color: var(--swarf-text);
 }
@@ -309,7 +309,7 @@ html[data-skin="glass"] #panel-right .set2-group summary.set-header a, html[data
   html[data-skin="glass"] { --swarf-text-2: #3a3b3c; --swarf-text-3: #4a4b4c; --g-pane: rgba(255,255,255,.96); }
 }
 
-/* the stop stays red under the pointer (Fable review 3 #4: it went pale grey on hover) */
+/* the stop stays red under the pointer (Fable review 3 #4: it went pale gray on hover) */
 html[data-skin="glass"] #swarf-run .sr-actions .stop:hover, html[data-skin="glass"] #swarf-run .sr-actions .stop:active { background: var(--g-red) !important; color: #fff !important; filter: brightness(1.08); }
 
 /* ---- legibility pass (Phil 10-28: "make sure legibility is never compromised") ----
@@ -343,6 +343,6 @@ html[data-skin="glass"] .swarf-wordmark .swarf-mark-arf { color: #55585d !import
 html[data-skin="glass"] #swarf-run .sr-jog.locked .sr-modes button.on { background: #2b2d31 !important; }   /* still readable at the locked panel's .85 */
 html[data-skin="glass"] #swarf-run .sr-jog .sr-modes.sr-steprow button.on, html[data-skin="glass"] #swarf-run .sr-jog .sr-modes button.on { color: #fff !important; background: var(--g-aqua) !important; border-color: #2c2e32 !important; }
 html[data-skin="glass"] #swarf-run .sr-jog.locked .sr-modes.sr-steprow button.on, html[data-skin="glass"] #swarf-run .sr-jog.locked .sr-modes button.on { background: #2b2d31 !important; }
-/* the control step, on: its label and play icon white on the graphite (the legibility pass's label colour must not reach it) */
+/* the control step, on: its label and play icon white on the graphite (the legibility pass's label color must not reach it) */
 html[data-skin="glass"] #mode-tools > span.swarf-step-run.swarf-step-on label, html[data-skin="glass"] #mode-tools > span.swarf-step-run.swarf-step-on i,
 html[data-skin="glass"] #mode-tools > span.swarf-step-run.swarf-step-on svg, html[data-skin="glass"] #mode-tools > span.swarf-step-run.swarf-step-on svg * { color: #fff !important; fill: #fff !important; }

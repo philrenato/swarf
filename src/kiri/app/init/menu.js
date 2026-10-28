@@ -233,6 +233,8 @@ function content(actions) {
             // swarf: Info renamed Help, moved to left. Contains About, Searchable Help, Concordance.
             topMenu(actions, {
                 text: 'help', items: [
+                    // swarf (Phil 10-28): the shop poster as a walk-through (web/kiri/swarf-tutorial.js)
+                    menuItem(actions, { id: 'swarf-quickstart', text: 'ShopBot quick start', title: 'from a drawing to a cut part, ten steps, as on the shop poster', iconClass: 'fas fa-person-chalkboard' }),
                     menuItem(actions, { id: 'swarf-help-search', text: 'search help…', title: 'search help', iconClass: 'fas fa-magnifying-glass' }),
                     menuItem(actions, { id: 'swarf-concordance', text: 'concordance', title: 'glossary of swarf terms', iconClass: 'fas fa-book-open' }),
                     hr(),

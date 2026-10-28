@@ -18,7 +18,7 @@
 
   const FAR_MULT  = 6;   // fade ends at FAR_MULT × max-bbox-dim away
   const NEAR_MULT = 1.5; // fade starts at NEAR_MULT × max-bbox-dim away
-  // the colour the grid fades into: the skin's background (swarf-skin.js), the red sky's warm black by default
+  // the color the grid fades into: the skin's background (swarf-skin.js), the red sky's warm black by default
   const fogColor = () => window.SwarfSkin ? window.SwarfSkin.color('fog', 0x0a0808) : 0x0a0808;
 
   function widgetSize(api) {

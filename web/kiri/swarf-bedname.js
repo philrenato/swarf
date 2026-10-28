@@ -46,7 +46,7 @@
     mesh = new THREE.Mesh(new THREE.PlaneGeometry(w, h * 1.25), mat);
     mesh.name = 'swarf-bed-name';
     mesh.renderOrder = 1;
-    // the bed runs from -W/2..W/2 in world x and y (the platform is centred on
+    // the bed runs from -W/2..W/2 in world x and y (the platform is centered on
     // the scene whatever the machine's origin), front left = least x and y
     mesh.position.set(-d.bedWidth / 2 + inset + w / 2, -d.bedDepth / 2 + inset + h * 0.625, 0.3);
     mesh.raycast = () => {};

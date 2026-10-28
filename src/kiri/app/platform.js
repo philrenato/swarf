@@ -148,7 +148,7 @@ function update_origin(update_bounds = true) {
  *
  * @param {boolean} [updateDark=true] - Whether to update dark mode styling
  */
-// the floor's own colour, kept when a skin first recolours it, so the swarf look gets it back
+// the floor's own color, kept when a skin first recolors it, so the swarf look gets it back
 let baseFloor;
 // a new skin repaints the floor, its grid and its rulers
 if (self.addEventListener) self.addEventListener('swarf.skin', () => { try { update_size(); } catch (e) { /* not ready */ } });
@@ -186,7 +186,7 @@ function update_size(updateDark = true) {
        // soft gray grid (was red mill-rails, too hot); rulers thinned via faint bone
        // color so they read as helvetica-neue-thin in spirit (real font swap requires
        // a new bitmap atlas — deferred).
-       // swarf skins (10-28): the floor's colours come from the skin (swarf-skin.js),
+       // swarf skins (10-28): the floor's colors come from the skin (swarf-skin.js),
        // the red-sky look's own when no skin is set
        const SK = self.SwarfSkin, hex = n => '#' + n.toString(16).padStart(6, '0');
        const skc = (k, d) => SK ? SK.color(k, d) : d, skn = (k, d) => SK ? SK.number(k, d) : d;
@@ -556,7 +556,7 @@ function group() {
 function group_done(skipLayout) {
     grouping = false;
     Widget.Groups.loadDone();
-    // swarf: parts from a drawing learn how far the group's centring moved them (load_svg_into)
+    // swarf: parts from a drawing learn how far the group's centering moved them (load_svg_into)
     for (const w of api.widgets.all()) {
         if (!w.meta || !w.meta.tFix) continue;
         const d = (w.group && w.group[0] && w.group[0].track.center) || { dx: w.meta.c0[0], dy: w.meta.c0[1] };
@@ -1011,7 +1011,7 @@ function load_svg(text, name, opt = {}) {
     platform.group();
     const made = load_svg_into([], text, name, opt);
     flagDoubled(made, text);
-    // opt.place: the drawing is in bed millimetres (DRAW), so each part goes where it was drawn
+    // opt.place: the drawing is in bed millimeters (DRAW), so each part goes where it was drawn
     if (opt.place) for (const w of made) w.move(w.meta.c0[0], w.meta.c0[1], w.track.pos.z, true);
     platform.group_done(!!opt.place);
     return made;
@@ -1051,9 +1051,9 @@ function flagDoubled(made, text) {
 }
 
 // parts from SVG text into a load group. Each part keeps its own drawing
-// (meta.svg), the drawing's centre for that part (meta.c0, where cam centred
+// (meta.svg), the drawing's center for that part (meta.c0, where cam centered
 // it) and a 2D transform (meta.xf, kept by swarf-draw.js as the part is scaled,
-// turned and mirrored, with meta.t the shift cam's re-centring adds), so DRAW
+// turned and mirrored, with meta.t the shift cam's re-centering adds), so DRAW
 // and "save drawing" put it where the part is.
 function load_svg_into(group, text, name, opt = {}) {
     const made = [], boxes = [];
@@ -1076,8 +1076,8 @@ function load_svg_into(group, text, name, opt = {}) {
         made.push(w);
         boxes.push(b);
     }
-    // cam centres the load group as one in group_done (Widget.Groups.loadDone):
-    // a part's offset from its own drawing centre is what that moves it
+    // cam centers the load group as one in group_done (Widget.Groups.loadDone):
+    // a part's offset from its own drawing center is what that moves it
     for (const w of made) w.meta.tFix = true;
     // two parts from one drawing: each keeps only its own shapes
     const V = window.SwarfVector;

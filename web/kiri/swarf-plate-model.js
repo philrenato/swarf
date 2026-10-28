@@ -1,7 +1,7 @@
 /*
  * swarf plate model — the Z plate, its lead, and the ground clip on the router, for the
  * plate card and the shop poster (Phil 10-28, from a photo of the shop's setup: an
- * aluminium strip on a coiled black lead, a copper alligator clip biting the black Allen
+ * aluminum strip on a coiled black lead, a copper alligator clip biting the black Allen
  * screw in the side of the router's clamp (Phil 10-28), the bit hanging between them).
  * Same drawing as the ShopBot model: a faint fill and its creases, boxes and low
  * cylinders, a few hundred triangles.

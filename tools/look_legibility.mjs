@@ -1,7 +1,7 @@
 // Legibility of every visible piece of text, in every skin (Phil 10-28: "make sure legibility is
 // never compromised"). For each element that carries its own text, the background is read from
-// the screenshot behind it (glass, gradients and the 3D scene included: the commonest colour in
-// its box), the text colour from its computed style and opacity, and the WCAG contrast ratio is
+// the screenshot behind it (glass, gradients and the 3D scene included: the commonest color in
+// its box), the text color from its computed style and opacity, and the WCAG contrast ratio is
 // checked: 4.5 for body text, 3 for large text (24 px, or 18.66 px bold).
 //   node tools/look_legibility.mjs [url] [outdir] [skin ...]
 import puppeteer from 'puppeteer-core';
@@ -33,7 +33,7 @@ async function audit(page, skin, screen, found) {
       const r = e.getBoundingClientRect();
       if (r.width < 4 || r.height < 6 || r.bottom < 0 || r.right < 0 || r.top > innerHeight || r.left > innerWidth) continue;
       if (!vis(e)) continue;
-      // the topmost element at the box's centre must be this one or inside it (not covered)
+      // the topmost element at the box's center must be this one or inside it (not covered)
       const cx = Math.min(innerWidth - 1, Math.max(0, r.left + r.width / 2)), cy = Math.min(innerHeight - 1, Math.max(0, r.top + r.height / 2));
       const top = document.elementFromPoint(cx, cy);
       if (top && top !== e && !e.contains(top) && !top.contains(e)) continue;
@@ -54,7 +54,7 @@ async function audit(page, skin, screen, found) {
       const c = counts.get(k); if (c) c.n++; else counts.set(k, { n: 1, rgb: [data[i], data[i + 1], data[i + 2]] });
     }
     if (!counts.size) continue;
-    // the background is the commonest colour that is not the text's own (big bold letters can
+    // the background is the commonest color that is not the text's own (big bold letters can
     // fill most of their box)
     const a = Math.min(1, it.alpha);
     const sorted = [...counts.values()].sort((p, q) => q.n - p.n);
@@ -104,6 +104,9 @@ try {
     await page.click('#swarf-step-draw').catch(() => {}); await wait(1200);
     await audit(page, skin, '07-draw', found);
     await page.evaluate(() => [...document.querySelectorAll('#swarf-draw button')].find(b => /cancel/i.test(b.textContent))?.click()); await wait(800);
+    await page.evaluate(() => window.__swarfTutorial && window.__swarfTutorial.open(4)); await wait(500);
+    await audit(page, skin, '07b-quickstart', found);
+    await page.keyboard.press('Escape'); await wait(300);
     await page.evaluate(() => window.kiri.api.modal.show('prefs')); await wait(600);
     await audit(page, skin, '08-prefs', found);
     await page.evaluate(() => { try { window.kiri.api.modal.hide(); } catch (e) {} }); await page.keyboard.press('Escape'); await wait(400);

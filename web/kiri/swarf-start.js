@@ -22,7 +22,10 @@
     const p = document.createElement('p'); p.textContent = 'Make a shape, draw one, or open a file.';
     const s = document.createElement('small'); s.textContent = 'or drop a file anywhere on the bed';
     const m = document.createElement('small'); m.className = 'bed';
-    card.append(h, p, row, s, m);
+    // the shop poster as a walk-through, offered on the ShopBot (help › ShopBot quick start)
+    const q = document.createElement('a'); q.className = 'swarf-start-quick'; q.href = '#'; q.textContent = 'first time on the ShopBot? the quick start';
+    q.onclick = e => { e.preventDefault(); window.__swarfTutorial && window.__swarfTutorial.open(0); };
+    card.append(h, p, row, s, m, q);
     document.body.append(card);
   }
 
@@ -36,6 +39,7 @@
     if (modal) { card.classList.remove('on'); return; }
     card.classList.toggle('on', empty && !cls.contains('swarf-run-open') && !cls.contains('swarf-draw-open'));
     // which machine, and its bed, as DRAW names it
+    try { card.querySelector('.swarf-start-quick').style.display = /shopbot/i.test(a.conf.get().device.deviceName || '') ? '' : 'none'; } catch (e) { /* no device yet */ }
     try { const d = a.conf.get().device; card.querySelector('.bed').textContent = `${(d.deviceName || 'machine').replace(/\./g, ' ')} · bed ${Math.round(d.bedWidth)} × ${Math.round(d.bedDepth)} mm`; } catch (e) { /* no device yet */ }
   }
 
@@ -47,7 +51,7 @@
       if (!a || !a.event) return;
       build();
       // Phil 10-28: "we should default to lower left as 0, not center": saved jobs from
-      // before carry the old centre origin; move them over once (a choice made after stays)
+      // before carry the old center origin; move them over once (a choice made after stays)
       try {
         if (!localStorage.getItem('swarf-origin-front-left')) {
           const s = a.conf.get();

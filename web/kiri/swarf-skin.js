@@ -8,9 +8,9 @@
  *   classic  BeOS, Windows 95 and Mac OS 9 mixed: bevels, a yellow tab, pinstripes
  *
  * Loaded in <head>, before anything paints, so a page never opens in the wrong skin.
- * The colour layer is generated (tools/make_skins.mjs → swarf-skin-map.css) and each
- * skin's own file (swarf-skin-glass.css, swarf-skin-classic.css) gives its colours
- * and its chrome. The 3D scenes read their colours from CSS custom properties
+ * The color layer is generated (tools/make_skins.mjs → swarf-skin-map.css) and each
+ * skin's own file (swarf-skin-glass.css, swarf-skin-classic.css) gives its colors
+ * and its chrome. The 3D scenes read their colors from CSS custom properties
  * (--sk3d-*) through SwarfSkin.color() and redraw on the 'swarf.skin' event.
  * The choice lives in VIEW › skin and in localStorage.
  */
@@ -32,7 +32,7 @@
   function stamp() {
     if (current === 'swarf') root.removeAttribute('data-skin');
     else root.setAttribute('data-skin', current);
-    // the installed app's title bar: the manifest's red, unless the page names its own colour
+    // the installed app's title bar: the manifest's red, unless the page names its own color
     try {
       let m = document.querySelector('meta[name="theme-color"]');
       if (!m) { m = document.createElement('meta'); m.name = 'theme-color'; document.head.appendChild(m); }
@@ -41,7 +41,7 @@
   }
   stamp();
 
-  // a 3D colour as a number, from a --sk3d-* property; the base look's own when unset
+  // a 3D color as a number, from a --sk3d-* property; the base look's own when unset
   function color(name, fallback) {
     try {
       const v = getComputedStyle(root).getPropertyValue('--sk3d-' + name).trim();

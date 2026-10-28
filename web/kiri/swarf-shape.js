@@ -3,7 +3,7 @@
  * rectangle, ring, polygon or slot, at a size and a thickness (Phil 10-27:
  * "make a circle, give it a thickness, then make gcode and cut").
  *
- * The shape is written as a small SVG in millimetres and handed to cam's own
+ * The shape is written as a small SVG in millimeters and handed to cam's own
  * SVG import (api.platform.load_svg), so it becomes an ordinary part: it moves,
  * scales, takes toolpath steps and goes to control like anything imported.
  */

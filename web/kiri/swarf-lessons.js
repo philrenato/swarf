@@ -125,7 +125,7 @@
   }
   const passes = (depth, pass) => { const n = Math.max(1, Math.ceil(depth / pass - 1e-9)), z = []; for (let i = 1; i <= n; i++) z.push(-depth * i / n); return z; };
   function lesson1(b, bit) {
-    // the square: as big as the board allows (up to 100 mm), centred; the circle 60% of it
+    // the square: as big as the board allows (up to 100 mm), centered; the circle 60% of it
     const S = Math.floor(Math.min(100, Math.min(b.w, b.d) - 2 * MARGIN - bit.d) / 10) * 10;
     const C = Math.round(S * 0.6), cx = b.w / 2, cy = b.d / 2, depth = Math.min(3, b.t / 2);
     const zs = passes(depth, feeds(bit).pass);
@@ -139,7 +139,7 @@
     return { size: S, circle: C, depth, paths: [sq, ci], what: `a ${S} mm square and a ${C} mm circle, ${depth} mm deep` };
   }
   function lesson2(b, bit) {
-    // the part to its drawn size: the bit's centre runs r outside it, clockwise (conventional), four tabs
+    // the part to its drawn size: the bit's center runs r outside it, clockwise (conventional), four tabs
     const P = Math.floor(Math.min(80, Math.min(b.w, b.d) - 2 * MARGIN - 2 * bit.d) / 10) * 10;
     const r = bit.d / 2, cx = b.w / 2, cy = b.d / 2, depth = b.t + 0.3, tabTop = -(b.t - 2), tabW = 8 + bit.d;
     const h = P / 2 + r;
@@ -168,7 +168,7 @@
     r.loadProgram(name + '.sbp', sbp(name, bit, g.paths), 'lesson', {
       origin: { xy: 'the front-left corner of your plywood (not the table\'s)', z: 'the top of your board' }, lesson: lesson.id });
     r.card([el('h2', { text: 'The test cut is loaded' }),
-      el('p', { text: `${g.what}, centred on your ${b.w} × ${b.d} mm board.` }),
+      el('p', { text: `${g.what}, centered on your ${b.w} × ${b.d} mm board.` }),
       el('p', { text: 'Now control\'s own steps, the sentence at the top says each one: jog over the front-left corner of the plywood and press zero x y; zero Z on top with the z plate; trace (the bit must stay over the plywood and clear every screw); then cut.' }),
       row(btn('start', () => r.card(null), 'go'))]);
   }
@@ -185,7 +185,7 @@
     const copy = btn('copy the numbers', null); copy.style.display = 'none';
     const calc = () => {
       const v = {}; for (const k in ins) v[k] = num(ins[k].value, NaN);
-      const res = analyse(v);
+      const res = analyze(v);
       out.innerHTML = '';
       for (const line of res.lines) out.append(el('p', { text: line }));
       if (res.lines.length) {
@@ -196,11 +196,11 @@
     };
     r.card([el('h2', { text: 'Measure what you made' }),
       el('p', { text: L.lesson.id === 'square'
-        ? `With calipers, before you unscrew the board. The square was drawn ${L.size} mm (the bit's centre), the circle ${L.circle} mm, ${L.depth} mm deep.`
+        ? `With calipers, before you unscrew the board. The square was drawn ${L.size} mm (the bit's center), the circle ${L.circle} mm, ${L.depth} mm deep.`
         : `Unscrew the board, cut the tabs, sand them flush. The part was drawn ${L.size} × ${L.size} mm.` }),
       ...rows, out, row(btn('later', () => r.card(null)), copy, btn('work it out', calc, 'go'))]);
   }
-  function analyse(v) {
+  function analyze(v) {
     const lines = [], data = {};
     const pct = (got, want) => (got / want - 1) * 100;
     const say = (axis, mean, want) => { const e = pct(mean, want); data[axis] = +e.toFixed(3); lines.push(`${axis}: ${mean.toFixed(2)} mm where ${want} was drawn, ${e >= 0 ? '+' : ''}${e.toFixed(2)}% (${(mean - want >= 0 ? '+' : '') + (mean - want).toFixed(2)} mm).`); };
@@ -225,5 +225,5 @@
     const d = e.detail || {};
     if (L && (d.job === 'cut' || d.job === 'from') && d.prog && d.prog.source === 'lesson') setTimeout(measureCard, 400);
   });
-  window.__swarfLessons = { choose, measure: measureCard, lesson1, lesson2, sbp, analyse: v => analyse(v), state: () => L };
+  window.__swarfLessons = { choose, measure: measureCard, lesson1, lesson2, sbp, analyze: v => analyze(v), state: () => L };
 })();

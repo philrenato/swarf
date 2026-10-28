@@ -2206,3 +2206,53 @@ html:not([data-skin]) .set-header a, html:not([data-skin]) summary.set-header a 
 /* the menus open over control and draw, never under them (Phil 10-28: setup's list was cut off in control) */
 #menubar { position: relative; z-index: 95 !important; }
 #menubar .top-menu-drop { z-index: 96 !important; }
+
+/* ---- help › ShopBot quick start (swarf-tutorial.js): the shop poster, a page at a time ---- */
+#swarf-tutorial { position: fixed; inset: 0; z-index: 70; display: none; place-items: center; background: rgba(0,0,0,.35); }
+#swarf-tutorial.on { display: grid; }
+#swarf-tutorial .st-card { width: min(560px, 92vw); background: #15110f; color: #ede6da; border: 1px solid #3a302c; border-radius: 14px; padding: 16px 20px 18px; box-shadow: 0 24px 70px rgba(0,0,0,.55); font-family: "JetBrains Mono", "IBM Plex Mono", ui-monospace, monospace; }
+#swarf-tutorial .st-top { display: flex; align-items: center; gap: 10px; font-size: 12px; color: #c9c0b3; }
+#swarf-tutorial .st-title { font-weight: 600; color: #ede6da; }
+#swarf-tutorial .st-count { margin-left: auto; }
+#swarf-tutorial .st-body { min-height: 210px; padding: 6px 0 4px; }
+#swarf-tutorial .st-n { font: 600 54px/1 Georgia, "Times New Roman", serif; color: #ff8a7e; margin: 8px 0 2px; min-height: 54px; }
+#swarf-tutorial .st-n.warn { color: #e0b26a; }
+#swarf-tutorial h3 { margin: 0 0 8px; font-size: 19px; font-weight: 600; color: #fff; text-wrap: balance; }
+#swarf-tutorial p, #swarf-tutorial li { margin: 0 0 8px; font-size: 14px; line-height: 1.5; color: #ede6da; text-wrap: pretty; }
+#swarf-tutorial ul { margin: 4px 0 0; padding-left: 18px; }
+#swarf-tutorial b { color: #ffb0a6; font-weight: 600; }
+#swarf-tutorial .st-dots { display: flex; gap: 6px; justify-content: center; margin: 8px 0 12px; }
+#swarf-tutorial .st-dots i { width: 7px; height: 7px; border-radius: 50%; background: #5a4f49; }
+#swarf-tutorial .st-dots i.on { background: #ff8a7e; }
+#swarf-tutorial .st-row { display: flex; gap: 8px; align-items: center; }
+#swarf-tutorial .st-grow { flex: 1; }
+#swarf-tutorial button { border-radius: 999px; padding: 7px 14px; font: inherit; font-size: 13px; background: #2a2421; color: #ede6da; border: 1px solid #5a4f49; cursor: pointer; }
+#swarf-tutorial button.st-go { background: #a31414; border-color: #c53a2a; color: #fff; }
+#swarf-tutorial .st-x { padding: 3px 10px; font-size: 12px; }
+html[data-skin="glass"] #swarf-tutorial { background: rgba(230,230,232,.45); backdrop-filter: blur(6px); }
+html[data-skin="glass"] #swarf-tutorial .st-card { background: rgba(250,250,251,.97); color: #1e1f21; border-color: rgba(255,255,255,.95); border-radius: 22px; font-family: var(--g-font); box-shadow: 0 30px 80px -20px rgba(20,22,26,.4); }
+html[data-skin="glass"] #swarf-tutorial .st-top, html[data-skin="glass"] #swarf-tutorial .st-count { color: #48494b; }
+html[data-skin="glass"] #swarf-tutorial .st-title, html[data-skin="glass"] #swarf-tutorial h3 { color: #111214; }
+html[data-skin="glass"] #swarf-tutorial p, html[data-skin="glass"] #swarf-tutorial li { color: #2a2b2d; }
+html[data-skin="glass"] #swarf-tutorial b { color: #111214; }
+html[data-skin="glass"] #swarf-tutorial .st-n { color: #3e4146; }
+html[data-skin="glass"] #swarf-tutorial .st-n.warn { color: #7d5820; }
+html[data-skin="glass"] #swarf-tutorial .st-dots i { background: #c9cacc; }
+html[data-skin="glass"] #swarf-tutorial .st-dots i.on { background: #3e4146; }
+html[data-skin="glass"] #swarf-tutorial button { background: var(--g-jelly); color: #1e1f21; border-color: rgba(120,120,125,.35); }
+html[data-skin="glass"] #swarf-tutorial button.st-go { background: var(--g-aqua); color: #fff; border-color: #2c2e32; }
+html[data-skin="classic"] #swarf-tutorial { background: rgba(0,0,0,.25); }
+html[data-skin="classic"] #swarf-tutorial .st-card { background: #c0c0c0; color: #000; border-radius: 0; border: 0; padding: 0 0 12px; box-shadow: inset -1px -1px #0a0a0a, inset 1px 1px #dfdfdf, inset -2px -2px #808080, inset 2px 2px #fff, 4px 4px 0 rgba(0,0,0,.35); font-family: "MS Sans Serif", Tahoma, Geneva, sans-serif; }
+html[data-skin="classic"] #swarf-tutorial .st-top { background: linear-gradient(90deg, #000080, #1084d0); color: #fff; padding: 3px 4px 3px 8px; margin: 3px 3px 0; }
+html[data-skin="classic"] #swarf-tutorial .st-title, html[data-skin="classic"] #swarf-tutorial .st-count { color: #fff; }
+html[data-skin="classic"] #swarf-tutorial .st-body, html[data-skin="classic"] #swarf-tutorial .st-dots, html[data-skin="classic"] #swarf-tutorial .st-row { margin-left: 16px; margin-right: 16px; }
+html[data-skin="classic"] #swarf-tutorial h3, html[data-skin="classic"] #swarf-tutorial p, html[data-skin="classic"] #swarf-tutorial li, html[data-skin="classic"] #swarf-tutorial b { color: #000; }
+html[data-skin="classic"] #swarf-tutorial .st-n { color: #000080; }
+html[data-skin="classic"] #swarf-tutorial .st-n.warn { color: #7a4e00; }
+html[data-skin="classic"] #swarf-tutorial .st-dots i { background: #808080; border-radius: 0; }
+html[data-skin="classic"] #swarf-tutorial .st-dots i.on { background: #000080; }
+html[data-skin="classic"] #swarf-tutorial button { border-radius: 0; background: #c0c0c0; color: #000; border: 0; box-shadow: inset -1px -1px #0a0a0a, inset 1px 1px #fff, inset -2px -2px #808080, inset 2px 2px #dfdfdf; }
+html[data-skin="classic"] #swarf-tutorial button.st-go { outline: 1px solid #000; outline-offset: -4px; }
+#swarf-start .swarf-start-quick { font-size: 12px; color: var(--swarf-text-2); text-decoration: underline; margin-top: 4px; }
+html[data-skin="glass"] #swarf-start .swarf-start-quick { color: #2f3135; }
+html[data-skin="classic"] #swarf-start .swarf-start-quick { color: #000080; }

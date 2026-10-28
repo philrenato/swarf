@@ -6,7 +6,7 @@
  * triangles in all.
  *
  * Frame: z up, mm. The bed's top is z 0. In the gantry group, y 0 is the bed's front
- * edge and x 0 the beam's centre line; the router hangs OFFSET mm in front of it
+ * edge and x 0 the beam's center line; the router hangs OFFSET mm in front of it
  * (toward -x), so a caller puts the gantry at the bit's x + OFFSET.
  *
  *   const m = SwarfShopBotModel.build(THREE)
@@ -17,7 +17,7 @@
 (function (root) {
   'use strict';
   const BED = { x: 2438.4, y: 1219.2 };
-  const OFFSET = 200;                    // beam centre to bit, in x
+  const OFFSET = 200;                    // beam center to bit, in x
   const REACH = 120;                     // beam past the bed's edge at each end
   const BEAM = { d: 120, z0: 230, z1: 470 };
   const CHAIN = { x: -20, w: 56, z: BEAM.z1 + 6, r: 80, fixed: BED.y / 2, len: 900 };

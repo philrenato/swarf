@@ -607,7 +607,7 @@
       // material Kiri gave us. Fields the material doesn't support (e.g.
       // transmission on MeshPhong) are silently ignored.
       // the picked parts glow warm (review 10-28: "a picked part looks exactly like an
-      // unpicked one": the appearance wrote over cam's selection colour)
+      // unpicked one": the appearance wrote over cam's selection color)
       let picked = new Set();
       try { picked = new Set(window.kiri.api.selection.widgets()); } catch (e) { /* none */ }
       for (const w of widgets) {
@@ -686,7 +686,7 @@
   }
 
   // where X 0, Y 0 sits on the stock (Phil 10-28): its front-left corner by default; the
-  // centre for something round. Kiri's own camOriginCenter, through its own checkbox.
+  // center for something round. Kiri's own camOriginCenter, through its own checkbox.
   function originRow(labelCss) {
     const api = window.kiri && window.kiri.api;
     const row = document.createElement('div');
@@ -697,22 +697,22 @@
     label.style.cssText = labelCss;
     row.append(label);
     const btns = {};
-    const show = () => { const c = !!(api && api.conf.get().process.camOriginCenter); btns.corner.classList.toggle('selected', !c); btns.centre.classList.toggle('selected', c); };
-    const pick = centre => {
+    const show = () => { const c = !!(api && api.conf.get().process.camOriginCenter); btns.corner.classList.toggle('selected', !c); btns.center.classList.toggle('selected', c); };
+    const pick = center => {
       try {
         const box = api.ui && api.ui.camOriginCenter;
-        if (box && box.checked !== centre) { box.checked = centre; if (box.onclick) box.onclick(); else { api.conf.get().process.camOriginCenter = centre; api.conf.save(); } }
+        if (box && box.checked !== center) { box.checked = center; if (box.onclick) box.onclick(); else { api.conf.get().process.camOriginCenter = center; api.conf.save(); } }
         if (api.function.clear_progress) api.function.clear_progress();   // toolpaths made for the other zero are stale
         // one line, so the move of the zero is never silent (Fable review 3 #20)
-        if (box && api.show && api.show.alert) api.show.alert(centre ? 'Zero at the centre: in control, put the bit on the centre of your board.' : 'Zero at the front-left corner: in control, put the bit on that corner of your board.', 6);
+        if (box && api.show && api.show.alert) api.show.alert(center ? 'Zero at the center: in control, put the bit on the center of your board.' : 'Zero at the front-left corner: in control, put the bit on that corner of your board.', 6);
       } catch (e) { /* cam not ready */ }
       show();
     };
-    for (const [k, word, title, centre] of [['corner', 'front-left corner', 'X 0, Y 0 at the front-left corner of the stock: zero the bit on that corner of your board', false],
-      ['centre', 'centre', 'X 0, Y 0 at the centre of the stock: for something round, zero the bit on its centre', true]]) {
+    for (const [k, word, title, center] of [['corner', 'front-left corner', 'X 0, Y 0 at the front-left corner of the stock: zero the bit on that corner of your board', false],
+      ['center', 'center', 'X 0, Y 0 at the center of the stock: for something round, zero the bit on its center', true]]) {
       const b = document.createElement('button');
       b.textContent = word; b.title = title; b.style.cssText = 'flex:1; font-size:12px; padding:5px 6px;';
-      b.addEventListener('click', () => pick(centre));
+      b.addEventListener('click', () => pick(center));
       btns[k] = b; row.append(b);
     }
     show();

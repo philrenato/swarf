@@ -31,7 +31,7 @@
 
   // ── a part's 2D transform, kept as cam changes it ──
   const mul = (A, B) => [A[0] * B[0] + A[1] * B[2], A[0] * B[1] + A[1] * B[3], A[2] * B[0] + A[3] * B[2], A[2] * B[1] + A[3] * B[3]];
-  // cam bakes each scale / turn / mirror into the mesh, then re-centres it on
+  // cam bakes each scale / turn / mirror into the mesh, then re-centers it on
   // its box (track.center holds that shift) before it says so. The drawing
   // follows both: local = xf·(p − c0) + t, on the bed = local + pos.
   function track(w, M) {
@@ -88,7 +88,7 @@
     for (let k = 0; k <= p; k++) U.push(spans);
     return U;
   }
-  // the drawing as it sits on the bed: centred on c0, through xf, at the part's place
+  // the drawing as it sits on the bed: centered on c0, through xf, at the part's place
   function bedCurves(w) {
     if (typeof w.meta.svg !== 'string' || !/<svg/.test(w.meta.svg)) return [];
     let list;
@@ -103,7 +103,7 @@
     const pos = w.track.pos;
     let dx, dy;
     if (w.meta.t) { dx = pos.x + w.meta.t[0]; dy = pos.y + w.meta.t[1]; }
-    else {                                       // a part from before r37: centre the drawing on the part's place
+    else {                                       // a part from before r37: center the drawing on the part's place
       const b = boxOf(list);
       dx = pos.x - (b[0] + b[2]) / 2; dy = pos.y - (b[1] + b[3]) / 2;
     }
@@ -329,7 +329,7 @@
       }
       if (cl) out.push(`<path class="sd-ctl" d="${cl}"/>`);
       // unseen rings round the points, so a press a few pixels off still takes one; under
-      // the points themselves, so a press right on a point never goes to a crowding neighbour
+      // the points themselves, so a press right on a point never goes to a crowding neighbor
       const H = handles(part);
       for (const h of H) out.push(`<circle class="sd-pthit" data-pt="${h.id}" cx="${sx(h.x)}" cy="${sy(h.y)}" r="${h.anchor ? 9 : 7}"/>`);
       for (const h of H) {
@@ -476,7 +476,7 @@
     num('sd-pen-t', v => { if (v > 0) { S.thick = r3(v); try { localStorage.setItem(THICK, String(S.thick)); } catch (e) { /* private */ } } });
     num('sd-px', v => { if (!isFinite(v)) return; const [ci, i] = [...S.pts][0].split(':').map(Number), P = part.curves[ci].crv.ctrlPts[i]; if (v === r3(P[0])) return; snap(); shiftPts(part, [...S.pts], v - P[0], 0); render(); });
     num('sd-py', v => { if (!isFinite(v)) return; const [ci, i] = [...S.pts][0].split(':').map(Number), P = part.curves[ci].crv.ctrlPts[i]; if (v === r3(P[1])) return; snap(); shiftPts(part, [...S.pts], 0, v - P[1]); render(); });
-    // width / depth: the whole part stretched about its centre to that size
+    // width / depth: the whole part stretched about its center to that size
     const size = (axis, v) => {
       if (!(v > 0)) return say('A size must be more than 0 mm.');
       const b = boxOf(part.curves), was = axis ? b[3] - b[1] : b[2] - b[0];
@@ -556,7 +556,7 @@
     for (const id of moveSet(part, ids)) { const [ci, i] = id.split(':').map(Number), P = part.curves[ci].crv.ctrlPts[i]; P[0] += dx; P[1] += dy; }
     part.dirty = true;
   }
-  // scale / turn the picked points about their centre, or the whole part about its centre
+  // scale / turn the picked points about their center, or the whole part about its center
   function transform(part, f) {
     delete part.text;
 
@@ -734,7 +734,7 @@
     const part = S.parts[S.sel];
     let dx = m[0] - d.at[0], dy = m[1] - d.at[1];
     if (!d.moved && Math.hypot(dx, dy) * S.k < 3) return;
-    // whole tenths of a millimetre from where the drag began
+    // whole tenths of a millimeter from where the drag began
     dx = snapMM(dx); dy = snapMM(dy);
     if (!dx && !dy) return;
     if (d.kind === 'pts') { shiftPts(part, [...S.pts], dx, dy); keepSmooth(part); }

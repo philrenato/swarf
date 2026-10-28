@@ -101,7 +101,7 @@
     // A chip is a thin ribbon, so build one: a strip of quads swept along a
     // path, two triangles per step. The tube these used to be spent its
     // triangles on a cross-section nothing can resolve — a curl is well under
-    // a millimetre on screen — and the material is DoubleSide, so a strip
+    // a millimeter on screen — and the material is DoubleSide, so a strip
     // reads the same from either face at a third of the cost.
     function ribbonGeometry(steps, halfWidth, pathFn) {
       const pos = new Float32Array((steps + 1) * 2 * 3);

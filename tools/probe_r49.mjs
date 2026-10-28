@@ -29,12 +29,12 @@ try {
   // cam mode: no cam step; control is there on the ShopBot
   check(!(await shown(page, 'swarf-step-cam')) && await shown(page, 'swarf-step-run') && await shown(page, 'act-paths'), 'cam: every cam step, control, no cam button');
 
-  // 10-28: X 0, Y 0 at the stock's front-left corner by default; the centre one press away
+  // 10-28: X 0, Y 0 at the stock's front-left corner by default; the center one press away
   const og = await page.evaluate(() => { const r = document.getElementById('swarf-origin-row'), p = () => window.kiri.api.conf.get().process.camOriginCenter;
     const before = p(), lit = r && r.querySelector('button.selected')?.textContent;
-    [...r.querySelectorAll('button')].find(b => b.textContent === 'centre').click(); const mid = p();
+    [...r.querySelectorAll('button')].find(b => b.textContent === 'center').click(); const mid = p();
     [...r.querySelectorAll('button')].find(b => /corner/.test(b.textContent)).click(); return { row: !!r, before, lit, mid, after: p() }; });
-  check(og.row && og.before === false && /corner/.test(og.lit) && og.mid === true && og.after === false, `zero at: front-left corner by default, centre a press away ${JSON.stringify(og)}`);
+  check(og.row && og.before === false && /corner/.test(og.lit) && og.mid === true && og.after === false, `zero at: front-left corner by default, center a press away ${JSON.stringify(og)}`);
 
   // control on an empty bed
   await page.click('#swarf-step-run');
@@ -112,7 +112,7 @@ try {
   await wait(600);
   const lsay = sp(await page.$eval('#swarf-run .sr-say', e => e.textContent));
   check(/front-left corner of your plywood/.test(lsay), `the sentence says where to zero ("${lsay.slice(0, 90)}")`);
-  const an = await page.evaluate(() => { const L = window.__swarfLessons.state(); return window.__swarfLessons.analyse({ ox: L.size + 9.6, ix: L.size - 9.4, oy: L.size + 9.5, iy: L.size - 9.5, dp: 3.1 }); });
+  const an = await page.evaluate(() => { const L = window.__swarfLessons.state(); return window.__swarfLessons.analyze({ ox: L.size + 9.6, ix: L.size - 9.4, oy: L.size + 9.5, iy: L.size - 9.5, dp: 3.1 }); });
   check(Math.abs(an.data.X - 0.1) < 1e-6 && Math.abs(an.data.Y) < 1e-9 && Math.abs(an.data.width - 9.5) < 1e-6, `measuring: X +${an.data.X}%, Y ${an.data.Y}%, groove ${an.data.width} mm, the bit's width out`);
 
   // the row folds: cam · draw · control

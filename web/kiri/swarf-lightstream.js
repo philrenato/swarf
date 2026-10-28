@@ -155,7 +155,7 @@
     return true;
   }
 
-  // skins (swarf-skin.js): the trail's colours, and normal blending where the sky is pale
+  // skins (swarf-skin.js): the trail's colors, and normal blending where the sky is pale
   // (additive light adds nothing to white)
   function reskin() {
     const S = window.SwarfSkin, THREE = window.THREE;

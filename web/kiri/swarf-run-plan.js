@@ -2,7 +2,7 @@
  * swarf run plan — one job plan for every way a program runs (design review 10-28: "source
  * file → strict parse → immutable job plan → validation → operator authorization →
  * execution"). The plan holds every move the machine will make, the entry and the exits
- * included, and every output switch, dwell and hold, in work millimetres. The preview draws
+ * included, and every output switch, dwell and hold, in work millimeters. The preview draws
  * it, the simulator plays it and the ShopBot driver sends it; nothing adds a move afterwards.
  *
  *   const plan = SwarfRunPlan.build(prog, { pos, live, cfg })

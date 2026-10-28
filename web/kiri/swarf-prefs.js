@@ -12,7 +12,7 @@
     { id: 'view', title: 'the view', rows: [
       ['showOrigin', 'show the origin', 'Show where X 0, Y 0 is on the bed'],
       ['showRulers', 'show rulers', 'Rulers along the bed\'s edges'],
-      ['showSpeeds', 'colour toolpaths by speed', 'Toolpaths shaded by how fast the bit moves'],
+      ['showSpeeds', 'color toolpaths by speed', 'Toolpaths shaded by how fast the bit moves'],
       ['units', 'units', 'Millimeters or inches, for every number swarf shows'],
       ['ortho', 'flat view, no perspective', 'Parallel lines stay parallel: good for checking sizes'],
       ['reverseZoom', 'reverse scroll zoom', 'Scroll the other way to zoom in'],
