@@ -2152,3 +2152,9 @@ body.swarf-focus #mode-tools > span.selected:not(.swarf-step-on) { background: t
 html[data-skin="glass"] #mode-tools > span#swarf-step-draw.swarf-step-on { background: var(--g-aqua) !important; box-shadow: var(--g-aqua-shadow) !important; }
 body.swarf-focus #swarf-step-cam { border-right: 1px solid var(--swarf-line-2); }
 #mod-prefs .f-row.gap10.swarf-prefs-old { display: none !important; }
+
+/* reduced motion (Interfacing review 10-28 #4): the working strip and the sky hold still */
+@media (prefers-reduced-motion: reduce) {
+  #swarf-run .sr-strip.on { animation: none !important; background-size: 100% 100% !important; }
+  body, body::before, body::after { animation: none !important; }
+}

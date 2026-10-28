@@ -24,7 +24,7 @@ html[data-skin="glass"] {
   --swarf-line-2: rgba(144, 145, 147, .32);
   --swarf-text: #212223;  --swarf-text-1: #212223;
   --swarf-text-2: #5c5d5e;
-  --swarf-text-3: #8e8f90;
+  --swarf-text-3: #6b6c6d;
   --swarf-accent: #4a4d52;  --swarf-accent-hi: #6c6f74;  --swarf-accent-dim: #303236;
   --swarf-glow: rgba(74, 77, 82, .22);
   --swarf-amber: #b08446;  --swarf-green: #5c8c6e;
@@ -50,9 +50,9 @@ html[data-skin="glass"] {
   --g-drop: 0 18px 50px -18px rgba(59, 60, 63, .35), 0 2px 8px rgba(59, 60, 63, .08);
   --g-jelly: linear-gradient(180deg, rgba(255, 255, 255,.95) 0%, rgba(255, 255, 255,.55) 46%, rgba(242, 242, 243,.35) 50%, rgba(255, 255, 255,.75) 100%);
   --g-jelly-shadow: inset 0 1px 1px #ffffff, inset 0 -3px 6px rgba(255, 255, 255,.7), 0 1px 0 rgba(255, 255, 255,.6), 0 3px 8px rgba(59, 60, 63,.14);
-  --g-aqua: linear-gradient(180deg, #e2e3e5 0%, #8b8e94 45%, #4c4f55 52%, #606369 78%, #a3a6ab 100%);
+  --g-aqua: linear-gradient(180deg, #8a8d92 0%, #63666c 45%, #3e4146 52%, #4d5056 78%, #6c6f74 100%);
   --g-aqua-shadow: inset 0 1px 0 rgba(255,255,255,.75), inset 0 -4px 8px rgba(190,192,196,.55), 0 3px 10px rgba(30,32,36,.28);
-  --g-red: linear-gradient(180deg, #ffc0b8 0%, #ff6a58 45%, #e8281a 52%, #f24a3a 78%, #ff9a8a 100%);
+  --g-red: linear-gradient(180deg, #c22a1d 0%, #b0221a 50%, #9c1c15 100%);
   --g-font: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", Helvetica, Arial, system-ui, sans-serif;
   --g-mono: "SF Mono", ui-monospace, Menlo, Monaco, monospace;
   color-scheme: light;
@@ -299,3 +299,12 @@ html[data-skin="glass"] ::selection { background: rgba(74, 77, 82, .28); }
 
 html[data-skin="glass"] .swarf-shape-prev svg { fill: #7d848c !important; fill-opacity: .55 !important; }
 html[data-skin="glass"] #panel-right .set2-group summary.set-header a, html[data-skin="glass"] #swarf-right-rail .set2-group summary.set-header a { color: #212223 !important; }
+
+/* the system's own asks (Interfacing review 10-28 #4): less transparency, more contrast */
+@media (prefers-reduced-transparency: reduce) {
+  html[data-skin="glass"] * { backdrop-filter: none !important; -webkit-backdrop-filter: none !important; }
+  html[data-skin="glass"] { --g-pane: rgba(250, 250, 251, .97); --g-pane-strong: #fff; }
+}
+@media (prefers-contrast: more) {
+  html[data-skin="glass"] { --swarf-text-2: #3a3b3c; --swarf-text-3: #4a4b4c; --g-pane: rgba(255,255,255,.96); }
+}

@@ -27,6 +27,13 @@ try {
   // cam mode: no cam step; control is there on the ShopBot
   check(!(await shown(page, 'swarf-step-cam')) && await shown(page, 'swarf-step-run') && await shown(page, 'act-paths'), 'cam: every cam step, control, no cam button');
 
+  // 10-28: X 0, Y 0 at the stock's front-left corner by default; the centre one press away
+  const og = await page.evaluate(() => { const r = document.getElementById('swarf-origin-row'), p = () => window.kiri.api.conf.get().process.camOriginCenter;
+    const before = p(), lit = r && r.querySelector('button.selected')?.textContent;
+    [...r.querySelectorAll('button')].find(b => b.textContent === 'centre').click(); const mid = p();
+    [...r.querySelectorAll('button')].find(b => /corner/.test(b.textContent)).click(); return { row: !!r, before, lit, mid, after: p() }; });
+  check(og.row && og.before === false && /corner/.test(og.lit) && og.mid === true && og.after === false, `zero at: front-left corner by default, centre a press away ${JSON.stringify(og)}`);
+
   // control on an empty bed
   await page.click('#swarf-step-run');
   await page.waitForFunction(() => window.__swarfRun.state.open, { timeout: 10000 });
