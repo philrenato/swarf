@@ -76,7 +76,7 @@ try {
   // every machine-control file carries one build; a page that mixes two will not connect
   await page.evaluate(() => [...document.querySelectorAll('#swarf-run .sr-sheet.on button')].find(b => b.textContent === 'not yet')?.click());
   const builds = await page.evaluate(() => ({ want: window.SWARF_BUILD, got: Object.values(window.SWARF_BUILDS || {}) }));
-  check(builds.got.length === 6 && builds.got.every(v => v === builds.want), `six control files, one build (${builds.want}; ${[...new Set(builds.got)].join(',')})`);
+  check(builds.got.length === 7 && builds.got.every(v => v === builds.want), `seven control files, one build (${builds.want}; ${[...new Set(builds.got)].join(',')})`);
   await page.evaluate(() => { window.SWARF_BUILD = 'another'; });
   await page.evaluate(() => [...document.querySelectorAll('#swarf-run button')].find(b => b.textContent.trim() === 'connect')?.click());
   await wait(600);
