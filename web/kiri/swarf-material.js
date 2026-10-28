@@ -677,6 +677,40 @@
     const toolsRow = camops.querySelector('#swarf-tools-row');
     if (toolsRow) camops.insertBefore(row, toolsRow);
     else camops.insertBefore(row, camops.firstChild);
+    camops.insertBefore(originRow(label.style.cssText), row.nextSibling);
+  }
+
+  // where X 0, Y 0 sits on the stock (Phil 10-28): its front-left corner by default; the
+  // centre for something round. Kiri's own camOriginCenter, through its own checkbox.
+  function originRow(labelCss) {
+    const api = window.kiri && window.kiri.api;
+    const row = document.createElement('div');
+    row.id = 'swarf-origin-row';
+    row.style.cssText = 'display:flex; gap:6px; padding:4px 6px 8px; align-items:center; margin-bottom:6px;';
+    const label = document.createElement('span');
+    label.textContent = 'zero at';
+    label.style.cssText = labelCss;
+    row.append(label);
+    const btns = {};
+    const show = () => { const c = !!(api && api.conf.get().process.camOriginCenter); btns.corner.classList.toggle('selected', !c); btns.centre.classList.toggle('selected', c); };
+    const pick = centre => {
+      try {
+        const box = api.ui && api.ui.camOriginCenter;
+        if (box && box.checked !== centre) { box.checked = centre; if (box.onclick) box.onclick(); else { api.conf.get().process.camOriginCenter = centre; api.conf.save(); } }
+        if (api.function.clear_progress) api.function.clear_progress();   // toolpaths made for the other zero are stale
+      } catch (e) { /* cam not ready */ }
+      show();
+    };
+    for (const [k, word, title, centre] of [['corner', 'front-left corner', 'X 0, Y 0 at the front-left corner of the stock: zero the bit on that corner of your board', false],
+      ['centre', 'centre', 'X 0, Y 0 at the centre of the stock: for something round, zero the bit on its centre', true]]) {
+      const b = document.createElement('button');
+      b.textContent = word; b.title = title; b.style.cssText = 'flex:1; font-size:12px; padding:5px 6px;';
+      b.addEventListener('click', () => pick(centre));
+      btns[k] = b; row.append(b);
+    }
+    show();
+    try { for (const ev of ['settings.load', 'settings.saved', 'device.selected']) api.event.on(ev, show); } catch (e) {}
+    return row;
   }
 
   // ---- bootstrap -------------------------------------------------------

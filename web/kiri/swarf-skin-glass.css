@@ -168,7 +168,7 @@ html[data-skin="glass"] #panel-right .set2-group summary.set-header::before { co
 html[data-skin="glass"] #panel-left .set-header::before { color: #aaabac !important; }
 html[data-skin="glass"] .set-header { background-image: none !important; }
 html[data-skin="glass"] #swarf-material-row { background: transparent !important; border-bottom: 1px solid rgba(255, 255, 255,.7) !important; }
-html[data-skin="glass"] #swarf-material-row span { color: #6f757b !important; letter-spacing: 0 !important; text-transform: none !important; font-size: 13px !important; }
+html[data-skin="glass"] #swarf-origin-row span, html[data-skin="glass"] #swarf-material-row span { color: #6f757b !important; letter-spacing: 0 !important; text-transform: none !important; font-size: 13px !important; }
 
 /* ---- buttons: wet jelly ---- */
 html[data-skin="glass"] button, html[data-skin="glass"] #op-add-list > div, html[data-skin="glass"] #panel-right #oplist > div,

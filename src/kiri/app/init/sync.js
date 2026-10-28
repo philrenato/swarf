@@ -688,6 +688,7 @@ function setup_keybd_nav() {
             { kind:'run', name:'draw', body:'the bed seen from above. pen, rectangle, ellipse, text; move points; give it a thickness and a top edge. done or switching mode keeps your changes; cancel drops them.', tags:'draw pen rectangle ellipse text points' },
             { kind:'run', name:'shape', body:'a circle, rectangle, ring, polygon, star or slot, with a thickness.', tags:'shape circle rectangle ring polygon star slot' },
             { kind:'run', name:'modes', body:'cam, draw and control. in draw or control the step row folds to those three.', tags:'modes cam draw control' },
+            { kind:'run', name:'zero at', body:'where X 0, Y 0 sits on the stock: its front-left corner (the default), or its centre for something round. you put the bit on that spot before you cut.', tags:'zero origin corner centre center round x0 y0' },
             { kind:'run', name:'skin', body:'view › skin: wet plastic (default), classic, swarf.', tags:'skin theme look glass classic' },
             { kind:'op', name:'rough', body:'first pass that clears bulk material in horizontal layers above the part. fast, deep, sloppy by design — finished later by contour.', tags:'roughing clearing bulk first pass' },
             { kind:'op', name:'contour', body:'smooth surface pass. cutter crawls across the X or Y axis at a fine stepover, riding part curves. typical stepover 5–15% of tool diameter.', tags:'contouring finishing surface 2.5d' },
