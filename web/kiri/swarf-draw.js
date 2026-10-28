@@ -160,7 +160,7 @@
         <button data-tool="pen" title="draw an outline: click for a corner, drag for a smooth point, click the first to close (P)">pen <kbd>P</kbd></button>
         <button data-tool="rect" title="drag a rectangle from corner to corner; shift for a square (R)">rectangle <kbd>R</kbd></button>
         <button data-tool="ellipse" title="drag an ellipse from corner to corner; shift for a circle (E)">ellipse <kbd>E</kbd></button>
-        <button data-tool="text" title="click where the text starts; type it in the card (T)">text <kbd>T</kbd></button>
+        <button data-tool="text" title="type the words in the card, then click where they start (T)">text <kbd>T</kbd></button>
         <span class="sd-sep"></span>
         <button id="sd-undo" title="undo (⌘Z)">undo</button>
         <button id="sd-fit" title="show the parts, or the whole bed (F) · pinch or ⌘-scroll to zoom, two fingers to slide">fit</button>

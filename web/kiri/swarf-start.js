@@ -15,7 +15,7 @@
     const b = (word, title, fn) => { const x = document.createElement('button'); x.textContent = word; x.title = title; x.onclick = fn; return x; };
     const row = document.createElement('div'); row.className = 'row';
     row.append(
-      b('make a shape', 'a circle, rectangle, ring, slot or star, with a thickness', () => $('swarf-step-shape') && $('swarf-step-shape').click()),
+      b('make a shape', 'a circle, rectangle, ring, polygon, star or slot, with a thickness', () => $('swarf-step-shape') && $('swarf-step-shape').click()),
       b('draw one', 'draw an outline or type words on the bed, seen from above', () => window.__swarfDraw && window.__swarfDraw.open()),
       b('open a file', 'a drawing (SVG, DXF, AI, PDF) or a model (STL, OBJ)', () => $('load-file') && $('load-file').click()));
     const h = document.createElement('h2'); h.textContent = 'The bed is empty';

@@ -5,7 +5,7 @@
  * rely on the browser's own address-bar affordance, this surfaces an
  * explicit, visible button — hidden entirely until the browser actually
  * signals it's ready, so it's never a button that LOOKS clickable but
- * does nothing (see feedback_make_buttons_look_like_buttons).
+ * does nothing (a button that looks like a button, or nothing).
  *
  * Safari/iOS has no programmatic install prompt (manual Add to Home
  * Screen only) — this button simply never appears there, which is

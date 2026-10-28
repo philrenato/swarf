@@ -2,7 +2,7 @@
 // cut with the checklist. Screenshots to $OUT (default /tmp/swarf-run).
 import puppeteer from 'puppeteer-core';
 import { readFileSync, mkdirSync } from 'node:fs';
-const CHROME = '/Applications/Google Chrome for Testing.app/Contents/MacOS/Google Chrome for Testing';
+const CHROME = process.env.CHROME || '/Applications/Google Chrome for Testing.app/Contents/MacOS/Google Chrome for Testing';
 const URL = process.argv[2] || 'http://localhost:8080/kiri/';
 const FILE = process.argv[3];
 const OUT = process.env.OUT || '/tmp/swarf-run';

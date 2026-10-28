@@ -87,7 +87,7 @@
     try {
       const c = document.createElement('canvas'); c.width = 512; c.height = 128;
       const g = c.getContext('2d');
-      g.font = 'italic 700 84px "Helvetica Neue", Arial, sans-serif'; g.fillStyle = '#ffffff'; g.textBaseline = 'middle';
+      g.font = '500 76px system-ui, "Helvetica Neue", Arial, sans-serif';   // plain words, not the maker's logo g.fillStyle = '#ffffff'; g.textBaseline = 'middle';
       g.fillText('ShopBot', 24, 66);
       const t = new THREE.CanvasTexture(c);
       const name = new THREE.Mesh(new THREE.PlaneGeometry(300, 75), new THREE.MeshBasicMaterial({ map: t, transparent: true, opacity: 0.5, depthWrite: false, side: THREE.DoubleSide }));

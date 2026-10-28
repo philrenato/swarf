@@ -1,5 +1,6 @@
 /**
- * renato.design — markup toolbar
+ * renato.design — markup toolbar (the author's own dev tool: loads only with ?dev,
+ * posts notes to a local helper; safe to delete in a fork)
  * Injected into local preview via ?markup=1
  * Annotations saved to tools/markup-feedback.json via POST /markup-save
  *

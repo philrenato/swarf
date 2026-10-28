@@ -184,7 +184,7 @@ function content(actions) {
                     menuItem(actions, { id: 'context-mirror', lk: 'rc_mirr', text: 'mirror', iconClass: 'fas fa-arrows-left-right-to-line' }),
                     menuItem(actions, { id: 'context-duplicate', lk: 'rc_dupl', text: 'duplicate', iconClass: 'fas fa-copy' }),
                     hr(),
-                    menuItem(actions, { id: 'context-move-panel', text: 'move', title: 'translate the selected part on X / Y', iconClass: 'fas fa-arrows-up-down-left-right' }),
+                    menuItem(actions, { id: 'context-move-panel', text: 'move', title: 'move the part on X / Y', iconClass: 'fas fa-arrows-up-down-left-right' }),
                     menuItem(actions, { id: 'context-rotate-panel', text: 'rotate', title: 'rotate the selected part on X / Y / Z', iconClass: 'fas fa-rotate-right' }),
                     menuItem(actions, { id: 'context-scale-panel', text: 'scale / size', title: 'scale the part by factor or set absolute size', iconClass: 'fas fa-expand' }),
                     hr(),
@@ -233,7 +233,7 @@ function content(actions) {
             // swarf: Info renamed Help, moved to left. Contains About, Searchable Help, Concordance.
             topMenu(actions, {
                 text: 'help', items: [
-                    menuItem(actions, { id: 'swarf-help-search', text: 'search help…', title: 'search the help corpus', iconClass: 'fas fa-magnifying-glass' }),
+                    menuItem(actions, { id: 'swarf-help-search', text: 'search help…', title: 'search help', iconClass: 'fas fa-magnifying-glass' }),
                     menuItem(actions, { id: 'swarf-concordance', text: 'concordance', title: 'glossary of swarf terms', iconClass: 'fas fa-book-open' }),
                     hr(),
                     menuItem(actions, { id: 'swarf-reset-profile', text: 'reset profile', title: 'clear all settings and reload swarf', iconClass: 'fas fa-rotate-left' }),
@@ -268,17 +268,17 @@ function modeTools(actions) {
             span([icon('fas fa-cube')]),
             label({ _: 'cam' })
         ]),
-        span({ id: 'swarf-step-file', class: 'swarf-step', title: 'import a part — STL, OBJ, or supported mesh', onclick() { $('load-file').click(); } }, [
+        span({ id: 'swarf-step-file', class: 'swarf-step', title: 'open a file: a drawing (SVG, DXF, AI, PDF) or a model (STL, OBJ)', onclick() { $('load-file').click(); } }, [
             span([icon('fas fa-file-arrow-up')]),
             label({ _: 'import' })
         ]),
         // swarf r36: SHAPE — make a circle, rectangle, ring… with a thickness (web/kiri/swarf-shape.js)
-        span({ id: 'swarf-step-shape', class: 'swarf-step', title: 'make a shape: circle, rectangle, ring, polygon, slot, with a thickness' }, [
+        span({ id: 'swarf-step-shape', class: 'swarf-step', title: 'make a shape: circle, rectangle, ring, polygon, star or slot, with a thickness' }, [
             span([icon('fas fa-shapes')]),
             label({ _: 'shape' })
         ]),
         // swarf r37: DRAW — the bed from above as a drawing: move points, draw outlines (web/kiri/swarf-draw.js)
-        span({ id: 'swarf-step-draw', class: 'swarf-step', title: 'draw: pick a part and move its points, or draw a new outline with the pen' }, [
+        span({ id: 'swarf-step-draw', class: 'swarf-step', title: "draw: move a part's points, or draw with the pen, rectangle, ellipse or text" }, [
             span([icon('fas fa-pen-nib')]),
             label({ _: 'draw' })
         ]),
@@ -290,16 +290,16 @@ function modeTools(actions) {
             span([icon('fas fa-route')]),
             label({ id: 'label-paths', _: 'toolpaths' })
         ]),
-        span({ id: 'act-animate', ...on(actions, 'act-animate'), class: 'swarf-step', title: 'simulate — watch the tool cut, throw chips, and leave debris on the platform' }, [
+        span({ id: 'act-animate', ...on(actions, 'act-animate'), class: 'swarf-step', title: 'simulate — watch the tool cut, throw chips, and leave chips on the bed' }, [
             span([icon('fas fa-play')]),
             label({ id: 'label-animate', _: 'simulate' })
         ]),
         // swarf v010 r7: CLEAR — nuke all path/preview/sim state
-        span({ id: 'act-clear', ...on(actions, 'act-clear'), class: 'swarf-step swarf-step-clear', title: 'clear toolpaths, preview, and simulate state — back to a clean arrange' }, [
+        span({ id: 'act-clear', ...on(actions, 'act-clear'), class: 'swarf-step swarf-step-clear', title: 'clear the toolpaths and the simulation' }, [
             span([icon('fas fa-xmark')]),
             label({ id: 'label-clear', _: 'clear' })
         ]),
-        span({ id: 'act-export', ...on(actions, 'act-export'), class: 'swarf-step', title: 'export gcode for the machine' }, [
+        span({ id: 'act-export', ...on(actions, 'act-export'), class: 'swarf-step', title: 'save the file the machine runs' }, [
             span([icon('fas fa-file-export')]),
             label({ id: 'label-export', _: 'export' })
         ]),

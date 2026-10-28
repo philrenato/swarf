@@ -8,7 +8,7 @@
 //    the "use the last zero" offer is not shown while zeroing
 //   node tools/probe_r45.mjs [url]
 import puppeteer from 'puppeteer-core';
-const CHROME = '/Applications/Google Chrome for Testing.app/Contents/MacOS/Google Chrome for Testing';
+const CHROME = process.env.CHROME || '/Applications/Google Chrome for Testing.app/Contents/MacOS/Google Chrome for Testing';
 const PAGE = process.argv[2] || 'http://localhost:8080/kiri/';
 const wait = ms => new Promise(r => setTimeout(r, ms));
 const browser = await puppeteer.launch({ executablePath: CHROME, headless: 'new', args: ['--window-size=1440,900'] });

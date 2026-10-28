@@ -7,7 +7,7 @@
 //  - setup › preferences regrouped in swarf's words
 //   node tools/probe_r49.mjs [url]
 import puppeteer from 'puppeteer-core';
-const CHROME = '/Applications/Google Chrome for Testing.app/Contents/MacOS/Google Chrome for Testing';
+const CHROME = process.env.CHROME || '/Applications/Google Chrome for Testing.app/Contents/MacOS/Google Chrome for Testing';
 const PAGE = process.argv[2] || 'http://127.0.0.1:8139/swarf-app/';
 const wait = ms => new Promise(r => setTimeout(r, ms));
 const browser = await puppeteer.launch({ executablePath: CHROME, headless: 'new', args: ['--window-size=1440,900'] });

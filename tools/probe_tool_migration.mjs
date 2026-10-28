@@ -10,7 +10,7 @@
  */
 import puppeteer from 'puppeteer-core';
 
-const CHROME = '/Applications/Google Chrome for Testing.app/Contents/MacOS/Google Chrome for Testing';
+const CHROME = process.env.CHROME || '/Applications/Google Chrome for Testing.app/Contents/MacOS/Google Chrome for Testing';
 const URL = process.argv[2] || 'http://localhost:8099/kiri/';
 const wait = ms => new Promise(r => setTimeout(r, ms));
 

@@ -4,7 +4,7 @@
 // with a reason. Simulator back end.
 //   node tools/probe_shape.mjs [url]
 import puppeteer from 'puppeteer-core';
-const CHROME = '/Applications/Google Chrome for Testing.app/Contents/MacOS/Google Chrome for Testing';
+const CHROME = process.env.CHROME || '/Applications/Google Chrome for Testing.app/Contents/MacOS/Google Chrome for Testing';
 const PAGE = process.argv[2] || 'http://localhost:8080/kiri/';
 const OUT = process.env.OUT || '/tmp/swarf-shape';
 const wait = ms => new Promise(r => setTimeout(r, ms));

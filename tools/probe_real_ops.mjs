@@ -1,7 +1,7 @@
 import puppeteer from 'puppeteer-core';
 import { readFileSync } from 'node:fs';
 
-const CHROME = '/Applications/Google Chrome for Testing.app/Contents/MacOS/Google Chrome for Testing';
+const CHROME = process.env.CHROME || '/Applications/Google Chrome for Testing.app/Contents/MacOS/Google Chrome for Testing';
 const URL = process.argv[3] || 'http://localhost:8099/kiri/';
 const STL = process.argv[2] || new URL('../web/obj/cube.stl', import.meta.url).pathname;
 const OP_LABELS = (process.argv[4] || 'rough,outline,pocket,contour').split(',');

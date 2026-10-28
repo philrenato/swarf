@@ -477,10 +477,10 @@
         <div id="mod-help" class="mdialog f-col swarf-about">
             <div class="swarf-about-head">
                 <span class="swarf-about-mark">swarf<sup>&trade;</sup></span>
-                <span class="swarf-about-sub">gcode carving interface</span>
+                <span class="swarf-about-sub">carving for design students</span>
             </div>
             <div class="swarf-about-body">
-                <p>A focused CNC carving front-end &mdash; mesh in, gcode out, everything else hidden.</p>
+                <p>Draw or import a part, make toolpaths, simulate, then export, or cut on the ShopBot.</p>
                 <p style="opacity:0.7; font-size:12px; margin-top:6px;">swarf &middot; <em>Subtractive Workshop for Resourceful Folks</em></p>
             </div>
             <div class="swarf-credits">
@@ -494,13 +494,16 @@
             <div class="swarf-license">
                 <div class="swarf-license-title">Kiri:Moto &mdash; MIT License</div>
                 <div class="swarf-license-body">
-                    Copyright &copy; Stewart Allen / GridSpace.<br>
+                    Copyright 2014-2018 Stewart Allen &lt;sa@grid.space&gt;.<br>
                     Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the &ldquo;Software&rdquo;), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:<br><br>
                     The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.<br><br>
                     THE SOFTWARE IS PROVIDED &ldquo;AS IS&rdquo;, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
                     <br><br>
                     Full text: <a href="https://github.com/GridSpace/grid-apps/blob/master/license.md" target="_blank">grid-apps LICENSE</a>
+                    &middot; swarf's own: <a href="license.md" target="_blank">license</a>
+                    &middot; the software it ships: <a href="THIRD_PARTY_NOTICES.txt" target="_blank">third-party notices</a>
                 </div>
+                <div class="swarf-license-body" style="margin-top:8px">ShopBot is a trademark of ShopBot Tools, Inc.; MR-1 of Langmuir Systems; Porter-Cable of its owner. swarf is independent and not affiliated with or endorsed by any of them.</div>
             </div>
             <div class="swarf-about-foot">
                 <span id="kiri-version"></span>
@@ -572,7 +575,7 @@
                     <h3>machines</h3>
                     <dl>
                         <dt>Langmuir MR-1</dt><dd>benchtop CNC mill, 30×17×16" envelope, BT30 spindle. swarf's default device.</dd>
-                        <dt>ShopBot Basic</dt><dd>4×8' router, ER25 spindle. for sheet-goods carving and signage.</dd>
+                        <dt>ShopBot Basic</dt><dd>4 × 8 ft bed. a Porter-Cable 7518 router: swarf switches it on and off, you set its speed on its dial (1–5). driven from swarf by control.</dd>
                     </dl>
                 </section>
                 <section>
@@ -586,12 +589,28 @@
                     </dl>
                 </section>
                 <section>
+                    <h3>making and running</h3>
+                    <dl>
+                        <dt>control</dt><dd>drives the ShopBot from swarf over its USB cable, in Chrome or Edge only. jog, zero, trace, run in the air, cut. only shows when the ShopBot is the machine; the MR-1 uses export.</dd>
+                        <dt>trace / in the air / cut</dt><dd>each one opens a checklist first. trace runs the outline of the cut, router off; in the air runs the whole file above the board; cut starts the router. a button that is waiting tells you what it still needs.</dd>
+                        <dt>jog</dt><dd>moves at once, by the step you pick. go-to buttons and home ask first. space or esc stops; while a job runs, any key pauses it.</dd>
+                        <dt>table corners</dt><dd>no home switches on this machine: put the bit over the table's front-left corner once and swarf learns it until the machine is switched off. then zero at, or go to, the front-left or front-right corner.</dd>
+                        <dt>z plate</dt><dd>finds the top of the board by touching the bit to a metal plate. put the plate and its clip away before you cut.</dd>
+                        <dt>router</dt><dd>Porter-Cable 7518. swarf only switches it on and off; set its speed on its dial, 1 (10,000 rpm) to 5 (21,000).</dd>
+                        <dt>test cut</dt><dd>learn the machine on scrap plywood. the square and the circle: a groove you measure with calipers. cut out a square: a part held by tabs.</dd>
+                        <dt>draw</dt><dd>the bed seen from above. pen, rectangle, ellipse, text; move points; give it a thickness and a top edge. done or switching mode keeps your changes; cancel drops them.</dd>
+                        <dt>shape</dt><dd>a circle, rectangle, ring, polygon, star or slot, with a thickness.</dd>
+                        <dt>modes</dt><dd>cam, draw and control. in draw or control the step row folds to those three.</dd>
+                        <dt>skin</dt><dd>view › skin: liquid glass (default), classic, swarf.</dd>
+                    </dl>
+                </section>
+                <section>
                     <h3>simulation</h3>
                     <dl>
                         <dt>chips</dt><dd>during Simulate, the cutter throws particles along its spin tangent with a kick in the feed direction. four flavors mix — long helical curls, triangular flakes, tight c-coils, and fine grit. gravity pulls them down; they settle on the build platform and stay there. import a new part to clear the floor.</dd>
                         <dt>phase aura</dt><dd>the whole scene gently tints to the current workflow step — neutral when idle, warm while toolpathing, cool while preview slices, hot mill-red while simulating, achromatic after gcode export. touch anything and the color returns.</dd>
                         <dt>phase LED</dt><dd>a small dot next to the renato.design watermark. dim = idle, amber = toolpaths, gold = preview, glowing mill-red = simulate, gray = exported. always on, always quiet.</dd>
-                        <dt>sky</dt><dd>procedural two-layer mackerel sky with slow drift and camera-orbit parallax. when swarf is thinking (slicing, preparing, simulating) the clouds speed up. sunset palette behind it — yellow horizon, red band, violet, indigo zenith.</dd>
+                        <dt>sky</dt><dd>procedural two-layer mackerel sky with slow drift and camera-orbit parallax. when swarf is thinking (slicing, preparing, simulating) the clouds speed up. the colours follow the skin.</dd>
                     </dl>
                 </section>
             </div>
@@ -884,10 +903,8 @@ if (new URLSearchParams(location.search).has('dev')) {
   document.body.appendChild(s);
 }
 </script>
-<!-- GoatCounter web analytics (renato.design suite convention) — without
-     this the page records zero visits in the suite's traffic dashboard.
-     Was deploy-artifact-only; brought into source so a from-scratch
-     build gets it too. -->
+<!-- GoatCounter web analytics for renato.design's own copy. FORKING: remove this
+     tag (or point it at your own GoatCounter), or your visits count on ours. -->
 <script data-goatcounter="https://philrenato.goatcounter.com/count"
         async src="//gc.zgo.at/count.js"></script>
 </body>

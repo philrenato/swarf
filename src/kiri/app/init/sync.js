@@ -678,6 +678,17 @@ function setup_keybd_nav() {
         const results = document.getElementById('swarf-search-results');
         if (!input || !results) return;
         const INDEX = [
+            { kind:'run', name:'control', body:'drives the ShopBot from swarf over its USB cable, in Chrome or Edge only. jog, zero, trace, run in the air, cut. only shows when the ShopBot is the machine; the MR-1 uses export.', tags:'control shopbot usb run machine chrome edge' },
+            { kind:'run', name:'trace / in the air / cut', body:'each one opens a checklist first. trace runs the outline of the cut, router off; in the air runs the whole file above the board; cut starts the router. a button that is waiting tells you what it still needs.', tags:'trace air cut run checklist' },
+            { kind:'run', name:'jog', body:'moves at once, by the step you pick. go-to buttons and home ask first. space or esc stops; while a job runs, any key pauses it.', tags:'jog move step keys arrows' },
+            { kind:'run', name:'table corners', body:"no home switches on this machine: put the bit over the table's front-left corner once and swarf learns it until the machine is switched off. then zero at, or go to, the front-left or front-right corner.", tags:'table corner absolute zero front left right' },
+            { kind:'run', name:'z plate', body:'finds the top of the board by touching the bit to a metal plate. put the plate and its clip away before you cut.', tags:'z plate touch off zero height' },
+            { kind:'run', name:'router', body:'Porter-Cable 7518. swarf only switches it on and off; set its speed on its dial, 1 (10,000 rpm) to 5 (21,000).', tags:'router spindle porter cable dial rpm' },
+            { kind:'run', name:'test cut', body:'learn the machine on scrap plywood. the square and the circle: a groove you measure with calipers. cut out a square: a part held by tabs.', tags:'test cut training lesson calibrate measure' },
+            { kind:'run', name:'draw', body:'the bed seen from above. pen, rectangle, ellipse, text; move points; give it a thickness and a top edge. done or switching mode keeps your changes; cancel drops them.', tags:'draw pen rectangle ellipse text points' },
+            { kind:'run', name:'shape', body:'a circle, rectangle, ring, polygon, star or slot, with a thickness.', tags:'shape circle rectangle ring polygon star slot' },
+            { kind:'run', name:'modes', body:'cam, draw and control. in draw or control the step row folds to those three.', tags:'modes cam draw control' },
+            { kind:'run', name:'skin', body:'view › skin: liquid glass (default), classic, swarf.', tags:'skin theme look glass classic' },
             { kind:'op', name:'rough', body:'first pass that clears bulk material in horizontal layers above the part. fast, deep, sloppy by design — finished later by contour.', tags:'roughing clearing bulk first pass' },
             { kind:'op', name:'contour', body:'smooth surface pass. cutter crawls across the X or Y axis at a fine stepover, riding part curves. typical stepover 5–15% of tool diameter.', tags:'contouring finishing surface 2.5d' },
             { kind:'op', name:'outline', body:"cuts the part free from the stock by following its silhouette. usually the last cutting op. add tabs so the part doesn't fly out.", tags:'outline cutout silhouette' },

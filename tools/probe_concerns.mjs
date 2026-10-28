@@ -12,7 +12,7 @@
 import puppeteer from 'puppeteer-core';
 import { readFileSync } from 'node:fs';
 
-const CHROME = '/Applications/Google Chrome for Testing.app/Contents/MacOS/Google Chrome for Testing';
+const CHROME = process.env.CHROME || '/Applications/Google Chrome for Testing.app/Contents/MacOS/Google Chrome for Testing';
 const PAGE = process.argv[2] || 'http://localhost:8099/kiri/';
 const STL = new globalThis.URL('../web/obj/cube.stl', import.meta.url).pathname;
 const stlB64 = readFileSync(STL).toString('base64');

@@ -44,7 +44,7 @@ const SECONDS  = parseInt(args.seconds || '10', 10);
 const SHOT     = !!args.shot;
 const HEADFUL  = !!args.headful;
 
-const CHROME = '/Applications/Google Chrome for Testing.app/Contents/MacOS/Google Chrome for Testing';
+const CHROME = process.env.CHROME || '/Applications/Google Chrome for Testing.app/Contents/MacOS/Google Chrome for Testing';
 const BASE = 'http://localhost:8181';
 const ts = Date.now();
 const SHOT_DIR = '/tmp';

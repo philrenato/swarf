@@ -26,7 +26,6 @@
   // stalls — if SIMULATE works with nochips and not without, the physics
   // layer is the culprit.
   if (/[?&]nochips=1\b/.test(location.search)) {
-    console.log('swarf-chips: disabled via ?nochips=1');
     return;
   }
 
@@ -489,7 +488,6 @@
           if (Math.random() < 0.7) spawnChip(pos);
           if (Math.random() < 0.4) spawnChip(pos);
           if (!firstSpawnLogged) {
-            console.log('swarf-chips: first spawn at', pos);
             firstSpawnLogged = true;
           }
         }

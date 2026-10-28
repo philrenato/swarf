@@ -183,7 +183,6 @@
         // must reload to close it and let the delete land.
         const req = indexedDB.deleteDatabase('kiri');
         req.onsuccess = req.onerror = req.onblocked = () => {
-          console.log('swarf r12: IDB deleted, reloading');
           location.reload();
         };
         // if callbacks don't fire within 500ms, reload anyway
@@ -260,7 +259,6 @@
         const p = space.view.save();
         if (p && typeof p.left === 'number' && typeof p.up === 'number') {
           if (!logged) {
-            console.log('swarf-sky: camera parallax online', p);
             logged = true;
           }
           if (lastL !== null) {

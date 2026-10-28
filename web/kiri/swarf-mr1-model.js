@@ -105,7 +105,7 @@
       const c = document.createElement('canvas'); c.width = 256; c.height = 512;
       const g = c.getContext('2d');
       g.translate(128, 256); g.rotate(-Math.PI / 2);
-      g.font = 'italic 800 120px "Helvetica Neue", Arial, sans-serif'; g.fillStyle = '#ffffff'; g.textAlign = 'center'; g.textBaseline = 'middle';
+      g.font = '500 110px system-ui, "Helvetica Neue", Arial, sans-serif';   // plain words, not the maker's logo g.fillStyle = '#ffffff'; g.textAlign = 'center'; g.textBaseline = 'middle';
       g.fillText('MR-1', 0, 0);
       const name = new THREE.Mesh(new THREE.PlaneGeometry(60, 120), new THREE.MeshBasicMaterial({ map: new THREE.CanvasTexture(c), transparent: true, opacity: 0.55, depthWrite: false, side: THREE.DoubleSide }));
       name.material.fog = false;

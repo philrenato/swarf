@@ -146,7 +146,7 @@ class KeyboardControl {
         }
 
         // swarf: no keyboard shortcuts except Delete/Backspace for removing the selected part.
-        // Every other Kiri hotkey is suppressed here. See project_swarf_v001.md.
+        // Every other Kiri hotkey is suppressed here. swarf keeps only the keys a student needs.
         if (evt.keyCode === 8 || evt.keyCode === 46) {
             if (this.inputHasFocus()) return false;
             this.#platform.delete(this.#selection.meshes());

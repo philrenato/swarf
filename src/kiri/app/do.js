@@ -21,7 +21,7 @@ let moved = { x: 0, y: 0 };
 let msgid;
 
 event.on("load-done", () => {
-    // swarf: no undo/redo buttons in UI (feedback_no_undo_buttons), but keep
+    // swarf: no undo/redo buttons in UI (undo is the keyboard's job), but keep
     // the bind guarded in case upstream ever re-adds the DOM.
     const u = $('undo'); if (u) u.onclick = undo;
     const r = $('redo'); if (r) r.onclick = redo;

@@ -1,7 +1,7 @@
 import puppeteer from 'puppeteer-core';
 import { readFileSync } from 'node:fs';
 
-const CHROME = '/Applications/Google Chrome for Testing.app/Contents/MacOS/Google Chrome for Testing';
+const CHROME = process.env.CHROME || '/Applications/Google Chrome for Testing.app/Contents/MacOS/Google Chrome for Testing';
 const URL = 'https://renato.design/swarf-app/';
 const OBJ = (process.env.SWARF_OBJ || process.env.HOME + '/Desktop/1.obj');
 const objText = readFileSync(OBJ, 'utf8');

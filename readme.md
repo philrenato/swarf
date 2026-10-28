@@ -13,7 +13,7 @@ four operations (rough, contour, outline, pocket).
 It's an installable, offline-capable PWA — "install swarf" appears in
 supported browsers once the page loads, and the CAM engine keeps working
 with no network once it's been used at least once. Picking a stock
-material (aluminum, brass, mild steel, acrylic, polycarbonate, HDPE,
+material (aluminum, brass and mild steel on the MR-1 only; acrylic, polycarbonate, HDPE,
 MDF, hard wood, wax, foam) fills in feed rate, plunge, spindle speed,
 stepdown, stepover and the ease-down ramp angle for every operation,
 derived from the material's cutting speed and chip load for whatever
@@ -28,9 +28,7 @@ coated carbide and run far faster. `tools/check_materials.mjs` runs the
 app's own derivation over the whole library on both machines and holds
 it to its invariants.
 
-Read `swarf_README.txt` for the human version. Read `swarf_HANDOFF.txt`
-for the build state and what's next — it opens with a current-state
-summary before the session-by-session history.
+Read `swarf_README.txt` for the human version.
 
 ## Running locally
 
@@ -41,8 +39,29 @@ npx gs-app-server --debug --single --port 8181
 
 Then open [localhost:8181/kiri/](http://localhost:8181/kiri/).
 
-First time after fresh clone: `mkdir -p src/pack && npm run webpack-ext`
-before the first `npm run dev`.
+First time after a fresh clone: `npm i && mkdir -p src/pack && npm run webpack-ext`
+before the first build.
+
+## Forking
+
+swarf is MIT (see `license.md`, which keeps Kiri:Moto's notice; keep both).
+To make your own copy:
+
+1. `npm i && mkdir -p src/pack && npm run webpack-ext`, then `npm run webpack-src`
+   and `npx gs-app-server --debug --single --port 8181` → localhost:8181/kiri/.
+2. Make it yours: remove the GoatCounter tag at the end of `web/kiri/index.html`
+   (or your visits count on renato.design's), and change the canonical / og URLs
+   at its top and the renato.design watermark in `src/kiri/app/init/sync.js`.
+3. Deploying: `tools/deploy.sh` updates an existing static copy of the app (a repo
+   that serves it at `/swarf-app/`, with its own index.html; set `SWARF_WEB_REPO`).
+   It does not create one, uses macOS `sed`, and pushes that repo. To start, build
+   with `npm run webpack-src prod` and serve `web/` yourself.
+4. The gates in `tools/` drive Chrome for Testing (`CHROME=/path/to/chrome` to change
+   it) against a URL you pass; the ShopBot ones use a stub card (`tools/shopbot/`).
+
+ShopBot is a trademark of ShopBot Tools, Inc.; MR-1 and CutControl of Langmuir
+Systems; Porter-Cable of its owner. swarf is an independent project, not made,
+endorsed or supported by any of them; the names only say which machines it drives.
 
 ## Upstream
 
@@ -65,8 +84,7 @@ one didn't provide (widget-position handling in
 `src/kiri/mode/cam/work/prepare.js`, a widget/stock auto-sizing path in
 `src/kiri/mode/cam/app/cl-stock.js`, the toolpath-position fix in
 `src/kiri/app/function.js`, and a handful more) — each one is marked
-inline with a `// swarf:` comment explaining why. `swarf_HANDOFF.txt`
-explains why things are the way they are. You can read all of it.
+inline with a `// swarf:` comment explaining why.
 
 You can also ask a model to read it for you. That's how this fork was
 built — not by typing the code, but by holding a long conversation with
@@ -92,9 +110,8 @@ isn't, falls to you.
 
 **How to start.** Clone the repo. Open it in
 [Claude Code](https://claude.com/claude-code) or whatever model you
-prefer. Point it at `swarf_HANDOFF.txt` first — the deploy-pipeline
-state at the top of that file is load-bearing, and the model needs the
-context before it tries to write anything. Then describe what you want
+prefer. Point it at this readme and the `// swarf:` comments first, so
+the model has the context before it tries to write anything. Then describe what you want
 the way you'd describe it to a quiet collaborator who has been in this
 repo for months. Let it propose; you decide.
 

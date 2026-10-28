@@ -2,10 +2,15 @@
 # swarf deploy — rebuild web bundles and ship to renato.design/swarf-app/
 # Usage: tools/deploy.sh "commit message"
 #
+# FORKING: this UPDATES an existing static copy of the app (a git repo that serves
+# swarf at /swarf-app/, with its own index.html); it does not create one, it uses
+# macOS sed, and it pushes that repo. Set SWARF_WEB_REPO=/path/to/your/site.
+#
 # What this does (in order):
 #   1. esbuild prod mode rebuild  → src/pack/kiri-main.js + kiri-work.js
 #   2. copy prod bundles          → philrenato-web/swarf-app/lib/...
-#   3. rewrite 4 absolute/relative paths to /swarf-app/ (see feedback_swarf_deploy_paths.md)
+#   3. rewrite 4 absolute/relative paths to /swarf-app/ (relative ../lib, rooted /wasm and /obj
+#      paths all have to point under /swarf-app/ or the worker and wasm 404)
 #   4. stamp swarf-sw.js's cache version so this deploy invalidates the
 #      previous offline cache instead of a lab tab serving a stale engine
 #   5. stage + commit the WEB repo only — commit the source repo yourself
@@ -26,7 +31,12 @@ for arg in "$@"; do
 done
 
 SRC_REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-WEB_REPO="${SWARF_WEB_REPO:-$(cd "$SRC_REPO/../../philrenato-web" && pwd)}"
+WEB_REPO="${SWARF_WEB_REPO:-$SRC_REPO/../../philrenato-web}"
+if [ ! -d "$WEB_REPO/swarf-app" ]; then
+  echo "deploy: no site to update at $WEB_REPO/swarf-app. Set SWARF_WEB_REPO to a repo that serves swarf at /swarf-app/." >&2
+  exit 1
+fi
+WEB_REPO="$(cd "$WEB_REPO" && pwd)"
 WEB_APP="$WEB_REPO/swarf-app"
 
 cd "$SRC_REPO"
@@ -48,6 +58,9 @@ done
 
 # r36: Unreason's 2D readers/writers (swarf-vector.mjs imports them); r40: opentype.js (DRAW text)
 mkdir -p "$WEB_APP/vendor" && cp -R web/kiri/vendor/. "$WEB_APP/vendor/"
+# the licenses travel with the copy (MIT, Apache, Boost and OFL all ask for it); the About panel links them
+node tools/make_notices.mjs >/dev/null
+cp license.md THIRD_PARTY_NOTICES.txt "$WEB_APP/"
 echo "[3/5] rewrite worker + wasm + asset paths to /swarf-app/ absolutes"
 # worker + wasm (fatal — toolpaths break without these)
 sed -i '' 's|"\.\./lib/kiri/run/worker\.js"|"/swarf-app/lib/kiri/run/worker.js"|g' "$WEB_APP/lib/main/kiri.js"
@@ -84,7 +97,8 @@ echo "[5/6] commit web repo"
 cd "$WEB_REPO"
 git add swarf-app/lib/main/kiri.js swarf-app/lib/kiri/run/worker.js \
   swarf-app/swarf*.js swarf-app/swarf*.mjs swarf-app/vendor swarf-app/swarf*.css swarf-app/swarf-materials.json \
-  swarf-app/swarf-icon-*.png swarf-app/manifest.json swarf-app/index.html 2>/dev/null || true
+  swarf-app/swarf-icon-*.png swarf-app/manifest.json swarf-app/index.html \
+  swarf-app/license.md swarf-app/THIRD_PARTY_NOTICES.txt 2>/dev/null || true
 # NOTE: index.html is staged but NEVER copied from source. The deploy copy has
 # its own SEO metadata and RELATIVE css/font paths (moto/palette.css, not
 # /moto/palette.css) — copying source over it breaks every stylesheet on the
