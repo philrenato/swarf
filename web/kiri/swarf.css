@@ -2272,3 +2272,13 @@ html[data-skin="glass"] #mod-x i, html[data-skin="glass"] #mod-x svg { color: #2
 html[data-skin="classic"] #mod-x { width: 18px; height: 16px; display: grid; place-items: center; margin: 4px 4px 0 auto; background: #c0c0c0; box-shadow: inset -1px -1px #0a0a0a, inset 1px 1px #fff, inset -2px -2px #808080, inset 2px 2px #dfdfdf; color: #000; font-size: 10px; }
 html:not([data-skin]) .swarf-license a, html:not([data-skin]) .swarf-about a, html:not([data-skin]) .swarf-credits a { color: #ff8a7e !important; }   /* the about box links read on the dark plate */
 html:not([data-skin]) .swarf-concordance section h3 { color: #ff8a7e !important; }   /* section heads on the dark plate */
+
+/* the router test button (Phil 10-29): red while the router runs, in every skin */
+html #swarf-run .sr-pad button.sr-router.on,
+html[data-skin] #swarf-run .sr-pad button.sr-router.on,
+html:not([data-skin]) #swarf-run .sr-pad button.sr-router.on { background: #b3261e !important; border-color: #8c1d18 !important; color: #fff !important; box-shadow: 0 0 0 3px rgba(179, 38, 30, .25) !important; }
+html #swarf-run .sr-pad button.sr-router.on b,
+html #swarf-run .sr-pad button.sr-router.on small,
+html[data-skin] #swarf-run .sr-pad button.sr-router.on b,
+html[data-skin] #swarf-run .sr-pad button.sr-router.on small,
+html:not([data-skin]) #swarf-run .sr-pad button.sr-router.on small { color: #fff !important; }
