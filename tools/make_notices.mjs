@@ -74,7 +74,7 @@ const E = [
   ['opentype.js (web/kiri/vendor/opentype)', '1.3.4', 'MIT', file('web/kiri/vendor/opentype/LICENSE.txt')],
   ['Font Awesome Free (icons, web/font)', ver('@fortawesome/fontawesome-free'), 'icons CC BY 4.0, fonts SIL OFL 1.1, code MIT', file('web/font/LICENSE.txt')],
   ['Russo One (web/moto/russo-one.ttf)', '', 'SIL OFL 1.1', 'Copyright (c) 2011-2012, Jovanny Lemonad (jovanny.ru), with Reserved Font Name "Russo".\n\n' + OFL],
-  ['Unreason 2D exchange (web/kiri/vendor/unreason), vendored with its author\'s OK', '', 'MIT', 'Copyright 2026 Phil Renato. Licensed under the MIT License (license.md) as part of swarf.']
+  ['Unreason 2D exchange and planar arrangement (web/kiri/vendor/unreason), vendored with its author\'s OK', '', 'MIT', 'Copyright 2026 Phil Renato. Licensed under the MIT License (license.md) as part of swarf.']
 ];
 
 const out = [

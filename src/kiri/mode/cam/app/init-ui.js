@@ -338,6 +338,11 @@ export function opRender() {
         } else {
             delete rec.rename;
         }
+        // swarf: DRAW's engrave step is a trace that follows the parts' engraved lines
+        if (rec.engrave) {
+            label = 'engrave';
+            title = ` title="cuts the lines drawn in DRAW into their parts, the bit's center on each line, to each line's engrave depth"`;
+        }
         const SWARF_OP_FIELDS = {
             rough:   ['tool','rate','down','step','inside'],
             outline: ['tool','rate','down','step','inside','outside'],

@@ -103,6 +103,16 @@ try {
     await page.evaluate(() => window.kiri.api.view.set_arrange()); await wait(800);
     await page.click('#swarf-step-draw').catch(() => {}); await wait(1200);
     await audit(page, skin, '07-draw', found);
+    // DRAW's cards: the pencil (inside or over a part, engrave depth), text (font list), an
+    // engraved line, regions
+    await page.keyboard.press('n'); await wait(300); await audit(page, skin, '07f-pencil', found);
+    await page.keyboard.press('t'); await wait(800); await audit(page, skin, '07g-text', found);
+    await page.keyboard.press('p'); await wait(200);
+    for (const [x, y] of [[560, 520], [660, 470], [660, 470]]) { await page.mouse.click(x, y); await wait(120); }
+    await wait(200); await audit(page, skin, '07h-line', found);
+    await page.evaluate(() => { const S = window.__swarfDraw.state(); S.sel = S.parts.findIndex(p => !p.line); });
+    await page.keyboard.press('g'); await wait(400); await audit(page, skin, '07i-regions', found);
+    await page.keyboard.press('v'); await wait(200);
     await page.evaluate(() => [...document.querySelectorAll('#swarf-draw button')].find(b => /cancel/i.test(b.textContent))?.click()); await wait(800);
     for (const [id, name] of [['swarf-concordance', '07c-concordance'], ['swarf-help-search', '07d-help-search'], ['app-help', '07e-about']]) {
       await page.evaluate(id => document.getElementById(id)?.click(), id); await wait(700);

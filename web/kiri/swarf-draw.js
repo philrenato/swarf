@@ -19,6 +19,16 @@
  *
  * Each part keeps a 2D transform (meta.xf) as cam scales, turns and mirrors
  * it, so its drawing lines up with the part exactly.
+ *
+ * A closed outline drawn wholly inside a part is a hole in it; the card's "inside
+ * or over a part" can make the next outline add to, or cut from, the part under it
+ * instead, or be a part of its own. The regions tool splits overlapping outlines into
+ * every region they enclose (Unreason's planar arrangement, swarf-draw-geom.mjs): a
+ * click fills or empties one. The pencil draws freehand, fitted to a few smooth pen
+ * points (its points field re-fits from the kept stroke). An open line over a part
+ * is engraved into it: kept on the part (meta.engrave, in its own frame, curves with
+ * a depth), and cut by an engrave step (a trace that follows the line, bit center on
+ * it) at the part's top less that depth.
  */
 (function () {
   'use strict';
@@ -34,7 +44,15 @@
   const $ = id => document.getElementById(id);
   // a typed length is held to a thousandth of a mm; a field refuses one that rounds under its floor (torture test 10-29: 0.0004 became 0)
   const r3 = v => +(+v).toFixed(3);
-  const THICK = 'swarf-draw-thick';
+  const THICK = 'swarf-draw-thick', DEPTH = 'swarf-draw-engrave';
+  // what a closed outline drawn inside or over a part makes
+  const MODES = {
+    auto: 'a hole if inside',
+    add: 'add to the part',
+    cut: 'cut from the part',
+    part: 'a part of its own'
+  };
+  const G = () => window.SwarfDrawGeom;
   const HIT = 7;                                 // px: how near a press must be to a point
 
   // ── a part's 2D transform, kept as cam changes it ──
@@ -48,6 +66,8 @@
       if (!g.meta || !g.meta.svg) continue;
       const known = !!g.meta.xf;
       g.meta.xf = mul(M, g.meta.xf || guessXf(g));
+      // engraved lines sit in the part's own frame: local' = M·local − (cam's re-centering)
+      if (g.meta.engrave) for (const L of g.meta.engrave) L.crv.ctrlPts = L.crv.ctrlPts.map(([x, y, z, wt]) => [M[0] * x + M[1] * y - (d.dx || 0), M[2] * x + M[3] * y - (d.dy || 0), 0, wt ?? 1]);
       if (known && g.meta.t) {
         const [tx, ty] = g.meta.t;
         g.meta.t = [M[0] * tx + M[1] * ty - (d.dx || 0), M[2] * tx + M[3] * ty - (d.dy || 0)];
@@ -145,9 +165,22 @@
       const b = g.boundingBox, p = w.track.pos;
       others.push([p.x + b.min.x, p.y + b.min.y, p.x + b.max.x, p.y + b.max.y, w.meta && w.meta.file || 'part']);
     }
-    let t0 = 6;
-    try { t0 = parseFloat(localStorage.getItem(THICK)) || 6; } catch (e) { /* private */ }
-    S = { parts, others, bed: [bw, bd], sel: -1, pts: new Set(), tool: 'select', pen: [], drag: null, undo: [], thick: t0, edge: { kind: 'straight', size: 2 }, removed: [], hover: null };
+    // the lines engraved into each part, on the bed
+    let nl = 0;
+    for (const w of a.widgets.all()) {
+      if (!(w.meta && w.meta.svg && !w.meta.tilted && Array.isArray(w.meta.engrave))) continue;
+      const pos = w.track.pos;
+      for (const L of w.meta.engrave) {
+        const crv = clone(L.crv);
+        crv.ctrlPts = crv.ctrlPts.map(([x, y, z, wt]) => [x + pos.x, y + pos.y, 0, wt ?? 1]);
+        parts.push({ w: null, line: true, name: `line ${++nl}`, depth: L.depth, curves: [{ crv }], dirty: false });
+      }
+    }
+    // every visit starts with an outline inside a part making a hole (Phil 10-29); the card changes it for this visit
+    let t0 = 6, d0 = 1;
+    const m0 = 'auto';
+    try { t0 = parseFloat(localStorage.getItem(THICK)) || 6; d0 = parseFloat(localStorage.getItem(DEPTH)) || 1; } catch (e) { /* private */ }
+    S = { parts, others, bed: [bw, bd], sel: -1, pts: new Set(), tool: 'select', pen: [], drag: null, undo: [], thick: t0, depth: d0, mode: m0, edge: { kind: 'straight', size: 2 }, removed: [], hover: null };
     build();
     // the part picked in the workspace is the one picked here
     const picked = a.selection.widgets ? a.selection.widgets() : [];
@@ -165,10 +198,12 @@
       <svg id="sd-svg" tabindex="0"></svg>
       <div class="sd-bar">
         <button data-tool="select" title="pick parts and points (V)">select <kbd>V</kbd></button>
-        <button data-tool="pen" title="draw an outline: click for a corner, drag for a smooth point, click the first to close (P)">pen <kbd>P</kbd></button>
+        <button data-tool="pen" title="draw an outline: click for a corner, drag for a smooth point, click the first to close (P); click the last point again to end it as a line to engrave">pen <kbd>P</kbd></button>
+        <button data-tool="pencil" title="draw freehand: it becomes a few smooth points; end near the start to close it, or anywhere else for a line to engrave (N)">pencil <kbd>N</kbd></button>
         <button data-tool="rect" title="drag a rectangle from corner to corner; shift for a square (R)">rectangle <kbd>R</kbd></button>
         <button data-tool="ellipse" title="drag an ellipse from corner to corner; shift for a circle (E)">ellipse <kbd>E</kbd></button>
         <button data-tool="text" title="type the words in the card, then click where they start (T)">text <kbd>T</kbd></button>
+        <button data-tool="regions" title="split overlapping outlines into regions, then click a region to fill or empty it (G)">regions <kbd>G</kbd></button>
         <span class="sd-sep"></span>
         <button id="sd-undo" title="undo (⌘Z)">undo</button>
         <button id="sd-fit" title="show the parts, or the whole bed (F) · pinch or ⌘-scroll to zoom, two fingers to slide">fit</button>
@@ -201,6 +236,7 @@
   const hush = e => e.stopPropagation();
   function close(apply) {
     if (!S) return;
+    if (apply && S.tool === 'regions') applyRegions();
     if (apply) {
       const bad = S.parts.find(p => !p.gone && p.dirty && checkCross(p));
       if (bad) { S.sel = S.parts.indexOf(bad); render(); say(crossSay(bad, bad.cross) + ' Then press done.'); return; }
@@ -312,7 +348,9 @@
     S.parts.forEach((part, pi) => {
       if (part.gone) return;
       const d = part.curves.map(c => pathOf(c.crv)).join(' ');
-      out.push(`<path class="sd-part${pi === S.sel ? ' on' : ''}${part.cross || part.over ? ' cross' : ''}" data-part="${pi}" d="${d}"/>`);
+      // in the regions tool the regions are the fill: the outlines only, under them
+      const src = S.tool === 'regions' && S.reg && S.reg.group && S.reg.group.includes(part);
+      out.push(`<path class="sd-part${part.line ? ' sd-line' : ''}${src ? ' sd-line sd-regsrc' : ''}${pi === S.sel ? ' on' : ''}${part.cross || part.over ? ' cross' : ''}" data-part="${pi}" d="${d}"/>`);
       if (part.cross) out.push(`<circle class="sd-cross" cx="${sx(part.cross[0])}" cy="${sy(part.cross[1])}" r="7"/>`);
       // a wide, unseen edge, so a press near the outline (to add a point) lands on the part
       if (pi === S.sel) out.push(`<path class="sd-edge" data-part="${pi}" d="${d}"/>`);
@@ -362,6 +400,14 @@
       out.push(`<rect class="sd-pt first" x="${sx(S.pen[0].p[0]) - 5}" y="${sy(S.pen[0].p[1]) - 5}" width="10" height="10"/>`);
     }
     if (S.ghost) out.push(`<path class="sd-pen" d="${pathOf(S.ghost)}"/>`);
+    // the pencil's stroke as it is drawn
+    if (S.stroke && S.stroke.length > 1) out.push(`<path class="sd-pen" d="M${S.stroke.map(q => `${sx(q[0])},${sy(q[1])}`).join('L')}"/>`);
+    // regions: every region the outlines enclose, filled ones shaded; a click fills or empties one
+    if (S.tool === 'regions' && S.reg) S.reg.arr.faces.forEach((f, i) => {
+      if (!f.at) return;
+      const loop = L => 'M' + L.map(q => `${sx(q[0])},${sy(q[1])}`).join('L') + 'Z';
+      out.push(`<path class="sd-reg${S.reg.filled.has(i) ? ' on' : ''}" data-reg="${i}" d="${loop(f.outer)}${f.holes.map(loop).join('')}"><title>${S.reg.filled.has(i) ? 'filled: click to empty it' : 'empty: click to fill it'}</title></path>`);
+    });
     if (S.tool === 'text' && S.ghostText && S.ghostText.length) out.push(`<path class="sd-pen" d="${S.ghostText.map(c => pathOf(c.crv)).join(' ')}"/>`);
     if (S.box) {
       const [a, b] = S.box;
@@ -403,7 +449,7 @@
   function overlapOf(part) {
     const mine = part.curves.map(c => polyOf(c.crv)), mb = boxOf(part.curves);
     for (const o of S.parts) {
-      if (o === part || o.gone) continue;
+      if (o === part || o.gone || o.line) continue;
       const ob = boxOf(o.curves);
       if (ob[0] > mb[2] || mb[0] > ob[2] || ob[1] > mb[3] || mb[1] > ob[3]) continue;
       const theirs = o.curves.map(c => polyOf(c.crv));
@@ -434,6 +480,7 @@
   }
   const crossSay = (part, x) => `${part.name} crosses itself near ${LEN.unit() === 'in' ? `${LEN.fld(x[0])}, ${LEN.fld(x[1])} in` : `${r3(x[0])}, ${r3(x[1])} mm`}: past a crossing, swarf cannot tell inside from outside. Move a point so its lines don't cross.`;
   function checkCross(part) {
+    if (part.line) { part.cross = null; part.over = null; return null; }
     part.cross = part.text ? null : crossing(part);
     if (part.cross) say(crossSay(part, part.cross));
     const o = overlapOf(part);
@@ -450,22 +497,40 @@
       ? `<div class="sd-row"><span>${word}</span><input id="${id}" value="${LEN.fld(v)}" inputmode="text" data-len="1"><span class="u">${LEN.unit()}</span></div>`
       : `<div class="sd-row"><span>${word}</span><input id="${id}" value="${v}" inputmode="decimal"><span class="u">${unit}</span></div>`;
     const textRows = (str, hh) => `<div class="sd-row"><span>words</span><input id="sd-str" class="wide" value="${esc(str)}"></div>${row('letter height', 'sd-th', hh, 'mm')}
-      <div class="sd-row"><span>font</span><span class="sd-font">${esc(TEXT.name)}</span><button id="sd-font" title="use a .ttf or .otf font from this computer">change…</button></div>`;
+      <div class="sd-row"><span>font</span>${fontSelect(S.tool === 'text' || !part || !part.text ? TEXT.name : part.text.font || TEXT.name)}</div>`;
+    const modeRow = () => `<div class="sd-row" title="what an outline drawn inside or over a part makes"><span>inside or over a part</span></div><div class="sd-row"><select id="sd-mode" class="wide">${Object.entries(MODES).map(([k, v]) => `<option value="${k}"${k === S.mode ? ' selected' : ''}>${v}</option>`).join('')}</select></div>`;
+    const ptsRow = pc => pc ? `<div class="sd-row" title="how many points the freehand line is fitted to: fewer is smoother, more follows your hand closer"><span>points</span><input id="sd-pts" value="${pc.n}" inputmode="numeric"><span class="u"></span></div>` : '';
     const edgeRows = e => `<div class="sd-row"><span>top edge</span><select id="sd-edge">${['straight', 'chamfer', 'round'].map(k => `<option${k === e.kind ? ' selected' : ''}>${k}</option>`).join('')}</select><span class="u"></span></div>${e.kind === 'straight' ? '' : row('edge size', 'sd-es', e.size, 'mm')}`;
     let h = '';
-    if (S.tool !== 'select') {
+    if (S.tool === 'regions') {
+      const R = S.reg;
+      h = `<div class="sd-h">regions</div><div class="sd-note">${R ? 'Every region the outlines make is shaded. Click one to fill it (part) or empty it (hole or gone). Apply makes the filled ones the parts.' : 'Draw outlines that overlap, then come back: each region they make can be filled or emptied.'}</div>`;
+      if (R) h += `<div class="sd-note">${R.filled.size} of ${R.arr.faces.filter(f => f.at).length} regions filled.</div>
+        <div class="sd-row"><button id="sd-reg-all" title="fill every region">fill all</button><button id="sd-reg-none" title="empty every region">empty all</button></div>
+        <div class="sd-row"><button id="sd-reg-apply" class="sd-go" title="make the filled regions the parts (also when you leave this tool or press done)">apply</button></div>`;
+    } else if (S.tool !== 'select') {
       const how = {
-        pen: 'Click for a corner. Drag for a smooth point. Click the first point (or press Enter) to close the outline.',
+        pen: 'Click for a corner. Drag for a smooth point. Click the first point (or press Enter) to close the outline. Click the last point again to end it as a line to engrave.',
+        pencil: 'Drag to draw. End near where you began to close the outline; end anywhere else for a line to engrave.',
         rect: 'Drag from one corner to the other. Hold shift for a square.',
         ellipse: 'Drag from one corner of its box to the other. Hold shift for a circle.',
         text: 'Type the words, then click where they start (the left end of the baseline).'
       }[S.tool];
       h = `<div class="sd-h">${S.tool === 'rect' ? 'rectangle' : S.tool}</div><div class="sd-note">${how}</div>`;
       if (S.tool === 'text') h += textRows(TEXT.str, TEXT.h);
+      if (S.tool !== 'text') h += modeRow();
       h += `${row('thickness', 'sd-pen-t', S.thick, 'mm')}${edgeRows(S.edge)}`;
+      if (S.tool === 'pen' || S.tool === 'pencil') h += `${row('engrave depth', 'sd-dep', S.depth, 'mm')}`;
+      if (S.tool === 'pen' && S.pen.length >= 2) h += '<div class="sd-row"><button id="sd-pen-line" title="end the pen here: an open line, engraved into the part under it">end as a line</button></div>';
+    } else if (part && !part.gone && part.line) {
+      // which part it is cut into (not worked out again on every move of a drag)
+      const host = S.drag && HOSTS.has(part) ? HOSTS.get(part) : HOSTS.set(part, hostOf(part)).get(part);
+      h = `<div class="sd-h">${esc(part.name)}: engraved line</div>${row('engrave depth', 'sd-ldep', part.depth, 'mm')}${ptsRow(part.pencil)}
+        <div class="sd-note">${host ? `Cut into ${esc(host.name)}, ${esc(LEN.say(part.depth))} down from its top, the bit's center on the line. Done adds an engrave step if there is none.` : 'Over no part: move it onto a part to engrave it there (a line over nothing is left out).'}</div>
+        <div class="sd-row"><button id="sd-del" title="remove this line (when you press done)">delete this line</button></div>`;
     } else if (part && !part.gone) {
       const b = boxOf(part.curves), one = S.pts.size === 1 ? [...S.pts][0] : null;
-      h = `<div class="sd-h">${esc(part.name)}</div>${part.text ? textRows(part.text.str, part.text.h) : ''}${row('width', 'sd-w', r3(b[2] - b[0]), 'mm')}${row('depth', 'sd-d', r3(b[3] - b[1]), 'mm')}${row('thickness', 'sd-t', part.thick, 'mm')}${edgeRows(part.edge)}`;
+      h = `<div class="sd-h">${esc(part.name)}</div>${part.text ? textRows(part.text.str, part.text.h) : ''}${ptsRow(part.pencil)}${row('width', 'sd-w', r3(b[2] - b[0]), 'mm')}${row('depth', 'sd-d', r3(b[3] - b[1]), 'mm')}${row('thickness', 'sd-t', part.thick, 'mm')}${edgeRows(part.edge)}`;
       if (one) {
         const [ci, i] = one.split(':').map(Number), P = part.curves[ci].crv.ctrlPts[i];
         h += `<div class="sd-h">point</div>${row('x', 'sd-px', r3(P[0]), 'mm')}${row('y', 'sd-py', r3(P[1]), 'mm')}`;
@@ -486,6 +551,33 @@
     if (sel && E) sel.onchange = () => { if (S.tool === 'select') { snap(); part.dirty = true; } E.kind = sel.value; render(); edgeSay(); };
     num('sd-es', v => { if (!(r3(v) >= 0.1)) return say('Give the edge size at least 0.1 mm.'); if (!E || v === E.size) return; if (S.tool === 'select') { snap(); part.dirty = true; } E.size = r3(v); render(); edgeSay(); });
     num('sd-pen-t', v => { if (r3(v) >= 0.1) { S.thick = r3(v); try { localStorage.setItem(THICK, String(S.thick)); } catch (e) { /* private */ } } });
+    const md = $('sd-mode');
+    if (md) md.onchange = () => { S.mode = md.value; say(modeSay()); ui.svg.focus(); };
+    num('sd-dep', v => { if (!(r3(v) >= 0.05)) return say('Give the engrave depth at least 0.05 mm.'); S.depth = r3(v); try { localStorage.setItem(DEPTH, String(S.depth)); } catch (e) { /* private */ } });
+    num('sd-ldep', v => {
+      if (!(r3(v) >= 0.05)) return say('Give the engrave depth at least 0.05 mm.');
+      if (r3(v) === part.depth) return;
+      snap(); part.depth = r3(v); part.dirty = true;
+      const host = hostOf(part);
+      say(host && part.depth >= host.thick ? `${LEN.say(part.depth)} is as deep as ${host.name} is thick: the line will cut right through.` : `Engraved ${LEN.say(part.depth)} deep.`);
+      render();
+    });
+    // the pencil's points: re-fitted from the stroke it kept
+    num('sd-pts', v => {
+      const pc = part && part.pencil;
+      if (!pc) return;
+      const n = Math.round(v), lo = pc.closed ? 3 : 2, hi = Math.min(G().MAX_POINTS, pc.stroke.length);
+      if (!(n >= lo && n <= hi)) return say(`Give it between ${lo} and ${hi} points.`);
+      if (n === pc.n) return;
+      snap(); refit(part, n); render();
+    });
+    const pl = $('sd-pen-line');
+    if (pl) pl.onclick = () => { penLine(); ui.svg.focus(); };
+    const ra = $('sd-reg-apply');
+    if (ra) ra.onclick = () => { applyRegions(); render(); ui.svg.focus(); };
+    const rall = $('sd-reg-all'), rnone = $('sd-reg-none');
+    if (rall) rall.onclick = () => { S.reg.arr.faces.forEach((f, i) => f.at && S.reg.filled.add(i)); render(); ui.svg.focus(); };
+    if (rnone) rnone.onclick = () => { S.reg.filled.clear(); render(); ui.svg.focus(); };
     num('sd-px', v => { if (!isFinite(v)) return; const [ci, i] = [...S.pts][0].split(':').map(Number), P = part.curves[ci].crv.ctrlPts[i]; if (v === r3(P[0])) return; snap(); shiftPts(part, [...S.pts], v - P[0], 0); render(); });
     num('sd-py', v => { if (!isFinite(v)) return; const [ci, i] = [...S.pts][0].split(':').map(Number), P = part.curves[ci].crv.ctrlPts[i]; if (v === r3(P[1])) return; snap(); shiftPts(part, [...S.pts], 0, v - P[1]); render(); });
     // width / depth: the whole part stretched about its center to that size
@@ -515,23 +607,14 @@
       strEl.oninput = () => { if (S.tool === 'text') TEXT.str = strEl.value; };
       strEl.onchange = () => setText(strEl.value, S.tool === 'text' ? TEXT.h : part.text.h);
       num('sd-th', v => { if (!(r3(v) >= 1)) return say('Give the letters at least 1 mm of height.'); setText(S.tool === 'text' ? TEXT.str : part.text.str, r3(v)); });
-      const fb = $('sd-font');
-      if (fb) fb.onclick = () => {
-        const inp = Object.assign(document.createElement('input'), { type: 'file', accept: '.ttf,.otf' });
-        inp.onchange = async () => {
-          const file = inp.files && inp.files[0];
-          if (!file) return;
-          try {
-            if (!window.opentype) await loadScript('vendor/opentype/opentype.min.js');
-            TEXT.font = window.opentype.parse(await file.arrayBuffer());
-            TEXT.name = file.name.replace(/\.(ttf|otf)$/i, '');
-            if (S.tool !== 'text' && part && part.text) setText(part.text.str, part.text.h);
-            say(`Letters now in ${TEXT.name}.`);
-            render();
-          } catch (e) { say(`That font could not be read (${e.message}). Try a .ttf or .otf.`); }
-        };
-        inp.click();
-      };
+      const fs = $('sd-fontsel');
+      if (fs) fs.onchange = () => pickFont(fs.value, name => {
+        if (S.tool === 'text') return;
+        if (!(part && part.text)) return;
+        const t = { ...part.text, font: name }, c = textCurves(t);
+        if (!c.length) return say(`${name} has no letters for these words.`);
+        snap(); part.text = t; part.curves = c; part.dirty = true; render();
+      });
     }
     const del = $('sd-del');
     if (del) del.onclick = () => { S.pts.clear(); deletePts(); ui.svg.focus(); };
@@ -560,18 +643,19 @@
     const u = JSON.parse(S.undo.pop());
     u.parts.forEach((p, i) => { p.w = S.parts[i] ? S.parts[i].w : null; });
     S.parts = u.parts; S.sel = u.sel; S.pts = new Set(u.pts);
+    if (S.tool === 'regions') { S.reg = null; enterRegions(); }
     render();
   }
   function shiftPts(part, ids, dx, dy) {
     delete part.text;                            // its letters are curves now
-
+    delete part.pencil;                          // moved by hand: its points are its own now
     for (const id of moveSet(part, ids)) { const [ci, i] = id.split(':').map(Number), P = part.curves[ci].crv.ctrlPts[i]; P[0] += dx; P[1] += dy; }
     part.dirty = true;
   }
   // scale / turn the picked points about their center, or the whole part about its center
   function transform(part, f) {
     delete part.text;
-
+    delete part.pencil;
     const ids = S.pts.size ? moveSet(part, [...S.pts]) : null;
     const list = [];
     part.curves.forEach((c, ci) => c.crv.ctrlPts.forEach((P, i) => { if (!ids || ids.has(`${ci}:${i}`)) list.push(P); }));
@@ -585,7 +669,7 @@
   function deletePts() {
     const part = S.parts[S.sel];
     if (!part) return;
-    if (S.pts.size) delete part.text;
+    if (S.pts.size) { delete part.text; delete part.pencil; }
     if (!S.pts.size) { snap(); part.gone = true; S.sel = -1; say(`${part.name} will be removed when you press done.`); render(); return; }
     const byCurve = new Map();
     for (const id of S.pts) { const [ci, i] = id.split(':').map(Number); if (!byCurve.has(ci)) byCurve.set(ci, []); byCurve.get(ci).push(i); }
@@ -648,6 +732,7 @@
     crv.knots = chainKnots(p, (crv.ctrlPts.length - 1) / p);
     part.dirty = true;
     delete part.text;
+    delete part.pencil;
     S.pts = new Set([`${best.ci}:${best.s + p}`]);
     render();
   }
@@ -672,8 +757,13 @@
   }
   function setTool(t) {
     const had = S.tool === 'pen' && t !== 'pen' && dropPen();
-    S.tool = t; S.pen = []; S.hover = null; S.ghost = null; S.ghostText = null;
+    // leaving regions makes the filled regions the parts
+    if (S.tool === 'regions' && t === 'regions') return;
+    if (S.tool === 'regions' && t !== 'regions') applyRegions();
+    const keep = S.sel;
+    S.tool = t; S.pen = []; S.hover = null; S.ghost = null; S.ghostText = null; S.stroke = null;
     if (t !== 'select') { S.sel = -1; S.pts.clear(); }
+    if (t === 'regions') { S.sel = keep; enterRegions(); S.sel = -1; }
     if (t === 'text') fontReady().then(() => S && render()).catch(e => say(`Text needs its font: ${e.message}.`));
     render(); ui.svg.focus();
   }
@@ -683,6 +773,13 @@
     if (e.button !== 0) return;
     const m = toMM(e);
     if (S.tool === 'pen') { penDown(m, e); ui.svg.setPointerCapture(e.pointerId); return; }
+    if (S.tool === 'pencil') { S.stroke = [m]; S.drag = { kind: 'pencil' }; ui.svg.setPointerCapture(e.pointerId); return; }
+    if (S.tool === 'regions') {
+      const r = e.target.dataset && e.target.dataset.reg;
+      if (r !== undefined && S.reg) { const i = +r; S.reg.filled.has(i) ? S.reg.filled.delete(i) : S.reg.filled.add(i); say(S.reg.filled.has(i) ? 'Filled.' : 'Emptied.'); render(); }
+      else say(S.reg ? 'Click a shaded region to fill or empty it.' : 'No regions here: draw outlines that overlap first.');
+      return;
+    }
     if (S.tool === 'text') { placeText(m); return; }
     if (S.tool === 'rect' || S.tool === 'ellipse') { S.drag = { kind: 'shape', at: [snapMM(m[0]), snapMM(m[1])] }; ui.svg.setPointerCapture(e.pointerId); return; }
     // a second press soon and near: a double-click (the board redraws on every
@@ -714,6 +811,13 @@
   function move(e) {
     const m = toMM(e);
     const d = S.drag;
+    if (S.tool === 'pencil') {
+      if (d && d.kind === 'pencil') {
+        const l = S.stroke[S.stroke.length - 1];
+        if (Math.hypot(m[0] - l[0], m[1] - l[1]) * S.k >= 2) { S.stroke.push(m); render(); }
+      }
+      return;
+    }
     if (S.tool === 'pen') {
       const q = [snapMM(m[0]), snapMM(m[1])];
       // dragging out from the point just placed: its handle, mirrored behind it
@@ -750,7 +854,7 @@
     dx = snapMM(dx); dy = snapMM(dy);
     if (!dx && !dy) return;
     if (d.kind === 'pts') { shiftPts(part, [...S.pts], dx, dy); keepSmooth(part); }
-    else { for (const c of part.curves) for (const P of c.crv.ctrlPts) { P[0] += dx; P[1] += dy; } if (part.text) part.text.at = [part.text.at[0] + dx, part.text.at[1] + dy]; part.dirty = true; }
+    else { for (const c of part.curves) for (const P of c.crv.ctrlPts) { P[0] += dx; P[1] += dy; } if (part.text) part.text.at = [part.text.at[0] + dx, part.text.at[1] + dy]; if (part.pencil) for (const q of part.pencil.stroke) { q[0] += dx; q[1] += dy; } part.dirty = true; }
     d.at = [d.at[0] + dx, d.at[1] + dy];
     d.moved = true;
     render();
@@ -760,6 +864,7 @@
     S.drag = null;
     if (!d) return;
     if (d.kind === 'penh') { render(); return; }
+    if (d.kind === 'pencil') { pencilUp(); return; }
     if (d.kind === 'shape') {
       S.ghost = null;
       const b = d.to;
@@ -786,6 +891,7 @@
       if (Math.hypot(sx(f[0]) - sx(q[0]), sy(f[1]) - sy(q[1])) <= HIT + 3) return penClose();
     }
     const l = S.pen[S.pen.length - 1];
+    if (l && S.pen.length >= 2 && Math.hypot(sx(l.p[0]) - sx(q[0]), sy(l.p[1]) - sy(q[1])) <= HIT) return penLine();
     if (l && l.p[0] === q[0] && l.p[1] === q[1]) return;
     S.pen.push({ p: q, h: null });
     S.drag = { kind: 'penh', i: S.pen.length - 1 };
@@ -826,6 +932,67 @@
   }
   // ── text: real glyph outlines ──
   const TEXT = { str: 'swarf', h: 30, font: null, name: 'Russo One' };
+  // every font read so far, by name: a text part keeps its own font's name (part.text.font)
+  const FONTS = new Map();
+  const BUILTIN = 'Russo One';
+  // the computer's own fonts (Local Font Access, Chrome and Edge, after the person allows it)
+  const LOCAL = { list: null, said: '' };
+  function fontSelect(cur) {
+    const o = (v, t, on) => `<option value="${esc(v)}"${on ? ' selected' : ''}>${esc(t)}</option>`;
+    let h = `<select id="sd-fontsel" class="wide" title="the letters' font">`;
+    const names = [BUILTIN, ...[...FONTS.keys()].filter(n => n !== BUILTIN)];
+    if (!names.includes(cur)) names.push(cur);
+    h += names.map(n => o('font:' + n, n === BUILTIN ? `${n} (built in)` : n, n === cur)).join('');
+    if (LOCAL.list && LOCAL.list.length) {
+      h += `<optgroup label="on this computer">${LOCAL.list.filter(f => !FONTS.has(f.fullName)).map(f => o('local:' + f.postscriptName, f.fullName, false)).join('')}</optgroup>`;
+    } else if (LOCAL.list === null && typeof window.queryLocalFonts === 'function') h += o('ask', "this computer's fonts…", false);   // once refused, not again
+    h += o('file', 'a font file (.ttf, .otf)…', false);
+    return h + '</select>';
+  }
+  async function readFont(buf, name) {
+    if (!window.opentype) await loadScript('vendor/opentype/opentype.min.js');
+    const f = window.opentype.parse(buf);
+    if (!f || !f.unitsPerEm || !f.charToGlyph) throw new Error('not a font opentype can read');
+    FONTS.set(name, f);
+    return f;
+  }
+  // a choice in the font list: done(name) runs with the font ready
+  async function pickFont(v, done) {
+    const use = name => { TEXT.font = FONTS.get(name); TEXT.name = name; done(name); say(`Letters now in ${name}.`); render(); };
+    if (v.startsWith('font:')) { const n = v.slice(5); if (n === BUILTIN && !FONTS.has(n)) await fontReady().catch(() => {}); if (FONTS.has(n)) use(n); return; }
+    if (v === 'ask') {
+      try {
+        const got = await window.queryLocalFonts();
+        const seen = new Set();
+        LOCAL.list = [...got].filter(f => f && f.fullName && !seen.has(f.fullName) && seen.add(f.fullName)).sort((a, b) => a.fullName.localeCompare(b.fullName));
+        say(LOCAL.list.length ? `${LOCAL.list.length} fonts on this computer are in the font list now.` : 'This computer shared no fonts: the built-in font and font files still work.');
+      } catch (e) {
+        LOCAL.list = [];
+        say("The browser kept this computer's fonts private, so the list has the built-in font and font files.");
+      }
+      render();
+      return;
+    }
+    if (v.startsWith('local:')) {
+      const f = (LOCAL.list || []).find(x => x.postscriptName === v.slice(6));
+      if (!f) return;
+      try { await readFont(await (await f.blob()).arrayBuffer(), f.fullName); use(f.fullName); }
+      catch (e) { say(`${f.fullName} could not be read (${e.message}): pick another, or a font file.`); render(); }
+      return;
+    }
+    if (v === 'file') {
+      const inp = Object.assign(document.createElement('input'), { type: 'file', accept: '.ttf,.otf' });
+      inp.onchange = async () => {
+        const file = inp.files && inp.files[0];
+        if (!file) return;
+        const name = file.name.replace(/\.(ttf|otf)$/i, '');
+        try { await readFont(await file.arrayBuffer(), name); use(name); }
+        catch (e) { say(`That font could not be read (${e.message}). Try a .ttf or .otf.`); render(); }
+      };
+      inp.click();
+      render();                                  // the list shows the current font again until one is read
+    }
+  }
   function loadScript(src) {
     return new Promise((res, rej) => { const el = document.createElement('script'); el.src = src; el.onload = res; el.onerror = () => rej(new Error(`${src} did not load`)); document.head.append(el); });
   }
@@ -833,14 +1000,15 @@
     if (TEXT.font) return TEXT.font;
     if (!window.opentype) await loadScript('vendor/opentype/opentype.min.js');
     for (const u of ['moto/russo-one.ttf', '../moto/russo-one.ttf']) {
-      try { const r = await fetch(u); if (r.ok) { TEXT.font = window.opentype.parse(await r.arrayBuffer()); return TEXT.font; } } catch (e) { /* the next place */ }
+      try { const r = await fetch(u); if (r.ok) { TEXT.font = window.opentype.parse(await r.arrayBuffer()); TEXT.name = BUILTIN; FONTS.set(BUILTIN, TEXT.font); return TEXT.font; } } catch (e) { /* the next place */ }
     }
     throw new Error('the built-in font did not load');
   }
   // the words as closed curves in board mm, the first letter's baseline starting at `at`,
   // capitals `h` mm tall
   function textCurves(t) {
-    const f = TEXT.font;
+    // the part's own font (a word edited later is set in its font, not the last one read)
+    const f = (t.font && FONTS.get(t.font)) || TEXT.font;
     if (!f || !t.str.trim()) return [];
     const os2 = f.tables.os2;
     const cap = (os2 && os2.sCapHeight) || (g => g.y2 - g.y1)(f.charToGlyph('H').getBoundingBox()) || f.unitsPerEm * 0.7;
@@ -865,10 +1033,194 @@
     checkCross(S.parts[S.sel]);
     render();
   }
-  function addPart(word, crv) {
+  // ── holes, add, cut, regions ──
+  // a curve as a fine polyline: about every half millimeter, so a region's edge keeps its curve
+  function flat(crv, step = 0.5) {
+    const L = [];
+    for (const b of V().cubics(crv)) {
+      const est = Math.hypot(b[1][0] - b[0][0], b[1][1] - b[0][1]) + Math.hypot(b[2][0] - b[1][0], b[2][1] - b[1][1]) + Math.hypot(b[3][0] - b[2][0], b[3][1] - b[2][1]);
+      const n = Math.max(4, Math.min(256, Math.ceil(est / step)));
+      for (let i = L.length ? 1 : 0; i <= n; i++) {
+        const t = i / n, u = 1 - t;
+        L.push([u * u * u * b[0][0] + 3 * u * u * t * b[1][0] + 3 * u * t * t * b[2][0] + t * t * t * b[3][0],
+                u * u * u * b[0][1] + 3 * u * u * t * b[1][1] + 3 * u * t * t * b[2][1] + t * t * t * b[3][1]]);
+      }
+    }
+    return L;
+  }
+  const loopsOf = part => part.curves.filter(c => isClosed(c.crv)).map(c => flat(c.crv));
+  // inside a part's material: inside an odd number of its outlines (a hole's inside is not)
+  const inPart = (q, loops) => loops.filter(L => inside(q, L)).length % 2 === 1;
+  const canHost = p => !p.gone && !p.line && !p.text && p.curves.some(c => isClosed(c.crv));
+  const crossesAny = (A, Bs) => Bs.some(B => { for (let i = 0; i < A.length - 1; i++) for (let j = 0; j < B.length - 1; j++) if (segX(A[i], A[i + 1], B[j], B[j + 1])) return true; return false; });
+  // a new outline wholly in a part's material, holding none of its outlines: a hole there
+  function holeIn(part, mine) {
+    const loops = loopsOf(part), b = boxOf(part.curves);
+    if (!mine.every(q => q[0] >= b[0] && q[0] <= b[2] && q[1] >= b[1] && q[1] <= b[3])) return false;
+    return mine.every((q, i) => i % 4 || inPart(q, loops)) && !loops.some(L => inside(L[0], mine)) && !crossesAny(mine, loops);
+  }
+  function touches(part, mine) {
+    const loops = loopsOf(part);
+    if (!mine.length) return false;
+    return loops.some(L => inside(L[0], mine) || inside(mine[0], L)) || crossesAny(mine, loops);
+  }
+  // the filled regions of an arrangement as outlines: main takes the first, the rest are new
+  // parts like it, the other parts in the group are gone. Their curves are fitted back to
+  // smooth pen points with the corners kept.
+  function rebuild(main, group, arr, fill) {
+    const out = G().merge(arr, fill);
     snap();
-    const n = S.parts.filter(p => !p.w).length + 1;
-    S.parts.push({ w: null, name: `${word} ${n}`, thick: S.thick, edge: { ...S.edge }, curves: [{ crv }], dirty: true });
+    const crvOf = loop => { const c = V().bezierChainCrv(G().fitLoop(loop)); c.ctrlPts[c.ctrlPts.length - 1] = c.ctrlPts[0].slice(); return c; };
+    for (const g of group) if (g !== main) { g.gone = true; g.dirty = true; }
+    if (!out.length) { main.gone = true; S.sel = -1; return `Nothing is left of ${main.name}: it goes when you press done (⌘Z brings it back).`; }
+    out.forEach((f, k) => {
+      const curves = [f.outer, ...f.holes].map(L => ({ crv: crvOf(L) }));
+      if (k === 0) { main.curves = curves; main.dirty = true; delete main.text; delete main.pencil; main.cross = null; main.over = null; return; }
+      S.parts.push({ w: null, name: `${String(main.name).replace(/\.(svg|dxf|ai|pdf)$/i, '')}-${k + 1}`, thick: main.thick, edge: { ...main.edge }, curves, dirty: true });
+    });
+    S.sel = S.parts.indexOf(main);
+    return out.length > 1 ? `${main.name} is ${out.length} parts now.` : '';
+  }
+  const modeSay = () => ({
+    auto: 'An outline drawn inside a part cuts a hole in it; anywhere else it is a part of its own.',
+    add: 'The next outline over a part joins it: one part.',
+    cut: 'The next outline over a part cuts its shape out of it.',
+    part: 'The next outline is a part of its own, even inside or over another.'
+  })[S.mode];
+  // the regions tool: the picked part and every part it overlaps (or every part), as regions
+  function enterRegions() {
+    const live = S.parts.filter(canHost);
+    let group = live;
+    const picked = S.reg && S.reg.main && !S.reg.main.gone ? S.reg.main : S.parts[S.sel];
+    if (picked && canHost(picked)) {
+      group = [picked];
+      for (let grew = true; grew;) {
+        grew = false;
+        for (const p of live) if (!group.includes(p) && group.some(g => touches(g, loopsOf(p)[0] || []) || touches(p, loopsOf(g)[0] || []))) { group.push(p); grew = true; }
+      }
+    }
+    S.reg = null;
+    if (!group.length) return say('Draw some outlines first: where they overlap, each region they make can be filled or emptied.');
+    const loops = [], owner = [];
+    for (const p of group) for (const L of loopsOf(p)) { loops.push(L); owner.push(p); }
+    let arr;
+    try { arr = G().regions(loops); } catch (e) { return say(`The regions could not be worked out (${e.message}).`); }
+    const filled = new Set();
+    arr.faces.forEach((f, i) => { if (f.at && group.some(p => inPart(f.at, loops.filter((_, k) => owner[k] === p)))) filled.add(i); });
+    S.reg = { arr, group, filled, was: new Set(filled), main: picked && group.includes(picked) ? picked : group[0] };
+    const nr = arr.faces.filter(f => f.at).length;
+    say(`${nr === 1 ? '1 region' : `${nr} regions`}. Click one to fill or empty it; apply (or done) makes the filled ones the parts.`);
+  }
+  function applyRegions() {
+    const R = S.reg;
+    if (!R) return;
+    if (R.filled.size === R.was.size && [...R.filled].every(i => R.was.has(i))) return;
+    S.reg = null;
+    const said = rebuild(R.main, R.group, R.arr, [...R.filled]);
+    say(said || `${R.main.name} is made of the filled regions now.`);
+    if (S.tool === 'regions') { S.reg = { main: R.main }; enterRegions(); }
+  }
+
+  // ── engraved lines ──
+  // the part a line is engraved into: the one with most of the line over its material
+  const HOSTS = new WeakMap();
+  function hostOf(line) {
+    const L = flat(line.curves[0].crv, 1);
+    let best = null, most = 0;
+    for (const p of S.parts) {
+      if (p.gone || p.line || !p.curves.some(c => isClosed(c.crv))) continue;
+      const loops = loopsOf(p), n = L.filter(q => inPart(q, loops)).length;
+      if (n > most) { most = n; best = p; }
+    }
+    return most >= L.length / 2 ? best : null;
+  }
+  function addLine(crv, extra) {
+    snap();
+    const n = S.parts.filter(p => p.line).length + 1;
+    S.parts.push({ w: null, line: true, name: `line ${n}`, depth: S.depth, curves: [{ crv }], dirty: true, ...(extra || {}) });
+    S.pen = []; S.hover = null; S.tool = 'select'; S.sel = S.parts.length - 1; S.pts.clear();
+    const host = hostOf(S.parts[S.sel]);
+    say(host ? `A line engraved ${LEN.say(S.depth)} into ${host.name}. Press done, then toolpaths: an engrave step cuts it.` : 'A line over no part: move it onto a part to engrave it there (a line over nothing is left out).');
+    render();
+  }
+  // the pen's points so far as an open line
+  function penLine() {
+    if (S.pen.length < 2) return say('A line needs at least two points.');
+    const pen = S.pen;
+    const crv = pen.some(q => q.h) ? V().bezierChainCrv(penPieces(pen, false)) : V().polyCrv(pen.map(q => q.p), false);
+    S.drag = null;
+    addLine(crv);
+  }
+
+  // ── the pencil ──
+  // a freehand stroke as smooth pen points: held to 1.5 px at the zoom it was drawn at
+  function pencilUp() {
+    const raw = S.stroke || [];
+    S.stroke = null;
+    if (raw.length < 3) { render(); return say('Drag to draw with the pencil.'); }
+    let px = 0;
+    for (let i = 1; i < raw.length; i++) px += Math.hypot(raw[i][0] - raw[i - 1][0], raw[i][1] - raw[i - 1][1]) * S.k;
+    if (px < 8) { render(); return say('Drag farther: the line is too short to keep.'); }
+    const a = raw[0], b = raw[raw.length - 1];
+    const gap = Math.hypot(a[0] - b[0], a[1] - b[1]) * S.k;
+    const closed = gap <= HIT + 8 && px > 6 * (HIT + 8);
+    const pts = closed && gap < 2 ? raw.slice(0, -1) : raw;
+    const stroke = G().smoothStroke(pts, closed);
+    const tol = Math.min(10, Math.max(0.001, 1.5 / S.k));
+    const idx = G().fitStroke(stroke, closed, { tol });
+    const pencil = { stroke, closed, n: idx.length };
+    const crv = pencilCrv(stroke, closed, idx);
+    if (closed) addPart('drawing', crv, { pencil });
+    else addLine(crv, { pencil });
+  }
+  function pencilCrv(stroke, closed, idx) {
+    const crv = V().bezierChainCrv(G().fitPieces(stroke, closed, idx));
+    if (closed) crv.ctrlPts[crv.ctrlPts.length - 1] = crv.ctrlPts[0].slice();
+    return crv;
+  }
+  // a pencil part's points again, n of them, from its stroke (its first curve; holes stay)
+  function refit(part, n) {
+    const pc = part.pencil, idx = G().fitStroke(pc.stroke, pc.closed, { count: n });
+    part.curves[0] = { crv: pencilCrv(pc.stroke, pc.closed, idx) };
+    pc.n = idx.length; part.dirty = true; S.pts.clear();
+    say(`${idx.length} points, within ${LEN.say(G().fitError(pc.stroke, pc.closed, idx))} of your line.`);
+  }
+
+  function addPart(word, crv, extra) {
+    // inside or over a part (the card's choice): a hole there, joined to it, cut from it, or its own part
+    if (S.mode !== 'part' && G()) {
+      const mine = flat(crv), hosts = S.parts.filter(canHost);
+      if (S.mode === 'auto') {
+        const host = hosts.find(p => holeIn(p, mine));
+        if (host) {
+          snap();
+          host.curves.push({ crv }); host.dirty = true;
+          S.pen = []; S.hover = null; S.tool = 'select'; S.sel = S.parts.indexOf(host); S.pts.clear();
+          say(`A hole in ${host.name}. To make it a part of its own instead: ⌘Z, then pick "a part of its own" in the card.`);
+          checkCross(host);
+          render();
+          return;
+        }
+      } else {
+        const host = hosts.find(p => touches(p, mine));
+        if (host) {
+          const loops = loopsOf(host), arr = G().regions([...loops, mine]), fill = [];
+          arr.faces.forEach((f, i) => { if (!f.at) return; const inH = inPart(f.at, loops), inN = inside(f.at, mine); if (S.mode === 'add' ? inH || inN : inH && !inN) fill.push(i); });
+          const said = rebuild(host, [host], arr, fill);
+          S.pen = []; S.hover = null; S.tool = 'select'; S.pts.clear();
+          say(said || (S.mode === 'add' ? `Joined to ${host.name}.` : `Cut from ${host.name}.`));
+          if (S.parts[S.sel]) checkCross(S.parts[S.sel]);
+          render();
+          return;
+        }
+      }
+    }
+    snap();
+    // a name no other part has (two "rectangle 1"s read as one in the parts list)
+    const taken = new Set([...S.parts.filter(p => !p.gone).map(p => p.name), ...api().widgets.all().map(w => w.meta && w.meta.file)]);
+    let n = 1;
+    while (taken.has(`${word} ${n}`)) n++;
+    S.parts.push({ w: null, name: `${word} ${n}`, thick: S.thick, edge: { ...S.edge }, curves: [{ crv }], dirty: true, ...(extra || {}) });
     S.pen = []; S.hover = null; S.tool = 'select'; S.sel = S.parts.length - 1; S.pts.clear();
     if (S.parts.length === 1 && !S.others.length) fit();   // Fable review 3 #19: the first drawing, not a fingernail on a 2.4 m bed
     say('Made. Drag its points to shape it, or press done to make it a part.');
@@ -936,6 +1288,8 @@
     if (k === 'r' || k === 'R') { setTool('rect'); return; }
     if (k === 'e' || k === 'E') { setTool('ellipse'); return; }
     if (k === 't' || k === 'T') { setTool('text'); return; }
+    if (k === 'n' || k === 'N') { setTool('pencil'); return; }
+    if (k === 'g' || k === 'G') { setTool('regions'); return; }
     if ((k === 'Delete' || k === 'Backspace') && S.tool === 'select') { e.preventDefault(); deletePts(); return; }
     if (k === 'Backspace' && S.tool === 'pen' && S.pen.length) { e.preventDefault(); S.pen.pop(); render(); return; }
     const ar = { ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, 1], ArrowDown: [0, -1] }[k];
@@ -962,6 +1316,7 @@
     let built = 0;
     for (const p of changed) {
       if (p.gone) { if (p.w) a.platform.delete(p.w); p.w = null; continue; }
+      if (p.line) continue;                      // engraved into a part, below
       const closed = p.curves.filter(c => isClosed(c.crv));
       if (closed.length < p.curves.length) open.push(p.name);
       if (!closed.length) continue;
@@ -985,14 +1340,84 @@
     }
     if (made.length) a.platform.select(made[0]);
     if (fresh && a.frame) setTimeout(() => a.frame(), 120);   // Fable review 3 #17: done counts as a landing
+    // engraved lines: each onto the part under it, in that part's own frame (local = bed − its place)
+    const lines = S.parts.filter(p => p.line);
+    let engraved = 0, stepAdded = false;
+    const loose = [];
+    if (lines.some(p => p.dirty || p.gone) || made.length || changed.some(p => p.gone)) {
+      const shapes = a.widgets.all().filter(w => w.meta && w.meta.svg && !w.meta.tilted)
+        .map(w => ({ w, loops: bedCurves(w).filter(c => isClosed(c.crv)).map(c => flat(c.crv, 1)), list: [] }));
+      for (const L of lines) {
+        L.dirty = false;
+        if (L.gone) continue;
+        const pts = flat(L.curves[0].crv, 1);
+        let best = null, most = 0;
+        for (const sh of shapes) { const k = pts.filter(q => inPart(q, sh.loops)).length; if (k > most) { most = k; best = sh; } }
+        if (!best || most < pts.length / 2) { loose.push(L.name); continue; }
+        const pos = best.w.track.pos, crv = clone(L.curves[0].crv);
+        crv.ctrlPts = crv.ctrlPts.map(([x, y, , wt]) => [x - pos.x, y - pos.y, 0, wt ?? 1]);
+        best.list.push({ crv, depth: L.depth });
+      }
+      for (const sh of shapes) {
+        const had = JSON.stringify(sh.w.meta.engrave || []);
+        if (sh.list.length) sh.w.meta.engrave = sh.list; else delete sh.w.meta.engrave;
+        if (JSON.stringify(sh.list) !== had && sh.w.saveState) sh.w.saveState();
+        engraved += sh.list.length;
+      }
+      if (engraved) stepAdded = engraveStep(a);
+    }
+    const lineSay = (engraved ? `${engraved === 1 ? '1 line is' : `${engraved} lines are`} engraved: ${stepAdded ? 'an engrave step was added to cut them' : 'the engrave step cuts them'}.` : '') +
+      (loose.length ? ` ${loose.join(', ')} ${loose.length === 1 ? 'is' : 'are'} over no part, so ${loose.length === 1 ? 'it was' : 'they were'} left out.` : '');
     // a word, or any one drawing, counts as one, however many parts its letters make
     const n = built;
     // done always leaves DRAW: what could not be made is said, and a part that was there stays as it was
     if (failed.length || adapted.length) {
-      a.show.alert([...adapted.map(x => x + '.'), ...failed].join(' ') + (failed.length ? ' Open draw again to change it.' : ''), 14);
+      a.show.alert([...adapted.map(x => x + '.'), ...failed].join(' ') + (failed.length ? ' Open draw again to change it.' : '') + (lineSay ? ' ' + lineSay.trim() : ''), 14);
       return;
     }
-    a.show.alert(open.length ? `${open.join(', ')}: open lines were left out (only closed outlines get a thickness).` : `${n === 1 ? (made.length > 1 ? `Made from the drawing: ${made.length} pieces, kept together.` : '1 part rebuilt from the drawing.') : `${n} drawings made into parts.`} Next: a step (${made.some(w => w.meta.edge) ? 'contour shapes the edge, outline cuts it out' : 'outline cuts it out'}), then toolpaths.`, 8);
+    const partSay = !n ? '' : open.length ? `${open.join(', ')}: open lines were left out (only closed outlines get a thickness; draw a line in DRAW to engrave it).` : `${n === 1 ? (made.length > 1 ? `Made from the drawing: ${made.length} pieces, kept together.` : '1 part rebuilt from the drawing.') : `${n} drawings made into parts.`} Next: a step (${made.some(w => w.meta.edge) ? 'contour shapes the edge, outline cuts it out' : 'outline cuts it out'}), then toolpaths.`;
+    const all = [partSay, lineSay.trim()].filter(Boolean).join(' ');
+    if (all) a.show.alert(all, 10);
+  }
+  // the engrave step: a trace that follows each line, bit center on it, filled in from the parts'
+  // lines each time the toolpaths are made (slice.begin). Added once, first, so the lines are cut
+  // before the outline cuts the part free.
+  function engraveStep(a) {
+    const s = a.conf.get(), proc = s.process;
+    const ops = proc.ops || (proc.ops = []);
+    if (ops.some(o => o && o.engrave)) return false;
+    const like = ops.find(o => o && (o.type === 'outline' || o.type === 'rough')) || {};
+    const tools = s.tools || [];
+    const tool = like.tool ?? (tools.some(t => t.id === proc.camTraceTool) ? proc.camTraceTool : (tools[0] && tools[0].id));
+    ops.unshift({
+      type: 'trace', engrave: true, mode: 'follow', offset: 'none', tool,
+      spindle: like.spindle || proc.camTraceSpindle || 1000, direction: proc.camMillDirection || 'climb',
+      step: 0.4, down: like.down || 2, thru: false, rate: like.rate || proc.camTraceSpeed || 250, plunge: like.plunge || proc.camTracePlunge || 200,
+      offover: 0, offz: 0, dogbone: false, revbone: false, ignore: false, merge: false, ov_topz: 0, ov_botz: 0, ov_conv: !proc.camConventional,
+      areas: {}
+    });
+    a.conf.save();
+    a.event.emit('cam.op.render');
+    return true;
+  }
+  // each engrave step's lines, from every part's own: z is the part's top less the line's depth
+  function engraveAreas() {
+    const a = api();
+    const ops = (a.conf.get().process || {}).ops || [];
+    for (const op of ops) {
+      if (!op || !op.engrave) continue;
+      op.areas = {};
+      for (const w of a.widgets.all()) {
+        if (!(w.meta && Array.isArray(w.meta.engrave) && w.meta.engrave.length) || w.meta.tilted) continue;
+        const g = w.mesh.geometry;
+        g.computeBoundingBox();
+        const top = g.boundingBox.max.z, bot = g.boundingBox.min.z;
+        op.areas[w.id] = w.meta.engrave.map(L => {
+          const z = Math.max(bot, top - L.depth);
+          return [1, ...flat(L.crv, 0.25).flatMap(q => [q[0], q[1], z])];
+        });
+      }
+    }
   }
 
   // ── wiring ──
@@ -1005,9 +1430,10 @@
       a.event.on('widget.scale', ({ widget, x, y }) => track(widget, [x || 1, 0, 0, y || 1]));
       a.event.on('widget.rotate', onRotate);
       a.event.on('widget.mirror', ({ widget }) => track(widget, [-1, 0, 0, 1]));
+      a.event.on('slice.begin', () => { try { engraveAreas(); } catch (e) { console.warn('swarf engrave', e); } });
       if (step && !step.dataset.wired) { step.dataset.wired = '1'; step.addEventListener('click', open); }
     }
   }, 150);
 
-  window.__swarfDraw = { open, close, bedCurves, state: () => S, isChain, text: TEXT };
+  window.__swarfDraw = { open, close, bedCurves, state: () => S, isChain, text: TEXT, fonts: FONTS, engraveAreas };
 })();

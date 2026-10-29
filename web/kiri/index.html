@@ -616,6 +616,11 @@
                         <dt>router</dt><dd>Porter-Cable 7518. swarf only switches it on and off; set its speed on its dial, 1 (10,000 rpm) to 5 (21,000).</dd>
                         <dt>test cut</dt><dd>learn the machine on scrap plywood. the square and the circle: a groove you measure with calipers. cut out a square: a part held by tabs.</dd>
                         <dt>draw</dt><dd>the bed seen from above. pen, rectangle, ellipse, text; move points; give it a thickness and a top edge. done or switching mode keeps your changes; cancel drops them.</dd>
+                        <dt>holes</dt><dd>in draw, an outline drawn wholly inside a part is a hole in it. the card's inside or over a part makes the next outline add to the part, cut from it, or a part of its own instead.</dd>
+                        <dt>regions</dt><dd>draw › regions (G): overlapping outlines split into every region they make. click a region to fill or empty it; apply, done or another tool makes the filled regions the parts.</dd>
+                        <dt>pencil</dt><dd>draw › pencil (N): drag freehand and it becomes a few smooth points that move like the pen's. points in the card fits it again: fewer is smoother. end near the start to close it.</dd>
+                        <dt>engrave</dt><dd>draw a line over a part (the pencil, or the pen: click its last point again), give it an engrave depth, press done: an engrave step cuts along the line, the bit's center on it, that deep from the part's top.</dd>
+                        <dt>fonts</dt><dd>draw › text › font: the built-in Russo One, this computer's fonts (Chrome and Edge ask first), or a .ttf or .otf file. each word keeps its own font.</dd>
                         <dt>shape</dt><dd>a circle, rectangle, ring, polygon, star or slot, with a thickness.</dd>
                         <dt>modes</dt><dd>cam, draw and control. in draw or control the step row folds to those three.</dd>
                         <dt>zero at</dt><dd>where X 0, Y 0 sits on the stock: its front-left corner (the default), or its center for something round. you put the bit on that spot before you cut.</dd>
@@ -912,6 +917,7 @@
 <script src="swarf-place.js"></script>
 <script src="swarf-bedname.js"></script>
 <script type="module" src="swarf-vector.mjs"></script>
+<script type="module" src="swarf-draw-geom.mjs"></script>
 <!-- swarf accessibility layer: dialog focus-trap, live-region slice progress,
      aria-pressed on sim-bar toggles. Pattern adapted from Rendre's a11y pass. -->
 <script src="swarf-a11y.js"></script>

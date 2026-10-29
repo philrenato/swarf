@@ -2341,3 +2341,12 @@ body:has(#modal[style*="flex"]) #swarf-size, body:has(#modal[style*="flex"]) #sw
 body.swarf-draw-open #panel-right, body.swarf-draw-open #swarf-right-rail, body.swarf-draw-open #swarf-concerns {
   z-index: -1 !important; pointer-events: none !important;
 }
+/* DRAW: engraved lines, regions (swarf-draw.js) */
+#swarf-draw svg .sd-part.sd-line, html[data-skin] #swarf-draw svg .sd-part.sd-line, html[data-skin] #swarf-draw svg .sd-part.sd-line:hover { fill: none !important; stroke-width: 2.4; stroke-linecap: round; stroke-dasharray: 7 3 !important; }
+html[data-skin] #swarf-draw svg .sd-part.sd-line.on { fill: none !important; stroke-width: 3; }
+#swarf-draw .sd-reg { fill: rgba(216,210,198,.03); fill-rule: evenodd; stroke: #7d736b; stroke-width: 1; stroke-dasharray: 3 3; cursor: pointer; pointer-events: fill; }
+#swarf-draw .sd-reg:hover { fill: rgba(216,210,198,.14); }
+#swarf-draw .sd-reg.on { fill: rgba(216,210,198,.38); stroke: #f2ede4; stroke-dasharray: none; }
+#swarf-draw .sd-reg.on:hover { fill: rgba(216,210,198,.3); }
+html[data-skin] #swarf-draw svg .sd-part.sd-regsrc, #swarf-draw svg .sd-part.sd-regsrc { stroke-dasharray: none !important; stroke-width: 1; pointer-events: none; }
+#swarf-draw .sd-card select.wide { width: 140px; text-overflow: ellipsis; } #swarf-draw .sd-card select#sd-mode { width: 100%; flex: 1; }
