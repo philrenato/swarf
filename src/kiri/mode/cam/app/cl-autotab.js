@@ -407,7 +407,12 @@ function describe(plans) {
     if (plans.some(p => p.hand)) line += ' Your own tabs stay.';
     if (plans.some(p => p.plan.small)) line += ' A small part: fewer tabs fit.';
     if (plans.some(p => p.rule.capped)) line += ` Height held to ${say(r.height)}, under the board's thickness.`;
+    // what it could not do, said, not left to a success line (codex review 10-29)
+    const skipped = plans.reduce((a, p) => a + (p.plan.skipped || 0), 0);
+    if (skipped) line += ` ${skipped} tab${skipped === 1 ? '' : 's'} did not fit: add ${skipped === 1 ? 'it' : 'them'} by hand with + where the part needs holding.`;
+    if (plans.some(p => !p.rule.pinned.height && p.rule.height < p.rule.heightFloor - 0.01)) line += ` The board is thin, so the tabs are only ${say(r.height)} tall (under the usual ${say(r.heightFloor)}): check they hold.`;
     if (!n) line = 'No straight enough edge for a tab here: place them by hand with +.';
+    else line += ' A starting layout: look at every part and every cutout before you cut.';
     return line;
 }
 

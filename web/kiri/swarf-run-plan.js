@@ -160,7 +160,7 @@
     // VCarve says where it put Z zero: &PWZorigin = Table Surface
     const zo = (src.events || []).filter(e => e.kind === 'z-origin').pop();
     if (zo && /table/i.test(zo.value)) out.push({ k: 'table-zero', text: 'the file says Z zero is on the table surface, not on the board\'s top' });
-    else if (cuts.length && cuts.every(m => m.z > -0.01 && m.z0 > -0.01) && cuts.some(m => m.z > 0.5)) out.push({ k: 'table-zero', text: 'every cut in this file is above Z 0, so it was made with Z zero on the table, not on the board\'s top' });
+    else if (cuts.length && cuts.every(m => m.z > -0.01 && m.z0 > -0.01) && cuts.some(m => m.z > 0.5)) out.push({ k: 'table-zero', text: 'every cut in this file is above Z 0: it looks made with Z zero on the table, not on the board\'s top. swarf runs only files zeroed on the board\'s top' });
     return out;
   }
 

@@ -378,7 +378,11 @@
           let v = Math.min(s.feed, s.vStart + k * sDone, s.vEnd + k * (s.len - sDone));
           // the feed override scales a cut's speed, never past the machine's top; a raise ramps in
           if (s.mv.cut && this.override !== 1) {
-            v = Math.min(s.feed * this.override, this.m.maxFeed || Infinity, s.vStart * Math.max(1, this.override) + k * sDone, s.vEnd * Math.max(1, this.override) + k * (s.len - sDone));
+            // the move's own bounds (vmax / vmin, set by the driver from the checked plan): an override
+            // never takes a cut past its axis speeds or under the card's slowest step for it
+            const want = Math.max(Math.min(s.feed * this.override, s.mv.vmax ?? Infinity), Math.min(s.mv.vmin ?? 0, s.feed));
+            if (want !== s.feed * this.override) this.limited = true;
+            v = Math.min(want, this.m.maxFeed || Infinity, s.vStart * Math.max(1, this.override) + k * sDone, s.vEnd * Math.max(1, this.override) + k * (s.len - sDone));
             if (this.vLast != null) v = Math.min(v, this.vLast + k * mmPerTick);
           }
           this.vLast = v;

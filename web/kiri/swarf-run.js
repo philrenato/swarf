@@ -326,7 +326,10 @@ body.swarf-run-open { filter: none !important; }
 .sr-jog .sr-modes button.held { flex: none; }
 .sr-jog .sr-pad { display: grid; grid-template-columns: repeat(3, 60px) 22px 60px; grid-template-rows: repeat(3, 50px); gap: 6px; justify-content: center; margin: 12px 12px 0; }
 .sr-jog .sr-pad button small { font-size: 9px; letter-spacing: .06em; }
-.sr-jog .sr-keys { margin: 8px 12px 0; white-space: normal; font-size: 11px; }   /* never cut a safety line short (review 10-29) */
+.sr-jog .sr-keys { margin: 8px 12px 0; white-space: normal; font-size: 11px; }
+.sr-faultbar { display: flex; align-items: center; gap: 10px; margin: 6px 0 8px; padding: 8px 10px; border-radius: 8px; background: #b3261e; color: #fff; font-size: 13px; font-weight: 600; }
+.sr-faultbar .sr-faulttext { flex: 1; }
+.sr-faultbar button { flex: none; font-size: 13px; padding: 6px 14px; }   /* never cut a safety line short (review 10-29) */
 .sr-jog .sr-goto { display: flex; gap: 6px; margin: 10px 12px 0; }
 .sr-jog .sr-goto > button { flex: 1; padding: 8px 0; }
 @media (max-width: 900px) { .sr-grid { grid-template-columns: 1fr; overflow-y: auto; } .sr-col > .sr-view { flex: none; height: 360px; } }
@@ -641,7 +644,11 @@ html[data-skin] #swarf-run .sr-jog .sr-zrow button.next, html[data-skin] #swarf-
       el.measure = h('button', { text: 'measure it', title: 'Type in what your calipers read', onclick: () => window.__swarfLessons && window.__swarfLessons.measure() }));
     el.lessonLink = h('a', { class: 'sr-other', text: 'a test cut', href: '#', title: 'Learn the machine on a scrap of plywood: zero, trace, cut, then measure it' });
     el.lessonLink.addEventListener('click', e => { e.preventDefault(); if (window.__swarfLessons) window.__swarfLessons.choose(); });
-    el.prog.append(el.fileInput, h('div', { class: 'sr-file' }, el.fileName, el.fromCam), el.start, h('div', {}, el.otherFile, el.lessonLink));
+    // a latched fault: a red bar over the program, its button the way out (reviews 10-29: only a small
+    // underlined "all clear" in the to-run line said so)
+    el.faultText = h('span', { class: 'sr-faulttext' });
+    el.faultBar = h('div', { class: 'sr-faultbar', style: 'display:none' }, el.faultText, h('button', { class: 'go', text: 'all clear…', onclick: () => faultCard() }));
+    el.prog.append(el.faultBar, el.fileInput, h('div', { class: 'sr-file' }, el.fileName, el.fromCam), el.start, h('div', {}, el.otherFile, el.lessonLink));
     el.btn = {
       trace: h('button', { class: 'trace', text: 'trace', title: 'Run the rectangle the cut fills, 25 mm up, router off', onclick: () => askCut('trace') }),
       air: h('button', { class: 'air', text: 'air cut', title: 'Run the whole file above your board, router off', onclick: () => askCut('air') }),
@@ -1324,7 +1331,7 @@ html[data-skin] #swarf-run .sr-jog .sr-zrow button.next, html[data-skin] #swarf-
     const offer = S.zeroSetAt && S.zeroHad && (S.zeroHad.xy || S.zeroHad.z) && !S.zeroXY && !S.zeroZ && !S.zx && !S.zy && !S.toolChange && !S.zStale && !running
       && (!isDirect() || (S.machine.state && S.machine.state.connected));
     el.keepZero.style.display = offer ? '' : 'none';
-    if (offer && S.zeroReconnect) el.keepZero.textContent = `the board and the machine have not moved since ${S.discWhy || (S.discAt ? 'you disconnected' : 'the link dropped')}: use the zero from ${new Date(S.zeroSetAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}`;
+    if (offer && S.zeroReconnect) el.keepZero.textContent = `the board and the machine have not moved since ${S.discWhy || (S.discAt ? 'you disconnected' : 'the link dropped')}: use the zero from ${new Date(S.zeroSetAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}${S.discAt ? '' : ', then trace to check it'}`;
     else if (offer) el.keepZero.textContent = `use the zero you set at ${new Date(S.zeroSetAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })} (${S.zeroHad.xy && S.zeroHad.z ? 'X Y and Z' : S.zeroHad.xy ? 'X Y' : 'Z'}): the board has not moved`;
     // the plan's checks follow the zero (Fable review 3 #1: it said "fits the table" when it no longer did)
     const sig = S.prog ? problems().block.join('|') : '';
@@ -1579,7 +1586,11 @@ html[data-skin] #swarf-run .sr-jog .sr-zrow button.next, html[data-skin] #swarf-
   function keepZero() {
     const had = S.zeroHad || { xy: true, z: true };
     S.zeroXY = !!had.xy; S.zeroZ = !!had.z; S.zx = S.zy = !!had.xy; S.zeroReconnect = false; S.discAt = 0; S.discWhy = '';
-    if (S.lostAt || S.stoppedAt) S.traced = true;   // a job that was running had its trace; the student has just vouched for the zero
+    // the board still clamped is not the machine still knowing where it is (codex review 10-29): after
+    // the link dropped, or a job stopped short, the zero comes back but the trace does not. Tracing
+    // again shows the bit going round the board where it should, before any cut
+    const unsure = !!(S.lostAt || S.stoppedAt || (S.zeroReconnect && !S.discAt));
+    if (unsure) { S.traced = false; tell('Zero kept. Trace once before you cut: it shows the machine still knows where your board is.', 'warn'); }
     refresh();
   }
 
@@ -2128,7 +2139,8 @@ html[data-skin] #swarf-run .sr-jog .sr-zrow button.next, html[data-skin] #swarf-
     el.connBtn.style.display = st.connected && !sim ? 'none' : '';
     el.discBtn.style.display = st.connected && !sim ? '' : 'none';
     el.ovr.style.display = isDirect() && st.running ? '' : 'none';
-    el.ovrVal.textContent = `${st.override || 100}%`;
+    el.ovrVal.textContent = `${st.override || 100}%${st.overrideHeld ? ' (held)' : ''}`;
+    el.ovrVal.title = st.overrideHeld ? 'some moves run slower or faster than this: the machine\'s speed limits for them hold' : '';
     el.ovrDn.disabled = (st.override || 100) <= 50; el.ovrUp.disabled = (st.override || 100) >= 150;
     el.discBtn.disabled = !!(st.running || st.moving);
     el.simCtl.style.display = sim ? '' : 'none';
@@ -2155,6 +2167,10 @@ html[data-skin] #swarf-run .sr-jog .sr-zrow button.next, html[data-skin] #swarf-
         if (p) p.textContent = dry ? 'The bit stopped where it was. Resume carries on from here, router still off. End the job stops it.'
           : 'The bit stopped where it was; it slows for a few seconds before it stops turning. Resume starts the router and carries on from here. End the job keeps the line so you can continue later.';
       }
+    }
+    if (el.faultBar) {
+      el.faultBar.style.display = S.fault ? '' : 'none';
+      if (S.fault) el.faultText.textContent = `${S.fault[0].toUpperCase()}${S.fault.slice(1)}. Check the machine, then:`;
     }
     el.veil.classList.toggle('on', veiled);
     el.veil.parentElement.classList.toggle('sr-veiled', veiled);   // its buttons only: the ones under it hide (review 10-28)

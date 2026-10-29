@@ -103,7 +103,8 @@
       if (!Number.isFinite(+pct)) return this.state.override || 100;
       const v = Math.max(50, Math.min(150, Math.round(pct / 5) * 5));
       this.planner.override = v / 100;
-      this.set({ override: v });
+      this.planner.limited = false;
+      this.set({ override: v, overrideHeld: false });
       return v;
     }
 
@@ -415,6 +416,8 @@
             // every motion, a jog or a seek as much as a cut, stops on the remote stop
             if (!this.stopClear(inputs) && !this.remoteStop) { this.remoteStop = true; this.estopPending = true; if (this.state.running) this.halted = 'stop'; this.planner.stop(); this.set({ note: `stopped by the e-stop (input ${this.stopCfg().input})` }); }
             if (hook) hook(inputs, ack);
+            // the override held at a move's limits: said beside the percentage
+            if (p.limited && !this.state.overrideHeld) this.set({ overrideHeld: true });
             if (p.st) this.set({ pos: this.work(p.st.cur), line: p.st.line > 0 ? p.st.line : this.state.line, inputs });
           }
         });
@@ -695,15 +698,26 @@
     opsOf(plan, out) {
       const ops = [];
       const word = w => { if (w !== out) { const on = (w & 1) && !(out & 1); out = w; const op = { out: w, line: 0 }; if (on) { const prev = ops[ops.length - 1]; (prev && prev.out === undefined && prev.dwell === undefined ? prev : op).cue = () => this.cue('router'); } ops.push(op); } };
-      let zWas = null;
+      let was = null;
+      const u = this.cfg.unit, T = root.ShopBotCard.TICK_HZ / 65536, mv = this.cfg.move;
       plan.steps.forEach((s, si) => {
         // cut: a program move that is not a rapid and does not go down, the moves the feed override
         // scales; a plunge or a ramp down keeps the file's feed (torture test 10-29: 150 % took a
         // plunge past the machine's Z speed)
         if (s.move) {
-          const down = zWas !== null && s.move.z < zWas - 1e-6;
-          zWas = s.move.z;
-          ops.push(Object.assign(this.machine(s.move), { feed: s.feed, line: s.line, si, cut: s.phase === 'program' && !(s.work && s.work.rapid) && !down, ...(s.work ? { work: s.work } : {}) }));
+          const a = was, b = s.move;
+          was = b;
+          const down = a !== null && b.z < a.z - 1e-6;
+          const op = Object.assign(this.machine(b), { feed: s.feed, line: s.line, si, cut: s.phase === 'program' && !(s.work && s.work.rapid) && !down, ...(s.work ? { work: s.work } : {}) });
+          // the override stays inside what the plan checked (codex review 10-29): at most the XY
+          // speed and the Z speed along this move's slope, at least the card's slowest step for it
+          if (op.cut && a) {
+            const L = Math.hypot(b.x - a.x, b.y - a.y, b.z - a.z), dz = Math.abs(b.z - a.z);
+            const st = Math.max(...['x', 'y', 'z'].map(k => Math.abs(Math.round(b[k] * u[k]) - Math.round(a[k] * u[k]))));
+            op.vmax = Math.min(mv.xy, dz > 1e-9 && L > 0 ? mv.z * L / dz : Infinity);
+            op.vmin = st ? T * L / st * 1.02 : 0;
+          }
+          ops.push(op);
         }
         else if (s.router !== undefined) word(s.router ? out | SPINDLE : out & ~SPINDLE);
         else if (s.out) word(s.on ? out | (1 << (s.out - 1)) : out & ~(1 << (s.out - 1)));
