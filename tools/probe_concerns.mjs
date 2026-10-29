@@ -58,8 +58,9 @@ try {
     await wait(400);
 
     const concerns = () => page.evaluate(() => ({
-        count: +document.getElementById('swarf-concerns-count').textContent,
-        titles: [...document.querySelectorAll('#swarf-concerns-body .swarf-concern strong')].map(e => e.textContent),
+        // the feed and speed rules under test; a part with no tabs is its own concern (probe_loose.mjs)
+        count: [...document.querySelectorAll('#swarf-concerns-body .swarf-concern strong')].filter(e => !/cut free with no tabs|loose piece/.test(e.textContent)).length,
+        titles: [...document.querySelectorAll('#swarf-concerns-body .swarf-concern strong')].map(e => e.textContent).filter(t => !/cut free with no tabs|loose piece/.test(t)),
     }));
     const setOp = (field, value) => page.evaluate(([f, v]) => {
         const op = window.kiri.api.conf.get().process.ops.find(o => o && o.type === 'rough');
@@ -76,6 +77,9 @@ try {
         await wait(300);
     };
 
+    // the MR-1, as this probe was written for (the ShopBot is the default since 082)
+    await page.evaluate(() => window.kiri.api.devices.select('Langmuir.MR-1'));
+    await new Promise(r => setTimeout(r, 900));
     await setMaterial('aluminum_6061');
     out.steps.push({ step: 'aluminum, preset', ...(await concerns()) });
     const op = await setOp('plunge', 280);

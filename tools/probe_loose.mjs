@@ -46,6 +46,24 @@ try {
   check(c.some(t => /ring is cut free with no tabs/.test(t)), `no tabs: "ring is cut free with no tabs" (${c})`);
   check(c.some(t => /1 loose piece inside ring/.test(t)), `and "1 loose piece inside ring" (${c})`);
 
+  // a rough to the bottom frees the part too (Phil 10-29: a circle with only a rough step)
+  await page.evaluate(() => {
+    const a = window.kiri.api;
+    a.conf.get().process.ops = [];
+    const el = [...document.getElementById('op-add-list').children].find(c => c.innerText.trim().toLowerCase() === 'rough');
+    el?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+  });
+  await wait(500);
+  c = await concerns();
+  check(c.some(t => /ring is cut free with no tabs/.test(t)), `a rough alone: still "cut free with no tabs" (${c})`);
+  await page.evaluate(() => {
+    const a = window.kiri.api;
+    a.conf.get().process.ops = [];
+    const el = [...document.getElementById('op-add-list').children].find(c => c.innerText.trim().toLowerCase() === 'outline');
+    el?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+  });
+  await wait(500);
+
   // auto tabs: the outside and the hole
   await page.evaluate(() => { const a = window.kiri.api; a.platform.select(a.widgets.all()[0]); window.__swarfAutoTabs.preview(); document.getElementById('swarf-autotabs-apply').click(); });
   await wait(500);

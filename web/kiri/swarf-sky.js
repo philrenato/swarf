@@ -165,6 +165,27 @@
       if (changed && api.conf.save) api.conf.save();
     } catch (e) {}
 
+    // swarf 083: the ShopBot's rapids travel 5 mm (0.2 in, VCarve's usual safe Z) above the board,
+    // not Kiri's 1 mm (Phil 10-29: the 1 mm raised a concern on a default setup). Raised on load and
+    // whenever the ShopBot is picked, only when under 3 mm, and said once.
+    try {
+      const raise = () => {
+        const s = api.conf && api.conf.get && api.conf.get();
+        if (!s || !s.process || !/shopbot/i.test((s.device && s.device.deviceName) || '')) return;
+        if (!(s.process.camZClearance < 3)) return;
+        s.process.camZClearance = 5.08;
+        try { api.conf.update_fields && api.conf.update_fields(); } catch (e) {}
+        if (api.conf.save) api.conf.save();
+        try { api.event.emit('cam.op.render'); } catch (e) {}
+        if (!localStorage.getItem('swarf.083.zclear-said')) {
+          localStorage.setItem('swarf.083.zclear-said', '1');
+          setTimeout(() => { try { api.show.alert('the ShopBot now moves between cuts 5 mm (0.2 in) above the board: clear of screws and clamps. limits › z clearance changes it', 8); } catch (e) {} }, 1500);
+        }
+      };
+      raise();
+      api.event.on('device.selected', () => setTimeout(raise, 0));
+    } catch (e) {}
+
     // swarf r5: force animation-mesh density down for stored profiles. Upstream
     // Kiri defaults animesh to "800"; swarf r5 lowers it to "500" (grid density
     // is (animesh · stockArea)² so this ~2× speeds up "building animation").

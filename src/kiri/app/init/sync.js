@@ -641,12 +641,16 @@ function setup_keybd_nav() {
                         }
                     }
                 }
-                // rapids skim the board: Z clearance is how far above the top they travel
+                // rapids skim the board: z clearance is how far above its top they travel. The ShopBot
+                // gets 5 mm (swarf-sky.js); under 3 mm there (screws, clamps, a board not flat over a
+                // sheet) or 0.5 mm on the MR-1's plate, it is a concern (Phil 10-29: it fired on 1 mm)
                 const zc = proc.camZClearance;
-                if (zc != null && zc < 1) warnings.push({
-                    title: `rapids ${zc} mm above the board`,
-                    body: zc <= 0 ? 'with z clearance at or under 0, every rapid move runs at or into the board at full speed.' : 'moves across at rapid speed barely clear the board and catch on anything standing on it.',
-                    hint: 'z clearance (limits) at least 3 mm; 5 mm is typical' });
+                const sb = /shopbot/i.test((settings.device && settings.device.deviceName) || '');
+                const zsay = v => window.SwarfLength ? window.SwarfLength.say(v) : `${(+v).toFixed(1)} mm`;
+                if (zc != null && zc < (sb ? 3 : 0.5)) warnings.push({
+                    title: `rapids only ${zsay(zc)} above the board`,
+                    body: zc <= 0 ? 'with z clearance at or under 0, every rapid move runs at or into the board at full speed.' : 'moves between cuts barely clear the board and catch on a screw, a clamp or a high spot.',
+                    hint: `limits › z clearance: ${sb ? '5 mm (0.2 in)' : 'at least 1 mm'}` });
             } catch (e) { /* swallow until ops shape is finalised */ }
             // the bed is a limit on both machines (Fable review 3 #13): a part bigger than the bed,
             // or hanging off it, is a concern in cam, not only a blocked file in control
@@ -679,18 +683,19 @@ function setup_keybd_nav() {
             // cuts, loose on the last pass, where the spinning bit can throw it
             try {
                 const proc = api.conf.get().process || {};
-                const outl = (proc.ops || []).filter(o => o && o.type === 'outline' && !o.disabled);
+                const outl = (proc.ops || []).filter(o => o && (o.type === 'outline' || o.type === 'rough') && !o.disabled);
                 const through = !(proc.camZBottom > 0) && !proc.camStockIndexed;
                 const audit = window.__swarfAutoTabs && window.__swarfAutoTabs.audit;
                 if (outl.length && through && audit) {
-                    const outer = outl.some(o => !o.inside), holes = outl.some(o => !o.omitthru && !o.omitvoid);
+                    // a rough down to the part's bottom frees it as an outline does (Phil 10-29: a rough-only circle)
+                    const outer = outl.some(o => o.type === 'rough' || !o.inside), holes = outl.some(o => !o.omitthru && !o.omitvoid);
                     for (const w of api.widgets.all()) {
                         if (w.track.synth) continue;
                         const name = (w.meta && w.meta.file || 'a part').replace(/\.[^.]+$/, '');
                         const a = audit(w);
                         if (outer && a.outerTabs === 0) warnings.push({
                             title: `${name} is cut free with no tabs`,
-                            body: 'the outline cuts all the way through, so on the last pass the part comes loose. The spinning bit can grab it and throw it.',
+                            body: `the ${outl.some(o => o.type === 'outline') ? 'outline' : 'rough'} cuts all the way down around it, so on the last pass the part comes loose. The spinning bit can grab it and throw it.`,
                             hint: 'tabs › auto tabs holds it to the board, or screw it down where the bit does not go' });
                         const loose = holes ? a.loose.filter(h => h.tabs === 0) : [];
                         if (loose.length) {
