@@ -694,7 +694,8 @@ function setup_keybd_nav() {
     // "you're missing the machining tools"). Opens Kiri's tool editor modal.
     (function(){
         const b = $('swarf-open-tools');
-        if (b) b.onclick = (ev) => { ev.stopPropagation(); api.modal.show('tools'); };
+        // api.show.tools fills the list first; showing the modal alone left it empty (Phil 10-29)
+        if (b) b.onclick = (ev) => { ev.stopPropagation(); api.show.tools(); };
     })();
 
     // swarf: Searchable Help — index of every named thing in swarf with a

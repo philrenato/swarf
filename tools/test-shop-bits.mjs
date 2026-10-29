@@ -24,17 +24,17 @@ assert.equal(up.flute_diam, 0.25, 'the up-cut is 1/4 in (the shop library had th
 const lim = { spindleMin: 10000, spindleMax: 21000, feedMax: 15240, feedMaxZ: 2540 };
 const mats = JSON.parse(read('web/kiri/swarf-materials.json'));
 const ply = (Array.isArray(mats) ? mats : mats.materials).find(m => m.id === 'plywood');
-// in plywood today swarf is under the shop's numbers: nothing changes
-const a = derive(ply, 6.35, lim), b = derive(ply, 6.35, lim, up);
-assert.equal(b.feed, a.feed); assert.equal(b.stepdown, a.stepdown);
+// in plywood the shop's bit cuts with the shop's own numbers (10-29): 120 in/min, 1/8 in a pass, 12,000 rpm
+const b = derive(ply, 6.35, lim, up);
+assert.equal(b.feed, 3050, `shop feed (${b.feed})`); assert.equal(b.stepdown, 3.15, `shop pass, rounded down (${b.stepdown})`); assert.equal(b.spindle, 12000);
+assert.ok(b.plunge <= b.feed && b.plunge <= lim.feedMaxZ);
 assert.ok(Math.abs(b.shop.feed - 3048) < 1e-9 && Math.abs(b.shop.pass - 3.175) < 1e-9, 'the shop numbers in mm');
-// a plywood record asking far more: the shop's numbers take over
+// any other bit in wood: at least 1500 mm/min where it can take it, above the motors' rough band
+const g = derive(ply, 6.35, lim);
+assert.equal(g.feed, 1500, `generic 1/4 in floor (${g.feed})`);
+const tiny = derive(ply, 1.5875, lim);
+assert.ok(tiny.feed < 1500 && tiny.feed > 1000, `a 1/16 in bit keeps under its own chip limit (${tiny.feed})`);
 const hot = { ...ply, cut: { ...ply.cut, chip: 0.05, down: 0.9 } };
-const h = derive(hot, 6.35, lim, up);
-assert.equal(h.feed, 3050, `feed capped to the shop's 120 in/min (${h.feed})`);
-assert.equal(h.stepdown, 3.15, `pass capped under the shop's 1/8 in (${h.stepdown})`);
-assert.ok(h.plunge <= h.feed);
-assert.ok(derive(hot, 6.35, lim).feed > 3050, 'a generic bit is not capped');
 // not wood: the shop library says nothing
 const acr = { id: 'acrylic', cut: { ...hot.cut } };
 assert.ok(derive(acr, 6.35, lim, up).feed > 3050 && derive(acr, 6.35, lim, up).shop === null);

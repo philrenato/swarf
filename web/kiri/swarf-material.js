@@ -478,12 +478,20 @@
     // way to the shop's, which are cautious by design. Inches and in/s there; mm and mm/min here.
     let shop = null;
     if (sw && sw.shop && SHOP_WOODS.has(m.id)) {
+      // the shop's own numbers for its own bit (Phil 10-29: they are what ShopBot 3 cuts with here,
+      // and swarf's own sat in the motors' rough band and rubbed more than it cut)
       const S = sw.shop, sf = S.feed * 25.4 * 60, sp = S.plunge * 25.4 * 60, sd = S.pass * 25.4;
-      if (feed > 1.5 * sf) feed = Math.round(sf / 10) * 10;
-      if (plunge > 1.5 * sp) plunge = Math.round(sp / 5) * 5;
-      if (plunge > feed) plunge = feed;
-      if (down > 1.5 * sd) { down = Math.min(down, sd); capped = true; }
+      feed = Math.round(Math.min(sf, lim.feedMax > 0 ? lim.feedMax : sf) / 10) * 10;
+      plunge = Math.round(Math.min(sp, feed, lim.feedMaxZ > 0 ? lim.feedMaxZ : sp) / 5) * 5;
+      down = sd; capped = true;
+      if (S.rpm) rpm = Math.max(lim.spindleMin || 0, Math.min(lim.spindleMax || S.rpm, S.rpm));
       shop = { feed: sf, plunge: sp, pass: sd };
+    } else if (SHOP_WOODS.has(m.id)) {
+      // any other bit in wood: at least 1500 mm/min, above the rough band (~25 mm/s), when the bit
+      // can take it (a chip of 2% of its diameter a tooth at most)
+      const most = rpm * c.flutes * 0.02 * diamMm;
+      const floor = Math.min(1500, most);
+      if (feed < floor) { feed = Math.round(floor / 10) * 10; plunge = Math.round(Math.min(feed * 0.35, lim.feedMaxZ > 0 ? lim.feedMaxZ : feed) / 5) * 5; }
     }
     // a cap rounds down, never past itself
     down = capped ? Math.floor(down * 20 + 1e-9) / 20 : Math.round(down * 20) / 20;
