@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // Auto tabs, without a browser: the rule's defaults for the two shop cases (3/4 in plywood on the
 // ShopBot, 1 in aluminum on the MR-1) and the placement on sliced parts (a plate, a ring with a
-// big hole, a small part, an L, a plate with a small hole): every tab on the outline, clear of
+// big hole, a small part, an L, plates with a 40 mm and a 12 mm hole): every tab on the outline, clear of
 // corners, facing away from the material, spread by length.
 // Run: node tools/test-autotabs.mjs
 import { tabRule, planTabs, sliceLoops, tabRecord, area, inside } from '../src/kiri/mode/cam/app/autotab-rule.js';
@@ -86,8 +86,10 @@ const plate = run('600x400 ply plate', [rect(0, 0, 600, 400)], 19.05, ply, (o, h
 run('300x200 ply part', [rect(0, 0, 300, 200)], 19.05, ply, (o) => o.length === 4 && o.every(t => Math.abs(t.x - 150) < 0.5 || Math.abs(t.y - 100) < 0.5));
 // a ring with a 200 mm hole: the hole's cut-out piece is big, it gets tabs; the outside 4+
 run('ring 400 / hole 200', [circle(0, 0, 200), circle(0, 0, 100).reverse()], 19.05, ply, (o, h) => o.length >= 5 && h.length >= 2);
-// a plate with a 40 mm hole: the hole gets none
-run('plate with small hole', [rect(0, 0, 300, 200), circle(150, 100, 20).reverse()], 19.05, ply, (o, h) => o.length === 4 && h.length === 0);
+// a plate with a 40 mm hole: its 27 mm piece comes loose, so it gets a tab or two (Phil 10-29:
+// "anything that could fly off"); a 12 mm hole leaves a sliver under 3 mm and gets none
+run('plate with 40 mm hole', [rect(0, 0, 300, 200), circle(150, 100, 20).reverse()], 19.05, ply, (o, h) => o.length === 4 && h.length >= 1 && h.length <= 2);
+run('plate with 12 mm hole', [rect(0, 0, 300, 200), circle(150, 100, 6).reverse()], 19.05, ply, (o, h) => o.length === 4 && h.length === 0);
 // a small 60 x 30 part: fewer, still more than one
 run('60x30 small part', [rect(0, 0, 60, 30)], 19.05, ply, (o) => o.length >= 2 && o.length <= 3);
 // an L: tabs keep off its six corners

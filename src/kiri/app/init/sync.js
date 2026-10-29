@@ -650,6 +650,37 @@ function setup_keybd_nav() {
                         hint: sz < 6.35 ? 'use the laser for thin sheet' : 'ask the technician about thicker stock' });
                 }
             } catch (e) { /* no device yet */ }
+            // cut free with nothing holding it (Phil 10-29: "anything that could fly off the
+            // machine"; "cuts that seem to go all the way through without tabs should be flagged"):
+            // an outline cut through the board leaves the part, and every piece inside a hole it
+            // cuts, loose on the last pass, where the spinning bit can throw it
+            try {
+                const proc = api.conf.get().process || {};
+                const outl = (proc.ops || []).filter(o => o && o.type === 'outline' && !o.disabled);
+                const through = !(proc.camZBottom > 0) && !proc.camStockIndexed;
+                const audit = window.__swarfAutoTabs && window.__swarfAutoTabs.audit;
+                if (outl.length && through && audit) {
+                    const outer = outl.some(o => !o.inside), holes = outl.some(o => !o.omitthru && !o.omitvoid);
+                    for (const w of api.widgets.all()) {
+                        if (w.track.synth) continue;
+                        const name = (w.meta && w.meta.file || 'a part').replace(/\.[^.]+$/, '');
+                        const a = audit(w);
+                        if (outer && a.outerTabs === 0) warnings.push({
+                            title: `${name} is cut free with no tabs`,
+                            body: 'the outline cuts all the way through, so on the last pass the part comes loose. The spinning bit can grab it and throw it.',
+                            hint: 'tabs › auto tabs holds it to the board, or screw it down where the bit does not go' });
+                        const loose = holes ? a.loose.filter(h => h.tabs === 0) : [];
+                        if (loose.length) {
+                            const big = Math.max(...loose.map(h => h.across));
+                            const say = window.SwarfLength ? window.SwarfLength.say(big) : `${big} mm`;
+                            warnings.push({
+                                title: `${loose.length} loose piece${loose.length === 1 ? '' : 's'} inside ${name}`,
+                                body: `${loose.length === 1 ? 'a hole leaves' : `${loose.length} holes leave`} a piece cut free (${loose.length === 1 ? '' : 'the widest '}${say} across) with no tab. It can fly when it comes loose.`,
+                                hint: 'tabs › auto tabs with "hold inside pieces" on, or a pocket that clears the hole instead' });
+                        }
+                    }
+                }
+            } catch (e) { /* tabs not ready yet */ }
             render(warnings);
         }
         function render(warnings) {
@@ -669,7 +700,7 @@ function setup_keybd_nav() {
         // re-evaluate on settings + op changes
         // conf.save emits settings.saved on every op add/edit; the material
         // system emits cam.op.render after a re-derive
-        ['settings','settings.saved','cam.op.render','widget.add','widget.delete','device.selected','selection.move','selection.scale','selection.drag']
+        ['settings','settings.saved','cam.op.render','widget.add','widget.delete','device.selected','selection.move','selection.scale','selection.drag','slice.end']
             .forEach(ev => api.event.on(ev, evaluate));
         window.addEventListener('swarf.material.change', evaluate);
     })();
@@ -726,7 +757,8 @@ function setup_keybd_nav() {
             { kind:'run', name:'zero at', body:'where X 0, Y 0 sits on the stock: its front-left corner (the default), or its center for something round. you put the bit on that spot before you cut.', tags:'zero origin corner center center round x0 y0' },
             { kind:'run', name:'skin', body:'view › skin: wet plastic (default), classic, swarf.', tags:'skin theme look glass classic' },
             { kind:'op', name:'auto tabs', body:'tabs › auto tabs: a starting set of tabs sized for the material, the bit, the board and the machine. how many: fewer to more; size: smaller to larger. apply makes ordinary tabs you can still remove or add to by hand.', tags:'auto tabs bridges hold parts cutout outline' },
-            { kind:'op', name:'tab settings', body:'tabs: every number is a field — length, height, reach, how many, from corners, big holes, in each hole. empty = automatic (grey); type a value to pin it. tabs follow their part: change a field, scale the part, or change the material, bit or machine, and they are placed again. all automatic empties them.', tags:'tab settings length height reach how many count corners holes pinned automatic parametric tab size' },
+            { kind:'op', name:'tab settings', body:'tabs: every number is a field — length, height, reach, count, from corners, hold inside pieces, holes from, in each hole. empty = automatic (grey); type a value to pin it. tabs follow their part: change a field, scale the part, or change the material, bit or machine, and they are placed again. all automatic empties them.', tags:'tab settings length height reach how many count corners holes pinned automatic parametric tab size' },
+            { kind:'op', name:'loose pieces', body:'an outline that cuts through frees the part, and the piece inside every hole it cuts. with no tab it can catch the bit and fly. concerns and the cut checklist name each one; auto tabs hold them (hold inside pieces), or screw them down where the bit does not go. never reach in while the router turns.', tags:'loose pieces cut free through no tabs fly thrown slug hole inside piece retain hold down screw' },
             { kind:'run', name:'windows', body:'control runs in Chrome or Edge on Windows too. quit ShopBot 3 first: the box takes one program at a time. press disconnect (or close the tab) before going back to ShopBot 3. if Chrome lists no port for the box, check the box is on and its cable in, quit ShopBot 3, and press connect again.', tags:'windows pc com port com3 shopbot 3 chrome edge one program driver' },
             { kind:'run', name:'windows laptop', body:'your own Windows laptop (no ShopBot software): give the box a driver once with Zadig (zadig.akeo.ie): Options › List All Devices, pick V204ShopBot (USB ID 10C4 83C4), set WinUSB, Replace Driver. never on a PC that runs ShopBot 3.', tags:'windows laptop zadig winusb driver student usb' },
             { kind:'run', name:'disconnect', body:'lets go of the box (outputs off), so another program can use it. connect again and swarf offers to keep your zero.', tags:'disconnect release box com port shopbot 3 reconnect' },

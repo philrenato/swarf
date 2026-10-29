@@ -1095,6 +1095,28 @@ html[data-skin] #swarf-run .sr-jog .sr-zrow button.next, html[data-skin] #swarf-
     return { xy, z };
   }
 
+  // what cam's parts leave loose when the outline cuts through: the same rule as cam's concerns
+  function looseWords() {
+    const out = [];
+    try {
+      const a = window.kiri && window.kiri.api, audit = window.__swarfAutoTabs && window.__swarfAutoTabs.audit;
+      if (!a || !audit) return out;
+      const proc = a.conf.get().process || {};
+      const outl = (proc.ops || []).filter(o => o && o.type === 'outline' && !o.disabled);
+      if (!outl.length || proc.camZBottom > 0 || proc.camStockIndexed) return out;
+      const outer = outl.some(o => !o.inside), holes = outl.some(o => !o.omitthru && !o.omitvoid);
+      for (const w of a.widgets.all()) {
+        if (w.track.synth) continue;
+        const name = (w.meta && w.meta.file || 'a part').replace(/\.[^.]+$/, '');
+        const r = audit(w);
+        if (outer && r.outerTabs === 0) out.push(`${name} is cut free with no tabs: it comes loose on the last pass and the bit can throw it. Add tabs in cam (tabs › auto tabs), or screw it down where the bit does not go.`);
+        const loose = holes ? r.loose.filter(h => h.tabs === 0).length : 0;
+        if (loose) out.push(`${loose} piece${loose === 1 ? '' : 's'} inside ${name} ${loose === 1 ? 'is' : 'are'} cut free with no tab and can fly. Add tabs in cam, or screw ${loose === 1 ? 'it' : 'each one'} to the spoilboard where the bit does not go. Never reach in while the router turns.`);
+      }
+    } catch (e) { /* cam not ready */ }
+    return out;
+  }
+
   function problems() {
     const out = { block: [], warn: [] };
     if (!S.prog) return out;
@@ -1108,6 +1130,8 @@ html[data-skin] #swarf-run .sr-jog .sr-zrow button.next, html[data-skin] #swarf-
     }
     if (p.units === 'in') out.warn.push('Written in inches: swarf turns every move into millimeters (1 in = 25.4 mm). The checklist shows the size in both.');
     else if (p.units !== 'mm') out.block.push(`This file's units (${p.units}) are not inches or millimeters.`);
+    // from cam: a part, or a piece inside a hole, the outline cuts free with no tab (Phil 10-29)
+    if (S.prog.source === 'cam') for (const line of looseWords()) out.warn.push(line);
     const b = P.cutBounds(p);
     const L = M.LIMITS;
     // Z: the file's whole rise and fall within the axis' travel, and a word on deep cuts and on

@@ -25,7 +25,7 @@ import { api } from '../../../app/api.js';
 import { env } from './init-ui.js';
 import { addbox, delbox } from '../../../app/boxes.js';
 import { addWidgetTab } from './cl-tab.js';
-import { tabRule, planTabs, sliceLoops, tabRecord, HOLE_MIN } from './autotab-rule.js';
+import { tabRule, planTabs, sliceLoops, tabRecord, holeMinFor, inside } from './autotab-rule.js';
 import { space as SPACE } from '../../../../moto/space.js';
 
 const PREVIEW_COLOR = 0xff8800;
@@ -42,8 +42,8 @@ export const FIELDS = [
     { key: 'depth',     label: 'reach',        kind: 'len', title: 'how far each tab reaches across the cut; at least the bit' },
     { key: 'count',     label: 'count',        kind: 'int', title: 'how many tabs around each part\'s outside edge' },
     { key: 'corner',    label: 'from corners', kind: 'len', title: 'how far the middle of a tab stays from a corner' },
-    { key: 'holes',     label: 'big holes',    kind: 'bool', title: 'put tabs in big holes too, so the piece cut out of the hole stays put' },
-    { key: 'holeMin',   label: 'big hole',     kind: 'len', title: 'a hole at least this wide across gets tabs' },
+    { key: 'holes',     label: 'hold inside pieces', kind: 'bool', title: 'put tabs in holes too, so the piece cut out of a hole stays put and cannot fly' },
+    { key: 'holeMin',   label: 'holes from',   kind: 'len', title: 'a hole at least this wide across gets tabs (automatic: any hole that leaves a loose piece)' },
     { key: 'holeCount', label: 'in each hole', kind: 'int', title: 'tabs in each big hole' },
 ];
 
@@ -293,6 +293,59 @@ export function autoRefresh(force) {
     return plans.length;
 }
 
+// distance from a point to a closed loop
+function toLoop(p, loop) {
+    let d = Infinity;
+    for (let i = 0; i < loop.length; i++) {
+        const a = loop[i], b = loop[(i + 1) % loop.length];
+        const dx = b.x - a.x, dy = b.y - a.y, l2 = dx * dx + dy * dy || 1;
+        const t = Math.max(0, Math.min(1, ((p.x - a.x) * dx + (p.y - a.y) * dy) / l2));
+        d = Math.min(d, Math.hypot(p.x - a.x - t * dx, p.y - a.y - t * dy));
+    }
+    return d;
+}
+
+const audits = new Map();   // widget id -> { key, out }
+
+/**
+ * What would come loose when this part is cut through (Phil 10-29: "anything that could fly off
+ * the machine"): its outside with no tab, and every hole that leaves a loose piece with no tab.
+ * @returns {{ outerTabs: number, loose: Array<{ across: number, tabs: number }>, holeMin: number }}
+ */
+export function autoAudit(widget, opt = {}) {
+    const list = api.widgets.annotate(widget.id).tab || [];
+    const b = widget.track.box || {};
+    const bit = autoInputs(widget).bitMm;
+    const key = JSON.stringify([b.w, b.h, b.d, bit, opt.holes, list.map(r => [r.id, r.pos.x, r.pos.y, r.dim.x])]);
+    const was = audits.get(widget.id);
+    if (was && was.key === key) return was.out;
+    const pos = widget.getGeoVertices({ unroll: true });
+    let zmin = Infinity;
+    for (let i = 2; i < pos.length; i += 3) zmin = Math.min(zmin, pos[i]);
+    const loops = sliceLoops(pos, zmin + Math.min(1, (b.d || 2) / 4));
+    const holeMin = holeMinFor(bit);
+    // which loop each tab sits on: the nearest, within its reach
+    const on = list.map(r => {
+        let best = -1, bd = Infinity;
+        loops.forEach((l, i) => { const d = toLoop(r.pos, l); if (d < bd) { bd = d; best = i; } });
+        return bd <= (r.dim.x || 0) / 2 + 2 ? best : -1;
+    });
+    let outerTabs = 0;
+    const loose = [];
+    loops.forEach((loop, li) => {
+        const depth = loops.reduce((c, other, oi) => c + (oi !== li && inside(loop[0], other) ? 1 : 0), 0);
+        const tabs = on.filter(i => i === li).length;
+        if (depth % 2 === 0) { outerTabs += tabs; return; }
+        let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+        for (const p of loop) { x0 = Math.min(x0, p.x); y0 = Math.min(y0, p.y); x1 = Math.max(x1, p.x); y1 = Math.max(y1, p.y); }
+        const across = Math.min(x1 - x0, y1 - y0);
+        if (across >= holeMin) loose.push({ across: Math.round(across * 10) / 10, tabs });
+    });
+    const out = { outerTabs, loose, holeMin, loops: loops.length };
+    audits.set(widget.id, { key, out });
+    return out;
+}
+
 /** Forget every part's settings (the trash button took every tab away). */
 export function autoForget() {
     for (const w of api.widgets.all()) delete api.widgets.annotate(w.id).tabset;
@@ -380,8 +433,8 @@ function showFields(plan) {
     const auto = plan ? {
         width: plan.rule.auto.width, height: plan.rule.auto.height, depth: plan.rule.auto.depth,
         count: outer ? outer.count : '', corner: plan.rule.width / 2 + plan.rule.bit,
-        holeMin: HOLE_MIN, holeCount: hole ? hole.count : '–',
-    } : { holeMin: HOLE_MIN };
+        holeMin: holeMinFor(plan.rule.bit), holeCount: hole ? hole.count : '–',
+    } : {};
     for (const f of FIELDS) {
         const el = els.fields[f.key];
         if (!el) continue;
@@ -568,7 +621,7 @@ export function autoTabRow() {
     }, 0);
     window.__swarfAutoTabs = {
         plan: autoPlan, preview: autoPreview, apply: autoApply, cancel: autoCancel, inputs: autoInputs, rule: tabRule,
-        refresh: autoRefresh, forget: autoForget, fields: FIELDS,
+        refresh: autoRefresh, forget: autoForget, audit: autoAudit, fields: FIELDS,
         get settings() { return clone(cur); },
         set(o) { cur = normal(Object.assign(clone(cur), o)); edited(); return clone(cur); },
     };

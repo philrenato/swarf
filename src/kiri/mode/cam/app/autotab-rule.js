@@ -20,9 +20,12 @@
  *            ShopBot, 3 on the MR-1; 3 on a part under 100 mm, 2 under 40 mm), and at least 4 on
  *            a part with 4 or more straight sides (one a side, so no side is left to lift; 3 at
  *            "fewer"), at most what fits with a gap of two tab footprints between tabs
- *   holes  = a hole whose opening is 75 mm or more across gets tabs too (half as many, at least
- *            2): its cut-out piece is big enough to catch the bit when it comes free. A smaller
- *            hole gets none.
+ *   holes  = a hole that leaves a loose piece when the outline cuts it gets tabs too (half as
+ *            many, at least 2, or 1 where two do not fit): anything cut free can catch the bit
+ *            and fly (Phil 10-29: "anything that could fly off the machine"). The bit takes its
+ *            own width from each side, so a hole narrower than 2 bits + 3 mm leaves only a
+ *            sliver and gets none (holeMin, below). On a tight hole a tab is shorter, at most
+ *            an eighth of the way round and never under the bit.
  *
  *   material   hFrac  floor  hMax   wPerD  wMin  wMax  spacing  tRef
  *   wood       0.25   2.0    6      2.0    6     25    250      19.05   plywood mdf hardwood osb hardboard
@@ -59,7 +62,9 @@ export const MACHINES = {
     other:  { name: 'machine', hFloor: 1.5, minTabs: 3 },
 };
 
-export const HOLE_MIN = 75;      // a hole this wide (its narrower side) or more gets tabs
+export const HOLE_MIN = 75;      // the old threshold (before 10-29): a hole this wide or more got tabs
+// a hole this wide (its narrower side) or more leaves a loose piece more than 3 mm across
+export const holeMinFor = bitMm => Math.round((2 * (bitMm > 0 ? bitMm : 6.35) + 3) * 100) / 100;
 const CORNER_DEG = 25;           // a turn sharper than this is a corner a tab keeps away from
 const BEND_DEG = 20;             // the most an edge may turn under one tab: a straight-ish run
 
@@ -255,12 +260,11 @@ const cdist = (a, b, L) => { const d = Math.abs(a - b) % L; return Math.min(d, L
  * @returns {{ tabs: Array<{x,y,nx,ny,hole,loop}>, outer: number, holes: number, skipped: number, small: boolean, per: Array }}
  */
 export function planTabs(loops, rule, opt = {}) {
-    const holeMin = opt.holeMin > 0 ? opt.holeMin : HOLE_MIN;
+    const holeMin = opt.holeMin > 0 ? opt.holeMin : holeMinFor(rule.bit);
     const holesOn = opt.holes !== false;
-    const W = rule.width, D = rule.bit;
-    // how far a tab's middle stays from a corner: half a tab and the bit, unless pinned
-    const clear = opt.corner > 0 ? opt.corner : W / 2 + D;
-    const foot = W + 2 * D;          // a tab and the bit's reach on each side
+    const W0 = rule.width, D = rule.bit;
+    // per loop below: W the tab's length there, foot a tab and the bit's reach on each side,
+    // clear how far a tab's middle stays from a corner (half a tab and the bit, unless pinned)
     const tabs = [];
     let outer = 0, holes = 0, skipped = 0, small = false;
     const per = [];   // per loop that got tabs: { hole, count, length }
@@ -270,6 +274,10 @@ export function planTabs(loops, rule, opt = {}) {
         const hole = depth % 2 === 1;
         const box = bbox(loop), m = measure(loop), L = m.L;
         if (!(L > 0)) return;
+        // a tight hole takes a shorter tab: at most an eighth of the way round, never under the bit
+        const W = hole ? Math.max(Math.min(W0, L / 8), Math.min(W0, D)) : W0;
+        const foot = W + 2 * D;
+        const clear = opt.corner > 0 ? opt.corner : W / 2 + D;
         const minDim = Math.min(box.w, box.h);
         // corners: arc positions of sharp turns
         const corners = [];
@@ -290,7 +298,7 @@ export function planTabs(loops, rule, opt = {}) {
         }
         const fit = Math.floor(L / (3 * foot));
         let n = Math.max(min, want);
-        if (n > fit) { n = Math.max(fit, 2); small = small || fit < min; }
+        if (n > fit) { n = Math.max(fit, hole ? 1 : 2); small = small || fit < min; }
         // which way is away from the material: out of an outside, into a hole
         const ccw = area(loop) > 0;
         const away = (hole ? -1 : 1) * (ccw ? 1 : -1);
@@ -309,6 +317,10 @@ export function planTabs(loops, rule, opt = {}) {
         if (!ok.length) {
             // nothing straight enough: allow closer to corners before giving up
             for (let at = 0; at < L; at += step) if (cornerDist(at) >= Math.min(clear, W / 2) && bendUnder(at) <= BEND_DEG * 2) ok.push(at);
+        }
+        if (!ok.length && hole) {
+            // a small round hole has no straight run: a tab anywhere on it still holds the piece
+            for (let at = 0; at < L; at += step) if (cornerDist(at) >= Math.min(clear, W / 2)) ok.push(at);
         }
         if (!ok.length) { skipped += n; return; }
         const gap = Math.max(foot, L / n * 0.5);
@@ -359,7 +371,7 @@ export function planTabs(loops, rule, opt = {}) {
         for (const at of pick.sort((a, b) => a - b)) {
             const p = pointAt(loop, m, at);
             const d = m.dir[p.e];
-            tabs.push({ x: p.x, y: p.y, nx: d.y * away, ny: -d.x * away, hole, loop: li, at: r2(at), of: r2(L) });
+            tabs.push({ x: p.x, y: p.y, nx: d.y * away, ny: -d.x * away, hole, loop: li, at: r2(at), of: r2(L), ...(W !== W0 ? { w: r2(W) } : {}) });
         }
         if (hole) holes++; else outer++;
         per.push({ hole, count: pick.length, length: r2(L) });
@@ -376,7 +388,7 @@ export function tabRecord(t, rule, z, id) {
     const a = Math.atan2(t.ny, t.nx);
     return {
         pos: { x: t.x + t.nx * rule.depth / 2, y: t.y + t.ny * rule.depth / 2, z },
-        dim: { x: rule.depth, y: rule.width, z: rule.height },
+        dim: { x: rule.depth, y: t.w || rule.width, z: rule.height },
         rot: [0, 0, Math.sin(a / 2), Math.cos(a / 2)],
         id,
         auto: true,
