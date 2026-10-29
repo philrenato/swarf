@@ -378,7 +378,7 @@
       moves.push({ x0: p.x, y0: p.y, z0: p.z, x: q.x, y: q.y, z: q.z, rapid: false, feed: 50, line: 0 });
       p = q;
     }
-    return { name: name + ' (trace)', moves, sbp: movesToSbp(moves, { name: name + ' trace', safeZ }), spindle: false };
+    return { name: name + ' (trace)', moves, sbp: movesToSbp(moves, { name: name + ' trace', safeZ }), source: parsed, spindle: false };
   }
 
   // Air cut: the whole program lifted so its deepest point sits `clear` mm
@@ -388,7 +388,7 @@
     if (!b) return null;
     const dz = Math.max(0, clear - b.min.z);
     const moves = parsed.moves.map(m => ({ ...m, z0: m.z0 + dz, z: m.z + dz }));
-    return { name: name + ' (air)', moves, dz, sbp: movesToSbp(parsed.moves, { name: name + ' air cut', dz, safeZ }), spindle: false };
+    return { name: name + ' (air)', moves, dz, sbp: movesToSbp(parsed.moves, { name: name + ' air cut', dz, safeZ }), source: parsed, spindle: false };
   }
 
   // Run from line: up to safe Z, over to where that line starts, down, then
@@ -415,7 +415,7 @@
     const outs = new Map();
     for (const e of parsed.events) if (e.line < line && e.kind === 'output' && e.value[0] >= 2) outs.set(e.value[0], e);
     const events = [...[...outs.values()].map(e => ({ ...e, line: line - 0.5 })), ...parsed.events.filter(e => e.line >= line)];
-    return { name: `${name} (from line ${line})`, moves, sbp, events, spindle: !!(on && on.kind === 'spindle-on') };
+    return { name: `${name} (from line ${line})`, moves, sbp, events, source: parsed, spindle: !!(on && on.kind === 'spindle-on') };
   }
 
   const api = { parse, boundsOf, cutBounds, movesToSbp, traceProgram, airProgram, fromLineProgram, entryMoves };
