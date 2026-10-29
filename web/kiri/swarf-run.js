@@ -1099,7 +1099,9 @@ html[data-skin] #swarf-run .sr-jog .sr-zrow button.next, html[data-skin] #swarf-
     if (near(b.min.x, w) && near(b.min.y, d)) xy = 'the front-left corner of your board';   // the poster's words (10-28)
     else if (near((b.min.x + b.max.x) / 2, w) && near((b.min.y + b.max.y) / 2, d)) xy = 'the center of your board';
     else xy = `the point your file calls X 0, Y 0 (the cut spans X ${b.min.x.toFixed(0)} to ${b.max.x.toFixed(0)}, Y ${b.min.y.toFixed(0)} to ${b.max.y.toFixed(0)} mm)`;
-    const z = b.max.z <= 2 && b.min.z < 0 ? 'the top of your board' : b.min.z >= -0.5 ? 'the table under your board' : 'where your file puts Z 0';
+    // cuts reaching below zero from no higher than a safe height start on the board's top (083: plunges
+    // now start at the 5 mm z clearance, past the old 2 mm test)
+    const z = b.max.z <= 26 && b.min.z < 0 ? 'the top of your board' : b.min.z >= -0.5 ? 'the table under your board' : 'where your file puts Z 0';
     return { xy, z };
   }
 
