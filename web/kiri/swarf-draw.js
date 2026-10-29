@@ -909,8 +909,8 @@
   function key(e) {
     if (!S) return;
     const typing = e.target && /INPUT|SELECT|TEXTAREA/.test(e.target.tagName);
-    // typing in DRAW's own fields never reaches cam's shortcuts (Backspace deleted the part under the board)
-    if (typing) { if (ui.el && ui.el.contains(e.target)) e.stopPropagation(); return; }
+    // typing in a field: the field's own keys (cam's shortcuts skip a focused select too, keyboard.js)
+    if (typing) return;
     e.stopPropagation();
     const k = e.key;
     if ((e.metaKey || e.ctrlKey) && k.toLowerCase() === 'z') { e.preventDefault(); undo(); return; }

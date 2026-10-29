@@ -93,7 +93,7 @@ try {
     document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true })); window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
     const words = T.PAGES.every(p => !(p.p || []).some(t => /%\w+%/.test(T.words(t)) || (/%/.test(t) && !T.words(t)))) && /stopped turning/.test(T.words('%finished%')) && /while swarf is in front/.test(T.words('%keyPause%'));
     return { first, second, show, pages, mail, stacked, words, open: r.classList.contains('on') }; });
-  check(qs && /Run ShopBot with Swarf/.test(qs.first) && /pick the ShopBot/.test(qs.second) && qs.show === 'use the ShopBot' && qs.pages === 13 && qs.stacked && qs.words && !qs.mail && !qs.open, `the quick start: ${JSON.stringify(qs)}`);
+  check(qs && /Run the ShopBot with swarf/.test(qs.first) && /pick the ShopBot/.test(qs.second) && qs.show === 'use the ShopBot' && qs.pages === 13 && qs.stacked && qs.words && !qs.mail && !qs.open, `the quick start: ${JSON.stringify(qs)}`);
   // sounds: made by the browser, the chip turns them off and on
   const snd = await page.evaluate(() => { const S = window.SwarfSound; if (!S) return null; S.set(0.6); const on = S.play('move'); S.set(0); const off = S.play('move'); S.set(0.6);
     const b = [...document.querySelectorAll('#swarf-run button')].find(x => /^sounds (on|off)$/.test(x.textContent)); const t0 = b && b.textContent; b && b.click(); const t1 = b && b.textContent; b && b.click();

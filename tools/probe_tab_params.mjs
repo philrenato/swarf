@@ -73,7 +73,7 @@ try {
   check(f.width.v === '' && near(+f.width.ph, 12.7) && f.width.unit === 'mm', `length is automatic: grey ${f.width.ph} ${f.width.unit}`);
   check(f.height.v === '' && near(+f.height.ph, 4.76), `height is automatic: grey ${f.height.ph}`);
   check(f.count.v === '' && f.count.ph === '4', `how many is automatic: grey ${f.count.ph}`);
-  check(f.holes === true && f.holeMin.ph === '75', `big holes on, a big hole is 75 mm (${f.holes}, ${f.holeMin.ph})`);
+  check(f.holes === true && f.holeMin.ph === '15.7', `hold inside pieces on, holes from 15.7 mm for a 1/4 in bit: any loose piece (${f.holes}, ${f.holeMin.ph})`);
   const hidden = await page.evaluate(() => ['camTabsWidth', 'camTabsHeight', 'camTabsDepth'].map(k => { const el = window.kiri.api.ui[k]; const row = el && (el.closest('.var-row') || el.parentNode); return !row || row.offsetParent === null || row.classList.contains('hide'); }));
   check(hidden.every(Boolean), `the three old size inputs are not shown twice (${hidden})`);
 

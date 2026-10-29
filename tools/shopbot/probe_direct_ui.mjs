@@ -108,7 +108,7 @@ try {
   await page.evaluate(() => document.querySelector('#swarf-run .sr-card .sr-out').click());
   const armed = await page.$eval('#swarf-run .sr-card .sr-out', e => e.textContent);
   await page.evaluate(() => document.querySelector('#swarf-run .sr-card .sr-out').click());
-  await new Promise(r => setTimeout(r, 2600));
+  await new Promise(r => setTimeout(r, 4200));   // the warning sound and its moment (1.2 s), then 2 s on
   clearInterval(watch);
   check(seen.includes(9) && seen[seen.length - 1] === 0, `output test: "${armed}" then outputs ${[...new Set(seen)].join(' → ')}`);
   const log = await page.evaluate(() => window.__swarfRun.state.machine.logText());
@@ -296,7 +296,9 @@ try {
     await page.evaluate(() => document.querySelector('#swarf-run .sr-keepzero').click());
     await new Promise(r => setTimeout(r, 200));
     u = await ui();
-    check(u.step === 'cut' && u.from, `the student vouches for the zero: step ${u.step}, continue shown`);
+    // codex review 10-29: the zero comes back, the trace does not; tracing again shows the machine
+    // still knows where the board is, then continue
+    check(u.step === 'trace' && u.from, `the student vouches for the zero: step ${u.step} (trace again first), continue shown`);
     // unplug again, card position moves (a restart): zero must go
     await page.evaluate(() => window.__unplug());
     await new Promise(r => setTimeout(r, 1500));

@@ -21,7 +21,7 @@ html[data-skin="classic"] {
   --swarf-line: #808080;  --swarf-line-2: #404040;
   --swarf-text: #000;  --swarf-text-1: #000;  --swarf-text-2: #262626;  --swarf-text-3: #3a3a3a;
   --swarf-accent: #000080;  --swarf-accent-hi: #0000a0;  --swarf-accent-dim: #000060;
-  --swarf-glow: transparent;  --swarf-amber: #b07000;  --swarf-green: #008000;
+  --swarf-glow: transparent;  --swarf-amber: #6a4200;  --swarf-green: #008000;
 
   --sk3d-fog: #336698;  --sk3d-floor: #c0c0c0;  --sk3d-floor-opacity: .85;  --sk3d-floor-light: .5;
   --sk3d-grid-major: #6f6f6f;  --sk3d-grid-minor: #a4a4a4;  --sk3d-ruler: #000000;
