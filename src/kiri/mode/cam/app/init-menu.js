@@ -3,6 +3,7 @@
 import { api } from '../../../app/api.js';
 import { originReset, originSelect } from './cl-origin.js';
 import { updateTool } from './tools.js';
+import { autoTabRow } from './cl-autotab.js';
 
 let LANG = api.language.current;
 let { CAM } = api.const.MODES,
@@ -135,6 +136,9 @@ export function menu() {
         (ui.tabDun = newButton(undefined, onButtonClick, {icon:'<i class="fas fa-check"></i>'})),
         (ui.tabClr = newButton(undefined, onButtonClick, {icon:'<i class="fas fa-trash-alt"></i>'}))
     ], {class:"ext-buttons f-row"}),
+    separator:           newBlank({ class:"set-sep", driven }),
+    // swarf: auto tabs, a starting set sized for the material, bit, board and machine
+    camTabsAuto:         newRow(autoTabRow(), {class:"swarf-autotabs-row"}),
     _____:               newGroup(LANG.cs_menu, $('cam-stock'), { modes:CAM, driven, separator, hideable, group:"cam-stock" }),
     camStockX:           newInput(LANG.cs_wdth_s, {title:LANG.cs_wdth_l, convert:toFloat, bound:bound(0,9999), units}),
     camStockY:           newInput(LANG.cs_dpth_s, {title:LANG.cs_dpth_l, convert:toFloat, bound:bound(0,9999), units}),

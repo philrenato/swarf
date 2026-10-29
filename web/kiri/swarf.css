@@ -2291,3 +2291,16 @@ html:not([data-skin]) #swarf-run .sr-keyrow button.sr-router.on small { color: #
 #swarf-start.compact h2, #swarf-start.compact p, #swarf-start.compact small, #swarf-start.compact .swarf-start-quick { display: none; }
 #swarf-start.compact .row { gap: 6px; }
 #swarf-start.compact .row button { font-size: 12px; padding: 5px 12px; }
+
+/* ---- auto tabs (tabs panel): a starting set of tabs, two sliders, a preview ---- */
+.swarf-autotabs-row { display: block; }
+.swarf-autotabs { display: flex; flex-direction: column; gap: 6px; padding: 4px 6px 6px; font-size: 12px; color: var(--swarf-text); }
+.swarf-autotabs-what { line-height: 1.35; opacity: 0.85; }
+.swarf-autotabs-btns { display: flex; flex-direction: row; gap: 6px; }
+.swarf-autotabs-btn { flex: 1; font-size: 12px; padding: 5px 6px; }
+.swarf-autotabs-slider { display: flex; flex-direction: row; align-items: center; gap: 6px; }
+.swarf-autotabs-slider .name { width: 62px; flex: none; }
+.swarf-autotabs-slider .end { flex: none; font-size: 11px; opacity: 0.8; }
+.swarf-autotabs-slider input[type=range] { flex: 1; min-width: 60px; accent-color: var(--swarf-accent); }
+.swarf-autotabs-say { line-height: 1.35; min-height: 1em; }
+.swarf-autotabs-say:empty { display: none; }
