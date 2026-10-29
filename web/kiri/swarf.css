@@ -2304,3 +2304,16 @@ html:not([data-skin]) #swarf-run .sr-keyrow button.sr-router.on small { color: #
 .swarf-autotabs-slider input[type=range] { flex: 1; min-width: 60px; accent-color: var(--swarf-accent); }
 .swarf-autotabs-say { line-height: 1.35; min-height: 1em; }
 .swarf-autotabs-say:empty { display: none; }
+/* auto tabs' fields: every attribute, empty = automatic (grey), typed = pinned */
+.swarf-autotabs, .swarf-autotabs * { text-transform: none !important; }
+.swarf-autotabs-fields { display: grid; grid-template-columns: 1fr; gap: 4px; }
+.swarf-autotabs-field { display: flex; flex-direction: row; align-items: center; gap: 4px; min-width: 0; }
+.swarf-autotabs-field .name { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.swarf-autotabs-field input[type=text] { width: 64px; flex: none; font-size: 12px; padding: 2px 4px; text-align: right; }
+.swarf-autotabs-field input[type=text]::placeholder { color: var(--swarf-text-3); font-style: italic; opacity: 1; }
+.swarf-autotabs-field input.pinned { font-weight: 600; }
+.swarf-autotabs-field input:disabled { opacity: 0.5; }
+.swarf-autotabs-field .unit { width: 20px; flex: none; font-size: 11px; opacity: 0.8; }
+.swarf-autotabs-field input[type=checkbox] { margin: 0; accent-color: var(--swarf-accent); }
+.swarf-autotabs-slider.off { opacity: 0.45; }
+.swarf-autotabs-reset { align-self: flex-start; font-size: 11px; padding: 3px 8px; }

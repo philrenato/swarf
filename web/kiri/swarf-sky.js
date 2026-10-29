@@ -132,19 +132,19 @@
       }
     } catch (e) { console.warn('swarf: drawers migration failed', e); }
 
-    // swarf r6: force MR-1 as the selected CAM device on first load (Phil
-    // markup). Selection lives in `filter.CAM` (a string device name);
-    // `cdev.CAM` is the expanded device CONFIG object and must not be a
-    // string — earlier attempt set it to "Langmuir.MR-1" and broke load.
+    // swarf 082: the ShopBot is the default machine (Phil 10-29: "make the shopbot the default
+    // machine"). New profiles get it from defaults.js (filter.CAM); a profile still on the MR-1
+    // that earlier builds picked for it is switched once. Someone who picks the MR-1 after
+    // this keeps it. (Replaces the r6 migration that forced the MR-1 on first load.)
     try {
-      const MIG_MR1 = 'swarf.r6.filter-mr1';
-      if (!localStorage.getItem(MIG_MR1) && api.conf && api.conf.get) {
+      const MIG_SB = 'swarf.082.default-shopbot';
+      if (!localStorage.getItem(MIG_SB) && api.conf && api.conf.get) {
+        localStorage.setItem(MIG_SB, '1');
         const s = api.conf.get();
-        if (s && s.filter) {
-          s.filter.CAM = 'Langmuir.MR-1';
-          if (api.conf.save) api.conf.save();
+        const name = (s && s.device && s.device.deviceName) || (s && s.filter && s.filter.CAM) || '';
+        if (/MR-1/i.test(name) && api.devices && api.devices.select) {
+          setTimeout(() => { try { api.devices.select('ShopBot.Basic'); } catch (e) {} }, 0);
         }
-        localStorage.setItem(MIG_MR1, '1');
       }
     } catch (e) {}
 

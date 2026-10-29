@@ -33,6 +33,10 @@
  * Two sliders move it: density (fewer .. more) multiplies the count by 2^(d/2), d = -2..2, so
  * half to twice as many; scale (smaller .. larger) multiplies width and height by 2^(s/3), about
  * 0.63 to 1.59 (the floors and the half-board cap still hold).
+ *
+ * Every number can also be pinned (o.pin in tabRule, opt in planTabs): a pinned value is used as
+ * typed and the sliders leave it alone; an unpinned one stays automatic. A pinned height still
+ * stays under the board's thickness (a tab as tall as the board is no cut at all).
  */
 
 export const CLASSES = {
@@ -90,15 +94,27 @@ export function tabRule(o = {}) {
     const floor = Math.max(cls.hFloor, mach.hFloor);
     let height = Math.max(floor, cls.hFrac * T * sm);
     height = Math.min(height, cls.hMax * Math.max(1, sm), T * 0.5);
-    const width = clamp(D * cls.wPerD * sm, cls.wMin * Math.min(1, sm), cls.wMax * Math.max(1, sm));
+    let width = clamp(D * cls.wPerD * sm, cls.wMin * Math.min(1, sm), cls.wMax * Math.max(1, sm));
+    let depth = Math.max(D, 3);
     const spacing = cls.spacing * clamp(Math.sqrt(T / cls.tRef), 0.6, 1.25) / dm;
     const minTabs = Math.max(3, mach.minTabs - (dens < 0 ? 1 : 0));
+    const auto = { width: r2(width), height: r2(height), depth: r2(depth) };
+    const pin = o.pin || {};
+    const pinned = {};
+    let capped = false;
+    if (pin.width > 0) { width = pin.width; pinned.width = true; }
+    if (pin.depth > 0) { depth = pin.depth; pinned.depth = true; }
+    if (pin.height > 0) {
+        height = Math.min(pin.height, T * 0.9);
+        capped = height < pin.height;
+        pinned.height = true;
+    }
     return {
         material: cls.name, machine: mach.name,
         bit: D, thickness: T,
-        width: r2(width), height: r2(height), depth: r2(Math.max(D, 3)),
+        width: r2(width), height: r2(height), depth: r2(depth),
         spacing: Math.round(spacing), minTabs, density: dens, scale: scl, densityMult: dm, scaleMult: sm,
-        heightFloor: floor,
+        heightFloor: floor, auto, pinned, capped,
     };
 }
 
@@ -235,14 +251,19 @@ const cdist = (a, b, L) => { const d = Math.abs(a - b) % L; return Math.min(d, L
  * Where the tabs go on every loop of one part.
  * @param {Array} loops closed loops of {x,y} (from sliceLoops)
  * @param {Object} rule from tabRule
- * @returns {{ tabs: Array<{x,y,nx,ny,hole,loop}>, outer: number, holes: number, skipped: number, small: boolean }}
+ * @param {Object} opt pins: { count, holeCount, holes (false = none), holeMin, corner }
+ * @returns {{ tabs: Array<{x,y,nx,ny,hole,loop}>, outer: number, holes: number, skipped: number, small: boolean, per: Array }}
  */
 export function planTabs(loops, rule, opt = {}) {
-    const holeMin = opt.holeMin ?? HOLE_MIN;
+    const holeMin = opt.holeMin > 0 ? opt.holeMin : HOLE_MIN;
+    const holesOn = opt.holes !== false;
     const W = rule.width, D = rule.bit;
+    // how far a tab's middle stays from a corner: half a tab and the bit, unless pinned
+    const clear = opt.corner > 0 ? opt.corner : W / 2 + D;
     const foot = W + 2 * D;          // a tab and the bit's reach on each side
     const tabs = [];
     let outer = 0, holes = 0, skipped = 0, small = false;
+    const per = [];   // per loop that got tabs: { hole, count, length }
     loops.forEach((loop, li) => {
         // nesting: inside an even number of other loops = the outside of material, odd = a hole
         const depth = loops.reduce((c, other, oi) => c + (oi !== li && inside(loop[0], other) ? 1 : 0), 0);
@@ -255,9 +276,12 @@ export function planTabs(loops, rule, opt = {}) {
         for (let i = 0; i < m.n; i++) if (m.turn[i] > CORNER_DEG) corners.push(m.s[i]);
         let want, min;
         if (hole) {
-            if (minDim < holeMin) return;
+            if (!holesOn || minDim < holeMin) return;
             want = Math.round(L / (rule.spacing * 2));
             min = 2;
+            if (opt.holeCount > 0) want = min = Math.round(opt.holeCount);
+        } else if (opt.count > 0) {
+            want = min = Math.round(opt.count);
         } else {
             want = Math.round(L / rule.spacing);
             min = minDim < 40 ? 2 : minDim < 100 ? Math.min(3, rule.minTabs) : rule.minTabs;
@@ -280,11 +304,11 @@ export function planTabs(loops, rule, opt = {}) {
         const step = Math.max(L / 1500, 0.25);
         const ok = [];
         for (let at = 0; at < L; at += step) {
-            if (cornerDist(at) >= W / 2 + D && bendUnder(at) <= BEND_DEG) ok.push(at);
+            if (cornerDist(at) >= clear && bendUnder(at) <= BEND_DEG) ok.push(at);
         }
         if (!ok.length) {
             // nothing straight enough: allow closer to corners before giving up
-            for (let at = 0; at < L; at += step) if (cornerDist(at) >= W / 2 && bendUnder(at) <= BEND_DEG * 2) ok.push(at);
+            for (let at = 0; at < L; at += step) if (cornerDist(at) >= Math.min(clear, W / 2) && bendUnder(at) <= BEND_DEG * 2) ok.push(at);
         }
         if (!ok.length) { skipped += n; return; }
         const gap = Math.max(foot, L / n * 0.5);
@@ -327,7 +351,7 @@ export function planTabs(loops, rule, opt = {}) {
                 const mid = (a + b) / 2;
                 const alone = pick.filter(t => { const x = t < a ? t + L : t; return x >= a && x <= b; }).length === 1;
                 const midN = ((mid % L) + L) % L;
-                if (alone && cdist(midN, at, L) <= 0.15 * L / n && cornerDist(midN) >= W / 2 + D && bendUnder(midN) <= BEND_DEG) return midN;
+                if (alone && cdist(midN, at, L) <= 0.15 * L / n && cornerDist(midN) >= clear && bendUnder(midN) <= BEND_DEG) return midN;
                 return at;
             });
         }
@@ -338,8 +362,9 @@ export function planTabs(loops, rule, opt = {}) {
             tabs.push({ x: p.x, y: p.y, nx: d.y * away, ny: -d.x * away, hole, loop: li, at: r2(at), of: r2(L) });
         }
         if (hole) holes++; else outer++;
+        per.push({ hole, count: pick.length, length: r2(L) });
     });
-    return { tabs, outer, holes, skipped, small };
+    return { tabs, outer, holes, skipped, small, per };
 }
 
 /**

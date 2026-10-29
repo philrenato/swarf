@@ -17,6 +17,7 @@ import { space } from '../../../../moto/space.js';
 import { Stack } from '../../../app/stack.js';
 import { surfaceOn, surfaceDone } from './cl-surface.js';
 import { tabAdd, tabDone, tabClear, restoreTabs, rotateTabs, updateTabs, clearTabs, mirrorTabs } from './cl-tab.js';
+import { autoRefresh, autoForget } from './cl-autotab.js';
 import { traceOn, traceDone, unselectTraces } from './cl-trace.js';
 import { toolOrder } from './tools.js';
 import { Widget, newWidget } from '../../../app/widget.js';
@@ -971,7 +972,7 @@ export function init() {
                 return tabDone();
             case api.ui.tabClr:
                 api.uc.confirm("clear tabs?").then(ok => {
-                    if (ok) tabClear();
+                    if (ok) { tabClear(); autoForget(); }
                 });
                 break;
         }
@@ -985,7 +986,7 @@ export function init() {
     api.event
         .on("cam.tabs.add", tabAdd)
         .on("cam.tabs.done", tabDone)
-        .on("cam.tabs.clear", tabClear);
+        .on("cam.tabs.clear", () => { tabClear(); autoForget(); });
 
     api.event
         .on("cam.zplane.show", zPlaneShow)
@@ -998,6 +999,8 @@ export function init() {
             return;
         }
         clearPops();
+        // swarf: auto tabs follow their part's settings, size, material, bit, board and machine
+        try { autoRefresh(); } catch (e) { console.warn('auto tabs', e); }
         recreateTabs();
         for (let group of Widget.Groups.list()) {
             for (let widget of group) {

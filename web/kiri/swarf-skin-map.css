@@ -912,7 +912,7 @@ html[data-skin] #layer-animate button {
     border: 1px solid var(--swarf-line, rgb(var(--sk-n3) / calc(1 * var(--sk-a-n3, 1)))) !important;
     color: var(--swarf-text-1, rgb(var(--sk-n9) / calc(1 * var(--sk-a-n9, 1)))) !important
 }
-html[data-skin] #layer-animate button:nth-of-type(2) {
+html[data-skin] #layer-animate button:nth-of-type(2):not(.swarf-toggle) {
     background: var(--swarf-accent, rgb(var(--sk-acc-dim) / calc(1 * var(--sk-a-acc-dim, 1)))) !important;
     border-color: var(--swarf-accent-hi, rgb(var(--sk-acc) / calc(1 * var(--sk-a-acc, 1)))) !important;
     box-shadow: 0 0 10px rgb(var(--sk-acc) / calc(0.35 * var(--sk-a-acc, 1)))
@@ -1223,6 +1223,260 @@ html[data-skin] #swarf-draw [data-tool] kbd {
 }
 html[data-skin] #swarf-draw .sd-wordbox {
     stroke: rgb(var(--sk-n7) / calc(1 * var(--sk-a-n7, 1)))
+}
+html[data-skin][data-skin="glass"] #mod-prefs.swarf-prefs {
+    background: rgb(var(--sk-n9) / calc(0.82 * var(--sk-a-n9, 1))) !important;
+    border: 1px solid rgb(var(--sk-n9) / calc(0.95 * var(--sk-a-n9, 1))) !important;
+    box-shadow: 0 30px 80px -20px rgb(var(--sk-shadow) / calc(0.4 * var(--sk-a-shadow, 1))), inset 0 1px 0 rgb(var(--sk-glint) / calc(0.95 * var(--sk-a-glint, 1))) !important
+}
+html[data-skin][data-skin="glass"] .swarf-prefs-group > h4,
+html[data-skin][data-skin="glass"] .swarf-prefs-group > summary {
+    color: rgb(var(--sk-n5) / calc(1 * var(--sk-a-n5, 1)))
+}
+html[data-skin][data-skin="glass"] #mod-prefs .swarf-prefs-rows > .var-row {
+    border-bottom-color: rgb(var(--sk-n0) / calc(0.06 * var(--sk-a-n0, 1)))
+}
+html[data-skin][data-skin="glass"] .swarf-prefs-adv {
+    border-top-color: rgb(var(--sk-n0) / calc(0.08 * var(--sk-a-n0, 1)))
+}
+html[data-skin] #mode-tools > span#swarf-step-draw.swarf-step-on label,
+html[data-skin] #mode-tools > span#swarf-step-draw.swarf-step-on i,
+html[data-skin] #mode-tools > span#swarf-step-draw.swarf-step-on svg {
+    color: rgb(var(--sk-n9) / calc(1 * var(--sk-a-n9, 1))) !important;
+    fill: rgb(var(--sk-n9) / calc(1 * var(--sk-a-n9, 1))) !important
+}
+html[data-skin] :focus-visible {
+    outline: 2px solid var(--swarf-accent-hi, rgb(var(--sk-info) / calc(1 * var(--sk-a-info, 1)))) !important
+}
+html[data-skin][data-skin="glass"] :focus-visible {
+    outline-color: rgb(var(--sk-n3) / calc(1 * var(--sk-a-n3, 1))) !important
+}
+html[data-skin][data-skin="classic"] :focus-visible {
+    outline: 1px dotted rgb(var(--sk-n0) / calc(1 * var(--sk-a-n0, 1))) !important
+}
+html[data-skin]:not([data-skin]) {
+    --swarf-text-2: rgb(var(--sk-n7) / calc(1 * var(--sk-a-n7, 1)));
+    --swarf-text-3: rgb(var(--sk-n6) / calc(1 * var(--sk-a-n6, 1)))
+}
+html[data-skin]:not([data-skin]) #swarf-watermark {
+    color: rgb(var(--sk-n9) / calc(1 * var(--sk-a-n9, 1))) !important;
+    text-shadow: 0 1px 2px rgb(var(--sk-shadow) / calc(0.6 * var(--sk-a-shadow, 1)))
+}
+html[data-skin]:not([data-skin]) #swarf-tools-row > span,
+html[data-skin]:not([data-skin]) .swarf-add-op-label,
+html[data-skin]:not([data-skin]) .swarf-concern em,
+html[data-skin]:not([data-skin]) #swarf-start small,
+html[data-skin]:not([data-skin]) #ver,
+html[data-skin]:not([data-skin]) #mode-tools > span.disabled label {
+    color: rgb(var(--sk-n7) / calc(1 * var(--sk-a-n7, 1))) !important
+}
+html[data-skin]:not([data-skin]) #swarf-run .sr-sim button.on,
+html[data-skin]:not([data-skin]) #swarf-run .sr-vtools button.on {
+    color: rgb(var(--sk-n9) / calc(1 * var(--sk-a-n9, 1))) !important
+}
+html[data-skin]:not([data-skin]) #swarf-run .sr-card .row .go:disabled {
+    color: rgb(var(--sk-n9) / calc(1 * var(--sk-a-n9, 1))) !important;
+    background: rgb(var(--sk-acc-dim) / calc(1 * var(--sk-a-acc-dim, 1))) !important
+}
+html[data-skin]:not([data-skin]) kbd {
+    color: rgb(var(--sk-n8) / calc(1 * var(--sk-a-n8, 1))) !important
+}
+html[data-skin]:not([data-skin]) #swarf-draw .sd-bar button.on kbd,
+html[data-skin]:not([data-skin]) #swarf-draw button.on kbd {
+    color: rgb(var(--sk-n2) / calc(1 * var(--sk-a-n2, 1))) !important
+}
+html[data-skin]:not([data-skin]) .swarf-toggle-on {
+    background-color: rgb(var(--sk-acc-dim) / calc(1 * var(--sk-a-acc-dim, 1))) !important;
+    color: rgb(var(--sk-n9) / calc(1 * var(--sk-a-n9, 1))) !important
+}
+html[data-skin]:not([data-skin]) #panel-right .set2-group summary.set-header a,
+html[data-skin]:not([data-skin]) #swarf-right-rail .set2-group summary.set-header a {
+    color: rgb(var(--sk-acc-hi) / calc(1 * var(--sk-a-acc-hi, 1))) !important
+}
+html[data-skin]:not([data-skin]) #swarf-run .sr-pad button small,
+html[data-skin]:not([data-skin]) #swarf-run .sr-jog .sr-modes .lbl small,
+html[data-skin]:not([data-skin]) #swarf-run .sr-jog .sr-modes .lbl {
+    color: rgb(var(--sk-n8) / calc(1 * var(--sk-a-n8, 1))) !important
+}
+html[data-skin]:not([data-skin]) .set-header a,
+html[data-skin]:not([data-skin]) summary.set-header a {
+    color: rgb(var(--sk-acc-hi) / calc(1 * var(--sk-a-acc-hi, 1))) !important
+}
+html[data-skin] #swarf-tutorial {
+    background: rgb(var(--sk-n0) / calc(0.35 * var(--sk-a-n0, 1)))
+}
+html[data-skin] #swarf-tutorial .st-card {
+    background: rgb(var(--sk-n1) / calc(1 * var(--sk-a-n1, 1)));
+    color: rgb(var(--sk-n9) / calc(1 * var(--sk-a-n9, 1)));
+    border: 1px solid rgb(var(--sk-n3) / calc(1 * var(--sk-a-n3, 1)));
+    box-shadow: 0 24px 70px rgb(var(--sk-shadow) / calc(0.55 * var(--sk-a-shadow, 1)))
+}
+html[data-skin] #swarf-tutorial .st-top {
+    color: rgb(var(--sk-n8) / calc(1 * var(--sk-a-n8, 1)))
+}
+html[data-skin] #swarf-tutorial .st-title {
+    color: rgb(var(--sk-n9) / calc(1 * var(--sk-a-n9, 1)))
+}
+html[data-skin] #swarf-tutorial .st-n {
+    color: rgb(var(--sk-acc-hi) / calc(1 * var(--sk-a-acc-hi, 1)))
+}
+html[data-skin] #swarf-tutorial .st-n.warn {
+    color: rgb(var(--sk-warn) / calc(1 * var(--sk-a-warn, 1)))
+}
+html[data-skin] #swarf-tutorial h3 {
+    color: rgb(var(--sk-n9) / calc(1 * var(--sk-a-n9, 1)))
+}
+html[data-skin] #swarf-tutorial p,
+html[data-skin] #swarf-tutorial li {
+    color: rgb(var(--sk-n9) / calc(1 * var(--sk-a-n9, 1)))
+}
+html[data-skin] #swarf-tutorial b {
+    color: rgb(var(--sk-acc-hi) / calc(1 * var(--sk-a-acc-hi, 1)))
+}
+html[data-skin] #swarf-tutorial .st-dots i {
+    background: rgb(var(--sk-n4) / calc(1 * var(--sk-a-n4, 1)))
+}
+html[data-skin] #swarf-tutorial .st-dots i.on {
+    background: rgb(var(--sk-acc-hi) / calc(1 * var(--sk-a-acc-hi, 1)))
+}
+html[data-skin] #swarf-tutorial button {
+    background: rgb(var(--sk-n2) / calc(1 * var(--sk-a-n2, 1)));
+    color: rgb(var(--sk-n9) / calc(1 * var(--sk-a-n9, 1)));
+    border: 1px solid rgb(var(--sk-n4) / calc(1 * var(--sk-a-n4, 1)))
+}
+html[data-skin] #swarf-tutorial button.st-go {
+    background: rgb(var(--sk-acc) / calc(1 * var(--sk-a-acc, 1)));
+    border-color: rgb(var(--sk-acc) / calc(1 * var(--sk-a-acc, 1)));
+    color: rgb(var(--sk-n9) / calc(1 * var(--sk-a-n9, 1)))
+}
+html[data-skin][data-skin="glass"] #swarf-tutorial {
+    background: rgb(var(--sk-n9) / calc(0.45 * var(--sk-a-n9, 1)))
+}
+html[data-skin][data-skin="glass"] #swarf-tutorial .st-card {
+    background: rgb(var(--sk-n9) / calc(0.97 * var(--sk-a-n9, 1)));
+    color: rgb(var(--sk-n2) / calc(1 * var(--sk-a-n2, 1)));
+    border-color: rgb(var(--sk-n9) / calc(0.95 * var(--sk-a-n9, 1)));
+    box-shadow: 0 30px 80px -20px rgb(var(--sk-shadow) / calc(0.4 * var(--sk-a-shadow, 1)))
+}
+html[data-skin][data-skin="glass"] #swarf-tutorial .st-top,
+html[data-skin][data-skin="glass"] #swarf-tutorial .st-count {
+    color: rgb(var(--sk-n4) / calc(1 * var(--sk-a-n4, 1)))
+}
+html[data-skin][data-skin="glass"] #swarf-tutorial .st-title,
+html[data-skin][data-skin="glass"] #swarf-tutorial h3 {
+    color: rgb(var(--sk-n1) / calc(1 * var(--sk-a-n1, 1)))
+}
+html[data-skin][data-skin="glass"] #swarf-tutorial p,
+html[data-skin][data-skin="glass"] #swarf-tutorial li {
+    color: rgb(var(--sk-n3) / calc(1 * var(--sk-a-n3, 1)))
+}
+html[data-skin][data-skin="glass"] #swarf-tutorial b {
+    color: rgb(var(--sk-n1) / calc(1 * var(--sk-a-n1, 1)))
+}
+html[data-skin][data-skin="glass"] #swarf-tutorial .st-n {
+    color: rgb(var(--sk-n4) / calc(1 * var(--sk-a-n4, 1)))
+}
+html[data-skin][data-skin="glass"] #swarf-tutorial .st-n.warn {
+    color: rgb(var(--sk-warn) / calc(1 * var(--sk-a-warn, 1)))
+}
+html[data-skin][data-skin="glass"] #swarf-tutorial .st-dots i {
+    background: rgb(var(--sk-n8) / calc(1 * var(--sk-a-n8, 1)))
+}
+html[data-skin][data-skin="glass"] #swarf-tutorial .st-dots i.on {
+    background: rgb(var(--sk-n4) / calc(1 * var(--sk-a-n4, 1)))
+}
+html[data-skin][data-skin="glass"] #swarf-tutorial button {
+    color: rgb(var(--sk-n2) / calc(1 * var(--sk-a-n2, 1)));
+    border-color: rgb(var(--sk-n6) / calc(0.35 * var(--sk-a-n6, 1)))
+}
+html[data-skin][data-skin="glass"] #swarf-tutorial button.st-go {
+    color: rgb(var(--sk-n9) / calc(1 * var(--sk-a-n9, 1)));
+    border-color: rgb(var(--sk-n3) / calc(1 * var(--sk-a-n3, 1)))
+}
+html[data-skin][data-skin="classic"] #swarf-tutorial {
+    background: rgb(var(--sk-n0) / calc(0.25 * var(--sk-a-n0, 1)))
+}
+html[data-skin][data-skin="classic"] #swarf-tutorial .st-card {
+    background: rgb(var(--sk-n8) / calc(1 * var(--sk-a-n8, 1)));
+    color: rgb(var(--sk-n0) / calc(1 * var(--sk-a-n0, 1)));
+    box-shadow: inset -1px -1px rgb(var(--sk-shadow) / calc(1 * var(--sk-a-shadow, 1))), inset 1px 1px rgb(var(--sk-glint) / calc(1 * var(--sk-a-glint, 1))), inset -2px -2px rgb(var(--sk-glint) / calc(1 * var(--sk-a-glint, 1))), inset 2px 2px rgb(var(--sk-glint) / calc(1 * var(--sk-a-glint, 1))), 4px 4px 0 rgb(var(--sk-shadow) / calc(0.35 * var(--sk-a-shadow, 1)))
+}
+html[data-skin][data-skin="classic"] #swarf-tutorial .st-top {
+    background: linear-gradient(90deg, rgb(var(--sk-info) / calc(1 * var(--sk-a-info, 1))), rgb(var(--sk-info) / calc(1 * var(--sk-a-info, 1))));
+    color: rgb(var(--sk-n9) / calc(1 * var(--sk-a-n9, 1)))
+}
+html[data-skin][data-skin="classic"] #swarf-tutorial .st-title,
+html[data-skin][data-skin="classic"] #swarf-tutorial .st-count {
+    color: rgb(var(--sk-n9) / calc(1 * var(--sk-a-n9, 1)))
+}
+html[data-skin][data-skin="classic"] #swarf-tutorial h3,
+html[data-skin][data-skin="classic"] #swarf-tutorial p,
+html[data-skin][data-skin="classic"] #swarf-tutorial li,
+html[data-skin][data-skin="classic"] #swarf-tutorial b {
+    color: rgb(var(--sk-n0) / calc(1 * var(--sk-a-n0, 1)))
+}
+html[data-skin][data-skin="classic"] #swarf-tutorial .st-n {
+    color: rgb(var(--sk-info) / calc(1 * var(--sk-a-info, 1)))
+}
+html[data-skin][data-skin="classic"] #swarf-tutorial .st-n.warn {
+    color: rgb(var(--sk-warn) / calc(1 * var(--sk-a-warn, 1)))
+}
+html[data-skin][data-skin="classic"] #swarf-tutorial .st-dots i {
+    background: rgb(var(--sk-n6) / calc(1 * var(--sk-a-n6, 1)))
+}
+html[data-skin][data-skin="classic"] #swarf-tutorial .st-dots i.on {
+    background: rgb(var(--sk-info) / calc(1 * var(--sk-a-info, 1)))
+}
+html[data-skin][data-skin="classic"] #swarf-tutorial button {
+    background: rgb(var(--sk-n8) / calc(1 * var(--sk-a-n8, 1)));
+    color: rgb(var(--sk-n0) / calc(1 * var(--sk-a-n0, 1)));
+    box-shadow: inset -1px -1px rgb(var(--sk-shadow) / calc(1 * var(--sk-a-shadow, 1))), inset 1px 1px rgb(var(--sk-glint) / calc(1 * var(--sk-a-glint, 1))), inset -2px -2px rgb(var(--sk-glint) / calc(1 * var(--sk-a-glint, 1))), inset 2px 2px rgb(var(--sk-glint) / calc(1 * var(--sk-a-glint, 1)))
+}
+html[data-skin][data-skin="classic"] #swarf-tutorial button.st-go {
+    outline: 1px solid rgb(var(--sk-n0) / calc(1 * var(--sk-a-n0, 1)))
+}
+html[data-skin][data-skin="glass"] #swarf-start .swarf-start-quick {
+    color: rgb(var(--sk-n3) / calc(1 * var(--sk-a-n3, 1)))
+}
+html[data-skin][data-skin="classic"] #swarf-start .swarf-start-quick {
+    color: rgb(var(--sk-info) / calc(1 * var(--sk-a-info, 1)))
+}
+html[data-skin][data-skin="glass"] #mod-x {
+    border: 1px solid rgb(var(--sk-n6) / calc(0.35 * var(--sk-a-n6, 1))) !important;
+    color: rgb(var(--sk-n3) / calc(1 * var(--sk-a-n3, 1)))
+}
+html[data-skin][data-skin="glass"] #mod-x i,
+html[data-skin][data-skin="glass"] #mod-x svg {
+    color: rgb(var(--sk-n3) / calc(1 * var(--sk-a-n3, 1))) !important;
+    fill: rgb(var(--sk-n3) / calc(1 * var(--sk-a-n3, 1))) !important
+}
+html[data-skin][data-skin="classic"] #mod-x {
+    background: rgb(var(--sk-n8) / calc(1 * var(--sk-a-n8, 1)));
+    box-shadow: inset -1px -1px rgb(var(--sk-shadow) / calc(1 * var(--sk-a-shadow, 1))), inset 1px 1px rgb(var(--sk-glint) / calc(1 * var(--sk-a-glint, 1))), inset -2px -2px rgb(var(--sk-glint) / calc(1 * var(--sk-a-glint, 1))), inset 2px 2px rgb(var(--sk-glint) / calc(1 * var(--sk-a-glint, 1)));
+    color: rgb(var(--sk-n0) / calc(1 * var(--sk-a-n0, 1)))
+}
+html[data-skin]:not([data-skin]) .swarf-license a,
+html[data-skin]:not([data-skin]) .swarf-about a,
+html[data-skin]:not([data-skin]) .swarf-credits a {
+    color: rgb(var(--sk-acc-hi) / calc(1 * var(--sk-a-acc-hi, 1))) !important
+}
+html[data-skin]:not([data-skin]) .swarf-concordance section h3 {
+    color: rgb(var(--sk-acc-hi) / calc(1 * var(--sk-a-acc-hi, 1))) !important
+}
+html[data-skin] #swarf-run .sr-keyrow button.sr-router.on,
+html[data-skin][data-skin] #swarf-run .sr-keyrow button.sr-router.on,
+html[data-skin]:not([data-skin]) #swarf-run .sr-keyrow button.sr-router.on {
+    background: rgb(var(--sk-acc) / calc(1 * var(--sk-a-acc, 1))) !important;
+    border-color: rgb(var(--sk-acc) / calc(1 * var(--sk-a-acc, 1))) !important;
+    color: rgb(var(--sk-n9) / calc(1 * var(--sk-a-n9, 1))) !important;
+    box-shadow: 0 0 0 3px rgb(var(--sk-acc) / calc(0.25 * var(--sk-a-acc, 1))) !important
+}
+html[data-skin] #swarf-run .sr-keyrow button.sr-router.on b,
+html[data-skin] #swarf-run .sr-keyrow button.sr-router.on small,
+html[data-skin][data-skin] #swarf-run .sr-keyrow button.sr-router.on b,
+html[data-skin][data-skin] #swarf-run .sr-keyrow button.sr-router.on small,
+html[data-skin]:not([data-skin]) #swarf-run .sr-keyrow button.sr-router.on small {
+    color: rgb(var(--sk-n9) / calc(1 * var(--sk-a-n9, 1))) !important
 }
 
 /* ---- from web/kiri/index.html ---- */
@@ -1930,4 +2184,59 @@ html[data-skin] #swarf-run .sr-keepzero {
 }
 html[data-skin] #swarf-run .sr-keepzero:hover {
     border-color: rgb(var(--sk-n7) / calc(1 * var(--sk-a-n7, 1)))
+}
+html[data-skin] #swarf-run .sr-actions .cut.quiet {
+    background: var(--swarf-bg-3, rgb(var(--sk-n1) / calc(1 * var(--sk-a-n1, 1)))) !important;
+    border-color: var(--swarf-line-2, rgb(var(--sk-n3) / calc(1 * var(--sk-a-n3, 1)))) !important
+}
+html[data-skin] #swarf-run .sr-need {
+    color: var(--c-dim, rgb(var(--sk-n6) / calc(1 * var(--sk-a-n6, 1))))
+}
+html[data-skin] #swarf-run .sr-need b {
+    color: var(--c-text, rgb(var(--sk-n8) / calc(1 * var(--sk-a-n8, 1))))
+}
+html[data-skin] #swarf-run .sr-need .ok {
+    color: var(--c-dim, rgb(var(--sk-n6) / calc(1 * var(--sk-a-n6, 1))))
+}
+html[data-skin] #swarf-run .sr-need .no {
+    color: var(--c-text, rgb(var(--sk-n8) / calc(1 * var(--sk-a-n8, 1))))
+}
+html[data-skin] #swarf-run .sr-start button {
+    background: var(--swarf-bg-3, rgb(var(--sk-n1) / calc(1 * var(--sk-a-n1, 1))));
+    border: 1px solid var(--swarf-line-2, rgb(var(--sk-n3) / calc(1 * var(--sk-a-n3, 1))))
+}
+html[data-skin] #swarf-run .sr-card p.sr-way {
+    color: var(--c-dim, rgb(var(--sk-n6) / calc(1 * var(--sk-a-n6, 1))))
+}
+html[data-skin] #swarf-run .sr-card p.sr-way.bad {
+    color: var(--swarf-accent-hi, rgb(var(--sk-acc) / calc(1 * var(--sk-a-acc, 1))))
+}
+html[data-skin] #swarf-run .sr-board-size small {
+    color: var(--c-dim, rgb(var(--sk-n6) / calc(1 * var(--sk-a-n6, 1))))
+}
+html[data-skin] #swarf-run .sr-board-size > span {
+    color: var(--c-dim, rgb(var(--sk-n6) / calc(1 * var(--sk-a-n6, 1))))
+}
+html[data-skin] #swarf-run .sr-plate-view span {
+    color: var(--c-text, rgb(var(--sk-n8) / calc(1 * var(--sk-a-n8, 1))));
+    background: var(--swarf-bg-2, rgb(var(--sk-n0) / calc(0.8 * var(--sk-a-n0, 1))))
+}
+html[data-skin] #swarf-run .sr-plate-view .sr-plate-note {
+    color: var(--c-dim, rgb(var(--sk-n6) / calc(1 * var(--sk-a-n6, 1))))
+}
+html[data-skin] #swarf-run .sr-needrow {
+    border-bottom: 1px solid var(--c-line, rgb(var(--sk-n3) / calc(1 * var(--sk-a-n3, 1))))
+}
+html[data-skin] #swarf-run .sr-needrow small {
+    color: var(--c-dim, rgb(var(--sk-n6) / calc(1 * var(--sk-a-n6, 1))))
+}
+html[data-skin] #swarf-run .sr-needrow button {
+    background: var(--swarf-bg-3, rgb(var(--sk-n1) / calc(1 * var(--sk-a-n1, 1))));
+    border: 1px solid var(--swarf-line-2, rgb(var(--sk-n3) / calc(1 * var(--sk-a-n3, 1))))
+}
+html[data-skin] #swarf-run .sr-jog .sr-zrow button.next,
+html[data-skin] #swarf-run .sr-conn button.next {
+    border-color: rgb(var(--sk-n9) / calc(1 * var(--sk-a-n9, 1))) !important;
+    color: rgb(var(--sk-n9) / calc(1 * var(--sk-a-n9, 1)));
+    box-shadow: 0 0 0 2px rgb(var(--sk-glint) / calc(0.25 * var(--sk-a-glint, 1)))
 }

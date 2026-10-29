@@ -125,9 +125,9 @@ export function menu() {
     /** Left Side Menu */
 
     _____:               newGroup(LANG.ct_menu, $('cam-tabs'), { modes:CAM, marker:true, driven, separator, hideable, group:"cam-tabs" }),
-    camTabsWidth:        newInput(LANG.ct_wdth_s, {title:LANG.ct_wdth_l, convert:toFloat, bound:bound(0.005,100), units}),
-    camTabsHeight:       newInput(LANG.ct_hght_s, {title:LANG.ct_hght_l, convert:toFloat, bound:bound(0.005,100), units}),
-    camTabsDepth:        newInput(LANG.ct_dpth_s, {title:LANG.ct_dpth_l, convert:toFloat, bound:bound(0.005,100), units}),
+    camTabsWidth:        newInput(LANG.ct_wdth_s, {title:LANG.ct_wdth_l, convert:toFloat, bound:bound(0.005,100), units, show:() => false}),
+    camTabsHeight:       newInput(LANG.ct_hght_s, {title:LANG.ct_hght_l, convert:toFloat, bound:bound(0.005,100), units, show:() => false}),
+    camTabsDepth:        newInput(LANG.ct_dpth_s, {title:LANG.ct_dpth_l, convert:toFloat, bound:bound(0.005,100), units, show:() => false}),
     separator:           newBlank({ class:"set-sep", driven }),
     camTabsMidline:      newBoolean(LANG.ct_midl_s, onBooleanClick, {title:LANG.ct_midl_l}),
     separator:           newBlank({ class:"set-sep", driven }),
@@ -137,7 +137,9 @@ export function menu() {
         (ui.tabClr = newButton(undefined, onButtonClick, {icon:'<i class="fas fa-trash-alt"></i>'}))
     ], {class:"ext-buttons f-row"}),
     separator:           newBlank({ class:"set-sep", driven }),
-    // swarf: auto tabs, a starting set sized for the material, bit, board and machine
+    // swarf: auto tabs, a starting set sized for the material, bit, board and machine; its fields
+    // (length, height, reach...) stand in for the three size inputs above, which stay hidden and
+    // still size the next tab placed by hand
     camTabsAuto:         newRow(autoTabRow(), {class:"swarf-autotabs-row"}),
     _____:               newGroup(LANG.cs_menu, $('cam-stock'), { modes:CAM, driven, separator, hideable, group:"cam-stock" }),
     camStockX:           newInput(LANG.cs_wdth_s, {title:LANG.cs_wdth_l, convert:toFloat, bound:bound(0,9999), units}),

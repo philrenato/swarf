@@ -56,9 +56,9 @@ const distToLoop = (p, lp) => {
 };
 const cornerClear = (p, lp) => Math.min(...lp.map(c => Math.hypot(p.x - c.x, p.y - c.y)));
 
-function run(name, src, T, rule, expect) {
+function run(name, src, T, rule, expect, opt = {}) {
     const loops = sliceLoops(extrude(src, T), rule.height / 2);
-    const plan = planTabs(loops, rule);
+    const plan = planTabs(loops, rule, opt);
     const outerTabs = plan.tabs.filter(t => !t.hole), holeTabs = plan.tabs.filter(t => t.hole);
     check(loops.length === src.length, `${name}: sliced ${loops.length} loop(s)`);
     const onEdge = plan.tabs.every(t => Math.min(...loops.map(l => distToLoop(t, l))) < 1e-3);
@@ -67,7 +67,7 @@ function run(name, src, T, rule, expect) {
     const away = plan.tabs.every(t => !solid({ x: t.x + t.nx * rule.depth / 2, y: t.y + t.ny * rule.depth / 2 }) && solid({ x: t.x - t.nx * 0.5, y: t.y - t.ny * 0.5 }));
     // corners: no tab nearer a sharp corner than half its width and a bit
     const sharp = src.filter(l => l.length <= 12);
-    const clear = sharp.length ? plan.tabs.every(t => sharp.every(l => cornerClear(t, l) >= rule.width / 2 + rule.bit - 1e-6)) : true;
+    const clear = sharp.length ? plan.tabs.every(t => sharp.every(l => cornerClear(t, l) >= (opt.corner > 0 ? opt.corner : rule.width / 2 + rule.bit) - 1e-6)) : true;
     // spread: on each loop, gaps along the outline within 35% of even
     let even = true;
     for (const li of new Set(plan.tabs.map(t => t.loop))) {
@@ -102,6 +102,21 @@ run('150x100 alu, fewer', [rect(0, 0, 150, 100)], 25.4, tabRule({ materialId: 'a
 run('300x200 alu part', [rect(0, 0, 300, 200)], 25.4, alu, (o) => o.length === 4);
 // more density: the 600 x 400 plate gets twice as many
 run('600x400 ply, more', [rect(0, 0, 600, 400)], 19.05, more, (o) => o.length === 16);
+
+// ---- pinned values (every attribute editable): a pin is used as typed, the rest stay automatic
+const pin = (p, o = {}) => tabRule(Object.assign({ materialId: 'plywood', bitMm: IN / 4, thicknessMm: 0.75 * IN, deviceName: 'ShopBot.Basic', pin: p }, o));
+const p1 = pin({ width: 20, depth: 10 });
+check(p1.width === 20 && p1.depth === 10 && Math.abs(p1.height - ply.height) < 1e-9 && p1.pinned.width && !p1.pinned.height && p1.auto.width === ply.width,
+    `pinned length 20 and reach 10, height stays automatic ${p1.height}; the automatic length is still known (${p1.auto.width})`);
+const p2 = pin({ height: 30 });
+check(Math.abs(p2.height - 0.9 * 0.75 * IN) < 0.01 && p2.capped, `a pinned height of 30 on a 3/4 in board is held to ${p2.height} (capped ${p2.capped})`);
+const p3 = pin({ width: 20 }, { scale: 2 });
+check(p3.width === 20 && p3.height > ply.height, `the size slider leaves a pinned length alone (${p3.width}) and moves the automatic height (${p3.height})`);
+run('300x200 ply, how many 7', [rect(0, 0, 300, 200)], 19.05, ply, (o) => o.length === 7, { count: 7 });
+run('ring, big holes off', [circle(0, 0, 200), circle(0, 0, 100).reverse()], 19.05, ply, (o, h) => o.length >= 5 && h.length === 0, { holes: false });
+run('ring, 3 in each hole', [circle(0, 0, 200), circle(0, 0, 100).reverse()], 19.05, ply, (o, h) => h.length === 3, { holeCount: 3 });
+run('ring, big hole is 250 mm', [circle(0, 0, 200), circle(0, 0, 100).reverse()], 19.05, ply, (o, h) => h.length === 0, { holeMin: 250 });
+run('300x200 ply, 60 mm from corners', [rect(0, 0, 300, 200)], 19.05, ply, (o) => o.length === 4, { corner: 60 });
 
 // ---- the record is an ordinary tab ---------------------------------------------------------
 const t0 = plate.plan.tabs[0];

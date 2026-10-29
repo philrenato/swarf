@@ -1172,13 +1172,13 @@ export const conf = {
             WEDM: {},
             LASER: {},
         },
-        // swarf: only CAM is live; pre-select Langmuir MR-1 as the default for new students
+        // swarf: only CAM is live; the ShopBot is the default machine for new students (Phil 10-29)
         filter:{
-            CAM: "Langmuir.MR-1",
+            CAM: "ShopBot.Basic",
         },
         // current (last used) device by mode
         // (Default device selection lives in `filter` above — `filter.CAM:
-        // "Langmuir.MR-1"` makes MR-1 the picked device. cdev.CAM is the
+        // "ShopBot.Basic"` makes the ShopBot the picked device. cdev.CAM is the
         // expanded device-config OBJECT, populated from defaults.cam.d at
         // load time; it must NOT be a string here.)
         cdev: {
