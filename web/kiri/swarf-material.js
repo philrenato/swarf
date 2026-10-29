@@ -452,7 +452,9 @@
   // gets. Pure, so tools/check_materials.mjs runs this exact function over
   // the whole tool library. lim = { spindleMin, spindleMax, feedMax, feedMaxZ }
   // in rpm and mm/min, 0 = no limit.
-  function derive(m, diamMm, lim) {
+  // the woods the shop's ShopBot library was written for (10-29: its bits' numbers cap swarf's here)
+  const SHOP_WOODS = new Set(['plywood', 'mdf', 'hardwood', 'osb', 'hardboard']);
+  function derive(m, diamMm, lim, tool) {
     const c = m && m.cut;
     if (!c || !(diamMm > 0)) return null;
     lim = lim || {};
@@ -468,8 +470,25 @@
     plunge = Math.round(plunge / 5) * 5;
     let down = c.down * diamMm;
     if (c.downMax > 0) down = Math.min(down, c.downMax);
-    down = Math.round(down * 20) / 20;
+    // a down-cut packs its chips into the slot it cuts: no deeper than half its diameter a pass
+    const sw = tool && tool.swarf;
+    let capped = false;
+    if (sw && sw.cut === 'down' && down > diamMm / 2) { down = diamMm / 2; capped = true; }
+    // the shop's own numbers for its own bit: a computed number well above them (half again) gives
+    // way to the shop's, which are cautious by design. Inches and in/s there; mm and mm/min here.
+    let shop = null;
+    if (sw && sw.shop && SHOP_WOODS.has(m.id)) {
+      const S = sw.shop, sf = S.feed * 25.4 * 60, sp = S.plunge * 25.4 * 60, sd = S.pass * 25.4;
+      if (feed > 1.5 * sf) feed = Math.round(sf / 10) * 10;
+      if (plunge > 1.5 * sp) plunge = Math.round(sp / 5) * 5;
+      if (plunge > feed) plunge = feed;
+      if (down > 1.5 * sd) { down = Math.min(down, sd); capped = true; }
+      shop = { feed: sf, plunge: sp, pass: sd };
+    }
+    // a cap rounds down, never past itself
+    down = capped ? Math.floor(down * 20 + 1e-9) / 20 : Math.round(down * 20) / 20;
     return {
+      shop,
       spindle: rpm,
       feed,
       plunge,
@@ -531,7 +550,7 @@
       if (op.preset === stamp) continue;
       // a stamp from before carries no geometry: take it as matching once, so a student's edits survive the upgrade
       if (op.preset === `${current.id}:${op.tool}:${devName}`) { op.preset = stamp; changed = true; continue; }
-      const p = derive(current, dia, lim);
+      const p = derive(current, dia, lim, tool);
       if (!p) continue;
       Object.assign(op, opValues(op.type, p));
       op.preset = stamp;

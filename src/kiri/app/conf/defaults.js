@@ -1085,6 +1085,68 @@ export const conf = {
                 flute_len:  2,
                 taper_tip: 0,
             },
+            // swarf: the shop's ShopBot starter bits by their part numbers. Cutting lengths are
+            // not confirmed from the maker yet: 1 in is the common length for these sizes
+            {
+                id: 1101,
+                number: 21,
+                type: "endmill",
+                name: "1/4 straight 48-005",
+                metric: false,
+                shaft_diam: 0.25,
+                shaft_len:  1,
+                flute_diam: 0.25,
+                flute_len:  1,
+                taper_tip: 0,
+                // swarf: the woodshop's own bit (its ShopBot library, 10-29): the cut it makes, its
+                // part number, and the library's numbers (in, in/s, rpm), which cap swarf's in wood
+                swarf: { cut: "straight", part: "48-005", shop: { pass: 0.125, plunge: 1, feed: 2, rpm: 12000 } },
+            },
+            {
+                id: 1102,
+                number: 22,
+                type: "endmill",
+                name: "1/4 up-cut 52-910",
+                metric: false,
+                shaft_diam: 0.25,
+                shaft_len:  1,
+                flute_diam: 0.25,
+                flute_len:  1,
+                taper_tip: 0,
+                // swarf: the woodshop's own bit (its ShopBot library, 10-29): the cut it makes, its
+                // part number, and the library's numbers (in, in/s, rpm), which cap swarf's in wood
+                swarf: { cut: "up", part: "52-910", shop: { pass: 0.125, plunge: 1, feed: 2, rpm: 12000 } },
+            },
+            {
+                id: 1103,
+                number: 23,
+                type: "endmill",
+                name: "1/4 down-cut 57-910",
+                metric: false,
+                shaft_diam: 0.25,
+                shaft_len:  1,
+                flute_diam: 0.25,
+                flute_len:  1,
+                taper_tip: 0,
+                // swarf: the woodshop's own bit (its ShopBot library, 10-29): the cut it makes, its
+                // part number, and the library's numbers (in, in/s, rpm), which cap swarf's in wood
+                swarf: { cut: "down", part: "57-910", shop: { pass: 0.125, plunge: 1, feed: 2, rpm: 12000 } },
+            },
+            {
+                id: 1104,
+                number: 24,
+                type: "endmill",
+                name: "1/2 straight 48-072",
+                metric: false,
+                shaft_diam: 0.5,
+                shaft_len:  1,
+                flute_diam: 0.5,
+                flute_len:  1,
+                taper_tip: 0,
+                // swarf: the woodshop's own bit (its ShopBot library, 10-29): the cut it makes, its
+                // part number, and the library's numbers (in, in/s, rpm), which cap swarf's in wood
+                swarf: { cut: "straight", part: "48-072", shop: { pass: 0.25, plunge: 1, feed: 4, rpm: 12000 } },
+            },
         ],
         // currently selected device (current mode)
         device:{},
