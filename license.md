@@ -1,4 +1,4 @@
-Copyright 2026 Phil Renato <philrenato@gmail.com> (swarf fork)
+Copyright 2026 Phil Renato (swarf fork)
 Copyright 2014-2018 Stewart Allen <sa@grid.space> (Kiri:Moto upstream)
 
 Permission is hereby granted, free of charge, to any person obtaining a

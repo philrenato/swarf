@@ -1,142 +1,45 @@
 # swarf™
 
-**gcode carving interface**
-[renato.design](https://renato.design)
+Browser CAM for a school woodshop. Draw or import a part, set toolpaths and tabs,
+simulate, then cut.
 
-swarf is a focused CNC carving front-end for design students — mesh in,
-gcode out, everything else hidden. A fork of
-[Kiri:Moto](https://github.com/GridSpace/grid-apps) (by Stewart Allen /
-grid.space, MIT, currently synced to their v4.7.1) trimmed down to a
-single mode (CAM), two machines (Langmuir MR-1, ShopBot Basic), and
-four operations (rough, contour, outline, pocket).
+**Open it:** [renato.design/swarf-app](https://renato.design/swarf-app/) (installable, works offline once loaded)
 
-It's an installable, offline-capable PWA — "install swarf" appears in
-supported browsers once the page loads, and the CAM engine keeps working
-with no network once it's been used at least once. Picking a stock
-material (aluminum, brass and mild steel on the MR-1 only; acrylic, polycarbonate, HDPE,
-MDF, hard wood, wax, foam) fills in feed rate, plunge, spindle speed,
-stepdown, stepover and the ease-down ramp angle for every operation,
-derived from the material's cutting speed and chip load for whatever
-tool each operation holds, inside the machine's own spindle and feed
-limits. The values are conservative starting points for HSS tooling —
-spindle speed follows cutting speed, so RPM falls as the tool gets
-wider. Edit a number and it stays edited; change the tool or the
-material and it re-derives. The tool library carries every shank the
-two machines' collets hold, inch and metric, up to 1/2". Langmuir's
-published MR-1 parameters are the cross-reference; they are written for
-coated carbide and run far faster. `tools/check_materials.mjs` runs the
-app's own derivation over the whole library on both machines and holds
-it to its invariants.
+- **Runs a ShopBot from the browser.** Chrome or Edge drives a ShopBot over its USB
+  cable, no other software: connect, jog, zero, Z plate, trace, air cut, cut, feed
+  override, e-stop. swarf switches the router on and off itself.
+- **Auto tabs.** One press places tabs sized for the material, bit, board and machine.
+  Every tab setting is editable, and pieces inside holes are held too. Parts cut free
+  with no tabs are flagged.
+- **Make parts:** shapes, drawing, text, or import SVG, DXF, AI, PDF, STL or OBJ.
+- **Toolpaths:** rough, contour, outline, pocket, with feeds and speeds from the
+  material and the bit.
+- **Inches or millimeters**, fractions included.
+- **Simulate** before you cut.
+- **Two machines:** ShopBot (default) and Langmuir MR-1, which runs from an exported file.
+- **Skins:** wet plastic (default), classic, swarf.
 
-Read `swarf_README.txt` for the human version.
-
-## Running locally
+## Running locally and forking
 
 ```
+npm i && mkdir -p src/pack && npm run webpack-ext   # once, after a fresh clone
 npm run webpack-src
-npx gs-app-server --debug --single --port 8181
+npx gs-app-server --debug --single --port 8181      # then open localhost:8181/kiri/
 ```
 
-Then open [localhost:8181/kiri/](http://localhost:8181/kiri/).
+swarf is MIT (`license.md` keeps Kiri:Moto's notice; keep both). To make your own copy:
+remove the GoatCounter tag at the end of `web/kiri/index.html`, change the canonical /
+og URLs at its top and the renato.design watermark in `src/kiri/app/init/sync.js`.
+`tools/deploy.sh` updates an existing static copy served at `/swarf-app/` (set
+`SWARF_WEB_REPO`); to start fresh, build with `npm run webpack-src prod` and serve `web/`.
+The gates in `tools/` drive Chrome for Testing (`CHROME=/path/to/chrome`) against a URL you pass.
 
-First time after a fresh clone: `npm i && mkdir -p src/pack && npm run webpack-ext`
-before the first build.
+## Credits
 
-## Forking
+swarf is a fork of [Kiri:Moto](https://github.com/GridSpace/grid-apps) by Stewart Allen /
+[grid.space](https://grid.space) (MIT), the engine underneath and the source of most of the
+code. Third-party licenses: `THIRD_PARTY_NOTICES.txt`.
 
-swarf is MIT (see `license.md`, which keeps Kiri:Moto's notice; keep both).
-To make your own copy:
-
-1. `npm i && mkdir -p src/pack && npm run webpack-ext`, then `npm run webpack-src`
-   and `npx gs-app-server --debug --single --port 8181` → localhost:8181/kiri/.
-2. Make it yours: remove the GoatCounter tag at the end of `web/kiri/index.html`
-   (or your visits count on renato.design's), and change the canonical / og URLs
-   at its top and the renato.design watermark in `src/kiri/app/init/sync.js`.
-3. Deploying: `tools/deploy.sh` updates an existing static copy of the app (a repo
-   that serves it at `/swarf-app/`, with its own index.html; set `SWARF_WEB_REPO`).
-   It does not create one, uses macOS `sed`, and pushes that repo. To start, build
-   with `npm run webpack-src prod` and serve `web/` yourself.
-4. The gates in `tools/` drive Chrome for Testing (`CHROME=/path/to/chrome` to change
-   it) against a URL you pass; the ShopBot ones use a stub card (`tools/shopbot/`).
-
-ShopBot is a trademark of ShopBot Tools, Inc.; MR-1 and CutControl of Langmuir
-Systems; Porter-Cable of its owner. swarf is an independent project, not made,
-endorsed or supported by any of them; the names only say which machines it drives.
-
-## Upstream
-
-Kiri:Moto — [grid.space/kiri](https://grid.space) — is the engine under
-the hood and the source of everything swarf didn't have to write. MIT
-license (`license.md`), attribution kept in the app's About panel.
-Upstream docs, forums, and Discord are the right place for machining
-questions that outrun swarf's scope.
-
-## Modifying swarf with an LLM
-
-swarf is a fork — almost all of the engine is Stewart Allen's Kiri:Moto.
-The swarf-specific layer is concentrated but no longer tiny:
-`web/kiri/swarf-*.js` (UI chrome, the material/feeds system, the
-service worker, the a11y layer, the version stamp), `src/kiri/app/init/menu.js`,
-`tools/deploy.sh`, the loading curtain and PWA registration in
-`web/kiri/index.html`, plus real edits inside otherwise-upstream engine
-files where swarf's own workflow needed something Kiri:Moto's generic
-one didn't provide (widget-position handling in
-`src/kiri/mode/cam/work/prepare.js`, a widget/stock auto-sizing path in
-`src/kiri/mode/cam/app/cl-stock.js`, the toolpath-position fix in
-`src/kiri/app/function.js`, and a handful more) — each one is marked
-inline with a `// swarf:` comment explaining why.
-
-You can also ask a model to read it for you. That's how this fork was
-built — not by typing the code, but by holding a long conversation with
-a model that had the whole tree in context. It's a real way to work, and
-you don't have to be a programmer for it to be useful. You do have to want 
-the thing to exist and have the tools, you have to be the designer who holds focus.
-
-**What you get from working this way.** You can change something the
-day you notice it. You can ask "what would happen if…" and get a working
-version of the answer in an hour. You can read code you didn't write —
-Kiri:Moto is something like a thousand files — and have it explained back
-to you in a register you can use. When you hit something stuck, you can
-argue with the model until you both understand what's actually going on,
-instead of grepping in the dark. What's a grep?
-
-**What you give up.** The model doesn't have your taste. It will smooth
-over the parts you wanted to keep weird. It will confidently invent
-functions that look plausible and don't work... you can harden. It will over-engineer if
-you don't push back — adding tests for things that don't fail, comments
-that explain what the code already says, abstractions for cases that
-won't come. The work of holding the line on what swarf is, and what it
-isn't, falls to you.
-
-**How to start.** Clone the repo. Open it in
-[Claude Code](https://claude.com/claude-code) or whatever model you
-prefer. Point it at this readme and the `// swarf:` comments first, so
-the model has the context before it tries to write anything. Then describe what you want
-the way you'd describe it to a quiet collaborator who has been in this
-repo for months. Let it propose; you decide.
-
-**What to watch out for.**
-
-- The model will not tell you "this is a bad idea." You have to. Argue
-  with it before you ask it to build. This is the single most important
-  habit.
-- If it generates a comment, ask whether the comment explains *why*
-  something is true. If it's just narrating *what* the code does,
-  delete it.
-- If it adds a new file, check whether that file needed to exist.
-  Usually two more lines in an existing file is the right answer.
-- If it pulls in a dependency, check the license. swarf is MIT —
-  copyleft (GPL / AGPL) deps would contaminate that.
-- If it touches `tools/deploy.sh`, read every change. That script is
-  the difference between swarf working on live and the curtain hanging
-  forever.
-
-**How Phil thinks about it.** The working method behind this fork (and
-the whole suite of apps it sits in) is documented at
-[renato.design/ilca/](https://renato.design/ilca/). It's called ILCA,
-and it's a stance more than a methodology:
-the model proposes, you dispose; argue against your own load-bearing
-ideas before you build them; one bundled change is usually better than
-three small ones; design taste lives in the human, implementation
-muscle lives in the machine. If you want a way to think about *why*
-this fork exists at all, start there.
+ShopBot is a trademark of ShopBot Tools, Inc.; MR-1 of Langmuir Systems; Porter-Cable of its
+owner. swarf is independent, not made, endorsed or supported by any of them; the names only
+say which machines it drives.
