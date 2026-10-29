@@ -217,7 +217,7 @@ function duplicate() {
         nw.meta.file = `${base}-${n}`;
         nw.meta.vertices = ow.meta.vertices;
         // swarf: the copy keeps its drawing (DRAW, save drawing) and sits beside the original
-        for (const k of ['svg', 'c0', 'xf', 't', 'edge', 'tilted']) {
+        for (const k of ['svg', 'c0', 'xf', 't', 'edge', 'tilted', 'engrave']) {
             if (ow.meta[k] !== undefined) nw.meta[k] = JSON.parse(JSON.stringify(ow.meta[k]));
         }
         nw.anno = ow.annotations();

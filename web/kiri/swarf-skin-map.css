@@ -1931,3 +1931,18 @@ html[data-skin] #swarf-run .sr-keepzero {
 html[data-skin] #swarf-run .sr-keepzero:hover {
     border-color: rgb(var(--sk-n7) / calc(1 * var(--sk-a-n7, 1)))
 }
+/* DRAW regions (swarf-draw.js), by hand beside the generated map */
+html[data-skin] #swarf-draw .sd-reg {
+    fill: rgb(var(--sk-n8) / calc(0.03 * var(--sk-a-n8, 1)));
+    stroke: rgb(var(--sk-n5) / calc(1 * var(--sk-a-n5, 1)))
+}
+html[data-skin] #swarf-draw .sd-reg:hover {
+    fill: rgb(var(--sk-n8) / calc(0.14 * var(--sk-a-n8, 1)))
+}
+html[data-skin] #swarf-draw .sd-reg.on {
+    fill: rgb(var(--sk-n8) / calc(0.38 * var(--sk-a-n8, 1)));
+    stroke: rgb(var(--sk-n9) / calc(1 * var(--sk-a-n9, 1)))
+}
+html[data-skin] #swarf-draw .sd-reg.on:hover {
+    fill: rgb(var(--sk-n8) / calc(0.3 * var(--sk-a-n8, 1)))
+}
