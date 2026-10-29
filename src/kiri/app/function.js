@@ -494,6 +494,7 @@ function preparePreview(callback, scale = 1, offset = 0) {
 
         // mark preview complete for export
         complete.preview = feature.pmode;
+        complete.sig = workSig();
 
         if (typeof(callback) === 'function') {
             callback();
@@ -521,11 +522,31 @@ function prepareAnimation() {
  * Delegates to exportFile() for mode-specific export.
  * @param {...*} args - Arguments passed through to exportFile()
  */
+// swarf: what the toolpaths were made from. Export makes them again when any of it changed since
+// (torture test 10-29: a material change after toolpaths exported the old material's feeds)
+function workSig() {
+    try {
+        const s = api.conf.get();
+        const parts = api.widgets.all().filter(w => !w.track.synth).map(w => {
+            const t = w.track, b = t.box || {};
+            return [w.id, t.pos && [t.pos.x, t.pos.y, t.pos.z], [b.w, b.h, b.d], w.anno && w.anno.tab];
+        });
+        return JSON.stringify([s.process, s.tools, s.device && s.device.deviceName, s.stock, parts]);
+    } catch (e) {
+        return String(Math.random());   // unknown: make them again
+    }
+}
+
 function prepareExport() {
     const settings = api.conf.get();
     const argsave = arguments;
+    if (complete.preview && complete.sig !== workSig()) {
+        api.show.alert('the steps or the part changed since the toolpaths: making them again before export', 5);
+        complete = {};
+    }
     if (!complete.preview) {
-        preparePreview(() => { prepareExport(...argsave) });
+        // the signature taken again here, so a preview just made never loops back into another
+        preparePreview(() => { complete.sig = workSig(); prepareExport(...argsave) });
         return;
     }
     api.event.emit("function.export", {mode: settings.mode});

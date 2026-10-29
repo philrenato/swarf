@@ -601,6 +601,20 @@ function setup_keybd_nav() {
                             hint: 'too fast a plunge snaps end-mills'
                         });
                     }
+                    // swarf: values that make a dangerous cut (torture test 10-29: all passed with no word)
+                    if (op.down != null && ['rough', 'outline', 'pocket', 'contour'].includes(op.type) && !(op.down > 0)) {
+                        warnings.push({
+                            title: `${op.type} step-down is ${op.down}`,
+                            body: 'a step-down of zero or less cuts the whole depth in one pass, or nothing at all.',
+                            hint: 'about half the bit\'s width or less, for example 3 mm for a 1/4 in bit' });
+                    }
+                    if (op.ov_botz != null && op.ov_botz !== 0 && proc.camStockZ !== undefined) {
+                        const thick = Math.max(0, ...api.widgets.all().filter(w => !w.track.synth).map(w => (w.track.box || {}).d || 0));
+                        if (op.ov_botz < -2 || (thick && op.ov_botz > thick)) warnings.push({
+                            title: `${op.type} bottom is ${op.ov_botz} mm`,
+                            body: op.ov_botz < -2 ? `that is ${(-op.ov_botz).toFixed(1)} mm below the bottom of the board: into the spoilboard or the table.` : 'that is above the top of the board: the step cuts nothing.',
+                            hint: 'leave the override at 0 to cut to the part\'s own bottom' });
+                    }
                     // rule 3 — step-down past half the tool diameter, the palette's ceiling
                     if (op.down && td && op.down > td * 0.5) {
                         warnings.push({
@@ -627,6 +641,12 @@ function setup_keybd_nav() {
                         }
                     }
                 }
+                // rapids skim the board: Z clearance is how far above the top they travel
+                const zc = proc.camZClearance;
+                if (zc != null && zc < 1) warnings.push({
+                    title: `rapids ${zc} mm above the board`,
+                    body: zc <= 0 ? 'with z clearance at or under 0, every rapid move runs at or into the board at full speed.' : 'moves across at rapid speed barely clear the board and catch on anything standing on it.',
+                    hint: 'z clearance (limits) at least 3 mm; 5 mm is typical' });
             } catch (e) { /* swallow until ops shape is finalised */ }
             // the bed is a limit on both machines (Fable review 3 #13): a part bigger than the bed,
             // or hanging off it, is a concern in cam, not only a blocked file in control

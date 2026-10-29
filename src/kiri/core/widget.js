@@ -155,6 +155,20 @@ class Widget {
             console.log('missing vertices', {data, options});
             return;
         }
+        // swarf: a triangle with a coordinate that is not a number is left out (torture test 10-29:
+        // one NaN vertex in an STL froze the page in the layout packer)
+        let bad = 0;
+        for (let i = 0; i < vertices.length; i++) if (!Number.isFinite(vertices[i])) { bad++; break; }
+        if (bad) {
+            const keep = [];
+            for (let t = 0; t + 8 < vertices.length; t += 9) {
+                let ok = true;
+                for (let k = 0; k < 9; k++) if (!Number.isFinite(vertices[t + k])) { ok = false; break; }
+                if (ok) for (let k = 0; k < 9; k++) keep.push(vertices[t + k]);
+            }
+            vertices = new Float32Array(keep);
+            try { self.kiri?.api?.show?.alert('some triangles in this file had positions that are not numbers: they were left out', 8); } catch (e) { }
+        }
         if (autoscale === true) {
             // onshape exports obj in meters by default :/
             let maxv = 0;
@@ -165,6 +179,8 @@ class Widget {
                 for (let i=0; i<vertices.length; i++) {
                     vertices[i] *= 1000;
                 }
+                // swarf: said, not silent (torture test 10-29: a 0.2 mm part became a 200 mm cube)
+                try { self.kiri?.api?.show?.alert('this file is under 1 mm across, so swarf read it in meters (1000 times larger): check its size', 10); } catch (e) { }
             }
         }
         if (this.mesh) {

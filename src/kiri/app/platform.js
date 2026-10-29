@@ -967,14 +967,16 @@ function layout() {
             c = Widget.Groups.blocks().sort(),
             p = new Packer(ms[0], ms[1], gap).fit(c);
 
-        while (!p.packed) {
+        // swarf: a part with no finite size can never pack; give up after the bed is far outgrown
+        for (let grow = 0; !p.packed && grow < 200; grow++) {
             ms[0] *= 1.1;
             ms[1] *= 1.1;
             p = new Packer(ms[0], ms[1], gap).fit(c);
         }
 
-        for (i = 0; i < c.length; i++) {
+        for (i = 0; p.packed && i < c.length; i++) {
             m = c[i];
+            if (!m.fit) continue;
             m.fit.x += m.w / 2;
             m.fit.y += m.h / 2;
             m.move(p.max.w / 2 - m.fit.x, p.max.h / 2 - m.fit.y, 0, true);

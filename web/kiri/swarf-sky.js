@@ -148,6 +148,23 @@
       }
     } catch (e) {}
 
+    // swarf 082: a ShopBot profile saved before 082 wrote 'UNITS:MM with no check; the file now
+    // refuses to run on a ShopBot set to inches (torture test 10-29). Every load, idempotent.
+    try {
+      const s = api.conf && api.conf.get && api.conf.get();
+      const guard = 'IF %(25)=0 THEN GOTO UNIT_ERROR';
+      const fix = d => {
+        if (!d || !/shopbot/i.test(d.deviceName || '') || !Array.isArray(d.gcodePre)) return false;
+        if (d.gcodePre.some(l => /%\(25\)/.test(l))) return false;
+        const i = d.gcodePre.findIndex(l => /UNITS:MM/i.test(l));
+        d.gcodePre.splice(i >= 0 ? i + 1 : 0, 0, guard);
+        return true;
+      };
+      let changed = fix(s && s.device);
+      for (const d of Object.values((s && s.devices) || {})) changed = fix(d) || changed;
+      if (changed && api.conf.save) api.conf.save();
+    } catch (e) {}
+
     // swarf r5: force animation-mesh density down for stored profiles. Upstream
     // Kiri defaults animesh to "800"; swarf r5 lowers it to "500" (grid density
     // is (animesh · stockArea)² so this ~2× speeds up "building animation").

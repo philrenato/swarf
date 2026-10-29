@@ -6,7 +6,7 @@ simulate, then cut.
 **Open it:** [renato.design/swarf-app](https://renato.design/swarf-app/) (installable, works offline once loaded)
 
 - **Runs a ShopBot from the browser.** Chrome or Edge drives a ShopBot over its USB
-  cable, no other software: connect, jog, zero, Z plate, trace, air cut, cut, feed
+  cable: connect, jog, zero, Z plate, trace, air cut, cut, feed
   override, e-stop. swarf switches the router on and off itself.
 - **Auto tabs.** One press places tabs sized for the material, bit, board and machine.
   Every tab setting is editable, and pieces inside holes are held too. Parts cut free

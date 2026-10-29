@@ -12,6 +12,7 @@
     "feedMaxZ": 2540,
     "gcodePre": [
         "'UNITS:MM",
+        "IF %(25)=0 THEN GOTO UNIT_ERROR    'a ShopBot set to inches refuses the file instead of cutting it 25.4 times too big",
         "'",
         "CN, 90               'Set program to absolute coordinate mode",
         "'"

@@ -875,7 +875,13 @@ export function init() {
     api.event.on([
         "selection.scale",
     ], () => {
+        // swarf: said, not silent (torture test 10-29: a resize left the part with no tabs and only
+        // "Resized to ..."); auto tabs come back by themselves at the new size (cl-autotab.js)
+        let hand = 0, auto = 0;
+        for (const w of api.widgets.all()) for (const r of (w.anno && w.anno.tab) || []) { if (r.auto) auto++; else hand++; }
         tabClear();
+        // after the size card's own "Resized to ..." (a 120 ms debounce), so this is the line left showing
+        if (hand) setTimeout(() => api.show.alert(`the resize took away ${hand} tab${hand === 1 ? '' : 's'} you placed by hand: place ${hand === 1 ? 'it' : 'them'} again (tabs › +)${auto ? '; the auto tabs are placed again' : ''}`, 10), 400);
     });
 
     api.event.on([
