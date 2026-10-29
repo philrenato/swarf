@@ -204,7 +204,7 @@
     if (apply) {
       const bad = S.parts.find(p => !p.gone && p.dirty && checkCross(p));
       if (bad) { S.sel = S.parts.indexOf(bad); render(); say(crossSay(bad, bad.cross) + ' Then press done.'); return; }
-      if (commit() === false) { render(); return; }
+      commit();
     }
     window.removeEventListener('keydown', key, true);
     window.removeEventListener('keypress', hush, true);
@@ -958,7 +958,7 @@
     if (!changed.length) return;
     // parts stay where they were drawn: auto layout would repack them
     if (a.ui.autoLayout && a.ui.autoLayout.checked) { a.ui.autoLayout.checked = false; a.ui.autoLayout.dispatchEvent(new Event('change')); }
-    const open = [], made = [], failed = [];
+    const open = [], made = [], failed = [], adapted = [];
     let built = 0;
     for (const p of changed) {
       if (p.gone) { if (p.w) a.platform.delete(p.w); p.w = null; continue; }
@@ -966,8 +966,16 @@
       if (closed.length < p.curves.length) open.push(p.name);
       if (!closed.length) continue;
       const svg = V().svgOf(closed);
-      const ws = a.platform.load_svg(svg, p.name.replace(/\.(svg|dxf|ai|pdf)$/i, ''), { depth: p.thick, resolution: 2, segmin: 48, soup: true, dpi: 0, place: true, edge: p.edge });
-      if (!ws.length) { failed.push(`${p.name}: ${ws.error || 'swarf could not make it from its drawing. Is the outline crossing itself?'}`); continue; }
+      const nm = p.name.replace(/\.(svg|dxf|ai|pdf)$/i, '');
+      let ws = a.platform.load_svg(svg, nm, { depth: p.thick, resolution: 2, segmin: 48, soup: true, dpi: 0, place: true, edge: p.edge });
+      // an edge that does not fit: made with a straight top instead, and said (Phil 10-29: "it should
+      // do something, adapt, not do something, but never make it so I can't get out of this mode")
+      if (!ws.length && p.edge && p.edge.kind !== 'straight') {
+        const why = ws.error;
+        ws = a.platform.load_svg(svg, nm, { depth: p.thick, resolution: 2, segmin: 48, soup: true, dpi: 0, place: true, edge: { kind: 'straight', size: 0 } });
+        if (ws.length) adapted.push(`${p.name}: made with a straight top edge (${(why || `the ${p.edge.kind} did not fit`).replace(/\.$/, '')})`);
+      }
+      if (!ws.length) { failed.push(`${p.name} not made: ${(ws.error || 'swarf could not make it from its drawing. Is the outline crossing itself?').replace(/\.$/, '')}${p.w ? '; the part stays as it was' : ''}.`); continue; }
       if (!p.w) fresh = true;
       if (p.w) a.platform.delete(p.w);
       made.push(...ws);
@@ -979,8 +987,11 @@
     if (fresh && a.frame) setTimeout(() => a.frame(), 120);   // Fable review 3 #17: done counts as a landing
     // a word, or any one drawing, counts as one, however many parts its letters make
     const n = built;
-    // a part that could not be made keeps the board open with its drawing, so nothing is lost (torture test 10-29)
-    if (failed.length) { say(`Not made yet: ${failed.join(' ')} Fix it, then press done again.`); return false; }
+    // done always leaves DRAW: what could not be made is said, and a part that was there stays as it was
+    if (failed.length || adapted.length) {
+      a.show.alert([...adapted.map(x => x + '.'), ...failed].join(' ') + (failed.length ? ' Open draw again to change it.' : ''), 14);
+      return;
+    }
     a.show.alert(open.length ? `${open.join(', ')}: open lines were left out (only closed outlines get a thickness).` : `${n === 1 ? (made.length > 1 ? `Made from the drawing: ${made.length} pieces, kept together.` : '1 part rebuilt from the drawing.') : `${n} drawings made into parts.`} Next: a step (${made.some(w => w.meta.edge) ? 'contour shapes the edge, outline cuts it out' : 'outline cuts it out'}), then toolpaths.`, 8);
   }
 
