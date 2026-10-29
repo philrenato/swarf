@@ -1478,7 +1478,7 @@ FROM, OUT OF THE USE OR INABILITY TO USE THE FONT SOFTWARE OR FROM
 OTHER DEALINGS IN THE FONT SOFTWARE.
 
 ==============================================================================
-Unreason 2D exchange (web/kiri/vendor/unreason), vendored with its author's OK
+Unreason 2D exchange and planar arrangement (web/kiri/vendor/unreason), vendored with its author's OK
 License: MIT
 ------------------------------------------------------------------------------
 Copyright 2026 Phil Renato. Licensed under the MIT License (license.md) as part of swarf.
