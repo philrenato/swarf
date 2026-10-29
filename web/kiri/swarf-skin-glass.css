@@ -348,3 +348,6 @@ html[data-skin="glass"] #mode-tools > span.swarf-step-run.swarf-step-on label, h
 html[data-skin="glass"] #mode-tools > span.swarf-step-run.swarf-step-on svg, html[data-skin="glass"] #mode-tools > span.swarf-step-run.swarf-step-on svg * { color: #fff !important; fill: #fff !important; }
 /* cut ready or a job moving: white on the graphite jelly. The skin map's .cut:not(:disabled) (near-black) outranked the jelly's white (Phil 10-28: "cut" illegible during a trace) */
 html[data-skin="glass"] #swarf-run .sr-actions .cut:not(:disabled):not(.wait):not(.quiet) { color: #fff !important; }
+/* the small "add a step" label sits over the scene through the glass (the wood in simulate):
+   dark enough to read on it (legibility 10-29: 3.9:1 over the orange board) */
+html[data-skin="glass"] .swarf-add-op-label { color: #3a3b3d !important; }
