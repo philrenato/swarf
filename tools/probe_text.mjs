@@ -55,7 +55,7 @@ try {
   check(p && p.text === 'OH' && p.n === 3 && p.box[3] > 39.5 && p.box[3] < 41.5 && p.box[1] < 0.05 && p.box[1] > -1.5, `words changed to "OH" in place: ${JSON.stringify(p)}`);
   const russo = p.box[2] - p.box[0];
   // a font from a file
-  const [chooser] = await Promise.all([page.waitForFileChooser({ timeout: 5000 }), page.click('#sd-font')]);
+  const [chooser] = await Promise.all([page.waitForFileChooser({ timeout: 5000 }), page.select('#sd-fontsel', 'file')]);
   await chooser.accept([INTER]);
   await page.waitForFunction(() => window.__swarfDraw.text.name === 'Inter-Regular', { timeout: 5000 }).catch(() => {});
   await wait(200);
