@@ -19,7 +19,7 @@
     { n: 4, h: 'Outline and four tabs', p: ['<b>outline</b> cuts around the outside, right through. <b>tabs › +</b>, click the edge four times, <b>✓</b>.', 'Zero: <b>front-left corner</b>, the default. Material: <b>plywood</b>.'], show: ['add an outline', () => { const el = [...(($('op-add-list') || {}).children || [])].find(c => c.innerText.trim().toLowerCase() === 'outline'); if (el) el.dispatchEvent(new MouseEvent('click', { bubbles: true })); const s = $('swarf-material-select'); if (s && [...s.options].some(o => o.value === 'plywood')) { s.value = 'plywood'; s.dispatchEvent(new Event('change', { bubbles: true })); } }] },
     { n: 5, h: 'Toolpaths, then simulate', p: ['<b>toolpaths</b> shows where the bit goes; <b>simulate</b> and watch it cut. Mistakes cost nothing to fix here.'], show: ['make the toolpaths', () => click('act-paths')] },
     { n: '!', h: 'Before you touch the machine', list: ['Faculty or technician permission.', 'Eye and ear protection on; hair, sleeves and cords tied back.', 'Your board labeled, flat, and screwed down clear of the cut.', 'Laptop plugged in and awake; the floor e-stop within reach of your foot.'] },
-    { n: 6, h: 'Fit the bit, connect, zero X Y', p: ['Fit the bit swarf names. USB in, <b>connect</b>.', 'No homing: jog the bit to your board\'s front-left corner and press <b>zero x y</b>.'], show: ['open control', () => click('swarf-step-run')] },
+    { n: 6, h: 'Fit the bit, connect, zero X Y', p: ['Fit the bit swarf names. USB in, <b>connect</b>.%windows%', 'No homing: jog the bit to your board\'s front-left corner and press <b>zero x y</b>.'], show: ['open control', () => click('swarf-step-run')] },
     { n: 7, h: 'Zero Z with the plate', p: ['Clip on the black Allen screw in the router\'s side, the plate under the bit, <b>touch off</b>. Then put the plate and clip away.'], show: ['open control', () => click('swarf-step-run')] },
     { n: 8, h: 'Trace, then air cut', p: ['<b>trace</b> runs the outline, <b>air cut</b> the whole file 5 mm up, the bit not spinning. Neither checks clamps: watch.'] },
     { n: 9, h: 'Cut and stay with it', p: ['Dust collection on. <b>cut</b>, tick only what\'s true, then <b>cut</b> again.', '%keyPause%'] },
@@ -28,6 +28,8 @@
   ];
   // the safety sentences come from swarf-safety-words.js, the copy the poster matches word for word
   const words = t => t.replace(/%(\w+)%/g, (_, k) => {
+    // Windows only: the box's COM port takes one program at a time (Phil 10-29)
+    if (k === 'windows') return window.ShopBotLink && ShopBotLink.kind() === 'serial' ? ' On Windows, quit ShopBot 3 first: one program at a time.' : '';
     const w = (window.SwarfSafetyWords || {})[k] || '';
     return k === 'finished' ? w.replace(/^At Finished/, 'At <b>Finished</b>') : w;
   });
