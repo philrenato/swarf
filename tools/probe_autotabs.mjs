@@ -69,10 +69,11 @@ try {
 
   // editable: tabs › +, a real click on one tab's box deletes it (the existing tool)
   const target = await page.evaluate(() => {
-    const a = window.kiri.api, w = a.widgets.all()[0], rec = Object.values(w.tabs)[0];
-    const v = new window.THREE.Vector3(); rec.box.getWorldPosition(v);
-    rec.box.geometry.computeBoundingBox(); const c = new window.THREE.Vector3(); rec.box.geometry.boundingBox.getCenter(c);
-    v.add(c.applyQuaternion(rec.box.getWorldQuaternion(new window.THREE.Quaternion())));
+    // the tab nearest the camera, so the part does not hide it
+    const a = window.kiri.api, w = a.widgets.all()[0], cam = window.moto.space.internals().camera;
+    const at = r => r.box.getWorldPosition(new window.THREE.Vector3());
+    const rec = Object.values(w.tabs).sort((p, q) => at(p).distanceTo(cam.position) - at(q).distanceTo(cam.position))[0];
+    const v = at(rec);
     return { id: rec.box.tab.id, world: [v.x, v.y, v.z] };
   });
   const xy = await page.evaluate(w => {
