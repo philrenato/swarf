@@ -9,6 +9,7 @@
  *   emergency  the floor e-stop
  * Phil 10-28: the poster and the quick start do not tell students to switch the router off at
  * its own switch ("they might forget to turn it on"); swarf switches it.
+ * Phil 10-29: "Router always stays on, software turns it on and off" — tool changes included.
  */
 (function (root) {
   'use strict';
