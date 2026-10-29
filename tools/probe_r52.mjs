@@ -85,11 +85,14 @@ try {
   // help › ShopBot quick start: the poster's steps, a page at a time, with show me
   await page.evaluate(() => document.querySelector('#swarf-run .sr-sheet')?.classList.remove('on'));
   const qs = await page.evaluate(() => { const T = window.__swarfTutorial; if (!T) return null; T.open(0); const r = document.getElementById('swarf-tutorial');
+    // the card stacks top to bottom: title bar, then the heading over its words, then the buttons (a div inside #app is a flex row unless told)
+    const box = q => r.querySelector(q).getBoundingClientRect(), top = box('.st-top'), h = box('h3'), para = box('.st-body p'), row = box('.st-row');
+    const stacked = top.bottom <= h.top + 1 && h.bottom <= para.top + 1 && para.bottom <= row.top + 1 && h.width > 300 && para.width > 300;
     const first = r.querySelector('h3').textContent; r.querySelector('.st-next').click(); const second = r.querySelector('h3').textContent, show = r.querySelector('.st-show').textContent;
     const pages = T.PAGES.length, mail = /@/.test(T.PAGES.map(p => [p.h, ...(p.p || []), ...(p.list || [])].join(' ')).join(' '));
     document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true })); window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
-    return { first, second, show, pages, mail, open: r.classList.contains('on') }; });
-  check(qs && /Run ShopBot with Swarf/.test(qs.first) && /pick the ShopBot/.test(qs.second) && qs.show === 'use the ShopBot' && qs.pages === 13 && !qs.mail && !qs.open, `the quick start: ${JSON.stringify(qs)}`);
+    return { first, second, show, pages, mail, stacked, open: r.classList.contains('on') }; });
+  check(qs && /Run ShopBot with Swarf/.test(qs.first) && /pick the ShopBot/.test(qs.second) && qs.show === 'use the ShopBot' && qs.pages === 13 && qs.stacked && !qs.mail && !qs.open, `the quick start: ${JSON.stringify(qs)}`);
   // sounds: made by the browser, the chip turns them off and on
   const snd = await page.evaluate(() => { const S = window.SwarfSound; if (!S) return null; S.set(0.6); const on = S.play('move'); S.set(0); const off = S.play('move'); S.set(0.6);
     const b = [...document.querySelectorAll('#swarf-run button')].find(x => /^sounds (on|off)$/.test(x.textContent)); const t0 = b && b.textContent; b && b.click(); const t1 = b && b.textContent; b && b.click();

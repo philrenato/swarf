@@ -2210,6 +2210,8 @@ html:not([data-skin]) .set-header a, html:not([data-skin]) summary.set-header a 
 /* ---- help › ShopBot quick start (swarf-tutorial.js): the shop poster, a page at a time ---- */
 #swarf-tutorial { position: fixed; inset: 0; z-index: 70; display: none; place-items: center; background: rgba(0,0,0,.35); }
 #swarf-tutorial.on { display: grid; }
+/* kiri's index.css makes every div a flex row (#app,div {display:flex}); the card stacks */
+#swarf-tutorial .st-card, #swarf-tutorial .st-body, #swarf-tutorial .st-n { display: block; }
 #swarf-tutorial .st-card { width: min(560px, 92vw); background: #15110f; color: #ede6da; border: 1px solid #3a302c; border-radius: 14px; padding: 16px 20px 18px; box-shadow: 0 24px 70px rgba(0,0,0,.55); font-family: "JetBrains Mono", "IBM Plex Mono", ui-monospace, monospace; }
 #swarf-tutorial .st-top { display: flex; align-items: center; gap: 10px; font-size: 12px; color: #c9c0b3; }
 #swarf-tutorial .st-title { font-weight: 600; color: #ede6da; }

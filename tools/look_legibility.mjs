@@ -133,6 +133,12 @@ try {
     await press('z plate'); await wait(900);
     await audit(page, skin, '12-plate-card', found);
     await page.keyboard.press('Escape'); await wait(300);
+    // a trace running: cut waits while the machine moves (poster step 9's button; Phil 10-28 "cut" illegible)
+    await page.click('#swarf-run .sr-actions .trace').catch(() => {}); await wait(600);
+    await page.evaluate(() => { for (const c of document.querySelectorAll('#swarf-run .sr-sheet.on input[type=checkbox]')) c.click(); document.querySelector('#swarf-run .sr-sheet.on .go')?.click(); });
+    await wait(1200); await audit(page, skin, '12b-trace', found);
+    if (process.env.CUTSTYLE) console.log(skin, await page.evaluate(() => { const b = document.querySelector('#swarf-run .sr-actions .cut'), s = getComputedStyle(b); return JSON.stringify({ cls: b.className, dis: b.disabled, bg: s.backgroundColor, img: s.backgroundImage.slice(0, 80), color: s.color, op: s.opacity, kids: [...b.children].map(c => c.tagName + ':' + getComputedStyle(c).color), rules: [...document.styleSheets].flatMap(sh => { try { return [...sh.cssRules]; } catch (e) { return []; } }).filter(r => r.selectorText && r.style && r.style.color && (() => { try { return b.matches(r.selectorText); } catch (e) { return false; } })()).map(r => r.selectorText.slice(0, 140) + ' => ' + r.style.color + (r.style.getPropertyPriority('color') ? ' !' : '')) }); }));
+    await page.evaluate(() => window.__swarfRun.state.machine.stop()); await wait(800);
     await page.click('#swarf-run .sr-actions .air').catch(() => {}); await wait(600);
     await page.evaluate(() => { for (const c of document.querySelectorAll('#swarf-run .sr-sheet.on input[type=checkbox]')) c.click(); document.querySelector('#swarf-run .sr-sheet.on .go')?.click(); });
     await wait(1500); await audit(page, skin, '13-running', found);
