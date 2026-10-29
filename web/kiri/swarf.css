@@ -2274,11 +2274,11 @@ html:not([data-skin]) .swarf-license a, html:not([data-skin]) .swarf-about a, ht
 html:not([data-skin]) .swarf-concordance section h3 { color: #ff8a7e !important; }   /* section heads on the dark plate */
 
 /* the router test button (Phil 10-29): red while the router runs, in every skin */
-html #swarf-run .sr-pad button.sr-router.on,
-html[data-skin] #swarf-run .sr-pad button.sr-router.on,
-html:not([data-skin]) #swarf-run .sr-pad button.sr-router.on { background: #b3261e !important; border-color: #8c1d18 !important; color: #fff !important; box-shadow: 0 0 0 3px rgba(179, 38, 30, .25) !important; }
-html #swarf-run .sr-pad button.sr-router.on b,
-html #swarf-run .sr-pad button.sr-router.on small,
-html[data-skin] #swarf-run .sr-pad button.sr-router.on b,
-html[data-skin] #swarf-run .sr-pad button.sr-router.on small,
-html:not([data-skin]) #swarf-run .sr-pad button.sr-router.on small { color: #fff !important; }
+html #swarf-run .sr-keyrow button.sr-router.on,
+html[data-skin] #swarf-run .sr-keyrow button.sr-router.on,
+html:not([data-skin]) #swarf-run .sr-keyrow button.sr-router.on { background: #b3261e !important; border-color: #8c1d18 !important; color: #fff !important; box-shadow: 0 0 0 3px rgba(179, 38, 30, .25) !important; }
+html #swarf-run .sr-keyrow button.sr-router.on b,
+html #swarf-run .sr-keyrow button.sr-router.on small,
+html[data-skin] #swarf-run .sr-keyrow button.sr-router.on b,
+html[data-skin] #swarf-run .sr-keyrow button.sr-router.on small,
+html:not([data-skin]) #swarf-run .sr-keyrow button.sr-router.on small { color: #fff !important; }
