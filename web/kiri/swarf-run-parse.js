@@ -122,6 +122,8 @@
         const v = Number(asg[2].trim());
         if (Number.isFinite(v)) st.vars[asg[1].toLowerCase()] = v;
         else st.vars[asg[1].toLowerCase()] = asg[2].trim();
+        // VCarve's ShopBot post: &PWZorigin = Material Surface | Table Surface
+        if (asg[1].toLowerCase() === 'pwzorigin') event(n, 'z-origin', asg[2].trim());
         if (asg[1].toLowerCase() === 'tool') {
           event(n, 'tool', asg[2].trim());
           // swarf's post names the bit in the comment: &Tool =3   'Load 6 mm flat end mill
@@ -141,6 +143,9 @@
 
       // "MX, 3" and "PAUSE 2" both occur: the command ends at the first comma or space
       const cmdm = s.match(/^([A-Za-z][A-Za-z0-9]*)\s*,?\s*(.*)$/);
+      // anything else (an assignment whose value was all brackets, a stray symbol) is a line swarf
+      // can't carry out, never a crash: a sample file's bracketed assignment threw here (10-29)
+      if (!cmdm) { out.unsupported.push({ line: n, text: s }); continue; }
       const cmd = cmdm[1].toUpperCase();
       const p = cmdm[2] === '' ? [] : cmdm[2].split(',');
       const NUMERIC = /^(M[23XYZ]|J[23XYZ]|MS|JS|TR|TS|SO|VS|PAUSE)$/;

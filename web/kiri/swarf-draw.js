@@ -22,6 +22,13 @@
  */
 (function () {
   'use strict';
+  // lengths in cam's units (swarf-length.js); with it missing, millimeters as before
+  const LEN = {
+    unit: () => (window.SwarfLength ? window.SwarfLength.unit() : 'mm'),
+    fld: v => (window.SwarfLength ? window.SwarfLength.show(v) : String(v)),
+    parse: t => (window.SwarfLength ? window.SwarfLength.parse(t) : parseFloat(t)),
+    say: v => (window.SwarfLength ? window.SwarfLength.say(v) : `${+(+v).toFixed(2)} mm`)
+  };
   const api = () => window.kiri && window.kiri.api;
   const V = () => window.SwarfVector;
   const $ = id => document.getElementById(id);
@@ -424,7 +431,7 @@
     }
     return null;
   }
-  const crossSay = (part, x) => `${part.name} crosses itself near ${r3(x[0])}, ${r3(x[1])} mm: past a crossing, swarf cannot tell inside from outside. Move a point so its lines don't cross.`;
+  const crossSay = (part, x) => `${part.name} crosses itself near ${LEN.unit() === 'in' ? `${LEN.fld(x[0])}, ${LEN.fld(x[1])} in` : `${r3(x[0])}, ${r3(x[1])} mm`}: past a crossing, swarf cannot tell inside from outside. Move a point so its lines don't cross.`;
   function checkCross(part) {
     part.cross = part.text ? null : crossing(part);
     if (part.cross) say(crossSay(part, part.cross));
@@ -437,7 +444,10 @@
   // the card: what is picked, its numbers, typeable
   function card() {
     const part = S.parts[S.sel];
-    const row = (word, id, v, unit) => `<div class="sd-row"><span>${word}</span><input id="${id}" value="${v}" inputmode="decimal"><span class="u">${unit}</span></div>`;
+    // a length row shows and reads cam's units (swarf-length.js: 3/4, 1 1/2", 19 mm); the part stays in mm
+    const row = (word, id, v, unit) => unit === 'mm'
+      ? `<div class="sd-row"><span>${word}</span><input id="${id}" value="${LEN.fld(v)}" inputmode="text" data-len="1"><span class="u">${LEN.unit()}</span></div>`
+      : `<div class="sd-row"><span>${word}</span><input id="${id}" value="${v}" inputmode="decimal"><span class="u">${unit}</span></div>`;
     const textRows = (str, hh) => `<div class="sd-row"><span>words</span><input id="sd-str" class="wide" value="${esc(str)}"></div>${row('letter height', 'sd-th', hh, 'mm')}
       <div class="sd-row"><span>font</span><span class="sd-font">${esc(TEXT.name)}</span><button id="sd-font" title="use a .ttf or .otf font from this computer">change…</button></div>`;
     const edgeRows = e => `<div class="sd-row"><span>top edge</span><select id="sd-edge">${['straight', 'chamfer', 'round'].map(k => `<option${k === e.kind ? ' selected' : ''}>${k}</option>`).join('')}</select><span class="u"></span></div>${e.kind === 'straight' ? '' : row('edge size', 'sd-es', e.size, 'mm')}`;
@@ -466,19 +476,20 @@
       h = '<div class="sd-note">Click a part to edit it.</div>';
     }
     ui.card.innerHTML = h;
-    const num = (id, fn) => { const el = $(id); if (!el) return; el.onkeydown = e => { e.stopPropagation(); if (e.key === 'Enter') { fn(parseFloat(el.value), el); el.blur(); } if (e.key === 'Escape') { render(); ui.svg.focus(); } }; el.onchange = () => fn(parseFloat(el.value), el); };
-    num('sd-t', v => { if (!(v > 0)) return say('The thickness must be more than 0 mm.'); if (v === part.thick) return; snap(); part.thick = r3(v); part.dirty = true; render(); });
+    const rd = el => (el.dataset.len ? LEN.parse(el.value) : parseFloat(el.value));
+    const num = (id, fn) => { const el = $(id); if (!el) return; el.onkeydown = e => { e.stopPropagation(); if (e.key === 'Enter') { fn(rd(el), el); el.blur(); } if (e.key === 'Escape') { render(); ui.svg.focus(); } }; el.onchange = () => fn(rd(el), el); };
+    num('sd-t', v => { if (!(v > 0)) return say('Give the thickness a length above 0.'); if (v === part.thick) return; snap(); part.thick = r3(v); part.dirty = true; render(); });
     // the top edge: the pen's next outline, or the picked part
     const E = S.tool !== 'select' ? S.edge : part && part.edge;
     const sel = $('sd-edge');
     if (sel && E) sel.onchange = () => { if (S.tool === 'select') { snap(); part.dirty = true; } E.kind = sel.value; render(); edgeSay(); };
-    num('sd-es', v => { if (!(v > 0)) return say('The edge size must be more than 0 mm.'); if (!E || v === E.size) return; if (S.tool === 'select') { snap(); part.dirty = true; } E.size = r3(v); render(); edgeSay(); });
+    num('sd-es', v => { if (!(v > 0)) return say('Give the edge size a length above 0.'); if (!E || v === E.size) return; if (S.tool === 'select') { snap(); part.dirty = true; } E.size = r3(v); render(); edgeSay(); });
     num('sd-pen-t', v => { if (v > 0) { S.thick = r3(v); try { localStorage.setItem(THICK, String(S.thick)); } catch (e) { /* private */ } } });
     num('sd-px', v => { if (!isFinite(v)) return; const [ci, i] = [...S.pts][0].split(':').map(Number), P = part.curves[ci].crv.ctrlPts[i]; if (v === r3(P[0])) return; snap(); shiftPts(part, [...S.pts], v - P[0], 0); render(); });
     num('sd-py', v => { if (!isFinite(v)) return; const [ci, i] = [...S.pts][0].split(':').map(Number), P = part.curves[ci].crv.ctrlPts[i]; if (v === r3(P[1])) return; snap(); shiftPts(part, [...S.pts], 0, v - P[1]); render(); });
     // width / depth: the whole part stretched about its center to that size
     const size = (axis, v) => {
-      if (!(v > 0)) return say('A size must be more than 0 mm.');
+      if (!(v > 0)) return say('Give the size a length above 0.');
       const b = boxOf(part.curves), was = axis ? b[3] - b[1] : b[2] - b[0];
       if (!(was > 0) || Math.abs(v - was) < 1e-6) return;
       const f = v / was;
@@ -502,7 +513,7 @@
       strEl.onkeydown = e => { e.stopPropagation(); if (e.key === 'Enter') { strEl.blur(); } };
       strEl.oninput = () => { if (S.tool === 'text') TEXT.str = strEl.value; };
       strEl.onchange = () => setText(strEl.value, S.tool === 'text' ? TEXT.h : part.text.h);
-      num('sd-th', v => { if (!(v > 0)) return say('The letter height must be more than 0 mm.'); setText(S.tool === 'text' ? TEXT.str : part.text.str, r3(v)); });
+      num('sd-th', v => { if (!(v > 0)) return say('Give the letter height a length above 0.'); setText(S.tool === 'text' ? TEXT.str : part.text.str, r3(v)); });
       const fb = $('sd-font');
       if (fb) fb.onclick = () => {
         const inp = Object.assign(document.createElement('input'), { type: 'file', accept: '.ttf,.otf' });
@@ -535,7 +546,7 @@
     const closed = part.curves.filter(c => isClosed(c.crv));
     if (!closed.length) return;
     const why = a.platform.edge_problem(V().svgOf(closed), { depth: part.thick, resolution: 2, segmin: 48, soup: true, dpi: 0, edge: part.edge });
-    say(why || `A ${part.edge.size} mm ${part.edge.kind} fits. Press done to shape it.`);
+    say(why || `A ${LEN.say(part.edge.size)} ${part.edge.kind} fits. Press done to shape it.`);
   }
   const esc = t => String(t).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
   function say(t) { const el = $('sd-say'); if (el) el.textContent = t || ''; }
@@ -712,7 +723,7 @@
         render(); say(a.h ? 'a smooth point: let go to keep its curve' : '');
         return;
       }
-      S.hover = q; render(); say(`${r3(q[0])}, ${r3(q[1])} mm`);
+      S.hover = q; render(); say(LEN.unit() === 'in' ? `${LEN.fld(q[0])}, ${LEN.fld(q[1])} in` : `${r3(q[0])}, ${r3(q[1])} mm`);
       return;
     }
     if (S.tool === 'text' && TEXT.font) {
@@ -726,7 +737,7 @@
       d.to = b;
       const w = Math.abs(b[0] - d.at[0]), h = Math.abs(b[1] - d.at[1]);
       S.ghost = w > 0 && h > 0 ? shapeCrv(S.tool, d.at, b) : null;
-      render(); say(`${r3(w)} × ${r3(h)} mm`);
+      render(); say(`${LEN.say(w)} × ${LEN.say(h)}`);
       return;
     }
     if (d.kind === 'pan') { S.ox += e.clientX - d.x; S.oy += e.clientY - d.y; d.x = e.clientX; d.y = e.clientY; render(); return; }
@@ -751,7 +762,7 @@
     if (d.kind === 'shape') {
       S.ghost = null;
       const b = d.to;
-      if (!b || Math.abs(b[0] - d.at[0]) < 1 || Math.abs(b[1] - d.at[1]) < 1) { say('Drag farther: a shape needs to be at least 1 mm each way.'); render(); return; }
+      if (!b || Math.abs(b[0] - d.at[0]) < 1 || Math.abs(b[1] - d.at[1]) < 1) { say(`Drag farther: a shape needs to be at least ${LEN.unit() === 'in' ? '1 mm (0.04 in)' : '1 mm'} each way.`); render(); return; }
       addPart(S.tool === 'rect' ? 'rectangle' : 'ellipse', shapeCrv(S.tool, d.at, b));
       return;
     }

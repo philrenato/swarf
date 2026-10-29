@@ -36,14 +36,20 @@
   // the edge must be a size, no taller than the part, and fit the shape's tightest curve
   function edgeProblem(a, kind, v, t, edge, es) {
     if (edge === 'straight') return null;
-    if (!(es > 0)) return 'The edge size must be more than 0 mm.';
-    if (es > t) return `The edge can be at most the thickness, ${f(t)} mm.`;
+    if (!(es > 0)) return 'Give the edge size a length above 0.';
+    if (es > t) return `The edge can be at most the thickness, ${len(t)}.`;
     return a.platform.edge_problem ? a.platform.edge_problem(svgFor(kind, v), { depth: t, resolution: 2, segmin: 48, soup: true, dpi: 0, edge: { kind: edge, size: es } }) : null;
   }
 
   const api = () => window.kiri && window.kiri.api;
   const $ = id => document.getElementById(id);
   const f = v => +(+v).toFixed(3);
+  // lengths in cam's units (swarf-length.js): fields show and read them, words say them; values stay mm
+  const L = () => window.SwarfLength;
+  const len = v => (L() ? L().say(v) : `${f(v)} mm`);
+  const unitW = () => (L() ? L().unit() : 'mm');
+  const fld = v => (L() ? L().show(v) : v);
+  const rd = t => (L() ? L().parse(t) : parseFloat(t));
 
   // The shape as SVG in mm (viewBox = mm, so cam's import reads mm straight).
   function svgFor(kind, v) {
@@ -75,13 +81,13 @@
     for (const k of SHAPES[kind].fields) if (!(v[k] > 0)) return `Give the ${FIELD[k].label} a number above 0.`;
     if (!(t > 0)) return 'Give the thickness a number above 0.';
     if (kind === 'ring' && v.di >= v.d) return 'The hole must be smaller than the ring.';
-    if (kind === 'rounded' && v.r * 2 > Math.min(v.w, v.h)) return `The corner radius can be at most ${f(Math.min(v.w, v.h) / 2)} mm here.`;
+    if (kind === 'rounded' && v.r * 2 > Math.min(v.w, v.h)) return `The corner radius can be at most ${len(Math.min(v.w, v.h) / 2)} here.`;
     if (kind === 'polygon' && (v.n < 3 || v.n > 64 || Math.round(v.n) !== v.n)) return 'A polygon needs a whole number of sides, 3 to 64.';
     if (kind === 'star' && (v.p < 3 || v.p > 64 || Math.round(v.p) !== v.p)) return 'A star needs a whole number of points, 3 to 64.';
     if (kind === 'star' && (v.i < 5 || v.i > 95)) return 'Inner size is a percent of the outside, 5 to 95.';
     const wide = SHAPES[kind].fields.includes('w'), w = wide ? v.w : v.d, h = wide ? v.h : v.d;
-    if (bed && (w > bed.w || h > bed.h) && (w > bed.h || h > bed.w)) return `That is bigger than the bed (${bed.w} × ${bed.h} mm).`;
-    if (t > 150) return 'That is thicker than the machine can cut (150 mm).';
+    if (bed && (w > bed.w || h > bed.h) && (w > bed.h || h > bed.w)) return `That is bigger than the bed (${len(bed.w)} × ${len(bed.h)}).`;
+    if (t > 150) return `That is thicker than the machine can cut (${len(150)}).`;
     return null;
   }
 
@@ -105,16 +111,16 @@
     const kind0 = SHAPES[last.kind] ? last.kind : 'circle';
     const val = k => (last.v && last.v[k] > 0 ? last.v[k] : FIELD[k].value);
     const rows = Object.keys(FIELD).map(k =>
-      `<tr data-f="${k}"><th>${FIELD[k].label}</th><td><input id="shape-${k}" value="${val(k)}" size="6" inputmode="decimal"> ${FIELD[k].unit}</td></tr>`).join('');
+      `<tr data-f="${k}"><th>${FIELD[k].label}</th><td><input id="shape-${k}" value="${FIELD[k].unit === 'mm' ? fld(val(k)) : val(k)}" size="6" inputmode="${FIELD[k].unit === 'mm' ? 'text' : 'decimal'}"> ${FIELD[k].unit === 'mm' ? unitW() : FIELD[k].unit}</td></tr>`).join('');
     const pre = [
       "<div class='f-col a-center swarf-shape'>",
       "  <h3>Make a shape</h3>",
       "  <div class='f-row t-right'><table>",
       `  <tr><th>shape</th><td><select id="shape-kind">${Object.keys(SHAPES).map(k => `<option value="${k}"${k === kind0 ? ' selected' : ''}>${SHAPES[k].label}</option>`).join('')}</select></td></tr>`,
       rows,
-      `  <tr><th>thickness</th><td><input id="shape-t" value="${last.t > 0 ? last.t : 6}" size="6" inputmode="decimal"> mm</td></tr>`,
+      `  <tr><th>thickness</th><td><input id="shape-t" value="${fld(last.t > 0 ? last.t : 6)}" size="6" inputmode="text"> ${unitW()}</td></tr>`,
       `  <tr><th>top edge</th><td><select id="shape-edge">${Object.keys(EDGES).map(k => `<option value="${k}"${k === (EDGES[last.edge] ? last.edge : 'straight') ? ' selected' : ''}>${EDGES[k]}</option>`).join('')}</select></td></tr>`,
-      `  <tr data-e="1"><th>edge size</th><td><input id="shape-es" value="${last.es > 0 ? last.es : 2}" size="6" inputmode="decimal"> mm</td></tr>`,
+      `  <tr data-e="1"><th>edge size</th><td><input id="shape-es" value="${fld(last.es > 0 ? last.es : 2)}" size="6" inputmode="text"> ${unitW()}</td></tr>`,
       "  </table></div>",
       "  <div id='shape-prev' class='swarf-shape-prev'></div>",
       "  <p id='shape-why' class='swarf-shape-why'></p>",
@@ -122,8 +128,8 @@
     ];
     const read = () => {
       const kind = $('shape-kind').value, v = {};
-      for (const k of Object.keys(FIELD)) v[k] = parseFloat(($(`shape-${k}`) || {}).value);
-      return { kind, v, t: parseFloat($('shape-t').value), edge: $('shape-edge').value, es: parseFloat($('shape-es').value) };
+      for (const k of Object.keys(FIELD)) { const t = ($(`shape-${k}`) || {}).value; v[k] = FIELD[k].unit === 'mm' ? rd(t) : parseFloat(t); }
+      return { kind, v, t: rd($('shape-t').value), edge: $('shape-edge').value, es: rd($('shape-es').value) };
     };
     const dev = (a.conf.get().device || {});
     const bed = dev.bedWidth && dev.bedDepth ? { w: dev.bedWidth, h: dev.bedDepth } : null;
@@ -156,8 +162,8 @@
       try { localStorage.setItem(LAST, JSON.stringify({ kind, v, t, edge, es })); } catch (e) { /* private window */ }
       const made = a.platform.load_svg(svgFor(kind, v), nameFor(kind), { depth: t, resolution: 2, segmin: 48, soup: true, dpi: 0, edge: { kind: edge, size: es } });
       if (!made.length) { a.show.alert(made.error || 'swarf could not make that shape.', 6); return; }
-      const shaped = edge === 'straight' ? '' : ` with a ${f(es)} mm ${EDGES[edge]} top edge`;
-      a.show.alert(`Made a ${SHAPES[kind].label}, ${f(t)} mm thick${shaped}. Next: add a step (${edge === 'straight' ? 'outline cuts it out' : 'contour shapes the edge, outline cuts it out'}), then toolpaths.`, 8);
+      const shaped = edge === 'straight' ? '' : ` with a ${len(es)} ${EDGES[edge]} top edge`;
+      a.show.alert(`Made a ${SHAPES[kind].label}, ${len(t)} thick${shaped}. Next: add a step (${edge === 'straight' ? 'outline cuts it out' : 'contour shapes the edge, outline cuts it out'}), then toolpaths.`, 8);
     });
     setTimeout(() => {
       if (!$('shape-kind')) return;

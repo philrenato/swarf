@@ -1,5 +1,6 @@
 /*
- * swarf size — the selected part's real size in mm, where you are looking
+ * swarf size — the selected part's real size, where you are looking (in cam's units: mm, or
+ * inches with fractions typed as 3/4 or 1 1/2, swarf-length.js)
  * (Phil 10-27: "clearer scaling controls"). A small card at the bottom of the
  * workspace: width × depth × height, each typeable, and "keep proportions".
  *
@@ -12,6 +13,10 @@
   const api = () => window.kiri && window.kiri.api;
   const AX = [['x', 'width'], ['y', 'depth'], ['z', 'thickness']];
   const KEEP = 'swarf-size-keep';
+  const L = () => window.SwarfLength;
+  // cam's size fields are in its own units
+  const scale = () => (L() && L().unit() === 'in' ? 25.4 : 1);
+  let unitEl;
   let card, fields = {}, keep, edit, count, edge;
 
   function build() {
@@ -20,7 +25,7 @@
     card.innerHTML = '<span class="lbl">size</span>';
     for (const [a, word] of AX) {
       const inp = document.createElement('input');
-      inp.inputMode = 'decimal'; inp.title = `${word} in mm: type a size, then Enter`;
+      inp.inputMode = 'text'; inp.dataset.word = word;
       inp.addEventListener('keydown', e => { if (e.key === 'Enter') { inp.dataset.typed = '1'; apply(a); inp.blur(); } if (e.key === 'Escape') { delete inp.dataset.typed; show(); inp.blur(); } e.stopPropagation(); });
       inp.addEventListener('blur', () => apply(a));
       // only a box typed in is applied on blur; the rest show cam's numbers, focused or not
@@ -32,7 +37,7 @@
       card.append(w);
       if (a !== 'z') card.append(Object.assign(document.createElement('span'), { className: 'x', textContent: '×' }));
     }
-    card.append(Object.assign(document.createElement('span'), { className: 'mm', textContent: 'mm' }));
+    card.append(unitEl = Object.assign(document.createElement('span'), { className: 'mm', textContent: 'mm' }));
     // a shaped top edge, said where the size is (review 10-28 #8)
     edge = Object.assign(document.createElement('span'), { className: 'edge', title: 'the top edge: change it in draw' });
     card.append(edge);
@@ -60,7 +65,8 @@
   function apply(a) {
     if (!fields[a].dataset.typed) return;
     delete fields[a].dataset.typed;
-    const src = $(`size_${a}`), v = parseFloat(fields[a].value);
+    // a length as typed (3/4, 1 1/2", 19 mm), in cam's units
+    const src = $(`size_${a}`), v = (L() ? L().parse(fields[a].value) : parseFloat(fields[a].value)) / scale();
     if (!src || !(v > 0)) { show(); return; }
     if (Math.abs(v - parseFloat(src.was ?? src.value)) < 1e-6) return;
     // width and depth move together when kept; height (the board's thickness) stays its own
@@ -87,12 +93,15 @@
     // scaled in width and depth, the edge stretched with it (its height did not): say so (review 10-28b #32)
     const xf = picked[0] && picked[0].meta && picked[0].meta.xf;
     const stretched = xf && (Math.abs(Math.hypot(xf[0], xf[1]) - 1) > 1e-3 || Math.abs(Math.hypot(xf[2], xf[3]) - 1) > 1e-3);
-    edge.textContent = e && e.kind && e.kind !== 'straight' && e.size > 0 ? `${e.kind} ${+(+e.size).toFixed(2)} mm edge${stretched ? ', stretched with the part' : ''}` : '';
+    edge.textContent = e && e.kind && e.kind !== 'straight' && e.size > 0 ? `${e.kind} ${L() ? L().say(e.size) : +(+e.size).toFixed(2) + ' mm'} edge${stretched ? ', stretched with the part' : ''}` : '';
     edge.style.display = edge.textContent ? '' : 'none';
     for (const [b] of AX) {
       const src = $(`size_${b}`);
-      if (src && !fields[b].dataset.typed) fields[b].value = (+parseFloat(src.value || 0).toFixed(2)).toString();
+      if (src && !fields[b].dataset.typed) fields[b].value = L() && L().unit() === 'in' ? L().show(parseFloat(src.value || 0) * 25.4) : (+parseFloat(src.value || 0).toFixed(2)).toString();
     }
+    const u = L() ? L().unit() : 'mm';
+    unitEl.textContent = u;
+    for (const [b] of AX) fields[b].title = `${fields[b].dataset.word} in ${u === 'in' ? 'inches (3/4, 1 1/2 and 19 mm work too)' : 'mm (3/4 in works too)'}: type a size, then Enter`;
   }
 
   let tries = 0;
@@ -106,7 +115,7 @@
       const said = t => { try { a.event.alerts(true); if (t) a.show.alert(t, 6); } catch (e) { /* no alerts */ } };
       const nm = w => (w && w.meta && w.meta.file) || 'the part';
       let resizing = 0;
-      a.event.on('selection.scale', () => { clearTimeout(resizing); resizing = setTimeout(() => { const v = AX.map(([b]) => +parseFloat(($(`size_${b}`) || {}).value || 0).toFixed(2)); said(`Resized to ${v.join(' × ')} mm.`); }, 120); });
+      a.event.on('selection.scale', () => { clearTimeout(resizing); resizing = setTimeout(() => { const v = AX.map(([b]) => parseFloat(($(`size_${b}`) || {}).value || 0) * scale()); said(`Resized to ${L() && L().unit() === 'in' ? v.map(x => L().say(x).replace(/ in$/, '')).join(' × ') + ' in' : v.map(x => +x.toFixed(2)).join(' × ') + ' mm'}.`); }, 120); });
       a.event.on('widget.duplicate', nw => said(`Made a copy, ${nm(nw)}, beside it.`));
       // (not DRAW's done, which swaps parts and says so itself)
       a.event.on('widget.delete', w => !document.body.classList.contains('swarf-draw-open') && setTimeout(() => { const n = a.widgets.all().length; said(`Deleted ${nm(Array.isArray(w) ? w[0] : w)}.${n ? ` ${n} part${n === 1 ? '' : 's'} left.` : ''} ⌘Z brings it back.`); }, 0));

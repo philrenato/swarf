@@ -145,16 +145,22 @@
   function verify(plan) { return !!(plan && plan.steps && plan.id && Object.isFrozen(plan.steps) && fingerprint(plan) === plan.id); }
 
   // What swarf can carry out exactly, checked on the file itself (the page, the plan and the
-  // driver all use this one list): millimeters, every line understood, Z zero on the board's top.
+  // driver all use this one list): every line understood, Z zero on the board's top. An inch file
+  // runs (Phil 10-29, VCarve's ShopBot post writes inches): the reader turns every length and speed
+  // into millimeters before any plan is made, so the plan, its fingerprint and the card only ever
+  // see millimeters, and the checklist has the student confirm the size in both.
   function validate(src) {
     const out = [];
     if (!src) return [{ k: 'none', text: 'there is no file' }];
-    if (src.units && src.units !== 'mm') out.push({ k: 'units', text: 'the file is in inches; the ShopBot runs millimeters' });
+    if (src.units && src.units !== 'mm' && src.units !== 'in') out.push({ k: 'units', text: `the file's units (${src.units}) are not inches or millimeters` });
     for (const u of src.unsupported || []) out.push({ k: 'unsupported', line: u.line, text: `line ${u.line} is something swarf can't carry out exactly ("${String(u.text).slice(0, 40)}")` });
     // swarf zeros Z on the board's top: a file whose cuts all sit above Z 0 was zeroed on the table
     // (or on a spoil board), and every safe height in it would sit inside the board (third review #5)
     const cuts = (src.moves || []).filter(m => !m.rapid);
-    if (cuts.length && cuts.every(m => m.z > -0.01 && m.z0 > -0.01) && cuts.some(m => m.z > 0.5)) out.push({ k: 'table-zero', text: 'every cut in this file is above Z 0, so it was made with Z zero on the table, not on the board\'s top' });
+    // VCarve says where it put Z zero: &PWZorigin = Table Surface
+    const zo = (src.events || []).filter(e => e.kind === 'z-origin').pop();
+    if (zo && /table/i.test(zo.value)) out.push({ k: 'table-zero', text: 'the file says Z zero is on the table surface, not on the board\'s top' });
+    else if (cuts.length && cuts.every(m => m.z > -0.01 && m.z0 > -0.01) && cuts.some(m => m.z > 0.5)) out.push({ k: 'table-zero', text: 'every cut in this file is above Z 0, so it was made with Z zero on the table, not on the board\'s top' });
     return out;
   }
 
