@@ -576,7 +576,12 @@ html[data-skin] #swarf-run .sr-jog .sr-zrow button.next, html[data-skin] #swarf-
       if (v === S.jogStep) b.classList.add('on');
       el.modes.append(b);
     }
-    stepIn.addEventListener('change', () => { const v = mmOf(stepIn.value); if (v > 0) pickStep(v, null); });
+    // a typed step stays within half the bed's width, the most one press should move (torture test 10-29: 5000 mm went)
+    stepIn.addEventListener('change', () => {
+      const v = mmOf(stepIn.value);
+      if (v > 600) { stepIn.value = ''; tell('A jog step goes up to 600 mm (about 24 in). For longer moves use continuous, or go to.', 'warn'); return; }
+      if (v > 0) pickStep(v, null);
+    });
     stepIn.addEventListener('keydown', e => { if (e.key === 'Enter') stepIn.blur(); });
     el.modes.insertBefore(stepIn, el.modes.querySelector('button.held'));
     el.speeds = h('div', { class: 'sr-modes' }, h('span', { class: 'lbl' }, 'speed', h('small', { text: 'mm/min' })));
@@ -1095,10 +1100,29 @@ html[data-skin] #swarf-run .sr-jog .sr-zrow button.next, html[data-skin] #swarf-
     if (!S.prog) return out;
     const p = S.prog.parsed;
     if (!p.moves.length) out.block.push('The file has no moves swarf can read.');
+    // a file that never says (no G20/G21, no IN/MM): read as millimeters, and said so, with its size
+    // (torture test 10-29: it showed "✓ millimeters", and an inch file would cut 25.4 times too small)
+    if (p.unitsGuessed) {
+      const gb = P.cutBounds(p);
+      out.warn.push(`This file does not say inches or millimeters, so swarf reads it as millimeters${gb ? `: ${(gb.max.x - gb.min.x).toFixed(0)} × ${(gb.max.y - gb.min.y).toFixed(0)} mm` : ''}. If it was made in inches it would cut 25.4 times too small: check the size before you cut.`);
+    }
     if (p.units === 'in') out.warn.push('Written in inches: swarf turns every move into millimeters (1 in = 25.4 mm). The checklist shows the size in both.');
     else if (p.units !== 'mm') out.block.push(`This file's units (${p.units}) are not inches or millimeters.`);
     const b = P.cutBounds(p);
     const L = M.LIMITS;
+    // Z: the file's whole rise and fall within the axis' travel, and a word on deep cuts and on
+    // rapids into the board (torture test 10-29: Z 500, 45 mm deep and G0 to Z -5 all passed)
+    const all = P.boundsOf(p.moves);
+    if (all) {
+      const span = all.max.z - all.min.z, travel = L.z[1] - L.z[0];
+      if (span > travel - 25) out.block.push(`The file moves Z over ${span.toFixed(0)} mm, more than the Z axis travels (${(travel - 25).toFixed(0)} mm to work with). Check the file's Z numbers.`);
+      else if (all.max.z > 150) out.warn.push(`The file lifts the bit ${all.max.z.toFixed(0)} mm above zero: check it clears the top of the Z axis.`);
+    }
+    if (b && b.min.z < -38.1) out.warn.push(`The cut goes ${(-b.min.z).toFixed(1)} mm deep, more than most router bits reach (1 1/2 in, 38 mm). Check the file and that the bit is long enough.`);
+    if (b && b.min.z < 0) {
+      const dive = p.moves.find(m => m.rapid && Math.min(m.z, m.z0) < -0.05 && Math.hypot(m.x - m.x0, m.y - m.y0) > 0.05);
+      if (dive) out.warn.push(`Line ${dive.line}: a rapid move goes across below the top of the board (Z ${Math.min(dive.z, dive.z0).toFixed(1)}): at rapid speed through the wood. Check the file.`);
+    }
     // the table's corner known (table corners card): the job must sit on the table from this zero
     const c = S.machine && S.machine.mabs && corner();
     if (b && c && S.zeroXY) {
@@ -1133,7 +1157,7 @@ html[data-skin] #swarf-run .sr-jog .sr-zrow button.next, html[data-skin] #swarf-
     const add = (t, cls) => el.plan.append(h('div', { class: cls || '', text: t }));
     el.facts.textContent = b ? `${(b.max.x - b.min.x).toFixed(0)} × ${(b.max.y - b.min.y).toFixed(0)} mm · ${(-Math.min(0, b.min.z)).toFixed(1)} mm deep · about ${mins(p.seconds)}` : '';
     const pr = problems();
-    if (!pr.block.length) add(`✓ millimeters · ✓ fits the table · ✓ ${p.moves.length} moves read`, 'ok');
+    if (!pr.block.length) add(`${p.unitsGuessed ? '? units not named, read as millimeters' : p.units === 'in' ? '✓ inches, turned into millimeters' : '✓ millimeters'} · ✓ fits the table · ✓ ${p.moves.length} moves read`, 'ok');
     const t = fileTools();
     if (t.names.length) add(`bit  ${t.names.join(', then ')}`);
     if (t.rpm.length) add(`router  ${t.rpm.map(dialFor).join(', then ')}`);
@@ -1587,6 +1611,8 @@ html[data-skin] #swarf-run .sr-jog .sr-zrow button.next, html[data-skin] #swarf-
       const t = e.target;
       if ((e.key === ' ' || e.key === 'Enter') && t && t.tagName === 'BUTTON' && el.sheet.contains(t)) { e.preventDefault(); e.stopPropagation(); return; }
       if (t && t.tagName === 'INPUT') return;
+      // no jogging under a card: the plan it shows was made from where the bit is (torture test 10-29)
+      if (JOG_KEYS[e.key]) { e.preventDefault(); e.stopPropagation(); return; }
     }
     // a running job: any key at all pauses it, router off (Phil 10-27)
     if (S.open && PV.raf && e.type === 'keydown' && e.key === ' ' && !(S.machine && S.machine.state.running)) { e.preventDefault(); playStop(); return; }

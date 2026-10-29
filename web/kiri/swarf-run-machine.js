@@ -222,6 +222,9 @@
       if (!root.SwarfRunPlan.verify(plan)) { this.set({ note: 'not run: this plan changed after it was made' }); return; }
       if (!plan.armed) { this.set({ note: 'not run: this plan was not confirmed' }); return; }
       if (plan.problems.length) { this.set({ note: `${plan.problems[0]}: not run` }); return; }
+      // as the ShopBot refuses it (torture test 10-29: the simulator ran a plan from wherever the bit had gone)
+      const p = this.state.pos;
+      if (plan.from && Math.hypot(p.x - plan.from.x, p.y - plan.from.y, p.z - plan.from.z) > 0.05) { this.set({ note: 'not run: the bit has moved since this plan was made' }); return; }
       this.queue = [];
       this.planHold = plan.hold;
       this.set({ running: true, paused: false, preview: false, spindle: plan.live, line: 0, toolChange: false, resumeLine: 0, note: 'running' });

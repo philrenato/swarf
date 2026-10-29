@@ -100,6 +100,7 @@
     // The feed override (Phil 10-29, like the MR-1's): cuts only, 50 to 150 % in 5 % steps, never
     // past the machine's top speed; a raise ramps in, a cut slows at once.
     setOverride(pct) {
+      if (!Number.isFinite(+pct)) return this.state.override || 100;
       const v = Math.max(50, Math.min(150, Math.round(pct / 5) * 5));
       this.planner.override = v / 100;
       this.set({ override: v });
@@ -145,16 +146,28 @@
     async testOutput(n, ms = 2000) {
       if (this.busy()) return false;
       if (this.state.routerUnknown) throw new Error(UNKNOWN);
-      const stop = await this.freshStop();
-      if (stop !== 'clear') throw new Error(STOP_WORDS[stop]);
       const on = this.outputs | (n === 1 ? SPINDLE : 1 << (n - 1));
       const word = w => [0xF0, w & 0xFF, (w >> 8) & 0x0F, 0xFF, 0xFF, 0xFF];
       this.testing = true;
-      let off = false;
+      // the router: the same warning sound and moment as the router button (torture test 10-29)
+      if (n === 1) {
+        this.set({ note: 'the router is about to start' });
+        this.cue('router');
+        await new Promise(r => setTimeout(r, this.cfg.routerWarnMs ?? 1200));
+      }
+      // nothing is sent at all without a fresh e-stop reading
+      const stop = this.card ? await this.freshStop() : 'unread';
+      if (stop !== 'clear') { this.testing = false; throw new Error(STOP_WORDS[stop]); }
+      let off = false, pressed = false;
       try {
         await this.card.cmd(word(on));
         this.set({ spindle: n === 1, note: `output ${n} on` });
-        await new Promise(r => setTimeout(r, ms));
+        // the e-stop read ten times a second while it is on: a press switches it off at once
+        for (const end = performance.now() + ms; performance.now() < end;) {
+          await new Promise(r => setTimeout(r, 100));
+          try { this.read(await this.card.status()); } catch (e) { break; }
+          if (!this.stopClear()) { pressed = true; break; }
+        }
       } finally {
         off = await this.card.cmd(word(this.outputs)).then(() => true, () => false);
         if (!off) off = await this.outputsOff();
@@ -163,6 +176,7 @@
         this.set({ spindle: false, routerUnknown: !off || this.state.routerUnknown,
           note: !off ? `output ${n} may still be on: the off did not reach the card. Press the red e-stop on the floor` : n === 1 ? 'the router is switched off; the bit coasts to a stop' : `output ${n} switched off` });
       }
+      if (pressed) { this.estopPending = true; await this.estopped(); }
       return off;
     }
 
@@ -298,9 +312,13 @@
       // best known position: what the planner had sent (the card is at most the queued blocks behind)
       if (this.card && this.card.streaming && this.planner.st) this.steps = { ...this.planner.st.cur };
       this.job = null; this.holdAt = null;
+      // a router test ends with the link (torture test 10-29: it stayed "on" and busy after a reconnect)
+      clearTimeout(this.routerTimer);
+      const testing = this.routerTesting;
+      this.routerTesting = false;
       // swarf cannot know what the router does now (review #5): never show it as simply off
-      const unknown = mid || this.state.spindle || this.state.routerUnknown;
-      this.set({ connected: false, running: false, moving: false, spindle: false, routerUnknown: !!unknown, done: false,
+      const unknown = mid || testing || this.state.spindle || this.state.routerUnknown;
+      this.set({ connected: false, running: false, moving: false, spindle: false, routerTest: false, routerUnknown: !!unknown, done: false,
         stopHit: mid || this.state.stopHit, lostMid: mid, note: 'USB link lost' });
     }
 
@@ -333,8 +351,17 @@
           this.set({ routerTest: false, note: `stopped by the e-stop (input ${this.stopCfg().input})` });
           this.estopped(); return;
         }
-        if (this.card && !this.card.streaming && !this.state.running && !this.testing && !this.homing) {
+        // at rest, and while paused (the job is still "running" then, with nothing streaming)
+        const paused = this.state.running && this.state.paused && !this.state.moving;
+        if (this.card && !this.card.streaming && (!this.state.running || paused) && !this.testing && !this.homing) {
           try { this.read(await this.card.status()); } catch (e) { /* busy or gone; onClose reports loss */ }
+          // the e-stop pressed at rest or during a pause is the same stop as during a move: outputs
+          // off and let go; a paused job is over (torture test 10-29: a pause hid it, and resume ran on)
+          if (this.link && this.state.inputs && !this.stopClear() && !this.estopping) {
+            if (paused) { this.job = null; this.set({ paused: false, resumeLine: 0 }); }
+            this.estopPending = true;
+            this.estopped(); return;
+          }
         }
         this.timer = setTimeout(loop, this.routerTesting ? 100 : 400);
       };
@@ -359,10 +386,13 @@
     // no reading is not "released" (follow-up review #6): fail closed
     stopClear(inputs) { const i = inputs || this.state.inputs, c = this.stopCfg(); return !!i && this.level(i, c.input) === c.rest; }
 
-    async stack(ops, hook) {
+    async stack(ops, hook, wanted) {
       // a fresh reading of the e-stop before anything moves (follow-up review #6), not the last poll's
       const stop = await this.freshStop();
       if (stop !== 'clear') { const e = new Error(STOP_WORDS[stop]); e.refused = true; throw e; }
+      // a held jog let go while that reading was on its way never starts: items() below would
+      // clear the stop the release asked for, and the axis would run on (torture test 10-29)
+      if (wanted && !wanted()) return null;
       if (!this.state.running) this.remoteStop = false;
       const from = this.work(this.steps);
       const start = this.machine(from);
@@ -398,12 +428,12 @@
       return end;
     }
 
-    move(targets, speed) {
+    move(targets, speed, wanted) {
       if (this.busy()) return;
       if (this.state.routerUnknown) { this.set({ note: UNKNOWN }); return; }
       for (let i = 0, a = this.state.pos; i < targets.length; a = targets[i++]) { const why = root.SwarfRunPlan.segProblem(a, targets[i], speed(targets[i]), this.planCfg()); if (why) { this.set({ note: `not moved: that move ${why}` }); return; } }
       const ops = targets.map(t => Object.assign(this.machine(t), { feed: speed(t), line: 0 }));
-      this.stack(ops).catch(e => this.set({ moving: false, note: e.message })).finally(() => { if (!this.state.running) this.halted = null; });
+      this.stack(ops, null, wanted).catch(e => this.set({ moving: false, note: e.message })).finally(() => { if (!this.state.running) this.halted = null; });
     }
 
     jog(axis, dist) {
@@ -433,10 +463,11 @@
       if (this.busy()) return;
       const t = { ...this.state.pos };
       t[axis] = this.limitsKnown() ? M.LIMITS[axis][dir > 0 ? 1 : 0] : t[axis] + dir * 5000;
-      this.move([t], () => axis === 'z' ? this.cfg.jog.z : this.cfg.jog.xy);
+      const hold = this.jogHeld = (this.jogHeld || 0) + 1;
+      this.move([t], () => axis === 'z' ? this.cfg.jog.z : this.cfg.jog.xy, () => this.jogHeld === hold);
     }
 
-    jogRelease() { if (!this.state.running) this.planner.stop(); }
+    jogRelease() { this.jogHeld = (this.jogHeld || 0) + 1; if (!this.state.running) this.planner.stop(); }
 
     goTo(t) {
       if (this.busy()) return;
@@ -664,9 +695,16 @@
     opsOf(plan, out) {
       const ops = [];
       const word = w => { if (w !== out) { const on = (w & 1) && !(out & 1); out = w; const op = { out: w, line: 0 }; if (on) { const prev = ops[ops.length - 1]; (prev && prev.out === undefined && prev.dwell === undefined ? prev : op).cue = () => this.cue('router'); } ops.push(op); } };
+      let zWas = null;
       plan.steps.forEach((s, si) => {
-        // cut: a program move that is not a rapid, the moves the feed override scales
-        if (s.move) ops.push(Object.assign(this.machine(s.move), { feed: s.feed, line: s.line, si, cut: s.phase === 'program' && !(s.work && s.work.rapid), ...(s.work ? { work: s.work } : {}) }));
+        // cut: a program move that is not a rapid and does not go down, the moves the feed override
+        // scales; a plunge or a ramp down keeps the file's feed (torture test 10-29: 150 % took a
+        // plunge past the machine's Z speed)
+        if (s.move) {
+          const down = zWas !== null && s.move.z < zWas - 1e-6;
+          zWas = s.move.z;
+          ops.push(Object.assign(this.machine(s.move), { feed: s.feed, line: s.line, si, cut: s.phase === 'program' && !(s.work && s.work.rapid) && !down, ...(s.work ? { work: s.work } : {}) }));
+        }
         else if (s.router !== undefined) word(s.router ? out | SPINDLE : out & ~SPINDLE);
         else if (s.out) word(s.on ? out | (1 << (s.out - 1)) : out & ~(1 << (s.out - 1)));
         else if (s.dwell) ops.push({ dwell: s.dwell, line: s.line, si });

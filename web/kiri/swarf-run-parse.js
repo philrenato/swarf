@@ -280,6 +280,7 @@
 
     if (!out.units) {
       out.units = machineUnits;
+      out.unitsGuessed = true;
       out.warnings.push({ line: 0, text: `file names no units; read as ${machineUnits}` });
     }
     if (out.units !== machineUnits) {
@@ -397,7 +398,7 @@
   }
 
   // Run from line: up to safe Z, over to where that line starts, down, then
-  // the rest of the program; spindle started if the program had it on there.
+  // the rest of the program; spindle started if the program had it on there (or never said).
   function fromLineProgram(parsed, line, safeZ, name) {
     const rest = parsed.moves.filter(m => m.line >= line);
     if (!rest.length) return null;
@@ -412,7 +413,10 @@
       { x0: first.x0, y0: first.y0, z0: safeZ, x: first.x0, y: first.y0, z: first.z0, rapid: false, feed: 10, line, lead: true }
     ];
     const moves = lead.concat(rest);
-    const sbp = movesToSbp(moves, { name: `${name} from line ${line}`, spindle: on && on.kind === 'spindle-on', rpm: rpm && rpm.value, safeZ });
+    // a file that never switches the router before line N runs with it on, as the whole file
+    // does (torture test 10-29: from line N cut with the router off); a switch-off before N keeps it off
+    const spindleOn = on ? on.kind === 'spindle-on' : true;
+    const sbp = movesToSbp(moves, { name: `${name} from line ${line}`, spindle: spindleOn, rpm: rpm && rpm.value, safeZ });
     // the original file's own events from line N on: the written file numbers its lines
     // afresh, the moves keep the original numbers (review 10-27)
     // the machine as the file left it at that line (the follow-up review: reconstruct the modal
@@ -420,7 +424,7 @@
     const outs = new Map();
     for (const e of parsed.events) if (e.line < line && e.kind === 'output' && e.value[0] >= 2) outs.set(e.value[0], e);
     const events = [...[...outs.values()].map(e => ({ ...e, line: line - 0.5 })), ...parsed.events.filter(e => e.line >= line)];
-    return { name: `${name} (from line ${line})`, moves, sbp, events, source: parsed, spindle: !!(on && on.kind === 'spindle-on') };
+    return { name: `${name} (from line ${line})`, moves, sbp, events, source: parsed, spindle: spindleOn };
   }
 
   const api = { parse, boundsOf, cutBounds, movesToSbp, traceProgram, airProgram, fromLineProgram, entryMoves };
