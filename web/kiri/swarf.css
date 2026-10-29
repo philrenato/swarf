@@ -2282,3 +2282,12 @@ html #swarf-run .sr-keyrow button.sr-router.on small,
 html[data-skin] #swarf-run .sr-keyrow button.sr-router.on b,
 html[data-skin] #swarf-run .sr-keyrow button.sr-router.on small,
 html:not([data-skin]) #swarf-run .sr-keyrow button.sr-router.on small { color: #fff !important; }
+
+/* the empty bed (Phil 10-29): ShopBot row, a close, and after a delete a strip at the bottom */
+#swarf-start .row.sb button { font-size: 12px; }
+#swarf-start .swarf-start-x { position: absolute; top: 8px; right: 10px; border: 0 !important; background: none !important; box-shadow: none !important; font-size: 18px; line-height: 1; padding: 2px 6px; opacity: .7; cursor: pointer; }
+#swarf-start { position: fixed; }
+#swarf-start.compact { top: auto; bottom: 88px; transform: translateX(-50%); flex-direction: row; flex-wrap: wrap; justify-content: center; gap: 8px; padding: 8px 40px 8px 14px; max-width: 90vw; }
+#swarf-start.compact h2, #swarf-start.compact p, #swarf-start.compact small, #swarf-start.compact .swarf-start-quick { display: none; }
+#swarf-start.compact .row { gap: 6px; }
+#swarf-start.compact .row button { font-size: 12px; padding: 5px 12px; }

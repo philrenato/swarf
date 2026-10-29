@@ -108,9 +108,15 @@
   }
 
   // ---- the programs ----
+  // plywood, with the same rule as every other toolpath (10-29: above the motors' rough band where
+  // the bit can take it); the pass stays shallow, a first cut should sound easy
   function feeds(bit) {
-    // plywood, conservative: the student's first cut should sound easy
-    return bit.d >= 9 ? { feed: 1500, plunge: 300, pass: 2.0 } : bit.d >= 6 ? { feed: 1500, plunge: 300, pass: 1.5 } : { feed: 900, plunge: 240, pass: 1.0 };
+    const fixed = bit.d >= 9 ? { feed: 1500, plunge: 300, pass: 2.0 } : bit.d >= 6 ? { feed: 1500, plunge: 300, pass: 1.5 } : { feed: 900, plunge: 240, pass: 1.0 };
+    const D = window.__swarfDerive, M = window.__swarfMaterialById && window.__swarfMaterialById('plywood');
+    if (!D || !M) return fixed;
+    const p = D(M, bit.d, { spindleMin: 10000, spindleMax: 21000, feedMax: 15240, feedMaxZ: 2540 });
+    if (!p) return fixed;
+    return { feed: p.feed, plunge: Math.min(p.plunge, 600), pass: Math.min(fixed.pass, p.stepdown), rpm: p.spindle };
   }
   function sbp(name, bit, paths) {
     const fd = feeds(bit), out = [`'${name} - a swarf test cut`, "'UNITS:MM", 'IF %(25)=0 THEN GOTO UNIT_ERROR', 'SA',

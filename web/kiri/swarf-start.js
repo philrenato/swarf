@@ -7,7 +7,7 @@
   'use strict';
   const $ = id => document.getElementById(id);
   const api = () => window.kiri && window.kiri.api;
-  let card;
+  let card, closed = false, compact = false;
 
   function build() {
     card = document.createElement('div');
@@ -18,6 +18,14 @@
       b('make a shape', 'a circle, rectangle, ring, polygon, star or slot, with a thickness', () => $('swarf-step-shape') && $('swarf-step-shape').click()),
       b('draw one', 'draw an outline or type words on the bed, seen from above', () => window.__swarfDraw && window.__swarfDraw.open()),
       b('open a file', 'a drawing (SVG, DXF, AI, PDF) or a model (STL, OBJ)', () => $('load-file') && $('load-file').click()));
+    // the ShopBot works with an empty bed too (Phil 10-29): jog, zero, a test cut
+    const row2 = document.createElement('div'); row2.className = 'row sb';
+    row2.append(
+      b('control the ShopBot', 'jog, zero and run the machine: no part needed', () => $('swarf-step-run') && $('swarf-step-run').click()),
+      b('a test cut', 'learn the machine on a scrap of plywood', () => { const r = $('swarf-step-run'); if (r) r.click(); setTimeout(() => window.__swarfLessons && window.__swarfLessons.choose(), 400); }));
+    // it steps aside when asked, and after a delete it is a strip, not a card over the bed
+    const x = document.createElement('button'); x.className = 'swarf-start-x'; x.textContent = '×'; x.title = 'hide this until the bed is empty again';
+    x.onclick = () => { closed = true; show(); };
     const h = document.createElement('h2'); h.textContent = 'The bed is empty';
     const p = document.createElement('p'); p.textContent = 'Make a shape, draw one, or open a file.';
     const s = document.createElement('small'); s.textContent = 'or drop a file anywhere on the bed';
@@ -25,7 +33,7 @@
     // the shop poster as a walk-through, offered on the ShopBot (help › ShopBot quick start)
     const q = document.createElement('a'); q.className = 'swarf-start-quick'; q.href = '#'; q.textContent = 'first time on the ShopBot? the quick start';
     q.onclick = e => { e.preventDefault(); window.__swarfTutorial && window.__swarfTutorial.open(0); };
-    card.append(h, p, row, s, m, q);
+    card.append(x, h, p, row, row2, s, m, q);
     document.body.append(card);
   }
 
@@ -37,7 +45,10 @@
     // never over a dialog (Fable review 3 #14: it floated over setup › machine)
     const modal = (document.getElementById('dialog') || {}).open || [...document.querySelectorAll('#modal, .mdialog')].some(m => m.offsetParent && getComputedStyle(m).display !== 'none' && m.id !== 'swarf-start');
     if (modal) { card.classList.remove('on'); return; }
-    card.classList.toggle('on', empty && !cls.contains('swarf-run-open') && !cls.contains('swarf-draw-open'));
+    if (!empty) { closed = false; }
+    card.classList.toggle('on', empty && !closed && !cls.contains('swarf-run-open') && !cls.contains('swarf-draw-open'));
+    card.classList.toggle('compact', compact);
+    try { card.querySelector('.row.sb').style.display = /shopbot/i.test(a.conf.get().device.deviceName || '') ? '' : 'none'; } catch (e) { /* no device yet */ }
     // which machine, and its bed, as DRAW names it
     try { card.querySelector('.swarf-start-quick').style.display = /shopbot/i.test(a.conf.get().device.deviceName || '') ? '' : 'none'; } catch (e) { /* no device yet */ }
     try { const d = a.conf.get().device; card.querySelector('.bed').textContent = `${(d.deviceName || 'machine').replace(/\./g, ' ')} · bed ${Math.round(d.bedWidth)} × ${Math.round(d.bedDepth)} mm`; } catch (e) { /* no device yet */ }
@@ -62,6 +73,8 @@
           localStorage.setItem('swarf-origin-front-left', '1');
         }
       } catch (e) { /* private window: the default already says front-left */ }
+      // after a delete the bed is empty because the student emptied it: a strip, not the big card
+      a.event.on('widget.delete', () => { compact = true; });
       for (const ev of ['widget.add', 'widget.delete', 'platform.layout', 'mode.set', 'device.select']) a.event.on(ev, () => setTimeout(show, 0));
       new MutationObserver(show).observe(document.body, { attributes: true, attributeFilter: ['class'] });
       show();

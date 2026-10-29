@@ -507,6 +507,8 @@
     };
   }
   window.__swarfDerive = derive;
+  // a material's record by id (the test cuts take plywood's: 10-29, one speed rule everywhere)
+  window.__swarfMaterialById = id => materials.find(m => m.id === id) || null;
 
   function toolDiamMm(tool) {
     if (!tool) return 6.35;
