@@ -37,6 +37,8 @@ try {
   // the world's slide undoes the bit's X travel: bit x + world x stays at the first bit x
   const worst = s.samples.reduce((m, [x, wx]) => Math.max(m, Math.abs(x + wx - s.st.x0)), 0);
   check(s.st.active && s.chip && spread > 20 && worst < 1e-6 && Math.abs(s.st.gantryX - s.st.x0 - s.off) < 1e-6, `the bed slides under a still gantry: bit travelled ${spread.toFixed(1)} mm in X, held to within ${worst.toExponential(1)} mm of the gantry line (${s.samples.length} steps)`);
+  // 10-29 (Phil): cam's grid slides with the bed, so the bed is seen to move
+  check(s.st.gridX !== null && Math.abs(s.st.gridX - s.st.worldX) < 1e-6 && Math.abs(s.st.worldX) > 1, `the grid slides with the bed (grid ${s.st.gridX}, bed ${s.st.worldX})`);
   await page.screenshot({ path: `${OUT}-on.png` });
   { const c = await page.evaluate(() => { const r = document.querySelector('canvas').getBoundingClientRect(); return [r.left + r.width / 2, r.top + r.height / 2]; }); await page.mouse.move(c[0], c[1]); for (let i = 0; i < 30; i++) { await page.mouse.wheel({ deltaY: -400 }); await wait(50); } await wait(700); await page.screenshot({ path: `${OUT}-far.png` }); }
   // off and on again: turning it on steps back to the whole machine
@@ -46,7 +48,7 @@ try {
   await page.click('#swarf-sim-machine');
   await wait(600);
   const off = await page.evaluate(() => window.__swarfSimMachine.state());
-  check(!off.on && off.worldX === 0, `machine off: the world holds still (${off.worldX})`);
+  check(!off.on && off.worldX === 0 && off.gridX === 0, `machine off: the world and the grid hold still (${off.worldX}, ${off.gridX})`);
   await page.click('#swarf-sim-machine');
   // leaving simulate puts it back
   await page.evaluate(() => window.kiri.api.view.set_arrange());

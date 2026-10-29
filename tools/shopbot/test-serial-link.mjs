@@ -111,9 +111,26 @@ const done = m => new Promise(r => { const t = setInterval(() => { if (!m.state.
   let asked = [];
   const win2 = page('Win32', { serial: { getPorts: async () => [], requestPort: async () => { asked.push('serial'); throw Object.assign(new Error('No port selected by the user.'), { name: 'NotFoundError' }); } },
     usb: { getDevices: async () => [], requestDevice: async () => { asked.push('usb'); return dev2; } } });
+  // one chooser per press (Chrome allows one per click): the ShopBot's port, then every port, then USB
   const m2 = new win2.SwarfRunMachine.DirectMachine({ spinUp: 0.02 });
-  assert.ok(await m2.connect(true), `asked: ${asked}`);
-  assert.deepEqual(asked, ['serial', 'usb']);
+  const e1 = await m2.connect(true).catch(e => e);
+  assert.ok(e1 && e1.next && /every serial port/.test(e1.message), `first press: ${e1 && e1.message}`);
+  const e2 = await m2.connect(true).catch(e => e);
+  assert.ok(e2 && e2.next && /no serial port for the box/.test(e2.message), `second press: ${e2 && e2.message}`);
+  assert.ok(await m2.connect(true), `third press opens the USB box (asked: ${asked})`);
+  assert.deepEqual(asked, ['serial', 'serial', 'usb']);
+}
+{ // the shop PC (10-29): the box's COM port carries no USB ids; picked from the full list, it connects,
+  // and is known next time
+  const card = StubCard();
+  const port = fakePort(card); port.info = {};
+  let asked = 0;
+  const win = page('Win32', { serial: { getPorts: async () => (asked ? [port] : []), requestPort: async opts => { asked++; if (opts && opts.filters) { const e = new Error('No port selected by the user.'); e.name = 'NotFoundError'; throw e; } return port; } } });
+  const m = new win.SwarfRunMachine.DirectMachine({ spinUp: 0.02 });
+  const e1 = await m.connect(true).catch(e => e);
+  assert.ok(e1 && e1.next, 'the matched list is empty');
+  assert.ok(await m.connect(true), `picked from every port, it connects (${m.state.note})`);
+  assert.ok(await win.ShopBotLink.known(), 'and it is known next time');
 }
 console.log('serial link: ok');
 process.exit(0);

@@ -111,22 +111,77 @@
      * should end with END; one is added if missing. Resolves with the end
      * report. onAck(ack, blockIndex) after every block.
      */
+    // No item straddles two blocks (10-29: a USB drop after half an item left the card waiting for
+    // the rest, and it answered nothing until switched off). An item that does not fit is put off to
+    // the next block; the gap is filled with items that restate what the card already has (its
+    // direction, line and tick length; its tick length; its outputs), and where no such fill fits,
+    // the block's last ticks move to the next block, which leaves the motion as it was.
     async run(items, { onAck } = {}) {
       if (this.streaming) throw new Error('card: busy moving');
       this.streaming = true;
       await this.queue;
       const it = items[Symbol.iterator]();
-      let ended = false, k = 0, data = 0;
+      // outputs only once the stream itself has set them: a stale guess would switch the router
+      const S = { dirs: null, lnHi: 0, lnLo: 0, reload: null, outs: null };
+      const next = () => {
+        const r = it.next();
+        if (r.done) return null;
+        const item = [r.value];
+        for (let n = itemData(r.value); n > 0; n--) { const q = it.next(); if (q.done) break; item.push(q.value); }
+        return item;
+      };
+      const track = item => {
+        const b = item[0];
+        if (b === 0x40) { S.dirs = item[1]; S.lnHi = item[2]; S.lnLo = item[3]; S.reload = item[4] << 8 | item[5]; }
+        else if ((b & 0xF0) === 0x60) S.reload = 0xF000 | (b & 0x0F) << 8 | item[1];
+        else if (b >= 0x70 && b < 0x74) S.outs = [item[1], item[2]];
+      };
+      // r bytes of items that change nothing, or null
+      const fill = r => {
+        const pieces = [];
+        if (S.dirs !== null && S.reload !== null) pieces.push([0x40, S.dirs, S.lnHi, S.lnLo, S.reload >> 8, S.reload & 0xFF]);
+        if (S.reload !== null && S.reload >= 0xF000) pieces.push([0x60 | ((S.reload >> 8) & 0x0F), S.reload & 0xFF]);
+        if (S.outs) pieces.push([0x70, S.outs[0], S.outs[1]]);
+        const best = [[]];
+        for (let n = 1; n <= r; n++) {
+          best[n] = null;
+          for (const p of pieces) if (p.length <= n && best[n - p.length]) { best[n] = best[n - p.length].concat(p); break; }
+        }
+        return best[r];
+      };
+      let ended = false, k = 0, held = [];    // held: items put off to the next block, in order
       try {
         while (!ended) {
-          const pay = [];
-          while (pay.length < this.size) {
-            const r = it.next();
-            if (r.done) { if (!data) pay.push(END); ended = true; break; }
-            pay.push(r.value);
-            if (data) { data--; continue; }
-            if (r.value === END) { ended = true; break; }
-            data = itemData(r.value);
+          const pay = [], placed = [];          // placed: { item, before } for each item in pay
+          for (;;) {
+            const item = held.length ? held.shift() : next();
+            if (!item) { if (pay.length < this.size) { pay.push(END); ended = true; } else held.push([END]); break; }
+            if (pay.length + item.length <= this.size) {
+              placed.push({ item, before: { ...S } });
+              pay.push(...item); track(item);
+              if (item[0] === END && item.length === 1) { ended = true; break; }
+              if (pay.length === this.size) break;
+              continue;
+            }
+            // it does not fit: fill the gap; where no fill fits, move the last items on to the next
+            // block too (the state they set rolls back with them)
+            held.unshift(item);
+            let f = fill(this.size - pay.length);
+            while (!f && placed.length) {
+              const last = placed.pop();
+              pay.length -= last.item.length;
+              Object.assign(S, last.before);
+              held.unshift(last.item);
+              f = fill(this.size - pay.length);
+            }
+            if (f) pay.push(...f);
+            else {
+              // never expected (an empty block with no state to restate): send as it comes, as before
+              const it0 = held.shift(); const rest = this.size - pay.length;
+              pay.push(...it0.slice(0, rest)); track(it0);
+              if (it0.length > rest) held.unshift(it0.slice(rest));
+            }
+            break;
           }
           const blk = this.block(pay);
           for (let tries = 0; ; tries++) {

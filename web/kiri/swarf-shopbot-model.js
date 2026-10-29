@@ -83,12 +83,13 @@
     // the beam: a deep extrusion with its two rails on the front face
     box(-BEAM.d / 2, BEAM.d / 2, -REACH, BED.y + REACH, BEAM.z0, BEAM.z1, M.alu, gantry);
     for (const z of [BEAM.z0 + 18, BEAM.z1 - 30]) box(-BEAM.d / 2 - 6, -BEAM.d / 2, -REACH, BED.y + REACH, z, z + 12, M.alu, gantry);
-    // the maker's name on the outer face of the near support, as on the machine
+    // "SB" on the outer face of the near support (Phil 10-29: initials, not the maker's name or logo)
     try {
       const c = document.createElement('canvas'); c.width = 512; c.height = 128;
       const g = c.getContext('2d');
-      g.font = '500 76px system-ui, "Helvetica Neue", Arial, sans-serif';   // plain words, not the maker's logo g.fillStyle = '#ffffff'; g.textBaseline = 'middle';
-      g.fillText('ShopBot', 24, 66);
+      g.font = '500 76px system-ui, "Helvetica Neue", Arial, sans-serif';
+      g.fillStyle = '#ffffff'; g.textBaseline = 'middle';   // white (it had been commented out, so the letters drew black)
+      g.fillText('SB', 24, 66);
       const t = new THREE.CanvasTexture(c);
       const name = new THREE.Mesh(new THREE.PlaneGeometry(300, 75), new THREE.MeshBasicMaterial({ map: t, transparent: true, opacity: 0.5, depthWrite: false, side: THREE.DoubleSide }));
       name.material.fog = false;

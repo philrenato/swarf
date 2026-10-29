@@ -169,9 +169,21 @@
     }
 
     static async known(serial = ShopBotSerial.serial()) {
-      const p = (await serial.getPorts()).find(ShopBotSerial.isBox);
+      const ports = await serial.getPorts();
+      const p = ports.find(ShopBotSerial.isBox)
+        // a port picked from the full list (the shop PC, 10-29: ShopBot's old driver makes COM3 without
+        // the USB ids Chrome matches on); connect proves it is the box by the card's answer
+        || (ShopBotSerial.anyPicked() ? ports.find(q => { const i = q.getInfo ? q.getInfo() : {}; return !i.usbVendorId || i.usbVendorId === VID; }) : null);
       return p ? new ShopBotSerial(p) : null;
     }
+
+    // every serial port this computer has, for a driver that hides the box's USB ids
+    static async requestAny(serial = ShopBotSerial.serial()) {
+      const port = await serial.requestPort();
+      try { root.localStorage && root.localStorage.setItem(ANY_KEY, '1'); } catch (e) { /* private window */ }
+      return new ShopBotSerial(port);
+    }
+    static anyPicked() { try { return !!(root.localStorage && root.localStorage.getItem(ANY_KEY)); } catch (e) { return false; } }
 
     async open({ baud = 921600, dtr = false, rts = false } = {}) {
       try {
@@ -245,6 +257,7 @@
   // instead (Zadig, help › control), and then WebUSB opens it as on the Mac. Windows tries the COM
   // port first, then USB, and remembers which one worked.
   const PREF = 'swarf-shopbot-link';
+  const ANY_KEY = 'swarf-shopbot-anyport';
   const pref = () => { try { return root.localStorage && root.localStorage.getItem(PREF); } catch (e) { return null; } };
   const ShopBotLink = {
     windows() {
@@ -274,18 +287,30 @@
       return null;
     },
     // a chooser per way in; one closed with nothing picked (NotFoundError) moves on to the next
+    // One chooser per press on Windows (Chrome gives one per click): the ShopBot's own COM port; then,
+    // if none matched, every COM port (the shop PC's old driver hides the box's USB ids, 10-29); then
+    // the USB box (a laptop given the WinUSB driver). Elsewhere: WebUSB.
     async request() {
-      const list = ShopBotLink.order();
-      let last = null;
-      for (const C of list) {
-        try { return await C.request(); } catch (e) {
-          last = e;
-          // no COM port picked: the next press opens the USB box first (Chrome may allow one box per click)
-          if (C === ShopBotSerial && e.name === 'NotFoundError') ShopBotLink.usbNext = true;
-          if (e.name !== 'NotFoundError') break;
-        }
+      if (!ShopBotLink.windows()) {
+        const list = ShopBotLink.order();
+        if (!list.length) throw new Error('no way to reach USB here');
+        return list[0].request();
       }
-      throw last || new Error('no way to reach USB here');
+      const n = root.navigator || {};
+      const steps = [n.serial && (() => ShopBotSerial.request()), n.serial && (() => ShopBotSerial.requestAny()), n.usb && (() => ShopBotUSB.request())].filter(Boolean);
+      if (pref() === 'usb' && n.usb) steps.unshift(() => ShopBotUSB.request());
+      const k = Math.min(ShopBotLink.tries || 0, steps.length - 1);
+      try { return await steps[k](); } catch (e) {
+        if (e.name === 'NotFoundError' && k < steps.length - 1) {
+          ShopBotLink.tries = k + 1;
+          // nothing listed: say what to check rather than loop (10-29: on the shop PC the port showed up
+          // once the box was on and ShopBot 3 had let go of it)
+          const why = k === 0 && n.serial ? 'no COM port matched the ShopBot: press connect again to see every serial port, and pick the ShopBot\'s'
+            : 'Chrome sees no serial port for the box right now. Check the box is on and its USB cable is in, quit ShopBot 3, then press connect again. On a laptop without ShopBot\'s software, the box needs its USB driver first (help, then search "windows laptop")';
+          const err = new Error(why); err.name = 'NotFoundError'; err.next = true; throw err;
+        }
+        throw e;
+      }
     },
     worked(link) { try { if (ShopBotLink.windows() && root.localStorage) root.localStorage.setItem(PREF, link instanceof ShopBotUSB ? 'usb' : 'serial'); } catch (e) { /* private window */ } }
   };

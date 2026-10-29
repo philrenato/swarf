@@ -32,6 +32,15 @@
     gantry: 'Show the MR-1: its table stays still; the gantry moves in Y, the carriage in X and the spindle in Z'
   };
 
+  // the bed slides, and cam's grid on it with it (Phil 10-29: the grid stood still, so the bed
+  // seemed not to move). The grid is cam's own object in the scene, rebuilt at times: found by name.
+  function slide(x) {
+    if (!WORLD) return;
+    WORLD.position.x = x;
+    const g = gridView();
+    if (g) g.position.x = x;
+  }
+  function gridView() { let r = WORLD; while (r && r.parent) r = r.parent; return r ? r.getObjectByName('swarf-grid-view') : null; }
   const wanted = () => { try { return localStorage.getItem(KEY) !== '0'; } catch (e) { return true; } };
 
   // the world group is private to space.js: it is the parent of anything space.world.add takes
@@ -95,7 +104,7 @@
   }
   function stop() {
     active = false; x0 = null;
-    if (WORLD) WORLD.position.x = 0;
+    slide(0);
     if (gantry) gantry.visible = bed.visible = false;
     if (mr1) mr1.root.visible = false;
     try { space().refresh(); } catch (e) { /* gone */ }
@@ -105,7 +114,7 @@
     if (gantry) gantry.visible = bed.visible = on && kind === 'bed';
     if (mr1) mr1.root.visible = on && kind === 'gantry';
     if (on) near();
-    if ((!on || kind !== 'bed') && WORLD) WORLD.position.x = 0;
+    if (!on || kind !== 'bed') slide(0);
     if (on && kind === 'bed' && gantry) { const b = placeBed(); rail.position.set(0, b.y, 0); }
     if (chip) { chip.classList.toggle('on', wanted()); chip.title = TITLE[kind] || 'Show the machine'; }
     try { space().refresh(); } catch (e) { /* gone */ }
@@ -126,7 +135,7 @@
     // the MR-1: the table and the stock hold still; the axes go to the bit
     if (kind === 'gantry') {
       if (!mr1) return;
-      if (WORLD) WORLD.position.x = 0;
+      slide(0);
       if (x0 === null) x0 = pos.x;
       if (wanted()) { mr1.set(pos.x, pos.y, pos.z); near(); }
       return;
@@ -134,7 +143,7 @@
     if (!gantry) return;
     if (x0 === null) x0 = pos.x;
     const on = wanted();
-    WORLD.position.x = on ? -(pos.x - x0) : 0;
+    slide(on ? -(pos.x - x0) : 0);
     if (!on) return;
     gantry.position.x = x0 + model.OFFSET;        // the beam stands OFFSET mm behind the bit
     model.set(pos.y - rail.position.y, pos.z);
@@ -177,6 +186,6 @@
     }
   }, 150);
 
-  window.__swarfSimMachine = { state: () => ({ active, x0, kind, worldX: WORLD ? WORLD.position.x : null, on: wanted(), gantryX: gantry ? gantry.position.x : null,
+  window.__swarfSimMachine = { state: () => ({ active, x0, kind, worldX: WORLD ? WORLD.position.x : null, gridX: (WORLD && gridView() || { position: {} }).position.x ?? null, on: wanted(), gantryX: gantry ? gantry.position.x : null,
     mr1: mr1 ? { shown: mr1.root.visible, y: mr1.gantry.position.y, x: mr1.carriage.position.x, z: mr1.head.position.z } : null }), stop };
 })();

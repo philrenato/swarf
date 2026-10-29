@@ -23,7 +23,7 @@
     { n: 7, h: 'Zero Z with the plate', p: ['Clip on the black Allen screw in the router\'s side, the plate under the bit, <b>touch off</b>. Then put the plate and clip away.'], show: ['open control', () => click('swarf-step-run')] },
     { n: 8, h: 'Trace, then air cut', p: ['<b>trace</b> runs the outline, <b>air cut</b> the whole file 5 mm up, the bit not spinning. Neither checks clamps: watch.'] },
     { n: 9, h: 'Cut and stay with it', p: ['Dust collection on. <b>cut</b>, tick only what\'s true, then <b>cut</b> again.', '%keyPause%'] },
-    { n: 10, h: 'Finish safely', p: ['%finished%', 'Bit changed? Zero Z again. More in <b>help › search</b> (the ShopBot at KCAD), or ask the technician.'] },
+    { n: 10, h: 'Finish safely', p: ['%finished%', 'Bit changed? Zero Z again. More in <b>help</b>: search &ldquo;kcad&rdquo;, or ask the technician.'] },
     { n: '', h: 'Emergency: step on the red floor e-stop', p: ['Keep clear until everything has stopped. Get the technician before restarting.', 'USB lost, e-stop used, or the position unsure? swarf holds everything until you check the machine and press <b>all clear</b>.'], last: true }
   ];
   // the safety sentences come from swarf-safety-words.js, the copy the poster matches word for word

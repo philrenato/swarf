@@ -43,7 +43,8 @@
   };
   // no orphans: a sentence's last two words stay together (Phil 10-28)
   const tie = t => typeof t === 'string' && t.trim().split(/\s+/).length > 3 ? t.replace(/ (\S+)\s*$/, '\u00a0$1') : t;
-  const num = (v, d) => { const n = parseFloat(String(v).replace(',', '.')); return isFinite(n) ? n : d; };
+  // a length typed in mm, or with its unit (6in, 1 1/2"): Phil 10-29
+  const num = (v, d) => { const n = window.SwarfLength ? SwarfLength.parse(v, 'mm') : parseFloat(String(v).replace(',', '.')); return isFinite(n) ? n : d; };
   const f3 = v => (Math.round(v * 1000) / 1000).toString();
   let L = null;   // the lesson in hand: { lesson, board, bit, size, depth, … }
 
@@ -66,7 +67,8 @@
   // ---- 2: the board: its size, screwed down ----
   function boardCard(lesson) {
     const r = R(), b = board();
-    const inp = (v, title) => el('input', { type: 'text', inputmode: 'decimal', value: String(v), title, style: 'width:72px;text-align:right' });
+    // 6in becomes 152.4 as soon as it is typed (Phil 10-29)
+    const inp = (v, title) => { const i = el('input', { type: 'text', inputmode: 'decimal', value: String(v), title: `${title} (6in or 1 1/2" work too)`, style: 'width:72px;text-align:right' }); i.addEventListener('change', () => { const n = num(i.value, NaN); if (isFinite(n)) i.value = String(+n.toFixed(2)); }); return i; };
     const w = inp(b.w, 'left to right'), d = inp(b.d, 'front to back'), t = inp(b.t, 'thickness: measure it');
     for (const i of [w, d, t]) i.addEventListener('keydown', e => e.stopPropagation());
     const checks = [

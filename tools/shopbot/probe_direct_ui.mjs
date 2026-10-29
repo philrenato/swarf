@@ -55,7 +55,7 @@ try {
   // review 10-27: first-timer defaults, go-to hidden until zero is set this session
   const dflt = await page.evaluate(() => ({ step: document.querySelectorAll('.sr-modes')[0].querySelector('button.on').textContent,
     speed: document.querySelectorAll('.sr-modes')[1].querySelector('button.on').textContent,
-    go: [...document.querySelectorAll('.sr-goto button')].filter(b => b.offsetParent).map(b => b.textContent) }));
+    go: [...document.querySelectorAll('.sr-goto button')].filter(b => b.offsetParent && !b.disabled).map(b => b.textContent) }));
   check(dflt.step === '1' && dflt.speed === '2500' && !dflt.go.some(t => /go to/.test(t)), `defaults: step ${dflt.step}, speed ${dflt.speed}, shown [${dflt.go}]`);
   // machine check card: opens from its button (10-27: no longer by itself)
   check(await page.evaluate(() => !document.querySelector('#swarf-run .sr-sheet.on')), 'check card stays shut on connect');
@@ -226,7 +226,7 @@ try {
       "C7", "&Tool =2             'Load 3 mm ball end mill", "C9", "C6", "M3,0,0,-1", "M3,40,0,-1", "M3,40,40,-1", "J3,0,0,5", "C7", "END"].join('\n');
     const btn = t => page.evaluate(t => { const b = [...document.querySelectorAll('#swarf-run button')].find(b => b.textContent.trim() === t && b.offsetParent); if (!b) throw new Error('no button ' + t); b.click(); }, t);
     const ui = () => page.evaluate(() => ({ say: document.querySelector('.sr-say').textContent, step: (document.querySelector('.sr-step.now') || {}).dataset?.step,
-      from: document.querySelector('.sr-from').style.display !== 'none', go: [...document.querySelectorAll('.sr-goto button')].filter(b => b.offsetParent).map(b => b.textContent),
+      from: document.querySelector('.sr-from').style.display !== 'none', go: [...document.querySelectorAll('.sr-goto button')].filter(b => b.offsetParent && !b.disabled).map(b => b.textContent),
       plan: document.querySelector('.sr-plan').textContent, z: parseFloat(document.querySelectorAll('.sr-axis .v')[2].textContent) }));
     const runCut = async (label) => {
       await btn(label);

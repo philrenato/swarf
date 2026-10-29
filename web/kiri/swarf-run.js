@@ -576,7 +576,7 @@ html[data-skin] #swarf-run .sr-jog .sr-zrow button.next, html[data-skin] #swarf-
       if (v === S.jogStep) b.classList.add('on');
       el.modes.append(b);
     }
-    stepIn.addEventListener('change', () => { const v = parseFloat(stepIn.value); if (v > 0) pickStep(v, null); });
+    stepIn.addEventListener('change', () => { const v = mmOf(stepIn.value); if (v > 0) pickStep(v, null); });
     stepIn.addEventListener('keydown', e => { if (e.key === 'Enter') stepIn.blur(); });
     el.modes.insertBefore(stepIn, el.modes.querySelector('button.held'));
     el.speeds = h('div', { class: 'sr-modes' }, h('span', { class: 'lbl' }, 'speed', h('small', { text: 'mm/min' })));
@@ -1249,9 +1249,12 @@ html[data-skin] #swarf-run .sr-jog .sr-zrow button.next, html[data-skin] #swarf-
     el.zxyBtn.classList.toggle('next', !!(first && first.k === 'xy') && !running);
     el.fromRow.style.display = S.stoppedAt ? '' : 'none';
     el.fromBtn.textContent = `continue from line ${el.fromLine.value}`;
-    // go-to buttons only once zero was set this session: a saved zero may be from before a restart
-    el.goXY.style.display = S.zeroXY && S.zeroSetAt ? '' : 'none';
-    el.goZ.style.display = S.zeroZ && S.zeroSetAt ? '' : 'none';
+    // go-to buttons always there, greyed until that zero is set (Phil 10-29: "I thought there was
+    // but don't see it"); a saved zero only counts once kept ("use the zero you set")
+    const okXY = !!(S.zeroXY && S.zeroSetAt), okZ = !!(S.zeroZ && S.zeroSetAt);
+    el.goXY.disabled = !okXY || !!running; el.goZ.disabled = !okZ || !!running;
+    el.goXY.title = okXY ? 'Up, then over to X 0, Y 0' : 'zero X Y first (or press "use the zero you set")';
+    el.goZ.title = okZ ? 'Down to 5 mm above Z 0, slowly' : 'zero Z first (z plate, or zero z)';
     el.strip.classList.toggle('on', !!running && !(st && st.paused));
     el.btn.trace.classList.toggle('next', now === 'trace' && !running);
     el.btn.pause.disabled = !running;
@@ -1423,14 +1426,16 @@ html[data-skin] #swarf-run .sr-jog .sr-zrow button.next, html[data-skin] #swarf-
     const reach = h('input', { type: 'text', inputmode: 'decimal', value: String(Math.round((m.plateCfg && m.plateCfg.travel) || 60)), title: 'How far the bit comes down looking for the plate before it gives up' });
     reach.addEventListener('keydown', e => e.stopPropagation());
     reach.addEventListener('change', () => {
-      const t = parseFloat(reach.value);
+      const t = mmOf(reach.value);
       if (!(t >= 10 && t <= 150) || !m.setPlateTravel || !m.setPlateTravel(t)) { reach.value = String(Math.round((m.plateCfg && m.plateCfg.travel) || 60)); say('Search down is 10 to 150 mm.', 'warn'); return; }
+      reach.value = String(+t.toFixed(1));
       const over = boxes.over && boxes.over.nextElementSibling;
       if (over) over.textContent = `The bit is over your board, less than ${Math.round(t)} mm above the plate (the search distance below).`;
     });
     thick.addEventListener('change', () => {
-      const t = parseFloat(thick.value);
+      const t = mmOf(thick.value);
       if (!(t > 0 && t < 50) || !m.setPlateThickness || !m.setPlateThickness(t)) { thick.value = String(+m.plateCfg.thickness.toFixed(3)); say('A plate is between 0 and 50 mm thick: measure yours with calipers.', 'warn'); }
+      else thick.value = String(+t.toFixed(3));
     });
     put.addEventListener('change', show);
     go.onclick = async () => {
@@ -1517,6 +1522,8 @@ html[data-skin] #swarf-run .sr-jog .sr-zrow button.next, html[data-skin] #swarf-
     const t = Date.now(); if (t - (S.zeroSavedAt || 0) < 500 && S.zeroHad) return; S.zeroSavedAt = t;
     try { localStorage.setItem(ZERO_KEY, JSON.stringify({ had: S.zeroHad || null, at: S.zeroSetAt || 0, steps: S.lastSteps || null })); } catch (e) { /* private window */ }
   }
+  // a typed length in control: mm unless it says otherwise (Phil 10-29: "I type 6in and it makes it mm")
+  function mmOf(t) { return window.SwarfLength ? SwarfLength.parse(t, 'mm') : parseFloat(t); }
   function progKey() { return S.prog ? `${S.prog.source}|${S.prog.name}|${originText().xy}` : ''; }
   function keepZero() {
     const had = S.zeroHad || { xy: true, z: true };
@@ -1536,12 +1543,12 @@ html[data-skin] #swarf-run .sr-jog .sr-zrow button.next, html[data-skin] #swarf-
   function typeWork(a) {
     const m = S.machine;
     if (!m || !m.setWork || m.state.running) return;
-    const span = el.dro[a], inp = h('input', { type: 'number', step: 'any', class: 'v', value: (m.state.pos[a] || 0).toFixed(3) });
+    const span = el.dro[a], inp = h('input', { type: 'text', inputmode: 'decimal', class: 'v', value: (m.state.pos[a] || 0).toFixed(3), title: 'a position in mm; 1 1/2 in or 38 mm work too' });
     span.replaceWith(inp); inp.focus(); inp.select();
     let done = false;
     const finish = ok => {
       if (done) return; done = true;
-      const v = parseFloat(inp.value);
+      const v = mmOf(inp.value);
       inp.replaceWith(span);
       if (ok && isFinite(v)) {
         m.setWork(a, v);
@@ -1981,8 +1988,9 @@ html[data-skin] #swarf-run .sr-jog .sr-zrow button.next, html[data-skin] #swarf-
   // Chrome's own reasons, in plain words (Phil 10-27: "Connect does nothing")
   function connWhy(e) {
     const m = (e && (e.name + ': ' + e.message)) || String(e);
+    if (e && e.next) return `${e.message[0].toUpperCase()}${e.message.slice(1)}.`;   // which chooser comes next (Windows, 10-29)
     if (/COM port is in use/.test(m)) return 'ShopBot 3 (or another program) has the box\'s COM port. Quit ShopBot 3, then press connect. Only one program can use the box at a time.';
-    if (onWindows() && /NotFoundError/.test(m)) return `Chrome found no ShopBot. On the shop PC, press connect and pick the ShopBot Controller (COM) port. On your own laptop, the box needs a one-time driver first: see help › control, "Windows laptop". ${WIN_ONE}`;
+    if (onWindows() && /NotFoundError/.test(m)) return `Chrome found no ShopBot. On the shop PC, press connect and pick the ShopBot Controller (COM) port. On your own laptop, the box needs a one-time driver first: help, then search "windows laptop". ${WIN_ONE}`;
     if (onWindows() && /SecurityError/.test(m) && /gesture|activation/i.test(m)) return 'Press connect once more: Chrome shows its USB box now.';
     if (/NotFoundError/.test(m) && /No device selected/i.test(m)) return 'Chrome\'s USB box closed without a choice. Press connect, pick V204ShopBot in the box under the address bar, then Connect.';
     if (/NotFoundError/.test(m)) return 'Chrome found no ShopBot it may offer. Check the cable, then press connect again.';
