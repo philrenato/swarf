@@ -32,6 +32,7 @@
   const api = () => window.kiri && window.kiri.api;
   const V = () => window.SwarfVector;
   const $ = id => document.getElementById(id);
+  // a typed length is held to a thousandth of a mm; a field refuses one that rounds under its floor (torture test 10-29: 0.0004 became 0)
   const r3 = v => +(+v).toFixed(3);
   const THICK = 'swarf-draw-thick';
   const HIT = 7;                                 // px: how near a press must be to a point
@@ -203,7 +204,7 @@
     if (apply) {
       const bad = S.parts.find(p => !p.gone && p.dirty && checkCross(p));
       if (bad) { S.sel = S.parts.indexOf(bad); render(); say(crossSay(bad, bad.cross) + ' Then press done.'); return; }
-      commit();
+      if (commit() === false) { render(); return; }
     }
     window.removeEventListener('keydown', key, true);
     window.removeEventListener('keypress', hush, true);
@@ -478,13 +479,13 @@
     ui.card.innerHTML = h;
     const rd = el => (el.dataset.len ? LEN.parse(el.value) : parseFloat(el.value));
     const num = (id, fn) => { const el = $(id); if (!el) return; el.onkeydown = e => { e.stopPropagation(); if (e.key === 'Enter') { fn(rd(el), el); el.blur(); } if (e.key === 'Escape') { render(); ui.svg.focus(); } }; el.onchange = () => fn(rd(el), el); };
-    num('sd-t', v => { if (!(v > 0)) return say('Give the thickness a length above 0.'); if (v === part.thick) return; snap(); part.thick = r3(v); part.dirty = true; render(); });
+    num('sd-t', v => { if (!(r3(v) >= 0.1)) return say('Give the thickness at least 0.1 mm.'); if (v === part.thick) return; snap(); part.thick = r3(v); part.dirty = true; render(); });
     // the top edge: the pen's next outline, or the picked part
     const E = S.tool !== 'select' ? S.edge : part && part.edge;
     const sel = $('sd-edge');
     if (sel && E) sel.onchange = () => { if (S.tool === 'select') { snap(); part.dirty = true; } E.kind = sel.value; render(); edgeSay(); };
-    num('sd-es', v => { if (!(v > 0)) return say('Give the edge size a length above 0.'); if (!E || v === E.size) return; if (S.tool === 'select') { snap(); part.dirty = true; } E.size = r3(v); render(); edgeSay(); });
-    num('sd-pen-t', v => { if (v > 0) { S.thick = r3(v); try { localStorage.setItem(THICK, String(S.thick)); } catch (e) { /* private */ } } });
+    num('sd-es', v => { if (!(r3(v) >= 0.1)) return say('Give the edge size at least 0.1 mm.'); if (!E || v === E.size) return; if (S.tool === 'select') { snap(); part.dirty = true; } E.size = r3(v); render(); edgeSay(); });
+    num('sd-pen-t', v => { if (r3(v) >= 0.1) { S.thick = r3(v); try { localStorage.setItem(THICK, String(S.thick)); } catch (e) { /* private */ } } });
     num('sd-px', v => { if (!isFinite(v)) return; const [ci, i] = [...S.pts][0].split(':').map(Number), P = part.curves[ci].crv.ctrlPts[i]; if (v === r3(P[0])) return; snap(); shiftPts(part, [...S.pts], v - P[0], 0); render(); });
     num('sd-py', v => { if (!isFinite(v)) return; const [ci, i] = [...S.pts][0].split(':').map(Number), P = part.curves[ci].crv.ctrlPts[i]; if (v === r3(P[1])) return; snap(); shiftPts(part, [...S.pts], 0, v - P[1]); render(); });
     // width / depth: the whole part stretched about its center to that size
@@ -513,7 +514,7 @@
       strEl.onkeydown = e => { e.stopPropagation(); if (e.key === 'Enter') { strEl.blur(); } };
       strEl.oninput = () => { if (S.tool === 'text') TEXT.str = strEl.value; };
       strEl.onchange = () => setText(strEl.value, S.tool === 'text' ? TEXT.h : part.text.h);
-      num('sd-th', v => { if (!(v > 0)) return say('Give the letter height a length above 0.'); setText(S.tool === 'text' ? TEXT.str : part.text.str, r3(v)); });
+      num('sd-th', v => { if (!(r3(v) >= 1)) return say('Give the letters at least 1 mm of height.'); setText(S.tool === 'text' ? TEXT.str : part.text.str, r3(v)); });
       const fb = $('sd-font');
       if (fb) fb.onclick = () => {
         const inp = Object.assign(document.createElement('input'), { type: 'file', accept: '.ttf,.otf' });
@@ -908,7 +909,8 @@
   function key(e) {
     if (!S) return;
     const typing = e.target && /INPUT|SELECT|TEXTAREA/.test(e.target.tagName);
-    if (typing) return;
+    // typing in DRAW's own fields never reaches cam's shortcuts (Backspace deleted the part under the board)
+    if (typing) { if (ui.el && ui.el.contains(e.target)) e.stopPropagation(); return; }
     e.stopPropagation();
     const k = e.key;
     if ((e.metaKey || e.ctrlKey) && k.toLowerCase() === 'z') { e.preventDefault(); undo(); return; }
@@ -959,7 +961,7 @@
     const open = [], made = [], failed = [];
     let built = 0;
     for (const p of changed) {
-      if (p.gone) { if (p.w) a.platform.delete(p.w); continue; }
+      if (p.gone) { if (p.w) a.platform.delete(p.w); p.w = null; continue; }
       const closed = p.curves.filter(c => isClosed(c.crv));
       if (closed.length < p.curves.length) open.push(p.name);
       if (!closed.length) continue;
@@ -970,12 +972,15 @@
       if (p.w) a.platform.delete(p.w);
       made.push(...ws);
       built++;
+      // made: a second done (after a failure below) leaves it be
+      p.w = ws[0]; p.dirty = false;
     }
     if (made.length) a.platform.select(made[0]);
     if (fresh && a.frame) setTimeout(() => a.frame(), 120);   // Fable review 3 #17: done counts as a landing
     // a word, or any one drawing, counts as one, however many parts its letters make
     const n = built;
-    if (failed.length) { a.show.alert(`Not changed: ${failed.join(' ')}`, 12); return; }
+    // a part that could not be made keeps the board open with its drawing, so nothing is lost (torture test 10-29)
+    if (failed.length) { say(`Not made yet: ${failed.join(' ')} Fix it, then press done again.`); return false; }
     a.show.alert(open.length ? `${open.join(', ')}: open lines were left out (only closed outlines get a thickness).` : `${n === 1 ? (made.length > 1 ? `Made from the drawing: ${made.length} pieces, kept together.` : '1 part rebuilt from the drawing.') : `${n} drawings made into parts.`} Next: a step (${made.some(w => w.meta.edge) ? 'contour shapes the edge, outline cuts it out' : 'outline cuts it out'}), then toolpaths.`, 8);
   }
 

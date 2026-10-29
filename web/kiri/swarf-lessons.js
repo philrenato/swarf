@@ -42,7 +42,8 @@
     return e;
   };
   // no orphans: a sentence's last two words stay together (Phil 10-28)
-  const tie = t => typeof t === 'string' && t.trim().split(/\s+/).length > 3 ? t.replace(/ (\S+)\s*$/, '\u00a0$1') : t;
+  // no widow: the last two words held together; not in classic, whose Geneva draws that space double (review 10-29)
+  const tie = t => typeof t === 'string' && t.trim().split(/\s+/).length > 3 && document.documentElement.dataset.skin !== 'classic' ? t.replace(/ (\S+)\s*$/, '\u00a0$1') : t;
   // a length typed in mm, or with its unit (6in, 1 1/2"): Phil 10-29
   const num = (v, d) => { const n = window.SwarfLength ? SwarfLength.parse(v, 'mm') : parseFloat(String(v).replace(',', '.')); return isFinite(n) ? n : d; };
   const f3 = v => (Math.round(v * 1000) / 1000).toString();

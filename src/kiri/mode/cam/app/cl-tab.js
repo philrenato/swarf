@@ -206,7 +206,7 @@ export function tabHoverUp(int) {
 
 export function tabAdd() {
     traceDone();
-    alert = api.show.alert("[esc] cancels tab editing");
+    alert = api.show.alert("click the part's edge to add a tab, a tab to remove it; esc or ✓ when done");
     api.feature.hover = true;
     env.hover = tabHover;
     env.hoverUp = tabHoverUp;

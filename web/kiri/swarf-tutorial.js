@@ -12,11 +12,11 @@
   const api = () => window.kiri && window.kiri.api;
   const click = id => { const e = $(id); if (e) e.click(); return !!e; };
   const PAGES = [
-    { n: '', h: 'Run ShopBot with Swarf', p: ['From a vector file to a cut part, in ten steps.', 'Open renato.design/swarf in Chrome or Edge: Safari and Firefox can design and export, but only Chrome and Edge can run the ShopBot.', 'Words in <b>bold</b> are what you press or read in swarf.'] },
-    { n: 1, h: 'Open Swarf, pick the ShopBot', p: ['<b>setup › machine › ShopBot Basic</b>. The empty bed shows its name and size.'], show: ['use the ShopBot', () => { api().devices.select('ShopBot.Basic'); }] },
+    { n: '', h: 'Run the ShopBot with swarf', p: ['From a vector file to a cut part, in ten steps.', 'Open renato.design/swarf in Chrome or Edge: Safari and Firefox can design and export, but only Chrome and Edge can run the ShopBot.', 'Words in <b>bold</b> are what you press or read in swarf.'] },
+    { n: 1, h: 'Open swarf, pick the ShopBot', p: ['<b>setup › machine › ShopBot Basic</b>. The empty bed shows its name and size.'], show: ['use the ShopBot', () => { api().devices.select('ShopBot.Basic'); }] },
     { n: 2, h: 'Open your drawing', p: ['<b>import</b> your .ai, enter your board\'s measured thickness in mm, <b>make parts</b>.', 'Boards ¼ to 2½ in thick; thinner sheet goes to the laser. SVG, DXF, PDF, STL and OBJ open too.'], show: ['open a file', () => click('load-file')] },
     { n: 3, h: 'Check the size', p: ['The size card should match your drawing. If not, type the right size into the card.'], show: ['pick the part', () => { const a = api(), w = a.widgets.all()[0]; if (w) a.platform.select(w); }] },
-    { n: 4, h: 'Outline and four tabs', p: ['<b>outline</b> cuts around the outside, right through. <b>tabs › +</b>, click the edge four times, <b>✓</b>.', 'Zero: <b>front-left corner</b>, the default. Material: <b>plywood</b>.'], show: ['add an outline', () => { const el = [...(($('op-add-list') || {}).children || [])].find(c => c.innerText.trim().toLowerCase() === 'outline'); if (el) el.dispatchEvent(new MouseEvent('click', { bubbles: true })); const s = $('swarf-material-select'); if (s && [...s.options].some(o => o.value === 'plywood')) { s.value = 'plywood'; s.dispatchEvent(new Event('change', { bubbles: true })); } }] },
+    { n: 4, h: 'Outline and tabs', p: ['<b>outline</b> cuts around the outside, right through. <b>tabs › auto tabs</b>, then <b>apply</b>: tabs hold the part and any piece inside a hole.', 'Zero: <b>front-left corner</b>, the default. Material: <b>plywood</b>.'], show: ['add an outline', () => { const el = [...(($('op-add-list') || {}).children || [])].find(c => c.innerText.trim().toLowerCase() === 'outline'); if (el) el.dispatchEvent(new MouseEvent('click', { bubbles: true })); const s = $('swarf-material-select'); if (s && [...s.options].some(o => o.value === 'plywood')) { s.value = 'plywood'; s.dispatchEvent(new Event('change', { bubbles: true })); } }] },
     { n: 5, h: 'Toolpaths, then simulate', p: ['<b>toolpaths</b> shows where the bit goes; <b>simulate</b> and watch it cut. Mistakes cost nothing to fix here.'], show: ['make the toolpaths', () => click('act-paths')] },
     { n: '!', h: 'Before you touch the machine', list: ['Faculty or technician permission.', 'Eye and ear protection on; hair, sleeves and cords tied back.', 'Your board labeled, flat, and screwed down clear of the cut.', 'Laptop plugged in and awake; the floor e-stop within reach of your foot.'] },
     { n: 6, h: 'Fit the bit, connect, zero X Y', p: ['Fit the bit swarf names. USB in, <b>connect</b>.%windows%', 'No homing: jog the bit to your board\'s front-left corner and press <b>zero x y</b>.'], show: ['open control', () => click('swarf-step-run')] },
@@ -24,7 +24,7 @@
     { n: 8, h: 'Trace, then air cut', p: ['<b>trace</b> runs the outline, <b>air cut</b> the whole file 5 mm up, the bit not spinning. Neither checks clamps: watch.'] },
     { n: 9, h: 'Cut and stay with it', p: ['Dust collection on. <b>cut</b>, tick only what\'s true, then <b>cut</b> again.', '%keyPause%'] },
     { n: 10, h: 'Finish safely', p: ['%finished%', 'Bit changed? Zero Z again. More in <b>help</b>: search &ldquo;kcad&rdquo;, or ask the technician.'] },
-    { n: '', h: 'Emergency: step on the red floor e-stop', p: ['Keep clear until everything has stopped. Get the technician before restarting.', 'USB lost, e-stop used, or the position unsure? swarf holds everything until you check the machine and press <b>all clear</b>.'], last: true }
+    { n: '', h: 'Emergency: step on the red floor e-stop', p: ['Keep clear until everything has stopped. Get the technician before restarting.', 'After the e-stop swarf lets go of the machine: press <b>connect</b> again only once it is safe. USB lost, or the position unsure? swarf holds everything until you check the machine and press <b>all clear</b>.'], last: true }
   ];
   // the safety sentences come from swarf-safety-words.js, the copy the poster matches word for word
   const words = t => t.replace(/%(\w+)%/g, (_, k) => {
@@ -56,7 +56,9 @@
     const body = root.querySelector('.st-body');
     body.innerHTML = `<div class="st-n${P.n === '!' ? ' warn' : ''}">${P.n}</div><h3 id="st-h">${P.h}</h3>` +
       (P.p ? P.p.map(t => `<p>${words(t)}</p>`).join('') : '') + (P.list ? `<ul>${P.list.map(t => `<li>${t}</li>`).join('')}</ul>` : '');
-    root.querySelector('.st-count').textContent = `${at + 1} of ${PAGES.length}`;
+    // the numbered steps count as steps; the welcome, safety and emergency pages carry no number (review 10-29: "5 of 13" over a big 4)
+    const pg = PAGES[at], steps = PAGES.filter(q => typeof q.n === 'number').length;
+    root.querySelector('.st-count').textContent = typeof pg.n === 'number' ? `step ${pg.n} of ${steps}` : '';
     root.querySelector('.st-dots').innerHTML = PAGES.map((_, k) => `<i class="${k === at ? 'on' : ''}"></i>`).join('');
     root.querySelector('.st-back').style.visibility = at ? '' : 'hidden';
     const next = root.querySelector('.st-next');

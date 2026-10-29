@@ -611,14 +611,17 @@ function setup_keybd_nav() {
                     }
                     // rule 4 — cutting speed past the material's HSS figure: the
                     // machine's spindle floor (ShopBot 9000) or a hand-typed rpm
+                    // not on the ShopBot: its router turns 10,000 rpm at its slowest and takes
+                    // carbide bits, so this fired on every default setup (reviews 10-29)
                     const mat = window.__swarfMaterial;
                     const vcMax = mat && mat.cut && mat.cut.vc;
-                    if (vcMax && op.spindle && td) {
+                    const router = /shopbot/i.test((settings.device && settings.device.deviceName) || '');
+                    if (vcMax && op.spindle && td && !router) {
                         const vc = Math.PI * td * op.spindle / 1000;
                         if (vc > vcMax * 1.5) {
                             warnings.push({
-                                title: `spindle too fast for HSS in ${mat.name}`,
-                                body: `${vc.toFixed(0)} m/min cutting speed at ${op.spindle} rpm on a ${td.toFixed(2)} mm tool — HSS in ${mat.name} wants ${vcMax}.`,
+                                title: `spindle too fast for a steel bit in ${mat.name}`,
+                                body: `${vc.toFixed(0)} m/min cutting speed at ${op.spindle} rpm on a ${td.toFixed(2)} mm tool — a high-speed steel (HSS) bit in ${mat.name} wants ${vcMax}.`,
                                 hint: 'carbide, a smaller tool, or a slower spindle'
                             });
                         }
@@ -772,7 +775,7 @@ function setup_keybd_nav() {
             { kind:'op', name:'rough', body:'first pass that clears bulk material in horizontal layers above the part. fast, deep, sloppy by design — finished later by contour.', tags:'roughing clearing bulk first pass' },
             { kind:'op', name:'contour', body:'smooth surface pass. cutter crawls across the X or Y axis at a fine stepover, riding part curves. typical stepover 5–15% of tool diameter.', tags:'contouring finishing surface 2.5d' },
             { kind:'op', name:'outline', body:"cuts the part free from the stock by following its silhouette. usually the last cutting op. add tabs so the part doesn't fly out.", tags:'outline cutout silhouette' },
-            { kind:'op', name:'pocket', body:'clears flat-bottomed cavities — trays, countersinks, recesses. selection-driven; pick the floor face and swarf walls down.', tags:'pocket cavity tray' },
+            { kind:'op', name:'pocket', body:'clears flat-bottomed cavities — trays, countersinks, recesses. selection-driven; pick the floor face and swarf clears down to it, inside its walls.', tags:'pocket cavity tray' },
             { kind:'param', name:'stepover', body:'how far the tool moves sideways between passes, as a fraction of tool diameter. swarf loads 10–20% for metal and 30–45% for wood, foam and plastic. wider cuts faster and loads the tool harder.', tags:'stepover sideways pass spacing' },
             { kind:'param', name:'step-down', body:'depth of cut per layer. swarf keeps every preset under half the tool diameter, which is conservative for wood and about right for metal. deeper than the tool is wide and the flutes cannot clear the chips.', tags:'depth of cut step down doc layer' },
             { kind:'param', name:'feed rate', body:'how fast the tool moves through material, in mm/min. when in doubt: slower is safer.', tags:'feed feedrate mm/min cutting speed' },

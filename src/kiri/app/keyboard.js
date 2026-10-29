@@ -72,7 +72,9 @@ class KeyboardControl {
      */
     inputHasFocus() {
         let active = this.#DOC.activeElement;
-        return active && (active.nodeName === "INPUT" || active.nodeName === "TEXTAREA");
+        // swarf: a focused dropdown or editable text counts too (torture test 10-29: Backspace on a
+        // focused select deleted the selected part)
+        return active && (active.nodeName === "INPUT" || active.nodeName === "TEXTAREA" || active.nodeName === "SELECT" || active.isContentEditable);
     }
 
     /**

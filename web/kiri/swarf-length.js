@@ -26,7 +26,10 @@
 
   // a number, a fraction, or a whole number and a fraction; then an optional unit
   function parse(text, def) {
-    let s = String(text == null ? '' : text).trim().toLowerCase().replace(/,/g, '.');
+    let s = String(text == null ? '' : text).trim().toLowerCase();
+    // 1,000 or 2,438.4: commas between groups of three are thousands (an American shop); any
+    // other comma is a decimal point, 1,5 = 1.5 (torture test 10-29: 1,000 read as 1)
+    s = /^[-+]?\d{1,3}(,\d{3})+(\.\d*)?(\s*[a-z"″]*)?$/.test(s) ? s.replace(/,/g, '') : s.replace(/,/g, '.');
     if (!s) return NaN;
     const um = s.match(/(mm|millimeters?|cm|inches|inch|in|"|″)$/);
     const u = um ? um[1] : '';

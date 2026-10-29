@@ -326,7 +326,7 @@ body.swarf-run-open { filter: none !important; }
 .sr-jog .sr-modes button.held { flex: none; }
 .sr-jog .sr-pad { display: grid; grid-template-columns: repeat(3, 60px) 22px 60px; grid-template-rows: repeat(3, 50px); gap: 6px; justify-content: center; margin: 12px 12px 0; }
 .sr-jog .sr-pad button small { font-size: 9px; letter-spacing: .06em; }
-.sr-jog .sr-keys { margin: 8px 12px 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: 11px; }
+.sr-jog .sr-keys { margin: 8px 12px 0; white-space: normal; font-size: 11px; }   /* never cut a safety line short (review 10-29) */
 .sr-jog .sr-goto { display: flex; gap: 6px; margin: 10px 12px 0; }
 .sr-jog .sr-goto > button { flex: 1; padding: 8px 0; }
 @media (max-width: 900px) { .sr-grid { grid-template-columns: 1fr; overflow-y: auto; } .sr-col > .sr-view { flex: none; height: 360px; } }
@@ -477,7 +477,8 @@ html[data-skin] #swarf-run .sr-jog .sr-zrow button.next, html[data-skin] #swarf-
   // No orphans (Phil 10-28: "be maniacal culling orphans"): a sentence's last two words are
   // tied with a no-break space, so its last line is never one word ("clamp", "one:"). Short
   // labels (three words or fewer) and anything without a space are left alone.
-  const tie = t => typeof t === 'string' && t.trim().split(/\s+/).length > 3 ? t.replace(/ (\S+)\s*$/, '\u00a0$1') : t;
+  // no widow: the last two words held together; not in classic, whose Geneva draws that space double (review 10-29)
+  const tie = t => typeof t === 'string' && t.trim().split(/\s+/).length > 3 && document.documentElement.dataset.skin !== 'classic' ? t.replace(/ (\S+)\s*$/, '\u00a0$1') : t;
   function h(tag, attrs, ...kids) {
     const e = document.createElement(tag);
     for (const k in attrs || {}) {
@@ -1228,7 +1229,7 @@ html[data-skin] #swarf-run .sr-jog .sr-zrow button.next, html[data-skin] #swarf-
       { k: 'fault', label: 'all clear', ok: !S.fault, todo: S.fault ? `${S.fault}: check the machine, then press all clear` : '' },
       { k: 'busy', label: 'machine still', ok: !st || !st.connected || ready, todo: 'wait for the machine to stop moving' },
       { k: 'prog', label: 'a program', ok: !!(S.prog && S.prog.parsed.moves.length), todo: 'make a part in cam and press control, or open a file' },
-      { k: 'file', label: 'file checked', ok: !(S.prog && problems().block.length), todo: (S.prog && problems().block[0] || 'fix the file').replace(/\.$/, '') },
+      { k: 'file', label: 'file checked', ok: !!S.prog && !problems().block.length, todo: (S.prog ? problems().block[0] || 'fix the file' : 'load a file, or bring the toolpaths from cam').replace(/\.$/, '') },
       { k: 'xy', label: 'X Y zeroed', ok: !!S.zeroXY, todo: S.zeroHad && S.zeroHad.xy && S.zeroSetAt && !S.zx ? 'press "use the zero you set" if the board has not moved, or jog over your X 0, Y 0 and press zero x y' : 'jog the bit over your X 0, Y 0 and press zero x y' },
       { k: 'z', label: 'Z zeroed', ok: !!S.zeroZ, todo: S.zeroHad && S.zeroHad.z && S.zeroSetAt && !S.toolChange && !S.zStale ? 'press "use the zero you set", or zero Z again' : 'press z plate, or lower the bit onto paper and press zero z' },
       { k: 'trace', label: 'traced', ok: !!S.traced, todo: 'press trace and watch it clear the clamps' }
@@ -1287,7 +1288,9 @@ html[data-skin] #swarf-run .sr-jog .sr-zrow button.next, html[data-skin] #swarf-
     el.start.style.display = !S.prog || finished ? '' : 'none';
     // after a test cut, "measure it" waits where the student looks (Fable 3 #9)
     if (el.measure) el.measure.style.display = finished && S.prog && S.prog.source === 'lesson' ? '' : 'none';
-    if (el.keys) el.keys.textContent = running ? 'any key pauses   ·   emergency: the red e-stop on the floor' : '← → ↑ ↓  X Y   ·   fn ↑ ↓  Z   ·   space stops';   // Fable 3 #10
+    // Z's keys as the keyboard names them: fn + arrows on a Mac, Page Up / Page Down elsewhere (review 10-29)
+    const zKeys = /Mac/i.test(navigator.platform || navigator.userAgent) ? 'fn ↑ ↓  Z' : 'PgUp PgDn  Z';
+    if (el.keys) el.keys.textContent = running ? 'any key pauses   ·   emergency: the red e-stop on the floor' : `← → ↑ ↓  X Y   ·   ${zKeys}   ·   space stops`;   // Fable 3 #10
     el.otherFile.style.display = S.prog ? '' : 'none';
     el.lessonLink.style.display = S.prog ? '' : 'none';
     el.fromCam.style.display = S.prog && S.prog.source === 'cam' ? '' : 'none';
@@ -1416,7 +1419,7 @@ html[data-skin] #swarf-run .sr-jog .sr-zrow button.next, html[data-skin] #swarf-
     const known = !sim && !!(m.plateCfg && m.plateCfg.confirmed);
     let base = null, seen = null, proved = known, zeroed = false;
     const checks = [
-      ['over', `The bit is over your board, less than ${Math.round((m.plateCfg && m.plateCfg.travel) || 60)} mm above the plate (the search distance below).`],
+      ['over', `The bit is over your board, less than ${Math.round((m.plateCfg && m.plateCfg.travel) || 60)} mm above the plate (its search distance).`],
       ['clip', 'The ground clip is on the black Allen screw in the side of the router\'s housing, its wire clear of the bit.'],
       ['under', 'The plate lies flat on the board, right under the bit. Hands clear.']
     ];
@@ -1478,7 +1481,7 @@ html[data-skin] #swarf-run .sr-jog .sr-zrow button.next, html[data-skin] #swarf-
       if (!(t >= 10 && t <= 150) || !m.setPlateTravel || !m.setPlateTravel(t)) { reach.value = String(Math.round((m.plateCfg && m.plateCfg.travel) || 60)); say('Search down is 10 to 150 mm.', 'warn'); return; }
       reach.value = String(+t.toFixed(1));
       const over = boxes.over && boxes.over.nextElementSibling;
-      if (over) over.textContent = `The bit is over your board, less than ${Math.round(t)} mm above the plate (the search distance below).`;
+      if (over) over.textContent = `The bit is over your board, less than ${Math.round(t)} mm above the plate (its search distance).`;
     });
     thick.addEventListener('change', () => {
       const t = mmOf(thick.value);
@@ -2144,7 +2147,13 @@ html[data-skin] #swarf-run .sr-jog .sr-zrow button.next, html[data-skin] #swarf-
       if (el.resumeBtn) {
         el.resumeBtn.disabled = !!(rp && rp.problems.length);
         // the button says what the plan does: a pause on the way in has no router to start
-        el.resumeBtn.textContent = !rp || rp.steps.some(x => x.router === true) ? 'start the router and resume' : 'resume';
+        // a trace or an air cut never had the router on (reviews 10-29: it said "start the router")
+        const dry = S.job === 'trace' || S.job === 'air';
+        el.resumeBtn.textContent = !dry && (!rp || rp.steps.some(x => x.router === true)) ? 'start the router and resume' : 'resume';
+        const h2 = el.veil.querySelector('h2'), p = el.veil.querySelector('.sr-veilcard p');
+        if (h2) h2.textContent = dry ? `Paused. The ${S.job === 'air' ? 'air cut' : 'trace'} runs with the router off.` : 'Paused. The router is switched off.';
+        if (p) p.textContent = dry ? 'The bit stopped where it was. Resume carries on from here, router still off. End the job stops it.'
+          : 'The bit stopped where it was; it slows for a few seconds before it stops turning. Resume starts the router and carries on from here. End the job keeps the line so you can continue later.';
       }
     }
     el.veil.classList.toggle('on', veiled);

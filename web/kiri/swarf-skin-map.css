@@ -1478,6 +1478,13 @@ html[data-skin][data-skin] #swarf-run .sr-keyrow button.sr-router.on small,
 html[data-skin]:not([data-skin]) #swarf-run .sr-keyrow button.sr-router.on small {
     color: rgb(var(--sk-n9) / calc(1 * var(--sk-a-n9, 1))) !important
 }
+html[data-skin] #oplist .draggable.swarf-params-open .swarf-op-chevron {
+    color: rgb(var(--sk-n9) / calc(1 * var(--sk-a-n9, 1))) !important;
+    background: var(--swarf-accent, rgb(var(--sk-acc) / calc(1 * var(--sk-a-acc, 1)))) !important
+}
+html[data-skin] #oplist .draggable:not(.swarf-params-open) .swarf-op-chevron:hover {
+    color: var(--swarf-text, rgb(var(--sk-n8) / calc(1 * var(--sk-a-n8, 1)))) !important
+}
 
 /* ---- from web/kiri/index.html ---- */
 html[data-skin] #curtain {

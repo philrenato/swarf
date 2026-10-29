@@ -1301,7 +1301,7 @@ function lastThickness() {
         const t = JSON.parse(localStorage.getItem('swarf-shape-last')).t;
         if (t > 0) return t;
     } catch (e) { /* none yet */ }
-    return 6;
+    return 19.05;   // 3/4 in plywood, as SHAPE starts (6 mm was under the ShopBot's 1/4 in floor)
 }
 
 /**
@@ -1310,6 +1310,17 @@ function lastThickness() {
  * @param {Function} doit - Callback with options: {soup, resolution, segmin, depth, dpi}
  * @private
  */
+// swarf: an import's thickness in the cards' units (inches or mm), read as SHAPE reads it
+// (3/4, 19 mm), refused outside 0.1 to 150 mm (torture test 10-29: "3/4" made 3 mm, "abc" 5 mm)
+function depthUnit() { return self.SwarfLength ? self.SwarfLength.unit() : 'mm'; }
+function depthShow(mm) { return self.SwarfLength ? self.SwarfLength.show(mm) : mm; }
+function depthRead(text) {
+    const v = self.SwarfLength ? self.SwarfLength.parse(text) : parseFloat(text);
+    if (v >= 0.1 && v <= 150) return v;
+    api.show.alert(`thickness: type a length from 0.1 to 150 mm, like 3/4 or 19 mm ("${String(text).slice(0, 20)}" is not one). Import the file again.`, 8);
+    return NaN;
+}
+
 function loadSVGDialog(doit) {
     // swarf: the dialog speaks SHAPE's words (review 10-28b #7), and starts at
     // the last thickness SHAPE used, so a drawing and a shape come out alike
@@ -1322,7 +1333,7 @@ function loadSVGDialog(doit) {
         "  Text must be turned into outlines first (in Illustrator: Type › Create Outlines).",
         "  </p>",
         "  <div class='f-row t-right'><table>",
-        `  <tr><th>thickness</th><td><input id='svg-depth' value='${t}' size='4' inputmode='decimal'> mm</td></tr>`,
+        `  <tr><th>thickness</th><td><input id='svg-depth' value='${depthShow(t)}' size='6' inputmode='text'> ${depthUnit()}</td></tr>`,
         "  <tr><th title='an outline inside another is cut out of it, as a hole'>holes stay holes</th><td><input id='svg-nest' value='1' type='checkbox' checked></td></tr>",
         "  </table></div>",
         "  <details style='width:320px'><summary>finer settings</summary><table>",
@@ -1333,7 +1344,9 @@ function loadSVGDialog(doit) {
         "</div>"
     ]};
     api.uc.confirm(undefined, {'make parts':true, cancel:false}, undefined, opt).then((ok) => {
-        let depth = Math.max(0.1, parseFloat($('svg-depth').value));
+        if (!ok) return;
+        let depth = depthRead($('svg-depth').value);
+        if (!(depth > 0)) return;
         let arcs = Math.max(0.01, parseFloat($('svg-arcs').value));
         let marc = Math.max(1, parseInt($('svg-marc').value));
         let sdpi = Math.max(0, parseInt($('svg-dpi').value));
@@ -1358,7 +1371,7 @@ function loadDXFDialog(doit) {
         `  Each closed outline becomes a part, this thick.`,
         `  </p>`,
         `  <div class="f-row t-right image-convert-fields"><table>`,
-        `  <tr><th>thickness</th><td><input id="dxf-depth-${rnd}" value="${lastThickness()}" size="4" inputmode="decimal"> mm</td></tr>`,
+        `  <tr><th>thickness</th><td><input id="dxf-depth-${rnd}" value="${depthShow(lastThickness())}" size="6" inputmode="text"> ${depthUnit()}</td></tr>`,
         `  <tr><th title="most drawings say their units; pick one if the parts come out 25 times too big or too small">units</th><td><select id="dxf-units-${rnd}"><option value="auto" selected>as the file says</option><option value="mm">millimeters</option><option value="inch">inches</option></select></td></tr>`,
         `  <tr><th title="an outline inside another is cut out of it, as a hole">holes stay holes</th><td><input id="dxf-nest-${rnd}" type="checkbox" checked></td></tr>`,
         `  </table></div>`,
@@ -1382,11 +1395,13 @@ function loadDXFDialog(doit) {
     const cancelBtn = $(`dxf-convert-cancel-${rnd}`);
 
     okBtn.onclick = () => {
+        const d = depthRead(depth.value);
         api.modal.hide();
+        if (!(d > 0)) return;
         setTimeout(() => {
             doit({
                 soup: nest.checked,
-                depth: Math.max(0.1, parseFloat(depth.value)),
+                depth: d,
                 segmentSize: Math.max(0.01, parseFloat(segmentSize.value)),
                 minSegments: Math.max(3, parseInt(minSegments.value)),
                 units: units.value

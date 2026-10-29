@@ -32,7 +32,11 @@ export function parse(text, opt = { }) {
     const inputUnits = (!opt.units || opt.units === 'auto') ? fileUnits : opt.units;
     const scale = getScaleToMM(inputUnits); // convert to mm (Kiri:Moto's internal unit)
 
-    const entities = extractEntities(lines);
+    // swarf: an entity with a coordinate that is not a number is left out (torture test 10-29:
+    // one bad LWPOLYLINE froze the page for good)
+    const finite = o => typeof o === 'number' ? Number.isFinite(o) : Array.isArray(o) ? o.every(finite)
+        : o && typeof o === 'object' ? Object.values(o).every(finite) : true;
+    const entities = extractEntities(lines).filter(finite);
 
     // Scale all entities to mm BEFORE stitching
     scaleEntities(entities, scale);
@@ -195,7 +199,9 @@ export function parse(text, opt = { }) {
 
     // Extrude polygons to 3D
     for (let poly of nest) {
-        let obj = poly.extrude(depth * scale);
+        // swarf: the depth is typed in mm (the import dialog's unit), not the file's (an inch
+        // DXF came out 25.4 times too thick)
+        let obj = poly.extrude(depth);
         objs.push(obj);
     }
 

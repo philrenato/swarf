@@ -118,7 +118,7 @@
       "  <div class='f-row t-right'><table>",
       `  <tr><th>shape</th><td><select id="shape-kind">${Object.keys(SHAPES).map(k => `<option value="${k}"${k === kind0 ? ' selected' : ''}>${SHAPES[k].label}</option>`).join('')}</select></td></tr>`,
       rows,
-      `  <tr><th>thickness</th><td><input id="shape-t" value="${fld(last.t > 0 ? last.t : 6)}" size="6" inputmode="text"> ${unitW()}</td></tr>`,
+      `  <tr><th>thickness</th><td><input id="shape-t" value="${fld(last.t > 0 ? last.t : 19.05)}" size="6" inputmode="text"> ${unitW()}</td></tr>`,
       `  <tr><th>top edge</th><td><select id="shape-edge">${Object.keys(EDGES).map(k => `<option value="${k}"${k === (EDGES[last.edge] ? last.edge : 'straight') ? ' selected' : ''}>${EDGES[k]}</option>`).join('')}</select></td></tr>`,
       `  <tr data-e="1"><th>edge size</th><td><input id="shape-es" value="${fld(last.es > 0 ? last.es : 2)}" size="6" inputmode="text"> ${unitW()}</td></tr>`,
       "  </table></div>",

@@ -204,13 +204,16 @@ html[data-skin="classic"] #swarf-run .sr-card {
   background: #c0c0c0 !important; color: #000 !important; border: 0 !important; border-radius: 0 !important;
   box-shadow: var(--c-out), 4px 4px 0 rgba(0,0,0,.35) !important; padding-top: 26px !important; position: relative;
 }
+/* the modal box stays where Kiri centers it (absolute, translated); relative put every pop-up
+   half off the left edge (review 10-29: export, about, help search, tools unreachable) */
+html[data-skin="classic"] #modal > #modal-box { position: absolute !important; }
 html[data-skin="classic"] #dialog::before, html[data-skin="classic"] #modal-box::before, html[data-skin="classic"] .image-convert-dialog::before, html[data-skin="classic"] #swarf-run .sr-card::before {
   content: "swarf"; position: absolute; top: 3px; left: 3px; right: 3px; height: 18px; padding: 0 6px; display: flex; align-items: center;
   background: var(--c-title); color: #fff; font: 700 12px var(--c-font); letter-spacing: 0;
 }
 html[data-skin="classic"] #dialog::after, html[data-skin="classic"] #modal-box::after, html[data-skin="classic"] #swarf-run .sr-card::after {
-  content: "×"; position: absolute; top: 5px; right: 6px; width: 15px; height: 13px; display: grid; place-items: center;
-  background: #c0c0c0; color: #000; font: 700 12px/1 var(--c-font); box-shadow: var(--c-out); pointer-events: none;
+  /* no painted ×: it could not be pressed (review 10-29); each window has its own close */
+  content: none; display: none;
 }
 html[data-skin="classic"] #dialog::backdrop { background: transparent; }
 html[data-skin="classic"] #modal { background: transparent !important; border: 0 !important; }

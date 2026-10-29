@@ -2317,3 +2317,27 @@ html:not([data-skin]) #swarf-run .sr-keyrow button.sr-router.on small { color: #
 .swarf-autotabs-field input[type=checkbox] { margin: 0; accent-color: var(--swarf-accent); }
 .swarf-autotabs-slider.off { opacity: 0.45; }
 .swarf-autotabs-reset { align-self: flex-start; font-size: 11px; padding: 3px 8px; }
+/* the open step's "editing" badge reads in every skin: white on the accent (reviews 10-29: dark on
+   dark in glass and classic); a hover keeps its text instead of red on red */
+html #oplist .draggable.swarf-params-open .swarf-op-chevron { color: #fff !important; background: var(--swarf-accent, #d02020) !important; }
+html #oplist .draggable:not(.swarf-params-open) .swarf-op-chevron:hover { color: var(--swarf-text, #d8d2c6) !important; }
+/* the export dialog: no upstream donation line in a school shop app (reviews 10-29); Kiri:Moto is credited in about */
+#export-support { display: none !important; }
+/* about: Kiri styles every #mod-help link as a padded flex box (its old help list); swarf's about
+   reuses that id, so its credits and license ran as squeezed columns (Phil 10-29: "this looks weird") */
+#mod-help.swarf-about a { display: inline !important; padding: 0 !important; border-radius: 0 !important; background: none !important; }
+#mod-help.swarf-about .swarf-license, #mod-help.swarf-about .swarf-license-body,
+#mod-help.swarf-about .swarf-about-body { display: block !important; }
+#mod-help.swarf-about .swarf-credits > div { display: contents; }
+#mod-help.swarf-about .swarf-credit-who { white-space: normal; }
+#mod-help.swarf-about .swarf-about-foot { flex-wrap: wrap; gap: 6px 12px; }
+#mod-help.swarf-about #kiri-version { white-space: nowrap; }
+#mod-help.swarf-about .swarf-about-links { flex-wrap: wrap; }
+/* a dialog or DRAW in front: cam's panels go behind it and take no clicks (reviews 10-29: at 1024
+   the toolpaths panel covered about, the quick start and DRAW's toolbar; behind the tool library a
+   click on "rough" added a step) */
+body:has(#modal[style*="flex"]) #panel-right, body:has(#modal[style*="flex"]) #swarf-right-rail,
+body:has(#modal[style*="flex"]) #swarf-size, body:has(#modal[style*="flex"]) #swarf-concerns,
+body.swarf-draw-open #panel-right, body.swarf-draw-open #swarf-right-rail, body.swarf-draw-open #swarf-concerns {
+  z-index: -1 !important; pointer-events: none !important;
+}
