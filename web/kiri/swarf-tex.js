@@ -257,6 +257,8 @@
     document.body.classList.remove('swarf-draw-open', 'swarf-tex-open');
     S = null;
     const a = api();
+    // back in cam with the parts in view (r086 check M1: a camera left inside a part stays there)
+    try { if (a && a.reveal) a.reveal(); } catch (e) { /* no view */ }
     if (said && a) a.show.alert(said, 10);
   }
 

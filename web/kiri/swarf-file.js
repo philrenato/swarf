@@ -411,6 +411,9 @@
         try { if (ws.view && window.moto && window.moto.space) window.moto.space.view.load(ws.view); } catch (e) { /* camera */ }
         try { a.conf.update_fields(); a.platform.update_size(); a.platform.update_origin(); } catch (e) { /* none */ }
         try { a.event.emit('cam.op.render'); } catch (e) { /* none */ }
+        // the saved camera, unless it shows no part whole (a file saved looking from inside a
+        // part, r086 check M1): then the parts are framed
+        try { if (a.reveal) a.reveal(); } catch (e) { /* no view */ }
         remember();
         window.__swarfRestoring = false;
         project = String(name).replace(/\.swarf$/i, '');

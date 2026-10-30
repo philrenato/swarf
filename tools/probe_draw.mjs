@@ -9,6 +9,7 @@
 import puppeteer from 'puppeteer-core';
 import { readFileSync } from 'node:fs';
 import { CHROME } from './chrome-path.mjs';
+import { VIEW } from './view-check.mjs';
 const PAGE = process.argv[2] || 'http://localhost:8080/kiri/';
 const OUT = process.env.OUT || '/tmp/swarf-draw';
 const wait = ms => new Promise(r => setTimeout(r, ms));
@@ -155,6 +156,8 @@ try {
   const count = await page.evaluate(() => window.kiri.api.widgets.all().length);
   check(count === 2, `after a reload there are still 2 parts (${count})`);
   aligned(await page.evaluate(ALIGN), 'after a reload, both drawings line up');
+  await wait(800);
+  { const v = await page.evaluate(VIEW); check(v.ok, `after a reload the parts are in view, the camera above the bed (${v.say})`); }
 
   // a curve: a 60 mm circle is arcs (a Bézier chain); dragging an anchor carries its handles
   await page.evaluate(() => {
@@ -182,8 +185,25 @@ try {
   await page.click('#sd-done');
   await wait(1200);
   aligned(await page.evaluate(ALIGN), 'after the curve edit, every drawing lines up');
+  { const v = await page.evaluate(VIEW); check(v.ok, `after the curve edit's done the parts are in view (${v.say})`); }
 
-  // toolpaths and control for the drawn parts
+  // r086 check M1: a first drawing on an empty bed. DRAW's done used to frame twice at once and
+  // leave the camera inside the board, a wall of orange; now the board is whole in the window.
+  await page.evaluate(() => { const a = window.kiri.api; for (const w of a.widgets.all()) a.platform.delete(w); });
+  await wait(900);
+  await page.click('#swarf-step-draw');
+  await page.waitForFunction(() => window.__swarfDraw.state(), { timeout: 8000 });
+  await page.keyboard.press('r');
+  { const [a, b] = await px(page, -76, -127), [c, d] = await px(page, 76, 127);
+    await page.mouse.move(a, b); await page.mouse.down();
+    for (let i = 1; i <= 12; i++) { await page.mouse.move(a + (c - a) * i / 12, b + (d - b) * i / 12); await wait(15); }
+    await page.mouse.up(); await wait(150); }
+  await page.click('#sd-done');
+  await wait(1600);
+  { const v = await page.evaluate(VIEW); check(v.ok, `after DRAW's done on an empty bed the board is whole in the window, the camera above the bed (${v.say})`); }
+  await page.screenshot({ path: `${OUT}-fresh-board.png` });
+
+  // toolpaths and control for the drawn board (a rectangle: its outline is a dozen or so moves)
   await page.evaluate(() => {
     const el = Array.from(document.getElementById('op-add-list').children).find(c => c.innerText.trim().toLowerCase() === 'outline');
     el?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
@@ -199,7 +219,7 @@ try {
   await page.click('#swarf-step-run');
   await page.waitForFunction(() => window.__swarfRun.state.prog, { timeout: 60000 }).catch(() => {});
   const r = await page.evaluate(() => { const p = window.__swarfRun.state.prog; if (!p) return null; const b = window.SwarfRunParse.cutBounds(p.parsed); return { moves: p.parsed.moves.length, w: b && +(b.max.x - b.min.x).toFixed(1), deep: b && +(-b.min.z).toFixed(2) }; });
-  check(r && r.moves > 20 && r.deep >= 5.9, `in control: ${JSON.stringify(r)}`);
+  check(r && r.moves >= 12 && r.deep >= 5.9, `in control: ${JSON.stringify(r)}`);
   await page.screenshot({ path: `${OUT}-control.png` });
 } finally {
   await browser.close();

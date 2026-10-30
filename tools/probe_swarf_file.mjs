@@ -11,6 +11,7 @@ import { tmpdir, homedir } from 'node:os';
 import { join } from 'node:path';
 import { createRequire } from 'node:module';
 import { CHROME } from './chrome-path.mjs';
+import { VIEW } from './view-check.mjs';
 const require = createRequire(import.meta.url);
 const JSZip = require('jszip');
 const F = require('../web/kiri/swarf-file.js');
@@ -248,6 +249,7 @@ try {
   check(tpOld.pv === 'preview.end' && !reA.seen.some(t => /Deleted|brings it back/.test(t)) && reA.seen.some(t => /Opened probe-chair\.swarf: 2 parts, 2 steps\./.test(t)) && reA.arrange, `opened over a bed with toolpaths: one notice, 2 steps, the old paths gone (${JSON.stringify(reA.seen)}, arrange ${reA.arrange})`);
   await page.waitForFunction(() => window.kiri.api.widgets.all().length === 2, { timeout: 20000 }).catch(() => {});
   await wait(1500);
+  { const v = await page.evaluate(VIEW); check(v.ok, `after opening over a bed the parts are whole in the window, the camera above the bed (${v.say})`); }
   const zA2 = await controlZero(page);
   check(zA2.prog && !zA2.xy && !zA2.z && !zA2.traced, `control after reopening in the same browser: X Y and Z to zero, trace again (${JSON.stringify(zA2)})`);
   await A.b.close(); A = null;
@@ -268,6 +270,7 @@ try {
   }, buf.toString('base64'));
   check(!!opened.said, `dropped on an empty bed, it opens without asking (${opened.said})`);
   await wait(1500);
+  { const v = await page.evaluate(VIEW); check(v.ok, `after opening on an empty bed the parts are whole in the window, the camera above the bed (${v.say})`); }
   const b0 = await snapshot(page);
   check(b0.parts.length === 2, `two parts (${b0.parts.length})`);
   const firstDiff = (x, y) => { let i = 0; while (i < x.length && x[i] === y[i]) i++; return i < Math.max(x.length, y.length) ? ` (first difference at ${i}: "${x.slice(Math.max(0, i - 40), i + 60)}" vs "${y.slice(Math.max(0, i - 40), i + 60)}")` : ''; };

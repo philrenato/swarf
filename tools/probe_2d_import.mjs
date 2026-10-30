@@ -6,6 +6,7 @@
 import puppeteer from 'puppeteer-core';
 import { fileURLToPath } from 'node:url';
 import { CHROME } from './chrome-path.mjs';
+import { VIEW } from './view-check.mjs';
 const PAGE = process.argv[2] || 'http://localhost:8080/kiri/';
 const FIX = fileURLToPath(new URL('./fixtures-2d/', import.meta.url));
 const wait = ms => new Promise(r => setTimeout(r, ms));
@@ -45,6 +46,7 @@ try {
     check(sizes.length === 2 && has(6, 100, 100) && has(6, 40, 60), `${file}: parts ${JSON.stringify(sizes)}`);
     if (!/\.svg$/.test(file)) check(alerts.some(t => /1 open line was left out/.test(t)), `${file}: the open line is reported (${JSON.stringify(alerts)})`);
     check(await page.evaluate(() => window.kiri.api.widgets.all().every(w => /<svg/.test(w.meta.svg || ''))), `${file}: each part keeps its drawing`);
+    { const v = await page.evaluate(VIEW); check(v.ok, `${file}: after the import the parts are whole in the window, the camera above the bed (${v.say})`); }
     await page.close();
   }
 } finally {

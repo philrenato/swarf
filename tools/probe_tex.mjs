@@ -7,6 +7,7 @@
 //   node tools/probe_tex.mjs [url]
 import puppeteer from 'puppeteer-core';
 import { CHROME } from './chrome-path.mjs';
+import { VIEW } from './view-check.mjs';
 const PAGE = process.argv[2] || 'http://localhost:8080/kiri/';
 const OUT = process.env.OUT || '/tmp/swarf-tex';
 const wait = ms => new Promise(r => setTimeout(r, ms));
@@ -146,6 +147,7 @@ try {
   let k = await tex(page);
   const left = await page.evaluate(() => ({ open: !!window.__swarfTex.state(), mode: window.__swarfModes.mode(), cls: document.body.className.includes('swarf-tex-open') }));
   check(!left.open && left.mode === 'cam' && !left.cls, `done leaves TEX (${JSON.stringify(left)})`);
+  { const v = await page.evaluate(VIEW); check(v.ok, `after TEX's done the part is whole in the window, the camera above the bed (${v.say})`); }
   const mk = k.ws[0].marks[0];
   check(k.ws[0].marks.length === 1 && mk.pattern === 'waves' && mk.depth === 2 && mk.cells === st.cells || (mk && Math.abs(mk.cells - back) === 0), `the mark is kept on the part (${JSON.stringify(k.ws[0].marks)})`);
   check(k.ops.join() === `texture:${mk.id},outline` && k.labels.some(l => /^texture: ocean waves on /.test(l)), `one texture step, before the outline (${k.ops}; "${k.labels.join('", "')}")`);

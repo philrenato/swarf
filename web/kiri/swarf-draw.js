@@ -253,7 +253,11 @@
     try { const u = api() && api().ui.units; if (u && S.onUnits) u.removeEventListener('change', S.onUnits); } catch (e) { /* gone */ }
     ui.el.remove();
     document.body.classList.remove('swarf-draw-open');
+    const landed = S.landed;
     S = null;
+    // the view once DRAW has left the body: a new part frames, an edited one is brought into view
+    // if it is not (r086 check M1); the one camera rule waits for the rebuilt meshes' bounds
+    try { const a = api(); if (a && landed && a.frame) a.frame(); else if (a && apply && a.reveal) a.reveal(); } catch (e) { /* no view */ }
   }
 
   // ── view: mm on the bed to px on the board ──
@@ -1399,7 +1403,7 @@
     if (made.length) a.platform.select(made[0]);
     // TEX's marks came across with their parts: their steps follow (named for the new parts)
     if (made.some(w => w.meta && w.meta.tex) && window.__swarfTex) setTimeout(() => window.__swarfTex.syncSteps(a, true), 0);
-    if (fresh && a.frame) setTimeout(() => a.frame(), 120);   // Fable review 3 #17: done counts as a landing
+    if (fresh) S.landed = true;   // Fable review 3 #17: done counts as a landing (framed once DRAW has left, in close)
     // engraved lines: each onto the part under it, in that part's own frame (local = bed − its place)
     const lines = S.parts.filter(p => p.line);
     let engraved = 0, stepAdded = false;

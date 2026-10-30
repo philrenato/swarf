@@ -498,29 +498,74 @@ function setup_keybd_nav() {
     (function(){
         const FILL = 1.0;            // space.view.fit padding: the parts span about a third of the view
         const meshes = () => (api.widgets.all() || []).map(w => w.mesh).filter(Boolean);
-        const inView = list => {
+        // the parts' box in the scene, bounds rebuilt first (a part made a moment ago)
+        const boxOf = list => {
+            const box = new THREE.Box3();
+            for (const m of list) { try { m.geometry && m.geometry.computeBoundingBox(); } catch (e) {} box.expandByObject(m); }
+            return box;
+        };
+        // every corner of the parts' box inside the window (lim of the half-width), in front of
+        // the camera, and the camera not inside the box (r086 check M1: a wall of orange)
+        const inView = (list, lim = 0.9) => {
             const cam = space.internals && space.internals().camera;
             if (!cam) return false;
             cam.updateMatrixWorld();
-            const box = new THREE.Box3();
-            for (const m of list) { try { m.geometry && m.geometry.computeBoundingBox(); } catch (e) {} box.expandByObject(m); }
+            const box = boxOf(list);
             if (box.isEmpty()) return true;
+            if (box.containsPoint(cam.position)) return false;
             const v = new THREE.Vector3();
             for (let i = 0; i < 8; i++) {
                 v.set(i & 1 ? box.max.x : box.min.x, i & 2 ? box.max.y : box.min.y, i & 4 ? box.max.z : box.min.z).project(cam);
-                if (Math.abs(v.x) > 0.9 || Math.abs(v.y) > 0.9 || v.z > 1) return false;
+                if (Math.abs(v.x) > lim || Math.abs(v.y) > lim || v.z > 1 || v.z < -1) return false;
             }
             return true;
         };
-        const frame = () => {
+        // the camera under the bed (scene y is the bed's up): nobody looks at a part from there
+        const below = list => {
+            const cam = space.internals && space.internals().camera;
+            const box = boxOf(list);
+            return !!cam && !box.isEmpty() && cam.position.y < box.min.y;
+        };
+        // One fit at a time. space.view.fit tweens the zoom as a ratio of where the camera is when
+        // it starts, so two fits a few ms apart (DRAW's done: widget.add at 60 ms and done at 120)
+        // multiplied into each other and left the camera inside the part (r086 check M1). Calls in
+        // a burst become one fit, made two frames later when the rebuilt meshes have their bounds;
+        // a call during a tween waits for it to land. Once landed, the fit is checked: a corner off
+        // screen, the camera in the parts' box or under the bed, and it fits again at once.
+        let queued = false, busy = false, again = false, guard = 0;
+        const fitNow = (then, tween) => {
             try { space.event.onResize(); } catch (e) {}
             try { api.platform.update_bounds(); } catch (e) {}
-            try {
-                const all = meshes();
-                for (const m of all) { try { m.geometry && m.geometry.computeBoundingBox(); } catch (e) {} }
-                if (space.view.fit && all.length) space.view.fit(undefined, { padding: FILL, visibleOnly: true, objects: all });
-                else bed();
-            } catch (e) {}
+            const all = meshes();
+            for (const m of all) { try { m.geometry && m.geometry.computeBoundingBox(); } catch (e) {} }
+            if (!(space.view.fit && all.length)) { bed(); then && then(); return; }
+            const opts = { padding: FILL, visibleOnly: true, objects: all };
+            if (below(all)) opts.up = Math.PI / 4;       // looking up from under the bed: back over it
+            if (!tween) opts.tween = false;
+            space.view.fit(then, opts);
+        };
+        const settle = () => {
+            const all = meshes();
+            if (!all.length || (inView(all, 0.95) && !below(all))) return;
+            try { fitNow(null, false); } catch (e) {}
+        };
+        const landed = () => {
+            clearTimeout(guard);
+            if (!busy) return;
+            busy = false;
+            if (again) { again = false; frame(); return; }
+            settle();
+        };
+        const frame = () => {
+            if (queued) return;
+            queued = true;
+            requestAnimationFrame(() => requestAnimationFrame(() => {
+                queued = false;
+                if (busy) { again = true; return; }
+                busy = true;
+                guard = setTimeout(landed, 900);   // a tween that never calls back
+                try { fitNow(landed, true); } catch (e) { landed(); }
+            }));
         };
         // an empty bed: the home angle, framing the whole bed (review 10-28b #14)
         const bed = () => {
