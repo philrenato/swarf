@@ -711,7 +711,9 @@ export function autoTabRow() {
     recall();
     const box = document.createElement('div');
     box.className = 'swarf-autotabs';
-    box.append(what, btns, density.wrap, scale.wrap, grid, auto, say);
+    // the line that says what the press did sits right under the press (r086 check S1: at 720 it
+    // was below the rail's fold, under the fields)
+    box.append(what, btns, say, density.wrap, scale.wrap, grid, auto);
     setTimeout(() => {
         try {
             api.event.on('cam.tabs.auto', () => autoPlace());

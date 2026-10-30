@@ -65,8 +65,24 @@ for (const [W, H] of [[1440, 900], [1280, 720]]) for (const skin of ['glass', 'c
     check(!r.hit.length && r.inWin, `${tag}: the concerns pill (${r.pill}) is on screen and over no rail panel (rail ends ${r.railBottom}) [${r.hit}]`);
     const pg = await page.evaluate(() => ({ docH: document.documentElement.scrollHeight, win: innerHeight, ov: getComputedStyle(document.documentElement).overflow + '/' + getComputedStyle(document.body).overflow }));
     check(pg.ov.startsWith('hidden') && pg.ov.endsWith('hidden'), `${tag}: html and body do not scroll (${pg.ov}; document ${pg.docH} in ${pg.win})`);
+    // r086 check P6: the document is the window, not 2 px taller
+    check(pg.docH <= pg.win, `${tag}: the document is no taller than the window (${pg.docH} in ${pg.win})`);
+    // r086 check S1: after a real press of auto tabs its sentence is in sight, right under the
+    // button; a rail cut at the window's foot shows its "more below" cue
+    await addOp(page, 'outline'); await pick(page); await wait(300);
+    const go = await page.evaluate(() => { const b = document.getElementById('swarf-autotabs-go'); if (!b || !b.offsetParent) return null; b.scrollIntoView({ block: 'nearest' }); const r = b.getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2 }; });
+    if (go) { await page.mouse.click(go.x, go.y); await wait(1200); }
+    const at = await page.evaluate(() => {
+      const rail = document.getElementById('swarf-right-rail'), rr = rail.getBoundingClientRect();
+      const s = document.getElementById('swarf-autotabs-say'), b = document.getElementById('swarf-autotabs-go');
+      const sr = s && s.getBoundingClientRect(), br = b && b.getBoundingClientRect();
+      const more = rail.scrollHeight - rail.clientHeight - rail.scrollTop > 6;
+      return { text: s ? s.textContent.slice(0, 60) : '', say: sr && [Math.round(sr.top), Math.round(sr.bottom)], btn: br && Math.round(br.bottom), rail: [Math.round(rr.top), Math.round(rr.bottom)], seen: !!sr && sr.height > 4 && sr.top >= rr.top - 1 && sr.bottom <= rr.bottom + 1 && sr.bottom <= innerHeight, under: !!sr && !!br && sr.top >= br.bottom - 1 && sr.top - br.bottom < 16, more, cue: rail.classList.contains('swarf-more') && /more below/.test(getComputedStyle(rail, '::after').content) };
+    });
+    check(go && at.seen && at.under && /tab/.test(at.text), `${tag}: the auto tabs sentence is in sight right under its button (${JSON.stringify(at)})`);
+    check(at.more === at.cue, `${tag}: the rail shows "more below" exactly when it runs past its foot (more ${at.more}, cue ${at.cue})`);
     if (skin === 'glass') {
-      await addOp(page, 'outline'); await toolpaths(page);
+      await toolpaths(page);
       const bar0 = await page.evaluate(() => Math.round(document.getElementById('menubar').getBoundingClientRect().top));
       await page.evaluate(() => document.getElementById('act-animate').click()); await wait(2500);
       await page.mouse.click(Math.round(W / 2), Math.round(H / 2)); await wait(200);
@@ -213,7 +229,34 @@ for (const [W, H] of [[1440, 900], [1280, 720]]) for (const skin of ['glass', 'c
       return out;
     });
     check(!ov.length, `advanced panels do not overlap the rail [${ov}]`);
+    // r086 check S5: the column scrolls inside the window, so every row is reachable
+    check(await reachable(page), `advanced's column at 1440 × 900: ${JSON.stringify(await reachable(page, true))}`);
   } finally { await browser.close(); }
+}
+// r086 check S5 at a school laptop's 1280 × 720, in classic too
+for (const skin of ['glass', 'classic']) {
+  const { browser, page } = await open(1280, 720, skin);
+  try {
+    await page.evaluate(() => { localStorage.setItem('swarf-expert', '1'); if (!document.body.classList.contains('swarf-expert')) document.getElementById('swarf-expert-toggle')?.click(); });
+    await shape(page); await pick(page); await wait(800);
+    check(await reachable(page), `${skin} 1280 × 720: advanced's column scrolls and every row is reachable: ${JSON.stringify(await reachable(page, true))}`);
+  } finally { await browser.close(); }
+}
+// the advanced column (#panel-left) inside the window, and its last row reachable by scrolling it
+async function reachable(page, why) {
+  const r = await page.evaluate(async () => {
+    const e = document.getElementById('panel-left');
+    if (!e || !e.offsetParent) return { none: true };
+    const b = e.getBoundingClientRect();
+    e.scrollTop = e.scrollHeight;
+    await new Promise(res => requestAnimationFrame(() => requestAnimationFrame(res)));
+    const rows = [...e.querySelectorAll('input, select, button')].filter(x => x.offsetParent && getComputedStyle(x).visibility !== 'hidden');
+    const last = Math.max(...rows.map(x => x.getBoundingClientRect().bottom));
+    const out = { top: Math.round(b.top), bottom: Math.round(b.bottom), win: innerHeight, scroll: e.scrollHeight > e.clientHeight + 1, lastRow: Math.round(last), rows: rows.length };
+    e.scrollTop = 0;
+    return out;
+  });
+  return why ? r : !r.none && r.bottom <= r.win && r.lastRow <= r.bottom + 1 && r.rows > 5;
 }
 
 check(!errors.length, `no page errors [${errors.slice(0, 3)}]`);

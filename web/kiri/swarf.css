@@ -176,6 +176,11 @@ body.swarf-sky-working {
 /* (review r086 F3) the app is the window: it never scrolls as a page (Space in simulate, a
    trackpad flick or a focused field below the fold moved the menubar and wordmark off the top) */
 html, body { overflow: hidden !important; overscroll-behavior: none; }
+/* r086 check P6: the document was 2 px taller than the window in wet plastic and classic. The
+   generated swarf-skin-map.css folds Kiri's dark-theme rules for buttons and fields into one
+   html[data-skin][data-theme="dark"] block, so <html> itself got a 1 px border top and bottom.
+   (The generator, tools/make_skins.mjs, is the real home of this fix.) */
+html[data-skin] { border: 0 !important; }
 #mid-mid { min-width: 60vw; min-height: calc(100vh - 100px); }
 #container { min-height: calc(100vh - 100px); }
 
@@ -717,6 +722,14 @@ body.swarf-run-open #gdpr, body.swarf-run-open #install-swarf, body.swarf-run-op
 /* rail plates inherit the same mill-red / chamfered treatment as panel-right */
 /* (review r086 F2) a panel keeps its height: headers and rows never squash, the rail scrolls */
 #swarf-right-rail > .set2-group, #panel-left .set2-group { flex-shrink: 0 !important; }
+/* r086 check S1: a rail that runs past the window's foot says so — a pill held at its bottom edge
+   (it also covers the sliver of a half-cut header); gone once scrolled to the end */
+#swarf-right-rail.swarf-more::after {
+  content: 'more below \25BE'; position: sticky; bottom: 4px; flex-shrink: 0; align-self: center;
+  margin-top: -34px; padding: 3px 12px; border-radius: 999px; pointer-events: none; z-index: 3;
+  font-size: 11px; line-height: 16px; color: var(--swarf-text-2); background: var(--swarf-bg-2);
+  box-shadow: 0 0 0 1px var(--swarf-line), 0 -6px 16px 8px color-mix(in srgb, var(--swarf-bg-2) 70%, transparent);
+}
 #swarf-right-rail .set2-group {
   background: var(--swarf-bg-2) !important;
   border: 1px solid var(--swarf-line-2) !important;
@@ -921,6 +934,10 @@ body.swarf-run-open #gdpr, body.swarf-run-open #install-swarf, body.swarf-run-op
   padding: 0 !important;
 }
 #panel-slide { padding: 0 !important; gap: 10px !important; }
+/* r086 check S5: the column scrolls, not its contents. #panel-slide shrank to the dock's
+   max-height and spilled its rows (arc output, origin, limits) off the window with no scroll. */
+#panel-left { overscroll-behavior: contain; }
+#panel-left > #panel-slide { flex-shrink: 0 !important; }
 #panel-left .set2-group {
   background: var(--swarf-bg-2) !important;
   border: 1px solid var(--swarf-line-2) !important;
