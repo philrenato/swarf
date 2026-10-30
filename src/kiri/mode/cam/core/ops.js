@@ -40,6 +40,7 @@ export const ops = {
     "rough":     OpRough,
     "shadow":    OpShadow,
     "texture":   OpTexture,
+    "pierce":    OpTexture,
     "trace":     OpTrace,
     "xray":      OpXRay
 };

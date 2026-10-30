@@ -84,10 +84,11 @@
     erase: 'erase from the mark (U)',
     rect: 'drag a rectangle onto the mark; with option (alt) it cuts it out (R)',
     ellipse: 'drag an ellipse onto the mark; with option (alt) it cuts it out (E)',
-    region: 'click inside a part: its whole top, less its holes, joins the mark (G)'
+    region: 'click inside a part: its whole top, less its holes, joins the mark (G)',
+    points: 'the mark\'s edge as points: drag one, click the edge to add one, Delete removes the picked (H)'
   };
-  const KEYS = { v: 'select', b: 'brush', u: 'erase', r: 'rect', e: 'ellipse', g: 'region' };
-  const WORD = { select: 'select', brush: 'brush', erase: 'erase', rect: 'rectangle', ellipse: 'ellipse', region: 'region' };
+  const KEYS = { v: 'select', b: 'brush', u: 'erase', r: 'rect', e: 'ellipse', g: 'region', h: 'points' };
+  const WORD = { select: 'select', brush: 'brush', erase: 'erase', rect: 'rectangle', ellipse: 'ellipse', region: 'region', points: 'points' };
   const clone = o => JSON.parse(JSON.stringify(o));
   const esc = t => String(t).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
   const nameOf = w => String((w.meta && w.meta.file) || 'part').replace(/\.(svg|dxf|ai|pdf|stl|obj|3mf)$/i, '');
@@ -136,10 +137,10 @@
   // ── marks: a paint grid in the mark's frame, xf to the part's ──
   function loadMark(m) {
     const region = T().regionSpec(m.region);
-    return { id: m.id, made: m.made, keep: m.keep !== false, region: { ...region, data: region.data ? region.data.slice() : region.data }, xf: (m.xf || T().IDENTITY).slice(), fill: normBit(clone(m.fill)), est: m.est, ver: 1 };
+    return { id: m.id, made: m.made, region: { ...region, data: region.data ? region.data.slice() : region.data }, xf: (m.xf || T().IDENTITY).slice(), fill: normBit(clone(m.fill)), est: m.est, ver: 1 };
   }
   function storeMark(m) {
-    return { id: m.id, made: m.made, keep: m.keep, region: T().storeRegion(m.region), xf: m.xf.slice(), fill: clone(m.fill), est: m.est };
+    return { id: m.id, made: m.made, region: T().storeRegion(m.region), xf: m.xf.slice(), fill: clone(m.fill), est: m.est };
   }
   const markHas = m => m.region && m.region.data && m.region.data.some(v => v);
   function lastFill() {
@@ -151,7 +152,7 @@
     const region = T().newGrid(b[0] - pad, b[1] - pad, b[2] + pad, b[3] + pad, 0.5);
     const f = lastFill() || T().newFill('waves', { tool: 'ball14' });
     f.origin = [(b[0] + b[2]) / 2, (b[1] + b[3]) / 2];
-    return { id: newId(), made: made || 'brush', keep: true, region, xf: T().IDENTITY.slice(), fill: normBit(f), ver: 1 };
+    return { id: newId(), made: made || 'brush', region, xf: T().IDENTITY.slice(), fill: normBit(f), ver: 1 };
   }
   // the bed point p to the mark's frame
   function toMark(part, m, p) { return T().xfApply(T().xfInvert(m.xf), p[0] - part.pos[0], p[1] - part.pos[1]); }
@@ -200,7 +201,7 @@
     el.innerHTML = `
       <svg id="tx-svg" tabindex="0"></svg>
       <div class="sd-bar">
-        ${['select', 'brush', 'erase', 'rect', 'ellipse', 'region'].map(btn).join('')}
+        ${['select', 'brush', 'erase', 'rect', 'ellipse', 'region', 'points'].map(btn).join('')}
         <span class="sd-sep"></span>
         <button id="tx-undo" title="undo (⌘Z)">undo</button>
         <button id="tx-fit" title="show the parts, or the whole bed (F) · pinch or ⌘-scroll to zoom, two fingers to slide">fit</button>
@@ -305,13 +306,13 @@
     let hf = null, dmax = 1;
     if (mode !== 'mask') {
       const s = T().xfScale(m.xf);
-      const tex = T().markTexture({ region: g, xf: T().IDENTITY, fill: { ...m.fill, fade: (m.fill.fade || 0) / s } });
-      if (tex) { hf = tex.h; dmax = Math.max(0.5, tex.depth); }
+      const tex = T().markTexture({ region: g, xf: m.xf, fill: m.fill }, { part: part.loops });
+      if (tex) { const A = m.xf; hf = (u, v) => tex.h(A[0] * u + A[1] * v + A[4], A[2] * u + A[3] * v + A[5]); dmax = Math.max(0.5, tex.depth); }
     }
     const Hs = new Float32Array(W * H), In = new Uint8Array(W * H);
     for (let pj = 0; pj < H; pj++) for (let pi = 0; pi < W; pi++) {
       const u = uL + (pi + 0.5) * res, v = vT - (pj + 0.5) * res, k = pj * W + pi;
-      In[k] = cell(u, v) ? 1 : 0;
+      In[k] = cell(u, v) && onPart(T().xfApply(m.xf, u, v), part.loops) ? 1 : 0;
       if (hf && In[k]) Hs[k] = hf(u, v);
     }
     const { line, lo, hi } = skinColors();
@@ -345,7 +346,7 @@
   function cutsSVG(p, m) {
     if (!(m.cuts && m.cuts.ver === m.ver)) {
       let c = null;
-      try { c = T().pierceCuts({ region: m.region, xf: m.xf, fill: m.fill }, { thickness: p.thick }); } catch (e) { console.warn('swarf tex', e); }
+      try { c = T().pierceCuts({ region: m.region, xf: m.xf, fill: m.fill }, { thickness: p.thick, part: p.loops }); } catch (e) { console.warn('swarf tex', e); }
       m.cuts = { ver: m.ver, c };
     }
     const c = m.cuts.c, k = S.k;
@@ -356,6 +357,120 @@
     let o = d ? `<path class="tx-cut" d="${d}" style="stroke-width:${Math.max(1, c.width * k)}px"/>` : '';
     for (const h of c.holes) o += `<circle class="tx-cut tx-hole" cx="${X(h.x)}" cy="${Y(h.y)}" r="${Math.max(0.5, h.d / 2 * k)}"/>`;
     return o;
+  }
+  // ── points: the picked mark's edge as Pgon's and MASQ's region curve (swarf-tex-core fitCurves) ──
+  function curveOf(m) {
+    if (!(m.curve && m.curve.ver === m.ver)) {
+      const count = (m.curve && m.curve.count) || 12;
+      m.curve = { ver: m.ver, count, ...T().fitCurves(m.region, { count }) };
+      S.pts = new Set();
+    }
+    return m.curve;
+  }
+  const bedOf = (part, m, q) => { const [x, y] = T().xfApply(m.xf, q[0], q[1]); return [x + part.pos[0], y + part.pos[1]]; };
+  function pointsSVG() {
+    const part = curPart(), m = curMark();
+    if (!part || !m || !markHas(m)) return '';
+    const c = curveOf(m), out = [];
+    S.pts = S.pts || new Set();
+    c.loops.forEach((L, li) => {
+      const P = T().sampleCurve(L.handles, 12).pts.map(q => bedOf(part, m, q));
+      out.push(`<path class="sd-pen tx-curve" d="M${P.map(q => `${sx(q[0])},${sy(q[1])}`).join('L')}Z"/>`);
+    });
+    // as DRAW: unseen rings round the points, then the points
+    c.loops.forEach((L, li) => L.handles.forEach((h, i) => { const [x, y] = bedOf(part, m, h); out.push(`<circle class="sd-pthit" data-pt="${li}:${i}" cx="${sx(x)}" cy="${sy(y)}" r="9"/>`); }));
+    c.loops.forEach((L, li) => L.handles.forEach((h, i) => { const [x, y] = bedOf(part, m, h), on = S.pts.has(`${li}:${i}`); out.push(`<rect class="sd-pt${on ? ' on' : ''}" data-pt="${li}:${i}" x="${sx(x) - 4}" y="${sy(y) - 4}" width="8" height="8"/>`); }));
+    return out.join('');
+  }
+  // the curve back into the mark: from the paint's grid at the start, clipped to the part's top.
+  // A curve that would cross itself leaves the paint as it was, and says so.
+  function rewrite(part, m, base, curve) {
+    const r = T().rewriteFromCurves(base, curve);
+    if (!r) { say('That would make the edge cross itself: the mark stays as it was. Move the point back, or another way.'); return false; }
+    const top = onTop(part, m), g = m.region;
+    for (let j = 0; j < g.ny; j++) for (let i = 0; i < g.nx; i++) {
+      const k = j * g.nx + i;
+      g.data[k] = r.data[k] && top(g.x0 + (i + 0.5) * g.res, g.y0 + (j + 0.5) * g.res) ? 1 : 0;
+    }
+    m.ver++; part.dirty = true;
+    m.curve = { ...curve, ver: m.ver };
+    return true;
+  }
+  function pointsDown(e, p) {
+    const part = curPart(), m = curMark();
+    if (!part || !m || !markHas(m)) { say('Pick a mark first: its edge shows its points.'); return; }
+    const c = curveOf(m), id = e.target.dataset && e.target.dataset.pt;
+    const base = { ...m.region, data: m.region.data.slice() }, start = clone({ loops: c.loops, count: c.count });
+    if (id) {
+      if (e.shiftKey) { S.pts.has(id) ? S.pts.delete(id) : S.pts.add(id); render(); return; }
+      if (!S.pts.has(id)) S.pts = new Set([id]);
+      snap();
+      S.drag = { kind: 'pt', part, m, base, start, at: toMark(part, m, p), moved: false };
+      ui.svg.setPointerCapture(e.pointerId);
+      return;
+    }
+    // a click by the edge adds a point there
+    const q = toMark(part, m, p), near = T().nearestOnCurves(c, q[0], q[1]);
+    if (near && near.d * T().xfScale(m.xf) * S.k <= 8) {
+      snap();
+      const L = start.loops[near.loop];
+      L.handles.splice(near.span + 1, 0, near.p);
+      if (rewrite(part, m, base, start)) { S.pts = new Set([`${near.loop}:${near.span + 1}`]); say('A point added: drag it.'); } else S.undo.pop();
+      render(); imagesSoon(); checkSoon();
+      return;
+    }
+    // drag across points to pick them
+    S.drag = { kind: 'ptbox', at: p, shift: e.shiftKey };
+    ui.svg.setPointerCapture(e.pointerId);
+  }
+  function pointsMove(p, d) {
+    if (d.kind === 'ptbox') { S.box = [d.at, p]; render(); return; }
+    const q = toMark(d.part, d.m, p), dx = q[0] - d.at[0], dy = q[1] - d.at[1];
+    if (!d.moved && Math.hypot(dx, dy) * T().xfScale(d.m.xf) * S.k < 2) return;
+    d.moved = true;
+    const curve = clone(d.start);
+    for (const id of S.pts) { const [li, i] = id.split(':').map(Number), h = curve.loops[li] && curve.loops[li].handles[i]; if (h) { h[0] += dx; h[1] += dy; } }
+    d.ok = rewrite(d.part, d.m, d.base, curve);
+    if (!d.ok) { d.m.region.data.set(d.base.data); d.m.ver++; d.m.curve = { ...curve, ver: d.m.ver }; d.bad = true; } else d.bad = false;
+    renderSoon();
+  }
+  function pointsUp(d) {
+    if (d.kind === 'ptbox') {
+      const b = S.box; S.box = null;
+      const part = curPart(), m = curMark();
+      if (!b || !m) { render(); return; }
+      if (!d.shift) S.pts = new Set();
+      const x0 = Math.min(b[0][0], b[1][0]), x1 = Math.max(b[0][0], b[1][0]), y0 = Math.min(b[0][1], b[1][1]), y1 = Math.max(b[0][1], b[1][1]);
+      curveOf(m).loops.forEach((L, li) => L.handles.forEach((h, i) => { const [x, y] = bedOf(part, m, h); if (x >= x0 && x <= x1 && y >= y0 && y <= y1) S.pts.add(`${li}:${i}`); }));
+      render(); return;
+    }
+    if (!d.moved) { S.undo.pop(); render(); return; }
+    // a drag that ended crossed: the paint from before it, and the points from before it
+    if (d.bad) { d.m.region.data.set(d.base.data); d.m.ver++; d.m.curve = { ...clone(d.start), ver: d.m.ver }; }
+    render(); imagesSoon(); checkSoon();
+  }
+  function pointsDelete() {
+    const part = curPart(), m = curMark();
+    if (!m || !S.pts.size) return false;
+    const c = clone({ loops: curveOf(m).loops, count: m.curve.count });
+    const base = { ...m.region, data: m.region.data.slice() };
+    const gone = {};
+    for (const id of S.pts) { const [li, i] = id.split(':').map(Number); (gone[li] = gone[li] || new Set()).add(i); }
+    c.loops = c.loops.map((L, li) => ({ ...L, handles: L.handles.filter((_, i) => !(gone[li] && gone[li].has(i))) }));
+    if (c.loops.some(L => L.handles.length < 3)) { say('An edge needs at least three points.'); return true; }
+    snap();
+    if (rewrite(part, m, base, c)) { S.pts = new Set(); say('Points removed.'); } else S.undo.pop();
+    render(); imagesSoon(); checkSoon();
+    return true;
+  }
+  // fewer or more points: fitted again from the paint
+  function pointsCount(n) {
+    const m = curMark();
+    if (!m) return;
+    n = Math.max(4, Math.min(200, Math.round(n)));
+    m.curve = { ver: -1, count: n };
+    curveOf(m);
+    render();
   }
   // while painting: one redraw a frame, the stroke's mark shaded coarse under the brush
   function renderSoon() {
@@ -399,6 +514,7 @@
       if (m.fill.fill === 'pierce') out.push(cutsSVG(p, m));
     }));
     out.push(picked);
+    if (S.tool === 'points') out.push(pointsSVG());
     if (S.box) {
       const [a, b] = S.box;
       const x = Math.min(sx(a[0]), sx(b[0])), y = Math.min(sy(a[1]), sy(b[1])), w = Math.abs(a[0] - b[0]) * k, h = Math.abs(a[1] - b[1]) * k;
@@ -462,7 +578,11 @@
       h += `<div class="sd-h">${esc(part.name)}</div>`;
       if (part.tilted) h += '<div class="sd-note">This part is tipped over: TEX marks the top of a part lying flat.</div>';
       if (S.tool === 'brush' || S.tool === 'erase') h += lenRow('brush size', 'tx-bsize', S.brush, 'across the brush ([ and ] change it)');
-      else if (S.tool !== 'select') h += `<div class="sd-note">${esc(TOOLS[S.tool].replace(/ \(\w\)$/, ''))}.</div>`;
+      else if (S.tool === 'points' && m && markHas(m)) {
+        const c = curveOf(m), n = c.loops.reduce((a, L) => a + L.handles.length, 0);
+        h += `<div class="sd-note">Drag a point to reshape the mark's edge. Click the edge to add one; Delete removes the picked ones.</div>
+          <div class="sd-row" title="how many points the edge is fitted to: fewer is smoother"><span>points</span><input id="tx-npts" value="${n}" inputmode="numeric"><button id="tx-fewer" title="fewer points: smoother">fewer</button><button id="tx-more" title="more points: closer to the paint">more</button></div>`;
+      } else if (S.tool !== 'select') h += `<div class="sd-note">${esc(TOOLS[S.tool].replace(/ \(\w\)$/, ''))}.</div>`;
       if (part.marks.length) h += `<div class="sd-row tx-picks">${part.marks.map((q, i) => `<button class="tx-pick${i === S.mark ? ' on' : ''}" data-mi="${i}" title="pick this mark">${esc(markName(q, i))}</button>`).join('')}</div>`;
       h += `<div class="sd-row"><button id="tx-new" title="start another mark on this part (the brush paints it)">new mark</button>${m ? '<button id="tx-del" title="remove this mark (Delete, with select)">delete mark</button>' : ''}</div>`;
       if (!m) h += `<div class="sd-note">${part.marks.length ? 'Pick a mark, or start a new one.' : 'Paint on the part with the brush, or drag a rectangle or an ellipse: that is the mark. Then fill it here.'}</div>`;
@@ -473,7 +593,6 @@
       const opts = lib.length ? lib.map(([t, b]) => [String(t.id), `${b.name}${b.type === 'v' ? '' : ''}`]) : Object.entries(BITS).map(([k, b]) => [k, b.say]);
       return selRow('bit', 'tx-bit', opts, String(f.tool), f.fill === 'pierce' ? 'the straight bit that cuts the kerfs or holes; its width is the kerf' : 'the bit that cuts it: ball for smooth hollows, V for sharp grooves');
     };
-    const keepRow = () => `<div class="sd-row" title="paint only on the part's top, less its holes"><label class="tx-check"><input type="checkbox" id="tx-keep"${m.keep ? ' checked' : ''}> keep inside the part</label></div>`;
     const fillRow = f => (expert ? `<div class="sd-row tx-fills" title="texture carves the top; pierce cuts through it"><span>fill</span><button class="tx-fill${f.fill === 'texture' ? ' on' : ''}" data-fill="texture">texture</button><button class="tx-fill${f.fill === 'pierce' ? ' on' : ''}" data-fill="pierce">pierce</button></div>` : `<div class="sd-h">${f.fill}</div>`);
     if (m && m.fill.fill === 'pierce') {
       const f = m.fill, P = C.PIERCES[f.pattern], pr = { ...C.pierceDefaults(f.pattern), ...(f.params || {}) };
@@ -482,7 +601,7 @@
       const tex = m.info && m.info.ver === m.ver ? m.info : null;
       if (!tex) h += '<div class="sd-note">Working out the cut…</div>';
       else {
-        h += `<div class="sd-note">About ${C.formatTime(tex.seconds)} to cut${tex.outside > 0.02 ? `; ${Math.round(tex.outside * 100)}% of it is off the part` : ''}.</div>`;
+        h += `<div class="sd-note">About ${C.formatTime(tex.seconds)} to cut.</div>`;
         for (const n of tex.notes) h += `<div class="sd-note">${esc(n)}</div>`;
         for (const w of tex.warnings) h += `<div class="sd-note tx-warn">${esc(w)}</div>`;
       }
@@ -490,7 +609,6 @@
       h += lenRow('soft edge', 'tx-fade', f.fade || 0, 'how far in from the mark\'s edge the pattern thins out: shorter slots, smaller holes');
       h += numRow(f.pattern === 'kerf' ? 'bend line' : 'turn', 'tx-angle', r3(f.angle || 0), '°', f.pattern === 'kerf' ? 'which way the kerfs run: the part bends across them' : 'the lattice turned');
       h += bitRow(f);
-      h += keepRow();
       const more = S.more ?? expert;
       h += `<details class="tx-more"${more ? ' open' : ''}><summary>more</summary>`;
       for (const q of P.params) if (!q.basic) h += paramRow(q, pr[q.k]);
@@ -504,14 +622,13 @@
       const tex = m.info && m.info.ver === m.ver ? m.info : null;
       if (!tex) h += '<div class="sd-note">Working out the cut…</div>';
       else {
-        h += `<div class="sd-note">About ${C.formatTime(tex.seconds)} to cut${tex.outside > 0.02 ? `; ${Math.round(tex.outside * 100)}% of it is off the part` : ''}.</div>`;
+        h += `<div class="sd-note">About ${C.formatTime(tex.seconds)} to cut.</div>`;
         for (const w of tex.warnings) h += `<div class="sd-note tx-warn">${esc(w)}</div>`;
       }
       for (const q of P.params) if (q.basic) h += paramRow(q, pr[q.k]);
       h += lenRow('depth', 'tx-depth', f.depth, 'the deepest the texture goes below the part\'s top');
       h += lenRow('soft edge', 'tx-fade', f.fade || 0, 'how far in from the mark\'s edge the texture takes to reach its full depth');
       h += bitRow(f);
-      h += keepRow();
       const kind = P.build(C.defaults(f.pattern)).kind;
       const ok = { auto: true, raster: true, crosshatch: true, plunge: kind === 'dots', centerline: kind === 'strokes' };
       h += selRow('path', 'tx-path', Object.entries(PATHS).filter(([k]) => ok[k]).map(([k, t]) => [k, k === 'auto' && tex ? `${t}: ${PATHS[tex.strategy]}` : t]), ok[f.path] ? f.path : 'auto', 'how the bit goes over it: best picks one plunge per dot when the bit can make the dots, a V-bit along each groove, else raster');
@@ -545,6 +662,11 @@
     if (nb) nb.onclick = () => { snap(); part.marks.push(newMark(part)); S.mark = part.marks.length - 1; part.dirty = true; if (S.tool === 'select') S.tool = 'brush'; say('A new mark: paint it on the part.'); render(); ui.svg.focus(); };
     const db = $('tx-del');
     if (db) db.onclick = () => { delMark(); ui.svg.focus(); };
+    const cnt = () => (m && m.curve ? m.curve.count : 12);
+    const fw = $('tx-fewer'), mo = $('tx-more');
+    if (fw) fw.onclick = () => { pointsCount(cnt() * 0.75); ui.svg.focus(); };
+    if (mo) mo.onclick = () => { pointsCount(cnt() * 1.35 + 1); ui.svg.focus(); };
+    bind('tx-npts', v => { if (!(v >= 4)) return say('Give it at least 4 points.'); const c = m.curve, tot = c.loops.reduce((a, L) => a + L.handles.length, 0); pointsCount(c.count * v / Math.max(1, tot)); });
     bind('tx-bsize', v => { if (!(v >= 0.5)) return say('Give the brush at least 0.5 mm across.'); S.brush = r3(v); try { localStorage.setItem(BRUSH, String(S.brush)); } catch (e) { /* private */ } render(); });
     if (!m) return;
     const f = m.fill;
@@ -563,13 +685,6 @@
         render(); imagesSoon(); checkSoon();
       }
       ui.svg.focus();
-    };
-    const kp = $('tx-keep');
-    if (kp) kp.onchange = () => {
-      snap(); m.keep = kp.checked; part.dirty = true;
-      // keeping inside: what is off the part goes now (⌘Z brings it back)
-      if (m.keep) { const top = onTop(part, m); if (T().paintWhere(m.region, (u, v) => !top(u, v), 0)) m.ver++; }
-      render(); imagesSoon(); checkSoon(); ui.svg.focus();
     };
     const sv = $('tx-svg-save');
     if (sv) sv.onclick = () => {
@@ -639,32 +754,19 @@
   }
   const says = t => String(t).replace(/⟦([-\d.e+]+)⟧/g, (_, v) => LEN.say(+v));
   function info(part, m) {
-    const outside = offPart(part, m), op = stepOf(m.id) || {}, ver = m.ver;
-    const ask = { mark: { id: m.id, region: m.region, xf: m.xf, fill: m.fill }, thickness: part.thick, outside, down: op.down || 0, rate: op.rate || 1500, plunge: op.plunge || 500 };
-    const done = r => (r.error ? null : { ver, warnings: r.warnings.map(says), notes: r.notes.map(says), strategy: r.strategy, seconds: r.seconds, outside });
+    const op = stepOf(m.id) || {}, ver = m.ver;
+    const ask = { mark: { id: m.id, region: m.region, xf: m.xf, fill: m.fill }, thickness: part.thick, part: part.loops, down: op.down || 0, rate: op.rate || 1500, plunge: op.plunge || 500 };
+    const done = r => (r.error ? null : { ver, warnings: r.warnings.map(says), notes: r.notes.map(says), strategy: r.strategy, seconds: r.seconds });
     const w = texWorker();
     if (w) return new Promise(res => { const id = ++asked; pending.set(id, r => res(done(r) || here())); w.postMessage({ id, ...ask }); });
     return Promise.resolve(here());
     // no worker (an old browser): the same work here
     function here() {
-      const C = T(), chk = C.markChecks(ask.mark, { thickness: part.thick, len: v => `⟦${v}⟧`, outside });
+      const C = T(), chk = C.markChecks(ask.mark, { thickness: part.thick, len: v => `⟦${v}⟧`, part: part.loops });
       let seconds = 0, strategy = 'raster';
-      if (chk.tex) { const p = C.markToolpath(ask.mark, { maxDepth: part.thick, stepDown: ask.down, res: 0.6 }); seconds = C.estimateTime(p.moves, { feed: ask.rate / 60, plunge: ask.plunge / 60 }).seconds; strategy = p.strategy; }
+      if (chk.tex || chk.cuts) { const p = C.markToolpath(ask.mark, { maxDepth: part.thick, stepDown: ask.down, res: 0.6, part: part.loops }); seconds = C.estimateTime(p.moves, { feed: ask.rate / 60, plunge: ask.plunge / 60 }).seconds; strategy = p.strategy; }
       return done({ warnings: chk.warnings, notes: chk.notes, strategy, seconds });
     }
-  }
-  // how much of a mark lies off its part (0..1)
-  function offPart(part, m) {
-    const g = m.region;
-    let n = 0, off = 0;
-    const st = Math.max(1, Math.round(Math.sqrt(g.nx * g.ny / 40000)));
-    for (let j = 0; j < g.ny; j += st) for (let i = 0; i < g.nx; i += st) {
-      if (!g.data[j * g.nx + i]) continue;
-      n++;
-      const p = T().xfApply(m.xf, g.x0 + (i + 0.5) * g.res, g.y0 + (j + 0.5) * g.res);
-      if (!onPart(p, part.loops)) off++;
-    }
-    return n ? off / n : 0;
   }
   function checkSoon() {
     if (!S) return;
@@ -691,7 +793,7 @@
   function undo() {
     if (!S.undo.length) return;
     const u = S.undo.pop();
-    u.parts.forEach((q, i) => { S.parts[i].marks = q.marks.map(m => ({ ...m, ver: (m.ver || 1) + 1 })); S.parts[i].dirty = true; });
+    u.parts.forEach((q, i) => { S.parts[i].marks = q.marks.map(m => ({ ...m, ver: (m.ver || 1) + 1, curve: m.curve ? { count: m.curve.count, ver: -1 } : null })); S.parts[i].dirty = true; });
     S.sel = u.sel; S.mark = u.mark;
     render(); imagesSoon(); checkSoon();
   }
@@ -731,8 +833,9 @@
     if (!curMark() && make) { part.marks.push(newMark(part, WORD[S.tool])); S.mark = part.marks.length - 1; }
     return curMark() ? { part, m: curMark() } : null;
   }
-  // a mark that keeps inside its part takes paint only on the part's top, less its holes
-  const onTop = (part, m) => (u, v) => !m.keep || onPart(T().xfApply(m.xf, u, v), part.loops);
+  // a mark takes paint only on its part's top, less its holes (Phil 10-30: paint never goes past
+  // the top's edge; where it meets the edge the pattern runs full to it, swarf-tex-core clipToPart)
+  const onTop = (part, m) => (u, v) => onPart(T().xfApply(m.xf, u, v), part.loops);
   function stamp(t, a, b, val) {
     const { part, m } = t, s = T().xfScale(m.xf);
     const A = toMark(part, m, a), B = toMark(part, m, b), r = S.brush / 2 / s, seg = [A[0], A[1], B[0], B[1]], top = onTop(part, m);
@@ -772,6 +875,7 @@
     if (e.button !== 0) return;
     const p = toMM(e);
     S.alt = e.altKey;
+    if (S.tool === 'points') { pointsDown(e, p); return; }
     if (S.tool === 'select') {
       const at = partAt(p);
       if (at < 0) { S.sel = -1; S.mark = -1; render(); return; }
@@ -812,6 +916,7 @@
     S.alt = e.altKey;
     if (!d) { if (S.tool === 'brush' || S.tool === 'erase') { S.hover = p; renderSoon(); } return; }
     if (d.kind === 'pan') { S.ox += e.clientX - d.x; S.oy += e.clientY - d.y; d.x = e.clientX; d.y = e.clientY; render(); return; }
+    if (d.kind === 'pt' || d.kind === 'ptbox') { pointsMove(p, d); return; }
     if (d.kind === 'paint') {
       S.hover = p;
       if (Math.hypot(p[0] - d.last[0], p[1] - d.last[1]) * S.k < 1.5) return;
@@ -834,6 +939,7 @@
     S.drag = null;
     if (S.raf) { cancelAnimationFrame(S.raf); S.raf = 0; }
     if (!d) return;
+    if (d.kind === 'pt' || d.kind === 'ptbox') { pointsUp(d); return; }
     if (d.kind === 'shape') {
       S.box = null;
       const b = d.to;
@@ -889,6 +995,7 @@
       try { localStorage.setItem(BRUSH, String(S.brush)); } catch (er) { /* private */ }
       say(`Brush ${LEN.say(S.brush)} across.`); render(); return;
     }
+    if ((k === 'Delete' || k === 'Backspace') && S.tool === 'points') { e.preventDefault(); pointsDelete(); return; }
     if ((k === 'Delete' || k === 'Backspace') && curMark() && S.tool === 'select') { e.preventDefault(); delMark(); return; }
     // arrows slide the picked mark on its part (shift: 10 mm)
     const ar = { ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, 1], ArrowDown: [0, -1] }[k];
@@ -1024,7 +1131,8 @@
       for (const w of e.ws) {
         if (w.meta.tilted) continue;
         const { top, thick } = sizeOf(w);
-        op.marks[w.id] = w.meta.tex.filter(m => m.id === op.texmark).map(mark => ({ mark, top, thick }));
+        const part = localLoops(w).loops;
+        op.marks[w.id] = w.meta.tex.filter(m => m.id === op.texmark).map(mark => ({ mark, top, thick, part }));
       }
     }
   }
@@ -1044,7 +1152,7 @@
           loops = loops || localLoops(w).loops;
           const mark = { ...m, region: T().regionSpec(m.region) };
           const part = { loops };
-          const chk = T().markChecks(mark, { thickness: thick, len: LEN.say, outside: offPart(part, { ...mark, xf: mark.xf || T().IDENTITY }) });
+          const chk = T().markChecks(mark, { thickness: thick, len: LEN.say, part: part.loops });
           said.set(key, chk.warnings);
           if (said.size > 200) said.delete(said.keys().next().value);
         }
@@ -1052,7 +1160,7 @@
         for (const body of said.get(key)) out.push({
           title: `${pierce ? 'pierce' : 'texture'}: ${P ? P.label.toLowerCase() : m.fill.pattern} on ${name}`,
           body,
-          hint: /off the part/.test(body) ? 'tex: keep inside the part, erase what is off it (U), or slide the mark onto it (arrows)' : /cut through/.test(body) ? 'tex: less depth, or a thicker board' : pierce ? 'tex: a gentler bend, bigger spacing or a thinner bit; cut a test strip first' : 'tex: another bit, a bigger pattern, or less depth'
+          hint: /cut through/.test(body) ? 'tex: less depth, or a thicker board' : pierce ? 'tex: a gentler bend, bigger spacing or a thinner bit; cut a test strip first' : 'tex: another bit, a bigger pattern, or less depth'
         });
       }
     }

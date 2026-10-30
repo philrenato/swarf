@@ -117,7 +117,9 @@ function planOne(widget, set, id) {
     let zmin = Infinity;
     for (let i = 2; i < pos.length; i += 3) zmin = Math.min(zmin, pos[i]);
     const loops = sliceLoops(pos, zmin + Math.min(rule.height / 2, rule.thickness / 2));
-    const plan = planTabs(loops, rule, set.pin || {});
+    // swarf: no tab where TEX pierces the part (a kerf or a hole would cut it away)
+    const avoid = window.__swarfTex && window.__swarfTex.pierceAvoid ? window.__swarfTex.pierceAvoid(widget) : null;
+    const plan = planTabs(loops, rule, { ...(set.pin || {}), ...(avoid ? { avoid } : {}) });
     // keep clear of tabs placed by hand
     const hand = (api.widgets.annotate(widget.id).tab || []).filter(r => !r.auto);
     const near = t => hand.some(h => Math.hypot(h.pos.x - t.x, h.pos.y - t.y) < (h.dim.y + rule.width) / 2 + rule.bit + (h.dim.x || 0) / 2);

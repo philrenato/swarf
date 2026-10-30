@@ -2343,6 +2343,9 @@ body:has(#modal[style*="flex"]) #swarf-size, body:has(#modal[style*="flex"]) #sw
 body.swarf-draw-open #panel-right, body.swarf-draw-open #swarf-right-rail, body.swarf-draw-open #swarf-concerns {
   z-index: -1 !important; pointer-events: none !important;
 }
+/* advanced mode's settings panels (machine profile, stock, limits, origin, expert) step aside for
+   DRAW's and TEX's boards: they drew over the card, and TEX's pierce lives in advanced mode */
+body.swarf-draw-open #panel-slide { display: none !important; }
 /* DRAW: engraved lines, regions (swarf-draw.js) */
 #swarf-draw svg .sd-part.sd-line, html[data-skin] #swarf-draw svg .sd-part.sd-line, html[data-skin] #swarf-draw svg .sd-part.sd-line:hover { fill: none !important; stroke-width: 2.4; stroke-linecap: round; stroke-dasharray: 7 3 !important; }
 html[data-skin] #swarf-draw svg .sd-part.sd-line.on { fill: none !important; stroke-width: 3; }

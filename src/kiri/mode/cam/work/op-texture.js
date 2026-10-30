@@ -28,9 +28,10 @@ class OpTexture extends CamOp {
         if (tool && updateToolDiams) updateToolDiams(tool.fluteDiameter());
         let top = 0;
         for (let i = 0; i < list.length; i++) {
-            let { mark, thick } = list[i];
+            let { mark, thick, part } = list[i];
             top = list[i].top;
-            let path = TEX.markToolpath(mark, { maxDepth: thick, stepDown: op.down > 0 ? op.down : 0 });
+            // on its part's top, full to its edges, the bit reaching past them (swarf-tex-core clipToPart)
+            let path = TEX.markToolpath(mark, { maxDepth: thick, stepDown: op.down > 0 ? op.down : 0, part });
             for (let run of TEX.feedRuns(path.moves)) {
                 runs.push(run.map(([x, y, z]) => newPoint(x, y, top + z)));
             }

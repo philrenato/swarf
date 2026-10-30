@@ -4,13 +4,13 @@
 import C from './swarf-tex-core.mjs';
 
 self.onmessage = (e) => {
-  const { id, mark, thickness, outside, down, rate, plunge } = e.data;
+  const { id, mark, thickness, part, down, rate, plunge } = e.data;
   try {
     const len = (v) => `⟦${+v}⟧`;
-    const chk = C.markChecks(mark, { thickness, len, outside });
+    const chk = C.markChecks(mark, { thickness, len, part });
     let seconds = 0, strategy = 'raster';
-    if (chk.tex) {
-      const p = C.markToolpath(mark, { maxDepth: thickness, stepDown: down > 0 ? down : 0, res: 0.6 });
+    if (chk.tex || chk.cuts) {
+      const p = C.markToolpath(mark, { maxDepth: thickness, stepDown: down > 0 ? down : 0, res: 0.6, part });
       seconds = C.estimateTime(p.moves, { feed: rate / 60, plunge: plunge / 60 }).seconds;
       strategy = p.strategy;
     }

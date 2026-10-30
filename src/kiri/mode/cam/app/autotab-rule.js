@@ -322,6 +322,8 @@ export function planTabs(loops, rule, opt = {}) {
             // a small round hole has no straight run: a tab anywhere on it still holds the piece
             for (let at = 0; at < L; at += step) if (cornerDist(at) >= Math.min(clear, W / 2)) ok.push(at);
         }
+        // not where something else cuts through near the edge (TEX's pierce marks): opt.avoid(x, y, r)
+        if (opt.avoid) { const keep = ok.filter(at => { const p = pointAt(loop, m, at); return !opt.avoid(p.x, p.y, W / 2 + 2 * D); }); ok.length = 0; ok.push(...keep); }
         if (!ok.length) { skipped += n; return; }
         const gap = Math.max(foot, L / n * 0.5);
         const snap = (ideal, taken) => {

@@ -278,9 +278,10 @@ try {
   await page.keyboard.press('r');
   await drag(page, [P0[0] + 10, P0[1] + 10], [P0[0] + 45, P0[1] + 30]);
   const basicFill = await page.evaluate(() => !!document.querySelector('#tx-card .tx-fill'));
-  check(!basicFill, 'basic mode: the card offers no pierce');
+  const first = await page.evaluate(() => { const S = window.__swarfTex.state(); return S.parts.map(p => p.marks.map(m => m.region.data.reduce((a, v) => a + v, 0))); });
+  check(!basicFill && first[0].length === 1 && first[0][0] > 1000, `basic mode: a rectangle marks the part, and the card offers no pierce (${JSON.stringify(first)})`);
   await page.evaluate(() => { localStorage.setItem('swarf-expert', '1'); document.body.classList.add('swarf-expert'); });
-  await page.click('#tx-new');
+  await page.evaluate(() => document.getElementById('tx-new').click());   // the toast from the step taken away may still sit over the card
   await page.keyboard.press('r');
   const PR = [P0[0] + 60, P0[1] + 12, P0[0] + 110, P0[1] + 68];
   await drag(page, [PR[0], PR[1]], [PR[2], PR[3]]);
@@ -300,7 +301,8 @@ try {
   await wait(1000);
   k = await tex(page);
   const types = k.ops.map(o => o.split(':')[0]);
-  check(types.join() === 'texture,pierce,outline' && k.labels.some(l => /^pierce: kerfs on /.test(l)), `the pierce step after the texture, before the outline (${types}; ${k.labels.filter(Boolean).join(' | ')})`);
+  const fills = await page.evaluate(() => window.kiri.api.widgets.all().map(w => (w.meta.tex || []).map(m => `${m.fill.fill}:${m.id}`)));
+  check(types.join() === 'texture,pierce,outline' && k.labels.some(l => /^pierce: kerfs on /.test(l)), `the pierce step after the texture, before the outline (${types}; ${k.labels.filter(Boolean).join(' | ')}; marks ${JSON.stringify(fills)}; ops ${k.ops})`);
   // auto tabs keep out of the pierced area
   const tabs = await page.evaluate(PR => { const a = window.kiri.api, w = a.widgets.all()[0], p = w.track.pos, plan = window.__swarfAutoTabs.plan([w])[0]; return { n: plan.kept.length, inside: plan.kept.filter(t => t.x + p.x > PR[0] - 10 && t.x + p.x < PR[2] + 10 && t.y + p.y > PR[1] - 10 && t.y + p.y < PR[3] + 10).length, tabs: plan.kept.map(t => [+(t.x + p.x).toFixed(1), +(t.y + p.y).toFixed(1)]) }; }, PR);
   check(tabs.n > 0 && tabs.inside === 0, `auto tabs keep out of the pierced area (${tabs.n} tabs, ${tabs.inside} near it: ${JSON.stringify(tabs.tabs)})`);
@@ -314,7 +316,37 @@ try {
   await wait(5000);
   await page.screenshot({ path: `${OUT}-pierce-sim.png` });
   check(!errors.length, `simulate plays the pierce step with no error${errors.length ? ` (${errors[0]})` : ''}`);
-  await page.evaluate(() => { window.kiri.api.view.set_arrange(); localStorage.setItem('swarf-expert', '0'); document.body.classList.remove('swarf-expert'); });
+  await page.evaluate(() => window.kiri.api.view.set_arrange()); await wait(600);
+
+  // POINTS (H): the texture mark's edge as points; its rightmost dragged 10 mm right, the paint and
+  // the file's texture follow it there
+  const ttool = await page.evaluate(() => { const s = window.kiri.api.conf.get(), op = s.process.ops.find(o => o.type === 'texture'); return s.tools.find(t => t.id === op.tool).number; });
+  const spanOf = gc => { const T0 = moves(gc).filter(q => q.tool === ttool && q.cut && q.z < -0.05), xs = T0.map(q => q.x); return { n: T0.length, w: Math.max(...xs) - Math.min(...xs), x1: Math.max(...xs) }; };
+  const before = spanOf(gc);
+  await page.click('#swarf-step-tex');
+  await page.waitForFunction(() => window.__swarfTex.state(), { timeout: 5000 });
+  await page.evaluate(() => { const S = window.__swarfTex.state(), r = document.getElementById('tx-svg').getBoundingClientRect(); S.k = 2.5; S.ox = r.width / 2 - 150; S.oy = r.height / 2 + 100; S.sel = 0; S.mark = S.parts[0].marks.findIndex(m => m.fill.fill === 'texture'); });
+  await page.keyboard.press('h');
+  const pts = await page.evaluate(() => { const S = window.__swarfTex.state(), p = S.parts[0], m = p.marks[S.mark]; const g = m.region; let x1 = -Infinity; for (let j = 0; j < g.ny; j++) for (let i = 0; i < g.nx; i++) if (g.data[j * g.nx + i]) x1 = Math.max(x1, g.x0 + (i + 1) * g.res); const H = [...document.querySelectorAll('#tx-svg rect.sd-pt')].map(r => { const b = r.getBoundingClientRect(); return [b.left + b.width / 2, b.top + b.height / 2]; }); return { n: H.length, right: H.sort((a, b) => b[0] - a[0])[0], x1: x1 + p.pos[0], curve: !!document.querySelector('#tx-svg path.tx-curve'), card: document.getElementById('tx-card').textContent }; });
+  check(pts.n >= 4 && pts.curve && /Drag a point/.test(pts.card), `points (H): the mark's edge shows ${pts.n} points on its curve`);
+  await page.mouse.move(pts.right[0], pts.right[1]); await page.mouse.down();
+  for (let i = 1; i <= 10; i++) { await page.mouse.move(pts.right[0] + 25 * i / 10, pts.right[1]); await wait(20); }
+  await page.mouse.up(); await wait(300);
+  const after = await page.evaluate(() => { const S = window.__swarfTex.state(), p = S.parts[0], m = p.marks[S.mark], g = m.region; let x1 = -Infinity; for (let j = 0; j < g.ny; j++) for (let i = 0; i < g.nx; i++) if (g.data[j * g.nx + i]) x1 = Math.max(x1, g.x0 + (i + 1) * g.res); return x1 + p.pos[0]; });
+  check(Math.abs(after - pts.x1 - 10) < 1.5, `dragging the rightmost point 10 mm takes the mark's edge there (${pts.x1.toFixed(1)} → ${after.toFixed(1)})`);
+  await page.keyboard.down('Meta'); await page.keyboard.press('z'); await page.keyboard.up('Meta');
+  const undone = await page.evaluate(() => { const S = window.__swarfTex.state(), p = S.parts[0], m = p.marks[S.mark], g = m.region; let x1 = -Infinity; for (let j = 0; j < g.ny; j++) for (let i = 0; i < g.nx; i++) if (g.data[j * g.nx + i]) x1 = Math.max(x1, g.x0 + (i + 1) * g.res); return x1 + p.pos[0]; });
+  check(Math.abs(undone - pts.x1) < 0.01, `⌘Z puts the edge back (${undone.toFixed(1)})`);
+  // drag it again, keep it, and the file's texture follows
+  const pts2 = await page.evaluate(() => [...document.querySelectorAll('#tx-svg rect.sd-pt')].map(r => { const b = r.getBoundingClientRect(); return [b.left + b.width / 2, b.top + b.height / 2]; }).sort((a, b) => b[0] - a[0])[0]);
+  await page.mouse.move(pts2[0], pts2[1]); await page.mouse.down();
+  for (let i = 1; i <= 10; i++) { await page.mouse.move(pts2[0] + 25 * i / 10, pts2[1]); await wait(20); }
+  await page.mouse.up(); await wait(300);
+  await page.click('#tx-done'); await wait(800);
+  ({ pv, gc } = await paths(page));
+  const grown = spanOf(gc);
+  check(pv === 'preview.end' && grown.x1 - before.x1 > 6 && grown.x1 - before.x1 < 13, `the file's texture follows the dragged point (its far edge ${before.x1.toFixed(1)} → ${grown.x1.toFixed(1)})`);
+  await page.evaluate(() => { localStorage.setItem('swarf-expert', '0'); document.body.classList.remove('swarf-expert'); });
 } finally {
   await browser.close();
 }
