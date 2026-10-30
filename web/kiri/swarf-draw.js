@@ -177,9 +177,12 @@
       }
     }
     // every visit starts with an outline inside a part making a hole (Phil 10-29); the card changes it for this visit
-    let t0 = 6, d0 = 1;
+    // the defaults a shop would pick in its own units (r086 check P8: 6 mm read "0.2362 in"):
+    // 6 mm or 1/4 in thick, engraved 1 mm or 1/32 in deep
+    const inch = LEN.unit() === 'in';
+    let t0 = inch ? 6.35 : 6, d0 = inch ? 0.79375 : 1;
     const m0 = 'auto';
-    try { t0 = parseFloat(localStorage.getItem(THICK)) || 6; d0 = parseFloat(localStorage.getItem(DEPTH)) || 1; } catch (e) { /* private */ }
+    try { t0 = parseFloat(localStorage.getItem(THICK)) || t0; d0 = parseFloat(localStorage.getItem(DEPTH)) || d0; } catch (e) { /* private */ }
     S = { parts, others, bed: [bw, bd], sel: -1, pts: new Set(), tool: 'select', pen: [], drag: null, undo: [], thick: t0, depth: d0, mode: m0, edge: { kind: 'straight', size: 2 }, removed: [], hover: null };
     build();
     // the part picked in the workspace is the one picked here

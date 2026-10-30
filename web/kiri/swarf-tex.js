@@ -614,8 +614,9 @@
   function kerfPicture(part, f, pr) {
     const lib = T().fillTool(f), w = lib.diameter, Tb = part.thick || 19, skin = Math.min(Math.max(0, pr.skin), Tb);
     const pitch = T().kerfPitch(w, Tb, skin, pr.radius);
-    const W = 240, H = 56, k = Math.min(3, (H - 28) / Tb), x0 = 10, y0 = 4, n = Math.max(2, Math.min(8, Math.floor((W - 30) / Math.max(1, pitch * k))));
-    const span = Math.min(W - 20, n * pitch * k + w * k);
+    // room kept right of the board for its "skin" label (r086 check P3: a long board clipped it to "sk")
+    const W = 240, H = 56, k = Math.min(3, (H - 28) / Tb), x0 = 10, y0 = 4, n = Math.max(2, Math.min(8, Math.floor((W - 54) / Math.max(1, pitch * k))));
+    const span = Math.min(W - 44, n * pitch * k + w * k);
     let kerfs = '';
     for (let i = 0; i < n; i++) { const x = x0 + w * k / 2 + i * pitch * k + pitch * k / 2; kerfs += `<rect x="${(x - w * k / 2).toFixed(1)}" y="${y0}" width="${Math.max(1, w * k).toFixed(1)}" height="${((Tb - skin) * k).toFixed(1)}"/>`; }
     const by = y0 + Tb * k;

@@ -337,7 +337,10 @@ function buildCard() {
 }
 
 function note(text) {
-    if (els.note) els.note.textContent = text || (picked ? 'drag it along the edge' : '');
+    if (!els.note) return;
+    els.note.textContent = text || (picked ? 'drag it along the edge' : '');
+    // the standing hint is one line (r086 check P1: it wrapped to two once "stays as you set it" showed)
+    els.note.classList.toggle('hint', !text);
 }
 
 function showCard(keepNote) {

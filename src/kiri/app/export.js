@@ -64,7 +64,9 @@ export function exportFile(options) {
  * @param {string[]} names - Widget filenames for export naming
  */
 function callExport(callback, mode, names) {
-    let alert = api.feature.work_alerts ? api.show.alert("Exporting") : null;
+    // swarf (r086 check P4): code that asks for the file (control building its program) says its
+    // own words, so no notice; the export card's wait is said in swarf's words, not Kiri's
+    let alert = api.feature.work_alerts && !callback ? api.show.alert("Making the machine file…") : null;
     let gcode = [];
     let section = [];
     let sections = { };

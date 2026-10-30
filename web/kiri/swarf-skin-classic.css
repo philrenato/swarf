@@ -172,6 +172,8 @@ html[data-skin="classic"] #panel-right #oplist > div, html[data-skin="classic"] 
 html[data-skin="classic"] #panel-right #oplist > div.selected, html[data-skin="classic"] #panel-right #oplist > div:hover,
 html[data-skin="classic"] #ws-widgets button.selected, html[data-skin="classic"] #ws-widgets button:hover { background: #000080 !important; color: #fff !important; border: 1px dotted #ffff80 !important; }
 html[data-skin="classic"] #panel-right #oplist, html[data-skin="classic"] #ws-widgets { background: #fff !important; box-shadow: var(--c-field) !important; padding: 3px !important; }
+/* r086 check P5: with no steps the list's white field read as an empty text box under "tool library" */
+html[data-skin="classic"] #panel-right #oplist:not(:has(.draggable)) { display: none !important; }
 
 /* ---- fields: white and sunken; pop-ups with the Platinum arrow ---- */
 html[data-skin="classic"] input, html[data-skin="classic"] input[type="text"], html[data-skin="classic"] input[type="number"], html[data-skin="classic"] textarea,
@@ -336,15 +338,23 @@ html[data-skin="classic"] #swarf-run .sr-mach .sr-out { color: #fff !important; 
 /* cut ready or a job moving: white on navy (the skin map's .cut:not(:disabled) black outranked it) */
 html[data-skin="classic"] #swarf-run .sr-actions .cut:not(:disabled):not(.wait):not(.quiet) { color: #fff !important; }
 
-/* a notice's close: a Platinum close box (11 px, a 1 px frame, an inset bevel), not the 95 button
-   bevel squeezed round a × that read as a broken image (review 10-30 B6) */
+/* a notice's close: a Platinum close box (13 px, a 1 px frame, an inset bevel), not the 95 button
+   bevel squeezed round a × that read as a broken image (review 10-30 B6). r086 check P2/P7: an
+   empty box read as a checkbox, so the box carries a ×; the button is a 24 px target round it. */
 html[data-skin="classic"] #alert-text button.alert-x {
-  width: 13px; height: 13px; min-width: 13px; padding: 0 !important; margin: 1px 0 0 6px; box-sizing: border-box;
-  background: linear-gradient(135deg, #fff, #c8c8c8) !important; border: 1px solid #222 !important;
-  box-shadow: inset 1px 1px 0 #fff, inset -1px -1px 0 #888 !important; border-radius: 0 !important;
+  position: relative; width: 24px; height: 24px; min-width: 24px; min-height: 24px; padding: 0 !important; margin: -5px -6px -5px 0; box-sizing: border-box;
+  background: transparent !important; border: 0 !important; box-shadow: none !important; border-radius: 0 !important;
   color: transparent !important; font-size: 0 !important; opacity: 1; cursor: pointer;
 }
-html[data-skin="classic"] #alert-text button.alert-x:hover { background: #a8a8a8 !important; box-shadow: inset 1px 1px 0 #666, inset -1px -1px 0 #ddd !important; }
+html[data-skin="classic"] #alert-text button.alert-x::before {
+  content: ''; position: absolute; left: 5px; top: 5px; width: 13px; height: 13px; box-sizing: border-box; border: 1px solid #222;
+  background:
+    linear-gradient(45deg, transparent calc(50% - .7px), #222 calc(50% - .7px), #222 calc(50% + .7px), transparent calc(50% + .7px)) 2px 2px / 7px 7px no-repeat,
+    linear-gradient(-45deg, transparent calc(50% - .7px), #222 calc(50% - .7px), #222 calc(50% + .7px), transparent calc(50% + .7px)) 2px 2px / 7px 7px no-repeat,
+    linear-gradient(135deg, #fff, #c8c8c8);
+  box-shadow: inset 1px 1px 0 #fff, inset -1px -1px 0 #888;
+}
+html[data-skin="classic"] #alert-text button.alert-x:hover::before { filter: brightness(.8); box-shadow: inset 1px 1px 0 #666, inset -1px -1px 0 #ddd; }
 html[data-skin="classic"] #alert-text button.alert-x:focus-visible { outline: 1px dotted #000; outline-offset: 1px; }
 
 /* (whole-app review r086 B6) one typeface: the cards, concerns, help, export, preferences, the

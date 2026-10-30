@@ -2446,11 +2446,18 @@ html[data-skin] #swarf-draw svg .sd-part.sd-regsrc, #swarf-draw svg .sd-part.sd-
 #swarf-units button:first-child { border-top-right-radius: 0; border-bottom-right-radius: 0; }
 #swarf-units button:last-child { border-top-left-radius: 0; border-bottom-left-radius: 0; margin-left: -1px; }
 body.swarf-modal-open #swarf-units { display: none; }
+/* r086 check P12: under a modal (the export card, preferences, which has its own units row) the
+   mm | in switch steps aside: it sat crisp above the blur and read as pressable. P11: the start
+   card steps aside for a modal or a dialog (the SVG import's make parts showed it through). Both
+   come back when it closes; a dialog (top layer, its own backdrop) keeps the switch reachable. */
+body:has(#modal[style*="flex"]) #swarf-units,
+body:has(#modal[style*="flex"]) #swarf-start, body:has(#dialog[open]) #swarf-start { display: none !important; }
 
 /* a notice's own × (alerts.js, Phil 10-30): it closes that one; it never looks like it stays */
 #alert-text p.alert-one { display: flex; align-items: flex-start; gap: 10px; }
 #alert-text p.alert-one > span { flex: 1; }
-#alert-text .alert-x { flex: none; border: 0; background: transparent; color: inherit; opacity: 0.6; font-size: 18px; line-height: 1; padding: 0 2px; margin: -2px -4px 0 0; cursor: pointer; min-width: 0; box-shadow: none; }
+/* r086 check P7: a 24 px target round a small ×; the negative margins keep the line as it was */
+#alert-text .alert-x { flex: none; border: 0; background: transparent; color: inherit; opacity: 0.6; font-size: 18px; line-height: 1; padding: 0; margin: -5px -8px -5px -2px; cursor: pointer; min-width: 24px; min-height: 24px; display: inline-flex; align-items: center; justify-content: center; box-shadow: none; }
 #alert-text .alert-x:hover, #alert-text .alert-x:focus-visible { opacity: 1; }
 
 /* the picked tab's card (cl-tabedit.js): the size card's look, in its place while a tab is picked */
@@ -2470,6 +2477,7 @@ body.swarf-draw-open #swarf-tabcard { display: none !important; }
 #swarf-tabcard .act:hover { border-color: #a39a90; }
 #swarf-tabcard .note { color: var(--swarf-text-2); font-size: 12px; flex: 0 1 auto; min-width: 150px; max-width: 220px; line-height: 1.3; }
 #swarf-tabcard .note:empty { display: none; }
+#swarf-tabcard .note.hint { white-space: nowrap; flex: none; min-width: 0; max-width: none; }
 body:has(#modal[style*="flex"]) #swarf-tabcard { z-index: -1 !important; pointer-events: none !important; }
 @media (max-width: 1100px) { #swarf-tabcard { flex-wrap: wrap; left: 16px; right: 16px; transform: none; justify-content: center; } }
 
@@ -2528,3 +2536,10 @@ body:not(.swarf-expert) #oplist > .clock { display: none !important; }
 #mod-prefs { max-height: calc(100vh - 80px); overflow-y: auto !important; }
 /* (whole-app review r086 C4) strategy's machinist rows wait in advanced */
 body:not(.swarf-expert) .swarf-adv-row { display: none !important; }
+
+/* r086 check P13: steps on an empty bed wait for a part: dimmed, and the list says so */
+body.swarf-bed-empty #oplist:has(.draggable) .draggable { opacity: .45; }
+body.swarf-bed-empty #oplist:has(.draggable)::before {
+  content: 'No part on the bed: these steps wait for the next one.'; display: block; padding: 2px 2px 6px;
+  font-size: 11px; line-height: 1.3; color: var(--swarf-text-2); white-space: normal; text-transform: none !important; letter-spacing: 0;
+}
