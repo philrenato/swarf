@@ -7,7 +7,7 @@
 //  - setup › preferences regrouped in swarf's words
 //   node tools/probe_r49.mjs [url]
 import puppeteer from 'puppeteer-core';
-const CHROME = process.env.CHROME || (process.env.HOME + '/.local/bin/chrome-for-testing');
+import { CHROME } from './chrome-path.mjs';
 const PAGE = process.argv[2] || 'http://127.0.0.1:8139/swarf-app/';
 const wait = ms => new Promise(r => setTimeout(r, ms));
 const sp = t => typeof t === 'string' ? t.replace(/\u00a0/g, ' ') : t;   // the app ties last words with a no-break space (no orphans)

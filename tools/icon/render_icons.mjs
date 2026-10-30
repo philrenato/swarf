@@ -8,7 +8,7 @@
 import puppeteer from 'puppeteer-core';
 import { readFileSync, writeFileSync } from 'node:fs';
 
-const CHROME = process.env.CHROME || (process.env.HOME + '/.local/bin/chrome-for-testing');
+import { CHROME } from '../chrome-path.mjs';
 // 128 and up carry the second chip; below that it reads as noise, so the
 // small sizes render from a simplified variant with only the main curl.
 const SIZES = [64, 128, 144, 256, 512];
