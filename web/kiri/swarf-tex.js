@@ -624,14 +624,14 @@
     if (!part) {
       h += `<div class="sd-note">${S.parts.length ? 'Click a part to mark it.' : 'No parts on the bed yet.'}</div>`;
     } else {
-      h += `<div class="sd-h">${esc(part.name)}</div>`;
+      h += `<div class="sd-row tx-parthead"><span class="sd-h">${esc(part.name)}</span><button id="tx-new" title="start another mark on this part (the brush paints it)">new mark</button>${m ? '<button id="tx-del" title="remove this mark (Delete, with select)">delete</button>' : ''}</div>`;
       if (part.tilted) h += '<div class="sd-note">This part is tipped over: TEX marks the top of a part lying flat.</div>';
       if (S.tool === 'points' && m && markHas(m)) {
         const c = curveOf(m), n = c.loops.reduce((a, L) => a + L.handles.length, 0);
         h += `<div class="sd-row tx-ptsrow" title="how many points the edge is fitted to: fewer is smoother, more follows the paint closer"><span>points</span><input id="tx-npts" value="${n}" inputmode="numeric"><button id="tx-fewer" title="fewer points: smoother">fewer</button><button id="tx-more" title="more points: closer to the paint">more</button></div>`;
       }
+      if (part.marks.length) h += `<div class="tx-picks">${part.marks.map((q, i) => `<button class="tx-pick${i === S.mark ? ' on' : ''}" data-mi="${i}" title="pick this mark">${esc(markName(q, i))}</button>`).join('')}</div>`;
       if (m && markHas(m) && (S.tool === 'select' || S.tool === 'points')) h += '<div class="sd-row tx-makes"><button id="tx-as-part" title="a new part from this mark\'s outline, beside this one, the board\'s thickness (in DRAW: press done to make it)">make it a part</button><button id="tx-as-hole" title="cut this mark\'s outline through the part, as DRAW\'s holes (in DRAW: press done to make it)">make it a hole</button></div>';
-      h += `<div class="sd-row tx-picks">${part.marks.map((q, i) => `<button class="tx-pick${i === S.mark ? ' on' : ''}" data-mi="${i}" title="pick this mark">${esc(markName(q, i))}</button>`).join('')}<button id="tx-new" title="start another mark on this part (the brush paints it)">new mark</button>${m ? '<button id="tx-del" title="remove this mark (Delete, with select)">delete</button>' : ''}</div>`;
       if (!m) h += `<div class="sd-note">${part.marks.length ? 'Pick a mark, or start a new one.' : 'Paint on the part with the brush, or drag a rectangle or an ellipse: that is the mark. Then fill it here.'}</div>`;
     }
     const expert = document.body.classList.contains('swarf-expert');
@@ -665,7 +665,9 @@
       h += '</details>';
     } else if (m) {
       const f = m.fill, P = C.PATTERNS[f.pattern], pr = { ...C.defaults(f.pattern), ...(f.params || {}) };
-      h += `${fillRow(f)}<div class="tx-sws${window.innerHeight < 820 ? ' tx-compact' : ''}">${Object.entries(C.PATTERNS).map(([k, p]) => `<button class="tx-sw${k === f.pattern ? ' on' : ''}" data-pat="${k}" title="${esc(p.label)}: ${esc(p.blurb)}"><img alt="" src="${swatchHref(k)}"><span>${esc(p.short)}</span></button>`).join('')}</div>`;
+      const compact = window.innerHeight < 820;
+      h += `${fillRow(f)}<div class="tx-sws${compact ? ' tx-compact' : ''}">${Object.entries(C.PATTERNS).map(([k, p]) => `<button class="tx-sw${k === f.pattern ? ' on' : ''}" data-pat="${k}" aria-label="${esc(p.label)}: ${esc(p.blurb)}" data-hint="${esc(compact ? p.label : `${p.label}: ${p.blurb}`)}"><img alt="" src="${swatchHref(k)}"><span>${esc(p.short)}</span></button>`).join('')}</div>`;
+      h += `<div class="sd-note tx-swhint${compact ? ' tx-short' : ''}" id="tx-swhint">${esc(compact ? P.label : `${P.label}: ${P.blurb}`)}</div>`;
       h += selRow('pattern', 'tx-pat', Object.entries(C.PATTERNS).map(([k, p]) => [k, p.label]), f.pattern, P.blurb);
       // what it costs and what to watch for, up by the pattern where it is seen
       const tex = m.info && m.info.ver === m.ver ? m.info : null;
@@ -747,7 +749,12 @@
       say(`Saved ${a.download}: cuts on the red layer, holes on the blue, in mm.`);
     };
     bind('tx-pat', pick);
-    for (const b of ui.card.querySelectorAll('.tx-sw')) b.onclick = () => { if (b.dataset.pat !== f.pattern) pick(b.dataset.pat); ui.svg.focus(); };
+    const hint = $('tx-swhint'), hint0 = hint && hint.textContent;
+    for (const b of ui.card.querySelectorAll('.tx-sw')) {
+      b.onclick = () => { if (b.dataset.pat !== f.pattern) pick(b.dataset.pat); ui.svg.focus(); };
+      b.onmouseenter = () => { if (hint) hint.textContent = b.dataset.hint; };
+      b.onmouseleave = () => { if (hint) hint.textContent = hint0; };
+    }
     for (const q of (pierce ? C.PIERCES : C.PATTERNS)[f.pattern].params) {
       if (q.k === 'depth') continue;
       bind(`tx-p-${q.k}`, v => {

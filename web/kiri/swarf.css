@@ -2365,10 +2365,17 @@ html[data-skin] #swarf-draw svg .sd-part.sd-regsrc, #swarf-draw svg .sd-part.sd-
 #swarf-draw.sd-tex .sd-card::-webkit-scrollbar-thumb { background: currentColor; opacity: .4; border-radius: 3px; }
 /* the patterns as swatches; the picked one, and the picked mark, lit as the bar's picked tool */
 #swarf-draw.sd-tex .tx-sws { display: grid; grid-template-columns: repeat(5, 1fr); gap: 4px; margin: 4px 0 6px; }
-#swarf-draw.sd-tex .sd-card .tx-sw { display: flex; flex-direction: column; align-items: center; gap: 1px; padding: 3px 2px 2px; min-width: 0; font-size: 10px; line-height: 1.1; }
+/* a swatch: its picture and its name inside the tile with room round them, in every skin's button shape */
+#swarf-draw.sd-tex .sd-card .tx-sw { display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 4px 2px 5px !important; min-width: 0; height: auto !important; min-height: 0 !important; border-radius: 7px !important; font-size: 9.5px !important; line-height: 1.2 !important; letter-spacing: 0 !important; }
 #swarf-draw.sd-tex .tx-sw img { width: 40px; height: 40px; border-radius: 4px; display: block; }
 #swarf-draw.sd-tex .tx-sw span { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-#swarf-draw.sd-tex .tx-picks { gap: 4px; }
+#swarf-draw.sd-tex .tx-picks { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; margin: 4px 0; }
+#swarf-draw.sd-tex .tx-picks .tx-pick { max-width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+#swarf-draw.sd-tex .sd-card .tx-parthead { flex-wrap: nowrap; gap: 4px; }
+#swarf-draw.sd-tex .sd-card .tx-parthead > .sd-h { flex: 1 1 auto; min-width: 0; margin: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+#swarf-draw.sd-tex .sd-card .tx-parthead button { flex: none; }
+#swarf-draw.sd-tex .tx-swhint { min-height: 2.9em; margin: 0 0 2px; }
+#swarf-draw.sd-tex .tx-swhint.tx-short { min-height: 0; }
 #swarf-draw.sd-tex .tx-makes { gap: 4px; flex-wrap: nowrap; }
 #swarf-draw.sd-tex .tx-more { margin-top: 6px; }
 #swarf-draw.sd-tex .tx-more > summary { cursor: pointer; font-size: 12px; font-weight: 600; margin: 6px 0; }
@@ -2382,8 +2389,8 @@ html[data-skin] #swarf-draw svg .sd-part.sd-regsrc, #swarf-draw svg .sd-part.sd-
 #swarf-draw.sd-tex .tx-bsize { display: inline-flex; align-items: center; gap: 4px; font-size: 12px; }
 #swarf-draw.sd-tex .tx-bsize input { font: inherit; width: 52px; text-align: right; padding: 4px 6px; border-radius: 6px; border: 1px solid currentColor; background: transparent; color: inherit; }
 #swarf-draw.sd-tex .tx-sws.tx-compact { grid-template-columns: repeat(10, 1fr); gap: 2px; }
-#swarf-draw.sd-tex .tx-sws.tx-compact .tx-sw { padding: 1px; }
-#swarf-draw.sd-tex .tx-sws.tx-compact .tx-sw img { width: 20px; height: 20px; border-radius: 3px; }
+#swarf-draw.sd-tex .tx-sws.tx-compact .tx-sw { padding: 3px !important; }
+#swarf-draw.sd-tex .tx-sws.tx-compact .tx-sw img { width: 16px; height: 16px; border-radius: 3px; }
 #swarf-draw.sd-tex .tx-sws.tx-compact .tx-sw span { display: none; }
 #swarf-draw.sd-tex .sd-card .tx-ptsrow { flex-wrap: nowrap; }
 #swarf-draw.sd-tex .sd-card .tx-ptsrow input { width: 44px; }
