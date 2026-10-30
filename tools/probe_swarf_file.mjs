@@ -198,6 +198,8 @@ try {
     await page.evaluate(() => { const i = [...document.querySelectorAll('#dialog input')].find(i => i.offsetParent); i.value = 'probe-chair'; const ok = [...document.querySelectorAll('#dialog button')].find(b => /^ok$/i.test(b.textContent.trim())); ok ? ok.click() : i.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', keyCode: 13, bubbles: true })); });
   }, '.swarf');
   check(!!file && /probe-chair\.swarf$/.test(file), `⌘S saved a .swarf (${file})`);
+  const savedSay = await page.evaluate(() => [...document.querySelectorAll('#alert-text p')].map(p => p.textContent).find(t => /^Saved probe-chair/.test(t)) || '');
+  check(/2 parts and 2 steps\./.test(savedSay), `the saved notice counts the steps without Kiri's divider ("${savedSay.slice(0, 60)}")`);
   const buf = readFileSync(file);
   const zip = await JSZip.loadAsync(buf);
   const names = Object.keys(zip.files).sort();
@@ -223,18 +225,27 @@ try {
   check(!/"type":"(texture|pierce)"/.test(allK), 'no swarf-only step in its saved processes either');
   // reopening in A itself: the same job, and control asks for zero again
   await page.evaluate(() => window.kiri.api.widgets.all()[0].move(5, 5, 0));
+  // toolpaths on the bed before the open: they leave with the parts the file replaces
+  const tpOld = await toolpaths(page);
   const reA = await page.evaluate(async b64 => {
     const bin = atob(b64), u = new Uint8Array(bin.length); for (let i = 0; i < bin.length; i++) u[i] = bin.charCodeAt(i);
     const f = new File([u], 'probe-chair.swarf');
     const dt = new DataTransfer(); dt.items.add(f);
+    for (const p of document.querySelectorAll('#alert-text p')) p.remove();
+    const seen = new Set(), t = setInterval(() => { for (const p of document.querySelectorAll('#alert-text p')) seen.add(p.textContent.trim()); }, 50);
     document.body.dispatchEvent(new DragEvent('drop', { dataTransfer: dt, bubbles: true, cancelable: true }));
     await new Promise(r => setTimeout(r, 900));
     const q = document.getElementById('dialog'), words = q ? q.textContent : '';
     const go = [...document.querySelectorAll('#dialog button')].find(b => /open it/.test(b.textContent));
     if (go) go.click();
-    return { asked: !!go && /not saved in a \.swarf/.test(words), words: words.replace(/\s+/g, ' ').slice(0, 160) };
+    await new Promise(r => setTimeout(r, 3000));
+    clearInterval(t);
+    return { asked: !!go && /not saved in a \.swarf/.test(words), words: words.replace(/\s+/g, ' ').slice(0, 160), seen: [...seen], arrange: window.kiri.api.view.is_arrange() };
   }, buf.toString('base64'));
   check(reA.asked, `opening over a changed bed asks first ("${reA.words}")`);
+  // review 10-30 F3: no delete notices from the parts it replaces, the steps counted without
+  // Kiri's divider, and the old toolpaths gone
+  check(tpOld.pv === 'preview.end' && !reA.seen.some(t => /Deleted|brings it back/.test(t)) && reA.seen.some(t => /Opened probe-chair\.swarf: 2 parts, 2 steps\./.test(t)) && reA.arrange, `opened over a bed with toolpaths: one notice, 2 steps, the old paths gone (${JSON.stringify(reA.seen)}, arrange ${reA.arrange})`);
   await page.waitForFunction(() => window.kiri.api.widgets.all().length === 2, { timeout: 20000 }).catch(() => {});
   await wait(1500);
   const zA2 = await controlZero(page);

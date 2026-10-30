@@ -278,6 +278,9 @@
     return true;
   }
 
+  // the steps a student sees: Kiri's '|' end-of-steps divider is not one (review 10-30 F3)
+  const stepCount = () => { try { return (api().conf.get().process.ops || []).filter(o => o && o.type !== '|').length; } catch (e) { return 0; } };
+
   function nameFor() {
     const a = api();
     const w = a.widgets.all()[0];
@@ -309,7 +312,7 @@
           a.show.progress(0);
           a.util.download(output, `${name}.swarf`);
           remember();
-          say(`Saved ${name}.swarf: ${a.widgets.all().length} part${a.widgets.all().length === 1 ? '' : 's'} and ${(a.conf.get().process.ops || []).length} steps. Drop it on swarf's bed, on this computer or another, to carry on.`, 8);
+          say(`Saved ${name}.swarf: ${a.widgets.all().length} part${a.widgets.all().length === 1 ? '' : 's'} and ${stepCount()} step${stepCount() === 1 ? '' : 's'}. Drop it on swarf's bed, on this computer or another, to carry on.`, 8);
           resolve(true);
         });
       });
@@ -375,6 +378,11 @@
     const tog = $('swarf-expert-toggle'); if (tog) tog.classList.toggle('selected', expert);
     const notes = chk.newer ? [chk.say] : [];
     notes.push(...merged.notes);
+    // the parts the file replaces go quietly: no "Deleted … ⌘Z brings it back" for each (the
+    // size card's notice reads this flag), and the old toolpaths leave the bed with them
+    window.__swarfRestoring = true;
+    setTimeout(() => { window.__swarfRestoring = false; }, 5000);   // never left on by a throw
+    try { if (a.view && a.view.set_arrange) a.view.set_arrange(); } catch (e) { /* no view yet */ }
     return new Promise(resolve => {
       a.conf.import({ settings: merged.settings, work: ws.work || [], view: ws.view, version: ws.version, time: ws.time || Date.now() }, false);
       // Kiri adds the parts in a batch (150 ms); then the material, the tab card, the camera
@@ -390,7 +398,8 @@
         try { a.conf.update_fields(); a.platform.update_size(); a.platform.update_origin(); } catch (e) { /* none */ }
         try { a.event.emit('cam.op.render'); } catch (e) { /* none */ }
         remember();
-        const n = a.widgets.all().length, ops = (a.conf.get().process.ops || []).length;
+        window.__swarfRestoring = false;
+        const n = a.widgets.all().length, ops = stepCount();
         say([`Opened ${name}: ${n} part${n === 1 ? '' : 's'}, ${ops} step${ops === 1 ? '' : 's'}.`, ...notes].join(' '), notes.length ? 14 : 6);
         try { window.dispatchEvent(new CustomEvent('swarf.file.opened', { detail: { name, notes } })); } catch (e) { /* none */ }
         resolve({ name, notes });
