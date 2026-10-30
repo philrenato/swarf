@@ -3,11 +3,16 @@
  * for the material, the outline bit, the board's thickness and the machine (the rule is in
  * autotab-rule.js). Two sliders move it: how many (fewer .. more) and size (smaller .. larger).
  *
- * The press shows a preview first (orange); "apply" makes them ordinary tabs in the existing tab
- * system (the widget's `tab` annotation, drawn by cl-tab.js), so each one is still deleted by
- * clicking it with tabs › + and more are added the same way. Each record carries `auto: true`:
- * applying again replaces only the auto ones, and never a tab placed by hand. An auto tab that
- * would land on a hand-placed one is left out.
+ * The press places them at once (Phil 10-30: no apply step; undo or the trash takes them back):
+ * ordinary tabs in the existing tab system (the widget's `tab` annotation, drawn by cl-tab.js),
+ * each record carrying `auto: true`. Placing again replaces only the auto ones, and never a tab
+ * placed by hand; an auto tab that would land on a hand-placed one is left out.
+ *
+ * One at a time (cl-tabedit.js: click a tab, drag it along the edge, Delete, its card): a tab
+ * moved or resized gets `pinned: true`, and placing again never moves, resizes or deletes it
+ * (the others are planned around it). A deleted auto tab leaves a "no tab here" spot in the
+ * part's `tabset.spots` (a point on the edge, in the part's frame, turned, mirrored and scaled
+ * with the part), and placing again leaves that place empty. The trash forgets pins and spots.
  *
  * Parametric (Phil 10-29: "make all the tab attributes parametric and editable"): every number
  * the rule uses has a field: length, height, reach, how many, from corners, big hole, in each
@@ -18,20 +23,19 @@
  *   - scale a part, or change its material, bit, board or machine, and its auto tabs are
  *     placed again (after a scale at once, otherwise when it is next sliced)
  *   - length, height and reach also resize the tabs placed by hand on the selected parts
- * The trash button takes every tab away and forgets the settings.
+ * The trash button takes every tab away and forgets the settings. Placing, a field change, and
+ * every single-tab edit is one step of undo (tabSnap / tabUndo).
  */
 
 import { api } from '../../../app/api.js';
 import { env } from './init-ui.js';
-import { addbox, delbox } from '../../../app/boxes.js';
-import { addWidgetTab } from './cl-tab.js';
-import { tabRule, planTabs, sliceLoops, tabRecord, holeMinFor, inside } from './autotab-rule.js';
+import { addWidgetTab, clearTabs, restoreTabs } from './cl-tab.js';
+import { tabRule, planTabs, sliceLoops, tabRecord, holeMinFor, inside, edgeOf, nearestOnLoops, recordAt, turnSpots, mirrorSpots, scaleSpots } from './autotab-rule.js';
 import { space as SPACE } from '../../../../moto/space.js';
 
-const PREVIEW_COLOR = 0xff8800;
 const STORE = 'swarf.autotabs';
-let preview = null;   // { names: [], plans: [] }
 let els = {};
+let scaledBy = new Map();   // widget -> [sx, sy] since the last scale was heard (autoHold)
 // the settings the panel shows and edits: sliders, and the pinned values (absent = automatic)
 let cur = { density: 0, scale: 0, pin: {} };
 
@@ -50,6 +54,8 @@ export const FIELDS = [
 const SL = () => window.SwarfLength;
 const say = mm => (SL() ? SL().say(mm) : `${(+mm).toFixed(2)} mm`);
 const clone = o => JSON.parse(JSON.stringify(o));
+const r2 = v => Math.round(v * 100) / 100;
+const plural = (n, word) => `${n} ${word}${n === 1 ? '' : 's'}`;
 
 function toolMm(tool) {
     if (!tool) return 0;
@@ -83,7 +89,7 @@ export function autoInputs(widget, opt = {}) {
 }
 
 // the center height of a tab record, as cl-tab.js computes it for a clicked tab
-function tabZ(widget, height) {
+export function tabZ(widget, height) {
     const { stock, bounds, process } = api.conf.get();
     const { camTabsMidline, camZBottom, camStockIndexed } = process;
     const track = widget.track;
@@ -102,31 +108,45 @@ function signature(widget, set) {
         stock.z, process.camZBottom, process.camTabsMidline, b.w, b.h, b.d].map(v => typeof v === 'number' ? +v.toFixed(4) : v));
 }
 
-const setOf = widget => api.widgets.annotate(widget.id).tabset;
+export const setOf = widget => api.widgets.annotate(widget.id).tabset;
 
 function targets() {
     const sel = api.selection.widgets(true).filter(w => w && !w.track.synth);
     return sel.length ? sel : api.widgets.all().filter(w => !w.track.synth);
 }
 
-/** Plan one part with one set of settings. */
-function planOne(widget, set, id) {
-    const inputs = autoInputs(widget, set);
-    const rule = tabRule(inputs);
+/** The part's outline loops, sliced halfway up a tab `height` tall (and never above mid-board). */
+export function partLoops(widget, height) {
     const pos = widget.getGeoVertices({ unroll: true });
     let zmin = Infinity;
     for (let i = 2; i < pos.length; i += 3) zmin = Math.min(zmin, pos[i]);
-    const loops = sliceLoops(pos, zmin + Math.min(rule.height / 2, rule.thickness / 2));
-    // swarf: no tab where TEX pierces the part (a kerf or a hole would cut it away)
-    const avoid = window.__swarfTex && window.__swarfTex.pierceAvoid ? window.__swarfTex.pierceAvoid(widget) : null;
-    const plan = planTabs(loops, rule, { ...(set.pin || {}), ...(avoid ? { avoid } : {}) });
-    // keep clear of tabs placed by hand
-    const hand = (api.widgets.annotate(widget.id).tab || []).filter(r => !r.auto);
-    const near = t => hand.some(h => Math.hypot(h.pos.x - t.x, h.pos.y - t.y) < (h.dim.y + rule.width) / 2 + rule.bit + (h.dim.x || 0) / 2);
+    const T = (widget.track.box && widget.track.box.d) || height;
+    return sliceLoops(pos, zmin + Math.min(height / 2, T / 2));
+}
+
+/** Where TEX pierces the part (a kerf or a hole would cut a tab away): avoid(x, y, r), or null. */
+export function pierceAvoid(widget) {
+    return window.__swarfTex && window.__swarfTex.pierceAvoid ? window.__swarfTex.pierceAvoid(widget) : null;
+}
+
+/** Plan one part with one set of settings, around its pinned tabs and "no tab here" spots. */
+function planOne(widget, set, id) {
+    const inputs = autoInputs(widget, set);
+    const rule = tabRule(inputs);
+    const loops = partLoops(widget, Math.min(rule.height, rule.thickness));
+    const avoid = pierceAvoid(widget);
+    const anno = api.widgets.annotate(widget.id);
+    const list = anno.tab || [];
+    const pinned = list.filter(r => r.auto && r.pinned);
+    const spots = (anno.tabset && anno.tabset.spots) || [];
+    const plan = planTabs(loops, rule, { ...(set.pin || {}), ...(avoid ? { avoid } : {}), fixed: pinned.map(edgeOf), skip: spots });
+    // keep clear of tabs placed by hand (and of a pinned one, should it sit off the outline)
+    const hand = list.filter(r => !r.auto);
+    const near = t => hand.concat(pinned).some(h => Math.hypot(h.pos.x - t.x, h.pos.y - t.y) < (h.dim.y + rule.width) / 2 + rule.bit + (h.dim.x || 0) / 2);
     const kept = plan.tabs.filter(t => !near(t));
     const z = tabZ(widget, rule.height);
     const records = kept.map(t => tabRecord(t, rule, z, id.next++));
-    return { widget, set, rule, inputs, plan, kept, records, hand: hand.length, dropped: plan.tabs.length - kept.length };
+    return { widget, set, rule, inputs, plan, kept, records, loops, hand: hand.length, pinned: pinned.length, spots: spots.length, dropped: plan.tabs.length - kept.length };
 }
 
 /**
@@ -153,48 +173,139 @@ function normal(o) {
     return { density: +o.density || 0, scale: +o.scale || 0, pin };
 }
 
-export function autoCancel() {
-    if (preview) for (const n of preview.names) delbox(n);
-    preview = null;
-    showButtons(false);
-}
-
-/** Show the plan as orange boxes and say it in words; nothing is changed until apply. */
-export function autoPreview(opt) {
-    autoCancel();
+/**
+ * Put a starting set of tabs on the selected parts (every part when none is selected), at once,
+ * and say it in words. One step of undo takes them back.
+ */
+export function autoPlace(opt) {
     if (!env.isCamMode) return null;
     if (api.conf.get().process.camStockIndexed) {
         sayLine('Auto tabs are for a flat board, not the rotary.');
         return null;
     }
     if (opt) cur = normal(Object.assign(clone(cur), opt));
-    const plans = autoPlan(null, cur);
-    const names = [];
-    for (const p of plans) {
-        p.records.forEach((rec, i) => {
-            const name = `autotab-${p.widget.id}-${i}`;
-            const rot = new THREE.Quaternion(...rec.rot);
-            addbox(rec.pos, PREVIEW_COLOR, name, rec.dim, { group: p.widget.mesh, rotate: rot, opacity: 0.55 });
-            names.push(name);
-        });
-    }
-    preview = { names, plans };
-    sayLine(describe(plans));
-    showButtons(plans.some(p => p.records.length));
+    remember();
+    const ws = targets();
+    const before = tabSnap(ws);
+    const plans = autoPlan(ws, cur);
+    const { placed } = place(plans);
+    tabUndo(before, 'auto tabs');
+    sayLine(describe(plans, placed));
     showFields(plans[0]);
-    try { window.dispatchEvent(new CustomEvent('swarf.autotabs.preview', { detail: summary(plans) })); } catch (e) {}
+    try { window.dispatchEvent(new CustomEvent('swarf.autotabs.placed', { detail: summary(plans) })); } catch (e) {}
     return summary(plans);
 }
 
+// ---- undo: a step is every touched part's tabs and settings before, and after -------------------
+
+/** The tabs and tab settings of these parts (default: every part), to put back later. */
+export function tabSnap(widgets) {
+    return (widgets || api.widgets.all()).filter(w => w && !w.track.synth).map(w => {
+        const a = api.widgets.annotate(w.id);
+        return { w, tab: a.tab ? clone(a.tab) : null, tabset: a.tabset ? clone(a.tabset) : null };
+    });
+}
+
+/** Put a snapshot back: the records, the settings, and the boxes drawn for them. */
+export function tabPut(snap) {
+    const all = api.widgets.all();
+    for (const s of snap) {
+        const { w } = s;
+        if (!all.includes(w)) continue;
+        const a = api.widgets.annotate(w.id);
+        clearTabs(w, true);
+        if (s.tab) a.tab = clone(s.tab); else delete a.tab;
+        if (s.tabset) a.tabset = clone(s.tabset); else delete a.tabset;
+        restoreTabs([w]);
+        w.saveState();
+    }
+    api.conf.save();
+    SPACE.update();
+    follow();   // the fields show the settings put back
+    try { window.dispatchEvent(new CustomEvent('swarf.tabs.restored')); } catch (e) {}
+}
+
+/** One step of undo from `before` (a tabSnap) to now, when anything changed. */
+export function tabUndo(before, what = 'tabs') {
+    const after = tabSnap(before.map(s => s.w));
+    const key = list => JSON.stringify(list.map(s => [s.tab, s.tabset]));
+    if (key(after) === key(before)) return false;
+    api.doit.push(() => tabPut(before), () => tabPut(after), { undo: `${what}: undone`, redo: `${what}: back` });
+    return true;
+}
+
+// ---- single tabs (cl-tabedit.js) ---------------------------------------------------------------
+
+/** A deleted auto tab leaves a "no tab here" spot where it met the edge. */
+export function autoSpot(widget, rec) {
+    const set = setOf(widget);
+    if (!rec || !rec.auto || !set) return;
+    const e = edgeOf(rec);
+    (set.spots = set.spots || []).push({ x: r2(e.x), y: r2(e.y) });
+}
+
+/** Place one part's auto tabs again with its own settings (its pins and spots hold). */
+export function autoReplan(widget) {
+    const set = setOf(widget);
+    if (!set || !env.isCamMode || api.conf.get().process.camStockIndexed) return null;
+    return place([planOne(widget, normal(set), { next: Date.now() })]);
+}
+
+// a pinned tab after a scale: back onto the outline, at the board's new height
+function snapPinned(widget, loops) {
+    if (!loops.length) return;
+    for (const rec of (api.widgets.annotate(widget.id).tab || []).filter(r => r.auto && r.pinned)) {
+        const hit = nearestOnLoops(loops, edgeOf(rec));
+        if (!hit || hit.d < 0.05 || hit.d > 50) continue;
+        dropLive(widget, rec);
+        Object.assign(rec, recordAt(rec, hit));
+        rec.pos.z = tabZ(widget, rec.dim.z);
+        addLive(widget, rec);
+    }
+}
+
+/**
+ * Before a scale takes every tab away (init-ui.js): the pinned tabs, scaled with their part,
+ * and its spots scaled in place. autoHeld puts the pins back; autoRefresh snaps them to the edge.
+ */
+export function autoHold() {
+    // which parts were scaled, and by how much: widget.scale says it for each one (the selection
+    // can be empty by the time selection.scale is heard)
+    const by = scaledBy;
+    scaledBy = new Map();
+    const held = new Map();
+    for (const w of api.widgets.all()) {
+        if (w.track.synth) continue;
+        const a = api.widgets.annotate(w.id), f = by.get(w), scaled = !!f, [sx, sy] = f || [1, 1];
+        const pins = (a.tab || []).filter(r => r.auto && r.pinned).map(r => {
+            const c = clone(r);
+            if (scaled) { c.pos.x *= sx; c.pos.y *= sy; }
+            return c;
+        });
+        if (scaled && a.tabset && a.tabset.spots) a.tabset.spots = scaleSpots(a.tabset.spots, sx, sy);
+        if (pins.length) held.set(w, pins);
+    }
+    return held;
+}
+
+export function autoHeld(held) {
+    for (const [w, pins] of held) {
+        const a = api.widgets.annotate(w.id);
+        a.tab = (a.tab || []).concat(pins);
+        for (const rec of pins) addLive(w, rec);
+        w.saveState();
+    }
+}
+
 // a quaternion from any of the shapes a tab record's rot takes (array, THREE clone, plain)
-function quat(rot) {
+export function quat(rot) {
     if (Array.isArray(rot)) return new THREE.Quaternion(...rot);
     if (rot && '_x' in rot) return new THREE.Quaternion(rot._x, rot._y, rot._z, rot._w);
     if (rot && 'x' in rot) return new THREE.Quaternion(rot.x, rot.y, rot.z, rot.w);
     return new THREE.Quaternion();
 }
 
-function dropLive(widget, rec) {
+export function dropLive(widget, rec) {
     const live = widget.tabs && widget.tabs[rec.id];
     if (live && live.box) {
         widget.adds.remove(live.box);
@@ -203,7 +314,7 @@ function dropLive(widget, rec) {
     if (widget.tabs) delete widget.tabs[rec.id];
 }
 
-function addLive(widget, rec) {
+export function addLive(widget, rec) {
     const live = Object.clone(rec);
     live.rot = quat(rec.rot);
     addWidgetTab(widget, live);
@@ -230,25 +341,30 @@ function resizeHand(widget, rule, pin) {
     return n;
 }
 
-/** Put these plans' tabs on their parts: their earlier auto tabs go, hand-placed ones stay. */
+/**
+ * Put these plans' tabs on their parts: their earlier auto tabs go; hand-placed and pinned ones
+ * stay, and so do the part's "no tab here" spots.
+ */
 function place(plans) {
     let placed = 0, replaced = 0, resized = 0;
     for (const p of plans) {
         const { widget } = p;
         const anno = api.widgets.annotate(widget.id);
         const list = (anno.tab = anno.tab || []);
-        for (const rec of list.filter(r => r.auto)) {
+        for (const rec of list.filter(r => r.auto && !r.pinned)) {
             dropLive(widget, rec);
             replaced++;
         }
-        anno.tab = list.filter(r => !r.auto);
+        anno.tab = list.filter(r => !r.auto || r.pinned);
+        snapPinned(widget, p.loops || []);
         resized += resizeHand(widget, p.rule, p.set.pin);
         for (const rec of p.records) {
             anno.tab.push(Object.clone(rec));
             addLive(widget, rec);
             placed++;
         }
-        anno.tabset = Object.assign(clone(p.set), { sig: signature(widget, p.set) });
+        const spots = anno.tabset && anno.tabset.spots;
+        anno.tabset = Object.assign(clone(p.set), { sig: signature(widget, p.set) }, spots && spots.length ? { spots } : {});
         widget.saveState();
     }
     // a tab added by hand next matches these (the panel's width / height / depth)
@@ -263,16 +379,6 @@ function place(plans) {
     api.conf.save();
     SPACE.update();
     return { placed, replaced, resized };
-}
-
-/** Make the previewed tabs real: replace this part's earlier auto tabs, keep hand-placed ones. */
-export function autoApply() {
-    const plans = preview ? preview.plans : autoPlan(null, cur);
-    autoCancel();
-    const { placed, replaced } = place(plans);
-    sayLine(placed ? `${placed} tab${placed === 1 ? '' : 's'} placed${replaced ? `, replacing ${replaced} auto tab${replaced === 1 ? '' : 's'}` : ''}. Change a number below and they follow. Click one with + to remove it, or click the edge to add one.` : 'No tabs placed.');
-    showFields(plans[0]);
-    return { placed, replaced };
 }
 
 /**
@@ -318,7 +424,7 @@ export function autoAudit(widget, opt = {}) {
     const list = api.widgets.annotate(widget.id).tab || [];
     const b = widget.track.box || {};
     const bit = autoInputs(widget).bitMm;
-    const key = JSON.stringify([b.w, b.h, b.d, bit, opt.holes, list.map(r => [r.id, r.pos.x, r.pos.y, r.dim.x])]);
+    const key = JSON.stringify([b.w, b.h, b.d, bit, opt.holes, list.map(r => [r.id, r.pos.x, r.pos.y, r.dim.x, r.dim.y])]);
     const was = audits.get(widget.id);
     if (was && was.key === key) return was.out;
     const pos = widget.getGeoVertices({ unroll: true });
@@ -348,21 +454,20 @@ export function autoAudit(widget, opt = {}) {
     return out;
 }
 
-/** Forget every part's settings (the trash button took every tab away). */
+/** Forget every part's settings, pins and spots (the trash button took every tab away). */
 export function autoForget() {
     for (const w of api.widgets.all()) delete api.widgets.annotate(w.id).tabset;
-    autoCancel();
     sayLine('');
     showFields();
 }
 
-// a field or slider changed: the preview follows, or the selected parts' tabs do
+// a field or slider changed: the selected parts' tabs follow (their pinned tabs and spots hold)
 function edited() {
     remember();
-    if (preview) return autoPreview();
     const ws = targets();
     const withSet = ws.filter(w => setOf(w));
     const handOnly = ws.filter(w => !setOf(w) && (api.widgets.annotate(w.id).tab || []).length);
+    const before = tabSnap(withSet.concat(handOnly));
     let n = 0, resized = 0, capped = null;
     if (withSet.length) {
         const plans = autoPlan(withSet, cur);
@@ -381,6 +486,7 @@ function edited() {
     if (pin.depth) proc.camTabsDepth = pin.depth;
     api.conf.save();
     SPACE.update();
+    tabUndo(before, 'tab settings');
     if (withSet.length || resized) sayLine(`${withSet.length ? `${n} tab${n === 1 ? '' : 's'} placed again` : ''}${withSet.length && resized ? ', ' : ''}${resized ? `${resized} of your own resized` : ''}.`
         + (capped ? ` Height held to ${say(capped.rule.height)}, under the board's thickness.` : ''));
     showFields();
@@ -393,7 +499,7 @@ function summary(plans) {
         width: p.rule.width, height: p.rule.height, depth: p.rule.depth, spacing: p.rule.spacing,
         material: p.rule.material, machine: p.rule.machine, bit: p.rule.bit, thickness: p.rule.thickness,
         hand: p.hand, dropped: p.dropped, small: p.plan.small, skipped: p.plan.skipped,
-        pinned: Object.keys(p.set.pin), capped: p.rule.capped,
+        pinned: Object.keys(p.set.pin), capped: p.rule.capped, kept: p.pinned, spots: p.spots,
     }));
 }
 
@@ -407,24 +513,22 @@ function describe(plans) {
         + ` (${i.materialName}, ${say(r.thickness)} thick, ${say(r.bit)} bit).`;
     if (holes) line += ` ${holes} of them hold the piece inside a big hole.`;
     if (plans.some(p => p.hand)) line += ' Your own tabs stay.';
+    const pinned = plans.reduce((a, p) => a + p.pinned, 0), spots = plans.reduce((a, p) => a + p.spots, 0);
+    if (pinned) line += ` ${plural(pinned, 'tab')} you moved or resized stay${pinned === 1 ? 's' : ''} as ${pinned === 1 ? 'it is' : 'they are'}.`;
+    if (spots) line += ` ${plural(spots, 'place')} where you deleted one stay${spots === 1 ? 's' : ''} empty (the trash starts over).`;
     if (plans.some(p => p.plan.small)) line += ' A small part: fewer tabs fit.';
     if (plans.some(p => p.rule.capped)) line += ` Height held to ${say(r.height)}, under the board's thickness.`;
     // what it could not do, said, not left to a success line (codex review 10-29)
     const skipped = plans.reduce((a, p) => a + (p.plan.skipped || 0), 0);
     if (skipped) line += ` ${skipped} tab${skipped === 1 ? '' : 's'} did not fit: add ${skipped === 1 ? 'it' : 'them'} by hand with + where the part needs holding.`;
     if (plans.some(p => !p.rule.pinned.height && p.rule.height < p.rule.heightFloor - 0.01)) line += ` The board is thin, so the tabs are only ${say(r.height)} tall (under the usual ${say(r.heightFloor)}): check they hold.`;
-    if (!n) line = 'No straight enough edge for a tab here: place them by hand with +.';
-    else line += ' A starting layout: look at every part and every cutout before you cut.';
+    if (!n && !pinned) line = 'No straight enough edge for a tab here: place them by hand with +.';
+    else line += ' A starting layout: look at every part and every cutout before you cut. Click a tab to move, resize or delete it; undo takes them all back.';
     return line;
 }
 
 function sayLine(text) {
     if (els.say) els.say.textContent = text;
-}
-
-function showButtons(on) {
-    if (els.apply) els.apply.style.display = on ? '' : 'none';
-    if (els.cancel) els.cancel.style.display = preview ? '' : 'none';
 }
 
 // the fields: pinned values as typed, automatic ones as grey placeholders from the first part
@@ -574,21 +678,19 @@ export function autoTabRow() {
     const what = document.createElement('div');
     what.className = 'swarf-autotabs-what';
     what.textContent = 'Tabs are small bridges the outline leaves uncut, so the part stays held to the board until the cut ends. Cut them off after.';
-    const go = button('swarf-autotabs-go', 'auto tabs', 'show a starting set of tabs on the selected part, sized for its material, bit, thickness and machine', () => autoPreview());
+    const go = button('swarf-autotabs-go', 'auto tabs', 'put a starting set of tabs on the selected part, sized for its material, bit, thickness and machine; then click a tab to move, resize or delete it (undo takes them back)', () => autoPlace());
     const density = slider('swarf-autotabs-density', 'how many', 'fewer', 'more', 'fewer or more tabs around each part');
     const scale = slider('swarf-autotabs-scale', 'size', 'smaller', 'larger', 'smaller or larger tabs: longer and taller');
     for (const [s, key] of [[density, 'density'], [scale, 'scale']]) {
         s.input.addEventListener('input', () => { cur[key] = +s.input.value || 0; edited(); });
     }
-    const apply = button('swarf-autotabs-apply', 'apply', 'place these tabs; tabs you placed by hand stay', autoApply);
-    const cancel = button('swarf-autotabs-cancel', 'cancel', 'take the preview away', () => { autoCancel(); sayLine(''); });
     const say = document.createElement('div');
     say.className = 'swarf-autotabs-say';
     say.id = 'swarf-autotabs-say';
     say.setAttribute('aria-live', 'polite');
     const btns = document.createElement('div');
     btns.className = 'swarf-autotabs-btns';
-    btns.append(go, apply, cancel);
+    btns.append(go);
     const grid = document.createElement('div');
     grid.className = 'swarf-autotabs-fields';
     const fields = {};
@@ -603,17 +705,33 @@ export function autoTabRow() {
         edited();
     });
     auto.classList.add('swarf-autotabs-reset');
-    els = { density: density.input, scale: scale.input, say, apply, cancel, fields };
-    apply.style.display = cancel.style.display = 'none';
+    els = { density: density.input, scale: scale.input, say, fields };
     recall();
     const box = document.createElement('div');
     box.className = 'swarf-autotabs';
     box.append(what, btns, density.wrap, scale.wrap, grid, auto, say);
-    // the preview never outlives a slice, a mode change or esc
     setTimeout(() => {
         try {
-            api.event.on(['slice.begin', 'key.esc', 'mode.set', 'widget.delete', 'selection.scale'], () => { if (preview) { autoCancel(); sayLine(''); } });
-            api.event.on('cam.tabs.auto', () => autoPreview());
+            api.event.on('cam.tabs.auto', () => autoPlace());
+            api.event.on('widget.scale', ({ widget, x, y }) => {
+                if (!widget) return;
+                const was = scaledBy.get(widget) || [1, 1];
+                scaledBy.set(widget, [was[0] * (x || 1), was[1] * (y || 1)]);
+            });
+            // the "no tab here" spots turn and mirror with their part, as cl-tab.js turns its tabs
+            api.event.on('widget.rotate', ({ widget, x, y, z }) => {
+                const set = env.isCamMode && !env.flipping && widget && setOf(widget);
+                if (!set || !set.spots) return;
+                if (x || y) delete set.spots;   // tipped over: its tabs are gone too
+                else { const c = widget.track.center || {}; set.spots = turnSpots(set.spots, z || 0, c.dx || 0, c.dy || 0); }
+                widget.saveState();
+            });
+            api.event.on('widget.mirror', rec => {
+                const widget = rec && (rec.widget || rec), set = env.isCamMode && !env.flipping && widget && widget.id && setOf(widget);
+                if (!set || !set.spots) return;
+                set.spots = mirrorSpots(set.spots);
+                widget.saveState();
+            });
             // a scale takes every tab away (cl-tab's tabClear); the parts with settings get theirs back
             api.event.on('selection.scale', () => setTimeout(() => {
                 const n = autoRefresh(true);
@@ -627,7 +745,7 @@ export function autoTabRow() {
         showFields();
     }, 0);
     window.__swarfAutoTabs = {
-        plan: autoPlan, preview: autoPreview, apply: autoApply, cancel: autoCancel, inputs: autoInputs, rule: tabRule,
+        plan: autoPlan, place: autoPlace, inputs: autoInputs, rule: tabRule,
         refresh: autoRefresh, forget: autoForget, audit: autoAudit, fields: FIELDS,
         get settings() { return clone(cur); },
         set(o) { cur = normal(Object.assign(clone(cur), o)); edited(); return clone(cur); },

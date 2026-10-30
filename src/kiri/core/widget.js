@@ -608,7 +608,8 @@ class Widget {
             for (let tab of this.anno.tab) {
                 const { pos, dim, rot } = tab;
                 const box = new THREE.BoxGeometry(dim.x, dim.y, dim.z).toNonIndexed();
-                const quat = new THREE.Quaternion(rot.x, rot.y, rot.z, rot.w);
+                // swarf: a saved tab's rot is an array (a Quaternion's JSON)
+                const quat = Array.isArray(rot) ? new THREE.Quaternion(...rot) : new THREE.Quaternion(rot.x ?? rot._x, rot.y ?? rot._y, rot.z ?? rot._z, rot.w ?? rot._w);
                 box.applyMatrix4(
                     new THREE.Matrix4().makeRotationFromQuaternion(quat)
                 );

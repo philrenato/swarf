@@ -41,6 +41,7 @@ html[data-skin="glass"] {
   --sk3d-m-mdf: #cdbca4;  --sk3d-m-mdf-edge: #9c8a70;  --sk3d-m-ply: #bba88c;  --sk3d-m-ply-edge: #8f7c62;  --sk3d-m-chain: #55575b;
   --sk3d-c-grid: #d2d2d3;  --sk3d-c-grid-axis: #4a4d52;  --sk3d-c-path-hidden: #e9e9e9;  --sk3d-c-path-rapid: #a8a9aa;
   --sk3d-c-path-done: #34363a;  --sk3d-c-path-todo: #a4a7ab;  --sk3d-c-tool: #363738;
+  --sk3d-tab-picked: #2a7fff;
 
   /* glass recipes */
   --g-pane: rgba(255, 255, 255, .44);
@@ -230,7 +231,7 @@ html[data-skin="glass"] #dialog h3, html[data-skin="glass"] .image-convert-title
 html[data-skin="glass"] #swarf-run .sr-sheet { background: rgba(232, 233, 234, .45) !important; backdrop-filter: blur(6px); }
 
 /* ---- the empty bed's card and the size card ---- */
-html[data-skin="glass"] #swarf-start, html[data-skin="glass"] #swarf-size {
+html[data-skin="glass"] #swarf-start, html[data-skin="glass"] #swarf-size, html[data-skin="glass"] #swarf-tabcard {
   background: rgba(255, 255, 255, .5) !important; backdrop-filter: var(--g-blur); -webkit-backdrop-filter: var(--g-blur);
   border: 1px solid rgba(255, 255, 255,.9) !important; border-radius: 26px !important; box-shadow: var(--g-drop), var(--g-rim) !important;
 }

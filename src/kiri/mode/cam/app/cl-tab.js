@@ -6,25 +6,32 @@ import { env, isDark } from './init-ui.js';
 import { addbox, delbox, clearboxes } from '../../../app/boxes.js';
 import { traceDone } from './cl-trace.js';
 import { space as SPACE } from '../../../../moto/space.js';
+import { rotAngle } from './autotab-rule.js';
 
 let showTab, lastTab, tab, iw, ic;
 
+// swarf: what happens around a tab clicked away with tabs › + (cl-tabedit.js sets these):
+// edit(widget, fn) runs fn as one undoable step; removed(widget, rec) notes a deleted auto tab
+export const tabHooks = { edit: null, removed: null };
+
 export function mirrorTabs(widget) {
+    // swarf: a tab's rot is an array once saved (auto tabs always), and the box's turn is baked
+    // into its geometry, so the record is turned (a -> PI - a) and its box drawn again
     let tabs = api.widgets.annotate(widget.id).tab || [];
     tabs.forEach(rec => {
-        let { id, pos, rot } = rec;
-        let tab = widget.tabs[id];
-        let e = new THREE.Euler().setFromQuaternion(rot);
-        e._z = Math.PI - e._z;
-        let { _x, _y, _z, _w } = rec.rot;
-        let or = new THREE.Quaternion(_x, _y, _z, _w);
-        let nr = new THREE.Quaternion().setFromEuler(e);
-        let ra = or.angleTo(nr);
-        // console.log({or, nr, ra});
-        rec.rot = nr;
-        // let m4 = new THREE.Matrix4().makeRotationFromEuler(new THREE.Euler(0,0,e._z));
-        // tab.box.geometry.applyMatrix4(m4);
-        tab.box.position.x = pos.x = -pos.x;
+        let { id, pos } = rec;
+        let a = Math.PI - rotAngle(rec.rot);
+        rec.rot = [0, 0, Math.sin(a / 2), Math.cos(a / 2)];
+        pos.x = -pos.x;
+        let live = widget.tabs && widget.tabs[id];
+        if (live && live.box) {
+            widget.adds.remove(live.box);
+            widget.mesh.remove(live.box);
+            delete widget.tabs[id];
+        }
+        let copy = Object.clone(rec);
+        copy.rot = new THREE.Quaternion(...rec.rot);
+        addWidgetTab(widget, copy);
     });
     SPACE.update();
 }
@@ -167,24 +174,32 @@ export function tabHover(data) {
 
 export function tabHoverUp(int) {
     delbox('tabb');
+    const edit = (w, fn) => tabHooks.edit ? tabHooks.edit(w, fn) : fn();
     if (lastTab) {
         const { widget, box, id } = lastTab;
-        widget.adds.remove(box);
-        widget.mesh.remove(box);
-        delete widget.tabs[id];
-        let ta = api.widgets.annotate(widget.id).tab;
-        let ix = 0;
-        ta.forEach((rec, i) => {
-            if (rec.id === id) {
-                ix = i;
-            }
+        lastTab = null;
+        edit(widget, () => {
+            widget.adds.remove(box);
+            widget.mesh.remove(box);
+            delete widget.tabs[id];
+            let ta = api.widgets.annotate(widget.id).tab;
+            let ix = ta.findIndex(rec => rec.id === id);
+            if (ix < 0) return;
+            let [gone] = ta.splice(ix, 1);
+            // swarf: a deleted auto tab leaves a "no tab here" spot, so it does not come back
+            if (tabHooks.removed) tabHooks.removed(widget, gone);
+            api.conf.save();
+            widget.saveState();
         });
-        ta.splice(ix, 1);
-        api.conf.save();
-        widget.saveState();
         return;
     }
     if (!iw) return;
+    const w0 = iw;
+    edit(w0, () => tabAddAt(w0));
+}
+
+// the tab shown under the cursor, made real on its part
+function tabAddAt(iw) {
     let ip = iw.track.pos;
     let wa = api.widgets.annotate(iw.id);
     let wt = (wa.tab = wa.tab || []);
@@ -232,14 +247,14 @@ export function tabClear() {
     api.conf.save();
 }
 
-function boxColor() {
+export function boxColor() {
     const mode = 3; // CAM mode ID
     const theme = isDark() ? 'dark' : 'light';
     const scheme = colorSchemeRegistry.getScheme(mode, theme);
     return scheme.operations?.tabs?.color ?? (isDark() ? 0x00ddff : 0x0000dd);
 }
 
-function boxOpacity() {
+export function boxOpacity() {
     const mode = 3; // CAM mode ID
     const theme = isDark() ? 'dark' : 'light';
     const scheme = colorSchemeRegistry.getScheme(mode, theme);

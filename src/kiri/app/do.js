@@ -127,6 +127,11 @@ function action(rec) {
             quiet = true;
             try { api.platform.delete(rec.widgets.slice()); } finally { quiet = false; }
             break;
+        // swarf: a step that puts its own state back (tabs: placed, moved, resized, deleted)
+        case 'call':
+            rec.fn();
+            if (rec.say) message(rec.say);
+            break;
     }
     space.update();
     updateButtons();
@@ -142,6 +147,16 @@ function pushActions(ur) {
     stack.push(ur);
     updateButtons();
 }
+
+/**
+ * swarf: push a step that undoes and redoes itself.
+ * @param {Function} undo puts the state before back
+ * @param {Function} redo puts the state after back
+ * @param {Object} say { undo, redo } what each says when it runs
+ */
+api.doit.push = function(undo, redo, say = {}) {
+    pushActions({ undo: { type: 'call', fn: undo, say: say.undo }, redo: { type: 'call', fn: redo, say: say.redo } });
+};
 
 let quiet = false;   // an undo or redo of a delete must not clear the stack it came from
 event.on([

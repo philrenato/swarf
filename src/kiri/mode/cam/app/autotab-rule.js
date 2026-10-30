@@ -40,6 +40,11 @@
  * Every number can also be pinned (o.pin in tabRule, opt in planTabs): a pinned value is used as
  * typed and the sliders leave it alone; an unpinned one stays automatic. A pinned height still
  * stays under the board's thickness (a tab as tall as the board is no cut at all).
+ *
+ * Single tabs (Phil 10-30: "move/delete/change them individually"): planTabs takes the tabs that
+ * stay where they are (opt.fixed: a tab the student moved or resized) and the places where a tab
+ * was deleted (opt.skip: "no tab here"), both as points on the edge. Each takes one of the
+ * outline's slots, so the others are planned around it and a deleted tab does not come back.
  */
 
 export const CLASSES = {
@@ -252,17 +257,42 @@ function pointAt(loop, m, at) {
 
 const cdist = (a, b, L) => { const d = Math.abs(a - b) % L; return Math.min(d, L - d); };
 
+// the nearest point of a loop to p: its arc position, edge and distance
+function project(loop, m, p) {
+    let best = { d: Infinity, at: 0, e: 0, x: p.x, y: p.y };
+    for (let i = 0; i < m.n; i++) {
+        const a = loop[i], dr = m.dir[i];
+        const t = Math.max(0, Math.min(dr.l, (p.x - a.x) * dr.x + (p.y - a.y) * dr.y));
+        const x = a.x + dr.x * t, y = a.y + dr.y * t, d = Math.hypot(p.x - x, p.y - y);
+        if (d < best.d) best = { d, at: m.s[i] + t, e: i, x, y };
+    }
+    return best;
+}
+
 /**
  * Where the tabs go on every loop of one part.
  * @param {Array} loops closed loops of {x,y} (from sliceLoops)
  * @param {Object} rule from tabRule
- * @param {Object} opt pins: { count, holeCount, holes (false = none), holeMin, corner }
+ * @param {Object} opt pins: { count, holeCount, holes (false = none), holeMin, corner }; and
+ *   fixed: [{x,y}] edge points of tabs that stay (not returned), skip: [{x,y}] "no tab here" spots
+ *   (each takes a slot and stays empty), avoid(x, y, r): true where a tab may not go
  * @returns {{ tabs: Array<{x,y,nx,ny,hole,loop}>, outer: number, holes: number, skipped: number, small: boolean, per: Array }}
  */
 export function planTabs(loops, rule, opt = {}) {
     const holeMin = opt.holeMin > 0 ? opt.holeMin : holeMinFor(rule.bit);
     const holesOn = opt.holes !== false;
     const W0 = rule.width, D = rule.bit;
+    // the tabs that stay and the "no tab here" spots, each on the loop it lies on (its slot)
+    const ms = loops.map(measure);
+    const reserved = loops.map(() => []);
+    const tol = Math.max(3, 2 * D);
+    for (const [kind, list] of [['fixed', opt.fixed], ['skip', opt.skip]]) {
+        for (const p of list || []) {
+            let best = -1, bd = Infinity, bat = 0;
+            loops.forEach((loop, li) => { const q = project(loop, ms[li], p); if (q.d < bd) { bd = q.d; best = li; bat = q.at; } });
+            if (best >= 0 && bd <= tol) reserved[best].push({ at: bat, kind });
+        }
+    }
     // per loop below: W the tab's length there, foot a tab and the bit's reach on each side,
     // clear how far a tab's middle stays from a corner (half a tab and the bit, unless pinned)
     const tabs = [];
@@ -272,7 +302,9 @@ export function planTabs(loops, rule, opt = {}) {
         // nesting: inside an even number of other loops = the outside of material, odd = a hole
         const depth = loops.reduce((c, other, oi) => c + (oi !== li && inside(loop[0], other) ? 1 : 0), 0);
         const hole = depth % 2 === 1;
-        const box = bbox(loop), m = measure(loop), L = m.L;
+        const box = bbox(loop), m = ms[li], L = m.L;
+        const res = reserved[li].map(r => r.at);
+        const fixedHere = reserved[li].filter(r => r.kind === 'fixed').length;
         if (!(L > 0)) return;
         // a tight hole takes a shorter tab: at most an eighth of the way round, never under the bit
         const W = hole ? Math.max(Math.min(W0, L / 8), Math.min(W0, D)) : W0;
@@ -324,7 +356,7 @@ export function planTabs(loops, rule, opt = {}) {
         }
         // not where something else cuts through near the edge (TEX's pierce marks): opt.avoid(x, y, r)
         if (opt.avoid) { const keep = ok.filter(at => { const p = pointAt(loop, m, at); return !opt.avoid(p.x, p.y, W / 2 + 2 * D); }); ok.length = 0; ok.push(...keep); }
-        if (!ok.length) { skipped += n; return; }
+        if (!ok.length && !res.length) { skipped += n; return; }
         const gap = Math.max(foot, L / n * 0.5);
         const snap = (ideal, taken) => {
             let best = null, bd = Infinity;
@@ -336,21 +368,37 @@ export function planTabs(loops, rule, opt = {}) {
         };
         // try phases, keep the most even set; between equally even ones, the one whose tabs
         // stand furthest from the corners (a rectangle's 4 land at its sides' middles)
+        // a tab that stays or a "no tab here" spot takes the slot nearest it; the rest are free
         let pick = null, pcost = Infinity;
         const PH = 48, R = L / n / 2;
+        const free = Math.max(0, n - res.length);
         for (let k = 0; k < PH; k++) {
             const phase = (L / n) * k / PH;
-            const taken = [];
+            const ideals = Array.from({ length: n }, (_, i) => phase + i * L / n);
+            const held = new Set();
             let cost = 0;
-            for (let i = 0; i < n; i++) {
-                const ideal = phase + i * L / n;
+            for (const r of res) {
+                let bi = -1, bd = Infinity;
+                ideals.forEach((at, i) => { const d = cdist(at, r, L); if (!held.has(i) && d < bd) { bd = d; bi = i; } });
+                if (bi < 0) continue;
+                held.add(bi);
+                // costed as if a free tab stood in its slot: the phase the others had is still the
+                // best one, so a moved or deleted tab does not pull the rest along
+                const at0 = snap(ideals[bi], []);
+                if (at0 !== null) cost += cdist(at0, ideals[bi], L) ** 2 + 0.5 * Math.max(0, R - cornerDist(at0)) ** 2;
+            }
+            const taken = res.slice(), mine = [];
+            for (let i = 0; i < n && mine.length < free; i++) {
+                if (held.has(i)) continue;
+                const ideal = ideals[i];
                 const at = snap(ideal, taken);
                 if (at === null) { cost += (L / n) * (L / n); continue; }
                 cost += cdist(at, ideal, L) ** 2 + 0.5 * Math.max(0, R - cornerDist(at)) ** 2;
                 taken.push(at);
+                mine.push(at);
             }
-            cost += (n - taken.length) * L * L;
-            if (cost < pcost - 1e-9) { pcost = cost; pick = taken; }
+            cost += (free - mine.length) * L * L;
+            if (cost < pcost - 1e-9) { pcost = cost; pick = mine; }
         }
         // a run between two corners that holds one tab: put it at the run's middle when that is near
         if (corners.length >= 2) {
@@ -363,20 +411,21 @@ export function planTabs(loops, rule, opt = {}) {
                     if (x >= c0 && x <= c1) { a = c0; b = c1; break; }
                 }
                 const mid = (a + b) / 2;
-                const alone = pick.filter(t => { const x = t < a ? t + L : t; return x >= a && x <= b; }).length === 1;
+                const alone = pick.concat(res).filter(t => { const x = t < a ? t + L : t; return x >= a && x <= b; }).length === 1;
                 const midN = ((mid % L) + L) % L;
-                if (alone && cdist(midN, at, L) <= 0.15 * L / n && cornerDist(midN) >= clear && bendUnder(midN) <= BEND_DEG) return midN;
+                const clearOfRes = res.every(r => cdist(r, midN, L) >= gap);
+                if (alone && clearOfRes && cdist(midN, at, L) <= 0.15 * L / n && cornerDist(midN) >= clear && bendUnder(midN) <= BEND_DEG) return midN;
                 return at;
             });
         }
-        skipped += n - pick.length;
+        skipped += free - pick.length;
         for (const at of pick.sort((a, b) => a - b)) {
             const p = pointAt(loop, m, at);
             const d = m.dir[p.e];
             tabs.push({ x: p.x, y: p.y, nx: d.y * away, ny: -d.x * away, hole, loop: li, at: r2(at), of: r2(L), ...(W !== W0 ? { w: r2(W) } : {}) });
         }
         if (hole) holes++; else outer++;
-        per.push({ hole, count: pick.length, length: r2(L) });
+        per.push({ hole, count: pick.length + fixedHere, length: r2(L) });
     });
     return { tabs, outer, holes, skipped, small, per };
 }
@@ -396,3 +445,71 @@ export function tabRecord(t, rule, z, id) {
         auto: true,
     };
 }
+
+// ---- single tabs: picked, dragged along the edge, resized, deleted (cl-tabedit.js) -----------
+
+/** The angle of a tab record's rot about Z, from any of the shapes it is stored in. */
+export function rotAngle(rot) {
+    let z = 0, w = 1;
+    if (Array.isArray(rot)) { z = rot[2]; w = rot[3]; }
+    else if (rot && '_z' in rot) { z = rot._z; w = rot._w; }
+    else if (rot && 'z' in rot) { z = rot.z; w = rot.w; }
+    return 2 * Math.atan2(z, w);
+}
+
+/** Where a tab record meets the edge: its center less half its reach, back along its normal. */
+export function edgeOf(rec) {
+    const a = rotAngle(rec.rot), h = (rec.dim.x || 0) / 2;
+    return { x: rec.pos.x - Math.cos(a) * h, y: rec.pos.y - Math.sin(a) * h };
+}
+
+/** Per loop: whether it is a hole, which way is out of the material, its arc measure. */
+export function loopInfo(loops) {
+    return loops.map((loop, li) => {
+        const depth = loops.reduce((c, other, oi) => c + (oi !== li && inside(loop[0], other) ? 1 : 0), 0);
+        const hole = depth % 2 === 1;
+        return { hole, away: (hole ? -1 : 1) * (area(loop) > 0 ? 1 : -1), m: measure(loop) };
+    });
+}
+
+/**
+ * The point of the part's outline nearest p, and the way out of the material there.
+ * @returns {{ loop, x, y, nx, ny, at, d, hole }}
+ */
+export function nearestOnLoops(loops, p, info = loopInfo(loops)) {
+    let best = null;
+    loops.forEach((loop, li) => {
+        const q = project(loop, info[li].m, p);
+        if (!best || q.d < best.d) {
+            const dr = info[li].m.dir[q.e], away = info[li].away;
+            best = { loop: li, x: q.x, y: q.y, nx: dr.y * away, ny: -dr.x * away, at: q.at, d: q.d, hole: info[li].hole };
+        }
+    });
+    return best;
+}
+
+/** A record moved to an edge point: half its reach out, turned to the edge; its size stays. */
+export function recordAt(rec, hit) {
+    const a = Math.atan2(hit.ny, hit.nx), h = rec.dim.x / 2;
+    return { pos: { x: hit.x + hit.nx * h, y: hit.y + hit.ny * h, z: rec.pos.z }, rot: [0, 0, Math.sin(a / 2), Math.cos(a / 2)] };
+}
+
+/**
+ * Whether a tab `w` long with its middle at edge point p overlaps another tab.
+ * @param {Array<{x,y,w}>} others edge points and lengths
+ */
+export function overlaps(p, w, others, margin = 1) {
+    return others.some(o => Math.hypot(o.x - p.x, o.y - p.y) < (w + o.w) / 2 + margin);
+}
+
+/**
+ * The "no tab here" spots (points on the edge, in the part's frame) follow the part the way its
+ * tabs do (cl-tab.js rotateTabs / mirrorTabs): a turn about Z then the re-centering shift, a
+ * mirror in X, a scale.
+ */
+export function turnSpots(spots, angle, dx = 0, dy = 0) {
+    const c = Math.cos(angle), s = Math.sin(angle);
+    return (spots || []).map(p => ({ x: r2(p.x * c - p.y * s - dx), y: r2(p.x * s + p.y * c - dy) }));
+}
+export const mirrorSpots = spots => (spots || []).map(p => ({ x: -p.x, y: p.y }));
+export const scaleSpots = (spots, sx = 1, sy = 1) => (spots || []).map(p => ({ x: r2(p.x * sx), y: r2(p.y * sy) }));

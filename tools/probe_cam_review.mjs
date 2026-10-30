@@ -61,7 +61,7 @@ try {
   check(/'UNITS:MM\s*\n\s*IF %\(25\)=0 THEN GOTO UNIT_ERROR/.test(sbp) && /UNIT_ERROR:/.test(sbp), "the ShopBot file checks the machine's units before it moves");
 
   // auto tabs, delete, undo: tabs still lift the outline, and the part scales
-  await page.evaluate(() => { const a = window.kiri.api; a.platform.select(a.widgets.all()[0]); window.__swarfAutoTabs.set({ density: 0, scale: 0, pin: {} }); window.__swarfAutoTabs.preview(); document.getElementById('swarf-autotabs-apply').click(); });
+  await page.evaluate(() => { const a = window.kiri.api; a.platform.select(a.widgets.all()[0]); window.__swarfAutoTabs.set({ density: 0, scale: 0, pin: {} }); document.getElementById('swarf-autotabs-go').click(); });
   await wait(500);
   const lifts = g => { const k = /G20/.test(g) ? 25.4 : 1; const zs = []; for (const l of g.split(/\r?\n/)) { const m = l.match(/^(?:G0?1|M[3Z])\b.*?Z(-?[\d.]+)/i) || l.match(/^M3,[^,]*,[^,]*,(-?[\d.]+)/i); if (m) zs.push(+m[1] * k); } if (!zs.length) return 0; const lo = Math.min(...zs); let n = 0, up = false; for (const z of zs) { const t = z > lo + 1; if (t && !up) n++; up = t; } return n; };
   const before = lifts(await gcode());

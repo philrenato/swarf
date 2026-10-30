@@ -4,7 +4,7 @@
 // big hole, a small part, an L, plates with a 40 mm and a 12 mm hole): every tab on the outline, clear of
 // corners, facing away from the material, spread by length.
 // Run: node tools/test-autotabs.mjs
-import { tabRule, planTabs, sliceLoops, tabRecord, area, inside } from '../src/kiri/mode/cam/app/autotab-rule.js';
+import { tabRule, planTabs, sliceLoops, tabRecord, area, inside, loopInfo, nearestOnLoops, edgeOf, recordAt, rotAngle, overlaps, turnSpots, scaleSpots, mirrorSpots } from '../src/kiri/mode/cam/app/autotab-rule.js';
 
 const bad = [];
 const check = (ok, what) => { console.log(ok ? 'ok  ' : 'FAIL', what); if (!ok) bad.push(what); };
@@ -119,6 +119,68 @@ run('ring, big holes off', [circle(0, 0, 200), circle(0, 0, 100).reverse()], 19.
 run('ring, 3 in each hole', [circle(0, 0, 200), circle(0, 0, 100).reverse()], 19.05, ply, (o, h) => h.length === 3, { holeCount: 3 });
 run('ring, big hole is 250 mm', [circle(0, 0, 200), circle(0, 0, 100).reverse()], 19.05, ply, (o, h) => h.length === 0, { holeMin: 250 });
 run('300x200 ply, 60 mm from corners', [rect(0, 0, 300, 200)], 19.05, ply, (o) => o.length === 4, { corner: 60 });
+
+// ---- single tabs: a tab that stays (moved or resized), a "no tab here" spot ------------------
+// (Phil 10-30: "move/delete/change them individually"). A 600 x 400 plate has 8.
+{
+    const src = [rect(-300, -200, 600, 400)];
+    const pos = extrude(src, 19.05);
+    const loops = sliceLoops(pos, ply.height / 2);
+    const base = planTabs(loops, ply).tabs;
+    const dist = (a, b) => Math.hypot(a.x - b.x, a.y - b.y);
+    // a pin: the third tab dragged 40 mm along its side; re-placing keeps 8 in all and none on it
+    const t3 = base[2];
+    const pinPt = { x: t3.x + (Math.abs(t3.ny) > 0.5 ? 40 : 0), y: t3.y + (Math.abs(t3.nx) > 0.5 ? 40 : 0) };
+    const withPin = planTabs(loops, ply, { fixed: [pinPt] });
+    const clearOfPin = withPin.tabs.every(t => dist(t, pinPt) >= ply.width + 2 * ply.bit - 1e-6);
+    check(withPin.tabs.length === 7 && clearOfPin && withPin.per[0].count === 8,
+        `a pinned tab keeps its place: 7 planned around it (8 with it), none within a tab and two bits of it (${withPin.tabs.length}, ${clearOfPin})`);
+    const moved = withPin.tabs.filter(t => !base.some(b => dist(b, t) < 0.5)).length;
+    check(moved <= 2, `and the others mostly stay where they were (${moved} of 7 moved)`);
+    // a spot: the fifth tab deleted; re-placing leaves 7 and none comes back there
+    const t5 = base[4];
+    const withSpot = planTabs(loops, ply, { skip: [{ x: t5.x, y: t5.y }] });
+    const spotFree = sp => withSpot.tabs.every(t => dist(t, sp) >= ply.width + 2 * ply.bit - 1e-6);
+    const same = withSpot.tabs.filter(t => base.some(b => dist(b, t) < 0.5)).length;
+    check(withSpot.tabs.length === 7 && spotFree(t5) && same === 7, `a "no tab here" spot stays empty: 7 tabs, the other 7 unmoved (${withSpot.tabs.length}, ${same})`);
+    // both, and a count pinned to 12: 1 stays, 1 spot, 10 planned
+    const both = planTabs(loops, ply, { count: 12, fixed: [pinPt], skip: [{ x: t5.x, y: t5.y }] });
+    check(both.tabs.length === 10 && both.tabs.every(t => dist(t, pinPt) > ply.width && dist(t, t5) > ply.width), `count 12 with a pin and a spot: 10 planned, clear of both (${both.tabs.length})`);
+    // the spot follows the part: turned 90 degrees, then scaled 1.5 x 1 (as cl-tab.js turns tabs)
+    const turnPos = (p, a) => { const out = new Float32Array(p.length), c = Math.cos(a), s = Math.sin(a); for (let i = 0; i < p.length; i += 3) { out[i] = p[i] * c - p[i + 1] * s; out[i + 1] = p[i] * s + p[i + 1] * c; out[i + 2] = p[i + 2]; } return out; };
+    const scalePos = (p, sx, sy) => { const out = new Float32Array(p.length); for (let i = 0; i < p.length; i += 3) { out[i] = p[i] * sx; out[i + 1] = p[i + 1] * sy; out[i + 2] = p[i + 2]; } return out; };
+    const a = Math.PI / 2;
+    const spots = [{ x: t5.x, y: t5.y }];
+    const tLoops = sliceLoops(turnPos(pos, a), ply.height / 2);
+    const tSpots = turnSpots(spots, a);
+    const tPlan = planTabs(tLoops, ply, { skip: tSpots });
+    check(tPlan.tabs.length === 7 && tPlan.tabs.every(t => dist(t, tSpots[0]) >= ply.width + 2 * ply.bit - 1e-6),
+        `turned 90 degrees, the spot turns with the part and stays empty (${tPlan.tabs.length} tabs, spot at ${JSON.stringify(tSpots[0])})`);
+    const sLoops = sliceLoops(scalePos(turnPos(pos, a), 1.5, 1), ply.height / 2);
+    const sSpots = scaleSpots(tSpots, 1.5, 1);
+    const sPlan = planTabs(sLoops, ply, { skip: sSpots });
+    const sBase = planTabs(sLoops, ply).tabs.length;
+    check(sPlan.tabs.length === sBase - 1 && sPlan.tabs.every(t => dist(t, sSpots[0]) >= ply.width + 2 * ply.bit - 1e-6),
+        `then scaled 1.5 x 1: still empty there, one fewer than ${sBase} (${sPlan.tabs.length})`);
+    const mirrorPos = p => { const out = scalePos(p, -1, 1); for (let i = 0; i < out.length; i += 9) for (let k = 0; k < 3; k++) { const t = out[i + k]; out[i + k] = out[i + 6 + k]; out[i + 6 + k] = t; } return out; };
+    const mLoops = sliceLoops(mirrorPos(pos), ply.height / 2);
+    const mSpots = mirrorSpots(spots);
+    const mPlan = planTabs(mLoops, ply, { skip: mSpots });
+    check(mPlan.tabs.length === 7 && mPlan.tabs.every(t => dist(t, mSpots[0]) >= ply.width + 2 * ply.bit - 1e-6), `mirrored: the spot mirrors and stays empty (${mPlan.tabs.length})`);
+    // a spot or pin nowhere near the outline is ignored
+    check(planTabs(loops, ply, { skip: [{ x: 0, y: 0 }] }).tabs.length === 8, 'a spot far from the outline takes no slot');
+    // the drag helpers: nearest edge point, facing out, moved record, overlap
+    const info = loopInfo(loops);
+    const hit = nearestOnLoops(loops, { x: 100, y: 230 }, info);
+    check(Math.abs(hit.y - 200) < 1e-6 && Math.abs(hit.x - 100) < 1e-6 && hit.ny > 0.99 && !hit.hole, `a point outside the top edge lands on it, facing out (${JSON.stringify([hit.x, hit.y, hit.nx, hit.ny])})`);
+    const r0 = tabRecord(base[0], ply, 2, 7);
+    const e0 = edgeOf(r0);
+    check(dist(e0, base[0]) < 1e-9, 'a record\'s edge point is where it was planned');
+    const mv = recordAt(r0, hit);
+    const back = edgeOf({ ...r0, ...mv });
+    check(dist(back, hit) < 1e-9 && Math.abs(rotAngle(mv.rot) - Math.PI / 2) < 1e-9, 'a moved record sits half a reach out from its new edge point, turned to it');
+    check(overlaps({ x: 0, y: 200 }, 12.7, [{ x: 10, y: 200, w: 12.7 }]) && !overlaps({ x: 0, y: 200 }, 12.7, [{ x: 20, y: 200, w: 12.7 }]), 'two tabs 10 mm apart overlap, 20 mm apart do not');
+}
 
 // ---- the record is an ordinary tab ---------------------------------------------------------
 const t0 = plate.plan.tabs[0];

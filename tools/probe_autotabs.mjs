@@ -1,8 +1,8 @@
 // AUTO TABS in the app: a 300 x 200 part of 3/4 in plywood on the ShopBot and a 150 x 100 part
-// of 1 in aluminum on the MR-1 get different starting tabs; the preview changes nothing; apply
-// makes ordinary tabs (in the widget's tab list, each box clickable by the tab tool, one deleted
-// by a real click with tabs › +); a tab placed by hand survives a second apply; the outline's
-// toolpath lifts over every tab.
+// of 1 in aluminum on the MR-1 get different starting tabs; the press places ordinary tabs at once
+// (in the widget's tab list, each box clickable by the tab tool, one deleted by a real click with
+// tabs › +, which leaves its place empty); a tab placed by hand survives a second press; the
+// outline's toolpath lifts over every tab. (One tab at a time: probe_tab_edit.mjs.)
 //   node tools/probe_autotabs.mjs [url]
 import puppeteer from 'puppeteer-core';
 import { CHROME } from './chrome-path.mjs';
@@ -49,21 +49,22 @@ try {
   let s = await setup('ShopBot.Basic', 'plywood', 300, 200, 19.05);
   check(s.mat === 'plywood' && /ShopBot/.test(s.dev) && s.ops.includes('outline'), `ShopBot, plywood, an outline: ${JSON.stringify(s)}`);
   const bitSB = await page.evaluate(() => window.__swarfAutoTabs.inputs(window.kiri.api.widgets.all()[0]));
-  let pv = await page.evaluate(() => { const p = window.__swarfAutoTabs.preview(); return { p, say: document.getElementById('swarf-autotabs-say').textContent, apply: getComputedStyle(document.getElementById('swarf-autotabs-apply')).display }; });
+  let pv = await page.evaluate(() => { const p = window.__swarfAutoTabs.place(); return { p, say: document.getElementById('swarf-autotabs-say').textContent, apply: !!document.getElementById('swarf-autotabs-apply') }; });
   const ply = pv.p && pv.p[0];
   console.log('   plywood/ShopBot:', JSON.stringify({ bit: bitSB.bitMm, ...ply }), '\n   says:', pv.say);
   check(ply && ply.count === 4 && ply.width === +(2 * bitSB.bitMm).toFixed(2) && Math.abs(ply.height - 4.76) < 0.01, `3/4 in plywood on the ShopBot: 4 tabs ${ply?.width} mm x ${ply?.height} mm`);
-  check(pv.apply !== 'none' && /4 tabs/.test(pv.say), 'the preview says what it will do, and offers apply');
+  check(!pv.apply && /4 tabs/.test(pv.say), 'it says what it did, and there is no apply step');
   let t = await tabs();
-  check(t.anno.length === 0 && t.boxes === 0, 'the preview places nothing yet');
-  // a slider moves the preview
-  const more = await page.evaluate(() => { const i = document.getElementById('swarf-autotabs-density'); i.value = 2; i.dispatchEvent(new Event('input', { bubbles: true })); return window.__swarfAutoTabs.preview()[0].count; });
+  check(t.anno.length === 4 && t.anno.every(r => r.auto) && t.boxes === 4, `the press places 4 ordinary tabs in the tab list, 4 drawn (${JSON.stringify(t)})`);
+  // a slider moves them
+  await page.evaluate(() => { const i = document.getElementById('swarf-autotabs-density'); i.value = 2; i.dispatchEvent(new Event('input', { bubbles: true })); });
+  await wait(300);
+  const more = (await tabs()).anno.length;
   check(more > 4, `"more" gives more tabs (${more})`);
-  await page.evaluate(() => { const i = document.getElementById('swarf-autotabs-density'); i.value = 0; i.dispatchEvent(new Event('input', { bubbles: true })); window.__swarfAutoTabs.preview(); });
-  await page.evaluate(() => document.getElementById('swarf-autotabs-apply').click());
+  await page.evaluate(() => { const i = document.getElementById('swarf-autotabs-density'); i.value = 0; i.dispatchEvent(new Event('input', { bubbles: true })); });
   await wait(300);
   t = await tabs();
-  check(t.anno.length === 4 && t.anno.every(r => r.auto) && t.boxes === 4, `apply: 4 ordinary tabs in the tab list, 4 drawn (${JSON.stringify(t)})`);
+  check(t.anno.length === 4 && t.anno.every(r => r.auto) && t.boxes === 4, `back at the middle: 4 again (${t.anno.length})`);
   const fields = await page.evaluate(() => { const p = window.kiri.api.conf.get().process; return [p.camTabsWidth, p.camTabsHeight]; });
   check(fields[0] === ply.width && fields[1] === ply.height, `the panel's width/height now match, so a tab added by hand matches (${fields})`);
 
@@ -100,17 +101,21 @@ try {
     await page.evaluate(() => { const a = window.kiri.api, w = a.widgets.all()[0], l = a.widgets.annotate(w.id).tab; l.splice(0, 1); });
   }
 
-  // a hand-placed tab survives a second apply; the auto ones are replaced, not added to
-  await page.evaluate(() => {
-    const a = window.kiri.api, w = a.widgets.all()[0], l = a.widgets.annotate(w.id).tab;
+  // a hand-placed tab survives a second press; the auto ones are replaced, not added to (and the
+  // one deleted above stays deleted: its place keeps a slot empty)
+  const spotOnHand = await page.evaluate(() => {
+    const a = window.kiri.api, w = a.widgets.all()[0], an = a.widgets.annotate(w.id), l = an.tab;
     const a0 = l.find(r => r.auto);
     l.push({ pos: { x: -a0.pos.x, y: -a0.pos.y, z: a0.pos.z }, dim: a0.dim, rot: a0.rot, id: 42 });   // the hand tab, opposite one auto tab
+    const sp = (an.tabset && an.tabset.spots) || [];
+    return sp.some(s => Math.hypot(s.x + a0.pos.x, s.y + a0.pos.y) < 30);
   });
-  await page.evaluate(() => { window.__swarfAutoTabs.preview(); document.getElementById('swarf-autotabs-apply').click(); });
+  await page.evaluate(() => document.getElementById('swarf-autotabs-go').click());
   await wait(300);
   t = await tabs();
   const hand = t.anno.filter(r => !r.auto), auto = t.anno.filter(r => r.auto);
-  check(hand.length === 1 && hand[0].id === 42 && auto.length === 3, `again: the hand tab stays, the auto tab under it is left out, ${auto.length} auto (${JSON.stringify(t.anno.map(r => r.auto ? 'a' : 'h'))})`);
+  const wantAuto = spotOnHand ? 3 : 2;
+  check(hand.length === 1 && hand[0].id === 42 && auto.length === wantAuto, `again: the hand tab stays, the auto tab under it is left out, the deleted one stays gone: ${auto.length} auto (${JSON.stringify(t.anno.map(r => r.auto ? 'a' : 'h'))})`);
 
   // the toolpath lifts over the tabs: cut moves at the tab top, in 4 places around the part
   await page.evaluate(() => document.getElementById('act-paths')?.click());
@@ -138,19 +143,18 @@ try {
     return { zmin: +zmin.toFixed(2), atTop: top.length, places: groups.length };
   })();
   console.log('   toolpath:', done, JSON.stringify(lifted));
-  check(lifted && lifted.places >= 4, `the outline lifts to the tab top (${ply.height} mm above the bottom) in ${lifted?.places} places`);
+  check(lifted && lifted.places >= t.anno.length, `the outline lifts to the tab top (${ply.height} mm above the bottom) in ${lifted?.places} places, one for each of the ${t.anno.length} tabs`);
 
   // ---- 1 in aluminum, MR-1 ---------------------------------------------------------------
   s = await setup('Langmuir.MR-1', 'aluminum_6061', 150, 100, 25.4);
   check(s.mat === 'aluminum_6061' && /MR-1/.test(s.dev), `MR-1, aluminum: ${JSON.stringify(s)}`);
   const inA = await page.evaluate(() => window.__swarfAutoTabs.inputs(window.kiri.api.widgets.all()[0]));
-  pv = await page.evaluate(() => { const p = window.__swarfAutoTabs.preview(); return { p, say: document.getElementById('swarf-autotabs-say').textContent }; });
+  pv = await page.evaluate(() => { const p = window.__swarfAutoTabs.place(); return { p, say: document.getElementById('swarf-autotabs-say').textContent }; });
   const alu = pv.p && pv.p[0];
   console.log('   aluminum/MR-1:', JSON.stringify({ bit: inA.bitMm, ...alu }), '\n   says:', pv.say);
   check(alu && alu.material === 'metal' && alu.machine === 'mill' && Math.abs(alu.height - 2.54) < 0.01 && alu.width === +Math.max(3, Math.min(8, inA.bitMm)).toFixed(2) && alu.count === 4,
     `1 in aluminum on the MR-1: ${alu?.count} tabs ${alu?.width} mm x ${alu?.height} mm`);
   check(alu && ply && (alu.height !== ply.height || alu.width !== ply.width), 'the two cases land on different defaults');
-  await page.evaluate(() => window.__swarfAutoTabs.cancel());
 } finally {
   await browser.close();
   console.log(errors.length ? 'PAGE ERRORS:\n' + errors.join('\n') : 'no page errors');

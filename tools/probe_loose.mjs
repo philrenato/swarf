@@ -65,7 +65,7 @@ try {
   await wait(500);
 
   // auto tabs: the outside and the hole
-  await page.evaluate(() => { const a = window.kiri.api; a.platform.select(a.widgets.all()[0]); window.__swarfAutoTabs.preview(); document.getElementById('swarf-autotabs-apply').click(); });
+  await page.evaluate(() => { const a = window.kiri.api; a.platform.select(a.widgets.all()[0]); document.getElementById('swarf-autotabs-go').click(); });
   await wait(500);
   let au = await page.evaluate(() => window.__swarfAutoTabs.audit(window.kiri.api.widgets.all()[0]));
   check(au.outerTabs >= 4 && au.loose.length === 1 && au.loose[0].tabs >= 2, `auto tabs hold the outside (${au.outerTabs}) and the hole's piece (${au.loose[0]?.tabs})`);
@@ -91,7 +91,7 @@ try {
   check(au.loose.length === 1 && Math.abs(au.loose[0].across - 40) < 1.5, `the plate's 40 mm hole leaves a loose piece (holes from ${au.holeMin} mm: ${JSON.stringify(au.loose)})`);
   c = await concerns();
   check(c.some(t => /plate is cut free/.test(t)) && c.some(t => /loose piece inside plate/.test(t)), `concerns name both (${c})`);
-  await page.evaluate(() => { const a = window.kiri.api; a.platform.select(a.widgets.all()[0]); window.__swarfAutoTabs.preview(); document.getElementById('swarf-autotabs-apply').click(); });
+  await page.evaluate(() => { const a = window.kiri.api; a.platform.select(a.widgets.all()[0]); document.getElementById('swarf-autotabs-go').click(); });
   await wait(500);
   au = await page.evaluate(() => window.__swarfAutoTabs.audit(window.kiri.api.widgets.all()[0]));
   const dims = await page.evaluate(() => { const a = window.kiri.api, w = a.widgets.all()[0]; return (a.widgets.annotate(w.id).tab || []).map(r => r.dim.y); });

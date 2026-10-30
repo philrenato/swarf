@@ -34,6 +34,7 @@ html[data-skin="classic"] {
   --sk3d-m-mdf: #c9a77a;  --sk3d-m-mdf-edge: #6a4a20;  --sk3d-m-ply: #b8935e;  --sk3d-m-ply-edge: #604018;  --sk3d-m-chain: #202020;
   --sk3d-c-grid: #8c8c8c;  --sk3d-c-grid-axis: #000080;  --sk3d-c-path-hidden: #b4b4b4;  --sk3d-c-path-rapid: #6a6a6a;
   --sk3d-c-path-done: #000080;  --sk3d-c-path-todo: #7080c0;  --sk3d-c-tool: #000000;
+  --sk3d-tab-picked: #0000c0;
 
   /* recipes */
   --c-out: inset -1px -1px #000, inset 1px 1px #fff, inset -2px -2px #808080, inset 2px 2px #dfdfdf;   /* Windows 95 raised */
@@ -232,10 +233,11 @@ html[data-skin="classic"] #swarf-start h2 {
 html[data-skin="classic"] #swarf-start p, html[data-skin="classic"] #swarf-start .bed, html[data-skin="classic"] #swarf-start .drop { color: #000 !important; }
 
 /* ---- the size card: a BeOS toolbar ---- */
-html[data-skin="classic"] #swarf-size {
+html[data-skin="classic"] #swarf-size, html[data-skin="classic"] #swarf-tabcard {
   background: #d4d0c8 !important; border: 0 !important; border-radius: 0 !important; box-shadow: var(--c-out), 3px 3px 0 rgba(0,0,0,.3) !important;
 }
-html[data-skin="classic"] #swarf-size .lbl, html[data-skin="classic"] #swarf-size .mm, html[data-skin="classic"] #swarf-size .x { color: #000 !important; }
+html[data-skin="classic"] #swarf-size .lbl, html[data-skin="classic"] #swarf-size .mm, html[data-skin="classic"] #swarf-size .x,
+html[data-skin="classic"] #swarf-tabcard .lbl, html[data-skin="classic"] #swarf-tabcard .mm, html[data-skin="classic"] #swarf-tabcard .kind, html[data-skin="classic"] #swarf-tabcard .note, html[data-skin="classic"] #swarf-tabcard .ax small { color: #000 !important; }
 
 /* ---- the corner things: the system tray ---- */
 html[data-skin="classic"] #ver, html[data-skin="classic"] #swarf-concerns-tab {

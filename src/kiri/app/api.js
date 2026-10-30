@@ -172,7 +172,8 @@ export const api = {
     },
     doit: {
         undo: noop, // do.js
-        redo: noop  // do.js
+        redo: noop, // do.js
+        push: noop  // do.js (swarf: a step that undoes itself)
     },
     event: {
         alerts(clr) { alerts.update(clr) },
