@@ -93,6 +93,26 @@ for (const [W, H] of [[1440, 900], [1280, 720]]) for (const skin of ['glass', 'c
       check(!m.length, `key ${k} in cam opens nothing [${m}]`);
       await page.evaluate(() => { try { window.kiri.api.modal.hide(); } catch (e) {} });
     }
+    // an import's dialog: Esc answers as cancel (nothing waits for good); an SVG says its open lines
+    const esc = await page.evaluate(() => { window.__wholeEsc = 'waiting'; window.kiri.api.uc.confirm('a question?', { yes: true, cancel: false }).then(v => { window.__wholeEsc = v; }); return true; });
+    await wait(600); await page.keyboard.press('Escape'); await wait(600);
+    check(esc && await page.evaluate(() => window.__wholeEsc) === false, `Esc on a swarf card answers cancel (${await page.evaluate(() => String(window.__wholeEsc))})`);
+    const svg = '<svg xmlns="http://www.w3.org/2000/svg" width="100mm" height="60mm" viewBox="0 0 100 60"><rect x="5" y="5" width="40" height="30"/><path d="M60 10 L90 10 L90 40" fill="none" stroke="#000"/></svg>';
+    const loadSvg = () => page.evaluate(t => window.kiri.api.platform.load_files([new File([t], 'probe-open.svg', { type: 'image/svg+xml' })]), svg);
+    await loadSvg();
+    await page.waitForFunction(() => [...document.querySelectorAll('#dialog button')].some(b => /make parts/.test(b.textContent) && b.offsetParent), { timeout: 15000 }).catch(() => {});
+    await page.evaluate(() => [...document.querySelectorAll('#dialog button')].find(b => /cancel/.test(b.textContent)).click());
+    await wait(800);
+    check(await page.evaluate(() => window.kiri.api.widgets.all().length) === 0, 'cancel on the SVG dialog makes nothing');
+    await loadSvg();
+    await page.waitForFunction(() => [...document.querySelectorAll('#dialog button')].some(b => /make parts/.test(b.textContent) && b.offsetParent), { timeout: 15000 }).catch(() => {});
+    await page.evaluate(() => [...document.querySelectorAll('#dialog button')].find(b => /make parts/.test(b.textContent)).click());
+    await page.waitForFunction(() => window.kiri.api.widgets.all().length >= 1, { timeout: 15000 }).catch(() => {});
+    await wait(800);
+    const said = await page.evaluate(() => document.getElementById('alert-area')?.innerText || '');
+    check(/1 open line was left out/.test(said), `an SVG import says its open lines ("${said.replace(/\s+/g, ' ').slice(0, 120)}")`);
+    await page.evaluate(() => { for (const w of window.kiri.api.widgets.all()) window.kiri.api.platform.delete(w); });
+    await wait(600);
     await shape(page);
     // F1 Delete with nothing picked: no event, no words, nothing gone
     await page.evaluate(() => { window.kiri.api.platform.deselect(); window.__wholeDel = 0; window.kiri.api.event.on('widget.delete', () => window.__wholeDel++); try { window.kiri.api.event.alerts(true); } catch (e) {} });

@@ -21,11 +21,12 @@
     slot:    { label: 'slot',              fields: ['w', 'h'] }
   };
   const FIELD = {
-    d:  { label: 'diameter', unit: 'mm', value: 100 },
-    di: { label: 'hole diameter', unit: 'mm', value: 50 },
-    w:  { label: 'width', unit: 'mm', value: 150 },
-    h:  { label: 'depth', unit: 'mm', value: 100 },
-    r:  { label: 'corner radius', unit: 'mm', value: 10 },
+    // (review r086 F12) in inches a shape starts at round inches, not converted millimeters
+    d:  { label: 'diameter', unit: 'mm', value: 100, inch: 101.6 },
+    di: { label: 'hole diameter', unit: 'mm', value: 50, inch: 50.8 },
+    w:  { label: 'width', unit: 'mm', value: 150, inch: 152.4 },
+    h:  { label: 'depth', unit: 'mm', value: 100, inch: 101.6 },
+    r:  { label: 'corner radius', unit: 'mm', value: 10, inch: 9.525 },
     n:  { label: 'sides', unit: '', value: 6 },
     p:  { label: 'points', unit: '', value: 5 },
     i:  { label: 'inner size', unit: '%', value: 44 }      // ReLeaf's star
@@ -109,7 +110,8 @@
     let last = {};
     try { last = JSON.parse(localStorage.getItem(LAST)) || {}; } catch (e) { /* none */ }
     const kind0 = SHAPES[last.kind] ? last.kind : 'circle';
-    const val = k => (last.v && last.v[k] > 0 ? last.v[k] : FIELD[k].value);
+    const inchNow = window.SwarfLength && window.SwarfLength.unit() === 'in';
+    const val = k => (last.v && last.v[k] > 0 ? last.v[k] : inchNow && FIELD[k].inch ? FIELD[k].inch : FIELD[k].value);
     const rows = Object.keys(FIELD).map(k =>
       `<tr data-f="${k}"><th>${FIELD[k].label}</th><td><input id="shape-${k}" value="${FIELD[k].unit === 'mm' ? fld(val(k)) : val(k)}" size="6" inputmode="${FIELD[k].unit === 'mm' ? 'text' : 'decimal'}"> ${FIELD[k].unit === 'mm' ? unitW() : FIELD[k].unit}</td></tr>`).join('');
     const pre = [

@@ -642,6 +642,11 @@ function setup_keybd_nav() {
         // rule engine: pull current settings + ops, evaluate each rule, render warnings
         function evaluate() {
             const warnings = [];
+            // (whole-app review r086 F4) a concern's numbers follow mm | in too
+            const inch = !!window.SwarfLength && window.SwarfLength.unit() === 'in';
+            const len = (v, dp = 1) => inch ? `${+(v / 25.4).toFixed(dp + 2)} in` : `${(+v).toFixed(dp)} mm`;
+            const pair = (a, b) => inch ? `${+(a / 25.4).toFixed(1)} × ${+(b / 25.4).toFixed(1)} in` : `${a.toFixed(0)} × ${b.toFixed(0)} mm`;
+            const rate = v => inch ? `${+(v / 25.4).toFixed(1)} in/min` : `${v} mm/min`;
             try {
                 const settings = api.conf.get();
                 const proc = settings.process || {};
@@ -668,7 +673,7 @@ function setup_keybd_nav() {
                     if (op.rate && op.plunge && op.plunge > op.rate * 0.5) {
                         warnings.push({
                             title: `plunge rate near feed rate`,
-                            body: `plunging at ${op.plunge} mm/min vs feed ${op.rate} mm/min — the palette holds plunge at 30–40% of feed.`,
+                            body: `plunging at ${rate(op.plunge)} vs feed ${rate(op.rate)}: swarf's presets plunge at 30–40% of feed.`,
                             hint: 'too fast a plunge snaps end-mills'
                         });
                     }
@@ -682,15 +687,15 @@ function setup_keybd_nav() {
                     if (op.ov_botz != null && op.ov_botz !== 0 && proc.camStockZ !== undefined) {
                         const thick = Math.max(0, ...api.widgets.all().filter(w => !w.track.synth).map(w => (w.track.box || {}).d || 0));
                         if (op.ov_botz < -2 || (thick && op.ov_botz > thick)) warnings.push({
-                            title: `${op.type} bottom is ${op.ov_botz} mm`,
-                            body: op.ov_botz < -2 ? `that is ${(-op.ov_botz).toFixed(1)} mm below the bottom of the board: into the spoilboard or the table.` : 'that is above the top of the board: the step cuts nothing.',
+                            title: `${op.type} bottom is ${len(op.ov_botz)}`,
+                            body: op.ov_botz < -2 ? `that is ${len(-op.ov_botz)} below the bottom of the board: into the spoilboard or the table.` : 'that is above the top of the board: the step cuts nothing.',
                             hint: 'leave the override at 0 to cut to the part\'s own bottom' });
                     }
                     // rule 3 — step-down past half the tool diameter, the palette's ceiling
                     if (op.down && td && op.down > td * 0.5) {
                         warnings.push({
                             title: `step-down over half the tool diameter`,
-                            body: `${op.down.toFixed(2)} mm step-down on a ${td.toFixed(2)} mm tool — the palette stays under ${(td / 2).toFixed(2)} mm.`,
+                            body: `a ${len(op.down, 2)} step-down on a ${len(td, 2)} bit: swarf's presets stay under ${len(td / 2, 2)}.`,
                             hint: 'split into shallower passes for safer cutting'
                         });
                     }
@@ -735,15 +740,15 @@ function setup_keybd_nav() {
                     const sx = b.max.x - b.min.x, sy = b.max.y - b.min.y, sz = b.max.z - b.min.z;
                     if (bw && bd && (sx > bw + 0.5 || sy > bd + 0.5)) warnings.push({
                         title: `${name} is bigger than the ${mach}'s bed`,
-                        body: `${sx.toFixed(0)} × ${sy.toFixed(0)} mm; the bed is ${bw.toFixed(0)} × ${bd.toFixed(0)} mm. The machine cannot cut it as it is.`,
+                        body: `${pair(sx, sy)}; the bed is ${pair(bw, bd)}. The machine cannot cut it as it is.`,
                         hint: 'make it smaller, or choose the other machine (setup › machine)' });
                     else if (bw && bd && (p.x + b.min.x < -bw / 2 - 0.5 || p.x + b.max.x > bw / 2 + 0.5 || p.y + b.min.y < -bd / 2 - 0.5 || p.y + b.max.y > bd / 2 + 0.5)) warnings.push({
                         title: `${name} hangs off the bed`,
-                        body: `part of it sits outside the ${mach}'s ${bw.toFixed(0)} × ${bd.toFixed(0)} mm bed.`,
+                        body: `part of it sits outside the ${mach}'s ${pair(bw, bd)} bed.`,
                         hint: 'drag it back onto the bed' });
                     // the shop's ShopBot rule (KCAD guidelines): boards from 1/4 to 2 1/2 in; thinner goes to the laser
                     if (soft && (sz < 6.35 - 0.05 || sz > 63.5 + 0.05)) warnings.push({
-                        title: `${name} is ${sz.toFixed(1)} mm thick`,
+                        title: `${name} is ${len(sz)} thick`,
                         body: sz < 6.35 ? 'the ShopBot takes boards from 1/4 in (6.35 mm) up. Thinner sheet goes to the laser.' : 'the ShopBot takes boards up to 2 1/2 in (63.5 mm) thick.',
                         hint: sz < 6.35 ? 'use the laser for thin sheet' : 'ask the technician about thicker stock' });
                 }
@@ -801,7 +806,7 @@ function setup_keybd_nav() {
         // re-evaluate on settings + op changes
         // conf.save emits settings.saved on every op add/edit; the material
         // system emits cam.op.render after a re-derive
-        ['settings','settings.saved','cam.op.render','widget.add','widget.delete','device.selected','selection.move','selection.scale','selection.drag','slice.end']
+        ['settings','settings.saved','cam.op.render','widget.add','widget.delete','device.selected','selection.move','selection.scale','selection.drag','slice.end','units.set']
             .forEach(ev => api.event.on(ev, evaluate));
         window.addEventListener('swarf.material.change', evaluate);
     })();

@@ -132,9 +132,10 @@ export function menu() {
     camTabsMidline:      newBoolean(LANG.ct_midl_s, onBooleanClick, {title:LANG.ct_midl_l}),
     separator:           newBlank({ class:"set-sep", driven }),
     camTabsManual: newRow([
-        (ui.tabAdd = newButton(undefined, onButtonClick, {icon:'<i class="fas fa-plus"></i>', title:"place tabs by hand: click the part's edge to add one, click a tab to remove it"})),
-        (ui.tabDun = newButton(undefined, onButtonClick, {icon:'<i class="fas fa-check"></i>', title:"done placing tabs"})),
-        (ui.tabClr = newButton(undefined, onButtonClick, {icon:'<i class="fas fa-trash-alt"></i>', title:"remove every tab"}))
+        // swarf (whole-app review r086 B8): the by-hand tools say what they do, as auto tabs does
+        (ui.tabAdd = newButton('add by hand', onButtonClick, {title:"place tabs by hand: click the part's edge to add one, click a tab to remove it"})),
+        (ui.tabDun = newButton('done', onButtonClick, {title:"done placing tabs"})),
+        (ui.tabClr = newButton('remove all', onButtonClick, {title:"remove every tab"}))
     ], {class:"ext-buttons f-row"}),
     separator:           newBlank({ class:"set-sep", driven }),
     // swarf: auto tabs, a starting set sized for the material, bit, board and machine; its fields

@@ -221,21 +221,21 @@ function content(actions) {
                     menuItem(actions, { id: 'view-fit', text: 'fit to part', iconClass: 'fas fa-arrows-to-circle' }),
                     menuItem(actions, { id: 'view-home', text: 'home', iconClass: 'fas fa-home' }),
                     menuItem(actions, { id: 'view-top', text: 'top', iconClass: 'fas fa-square' }),
-                    menuItem(actions, { id: 'context-setfocus', text: 'focal point', iconClass: 'fas fa-eye' }),
+                    menuItem(actions, { id: 'context-setfocus', text: 'turn around the picked part', iconClass: 'fas fa-eye' }),
                     hr(),
                     // swarf: render modes folded into view — they're display choices
                     menuItem(actions, { id: 'render-solid', text: 'solid', iconClass: 'fas fa-square' }),
                     menuItem(actions, { id: 'render-wire', text: 'wireframe', iconClass: 'fas fa-border-all' }),
-                    menuItem(actions, { id: 'render-ghost', text: 'transparent', iconClass: 'fas fa-border-none' }),
-                    menuItem(actions, { id: 'render-edges', text: 'toggle edges', iconClass: 'fa-regular fa-square' }),
+                    menuItem(actions, { id: 'render-ghost', text: 'see-through part', iconClass: 'fas fa-border-none' }),
+                    menuItem(actions, { id: 'render-edges', text: 'edges', iconClass: 'fa-regular fa-square' }),
                     hr(),
                     // swarf v010 r7 rev2: simulate display toggles — click
                     // dispatches to the hidden sim-bar button with the same
                     // onclick handler, so behavior is identical whether the
                     // user uses the sim bar icons or this menu.
-                    menuItem(actions, { id: 'view-trans', text: 'transparency',    iconClass: 'fa-solid fa-border-none' }),
-                    menuItem(actions, { id: 'view-model', text: 'show part model', iconClass: 'fa-solid fa-eye' }),
-                    menuItem(actions, { id: 'view-shade', text: 'stock box',       iconClass: 'fa-solid fa-cube' }),
+                    menuItem(actions, { id: 'view-trans', text: 'see-through stock (simulate)', iconClass: 'fa-solid fa-circle-half-stroke' }),
+                    menuItem(actions, { id: 'view-model', text: 'the part (simulate)', iconClass: 'fa-solid fa-eye' }),
+                    menuItem(actions, { id: 'view-shade', text: 'stock box (simulate)', iconClass: 'fa-solid fa-cube' }),
                     hr(),
                     // swarf: expert-mode toggle lives under view (it's a display choice, not a preference)
                     menuItem(actions, { id: 'swarf-expert-toggle', text: 'advanced<sup class="swarf-alpha-sup">alpha</sup>', title: 'show advanced (alpha) tools — untested, may change', iconClass: 'fas fa-user-gear' }),
