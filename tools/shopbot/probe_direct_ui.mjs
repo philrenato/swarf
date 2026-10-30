@@ -4,7 +4,7 @@
 //   node probe_direct_ui.mjs [url] file.sbp
 import puppeteer from 'puppeteer-core';
 import { readFileSync, mkdirSync } from 'node:fs';
-const CHROME = process.env.CHROME || '/Applications/Google Chrome for Testing.app/Contents/MacOS/Google Chrome for Testing';
+const CHROME = process.env.CHROME || (process.env.HOME + '/.local/bin/chrome-for-testing');
 const PAGE = process.argv[2] || 'http://localhost:8080/kiri/';
 const FILE = process.argv[3];
 const OUT = process.env.OUT || '/tmp/swarf-direct';

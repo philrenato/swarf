@@ -8,7 +8,7 @@
 //  #19 the simulator's continuous jog follows the speed row (it ran 6000 mm/min)
 //   node tools/probe_review.mjs [url]
 import puppeteer from 'puppeteer-core';
-const CHROME = process.env.CHROME || '/Applications/Google Chrome for Testing.app/Contents/MacOS/Google Chrome for Testing';
+const CHROME = process.env.CHROME || (process.env.HOME + '/.local/bin/chrome-for-testing');
 const PAGE = process.argv[2] || 'http://localhost:8080/kiri/';
 const wait = ms => new Promise(r => setTimeout(r, ms));
 const browser = await puppeteer.launch({ executablePath: CHROME, headless: 'new', args: ['--window-size=1440,900'] });

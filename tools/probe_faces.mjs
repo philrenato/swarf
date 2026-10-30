@@ -3,7 +3,7 @@
 // their tops face up and light like the rest (Phil 10-27: "too dark").
 //   node tools/probe_faces.mjs [url]
 import puppeteer from 'puppeteer-core';
-const CHROME = process.env.CHROME || '/Applications/Google Chrome for Testing.app/Contents/MacOS/Google Chrome for Testing';
+const CHROME = process.env.CHROME || (process.env.HOME + '/.local/bin/chrome-for-testing');
 const PAGE = process.argv[2] || 'http://localhost:8080/kiri/';
 const browser = await puppeteer.launch({ executablePath: CHROME, headless: 'new', args: ['--window-size=1440,900'] });
 const errors = [], bad = [];

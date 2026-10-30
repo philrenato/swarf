@@ -6,7 +6,7 @@
 //   node tools/probe_text.mjs [url]
 import puppeteer from 'puppeteer-core';
 import { fileURLToPath } from 'node:url';
-const CHROME = process.env.CHROME || '/Applications/Google Chrome for Testing.app/Contents/MacOS/Google Chrome for Testing';
+const CHROME = process.env.CHROME || (process.env.HOME + '/.local/bin/chrome-for-testing');
 const PAGE = process.argv[2] || 'http://localhost:8080/kiri/';
 const OUT = process.env.OUT || '/tmp/swarf-text';
 const INTER = fileURLToPath(new URL('./fixtures-2d/Inter-Regular.ttf', import.meta.url));

@@ -7,7 +7,7 @@
 import puppeteer from 'puppeteer-core';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
-const CHROME = process.env.CHROME || '/Applications/Google Chrome for Testing.app/Contents/MacOS/Google Chrome for Testing';
+const CHROME = process.env.CHROME || (process.env.HOME + '/.local/bin/chrome-for-testing');
 const PAGE = process.argv[2] || 'http://localhost:8080/kiri/';
 const OUT = process.env.OUT || '/tmp/swarf-fonts';
 const INTER = readFileSync(fileURLToPath(new URL('./fixtures-2d/Inter-Regular.ttf', import.meta.url))).toString('base64');

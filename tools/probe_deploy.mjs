@@ -1,5 +1,5 @@
 import puppeteer from 'puppeteer-core';
-const CHROME = process.env.CHROME || '/Applications/Google Chrome for Testing.app/Contents/MacOS/Google Chrome for Testing';
+const CHROME = process.env.CHROME || (process.env.HOME + '/.local/bin/chrome-for-testing');
 const browser = await puppeteer.launch({
     executablePath: CHROME, headless: 'new',
     defaultViewport: { width: 390, height: 844, isMobile: true, hasTouch: true },

@@ -1,6 +1,6 @@
 import puppeteer from 'puppeteer-core';
 import { writeFileSync } from 'fs';
-const CHROME = process.env.CHROME || '/Applications/Google Chrome for Testing.app/Contents/MacOS/Google Chrome for Testing';
+const CHROME = process.env.CHROME || (process.env.HOME + '/.local/bin/chrome-for-testing');
 const PAGE = process.argv[2] || 'http://127.0.0.1:8139/swarf-app/';
 const OUT = process.argv[3];
 const b = await puppeteer.launch({ protocolTimeout: 60000, executablePath: CHROME, headless: 'new', args: ['--window-size=1200,900'] });
