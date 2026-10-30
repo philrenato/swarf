@@ -506,6 +506,50 @@ html[data-skin] #swarf-run .sr-jog .sr-zrow button.next, html[data-skin] #swarf-
     });
   }
 
+  // Step and speed rows (Phil 10-27: findable, plain, more humane than most control software), in cam's
+  // units (Phil 10-30: "when in inches the jog panel is still in mm"); inside, steps stay mm and speeds mm/min
+  function inch() { return !!window.SwarfLength && SwarfLength.unit() === 'in'; }
+  function rateRows() {
+    const IN = 25.4, ui = inch(), u = ui ? 'in' : 'mm';
+    S.rowsUnit = u;
+    const same = (a, b) => typeof a === 'number' && typeof b === 'number' && Math.abs(a - b) < 1e-6;
+    el.modes.replaceChildren(h('span', { class: 'lbl' }, 'step', h('small', { text: u })));
+    const stepIn = h('input', { type: 'text', inputmode: 'decimal', placeholder: `${u}…`, title: ui ? 'Type any step, then Enter: 1/2, 0.25 in or 5 mm' : 'Type any step in mm, then Enter (1/2 in works too)' });
+    const steps = (ui ? [0.01, 0.1, 1, 2] : [0.1, 1, 10, 50]).map(v => ui ? v * IN : v);
+    const pickStep = (v, b) => { S.jogStep = v; for (const c of el.modes.querySelectorAll('button')) c.classList.toggle('on', c === b); stepIn.classList.toggle('on', !b); };
+    for (const v of [...steps, 'cont']) {
+      const label = v === 'cont' ? 'continuous' : String(ui ? +(v / IN).toFixed(4) : v);
+      const b = h('button', { class: v === 'cont' ? 'held' : '', text: label, title: v === 'cont' ? 'Continuous (as on the MR-1): moves for as long as you hold the button or key down. No end stops on this machine: let go in time.' : `Each press moves ${label} ${u}` });
+      b.onclick = () => pickStep(v, b);
+      if (v === S.jogStep || same(v, S.jogStep)) b.classList.add('on');
+      el.modes.append(b);
+    }
+    // a step that is none of the buttons (typed, or from the other units) shows in the field
+    if (S.jogStep !== 'cont' && !steps.some(x => same(x, S.jogStep))) { stepIn.value = window.SwarfLength ? SwarfLength.show(S.jogStep) : String(S.jogStep); stepIn.classList.add('on'); }
+    // a typed step stays within half the bed's width, the most one press should move (torture test 10-29: 5000 mm went)
+    stepIn.addEventListener('change', () => {
+      const v = mmOf(stepIn.value);
+      if (v > 600) { stepIn.value = ''; tell(`A jog step goes up to ${ui ? 'about 24 in (600 mm)' : '600 mm (about 24 in)'}. For longer moves use continuous, or go to.`, 'warn'); return; }
+      if (v > 0) pickStep(v, null);
+    });
+    stepIn.addEventListener('keydown', e => { if (e.key === 'Enter') stepIn.blur(); });
+    el.modes.insertBefore(stepIn, el.modes.querySelector('button.held'));
+    const su = ui ? 'in/min' : 'mm/min', zMax = ui ? `${Math.round(Z_JOG_MAX / IN)} in/min` : `${Z_JOG_MAX}`;
+    el.speeds.replaceChildren(h('span', { class: 'lbl' }, 'speed', h('small', { text: su })));
+    const speeds = ui ? [10, 20, 40, 100, 200].map(v => v * IN) : [250, 500, 1000, 2500, 5000];
+    // the speed lit is the one nearest what is set, so a switch of units keeps a button lit
+    const lit = S.jogSpeed === 'rapid' ? 'rapid' : speeds.reduce((a, b) => Math.abs(b - S.jogSpeed) < Math.abs(a - S.jogSpeed) ? b : a);
+    if (lit !== S.jogSpeed) { S.jogSpeed = lit; if (S.machine) setJogSpeed(); }
+    for (const v of [...speeds, 'rapid']) {
+      const label = v === 'rapid' ? 'max' : String(ui ? Math.round(v / IN) : v);
+      const b = h('button', { text: label, title: (v === 'rapid' ? (ui ? 'The shop jog speed, about 236 in/min' : 'The shop jog speed, 6000 mm/min') : `Jog at ${label} ${su}`) + `; Z never above ${zMax}` });
+      b.onclick = () => { S.jogSpeed = v; setJogSpeed(); for (const c of el.speeds.querySelectorAll('button')) c.classList.toggle('on', c === b); };
+      if (v === lit) b.classList.add('on');
+      el.speeds.append(b);
+    }
+  }
+  // a position on the readout, in cam's units
+  function posText(mm) { return inch() ? (mm / 25.4).toFixed(4) : mm.toFixed(3); }
   function build() {
     document.head.append(h('style', { text: scoped(CSS) }));
     const root = el.root = h('div', { id: 'swarf-run' });
@@ -570,31 +614,9 @@ html[data-skin] #swarf-run .sr-jog .sr-zrow button.next, html[data-skin] #swarf-
         el.zzBtn = h('button', { text: 'zero z', title: 'This height becomes Z 0', onclick: () => doZero('z') }),
         el.plateBtn = h('button', { text: 'z plate', title: 'Zero Z with the touch plate: a short guide', onclick: plateWizard })),
       el.keepZero = h('button', { class: 'sr-keepzero', text: '', onclick: keepZero }));
-    // Step and speed rows (Phil 10-27: findable, plain, more humane than most control software)
-    el.modes = h('div', { class: 'sr-modes sr-steprow' }, h('span', { class: 'lbl' }, 'step', h('small', { text: 'mm' })));
-    const stepIn = h('input', { type: 'text', inputmode: 'decimal', placeholder: 'mm…', title: 'Type any step in mm, then Enter' });
-    const pickStep = (v, b) => { S.jogStep = v; for (const c of el.modes.querySelectorAll('button')) c.classList.toggle('on', c === b); stepIn.classList.toggle('on', !b); };
-    for (const v of [0.1, 1, 10, 50, 'cont']) {
-      const b = h('button', { class: v === 'cont' ? 'held' : '', text: v === 'cont' ? 'continuous' : String(v), title: v === 'cont' ? 'Continuous (as on the MR-1): moves for as long as you hold the button or key down. No end stops on this machine: let go in time.' : `Each press moves ${v} mm` });
-      b.onclick = () => pickStep(v, b);
-      if (v === S.jogStep) b.classList.add('on');
-      el.modes.append(b);
-    }
-    // a typed step stays within half the bed's width, the most one press should move (torture test 10-29: 5000 mm went)
-    stepIn.addEventListener('change', () => {
-      const v = mmOf(stepIn.value);
-      if (v > 600) { stepIn.value = ''; tell('A jog step goes up to 600 mm (about 24 in). For longer moves use continuous, or go to.', 'warn'); return; }
-      if (v > 0) pickStep(v, null);
-    });
-    stepIn.addEventListener('keydown', e => { if (e.key === 'Enter') stepIn.blur(); });
-    el.modes.insertBefore(stepIn, el.modes.querySelector('button.held'));
-    el.speeds = h('div', { class: 'sr-modes' }, h('span', { class: 'lbl' }, 'speed', h('small', { text: 'mm/min' })));
-    for (const v of [250, 500, 1000, 2500, 5000, 'rapid']) {
-      const b = h('button', { text: v === 'rapid' ? 'max' : String(v), title: (v === 'rapid' ? 'The shop jog speed, 6000 mm/min' : `Jog at ${v} mm/min`) + `; Z never above ${Z_JOG_MAX}` });
-      b.onclick = () => { S.jogSpeed = v; setJogSpeed(); for (const c of el.speeds.querySelectorAll('button')) c.classList.toggle('on', c === b); };
-      if (v === S.jogSpeed) b.classList.add('on');
-      el.speeds.append(b);
-    }
+    el.modes = h('div', { class: 'sr-modes sr-steprow' });
+    el.speeds = h('div', { class: 'sr-modes' });
+    rateRows();
     el.jog.append(el.modes, el.speeds);
     const pad = h('div', { class: 'sr-pad' });
     const WORDS = { '+Y': 'away', '−Y': 'toward', '−X': 'left', '+X': 'right', '+Z': 'up', '−Z': 'down' };
@@ -1487,14 +1509,14 @@ html[data-skin] #swarf-run .sr-jog .sr-zrow button.next, html[data-skin] #swarf-
     const reach = h('input', { type: 'text', inputmode: 'decimal', value: String(Math.round((m.plateCfg && m.plateCfg.travel) || 60)), title: 'How far the bit comes down looking for the plate before it gives up' });
     reach.addEventListener('keydown', e => e.stopPropagation());
     reach.addEventListener('change', () => {
-      const t = mmOf(reach.value);
+      const t = mmOf(reach.value, 'mm');
       if (!(t >= 10 && t <= 150) || !m.setPlateTravel || !m.setPlateTravel(t)) { reach.value = String(Math.round((m.plateCfg && m.plateCfg.travel) || 60)); say('Search down is 10 to 150 mm.', 'warn'); return; }
       reach.value = String(+t.toFixed(1));
       const over = boxes.over && boxes.over.nextElementSibling;
       if (over) over.textContent = `The bit is over your board, less than ${Math.round(t)} mm above the plate (its search distance).`;
     });
     thick.addEventListener('change', () => {
-      const t = mmOf(thick.value);
+      const t = mmOf(thick.value, 'mm');
       if (!(t > 0 && t < 50) || !m.setPlateThickness || !m.setPlateThickness(t)) { thick.value = String(+m.plateCfg.thickness.toFixed(3)); say('A plate is between 0 and 50 mm thick: measure yours with calipers.', 'warn'); }
       else thick.value = String(+t.toFixed(3));
     });
@@ -1584,7 +1606,8 @@ html[data-skin] #swarf-run .sr-jog .sr-zrow button.next, html[data-skin] #swarf-
     try { localStorage.setItem(ZERO_KEY, JSON.stringify({ had: S.zeroHad || null, at: S.zeroSetAt || 0, steps: S.lastSteps || null })); } catch (e) { /* private window */ }
   }
   // a typed length in control: mm unless it says otherwise (Phil 10-29: "I type 6in and it makes it mm")
-  function mmOf(t) { return window.SwarfLength ? SwarfLength.parse(t, 'mm') : parseFloat(t); }
+  // a bare number is in cam's units; the plate's fields name millimeters, so they pass 'mm'
+  function mmOf(t, def) { return window.SwarfLength ? SwarfLength.parse(t, def) : parseFloat(t); }
   function progKey() { return S.prog ? `${S.prog.source}|${S.prog.name}|${originText().xy}` : ''; }
   function keepZero() {
     const had = S.zeroHad || { xy: true, z: true };
@@ -1608,7 +1631,7 @@ html[data-skin] #swarf-run .sr-jog .sr-zrow button.next, html[data-skin] #swarf-
   function typeWork(a) {
     const m = S.machine;
     if (!m || !m.setWork || m.state.running) return;
-    const span = el.dro[a], inp = h('input', { type: 'text', inputmode: 'decimal', class: 'v', value: (m.state.pos[a] || 0).toFixed(3), title: 'a position in mm; 1 1/2 in or 38 mm work too' });
+    const span = el.dro[a], inp = h('input', { type: 'text', inputmode: 'decimal', class: 'v', value: posText(m.state.pos[a] || 0), title: inch() ? 'a position in inches; 1 1/2, 0.75 in or 38 mm work too' : 'a position in mm; 1 1/2 in or 38 mm work too' });
     span.replaceWith(inp); inp.focus(); inp.select();
     let done = false;
     const finish = ok => {
@@ -2125,7 +2148,7 @@ html[data-skin] #swarf-run .sr-jog .sr-zrow button.next, html[data-skin] #swarf-
 
   function onState(st) {
     if (isDirect() && (st.connected || st.lostMid)) { S.lastSteps = { ...S.machine.steps }; if (S.zeroXY || S.zeroZ) rememberZero(); else saveZero(); }
-    for (const a of ['x', 'y', 'z']) el.dro[a].textContent = (st.pos[a] || 0).toFixed(3);
+    for (const a of ['x', 'y', 'z']) el.dro[a].textContent = posText(st.pos[a] || 0);
     if (isDirect() && st.mpos) for (const a of ['x', 'y', 'z']) el.dro[a].title = `machine count ${st.mpos[a].toFixed(2)} mm since the box was switched on · click to type a position`;
     el.mpos.textContent = isDirect() && st.mpos
       ? `machine ${['x', 'y', 'z'].map(a => a.toUpperCase() + ' ' + st.mpos[a].toFixed(1)).join(' ')} · ${S.machine.limitsKnown() ? 'limits on' : 'no end stops: watch the ends'}`
@@ -2264,6 +2287,7 @@ html[data-skin] #swarf-run .sr-jog .sr-zrow button.next, html[data-skin] #swarf-
   }
   function open() {
     if (!el.root) build();
+    else if (S.rowsUnit !== (inch() ? 'in' : 'mm')) rateRows();
     place();
     if (!S.placeHooked) { window.addEventListener('resize', place); S.placeHooked = true; }
     el.root.classList.add('open');
@@ -2389,6 +2413,7 @@ html[data-skin] #swarf-run .sr-jog .sr-zrow button.next, html[data-skin] #swarf-
   // a card on control's sheet, for swarf-lessons.js: nodes in, the sheet shown; null hides it
   function card(nodes) {
     if (!el.root) build();
+    else if (S.rowsUnit !== (inch() ? 'in' : 'mm')) rateRows();
     if (!nodes) { el.sheet.classList.remove('on'); refresh(); return; }
     el.card.innerHTML = ''; el.card.append(...nodes); el.sheet.classList.add('on');
   }

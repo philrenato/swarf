@@ -2350,3 +2350,16 @@ html[data-skin] #swarf-draw svg .sd-part.sd-line.on { fill: none !important; str
 #swarf-draw .sd-reg.on:hover { fill: rgba(216,210,198,.3); }
 html[data-skin] #swarf-draw svg .sd-part.sd-regsrc, #swarf-draw svg .sd-part.sd-regsrc { stroke-dasharray: none !important; stroke-width: 1; pointer-events: none; }
 #swarf-draw .sd-card select.wide { width: 140px; text-overflow: ellipsis; } #swarf-draw .sd-card select#sd-mode { width: 100%; flex: 1; }
+
+/* mm | in on the bed's top-left corner (swarf-prefs.js unitsSwitch, Phil 10-30) */
+#swarf-units { position: fixed; top: 52px; left: 14px; z-index: 40; display: flex; gap: 0; }
+#swarf-units button { font-size: 12px; padding: 4px 10px; min-width: 38px; margin: 0; }
+#swarf-units button:first-child { border-top-right-radius: 0; border-bottom-right-radius: 0; }
+#swarf-units button:last-child { border-top-left-radius: 0; border-bottom-left-radius: 0; margin-left: -1px; }
+body.swarf-modal-open #swarf-units { display: none; }
+
+/* a notice's own × (alerts.js, Phil 10-30): it closes that one; it never looks like it stays */
+#alert-text p.alert-one { display: flex; align-items: flex-start; gap: 10px; }
+#alert-text p.alert-one > span { flex: 1; }
+#alert-text .alert-x { flex: none; border: 0; background: transparent; color: inherit; opacity: 0.6; font-size: 18px; line-height: 1; padding: 0 2px; margin: -2px -4px 0 0; cursor: pointer; min-width: 0; box-shadow: none; }
+#alert-text .alert-x:hover, #alert-text .alert-x:focus-visible { opacity: 1; }
