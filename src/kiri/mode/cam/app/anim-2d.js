@@ -528,21 +528,31 @@ function add_red_neg_z(material) {
             `
             #include <worldpos_vertex>
             vWorldPosition = vec3(transformed);
+            vSlopeZ = normalize(objectNormal).z;
             `
         );
 
         shader.vertexShader = `
             varying vec3 vWorldPosition;
+            varying float vSlopeZ;
         ` + shader.vertexShader;
 
         shader.fragmentShader = `
             varying vec3 vWorldPosition;
+            varying float vSlopeZ;
         ` + shader.fragmentShader;
 
         shader.fragmentShader = shader.fragmentShader.replace(
             `#include <dithering_fragment>`,
             `
             #include <dithering_fragment>
+            // swarf (review 10-30 B9): a carved face darkens with its slope, so a texture's low
+            // relief reads from above; the flat top (z ~ 1) and the board's sides (z ~ 0) keep
+            // their shade
+            {
+                float t = clamp((0.995 - vSlopeZ) / 0.45, 0.0, 1.0) * smoothstep(0.15, 0.35, vSlopeZ);
+                gl_FragColor.rgb *= 1.0 - 0.3 * t;
+            }
             // a floor cut to exactly z=0 is not a bed cut; 0.0 flickers
             if (vWorldPosition.z < -0.01) {
                 gl_FragColor.rgb += vec3(0.5, 0.0, 0.0); // Add red tint

@@ -335,3 +335,14 @@ html[data-skin="classic"] #swarf-run .sr-actions button.wait { box-shadow: inset
 html[data-skin="classic"] #swarf-run .sr-mach .sr-out { color: #fff !important; text-shadow: 1px 1px 0 #000 !important; }   /* links in the machine box sit on the blue desktop */
 /* cut ready or a job moving: white on navy (the skin map's .cut:not(:disabled) black outranked it) */
 html[data-skin="classic"] #swarf-run .sr-actions .cut:not(:disabled):not(.wait):not(.quiet) { color: #fff !important; }
+
+/* a notice's close: a Platinum close box (11 px, a 1 px frame, an inset bevel), not the 95 button
+   bevel squeezed round a × that read as a broken image (review 10-30 B6) */
+html[data-skin="classic"] #alert-text button.alert-x {
+  width: 13px; height: 13px; min-width: 13px; padding: 0 !important; margin: 1px 0 0 6px; box-sizing: border-box;
+  background: linear-gradient(135deg, #fff, #c8c8c8) !important; border: 1px solid #222 !important;
+  box-shadow: inset 1px 1px 0 #fff, inset -1px -1px 0 #888 !important; border-radius: 0 !important;
+  color: transparent !important; font-size: 0 !important; opacity: 1; cursor: pointer;
+}
+html[data-skin="classic"] #alert-text button.alert-x:hover { background: #a8a8a8 !important; box-shadow: inset 1px 1px 0 #666, inset -1px -1px 0 #ddd !important; }
+html[data-skin="classic"] #alert-text button.alert-x:focus-visible { outline: 1px dotted #000; outline-offset: 1px; }

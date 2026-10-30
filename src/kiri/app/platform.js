@@ -1247,7 +1247,8 @@ function load_files(files, group) {
                 // drawing (meta.svg) and DRAW, TEX and "save drawing" can use it
                 loadSVGDialog(opt => {
                     group = group || [];
-                    const made = load_svg_into(group, data.textDecode('utf-8'), name, opt);
+                    // the part is "bracket", not "bracket.svg" (review 10-30 C6: TEX said "kerfs on bracket.svg-1")
+                    const made = load_svg_into(group, data.textDecode('utf-8'), name.replace(/\.svg$/i, ''), opt);
                     if (made.length === 0) {
                         api.show.alert(`SVG contains no polylines`, 10);
                         api.show.alert(`Fonts must be converted to paths`, 10);

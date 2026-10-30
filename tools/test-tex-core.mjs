@@ -460,6 +460,10 @@ for (const [id, P] of Object.entries(T.PATTERNS)) {
     }
   }
   ok(T.partMeshSize([[[0, 0], [2440, 0], [2440, 1220], [0, 1220]]], T.autoMeshRes([[[0, 0], [2440, 0], [2440, 1220], [0, 1220]]])).triangles < 1.2e6, 'a 4 x 8 sheet by default stays near a million triangles');
+  {
+    const board = [[[0, 0], [152.4, 0], [152.4, 254], [0, 254]]], sz = T.partMeshSize(board, T.autoMeshRes(board));
+    ok(sz.triangles * 50 / 1e6 <= 10.5, `a 6 x 10 in cutting board by default: ${(sz.triangles / 1000).toFixed(0)} thousand triangles, ${(sz.triangles * 50 / 1e6).toFixed(1)} MB as STL (at most about 10)`);
+  }
 }
 
 // 20. no stair steps: every wall lies on the true outline (the part's polygon, a hole's circle, a

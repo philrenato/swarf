@@ -2022,7 +2022,9 @@ export function partMeshSize(loops, res) {
   return { cells: Math.ceil(area / (res * res)), triangles: Math.ceil(area / (res * res)) * 4 + Math.ceil(2 * ((b[2] - b[0]) + (b[3] - b[1])) / res) * 2 };
 }
 const loopsBox = (loops) => { const b = [Infinity, Infinity, -Infinity, -Infinity]; for (const L of loops) for (const q of L) { b[0] = Math.min(b[0], q[0]); b[1] = Math.min(b[1], q[1]); b[2] = Math.max(b[2], q[0]); b[3] = Math.max(b[3], q[1]); } return b; };
-export function autoMeshRes(loops, maxCells = 250000) {
+// 48 000 cells: a 6 x 10 in cutting board comes out near 0.9 mm, about 200 thousand triangles and
+// 10 MB as STL, a file a student can email (review 10-30 F10: 0.5 mm made it 31 MB)
+export function autoMeshRes(loops, maxCells = 48000) {
   const b = loopsBox(loops), area = Math.max(1, (b[2] - b[0]) * (b[3] - b[1]));
   return Math.max(0.5, Math.sqrt(area / maxCells));
 }

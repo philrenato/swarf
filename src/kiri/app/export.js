@@ -38,6 +38,9 @@ export function exportFile(options) {
         .map(v => v.replace(/ /g,'-'))
         .map(v => v.substring(0,20))
         .map(v => v.split('.')[0]);
+    // swarf: a project saved or opened as a .swarf names the export after itself (review 10-30 F9)
+    const project = window.SwarfFile && window.SwarfFile.projectName && window.SwarfFile.projectName();
+    if (project) names.unshift(String(project).replace(/ /g, '-').substring(0, 40));
     api.event.emit('export', mode);
     switch (mode) {
         case 'WEDM':

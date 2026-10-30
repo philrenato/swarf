@@ -250,6 +250,10 @@
   const api = () => window.kiri && window.kiri.api;
   const $ = id => document.getElementById(id);
   const SAVED = 'swarf-file-saved';
+  // the name the project was last saved or opened as, while the bed is still that project: the
+  // export's file name starts with it (cutting-board.sbp, not rectangle-1-002.sbp)
+  let project = null;
+  const projectName = () => (project && api() && api().widgets.all().length ? project : null);
   const app = () => window.SWARF_VERSION || '';
   const units = () => { try { return api().conf.get().controller.units === 'in' ? 'in' : 'mm'; } catch (e) { return 'mm'; } };
   const say = (t, s) => { try { api().show.alert(t, s || 8); } catch (e) { console.log(t); } };
@@ -311,6 +315,7 @@
         ], progress => { a.show.progress(progress.percent / 100, 'saving the project'); }, output => {
           a.show.progress(0);
           a.util.download(output, `${name}.swarf`);
+          project = name;
           remember();
           say(`Saved ${name}.swarf: ${a.widgets.all().length} part${a.widgets.all().length === 1 ? '' : 's'} and ${stepCount()} step${stepCount() === 1 ? '' : 's'}. Drop it on swarf's bed, on this computer or another, to carry on.`, 8);
           resolve(true);
@@ -399,6 +404,7 @@
         try { a.event.emit('cam.op.render'); } catch (e) { /* none */ }
         remember();
         window.__swarfRestoring = false;
+        project = String(name).replace(/\.swarf$/i, '');
         const n = a.widgets.all().length, ops = stepCount();
         say([`Opened ${name}: ${n} part${n === 1 ? '' : 's'}, ${ops} step${ops === 1 ? '' : 's'}.`, ...notes].join(' '), notes.length ? 14 : 6);
         try { window.dispatchEvent(new CustomEvent('swarf.file.opened', { detail: { name, notes } })); } catch (e) { /* none */ }
@@ -437,5 +443,5 @@
     save();
   }, true);
 
-  window.SwarfFile = Object.assign({ save, open, unsaved, remember, readZip }, core);
+  window.SwarfFile = Object.assign({ save, open, unsaved, remember, readZip, projectName }, core);
 })(typeof window !== 'undefined' ? window : globalThis);
