@@ -3,7 +3,7 @@
 //    wait for when pressed (the sentence stays), with a "to run" line naming each need
 //  - control is the ShopBot's alone: hidden on the MR-1
 //  - a browser without USB is told at the right time: pressing control shows a card first
-//  - modes: in control and draw the step row folds to cam · draw · control; cam leads back
+//  - modes: in control and draw the step row folds to cam · draw · tex · control; cam leads back
 //  - setup › preferences regrouped in swarf's words
 //   node tools/probe_r49.mjs [url]
 import puppeteer from 'puppeteer-core';
@@ -115,9 +115,9 @@ try {
   const an = await page.evaluate(() => { const L = window.__swarfLessons.state(); return window.__swarfLessons.analyze({ ox: L.size + 9.6, ix: L.size - 9.4, oy: L.size + 9.5, iy: L.size - 9.5, dp: 3.1 }); });
   check(Math.abs(an.data.X - 0.1) < 1e-6 && Math.abs(an.data.Y) < 1e-9 && Math.abs(an.data.width - 9.5) < 1e-6, `measuring: X +${an.data.X}%, Y ${an.data.Y}%, groove ${an.data.width} mm, the bit's width out`);
 
-  // the row folds: cam · draw · control
+  // the row folds: cam · draw · tex · control
   const fold = await page.evaluate(() => [...document.querySelectorAll('#mode-tools > span')].filter(s => s.offsetParent).map(s => s.textContent.trim().toLowerCase()));
-  check(fold.join(',') === 'cam,draw,control', `control folds the row to cam · draw · control (${fold.join(' · ')})`);
+  check(fold.join(',') === 'cam,draw,tex,control', `control folds the row to cam · draw · tex · control (${fold.join(' · ')})`);
   await page.click('#swarf-step-cam');
   await wait(800);
   check(!(await page.evaluate(() => window.__swarfRun.state.open)) && await shown(page, 'act-paths') && !(await shown(page, 'swarf-step-cam')), 'cam leads back: control closes, cam steps return');
@@ -128,7 +128,7 @@ try {
   await wait(500);
   const d = await page.evaluate(() => ({ fold: [...document.querySelectorAll('#mode-tools > span')].filter(s => s.offsetParent).map(s => s.textContent.trim().toLowerCase()).join(','),
     top: document.getElementById('swarf-draw').getBoundingClientRect().top, row: document.getElementById('mode-tools').getBoundingClientRect().bottom }));
-  check(d.fold === 'cam,draw,control' && d.top >= d.row, `draw folds the row and sits under it (${d.fold}; draw top ${d.top}, row bottom ${d.row})`);
+  check(d.fold === 'cam,draw,tex,control' && d.top >= d.row, `draw folds the row and sits under it (${d.fold}; draw top ${d.top}, row bottom ${d.row})`);
   await page.click('#swarf-step-run');
   await page.waitForFunction(() => window.__swarfRun.state.open, { timeout: 10000 }).catch(() => {});
   check(!(await page.evaluate(() => window.__swarfDraw.state())) && await page.evaluate(() => window.__swarfRun.state.open), 'control from draw: draw closes, control opens');

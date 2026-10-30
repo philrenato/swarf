@@ -575,7 +575,7 @@
       const t = target(p, !erase);
       if (!t) { S.undo.pop(); render(); return; }
       const n = regionInto(t, p, erase ? 0 : 1);
-      if (!n) S.undo.pop(); else say(erase ? 'Taken out of the mark.' : 'The region is in the mark.');
+      if (!n) S.undo.pop(); else say(erase ? 'Taken out of the mark.' : t.part.drawn ? 'The region is in the mark.' : `The part's box is in the mark: ${t.part.name} has no drawing to find its outline from.`);
       render(); imagesSoon(); checkSoon();
       return;
     }
@@ -729,12 +729,14 @@
     const P = T().PATTERNS[e.mark.fill.pattern];
     return `texture: ${P ? P.label.toLowerCase() : e.mark.fill.pattern} on ${who}`;
   };
-  function syncSteps(a) {
+  // addOnly: a part come back (undo of a delete) gets its steps again, and nothing is taken away
+  // (parts arrive one by one when a workspace loads)
+  function syncSteps(a, addOnly) {
     a = a || api();
     const s = a.conf.get(), proc = s.process, ops = proc.ops || (proc.ops = []);
     const marks = marksOnBed(a);
     let added = 0, removed = 0, changed = false;
-    for (let i = ops.length - 1; i >= 0; i--) {
+    for (let i = ops.length - 1; i >= 0 && !addOnly; i--) {
       const o = ops[i];
       if (o && o.type === 'texture' && !marks.has(o.texmark)) { ops.splice(i, 1); removed++; }
     }
@@ -798,7 +800,7 @@
       const { thick } = sizeOf(w), name = nameOf(w);
       let loops = null;
       for (const m of w.meta.tex) {
-        const key = JSON.stringify([m.id, m.fill, m.xf, thick, m.region.nx, m.region.runs.length, LEN.unit(), w.meta.svg ? w.meta.svg.length : 0]);
+        const key = JSON.stringify([m.id, m.fill, m.xf, thick, m.region.nx, (m.region.runs || []).length, LEN.unit(), w.meta.svg ? w.meta.svg.length : 0]);
         if (!said.has(key)) {
           loops = loops || localLoops(w).loops;
           const mark = { ...m, region: T().regionSpec(m.region) };
@@ -852,6 +854,7 @@
       a.event.on('slice.begin', later(() => texAreas()));
       // a part deleted or copied: its marks' steps follow (a copy shares its marks' steps)
       for (const ev of ['widget.delete', 'widget.duplicate']) a.event.on(ev, later(() => setTimeout(later(() => { if (T()) syncSteps(a); }), 0)));
+      a.event.on('widget.add', later(w => setTimeout(later(() => { if (T() && [].concat(w).some(x => x && x.meta && Array.isArray(x.meta.tex))) syncSteps(a, true); }), 0)));
       if (step && !step.dataset.wired) { step.dataset.wired = '1'; step.addEventListener('click', open); }
     }
   }, 150);

@@ -96,6 +96,26 @@ try {
   await page.keyboard.down('Meta'); await page.keyboard.press('z'); await page.keyboard.up('Meta');
   const back = await page.evaluate(() => { const S = window.__swarfTex.state(); return S.parts[S.sel].marks[S.mark].region.data.reduce((s, v) => s + v, 0); });
   check(bitten < st.cells - 500 && back === st.cells, `erase takes a bite (${st.cells} → ${bitten}), ⌘Z puts it back (${back})`);
+  // a second mark: region (G) fills the part's whole top; an ellipse (E) on a third; delete takes both away
+  const cells = () => page.evaluate(() => { const S = window.__swarfTex.state(), m = S.parts[S.sel].marks[S.mark]; return { n: S.parts[S.sel].marks.length, at: S.mark, c: m ? m.region.data.reduce((s, v) => s + v, 0) : 0 }; });
+  await page.click('#tx-new');
+  await page.keyboard.press('g');
+  { const [x, y] = await px(page, 10, 10); await page.mouse.click(x, y); await wait(150); }
+  const reg = await cells();
+  check(reg.n === 2 && Math.abs(reg.c - 120 * 80 / 0.25) < 120 * 80 / 0.25 * 0.02, `region (G) fills the part's top: ${reg.c} cells (120 x 80 is ${120 * 80 / 0.25})`);
+  await page.click('#tx-new');
+  await page.keyboard.press('e');
+  await drag(page, [20, 20], [60, 50]);
+  const ell = await cells(), area = Math.PI * 20 * 15 / 0.25;
+  check(ell.n === 3 && Math.abs(ell.c - area) < area * 0.04, `ellipse (E) drags one out: ${ell.c} cells (about ${Math.round(area)})`);
+  await page.keyboard.press('v');
+  await page.keyboard.press('Delete');
+  await page.evaluate(() => { window.__swarfTex.state().mark = 1; });
+  await page.keyboard.press('Backspace');
+  await page.evaluate(() => { window.__swarfTex.state().mark = 0; });
+  await page.keyboard.press('b');
+  const one = await cells();
+  check(one.n === 1 && one.c === st.cells, `delete takes them away, the first mark stays (${JSON.stringify(one)})`);
   // the card: ocean waves, 2 mm deep, the 1/4 in ball
   await setSelect(page, 'tx-pat', 'waves');
   await setField(page, 'tx-depth', '2');
@@ -163,11 +183,27 @@ try {
   const J2 = judge(gc);
   check(pv === 'preview.end' && J2.n === J.n && J2.lo === J.lo, `after a reload the file cuts the same texture (${J2.n} cuts, lowest ${J2.lo})`);
 
-  // TEX opens with the mark; the cam step leaves it, as done does
+  // the part turned a quarter turn in cam: the mark turns with it (the cut's span swaps)
+  await page.evaluate(() => { const a = window.kiri.api, w = a.widgets.all()[0]; a.platform.deselect(); a.platform.select(w); a.selection.rotate(0, 0, Math.PI / 2); a.platform.deselect(); });
+  await wait(600);
+  ({ pv, gc } = await paths(page));
+  const J4 = judge(gc);
+  check(pv === 'preview.end' && Math.abs(J4.span[0] - J.span[1]) < 1.5 && Math.abs(J4.span[1] - J.span[0]) < 1.5 && J4.lo >= -2.001, `turned a quarter turn: the texture turns with its part (${J4.span.map(v => v.toFixed(1)).join(' x ')}, was ${J.span.map(v => v.toFixed(1)).join(' x ')})`);
+  await page.evaluate(() => { const a = window.kiri.api, w = a.widgets.all()[0]; a.platform.select(w); a.selection.rotate(0, 0, -Math.PI / 2); a.platform.deselect(); });
+  await wait(600);
+
+  // in inches, TEX's lengths say inches; TEX opens with the mark; the cam step leaves it, as done does
+  await page.evaluate(() => { const s = window.kiri.api.ui.units; s.value = 'in'; s.onchange(); });
+  await wait(300);
   await page.click('#swarf-step-tex');
   await page.waitForFunction(() => window.__swarfTex.state(), { timeout: 5000 });
   const again = await page.evaluate(() => window.__swarfTex.state().parts[0].marks.map(m => m.fill.pattern));
   check(again.join() === 'waves', `TEX opens with the mark (${again})`);
+  await page.evaluate(() => { const S = window.__swarfTex.state(); S.sel = 0; S.mark = 0; });
+  await page.keyboard.press('b');
+  const inch = await page.evaluate(() => ({ depth: document.getElementById('tx-depth')?.value, u: [...document.querySelectorAll('#tx-card .u')].map(u => u.textContent).filter(Boolean) }));
+  check(inch.depth === String(+(2 / 25.4).toFixed(4)) && inch.u.length && inch.u.every(u => u === 'in' || u === '%' || u === '°'), `in inches the card's lengths are inches (depth ${inch.depth} ${[...new Set(inch.u)].join(' ')})`);
+  await page.evaluate(() => { const s = window.kiri.api.ui.units; s.value = 'mm'; s.onchange(); });
   await page.click('#swarf-step-cam');
   await wait(400);
   check(!(await page.evaluate(() => !!window.__swarfTex.state())), 'the cam step leaves TEX');
