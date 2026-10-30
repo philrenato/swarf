@@ -18,6 +18,16 @@ function show(message, time) {
     if (message === undefined || message === null) {
         return update(true);
     }
+    // the same words already showing are shown once, for longer, never stacked (Phil 10-30:
+    // "about 3 of the same ones up in a row while I waited for them to fade")
+    let same = !api.feature.alert_event && alerts.find(a => a[3] && a[0] === message);
+    if (same) {
+        same[1] = Date.now();
+        same[2] = Math.max(same[2] || 5, time || 5);
+        setTimeout( update, (same[2] * 1000) + 20);
+        update();
+        return same;
+    }
     let rec = [message, Date.now(), time, true];
     if (api.feature.alert_event) {
         api.event.emit('alert', rec);
@@ -75,7 +85,11 @@ function update(clear) {
         return;
     }
     if (alerts.length > 0) {
-        ui.alert.text.innerHTML = alerts.map(v => ['<p>',v[0],'</p>'].join('')).join('');
+        // each one has its × so nobody waits for it to fade (Phil 10-30); a click elsewhere still clears all
+        ui.alert.text.innerHTML = alerts.map((v, i) => ['<p class="alert-one"><span>',v[0],'</span><button class="alert-x" data-i="',i,'" title="close" aria-label="close">×</button></p>'].join('')).join('');
+        for (let x of ui.alert.text.querySelectorAll('.alert-x')) {
+            x.onclick = ev => { ev.stopPropagation(); hide(alerts[+x.dataset.i]); };
+        }
         ui.alert.dialog.style.display = 'flex';
     } else {
         ui.alert.dialog.style.display = 'none';

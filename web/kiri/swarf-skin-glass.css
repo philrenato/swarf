@@ -317,7 +317,7 @@ html[data-skin="glass"] #swarf-run .sr-actions .stop:hover, html[data-skin="glas
 html[data-skin="glass"] #swarf-run .sr-modes button.on, html[data-skin="glass"] #swarf-run .sr-jog .sr-modes button.on,
 html[data-skin="glass"] #swarf-run .sr-modes.sr-steprow button.on, html[data-skin="glass"] #swarf-run .sr-sim button.on,
 html[data-skin="glass"] #swarf-run .sr-vtools button.on, html[data-skin="glass"] #swarf-sim-machine.on, html[data-skin="glass"] .swarf-toggle-on,
-html[data-skin="glass"] #swarf-origin-row button.selected { background: var(--g-aqua) !important; color: #fff !important; border-color: #2c2e32 !important; text-shadow: none !important; }
+html[data-skin="glass"] #swarf-origin-row button.selected, html[data-skin="glass"] #swarf-units button.selected { background: var(--g-aqua) !important; color: #fff !important; border-color: #2c2e32 !important; text-shadow: none !important; }
 html[data-skin="glass"] #swarf-run .sr-step .n { color: #3a3b3d !important; border-color: #8a8b8d !important; background: transparent !important; }
 html[data-skin="glass"] #swarf-run .sr-step.now .n, html[data-skin="glass"] #swarf-run .sr-step.done .n { color: #fff !important; background: #45484d !important; border-color: transparent !important; }
 html[data-skin="glass"] #swarf-run .sr-step { color: #48494b !important; }

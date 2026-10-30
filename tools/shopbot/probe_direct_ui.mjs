@@ -171,6 +171,20 @@ try {
     check(stopped && dy > 72 * 2 && dy < 72 * 15, `hold ↑ then ${how}: stopped=${stopped}, Y +${(dy / 72.18).toFixed(1)} mm`);
   }
   await page.evaluate(() => { window.__stub.state.realtime = false; });
+  // in inches the step, speed and readout are inches (Phil 10-30: "when in inches the jog panel is still in mm")
+  await page.evaluate(() => { const s = window.kiri.api.ui.units; s.value = 'in'; s.onchange(); window.__swarfRun.close(); window.__swarfRun.open(); });
+  await new Promise(r => setTimeout(r, 300));
+  const rowsIn = await page.evaluate(() => [...document.querySelectorAll('.sr-modes')].slice(0, 2).map(r => r.textContent));
+  check(/^stepin/.test(rowsIn[0]) && /0\.01/.test(rowsIn[0]) && /^speedin\/min/.test(rowsIn[1]) && /100/.test(rowsIn[1]), `in inches the rows say inches (${rowsIn.join(' | ')})`);
+  await pick(0, '1'); await pick(1, '100');
+  c0 = await card();
+  await page.keyboard.press('ArrowRight'); await idle();
+  c1 = await card();
+  const droIn = await page.$eval('.sr-axis .v', e => e.textContent);
+  check(Math.abs((c1[0] - c0[0]) / 72.18 - 25.4) < 0.1 && /^\d+\.\d{4}$/.test(droIn), `a 1 in step moves 25.4 mm (${((c1[0] - c0[0]) / 72.18).toFixed(2)}), the readout in inches (${droIn})`);
+  check(await page.evaluate(() => Math.abs(window.__swarfRun.state.machine.cfg.jog.xy - 2540 / 60) < 1e-9), 'speed 100 in/min reaches the jog as 2540 mm/min');
+  await page.evaluate(() => { const s = window.kiri.api.ui.units; s.value = 'mm'; s.onchange(); window.__swarfRun.close(); window.__swarfRun.open(); });
+  await new Promise(r => setTimeout(r, 300));
   await pick(0, '10'); await pick(1, 'max');
   // Z zero on the plate: contact 300 steps below here
   const zat = await page.evaluate(() => { const st = window.__stub.state; st.switches = [{ port: 0, bit: 0, axis: 2, at: st.pos[2] - 300, hit: 1 }]; return st.pos[2] - 300; });

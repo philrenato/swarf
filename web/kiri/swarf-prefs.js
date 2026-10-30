@@ -92,6 +92,38 @@
     return true;
   }
 
+  // mm | in on the bed's top-left corner (Phil 10-30: "what if we put an in/mm slider right here?"),
+  // one tap from every mode. It drives Kiri's own units select, so preferences and it are one setting.
+  function unitsSwitch() {
+    const ui = window.kiri && window.kiri.api && window.kiri.api.ui;
+    const sel = ui && ui.units;
+    if (!sel || !document.body) return false;
+    const box = document.createElement('div');
+    box.id = 'swarf-units';
+    box.setAttribute('role', 'radiogroup');
+    box.setAttribute('aria-label', 'units');
+    box.title = 'Millimeters or inches, for every number swarf shows (also in setup › preferences)';
+    const btns = {};
+    const show = () => { for (const [k, b] of Object.entries(btns)) { const on = sel.value === k; b.classList.toggle('selected', on); b.setAttribute('aria-checked', on); } };
+    for (const [k, word] of [['mm', 'mm'], ['in', 'in']]) {
+      const b = document.createElement('button');
+      b.textContent = word; b.setAttribute('role', 'radio');
+      b.addEventListener('click', () => {
+        if (sel.value !== k) { sel.value = k; if (sel.onchange) sel.onchange(); else sel.dispatchEvent(new Event('change')); }
+        show();
+      });
+      btns[k] = b; box.append(b);
+    }
+    document.body.append(box);
+    sel.addEventListener('change', show);
+    try { for (const ev of ['settings.load', 'settings.saved']) window.kiri.api.event.on(ev, show); } catch (e) { /* events not ready */ }
+    setInterval(show, 1000);   // a change made in code (onchange without an event) still shows
+    show();
+    return true;
+  }
+  let utries = 0;
+  const ut = setInterval(() => { if (unitsSwitch() || ++utries > 200) clearInterval(ut); }, 200);
+
   let tries = 0;
   const t = setInterval(() => { if (arrange() || ++tries > 200) clearInterval(t); }, 200);
   window.__swarfPrefs = { arrange, GROUPS };
