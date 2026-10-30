@@ -125,6 +125,14 @@ try {
     await page.evaluate(() => { const i = document.getElementById('tx-p-diameter'); if (i) { i.value = '3'; i.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true })); } });
     await page.waitForFunction(() => /About/.test(document.getElementById('tx-card')?.textContent || ''), { timeout: 15000 }).catch(() => {});
     await wait(500); await audit(page, skin, '07k-tex-mark', found);
+    // advanced mode: the same mark as a pierce (kerfs), and the points on its edge
+    await page.evaluate(() => { document.body.classList.add('swarf-expert'); const b = [...document.querySelectorAll('#tx-card .tx-fill')]; if (!b.length) window.__swarfTex.state() && document.getElementById('tx-svg').focus(); });
+    await page.keyboard.press('v'); await wait(200);
+    await page.evaluate(() => [...document.querySelectorAll('#tx-card .tx-fill')].find(b => b.dataset.fill === 'pierce')?.click());
+    await page.waitForFunction(() => /test strip/.test(document.getElementById('tx-card')?.textContent || ''), { timeout: 15000 }).catch(() => {});
+    await wait(400); await audit(page, skin, '07l-tex-pierce', found);
+    await page.keyboard.press('h'); await wait(400); await audit(page, skin, '07m-tex-points', found);
+    await page.evaluate(() => document.body.classList.remove('swarf-expert'));
     await page.evaluate(() => document.getElementById('tx-cancel')?.click()); await wait(800);
     for (const [id, name] of [['swarf-concordance', '07c-concordance'], ['swarf-help-search', '07d-help-search'], ['app-help', '07e-about']]) {
       await page.evaluate(id => document.getElementById(id)?.click(), id); await wait(700);
