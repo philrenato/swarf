@@ -130,7 +130,7 @@ try {
   await wait(500);
   await type('width', '3/4');
   t = await tabs(); f = await fieldsNow();
-  check(t.list.every(r => near(r.y, 19.05)) && f.width.v === '0.75' && f.width.unit === 'in', `3/4 in inches: tabs 19.05 mm long, the field says ${f.width.v} ${f.width.unit}`);
+  check(t.list.every(r => near(r.y, 19.05)) && f.width.v === '3/4' && f.width.unit === 'in', `3/4 in inches: tabs 19.05 mm long, the field says ${f.width.v} ${f.width.unit}`);
   await page.evaluate(() => { const s = window.kiri.api.ui.units; s.value = 'mm'; s.onchange(); s.dispatchEvent(new Event('change')); });
   await wait(500);
 
