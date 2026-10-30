@@ -288,6 +288,8 @@ function meshAdd(id, ind, pos, sab) {
     }
     space.world.add(mesh);
     meshes[id] = mesh;
+    // swarf: the simulated board's heightmap, for the probes that measure what was cut
+    if (id === 0 && typeof window !== 'undefined') window.__swarfSimStock = mesh;
 
     // swarf r14+: build the stock shell exactly once, when the heightmap
     // (id=0) comes in. Same material, placed at the same origin so the
@@ -332,9 +334,28 @@ function meshUpdates(id) {
     // swarf v010 r4: per-frame UV + normal rebuild made the tool lag behind
     // the cut. Initial UVs (built once in meshAdd) stay close enough as the
     // tool carves — slight texture stretch in cut regions is acceptable.
-    // Kiri's shader derives surface normals from derivatives, so no recompute
-    // is needed for correct specular.
+    // swarf (Phil 10-30, "simulate doesn't show the texture as it's going"): the
+    // stock's material (swarf-material.js, PBR) shades with the mesh's own
+    // normals, which were computed once on the flat board, so a carved texture
+    // shaded as uncut. The heightmap's normals follow the cut now, a few times
+    // a second while it plays and once more when it rests.
+    if (id === 0) stockNormalsSoon(mesh);
     space.update();
+}
+let normalsAt = 0, normalsCost = 0, normalsT = 0;
+function stockNormalsSoon(mesh) {
+    const now = performance.now();
+    const redo = () => {
+        const t0 = performance.now();
+        mesh.geometry.computeVertexNormals();
+        normalsCost = performance.now() - t0;
+        normalsAt = performance.now();
+        space.update();
+    };
+    clearTimeout(normalsT);
+    // never more than an eighth of the time spent on normals, at most 4 a second
+    if (now - normalsAt > Math.max(250, normalsCost * 8)) redo();
+    else normalsT = setTimeout(() => { if (meshes[0] === mesh) redo(); }, 300);
 }
 
 function deleteMesh(id) {
