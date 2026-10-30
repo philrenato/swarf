@@ -1,7 +1,8 @@
-// 2D drawings in: an Illustrator .ai and a .pdf (made by Unreason's writers,
+// 2D drawings in: an Illustrator .ai, a .pdf and an .svg (made by Unreason's writers,
 // tools/fixtures-2d) import through cam's file input as two parts at true size
-// (a 100 mm circle and a 60 x 40 rectangle), and the open line is reported and
-// left out.   node tools/probe_2d_import.mjs [url]
+// (a 100 mm circle and a 60 x 40 rectangle), each keeping its drawing; the "make parts"
+// dialog shows once per file (it came back after an SVG's parts, 085); and for .ai and
+// .pdf the open line is reported and left out.   node tools/probe_2d_import.mjs [url]
 import puppeteer from 'puppeteer-core';
 import { fileURLToPath } from 'node:url';
 import { CHROME } from './chrome-path.mjs';
@@ -12,7 +13,7 @@ const browser = await puppeteer.launch({ executablePath: CHROME, headless: 'new'
 const errors = [], bad = [];
 const check = (ok, what) => { console.log(ok ? 'ok  ' : 'FAIL', what); if (!ok) bad.push(what); };
 try {
-  for (const file of ['two-shapes.ai', 'two-shapes.pdf']) {
+  for (const file of ['two-shapes.ai', 'two-shapes.pdf', 'two-shapes.svg']) {
     const page = await browser.newPage();
     await page.setViewport({ width: 1440, height: 900 });
     page.on('pageerror', e => errors.push(`${file}: ${e.message}`));
@@ -25,19 +26,24 @@ try {
     const alerts = [];
     await page.exposeFunction('__alert', t => alerts.push(t));
     await page.evaluate(() => { const a = window.kiri.api.show.alert; window.kiri.api.show.alert = (t, s) => { window.__alert(String(t)); return a(t, s); }; });
+    // every time the dialog opens with "make parts" in it
+    await page.evaluate(() => { window.__makeParts = 0; const d = document.getElementById('dialog'), sm = d.showModal.bind(d); d.showModal = () => { if (/make parts/.test(d.textContent)) window.__makeParts++; return sm(); }; });
     const input = await page.$('#load-file');
     await input.uploadFile(FIX + file);
-    await page.waitForFunction(() => [...document.querySelectorAll('#dialog button')].some(b => /make parts/i.test(b.textContent)), { timeout: 15000 });
+    // as a student does: the dialog on the screen, then the press
+    await page.waitForFunction(() => document.getElementById('dialog').open && [...document.querySelectorAll('#dialog button')].some(b => /make parts/i.test(b.textContent)), { timeout: 15000 });
     await page.evaluate(() => { document.getElementById('svg-depth').value = '6'; [...document.querySelectorAll('#dialog button')].find(b => /make parts/i.test(b.textContent)).click(); });
     await page.waitForFunction(() => window.kiri.api.widgets.all().length >= 2, { timeout: 15000 }).catch(() => {});
-    await wait(800);
+    await wait(2500);
+    const asks = await page.evaluate(() => ({ n: window.__makeParts, open: document.getElementById('dialog').open }));
+    check(asks.n === 1 && !asks.open, `${file}: the make parts dialog showed once and is gone (${JSON.stringify(asks)})`);
     const sizes = await page.evaluate(() => window.kiri.api.widgets.all().map(w => {
       const b = new window.THREE.Box3().setFromObject(w.mesh);
       return [b.max.x - b.min.x, b.max.y - b.min.y, b.max.z - b.min.z].map(v => +v.toFixed(1)).sort((a, b) => a - b);
     }));
     const has = (a, b, c) => sizes.some(s => Math.abs(s[0] - a) < 0.2 && Math.abs(s[1] - b) < 0.6 && Math.abs(s[2] - c) < 0.6);
     check(sizes.length === 2 && has(6, 100, 100) && has(6, 40, 60), `${file}: parts ${JSON.stringify(sizes)}`);
-    check(alerts.some(t => /1 open line was left out/.test(t)), `${file}: the open line is reported (${JSON.stringify(alerts)})`);
+    if (!/\.svg$/.test(file)) check(alerts.some(t => /1 open line was left out/.test(t)), `${file}: the open line is reported (${JSON.stringify(alerts)})`);
     check(await page.evaluate(() => window.kiri.api.widgets.all().every(w => /<svg/.test(w.meta.svg || ''))), `${file}: each part keeps its drawing`);
     await page.close();
   }

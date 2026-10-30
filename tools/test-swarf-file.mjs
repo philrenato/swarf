@@ -114,6 +114,9 @@ const kset = JSON.parse(JSON.stringify({ process: proc, sproc: { CAM: { default:
 const dropped = F.kmzSafe(kset);
 ok(dropped === 1, `the live steps' texture step is counted (${dropped})`);
 ok(kset.process.ops.every(o => F.KIRI_OPS.includes(o.type)) && kset.sproc.CAM.other.ops.map(o => o.type).join() === 'drill', 'no swarf-only step left anywhere in a .kmz');
+const kclock = { process: { ops: [{ type: 'outline' }, { type: 'texture' }, { type: '|' }] } };
+F.kmzSafe(kclock);
+ok(kclock.process.ops.map(o => o.type).join() === 'outline,|', 'Kiri\'s end-of-steps marker stays in a .kmz');
 ok(F.KIRI_OPS.length === 19 && !F.KIRI_OPS.includes('texture') && !F.KIRI_OPS.includes('pierce'), 'Kiri:Moto\'s step list');
 // Kiri's own op list (src/kiri/mode/cam/core/ops.js) less swarf's: the list here matches it
 const ops = readFileSync(root + 'src/kiri/mode/cam/core/ops.js', 'utf8');

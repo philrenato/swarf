@@ -218,7 +218,8 @@
   function kmzSafe(set) {
     let dropped = 0;
     const keep = (list, count) => {
-      const k = list.filter(op => !op || KIRI_OPS.includes(op.type));
+      // '|' is Kiri's own end-of-steps marker (cam's step list keeps one last), not a step
+      const k = list.filter(op => !op || KIRI_OPS.includes(op.type) || op.type === '|');
       if (count) dropped += list.length - k.length;
       return k;
     };

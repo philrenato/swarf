@@ -76,6 +76,8 @@ async function toolpaths(page) {
   const gc = await page.evaluate(() => new Promise(res => { try { window.kiri.api.function.export(g => res(typeof g === 'string' ? g : (g?.gcode || String(g)))); } catch (e) { res(''); } setTimeout(() => res(''), 60000); }));
   return { pv, gc };
 }
+// Kiri's end-of-steps marker ('|', cam puts it back whenever it is missing) is not a step
+const stepTypes = ops => JSON.parse(ops).map(o => o.type).filter(t => t !== '|');
 const undated = gc => gc.split(/\r?\n/).filter(l => !/\b(19|20)\d\d[-/.]\d\d?[-/.]\d\d?\b|\b\d\d?[-/.]\d\d?[-/.](19|20)\d\d\b|\b\d\d?:\d\d(:\d\d)?\b|\b(date|time|generated|saved)\b/i.test(l));
 // a drawing as DRAW holds it on its board: each part's curves' control points
 const drawBoard = async page => {
@@ -129,6 +131,10 @@ try {
   await page.evaluate(() => { document.getElementById('svg-depth').value = '1/2'; [...document.querySelectorAll('#dialog button')].find(b => /make parts/.test(b.textContent)).click(); });
   await page.waitForFunction(() => window.kiri.api.widgets.all().length === 2, { timeout: 15000 }).catch(() => {});
   await wait(1200);
+  // pressed at once (before the dialog's own 150 ms show): it must not come back over the parts
+  const again = await page.evaluate(() => document.getElementById('dialog').open);
+  check(!again, 'the make parts dialog is gone once its parts are made');
+  if (again) await page.evaluate(() => [...document.querySelectorAll('#dialog button')].find(b => /cancel/.test(b.textContent))?.click());
   // move the imported part somewhere of its own
   await page.evaluate(() => { const w = window.kiri.api.widgets.all().find(w => /plate/.test(w.meta.file)); w.move(-150, 90, 0); w.saveState && w.saveState(); });
   let parts = await page.evaluate(() => window.kiri.api.widgets.all().map(w => ({ file: w.meta.file, svg: !!w.meta.svg })));
@@ -150,10 +156,21 @@ try {
   // auto tabs on the DRAW part, and one by hand
   await page.evaluate(() => { const a = window.kiri.api; a.platform.select(a.widgets.all().find(w => !/plate/.test(w.meta.file))); });
   await wait(300);
-  await page.evaluate(() => { window.__swarfAutoTabs.preview(); document.getElementById('swarf-autotabs-apply').click(); });
-  await wait(500);
+  // (086: the press places them at once, no apply step; one is resized, so pinned, and one
+  // deleted, so its place is a "no tab here" spot in the part's tab settings)
+  await page.evaluate(() => document.getElementById('swarf-autotabs-go').click());
+  await wait(600);
+  const edits = await page.evaluate(() => {
+    const a = window.kiri.api, T = window.__swarfTabEdit, w = a.widgets.all().find(w => !/plate/.test(w.meta.file));
+    const autos = (a.widgets.annotate(w.id).tab || []).filter(r => r.auto);
+    if (autos.length < 3) return { autos: autos.length };
+    T.pick(w, autos[0].id); const why = T.resize('width', 20); T.unpick && T.unpick();
+    T.pick(w, autos[1].id); const del = T.delete();
+    return { autos: autos.length, why, del };
+  });
+  check(edits.autos >= 3 && edits.why === '' && edits.del, `auto tabs placed, one resized and one deleted (${JSON.stringify(edits)})`);
   await page.evaluate(() => {
-    const a = window.kiri.api, w = a.widgets.all().find(w => !/plate/.test(w.meta.file)), l = a.widgets.annotate(w.id).tab, a0 = l.find(r => r.auto);
+    const a = window.kiri.api, w = a.widgets.all().find(w => !/plate/.test(w.meta.file)), l = a.widgets.annotate(w.id).tab, a0 = l.find(r => r.auto && !r.pinned);
     l.push({ pos: { x: -a0.pos.x, y: -a0.pos.y, z: a0.pos.z }, dim: a0.dim, rot: a0.rot, id: 4242 });
     w.saveState && w.saveState();
   });
@@ -163,13 +180,17 @@ try {
   const tabs0 = JSON.parse(a0.parts.find(p => !/plate/.test(p.file)).anno);
   const texN = (JSON.parse(a0.parts.find(p => !/plate/.test(p.file)).meta).tex || []).length;
   check(texN === 1, `a TEX mark on the drawn part (${texN})`);
-  check((tabs0.tab || []).filter(t => t.auto).length >= 2 && (tabs0.tab || []).some(t => t.id === 4242) && !!tabs0.tabset, `auto tabs, the hand tab and the part's tab settings (${(tabs0.tab || []).map(t => t.auto ? 'a' : 'h').join('')})`);
-  check(JSON.parse(a0.ops).map(o => o.type).join() === 'texture,outline' && a0.units === 'in' && a0.material === 'mdf', `steps ${JSON.parse(a0.ops).map(o => o.type)}, inches, MDF`);
+  check((tabs0.tab || []).filter(t => t.auto).length >= 2 && (tabs0.tab || []).some(t => t.id === 4242) && !!tabs0.tabset, `auto tabs, the hand tab and the part's tab settings (${(tabs0.tab || []).map(t => t.auto ? (t.pinned ? 'p' : 'a') : 'h').join('')})`);
+  check((tabs0.tab || []).some(t => t.auto && t.pinned) && ((tabs0.tabset && tabs0.tabset.spots) || []).length === 1, `a pinned auto tab and a "no tab here" spot (${JSON.stringify(tabs0.tabset && tabs0.tabset.spots)})`);
+  check(stepTypes(a0.ops).join() === 'texture,outline' && a0.units === 'in' && a0.material === 'mdf', `steps ${stepTypes(a0.ops)}, inches, MDF`);
   const tp0 = await toolpaths(page);
   check(tp0.pv === 'preview.end' && tp0.gc.length > 200, `toolpaths and a ShopBot file in A (${tp0.pv}, ${tp0.gc.length} bytes)`);
   // control zeroed in A (the simulator), then the project saved
   const zA = await controlZero(page);
   await page.evaluate(() => { const S = window.__swarfRun.state; S.zeroXY = S.zeroZ = true; S.zx = S.zy = true; S.zeroSetAt = Date.now(); S.traced = true; });
+  // the project as saved: making toolpaths fills a texture step's marks from the parts, so the
+  // file holds those (the comparison in B is against this, not against a0 before the toolpaths)
+  const a1 = await snapshot(page);
   // ⌘S saves (the name card asks: the probe types it)
   const file = await download(page, async () => {
     await page.keyboard.down('Meta'); await page.keyboard.press('s'); await page.keyboard.up('Meta');
@@ -197,7 +218,7 @@ try {
   const kz = await JSZip.loadAsync(readFileSync(kmz));
   const kws = JSON.parse(await kz.files['workspace.json'].async('string'));
   const ktypes = kws.settings.process.ops.map(o => o.type);
-  check(Object.keys(kz.files).join() === 'workspace.json' && ktypes.every(t => F.KIRI_OPS.includes(t)) && ktypes.join() === 'outline' && kws.work.length === 2, `the .kmz: Kiri's workspace.json only, Kiri's steps only (${ktypes})`);
+  check(Object.keys(kz.files).join() === 'workspace.json' && ktypes.every(t => F.KIRI_OPS.includes(t) || t === '|') && ktypes.filter(t => t !== '|').join() === 'outline' && ktypes.includes('|') && kws.work.length === 2, `the .kmz: Kiri's workspace.json only, Kiri's steps and its end-of-steps marker only (${ktypes})`);
   const allK = JSON.stringify(kws.settings.sproc || {});
   check(!/"type":"(texture|pierce)"/.test(allK), 'no swarf-only step in its saved processes either');
   // reopening in A itself: the same job, and control asks for zero again
@@ -238,20 +259,20 @@ try {
   await wait(1500);
   const b0 = await snapshot(page);
   check(b0.parts.length === 2, `two parts (${b0.parts.length})`);
-  for (const p of a0.parts) {
+  const firstDiff = (x, y) => { let i = 0; while (i < x.length && x[i] === y[i]) i++; return i < Math.max(x.length, y.length) ? ` (first difference at ${i}: "${x.slice(Math.max(0, i - 40), i + 60)}" vs "${y.slice(Math.max(0, i - 40), i + 60)}")` : ''; };
+  for (const p of a1.parts) {
     const q = b0.parts.find(x => x.id === p.id);
     check(!!q && JSON.stringify(q.pos) === JSON.stringify(p.pos) && q.verts === p.verts, `${p.file}: same place ${JSON.stringify(p.pos)} and mesh (${q && JSON.stringify(q.pos)}, ${q && q.verts}/${p.verts})`);
-    check(!!q && q.meta === p.meta, `${p.file}: its meta whole (drawing, marks) ${q && q.meta.length}/${p.meta.length} chars`);
-    check(!!q && q.anno === p.anno, `${p.file}: its anno whole (tabs, tab settings)`);
+    check(!!q && q.meta === p.meta, `${p.file}: its meta whole (drawing, marks) ${q && q.meta.length}/${p.meta.length} chars${q && q.meta !== p.meta ? firstDiff(p.meta, q.meta) : ''}`);
+    check(!!q && q.anno === p.anno, `${p.file}: its anno whole (tabs, pins, "no tab here" spots, tab settings)${q && q.anno !== p.anno ? firstDiff(p.anno, q.anno) : ''}`);
   }
-  check(b0.ops === a0.ops && b0.op2 === a0.op2, 'the steps, in order, with every setting');
-  if (b0.ops !== a0.ops) console.log('   A ops', a0.ops.slice(0, 400), '\n   B ops', b0.ops.slice(0, 400));
-  check(b0.stock === a0.stock, `the board ${b0.stock}`);
+  check(b0.ops === a1.ops && b0.op2 === a1.op2, `the steps, in order, with every setting${b0.ops !== a1.ops ? firstDiff(a1.ops, b0.ops) : ''}`);
+  check(b0.stock === a1.stock, `the board ${b0.stock}${b0.stock !== a1.stock ? ' vs ' + a1.stock : ''}`);
   check(b0.material === 'mdf' && b0.select === 'mdf', `the material (${b0.material}, card ${b0.select})`);
-  check(b0.bits === a0.bits, 'the bits the steps use');
-  check(b0.device === a0.device && JSON.stringify(b0.bed) === JSON.stringify(a0.bed), `the machine (${b0.device} ${b0.bed})`);
+  check(b0.bits === a1.bits, 'the bits the steps use');
+  check(b0.device === a1.device && JSON.stringify(b0.bed) === JSON.stringify(a1.bed), `the machine (${b0.device} ${b0.bed} vs ${a1.bed})`);
   check(b0.units === 'in' && b0.unitScale === 25.4, `inches (${b0.units}, ${b0.unitScale})`);
-  check(b0.autotabs === a0.autotabs, `the tab card's rule (${b0.autotabs})`);
+  check(b0.autotabs === a1.autotabs, `the tab card's rule (${b0.autotabs})`);
   const draw1 = await drawBoard(page);
   check(draw1 === draw0 && JSON.parse(draw0).some(p => p.curves.length === 2), `DRAW shows the same drawings, the hole still a hole (${draw0.length} chars)`);
   const tp1 = await toolpaths(page);
@@ -260,7 +281,9 @@ try {
   check(tp1.pv === 'preview.end' && g0.length === g1.length && diff < 0, `the ShopBot file is the same but its date lines (${g1.length} lines${diff >= 0 ? `; first difference line ${diff}: "${g0[diff]}" vs "${g1[diff]}"` : ''})`);
   check(tp0.gc.split(/\r?\n/).length - g0.length <= 3, `only ${tp0.gc.split(/\r?\n/).length - g0.length} date lines left out`);
   const zB = await controlZero(page);
-  check(zB.prog && !zB.xy && !zB.z && !zB.traced && !zB.stored, `control in B asks for zero like a new job (${JSON.stringify(zB)})`);
+  // control keeps its own record ({ had: null } = no zero); what matters is that none came in
+  const zStored = (() => { try { return JSON.parse(zB.stored); } catch (e) { return null; } })();
+  check(zB.prog && !zB.xy && !zB.z && !zB.traced && !(zStored && zStored.had), `control in B asks for zero like a new job (${JSON.stringify(zB)})`);
   await B.b.close(); B = null;
 
   // ── profile C: fresh; the .kmz through Kiri's own import (conf.import_zip, as Kiri:Moto reads it) ──
@@ -274,7 +297,9 @@ try {
     const a = window.kiri.api;
     return { n: a.widgets.all().length, pos: a.widgets.all().map(w => [w.id, w.track.pos]), ops: a.conf.get().process.ops.map(o => o.type) };
   }, readFileSync(kmz).toString('base64'));
-  check(k.n === 2 && k.ops.join() === 'outline', `the .kmz loads back through Kiri's import: ${k.n} parts, steps ${k.ops}`);
+  // swarf reading its own .kmz: the outline from the file, and TEX makes the texture step again
+  // from the mark the part carries (Kiri:Moto itself has no TEX, so there it is the outline alone)
+  check(k.n === 2 && k.ops.filter(t => t !== '|').join() === 'texture,outline', `the .kmz loads back through Kiri's import: ${k.n} parts, steps ${k.ops}`);
   for (const [id, pos] of k.pos) { const p = a0.parts.find(x => x.id === id); check(!!p && Math.abs(p.pos.x - pos.x) < 1e-6 && Math.abs(p.pos.y - pos.y) < 1e-6, `.kmz: ${p && p.file} in its place`); }
   await C.b.close(); C = null;
   check(zA.prog !== undefined, 'control opened in A');

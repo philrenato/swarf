@@ -211,7 +211,13 @@ function confirm(message, buttons, input, opt = {}) {
         dialog.onclose = () => {
             feature.on_key = onkey_save;
         };
+        // swarf: answered before it showed (a button pressed in the 150 ms before showModal,
+        // as a quick script does) means it never shows: it came back over the parts it made
+        let answered = false;
         function done(value) {
+            answered = true;
+            // a dialog never shown fires no close: give the keys back here
+            if (!dialog.open) feature.on_key = onkey_save;
             dialog.close();
             if (value !== undefined) {
                 setTimeout(() => { resolve(value) }, 150);
@@ -237,6 +243,7 @@ function confirm(message, buttons, input, opt = {}) {
             }
         });
         setTimeout(() => {
+            if (answered) return;
             dialog.showModal();
             if (iid) {
                 iid.focus();
@@ -388,6 +395,7 @@ function bound(low,high) {
  * @returns {number} Integer value
  */
 function toInt() {
+    if (unchanged(this)) return this.real;
     let nv = this.value !== '' ? parseInt(this.value) : null;
     if (isNaN(nv)) nv = 0;
     if (nv !== null && this.bound) nv = this.bound(nv);
@@ -404,6 +412,7 @@ function toInt() {
  * @returns {number} Float value
  */
 function toFloat() {
+    if (unchanged(this)) return this.real;
     let nv = this.value !== '' ? parseFloat(this.value) : null;
     if (nv !== null && this.bound) nv = this.bound(nv);
     this.value = nv;
@@ -440,6 +449,14 @@ function toDegsFloat(){
         return this.setv(nv);
     }
     return nv;
+}
+
+// swarf: a field with units still showing what setv wrote gives back the exact number behind it.
+// Read back from its rounded text (inches to 3 places, times 25.4) every number drifted on each
+// read: a .swarf opened in inches came back with the bed 2438.3999999999996, the rapid feed
+// 5999.988 and the arc tolerance 0, and its ShopBot file differed.
+function unchanged(input) {
+    return !!input.setv && typeof input.real === 'number' && input.shown !== undefined && input.value === input.shown;
 }
 
 function raw() {
@@ -827,8 +844,10 @@ function addUnits(input, round) {
         if (typeof(value) === 'number') {
             input.real = value;
             input.value = (value / units).round(round);
+            input.shown = input.value;
         } else {
             input.value = value;
+            input.shown = undefined;
         }
         // console.log({ value }, input.real, input.value );
         return input.real;

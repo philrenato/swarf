@@ -1243,16 +1243,14 @@ function load_files(files, group) {
                 api.function.parse(data.textDecode('utf-8'), 'gcode');
                 load_dec();
             } else if (issvg) {
+                // swarf: as an .ai or .pdf does (load_svg_into), so each part keeps its own
+                // drawing (meta.svg) and DRAW, TEX and "save drawing" can use it
                 loadSVGDialog(opt => {
                     group = group || [];
-                    let svg = file_load.SVG.parse(data.textDecode('utf-8'), opt);
-                    let ind = 0;
-                    if (svg.length === 0) {
+                    const made = load_svg_into(group, data.textDecode('utf-8'), name, opt);
+                    if (made.length === 0) {
                         api.show.alert(`SVG contains no polylines`, 10);
                         api.show.alert(`Fonts must be converted to paths`, 10);
-                    }
-                    for (let v of svg) {
-                        load_verts(group, svg[ind++], ind ? `${name}-${ind}` : name);
                     }
                     load_dec();
                 });
