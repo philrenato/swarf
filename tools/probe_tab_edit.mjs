@@ -10,6 +10,7 @@
 //   node tools/probe_tab_edit.mjs [url]
 import puppeteer from 'puppeteer-core';
 import { CHROME } from './chrome-path.mjs';
+import { createRequire } from 'node:module';
 const PAGE = process.argv[2] || 'http://localhost:8080/kiri/';
 const wait = ms => new Promise(r => setTimeout(r, ms));
 const browser = await puppeteer.launch({ executablePath: CHROME, headless: 'new', args: ['--window-size=1440,900'] });
@@ -207,14 +208,25 @@ try {
   const note2 = await page.evaluate(() => document.querySelector('#swarf-tabcard .note').textContent);
   check(c1 && near(c1.y, 20) && /runs into/.test(note2), `length 400 would run into the next tab: refused ("${note2}")`);
   // inches: 3/4 typed, 19.05 mm underneath
-  await page.evaluate(() => { const s = window.kiri.api.ui.units; s.value = 'in'; s.onchange(); s.dispatchEvent(new Event('change')); });
+  // review 10-30 F1: the mm | in switch, pressed with the card open, reaches the card and the
+  // auto-tabs fields (their listeners heard nothing when the switch called onchange() itself)
+  const pressUnits = w => page.evaluate(w => [...document.querySelectorAll('#swarf-units button')].find(b => b.textContent.trim() === w)?.click(), w);
+  const unitsNow = () => page.evaluate(() => {
+    const p = document.getElementById('swarf-autotabs-width');
+    return { card: document.querySelector('#swarf-tabcard .mm')?.textContent, w: document.getElementById('swarf-tab-width')?.value, panel: p ? (p.value || p.placeholder) : null, kiri: window.kiri.api.conf.get().controller.units };
+  });
+  const before = await unitsNow();
+  await pressUnits('in');
   await wait(500);
+  const after = await unitsNow();
+  const SLn = createRequire(import.meta.url)('../web/kiri/swarf-length.js');
+  check(before.card === 'mm' && after.kiri === 'in' && after.card === 'in' && after.w === SLn.field(c1.y, 'in') && (after.panel == null || after.panel === '' || after.panel !== before.panel), `the switch pressed with the card open: card ${before.card} ${before.w} → ${after.card} ${after.w}, auto-tabs field ${before.panel} → ${after.panel}`);
   await typeCard('width', '3/4');
   t = await tabs();
   c1 = t.list.find(r => r.id === C.id);
   const inCard = await page.evaluate(() => ({ v: document.getElementById('swarf-tab-width').value, u: document.querySelector('#swarf-tabcard .mm').textContent }));
-  check(c1 && near(c1.y, 19.05, 0.01) && inCard.v === '0.75' && inCard.u === 'in', `in inches: 3/4 makes it 19.05 mm, the card says ${inCard.v} ${inCard.u}`);
-  await page.evaluate(() => { const s = window.kiri.api.ui.units; s.value = 'mm'; s.onchange(); s.dispatchEvent(new Event('change')); });
+  check(c1 && near(c1.y, 19.05, 0.01) && inCard.v === '3/4' && inCard.u === 'in', `in inches: 3/4 makes it 19.05 mm, the card says ${inCard.v} ${inCard.u}`);
+  await pressUnits('mm');
   await wait(500);
   const Cnow = { y: c1.y, z: c1.z, x: c1.x, ex: c1.ex, ey: c1.ey };
   await page.keyboard.press('Escape');

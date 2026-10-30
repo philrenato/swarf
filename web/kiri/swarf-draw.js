@@ -232,7 +232,7 @@
     window.addEventListener('resize', render);
     // the mm | in switch while drawing: the card and the bar follow it (review 10-30 F1)
     S.onUnits = () => setTimeout(() => { if (S) render(); }, 0);
-    try { a.ui.units && a.ui.units.addEventListener('change', S.onUnits); } catch (e) { /* no units control */ }
+    try { const u = api().ui.units; if (u) u.addEventListener('change', S.onUnits); } catch (e) { /* no units control */ }
     ui.svg.focus();
   }
 

@@ -21,6 +21,9 @@ async function drag(page, a, b, n = 10) {
   for (let i = 1; i <= n; i++) { await page.mouse.move(x0 + (x1 - x0) * i / n, y0 + (y1 - y0) * i / n); await wait(15); }
   await page.mouse.up(); await wait(120);
 }
+// a length in inches as the app's fields show it (swarf-length.js show)
+import { createRequire } from 'node:module';
+const window_show = mm => createRequire(import.meta.url)('../web/kiri/swarf-length.js').field(mm, 'in');
 const setField = (page, id, v) => page.evaluate((id, v) => { const i = document.getElementById(id); i.value = v; i.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true })); }, id, v);
 const setSelect = (page, id, v) => page.evaluate((id, v) => { const s = document.getElementById(id); s.value = v; s.dispatchEvent(new Event('change', { bubbles: true })); }, id, v);
 // every move's end point, with the tool it was cut by: X Y Z carried modally, tool from each change
@@ -213,8 +216,17 @@ try {
   await page.evaluate(() => { const S = window.__swarfTex.state(); S.sel = 0; S.mark = 0; });
   await page.keyboard.press('b');
   const inch = await page.evaluate(() => ({ depth: document.getElementById('tx-depth')?.value, u: [...document.querySelectorAll('#tx-card .u')].map(u => u.textContent).filter(Boolean) }));
-  check(inch.depth === String(+(2 / 25.4).toFixed(4)) && inch.u.length && inch.u.every(u => u === 'in' || u === '%' || u === '°'), `in inches the card's lengths are inches (depth ${inch.depth} ${[...new Set(inch.u)].join(' ')})`);
-  await page.evaluate(() => { const s = window.kiri.api.ui.units; s.value = 'mm'; s.onchange(); });
+  check(inch.depth === window_show(2) && inch.u.length && inch.u.every(u => u === 'in' || u === '%' || u === '°'), `in inches the card's lengths are inches (depth ${inch.depth} ${[...new Set(inch.u)].join(' ')})`);
+  // review 10-30 F1: the mm | in switch pressed while TEX is open reaches its card (the card's
+  // listeners heard nothing when the switch called onchange() itself)
+  const cardIn = () => page.evaluate(() => ({ depth: document.getElementById('tx-depth')?.value, u: [...new Set([...document.querySelectorAll('#tx-card .u')].map(u => u.textContent).filter(t => t && t !== '%' && t !== '°'))].join(), kiri: window.kiri.api.conf.get().controller.units }));
+  const press = word => page.evaluate(w => [...document.querySelectorAll('#swarf-units button')].find(b => b.textContent.trim() === w)?.click(), word);
+  await press('mm'); await wait(300);
+  const swMM = await cardIn();
+  await press('in'); await wait(300);
+  const swIN = await cardIn();
+  check(swMM.kiri === 'mm' && swMM.depth === '2' && swMM.u === 'mm' && swIN.kiri === 'in' && swIN.depth === window_show(2) && swIN.u === 'in', `the mm | in switch, pressed with TEX open, reaches its card (${JSON.stringify(swMM)} → ${JSON.stringify(swIN)})`);
+  await press('mm'); await wait(200);
   await page.click('#swarf-step-cam');
   await wait(400);
   check(!(await page.evaluate(() => !!window.__swarfTex.state())), 'the cam step leaves TEX');

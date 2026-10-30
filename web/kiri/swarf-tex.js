@@ -20,7 +20,7 @@
   'use strict';
   const LEN = {
     unit: () => (window.SwarfLength ? window.SwarfLength.unit() : 'mm'),
-    fld: v => (window.SwarfLength ? window.SwarfLength.show(v) : String(v)),
+    fld: v => (window.SwarfLength ? (window.SwarfLength.field || window.SwarfLength.show)(v) : String(v)),
     parse: t => (window.SwarfLength ? window.SwarfLength.parse(t) : parseFloat(t)),
     say: v => (window.SwarfLength ? window.SwarfLength.say(v) : `${+(+v).toFixed(2)} mm`)
   };
@@ -224,7 +224,8 @@
     bs.onchange = () => { if (bs.dataset.took !== bs.value) takeBrush(); };
     // a unit changed in cam: the card and the bar say it, and no stale line stays
     S.onUnits = () => setTimeout(() => { if (S) { say(''); render(); } }, 0);
-    try { a.ui.units && a.ui.units.addEventListener('change', S.onUnits); } catch (e) { /* no units control */ }
+    // (api(), not a: build has no a, and the ReferenceError hid in this catch since r2 N5)
+    try { const u = api().ui.units; if (u) u.addEventListener('change', S.onUnits); } catch (e) { /* no units control */ }
     $('tx-fit').onclick = () => { fit(!S.whole); render(); ui.svg.focus(); };
     $('tx-cancel').onclick = () => close(false);
     $('tx-done').onclick = () => close(true);

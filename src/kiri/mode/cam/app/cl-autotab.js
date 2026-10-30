@@ -551,7 +551,7 @@ function showFields(plan) {
         if (!el) continue;
         const v = cur.pin[f.key];
         if (f.kind === 'bool') { el.checked = v !== false; continue; }
-        const fmt = x => (x === '' || x == null ? '' : f.kind === 'len' ? (SL() ? SL().show(x) : String(+(+x).toFixed(2))) : String(x));
+        const fmt = x => (x === '' || x == null ? '' : f.kind === 'len' ? (SL() ? (SL().field || SL().show)(x) : String(+(+x).toFixed(2))) : String(x));
         if (document.activeElement !== el) el.value = v > 0 ? fmt(v) : '';
         el.placeholder = fmt(auto[f.key]);
         el.classList.toggle('pinned', v > 0);

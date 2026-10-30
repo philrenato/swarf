@@ -15,4 +15,8 @@ for (let n = 1; n <= 64 * 48; n++) { const mm = n * 25.4 / 64; assert.ok(Math.ab
 assert.equal(L.show(19.05, 'in'), '0.75'); assert.equal(L.show(19.05, 'mm'), '19.05');
 assert.equal(L.say(19.05, 'in'), '3/4 in'); assert.equal(L.say(38.1, 'in'), '1 1/2 in'); assert.equal(L.say(50.8, 'in'), '2 in');
 assert.equal(L.say(20, 'in'), '0.7874 in'); assert.equal(L.say(19.05, 'mm'), '19.05 mm');
+// a design field (TEX, tabs; review 10-30 B8): a 32nd as a fraction, else three decimals; read back within 0.013 mm
+assert.equal(L.field(19.05, 'in'), '3/4'); assert.equal(L.field(4.76, 'in'), '3/16'); assert.equal(L.field(38.1, 'in'), '1 1/2');
+assert.equal(L.field(2, 'in'), '0.079'); assert.equal(L.field(30, 'in'), '1.181'); assert.equal(L.field(2.2, 'mm'), '2.2');
+for (let k = 1; k <= 4000; k++) { const mm = k * 0.137; assert.ok(Math.abs(L.parse(L.field(mm, 'in'), 'in') - mm) < 0.0131, `${mm} mm → ${L.field(mm, 'in')}`); }
 console.log('length: ok');

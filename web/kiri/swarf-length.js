@@ -8,6 +8,7 @@
  *                                a bare number is in unit()
  *   SwarfLength.show(mm)         the number for a field in unit(): 19.05 or 0.75 (never a fraction,
  *                                so a field read back is the same length)
+ *   SwarfLength.field(mm)        a design field's text: "3/16" or "0.079" in inches (TEX, tabs)
  *   SwarfLength.say(mm)          words: "19.05 mm", or "3/4 in" when it is an exact 64th, else "0.7874 in"
  *
  * Everything inside swarf stays in millimeters; only the cards' words and fields change.
@@ -52,6 +53,17 @@
     return (u || unit()) === 'in' ? String(+(mm / IN).toFixed(4)) : String(+(+mm).toFixed(3));
   }
 
+  // a design field's text (TEX, the tab card, auto tabs; review 10-30 B8): in inches the nearest
+  // 32nd as a fraction when it is within half a thousandth ("3/16", "1 1/2"), else three decimals
+  // ("0.079"); parse() reads either back to within 0.013 mm. In mm, as show().
+  function field(mm, u) {
+    if (!Number.isFinite(+mm)) return '';
+    if ((u || unit()) !== 'in') return show(mm, 'mm');
+    const v = mm / IN, n = Math.round(v * 32);
+    if (n && Math.abs(v - n / 32) <= 0.0005) return frac(n / 32);
+    return String(+v.toFixed(3));
+  }
+
   function frac(inches) {
     const n = Math.round(Math.abs(inches) * 64);
     if (Math.abs(Math.abs(inches) * 64 - n) > 1e-6 || !n) return null;
@@ -67,7 +79,7 @@
     return `${frac(mm / IN) || +(mm / IN).toFixed(4)} in`;
   }
 
-  const api = { unit, parse, show, say, IN };
+  const api = { unit, parse, show, field, say, IN };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.SwarfLength = api;
 })(typeof window !== 'undefined' ? window : globalThis);

@@ -348,7 +348,7 @@ function showCard(keepNote) {
     els.auto.style.display = rec.auto && rec.pinned ? '' : 'none';
     for (const [key, , d] of KEYS) {
         const el = els.f[key];
-        if (document.activeElement !== el) el.value = SL() ? SL().show(rec.dim[d]) : String(+(+rec.dim[d]).toFixed(2));
+        if (document.activeElement !== el) el.value = SL() ? (SL().field || SL().show)(rec.dim[d]) : String(+(+rec.dim[d]).toFixed(2));
     }
     els.unit.textContent = SL() ? SL().unit() : 'mm';
     if (!keepNote) note('');
