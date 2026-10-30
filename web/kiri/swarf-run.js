@@ -516,7 +516,12 @@ html[data-skin] #swarf-run .sr-jog .sr-zrow button.next, html[data-skin] #swarf-
     el.modes.replaceChildren(h('span', { class: 'lbl' }, 'step', h('small', { text: u })));
     const stepIn = h('input', { type: 'text', inputmode: 'decimal', placeholder: `${u}…`, title: ui ? 'Type any step, then Enter: 1/2, 0.25 in or 5 mm' : 'Type any step in mm, then Enter (1/2 in works too)' });
     const steps = (ui ? [0.01, 0.1, 1, 2] : [0.1, 1, 10, 50]).map(v => ui ? v * IN : v);
-    const pickStep = (v, b) => { S.jogStep = v; for (const c of el.modes.querySelectorAll('button')) c.classList.toggle('on', c === b); stepIn.classList.toggle('on', !b); };
+    // a step from the other units' buttons (the 1 mm default, then "in" pressed) becomes the button
+    // in the same place on this row, as the speed row does (review 10-30 F6: inches lit "0.0394");
+    // a step typed in the field stays as typed
+    const others = (ui ? [0.1, 1, 10, 50] : [0.01, 0.1, 1, 2].map(v => v * IN));
+    if (S.jogStep !== 'cont' && !S.jogTyped && !steps.some(x => same(x, S.jogStep))) { const i = others.findIndex(x => same(x, S.jogStep)); if (i >= 0) S.jogStep = steps[i]; }
+    const pickStep = (v, b) => { S.jogStep = v; S.jogTyped = !b && v !== 'cont'; for (const c of el.modes.querySelectorAll('button')) c.classList.toggle('on', c === b); stepIn.classList.toggle('on', !b); };
     for (const v of [...steps, 'cont']) {
       const label = v === 'cont' ? 'continuous' : String(ui ? +(v / IN).toFixed(4) : v);
       const b = h('button', { class: v === 'cont' ? 'held' : '', text: label, title: v === 'cont' ? 'Continuous (as on the MR-1): moves for as long as you hold the button or key down. No end stops on this machine: let go in time.' : `Each press moves ${label} ${u}` });

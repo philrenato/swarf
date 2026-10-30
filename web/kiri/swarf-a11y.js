@@ -90,3 +90,24 @@
     new MutationObserver(() => document.querySelectorAll('.swarf-toggle').forEach(sync))
         .observe(document.body, { childList: true, subtree: true });
 })();
+
+/* review 10-30 F7: with DRAW or TEX open, cam's panels sit behind the board; Tab from the board's
+   card walked into them (the left panel's material select, "endmills & bits"). They are inert
+   while the board is up: no focus, no clicks, nothing read aloud. The mode row and menus stay. */
+(function boardInert() {
+    const BEHIND = ['panel-left', 'panel-right', 'panel-slide', 'swarf-right-rail', 'swarf-concerns', 'swarf-size', 'swarf-tabcard'];
+    let was = null;
+    const sync = () => {
+        const on = document.body.classList.contains('swarf-draw-open');
+        if (on === was) return;
+        was = on;
+        for (const id of BEHIND) {
+            const el = document.getElementById(id);
+            if (!el) continue;
+            if (on) { el.dataset.swarfInert = el.inert ? 'was' : '1'; el.inert = true; }
+            else if (el.dataset.swarfInert) { if (el.dataset.swarfInert === '1') el.inert = false; delete el.dataset.swarfInert; }
+        }
+    };
+    const go = () => { new MutationObserver(sync).observe(document.body, { attributes: true, attributeFilter: ['class'] }); sync(); };
+    if (document.body) go(); else document.addEventListener('DOMContentLoaded', go);
+})();

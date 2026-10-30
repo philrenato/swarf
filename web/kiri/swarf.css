@@ -2348,6 +2348,10 @@ body.swarf-draw-open #panel-right, body.swarf-draw-open #swarf-right-rail, body.
 /* advanced mode's settings panels (machine profile, stock, limits, origin, expert) step aside for
    DRAW's and TEX's boards: they drew over the card, and TEX's pierce lives in advanced mode */
 body.swarf-draw-open #panel-slide { display: none !important; }
+/* review 10-30 B4: TEX's card ran under the install / version chips at 1440×900; DRAW and TEX
+   step them aside as control does */
+body.swarf-draw-open #install-swarf, body.swarf-draw-open #ver, body.swarf-draw-open #gdpr,
+body.swarf-draw-open #swarf-watermark { visibility: hidden !important; }
 /* DRAW: engraved lines, regions (swarf-draw.js) */
 #swarf-draw svg .sd-part.sd-line, html[data-skin] #swarf-draw svg .sd-part.sd-line, html[data-skin] #swarf-draw svg .sd-part.sd-line:hover { fill: none !important; stroke-width: 2.4; stroke-linecap: round; stroke-dasharray: 7 3 !important; }
 html[data-skin] #swarf-draw svg .sd-part.sd-line.on { fill: none !important; stroke-width: 3; }
@@ -2388,10 +2392,10 @@ html[data-skin] #swarf-draw svg .sd-part.sd-regsrc, #swarf-draw svg .sd-part.sd-
 /* the brush size in the bar; small swatches in one row on a short window; the points row on one line */
 #swarf-draw.sd-tex .tx-bsize { display: inline-flex; align-items: center; gap: 4px; font-size: 12px; }
 #swarf-draw.sd-tex .tx-bsize input { font: inherit; width: 52px; text-align: right; padding: 4px 6px; border-radius: 6px; border: 1px solid currentColor; background: transparent; color: inherit; }
-#swarf-draw.sd-tex .tx-sws.tx-compact { grid-template-columns: repeat(10, 1fr); gap: 2px; }
-#swarf-draw.sd-tex .tx-sws.tx-compact .tx-sw { padding: 3px !important; }
-#swarf-draw.sd-tex .tx-sws.tx-compact .tx-sw img { width: 16px; height: 16px; border-radius: 3px; }
-#swarf-draw.sd-tex .tx-sws.tx-compact .tx-sw span { display: none; }
+/* 720p: two rows of five with their one-word captions (review 10-30 B3), a 22 px picture each */
+#swarf-draw.sd-tex .tx-sws.tx-compact { grid-template-columns: repeat(5, 1fr); gap: 3px; margin: 2px 0 4px; }
+#swarf-draw.sd-tex .tx-sws.tx-compact .tx-sw { padding: 3px 2px 3px !important; gap: 1px; font-size: 9px !important; }
+#swarf-draw.sd-tex .tx-sws.tx-compact .tx-sw img { width: 22px; height: 22px; border-radius: 3px; }
 #swarf-draw.sd-tex .sd-card .tx-ptsrow { flex-wrap: nowrap; }
 #swarf-draw.sd-tex .sd-card .tx-ptsrow input { width: 44px; }
 /* the kerfed board from the side, in the skin's own text color */

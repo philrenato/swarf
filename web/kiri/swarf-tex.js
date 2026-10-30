@@ -694,7 +694,9 @@
       const f = m.fill, P = C.PATTERNS[f.pattern], pr = { ...C.defaults(f.pattern), ...(f.params || {}) };
       const compact = window.innerHeight < 820;
       h += `${fillRow(f)}<div class="tx-sws${compact ? ' tx-compact' : ''}">${Object.entries(C.PATTERNS).map(([k, p]) => `<button class="tx-sw${k === f.pattern ? ' on' : ''}" data-pat="${k}" aria-label="${esc(p.label)}: ${esc(p.blurb)}" data-hint="${esc(compact ? p.label : `${p.label}: ${p.blurb}`)}"><img alt="" src="${swatchHref(k)}"><span>${esc(p.short)}</span></button>`).join('')}</div>`;
-      h += `<div class="sd-note tx-swhint${compact ? ' tx-short' : ''}" id="tx-swhint">${esc(compact ? P.label : `${P.label}: ${P.blurb}`)}</div>`;
+      // at 720p the swatches keep their captions on two rows of five (review 10-30 B3: ten unlabeled
+      // 16 px squares); the hint line goes (the captions and the pattern select name it) and path folds into more
+      if (!compact) h += `<div class="sd-note tx-swhint" id="tx-swhint">${esc(`${P.label}: ${P.blurb}`)}</div>`;
       h += selRow('pattern', 'tx-pat', Object.entries(C.PATTERNS).map(([k, p]) => [k, p.label]), f.pattern, P.blurb);
       // what it costs and what to watch for, up by the pattern where it is seen
       const tex = m.info && m.info.ver === m.ver ? m.info : null;
@@ -709,10 +711,12 @@
       h += bitRow(f);
       const kind = P.build(C.defaults(f.pattern)).kind;
       const ok = { auto: true, raster: true, crosshatch: true, plunge: kind === 'dots', centerline: kind === 'strokes' };
-      h += selRow('path', 'tx-path', Object.entries(PATHS).filter(([k]) => ok[k]).map(([k, t]) => [k, k === 'auto' && tex ? `${t}: ${PATHS[tex.strategy]}` : t]), ok[f.path] ? f.path : 'auto', 'how the bit goes over it: best picks one plunge per dot when the bit can make the dots, a V-bit along each groove, else raster');
+      const pathRow = selRow('path', 'tx-path', Object.entries(PATHS).filter(([k]) => ok[k]).map(([k, t]) => [k, k === 'auto' && tex ? `${t}: ${PATHS[tex.strategy]}` : t]), ok[f.path] ? f.path : 'auto', 'how the bit goes over it: best picks one plunge per dot when the bit can make the dots, a V-bit along each groove, else raster');
+      if (!compact) h += pathRow;
       // the pattern's finer points: folded, open in advanced mode
       const more = S.more ?? document.body.classList.contains('swarf-expert');
       h += `<details class="tx-more"${more ? ' open' : ''}><summary>more</summary>`;
+      if (compact) h += pathRow;
       for (const q of P.params) if (!q.basic && q.k !== 'depth') h += paramRow(q, pr[q.k]);
       h += numRow('scale', 'tx-scale', r3((f.scale || 1) * 100), '%', 'the pattern larger or smaller');
       h += numRow('turn', 'tx-angle', r3(f.angle || 0), '°', 'the pattern turned');
