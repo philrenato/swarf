@@ -119,10 +119,10 @@ try {
   // the card: ocean waves, 2 mm deep, the 1/4 in ball
   await setSelect(page, 'tx-pat', 'waves');
   await setField(page, 'tx-depth', '2');
-  await setSelect(page, 'tx-bit', 'ball14');
+  await setSelect(page, 'tx-bit', '1018');
   await page.waitForFunction(() => /About .* to cut/.test(document.getElementById('tx-card').textContent), { timeout: 20000 }).catch(() => {});
   st = await page.evaluate(() => { const S = window.__swarfTex.state(), m = S.parts[S.sel].marks[S.mark]; return { pattern: m.fill.pattern, depth: m.fill.depth, tool: m.fill.tool, card: document.getElementById('tx-card').textContent, img: !!document.querySelector('#tx-svg image.tx-mark') }; });
-  check(st.pattern === 'waves' && st.depth === 2 && st.tool === 'ball14' && /About .* to cut/.test(st.card) && st.img, `the card fills the mark: ${st.pattern}, ${st.depth} mm, ${st.tool}; "${(/About [^.]*/.exec(st.card) || [''])[0]}"; the mark drawn on the board`);
+  check(st.pattern === 'waves' && st.depth === 2 && st.tool === 1018 && /About .* to cut/.test(st.card) && st.img, `the card fills the mark: ${st.pattern}, ${st.depth} mm, ${st.tool}; "${(/About [^.]*/.exec(st.card) || [''])[0]}"; the mark drawn on the board`);
   await page.screenshot({ path: `${OUT}-board.png` });
   const look = await page.evaluate(() => {
     const c = document.getElementById('tx-card'), cr = c.getBoundingClientRect(), note = [...c.querySelectorAll('.sd-note')].find(n => /About/.test(n.textContent));
@@ -266,6 +266,55 @@ try {
   await wait(600);
   const gone = await page.evaluate(() => ({ marks: window.kiri.api.widgets.all().map(w => (w.meta.tex || []).length), ops: window.kiri.api.conf.get().process.ops.map(o => o.type), say: document.getElementById('alert-text')?.textContent || document.body.innerText.match(/The mark on [^\n]*/)?.[0] || '' }));
   check(gone.marks.every(n => n === 0) && !gone.ops.includes('texture') && /gone with its step/.test(gone.say), `a texture step taken away in cam takes its mark, and says so (${JSON.stringify(gone)})`);
+
+  // PIERCE (advanced mode only): a texture mark and a pierce mark on one part. Basic mode offers no
+  // pierce; in advanced mode the fill row makes a rectangle mark kerfs, right through with bridges.
+  await page.evaluate(() => { localStorage.setItem('swarf-expert', '0'); document.body.classList.remove('swarf-expert'); window.kiri.api.platform.delete(window.kiri.api.widgets.all()[1]); });
+  await wait(400);
+  await page.click('#swarf-step-tex');
+  await page.waitForFunction(() => window.__swarfTex.state(), { timeout: 5000 });
+  await page.evaluate(() => { const S = window.__swarfTex.state(), r = document.getElementById('tx-svg').getBoundingClientRect(); S.k = 2.5; S.ox = r.width / 2 - 150; S.oy = r.height / 2 + 100; S.sel = 0; S.mark = -1; });
+  const P0 = await page.evaluate(() => { const S = window.__swarfTex.state(), p = S.parts[0]; return [p.pos[0] + p.box[0], p.pos[1] + p.box[1]]; });
+  await page.keyboard.press('r');
+  await drag(page, [P0[0] + 10, P0[1] + 10], [P0[0] + 45, P0[1] + 30]);
+  const basicFill = await page.evaluate(() => !!document.querySelector('#tx-card .tx-fill'));
+  check(!basicFill, 'basic mode: the card offers no pierce');
+  await page.evaluate(() => { localStorage.setItem('swarf-expert', '1'); document.body.classList.add('swarf-expert'); });
+  await page.click('#tx-new');
+  await page.keyboard.press('r');
+  const PR = [P0[0] + 60, P0[1] + 12, P0[0] + 110, P0[1] + 68];
+  await drag(page, [PR[0], PR[1]], [PR[2], PR[3]]);
+  await page.keyboard.press('v');
+  await page.evaluate(() => [...document.querySelectorAll('#tx-card .tx-fill')].find(b => b.dataset.fill === 'pierce')?.click());
+  await wait(200);
+  await setField(page, 'tx-p-radius', '120');
+  await setField(page, 'tx-p-skin', '0');
+  await page.evaluate(() => { const d = document.querySelector('#tx-card details.tx-more'); if (d) d.open = true; });
+  await setField(page, 'tx-p-bridge', '8');
+  await setField(page, 'tx-p-slot', '30');
+  await page.waitForFunction(() => /test strip/.test(document.getElementById('tx-card').textContent) && /About/.test(document.getElementById('tx-card').textContent), { timeout: 20000 }).catch(() => {});
+  const pc = await page.evaluate(() => { const S = window.__swarfTex.state(), m = S.parts[0].marks[S.mark]; return { fill: m.fill.fill, pattern: m.fill.pattern, p: m.fill.params, bit: m.fill.bit, card: document.getElementById('tx-card').textContent, cuts: document.querySelectorAll('#tx-svg .tx-cut').length }; });
+  check(pc.fill === 'pierce' && pc.pattern === 'kerf' && pc.p.skin === 0 && pc.p.bridge === 8 && pc.bit && pc.bit.type === 'flat' && /test strip/.test(pc.card) && pc.cuts > 0, `advanced mode: the fill row makes it pierce: kerfs right through, bridges 8 mm, a ${pc.bit && pc.bit.name} straight bit, the cuts drawn, "a starting point: cut a test strip"`);
+  await page.screenshot({ path: `${OUT}-pierce.png` });
+  await page.click('#tx-done');
+  await wait(1000);
+  k = await tex(page);
+  const types = k.ops.map(o => o.split(':')[0]);
+  check(types.join() === 'texture,pierce,outline' && k.labels.some(l => /^pierce: kerfs on /.test(l)), `the pierce step after the texture, before the outline (${types}; ${k.labels.filter(Boolean).join(' | ')})`);
+  // auto tabs keep out of the pierced area
+  const tabs = await page.evaluate(PR => { const a = window.kiri.api, w = a.widgets.all()[0], p = w.track.pos, plan = window.__swarfAutoTabs.plan([w])[0]; return { n: plan.kept.length, inside: plan.kept.filter(t => t.x + p.x > PR[0] - 10 && t.x + p.x < PR[2] + 10 && t.y + p.y > PR[1] - 10 && t.y + p.y < PR[3] + 10).length, tabs: plan.kept.map(t => [+(t.x + p.x).toFixed(1), +(t.y + p.y).toFixed(1)]) }; }, PR);
+  check(tabs.n > 0 && tabs.inside === 0, `auto tabs keep out of the pierced area (${tabs.n} tabs, ${tabs.inside} near it: ${JSON.stringify(tabs.tabs)})`);
+  // the file: the kerfs cut right through, inside the mark
+  ({ pv, gc } = await paths(page));
+  const pt = await page.evaluate(() => { const s = window.kiri.api.conf.get(), op = s.process.ops.find(o => o.type === 'pierce'); return s.tools.find(t => t.id === op.tool).number; });
+  const PM = moves(gc).filter(q => q.tool === pt && q.cut && q.z < -0.05);
+  const pxs = PM.map(q => q.x), pys = PM.map(q => q.y), pspan = [Math.max(...pxs) - Math.min(...pxs), Math.max(...pys) - Math.min(...pys)], plo = Math.min(...PM.map(q => q.z));
+  check(pv === 'preview.end' && PM.length > 10 && plo <= -18.99 && plo >= -19.02 && pspan[0] <= 50 && pspan[1] <= 56, `the file cuts the kerfs right through (to Z ${plo}), inside the mark (${pspan.map(v => v.toFixed(1)).join(' x ')} within 50 x 56)`);
+  await page.evaluate(() => { const b = [...document.querySelectorAll('.swarf-step, #act-animate, button')].find(e => /^\s*simulate\s*$/i.test(e.textContent)); b && b.click(); });
+  await wait(5000);
+  await page.screenshot({ path: `${OUT}-pierce-sim.png` });
+  check(!errors.length, `simulate plays the pierce step with no error${errors.length ? ` (${errors[0]})` : ''}`);
+  await page.evaluate(() => { window.kiri.api.view.set_arrange(); localStorage.setItem('swarf-expert', '0'); document.body.classList.remove('swarf-expert'); });
 } finally {
   await browser.close();
 }

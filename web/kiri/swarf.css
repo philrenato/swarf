@@ -2354,7 +2354,7 @@ html[data-skin] #swarf-draw svg .sd-part.sd-regsrc, #swarf-draw svg .sd-part.sd-
 #swarf-draw .sd-card select.wide { width: 140px; text-overflow: ellipsis; } #swarf-draw .sd-card select#sd-mode { width: 100%; flex: 1; }
 /* TEX: DRAW's board with marks on it (swarf-tex.js); its colors are DRAW's, in every skin */
 /* the card: no taller than its room, a thin scrollbar always there, a fade while there is more below */
-#swarf-draw.sd-tex .sd-card { width: 260px; max-height: calc(100vh - 170px); overflow-y: auto; scrollbar-gutter: stable; scrollbar-width: thin; }
+#swarf-draw.sd-tex .sd-card { box-sizing: border-box; width: 290px; max-height: calc(100vh - 180px); overflow-y: auto; scrollbar-gutter: stable; scrollbar-width: thin; }
 #swarf-draw.sd-tex .sd-card.tx-below { -webkit-mask-image: linear-gradient(to bottom, #000 calc(100% - 36px), transparent); mask-image: linear-gradient(to bottom, #000 calc(100% - 36px), transparent); }
 #swarf-draw.sd-tex .sd-card::-webkit-scrollbar { width: 6px; }
 #swarf-draw.sd-tex .sd-card::-webkit-scrollbar-thumb { background: currentColor; opacity: .4; border-radius: 3px; }
@@ -2366,6 +2366,12 @@ html[data-skin] #swarf-draw svg .sd-part.sd-regsrc, #swarf-draw svg .sd-part.sd-
 #swarf-draw.sd-tex .tx-picks { gap: 4px; }
 #swarf-draw.sd-tex .tx-more { margin-top: 6px; }
 #swarf-draw.sd-tex .tx-more > summary { cursor: pointer; font-size: 12px; font-weight: 600; margin: 6px 0; }
+/* a pierce mark's cuts, in the skin's pen color; the fill row as the bar's tools */
+#swarf-draw.sd-tex .tx-cut { fill: none; stroke: var(--swarf-text); stroke-linecap: round; opacity: .85; pointer-events: none; }
+#swarf-draw.sd-tex circle.tx-cut { stroke-width: 1.2px; fill: var(--swarf-text); fill-opacity: .25; }
+#swarf-draw.sd-tex .tx-fills { gap: 4px; }
+#swarf-draw.sd-tex .tx-check { display: flex; align-items: center; gap: 6px; cursor: pointer; }
+#swarf-draw.sd-tex .tx-check input { width: auto; margin: 0; }
 #swarf-draw.sd-tex .tx-edge { fill: none !important; vector-effect: non-scaling-stroke; pointer-events: none; }
 #swarf-draw.sd-tex .sd-card select { width: 136px; text-overflow: ellipsis; }
 #swarf-draw.sd-tex .sd-card .tx-warn { border-left: 2px solid var(--swarf-amber); padding-left: 7px; }

@@ -530,13 +530,13 @@
   // Ops keep the student's edits. An op is re-derived only when its stamp
   // no longer matches — the material, the op's tool or the device changed —
   // or when it has no stamp yet (a new op, or the auto-added rough).
-  const OP_TYPES = ['rough', 'outline', 'contour', 'pocket', 'drill', 'texture'];
+  const OP_TYPES = ['rough', 'outline', 'contour', 'pocket', 'drill', 'texture', 'pierce'];
   function opValues(type, p) {
     // a drill's `rate` is its plunge (cl-ops.js maps it to camDrillDownSpeed)
     if (type === 'drill') return { spindle: p.spindle, rate: p.plunge, down: p.stepdown };
     if (type === 'contour') return { spindle: p.spindle, rate: p.feed, step: p.stepover };
     // a texture's stepover comes from its scallop (TEX), not the material
-    if (type === 'texture') return { spindle: p.spindle, rate: p.feed, plunge: p.plunge, down: p.stepdown };
+    if (type === 'texture' || type === 'pierce') return { spindle: p.spindle, rate: p.feed, plunge: p.plunge, down: p.stepdown };
     return { spindle: p.spindle, rate: p.feed, plunge: p.plunge, down: p.stepdown, step: p.stepover };
   }
   let applying = false;

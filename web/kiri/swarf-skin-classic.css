@@ -151,7 +151,7 @@ html[data-skin="classic"] button:active, html[data-skin="classic"] #op-add-list 
 html[data-skin="classic"] #swarf-run .sr-pad button.held { box-shadow: var(--c-in) !important; background: #c0c0c0 !important; color: #000 !important; }
 /* a toggle that is on: BeOS yellow, pressed in */
 html[data-skin="classic"] button.selected, html[data-skin="classic"] #swarf-run .sr-modes button.on, html[data-skin="classic"] #swarf-run .sr-jog .sr-modes button.on,
-html[data-skin="classic"] #swarf-run .sr-sim button.on, html[data-skin="classic"] #swarf-run .sr-vtools button.on, html[data-skin="classic"] #swarf-draw .sd-bar button.on, html[data-skin="classic"] #swarf-draw .sd-card button.tx-pick.on, html[data-skin="classic"] #swarf-draw .sd-card button.tx-sw.on,
+html[data-skin="classic"] #swarf-run .sr-sim button.on, html[data-skin="classic"] #swarf-run .sr-vtools button.on, html[data-skin="classic"] #swarf-draw .sd-bar button.on, html[data-skin="classic"] #swarf-draw .sd-card button.tx-pick.on, html[data-skin="classic"] #swarf-draw .sd-card button.tx-sw.on, html[data-skin="classic"] #swarf-draw .sd-card button.tx-fill.on,
 html[data-skin="classic"] #swarf-sim-machine.on, html[data-skin="classic"] #layer-animate button:nth-of-type(2) {
   background: var(--c-tab) !important; box-shadow: var(--c-in) !important; color: #000 !important;
 }

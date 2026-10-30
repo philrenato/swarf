@@ -1344,13 +1344,16 @@ export function newFill(pattern = 'waves', over = {}) {
   return { fill: 'texture', pattern, params, scale: 1, angle: 0, origin: [0, 0], fade: 3, depth: params.depth, tool: 'ball14', path: 'auto', grit: 0, ...over };
 }
 
-// The mark's texture in the part's frame (null for an empty region or a fill that is not a texture)
-export function markTexture(mark) {
+// The mark's texture in the part's frame (null for an empty region or a fill that is not a texture).
+// o.part: the part's outline loops (its frame): the paint counts only on its top and runs full to
+// its edges, carried o.extend mm past them so a bit reaches the edge (clipToPart).
+export function markTexture(mark, o = {}) {
   const f = mark && mark.fill;
   if (!f || f.fill !== 'texture' || !PATTERNS[f.pattern]) return null;
-  const region = regionSpec(mark.region);
+  let region = regionSpec(mark.region);
   if (!region) return null;
-  if (region.type === 'paint' && !region.data.some((v) => v)) return null;
+  if (o.part && region.type === 'paint') { const c = clipToPart(region, mark.xf, o.part, o.extend ?? 0); if (!c.paint.data.some((v) => v)) return null; region = edgeMask(c); }
+  if (region.type === 'paint' && region.data && !region.data.some((v) => v)) return null;
   const A = mark.xf || IDENTITY, s = xfScale(A);
   const tex = texture({
     pattern: f.pattern,
@@ -1377,9 +1380,10 @@ export function pathFor(tex, toolIn, style = 'auto') {
 // the mark's moves, part frame, z from the top (0) down; maxDepth caps them (the board's thickness)
 export function markToolpath(mark, o = {}) {
   if (mark && mark.fill && mark.fill.fill === 'pierce') return pierceToolpath(mark, { ...o, thickness: o.thickness || o.maxDepth });
-  const tex = markTexture(mark);
+  const tool = fillTool(mark && mark.fill);
+  // the bit's radius past the part's edge, and a little: it reaches the edge with its whole flank
+  const tex = markTexture(mark, { part: o.part, extend: tool.R + 0.5 });
   if (!tex) return { moves: [], tex: null };
-  const tool = fillTool(mark.fill);
   const strategy = pathFor(tex, tool, mark.fill.path);
   const b = tex.bbox, area = Math.max(1, (b.x1 - b.x0) * (b.y1 - b.y0));
   // a finer grid for small marks; a big one stays under a few million samples
@@ -1411,9 +1415,9 @@ export function feedRuns(moves) {
 //   o = { thickness (mm), len (v mm -> text), outside (0..1 of the mark off the part) }
 export function markChecks(mark, o = {}) {
   if (mark && mark.fill && mark.fill.fill === 'pierce') return pierceChecks(mark, o);
-  const tex = markTexture(mark);
+  const tool = fillTool(mark && mark.fill);
+  const tex = markTexture(mark, { part: o.part, extend: tool.R + 0.5 });
   if (!tex) return { warnings: [], notes: [], tex: null };
-  const tool = fillTool(mark.fill);
   const L = o.len || ((v) => `${fmt(v, 1)} mm`);
   const strategy = pathFor(tex, tool, mark.fill.path);
   const maxDepth = Math.min(tex.depth, o.thickness > 0 ? o.thickness : Infinity);
@@ -1423,6 +1427,257 @@ export function markChecks(mark, o = {}) {
   if (o.thickness > 0 && tex.depth >= o.thickness - 1e-6) warnings.unshift(`The texture goes ${L(tex.depth)} deep and the board is ${L(o.thickness)} thick: it would cut through. It stops at the board's bottom.`);
   if (o.outside > 0.02) warnings.push(`${Math.round(o.outside * 100)}% of the mark is off the part: that much of the texture cuts air, or the board around the part.`);
   return { warnings, notes: a.notes, tex, tool, strategy };
+}
+
+// ---------------------------------------------------------------------------------------------
+// The mark on its part (Phil 10-30: "paint goes to, can't go past, the top edge, ever; everything
+// has to be reachable by the mill; hitting the edge means pierce/texture to the edge").
+//
+// clipToPart(region, xf, loops, extend): the paint counts only on the part's top (loops: the part's
+// outline and holes, even-odd, in the part's frame). Where the paint meets the part's edge, or a
+// hole's, the mark is carried `extend` mm on past that edge into the air, so (1) the soft edge fades
+// only along the paint's own boundary inside the part, never along the part's edge, and (2) the bit
+// may hang past the edge to reach it. Returns, in the mark's frame on a grid padded to hold that:
+//   { region: the paint as the cutter sees it, paint: paint ∩ part, on: 1 where the part's top is }
+export function clipToPart(region, xf, loops, extend = 0) {
+  const g = regionSpec(region);
+  if (!g || g.type !== 'paint' || !loops || !loops.length) return { region: g, paint: g, on: null };
+  const A = xf || IDENTITY, I = xfInvert(A), s = xfScale(A);
+  const pad = Math.ceil(Math.max(0, extend) / s / g.res) + 1;
+  const nx = g.nx + 2 * pad, ny = g.ny + 2 * pad, res = g.res, x0 = g.x0 - pad * res, y0 = g.y0 - pad * res, N = nx * ny;
+  // the part's top in the mark's frame, by scanline: even-odd crossings of every loop on each row
+  const on = new Uint8Array(N), segs = [];
+  for (const L of loops) for (let i = 0; i < L.length; i++) {
+    const a = xfApply(I, L[i][0], L[i][1]), b = xfApply(I, L[(i + 1) % L.length][0], L[(i + 1) % L.length][1]);
+    if (a[1] !== b[1]) segs.push(a[1] < b[1] ? [a[0], a[1], b[0], b[1]] : [b[0], b[1], a[0], a[1]]);
+  }
+  for (let j = 0; j < ny; j++) {
+    const y = y0 + (j + 0.5) * res, xs = [];
+    for (const q of segs) if (y >= q[1] && y < q[3]) xs.push(q[0] + (y - q[1]) * (q[2] - q[0]) / (q[3] - q[1]));
+    xs.sort((p, q) => p - q);
+    for (let k = 0; k + 1 < xs.length; k += 2) {
+      const i0 = Math.max(0, Math.ceil((xs[k] - x0) / res - 0.5)), i1 = Math.min(nx - 1, Math.floor((xs[k + 1] - x0) / res - 0.5));
+      for (let i = i0; i <= i1; i++) on[j * nx + i] = 1;
+    }
+  }
+  const paint = new Uint8Array(N);
+  for (let j = 0; j < g.ny; j++) for (let i = 0; i < g.nx; i++) {
+    const k = (j + pad) * nx + i + pad;
+    if (g.data[j * g.nx + i] && on[k]) paint[k] = 1;
+  }
+  // carried past the edge: off-part cells within `extend` of the paint
+  const data = paint.slice();
+  if (extend > 0) {
+    const D = chamfer(paint, nx, ny), lim = extend / s / res;
+    for (let k = 0; k < N; k++) if (!on[k] && D[k] <= lim) data[k] = 1;
+  }
+  // the soft edge is measured to the paint's own edge only: off the part counts as painted
+  const fade = paint.slice();
+  for (let k = 0; k < N; k++) if (!on[k]) fade[k] = 1;
+  const grid = (d) => ({ type: 'paint', x0, y0, res, nx, ny, data: d });
+  return { region: grid(data), paint: grid(paint), fade: grid(fade), on };
+}
+// a mask for texture(): it cuts where `region` is, fading as the distance to `fade`'s edge
+export function edgeMask(c) {
+  const reg = paintMask(c.region), fm = paintMask(c.fade), R = c.region, small = R.res * 0.25;
+  const inR = (x, y) => { const i = Math.floor((x - R.x0) / R.res), j = Math.floor((y - R.y0) / R.res); return i >= 0 && j >= 0 && i < R.nx && j < R.ny && R.data[j * R.nx + i] === 1; };
+  return { bbox: reg.bbox, empty: reg.empty, sd: (x, y) => (inR(x, y) ? Math.max(small, fm.sd(x, y)) : Math.min(-small, reg.sd(x, y))), cut: reg };
+}
+// distance (in cells) from every cell to the nearest set cell: two-pass chamfer
+function chamfer(set, nx, ny) {
+  const N = nx * ny, D = new Float32Array(N), BIG = 1e9, b = Math.SQRT2;
+  for (let k = 0; k < N; k++) D[k] = set[k] ? 0 : BIG;
+  for (let j = 0; j < ny; j++) for (let i = 0; i < nx; i++) {
+    const k = j * nx + i; let v = D[k]; if (!v) continue;
+    if (i > 0) v = Math.min(v, D[k - 1] + 1);
+    if (j > 0) { v = Math.min(v, D[k - nx] + 1); if (i > 0) v = Math.min(v, D[k - nx - 1] + b); if (i < nx - 1) v = Math.min(v, D[k - nx + 1] + b); }
+    D[k] = v;
+  }
+  for (let j = ny - 1; j >= 0; j--) for (let i = nx - 1; i >= 0; i--) {
+    const k = j * nx + i; let v = D[k]; if (!v) continue;
+    if (i < nx - 1) v = Math.min(v, D[k + 1] + 1);
+    if (j < ny - 1) { v = Math.min(v, D[k + nx] + 1); if (i < nx - 1) v = Math.min(v, D[k + nx + 1] + b); if (i > 0) v = Math.min(v, D[k + nx - 1] + b); }
+    D[k] = v;
+  }
+  return D;
+}
+// how far a point (part frame) is from the part's edge (any loop)
+export function edgeDistance(loops, x, y) {
+  let d = Infinity;
+  for (const L of loops) for (let i = 0; i < L.length; i++) { const a = L[i], b = L[(i + 1) % L.length]; d = Math.min(d, segDist(x, y, [a[0], a[1], b[0], b[1]])); }
+  return d;
+}
+
+// ---------------------------------------------------------------------------------------------
+// The mark's edge as a curve with points (Pgon's and MASQ's region curve, in 2D on the mark's grid).
+// - FIT: the paint's 0.5 contour (marching squares), faired, handles at even arc length. Handles are
+//   INTERPOLATION points of a closed uniform cubic B-spline (a cyclic tridiagonal solve), so a dragged
+//   point lands where the hand put it. One curve per loop; a hole in the paint is its own loop.
+// - BACK INTO THE PAINT: inside the curves (their winding, from the orientation each loop had when it
+//   was fitted: the paint on its left) = painted; the soft edge is then measured to the curve. The
+//   paint at the START of a drag fixes the grid; nothing is read from the last move (no ratchet).
+// - A curve that crosses itself or another refuses: the old paint stands.
+
+function solveCyclic(n, rhs) {
+  const a = 1, c = 1, gamma = -4;
+  const bb = new Float64Array(n).fill(4); bb[0] = 4 - gamma; bb[n - 1] = 4 - a * c / gamma;
+  const thomas = (d) => {
+    const cp = new Float64Array(n), dp = new Float64Array(n);
+    cp[0] = c / bb[0]; dp[0] = d[0] / bb[0];
+    for (let i = 1; i < n; i++) { const den = bb[i] - a * cp[i - 1]; cp[i] = c / den; dp[i] = (d[i] - a * dp[i - 1]) / den; }
+    const x = new Float64Array(n); x[n - 1] = dp[n - 1];
+    for (let i = n - 2; i >= 0; i--) x[i] = dp[i] - cp[i] * x[i + 1];
+    return x;
+  };
+  const u = new Float64Array(n); u[0] = gamma; u[n - 1] = c;
+  const y = thomas(rhs), q = thomas(u);
+  const f = (y[0] + a * y[n - 1] / gamma) / (1 + q[0] + a * q[n - 1] / gamma);
+  const x = new Float64Array(n); for (let i = 0; i < n; i++) x[i] = y[i] - f * q[i];
+  return x;
+}
+// the closed spline's control points that make it pass through every handle
+export function controlsFor(handles) {
+  const n = handles.length;
+  if (n < 3) return null;
+  const cx = solveCyclic(n, Float64Array.from(handles, (h) => 6 * h[0])), cy = solveCyclic(n, Float64Array.from(handles, (h) => 6 * h[1]));
+  return handles.map((_, i) => [cx[i], cy[i]]);
+}
+export function splineAt(Q, u) {
+  const n = Q.length, i = Math.floor(u), t = u - i, t2 = t * t, t3 = t2 * t;
+  const at = (k) => Q[((k % n) + n) % n];
+  const p0 = at(i - 1), p1 = at(i), p2 = at(i + 1), p3 = at(i + 2);
+  const b0 = (1 - 3 * t + 3 * t2 - t3) / 6, b1 = (4 - 6 * t2 + 3 * t3) / 6, b2 = (1 + 3 * t + 3 * t2 - 3 * t3) / 6, b3 = t3 / 6;
+  return [p0[0] * b0 + p1[0] * b1 + p2[0] * b2 + p3[0] * b3, p0[1] * b0 + p1[1] * b1 + p2[1] * b2 + p3[1] * b3];
+}
+// a closed curve as a polyline: `per` samples a span, and which span each sample lies on
+export function sampleCurve(handles, per = 12) {
+  const Q = controlsFor(handles);
+  if (!Q) return { pts: [], span: [] };
+  const pts = [], span = [];
+  for (let k = 0; k < handles.length; k++) for (let j = 0; j < per; j++) { pts.push(splineAt(Q, k + j / per)); span.push(k); }
+  return { pts, span };
+}
+const loopLen = (P) => { let L = 0; for (let i = 0; i < P.length; i++) L += Math.hypot(P[(i + 1) % P.length][0] - P[i][0], P[(i + 1) % P.length][1] - P[i][1]); return L; };
+const loopArea2 = (P) => { let a = 0; for (let i = 0, j = P.length - 1; i < P.length; j = i++) a += (P[j][0] + P[i][0]) * (P[j][1] - P[i][1]); return -a / 2; };
+function resampleLoop(P, count) {
+  const n = P.length, seg = P.map((p, i) => Math.hypot(P[(i + 1) % n][0] - p[0], P[(i + 1) % n][1] - p[1]));
+  const total = seg.reduce((a, b) => a + b, 0), out = [];
+  let acc = 0, i = 0;
+  for (let k = 0; k < count; k++) {
+    const want = total * k / count;
+    while (i < n - 1 && acc + seg[i] < want) { acc += seg[i]; i++; }
+    const t = seg[i] > 0 ? (want - acc) / seg[i] : 0, a = P[i], b = P[(i + 1) % n];
+    out.push([a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t]);
+  }
+  return out;
+}
+// Taubin λ|μ: the cells' staircase comes off and the loop does not shrink
+function fair(P, passes) {
+  let p = P.map((q) => q.slice());
+  const step = (k) => { const n = p.length; p = p.map((c, i) => { const a = p[(i - 1 + n) % n], b = p[(i + 1) % n]; return [c[0] + k * ((a[0] + b[0]) / 2 - c[0]), c[1] + k * ((a[1] + b[1]) / 2 - c[1])]; }); };
+  for (let it = 0; it < passes; it++) { step(0.6307); step(-0.6732); }
+  return p;
+}
+// The paint's edge loops (marching squares on the cells, paint on each loop's left), in the grid's frame
+export function paintLoops(region) {
+  const g = regionSpec(region), { nx, ny, res, x0, y0 } = g, d = g.data;
+  const at = (i, j) => (i >= 0 && j >= 0 && i < nx && j < ny ? d[j * nx + i] : 0);
+  // directed boundary edges between cell corners, paint on the left: corner (i, j) is (x0 + i res, y0 + j res)
+  const next = new Map(), key = (i, j) => i * 100003 + j;
+  const add = (a, b) => { const k = key(a[0], a[1]); const l = next.get(k); if (l) l.push(b); else next.set(k, [b]); };
+  for (let j = 0; j < ny; j++) for (let i = 0; i < nx; i++) {
+    if (!at(i, j)) continue;
+    if (!at(i, j - 1)) add([i, j], [i + 1, j]);
+    if (!at(i + 1, j)) add([i + 1, j], [i + 1, j + 1]);
+    if (!at(i, j + 1)) add([i + 1, j + 1], [i, j + 1]);
+    if (!at(i - 1, j)) add([i, j + 1], [i, j]);
+  }
+  const loops = [];
+  for (const [k0, list] of next) {
+    while (list.length) {
+      const start = [Math.floor(k0 / 100003), k0 % 100003];
+      const L = [start];
+      let cur = list.pop(), guard = 0;
+      while (guard++ < 4e6) {
+        if (cur[0] === start[0] && cur[1] === start[1]) break;
+        L.push(cur);
+        const l = next.get(key(cur[0], cur[1]));
+        if (!l || !l.length) break;
+        cur = l.pop();
+      }
+      // corners to edge midpoints (the 0.5 contour of the cells), in mm
+      const P = L.map((q, i) => { const r = L[(i + 1) % L.length]; return [x0 + (q[0] + r[0]) / 2 * res, y0 + (q[1] + r[1]) / 2 * res]; });
+      if (P.length >= 4) loops.push(P);
+    }
+  }
+  return loops;
+}
+// FIT: { loops: [{ handles, orient }] }, `count` handles on the longest loop, the rest by length
+export function fitCurves(region, { count = 12, minCount = 4 } = {}) {
+  const g = regionSpec(region);
+  const raw = paintLoops(g).filter((P) => loopLen(P) > 4 * g.res);
+  if (!raw.length) return { loops: [] };
+  const faired = raw.map((P) => fair(resampleLoop(P, Math.max(24, Math.round(loopLen(P) / (g.res * 0.5)))), 6));
+  const Lmax = Math.max(...faired.map(loopLen));
+  return {
+    loops: faired.map((P) => {
+      const handles = resampleLoop(P, Math.max(minCount, Math.round(count * loopLen(P) / Lmax)));
+      return { handles, orient: Math.sign(loopArea2(handles)) || 1 };
+    }),
+  };
+}
+const segX = (a, b, c, d) => {
+  const den = (b[0] - a[0]) * (d[1] - c[1]) - (b[1] - a[1]) * (d[0] - c[0]);
+  if (Math.abs(den) < 1e-12) return false;
+  const s = ((c[0] - a[0]) * (d[1] - c[1]) - (c[1] - a[1]) * (d[0] - c[0])) / den, t = ((c[0] - a[0]) * (b[1] - a[1]) - (c[1] - a[1]) * (b[0] - a[0])) / den;
+  return s > 1e-9 && s < 1 - 1e-9 && t > 1e-9 && t < 1 - 1e-9;
+};
+// does any sampled curve cross itself or another (or turn over: its orientation flipped)?
+export function curvesCross(curves) {
+  const S = curves.loops.map((c) => sampleCurve(c.handles, 8).pts);
+  for (let li = 0; li < S.length; li++) if (Math.sign(loopArea2(S[li])) !== curves.loops[li].orient) return true;
+  for (let a = 0; a < S.length; a++) for (let b = a; b < S.length; b++) {
+    const A = S[a], B = S[b];
+    for (let i = 0; i < A.length; i++) for (let j = a === b ? i + 2 : 0; j < B.length; j++) {
+      if (a === b && i === 0 && j === A.length - 1) continue;
+      if (segX(A[i], A[(i + 1) % A.length], B[j], B[(j + 1) % B.length])) return true;
+    }
+  }
+  return false;
+}
+// BACK INTO THE PAINT: a fresh grid like `base` (the paint at the drag's start), painted where the
+// curves wind (each counted with the orientation it was fitted with). null when they cross.
+export function rewriteFromCurves(base, curves) {
+  if (curvesCross(curves)) return null;
+  const g = regionSpec(base), { nx, ny, res, x0, y0 } = g, data = new Uint8Array(nx * ny);
+  const polys = curves.loops.map((c) => ({ P: sampleCurve(c.handles, 12).pts, o: c.orient }));
+  for (let j = 0; j < ny; j++) {
+    const y = y0 + (j + 0.5) * res, cross = [];
+    // winding by scanline: an outer loop runs counterclockwise (paint on its left) and counts +1
+    // inside, a hole's clockwise loop -1; the orientations are the ones fitted (a flip is refused above)
+    for (const { P } of polys) for (let i = 0; i < P.length; i++) {
+      const a = P[i], b = P[(i + 1) % P.length];
+      if ((a[1] <= y) === (b[1] <= y)) continue;
+      cross.push([a[0] + (y - a[1]) * (b[0] - a[0]) / (b[1] - a[1]), b[1] > a[1] ? -1 : 1]);
+    }
+    cross.sort((p, q) => p[0] - q[0]);
+    let w = 0, c = 0;
+    for (let i = 0; i < nx; i++) {
+      const x = x0 + (i + 0.5) * res;
+      while (c < cross.length && cross[c][0] < x) { w += cross[c][1]; c++; }
+      if (w > 0) data[j * nx + i] = 1;
+    }
+  }
+  return { ...g, data };
+}
+// where on the curves a point is nearest: { loop, span, t, d, p } (span: the handle before it)
+export function nearestOnCurves(curves, x, y) {
+  let best = null;
+  curves.loops.forEach((c, li) => {
+    const { pts, span } = sampleCurve(c.handles, 16);
+    pts.forEach((p, i) => { const d = Math.hypot(p[0] - x, p[1] - y); if (!best || d < best.d) best = { loop: li, span: span[i], d, p }; });
+  });
+  return best;
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -1474,14 +1729,25 @@ export function kerfPitch(w, T, s, R) { return w * R / Math.max(1e-6, T - Math.m
 export function pierceCuts(mark, o = {}) {
   const f = mark && mark.fill;
   if (!f || f.fill !== 'pierce' || !PIERCES[f.pattern]) return null;
-  const region = regionSpec(mark.region);
+  let region = regionSpec(mark.region);
   if (!region || (region.type === 'paint' && !region.data.some((v) => v))) return null;
   const A = mark.xf || IDENTITY, s = xfScale(A), I = xfInvert(A);
   const tool = fillTool(f), w = tool.diameter, T = o.thickness > 0 ? o.thickness : 19;
   const p = { ...pierceDefaults(f.pattern), ...(f.params || {}) };
+  // on its part: a cut that meets the part's edge runs out through it (an open notch)
+  let onTop = null;
+  if (o.part && region.type === 'paint') {
+    const c = clipToPart(region, A, o.part, (f.pattern === 'holes' ? p.size / 2 : w / 2) + 1);
+    if (!c.paint.data.some((v) => v)) return null;
+    region = edgeMask(c);
+    const P = c.paint;
+    onTop = (x, y) => { const i = Math.floor((x - P.x0) / P.res), j = Math.floor((y - P.y0) / P.res); return i >= 0 && j >= 0 && i < P.nx && j < P.ny && P.data[j * P.nx + i] === 1; };
+  }
   const mask = makeMask(region);
   const soft = Math.max(0, f.fade || 0) / s;
   const weight = maskWeight(mask, soft);
+  // containment (a cut wholly inside what may be cut) is measured to the cut's own extent
+  const cutMask = mask.cut || mask;
   const b = mask.bbox, ang = (f.angle || 0) * Math.PI / 180;
   const out = { slots: [], holes: [], width: w, depth: T, through: true, pitch: 0, mask };
   const toPart = (x, y) => xfApply(A, x, y);
@@ -1501,14 +1767,15 @@ export function pierceCuts(mark, o = {}) {
       // this line's place along the pattern, so bridges stagger row to row
       const t0 = (ax + ox) * dx + (ay + oy) * dy, stag = (li & 1) ? period / 2 : 0;
       let run = null;
-      const flush = () => { if (run && Math.hypot(run[2] - run[0], run[3] - run[1]) * s >= w) out.slots.push({ a: toPart(run[0], run[1]), b: toPart(run[2], run[3]) }); run = null; };
+      // a slot only where it cuts the part: one wholly past the edge would cut air
+      const flush = () => { if (run && run[4] && Math.hypot(run[2] - run[0], run[3] - run[1]) * s >= w) out.slots.push({ a: toPart(run[0], run[1]), b: toPart(run[2], run[3]) }); run = null; };
       for (let i = 0; i <= n; i++) {
         const t = i * L / n, x = ax + ox + dx * t, y = ay + oy + dy * t;
         const m = weight(x, y), along = t0 + t;
         // the bit's center at least half the bit inside the mark, so no cut crosses its edge
-        let keep = mask.sd(x, y) * s >= w / 2 - 1e-6 && (m >= 0.999 || (m > 0.02 && (((along % dash) + dash) % dash) / dash < m));
+        let keep = cutMask.sd(x, y) * s >= w / 2 - 1e-6 && (m >= 0.999 || (m > 0.02 && (((along % dash) + dash) % dash) / dash < m));
         if (keep && p.bridge > 0) keep = ((((along + stag) % period) + period) % period) < p.slot / s;
-        if (keep) { if (!run) run = [x, y, x, y]; else { run[2] = x; run[3] = y; } } else flush();
+        if (keep) { if (!run) run = [x, y, x, y, false]; else { run[2] = x; run[3] = y; } if (!onTop || onTop(x, y)) run[4] = true; } else flush();
       }
       flush();
     });
@@ -1522,10 +1789,10 @@ export function pierceCuts(mark, o = {}) {
       const x = ox + c * u - sn * v, y = oy + sn * u + c * v;
       if (x < b.x0 || x > b.x1 || y < b.y0 || y > b.y1) continue;
       const m = weight(x, y);
-      if (m <= 0) continue;
+      if (m <= 0 || (onTop && !onTop(x, y))) continue;
       const d = p.size * Math.min(1, m);
       // the whole hole inside the mark, and no smaller than the bit
-      if (d < w - 1e-6 || mask.sd(x, y) * s < d / 2 - 1e-6) continue;
+      if (d < w - 1e-6 || cutMask.sd(x, y) * s < d / 2 - 1e-6) continue;
       const [X, Y] = toPart(x, y);
       out.holes.push({ x: X, y: Y, d });
     }
@@ -1620,6 +1887,18 @@ export function pierceChecks(mark, o = {}) {
     const web = p.spacing - p.size;
     if (web < 2 * w) warnings.push(`Only ${L(Math.max(0, web))} of wood is left between the holes, less than two bit widths: it may break. Space them farther apart or make them smaller.`);
   }
+  if (o.part) {
+    // a strip of the part between a cut and its edge, thinner than two bits: it may break off
+    let thin = Infinity;
+    for (const q of cuts.slots) for (let k = 0; k <= 8; k++) {
+      const x = q.a[0] + (q.b[0] - q.a[0]) * k / 8, y = q.a[1] + (q.b[1] - q.a[1]) * k / 8, e = edgeDistance(o.part, x, y) - w / 2;
+      if (e > 0.05 && e < thin) thin = e;
+    }
+    for (const h of cuts.holes) { const e = edgeDistance(o.part, h.x, h.y) - h.d / 2; if (e > 0.05 && e < thin) thin = e; }
+    if (thin < 2 * w) warnings.push(`A cut runs ${L(thin)} from the part's edge, leaving a strip thinner than two bit widths that may break off. Paint the mark right to the edge (the cut then opens out through it) or keep it farther in.`);
+    const open = cuts.slots.some((q) => edgeDistance(o.part, q.a[0], q.a[1]) < w / 2 || edgeDistance(o.part, q.b[0], q.b[1]) < w / 2) || cuts.holes.some((h) => edgeDistance(o.part, h.x, h.y) < h.d / 2);
+    if (open) notes.push('Cuts that meet the part\'s edge run out through it, as open notches.');
+  }
   if (o.outside > 0.02) warnings.push(`${Math.round(o.outside * 100)}% of the mark is off the part: those cuts go through the board around the part.`);
   return { warnings, notes, cuts, tool, strategy: cuts.slots.length ? 'slots' : 'holes' };
 }
@@ -1694,6 +1973,7 @@ const API = {
   simulate, compare, FILLS, PATHS, IDENTITY, encodeRuns, decodeRuns, newGrid, paintWhere, stampDisc, stampStroke, gridCount,
   regionSpec, storeRegion, xfApply, xfInvert, xfThen, xfScale, placeTexture, newFill, markTexture, pathFor, markToolpath, feedRuns,
   markChecks, BASIC, shadeHeight, SWATCH_SPAN, swatch,
+  clipToPart, edgeDistance, controlsFor, splineAt, sampleCurve, paintLoops, fitCurves, curvesCross, rewriteFromCurves, nearestOnCurves,
   PIERCES, SKIN_STRAIN, pierceDefaults, newPierce, fillTool, kerfPitch, pierceCuts, pierceToolpath, pierceChecks, pierceSVG,
 };
 if (typeof window !== 'undefined') window.SwarfTexCore = API;

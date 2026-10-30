@@ -305,5 +305,84 @@ for (const [id, P] of Object.entries(T.PATTERNS)) {
   ok(/<svg[^>]+width="[\d.]+mm"/.test(svg) && (svg.match(/<line /g) || []).length === K.slots.length && /stroke="#FF0000"/.test(svg) && /test strip/.test(svg), 'the laser SVG: one red line a slot, in mm');
 }
 
+// 15. the mark on its part (Phil 10-30): paint past the part's edge does not count; where the paint
+//     meets the edge the pattern runs full depth to it (the soft edge only along the paint's own
+//     edge inside the part); the bit reaches the edge (it may hang past it, never past the reach)
+{
+  const part = [[[0, 0], [100, 0], [100, 60], [0, 60]], [[70, 20], [85, 20], [85, 40], [70, 40]]];   // a hole
+  const g = T.newGrid(-10, -10, 110, 70, 0.5);
+  T.paintWhere(g, (x, y) => x < 50, 1);                          // painted past the left edge, to x = 50
+  const fill = T.newFill('ribs', { origin: [0, 0], fade: 10, depth: 2, params: { ...T.defaults('ribs'), pitch: 8, width: 6, depth: 2, profile: 'flat' }, tool: 'ball18' });
+  const mark = { region: T.storeRegion(g), xf: T.IDENTITY.slice(), fill };
+  const tex = T.markTexture(mark, { part, extend: 2 }), bare = T.markTexture({ ...mark, fill: { ...fill, fade: 0 } }, { part, extend: 2 });
+  // on a groove (x = 0 mod 8), so the flat profile reads the full depth
+  ok(Math.abs(tex.h(0.3, 32) - 2) < 1e-6 && Math.abs(tex.h(0.3, 2) - 2) < 1e-6, `full depth right at the part's edge: ${tex.h(0.3, 32).toFixed(3)} at x 0.3, ${tex.h(0.3, 2).toFixed(3)} at y 2`);
+  ok(tex.h(48, 32) < 0.5 * bare.h(48, 32) && tex.h(40, 32) > 0.99 * bare.h(40, 32), `the soft edge fades along the paint's own edge (x 50): ${tex.h(48, 32).toFixed(2)} at 48, ${tex.h(40, 32).toFixed(2)} at 40`);
+  ok(tex.h(-5, 32) === 0 && tex.h(-1, 32) > 0, `past the edge: carried 2 mm into the air to let the bit reach (${tex.h(-1, 32).toFixed(2)} at -1), nothing beyond (${tex.h(-5, 32)} at -5)`);
+  // a hole in the paint's way: full depth to the hole's edge, carried into it as into air
+  const g2 = T.newGrid(-10, -10, 110, 70, 0.5); T.paintWhere(g2, () => true, 1);
+  const t2 = T.markTexture({ region: T.storeRegion(g2), xf: T.IDENTITY.slice(), fill }, { part, extend: 2 });
+  ok(Math.abs(t2.h(69.7, 32) - 2) < 1e-6 && t2.h(77, 30) === 0, `full depth to a hole's edge (${t2.h(69.7, 32).toFixed(2)}), nothing in its middle`);
+  // the cutter reaches the edge: simulated, the cells just inside the edge are cut to the design
+  const path = T.markToolpath(mark, { part, maxDepth: 19, res: 0.2 });
+  const grid = { x0: -12, y0: -12, nx: 600, ny: 420, res: 0.25 };
+  const Z = T.simulate(path.moves, grid, T.makeTool('ball18'));
+  let n = 0, near = 0, past = 0;
+  for (let j = 0; j < grid.ny; j++) for (let i = 0; i < grid.nx; i++) {
+    const x = grid.x0 + i * grid.res, y = grid.y0 + j * grid.res, z = Z[j * grid.nx + i];
+    if (x > 0.2 && x < 1 && y > 5 && y < 55 && tex.h(x, y) > 1.9) { n++; if (z <= -tex.h(x, y) + 0.15) near++; }
+    if (x < -2 - 1.5875 - 0.3 && z < -1e-6) past++;
+  }
+  ok(n > 50 && near / n > 0.95, `the bit reaches the edge: ${near} of ${n} cells just inside it cut to the design`);
+  ok(past === 0, 'and never cuts farther past the edge than its own reach');
+  // pierce: holes centred on the part only; a hole meeting the edge opens out through it
+  const hm = { region: T.storeRegion(g2), xf: T.IDENTITY.slice(), fill: T.newPierce('holes', { origin: [2, 2], params: { size: 8, spacing: 14, layout: 'grid' } }) };
+  const H = T.pierceCuts(hm, { thickness: 12, part });
+  ok(H.holes.length && H.holes.every((h) => h.x >= 0 && h.x <= 100 && h.y >= 0 && h.y <= 60 && !(h.x > 70 && h.x < 85 && h.y > 20 && h.y < 40)), `${H.holes.length} holes, each centred on the part's top (none in its hole)`);
+  ok(H.holes.some((h) => h.x - h.d / 2 < 0 || h.y - h.d / 2 < 0), 'holes at the edge open out through it');
+  ok(T.pierceChecks(hm, { thickness: 12, part }).notes.some((x) => /open notches/.test(x)), 'open notches: said');
+  // a kerf running 3 mm in from the edge leaves a sliver: said
+  const g3 = T.newGrid(-10, -10, 110, 70, 0.5); T.paintWhere(g3, (x, y) => y > 4 && y < 30, 1);
+  const km = { region: T.storeRegion(g3), xf: T.IDENTITY.slice(), fill: T.newPierce('kerf', { origin: [0, 6], params: { radius: 200, skin: 2.5 } }) };
+  const kc = T.pierceChecks(km, { thickness: 19, part });
+  ok(kc.warnings.some((x) => /thinner than two bit widths that may break off/.test(x)), `a sliver between a kerf and the edge: said (${kc.warnings.find((x) => /strip/.test(x)) || kc.warnings[0]})`);
+}
+
+// 16. the mark's edge as a curve with points: fit, then back into the paint
+{
+  const g = T.newGrid(0, 0, 80, 60, 0.5);
+  T.paintWhere(g, (x, y) => ((x - 40) / 25) ** 2 + ((y - 30) / 18) ** 2 <= 1 && Math.hypot(x - 40, y - 30) > 6, 1);   // an ellipse with a hole
+  const cv = T.fitCurves(g, { count: 16 });
+  ok(cv.loops.length === 2 && cv.loops[0].orient !== cv.loops[1].orient, `two loops (the edge and the hole), opposite turns: ${cv.loops.map((l) => `${l.handles.length}:${l.orient}`).join(' ')}`);
+  // round trip: the rewritten paint differs only along the edge, within a cell
+  const back = T.rewriteFromCurves(g, cv);
+  let diff = 0, far = 0;
+  for (let j = 0; j < g.ny; j++) for (let i = 0; i < g.nx; i++) {
+    const k = j * g.nx + i;
+    if (back.data[k] === g.data[k]) continue;
+    diff++;
+    let edge = false;
+    for (let dj = -2; dj <= 2 && !edge; dj++) for (let di = -2; di <= 2; di++) { const q = (j + dj) * g.nx + i + di; if (q >= 0 && q < g.data.length && g.data[q] !== g.data[k]) { edge = true; break; } }
+    if (!edge) far++;
+  }
+  ok(far === 0 && diff < 0.05 * T.gridCount(g), `fit → rewrite: ${diff} cells changed, all at the edge`);
+  // the handles are on the curve: it passes through them
+  const Q = T.controlsFor(cv.loops[0].handles), p0 = T.splineAt(Q, 3);
+  ok(Math.hypot(p0[0] - cv.loops[0].handles[3][0], p0[1] - cv.loops[0].handles[3][1]) < 1e-9, 'the curve passes through its points');
+  // a drag: one point of the outer loop out 8 mm; the edge follows it there
+  const outer = cv.loops.find((l) => l.orient > 0), k = outer.handles.reduce((b, h, i) => (h[0] > outer.handles[b][0] ? i : b), 0);
+  const moved = { loops: cv.loops.map((l) => (l === outer ? { ...l, handles: l.handles.map((h, i) => (i === k ? [h[0] + 8, h[1]] : h)) } : l)) };
+  const drag = T.rewriteFromCurves(g, moved), tip = outer.handles[k];
+  const cellAt = (G, x, y) => G.data[Math.floor((y - G.y0) / G.res) * G.nx + Math.floor((x - G.x0) / G.res)];
+  ok(drag && cellAt(drag, tip[0] + 7.5, tip[1]) === 1 && cellAt(drag, tip[0] + 8.5, tip[1]) === 0 && cellAt(g, tip[0] + 7.5, tip[1]) === 0, `a dragged point takes the edge to where it was put (${(tip[0] + 8).toFixed(1)})`);
+  ok(cellAt(drag, 40, 30) === 0, 'the hole stays a hole');
+  // a point dragged across the curve: it crosses itself, the rewrite refuses
+  const j2 = (k + Math.floor(outer.handles.length / 2)) % outer.handles.length;
+  const bad = { loops: cv.loops.map((l) => (l === outer ? { ...l, handles: l.handles.map((h, i) => (i === k ? [outer.handles[j2][0] - 10, outer.handles[j2][1]] : h)) } : l)) };
+  ok(T.rewriteFromCurves(g, bad) === null && T.curvesCross(bad), 'a curve dragged across itself refuses; the old paint stands');
+  const near = T.nearestOnCurves(cv, tip[0] + 0.2, tip[1]);
+  ok(near && near.d < 0.5 && (near.span === k || near.span === (k - 1 + outer.handles.length) % outer.handles.length), 'a click by the curve finds the span to add a point to');
+}
+
 console.log(`\n${pass} passed, ${fail} failed  (${((Date.now() - t0) / 1000).toFixed(1)} s)`);
 process.exit(fail ? 1 : 0);
