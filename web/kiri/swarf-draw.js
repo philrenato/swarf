@@ -331,13 +331,16 @@
     }
     // the ground (review 10-28: "no bed, origin, scale or units"): the bed's size in its
     // corner, the origin, and a scale bar of a round length about 100 px long
-    out.push(`<text class="sd-lab" x="${sx(-bw / 2) + 6}" y="${sy(bd / 2) + 14}">bed ${Math.round(bw)} × ${Math.round(bd)} mm</text>`);
+    out.push(`<text class="sd-lab" x="${sx(-bw / 2) + 6}" y="${sy(bd / 2) + 14}">bed ${LEN.unit() === 'in' ? `${+(bw / 25.4).toFixed(1)} × ${+(bd / 25.4).toFixed(1)} in` : `${Math.round(bw)} × ${Math.round(bd)} mm`}</text>`);
     out.push(`<path class="sd-origin" d="M${sx(0) - 8},${sy(0)}H${sx(0) + 8}M${sx(0)},${sy(0) - 8}V${sy(0) + 8}"/><text class="sd-lab" x="${sx(0) + 6}" y="${sy(0) + 14}">0, 0</text>`);
     {
       const r = ui.svg.getBoundingClientRect(), want = 100 / k;
-      const len = [1, 2, 5, 10, 20, 50, 100, 200, 500, 1000, 2000].find(v => v >= want * 0.6) || 2000;
+      // the scale bar in the units the switch says: round inches (1/8 in to 4 ft) or round mm
+      const inch = LEN.unit() === 'in';
+      const len = inch ? 25.4 * ([0.125, 0.25, 0.5, 1, 2, 3, 6, 12, 24, 48].find(v => v * 25.4 >= want * 0.6) || 48)
+        : [1, 2, 5, 10, 20, 50, 100, 200, 500, 1000, 2000].find(v => v >= want * 0.6) || 2000;
       const x = 20, y = (r.height || window.innerHeight) - 46;
-      out.push(`<path class="sd-scale" d="M${x},${y - 4}V${y}H${x + len * k}V${y - 4}"/><text class="sd-lab" x="${x}" y="${y - 8}">${len >= 1000 ? len / 1000 + ' m' : len + ' mm'}</text>`);
+      out.push(`<path class="sd-scale" d="M${x},${y - 4}V${y}H${x + len * k}V${y - 4}"/><text class="sd-lab" x="${x}" y="${y - 8}">${inch ? LEN.say(len) : len >= 1000 ? len / 1000 + ' m' : len + ' mm'}</text>`);
     }
     for (const o of S.others) out.push(`<rect class="sd-other" x="${sx(o[0])}" y="${sy(o[3])}" width="${(o[2] - o[0]) * k}" height="${(o[3] - o[1]) * k}"><title>${o[4]}: no drawing to edit</title></rect>`);
     // wider places to press (review 10-28 #12), under the parts so a press on a part wins:

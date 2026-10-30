@@ -544,13 +544,16 @@
     for (let x = Math.ceil(-bw / 2 / step) * step; x <= bw / 2; x += step) gr += `M${sx(x)},${sy(-bd / 2)}V${sy(bd / 2)}`;
     for (let y = Math.ceil(-bd / 2 / step) * step; y <= bd / 2; y += step) gr += `M${sx(-bw / 2)},${sy(y)}H${sx(bw / 2)}`;
     out.push(`<path class="sd-grid${step === 100 ? ' big' : ''}" d="${gr}"/>`);
-    out.push(`<text class="sd-lab" x="${sx(-bw / 2) + 6}" y="${sy(bd / 2) + 14}">bed ${Math.round(bw)} × ${Math.round(bd)} mm</text>`);
+    out.push(`<text class="sd-lab" x="${sx(-bw / 2) + 6}" y="${sy(bd / 2) + 14}">bed ${LEN.unit() === 'in' ? `${+(bw / 25.4).toFixed(1)} × ${+(bd / 25.4).toFixed(1)} in` : `${Math.round(bw)} × ${Math.round(bd)} mm`}</text>`);
     out.push(`<path class="sd-origin" d="M${sx(0) - 8},${sy(0)}H${sx(0) + 8}M${sx(0)},${sy(0) - 8}V${sy(0) + 8}"/><text class="sd-lab" x="${sx(0) + 6}" y="${sy(0) + 14}">0, 0</text>`);
     {
       const r = ui.svg.getBoundingClientRect(), want = 100 / k;
-      const len = [1, 2, 5, 10, 20, 50, 100, 200, 500, 1000, 2000].find(v => v >= want * 0.6) || 2000;
+      // the scale bar in the units the switch says: round inches (1/8 in to 4 ft) or round mm
+      const inch = LEN.unit() === 'in';
+      const len = inch ? 25.4 * ([0.125, 0.25, 0.5, 1, 2, 3, 6, 12, 24, 48].find(v => v * 25.4 >= want * 0.6) || 48)
+        : [1, 2, 5, 10, 20, 50, 100, 200, 500, 1000, 2000].find(v => v >= want * 0.6) || 2000;
       const x = 20, y = (r.height || window.innerHeight) - 46;
-      out.push(`<path class="sd-scale" d="M${x},${y - 4}V${y}H${x + len * k}V${y - 4}"/><text class="sd-lab" x="${x}" y="${y - 8}">${len >= 1000 ? len / 1000 + ' m' : len + ' mm'}</text>`);
+      out.push(`<path class="sd-scale" d="M${x},${y - 4}V${y}H${x + len * k}V${y - 4}"/><text class="sd-lab" x="${x}" y="${y - 8}">${inch ? LEN.say(len) : len >= 1000 ? len / 1000 + ' m' : len + ' mm'}</text>`);
     }
     S.parts.forEach((p, pi) => {
       const d = p.loops.map(L => 'M' + L.map(q => `${sx(q[0] + p.pos[0])},${sy(q[1] + p.pos[1])}`).join('L') + 'Z').join('');
