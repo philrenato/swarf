@@ -150,6 +150,8 @@ try {
   await wait(5000);              // cam saves a part 1.5 s after it changes
   aligned(await page.evaluate(ALIGN), 'triangle turned 20° in cam lines up');
   await boot(page);
+  // the saved parts come back one by one: on a busy machine that can take longer than the boot's wait
+  await page.waitForFunction(() => window.kiri.api.widgets.all().length >= 2, { timeout: 20000, polling: 200 }).catch(() => {});
   const count = await page.evaluate(() => window.kiri.api.widgets.all().length);
   check(count === 2, `after a reload there are still 2 parts (${count})`);
   aligned(await page.evaluate(ALIGN), 'after a reload, both drawings line up');
