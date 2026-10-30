@@ -8,6 +8,14 @@
   "theme_color": "#ededee",
   "background_color": "#eef0f2",
   "orientation": "landscape-primary",
+  "file_handlers": [
+    {
+      "action": ".",
+      "accept": { "application/x-swarf": [".swarf"] },
+      "icons": [{ "src": "swarf-icon-256.png", "sizes": "256x256", "type": "image/png" }],
+      "launch_type": "single-client"
+    }
+  ],
   "icons": [
     {
       "src": "swarf-icon-64.png",

@@ -25,7 +25,7 @@ for (const [f, q] of refs) {
   assert.ok(hits.length, `${f} points to help search "${q}", which finds nothing`);
 }
 // and the features that help is told about stay findable by their plain names
-for (const q of ['windows', 'zadig', 'e-stop', 'router test', 'feed override', 'inch', 'disconnect', 'search down', 'kcad', 'quick start',
+for (const q of ['save project', '.swarf', 'kmz', 'windows', 'zadig', 'e-stop', 'router test', 'feed override', 'inch', 'disconnect', 'search down', 'kcad', 'quick start',
   // TEX (swarf-tex.js): the mode, its tools and its step
   'tex', 'brush', 'erase', 'mark', 'soft edge', 'patterns', 'ocean waves', 'texture step', 'v-bit', 'plunge', 'points', 'pierce', 'kerf', 'test strip', 'make it a part', 'make it a hole'])
   assert.ok(find(q).length, `help search "${q}" finds nothing`);

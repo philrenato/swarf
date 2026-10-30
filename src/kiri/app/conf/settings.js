@@ -30,9 +30,9 @@ function export_objects(format = "stl") {
 function export_profile() {
     const opt = {pre: [
         "<div class='f-col a-center gap5 mlr10'>",
-        "  <h3>Workspace Export</h3>",
-        "  <label>This will create a backup of your</label>",
-        "  <label>workspace, devices, and settings</label>",
+        "  <h3>Save for Kiri:Moto (.kmz)</h3>",
+        "  <label>the parts, machine and settings, as Kiri:Moto opens them.</label>",
+        "  <label>.swarf keeps everything; .kmz opens in Kiri:Moto.</label>",
         "  <span class='mt10'><input id='excwork' type='checkbox'>&nbsp;Exclude meshes</span>",
         "</div>"
     ]};
@@ -46,6 +46,10 @@ function export_profile() {
 
         let work = !$('excwork').checked;
         let json = api.conf.export({work, clear:true});
+        // swarf: a .kmz is for Kiri:Moto, which has no texture or pierce step (TEX's): those
+        // stay out of it, and a .swarf keeps them (web/kiri/swarf-file.js)
+        let dropped = self.SwarfFile ? self.SwarfFile.kmzSafe(json.settings) : 0;
+        if (dropped) api.show.alert(`${dropped} TEX step${dropped === 1 ? ' was' : 's were'} left out: Kiri:Moto has no texture step. Save a project (.swarf) to keep everything.`, 10);
 
         api.client.zip([
             {name:"workspace.json", data:JSON.stringify(json)}

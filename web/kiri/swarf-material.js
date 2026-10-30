@@ -541,7 +541,8 @@
   }
   let applying = false;
   function applyFeedsToOps() {
-    if (applying || !current || !current.cut) return;
+    // held while a .swarf opens (swarf-file.js): its steps come in with their own numbers
+    if (applying || window.__swarfMaterialHold || !current || !current.cut) return;
     const api = window.kiri && window.kiri.api;
     if (!api || !api.conf) return;
     const settings = api.conf.get();
@@ -691,6 +692,9 @@
     if (select) fillOptions(select);
   }
   window.__swarfMaterialsOffered = () => offered().map(m => m.id);
+  // a .swarf's material (swarf-file.js): the one it names when this machine offers it; returns the one picked
+  window.__swarfSetMaterial = id => { setCurrent(id); const sel = document.getElementById('swarf-material-select'); if (sel && current) sel.value = current.id; return current && current.id; };
+  window.__swarfApplyFeeds = () => applyFeedsToOps();
 
   function injectDropdown() {
     const camops = document.getElementById('camops');

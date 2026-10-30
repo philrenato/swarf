@@ -2392,5 +2392,18 @@ html[data-skin] #swarf-run .sr-jog .sr-zrow button.next, html[data-skin] #swarf-
     if (!nodes) { el.sheet.classList.remove('on'); refresh(); return; }
     el.card.innerHTML = ''; el.card.append(...nodes); el.sheet.classList.add('on');
   }
-  window.__swarfRun = { open, close, loadProgram, card, tell: (t, c) => tell(t, c), state: S, view: () => view, preview: PV };
+  // a .swarf opened (swarf-file.js): the job control held is gone, and the reopened one is a new
+  // job — no zero, no trace, no stop to go on from. The board's own zero is offered back, as for
+  // any new file (help: keep the zero), never taken from the file.
+  function forget() {
+    if (S.machine && S.machine.state.running) return false;
+    playStop();
+    if (S.prog) rememberZero();
+    S.prog = null; S.hold = null;
+    S.zeroXY = S.zeroZ = S.traced = false;
+    S.zx = S.zy = false; S.stoppedAt = 0; S.lastDone = null; S.toolChange = null; S.lostAt = 0;
+    if (S.open) close();
+    return true;
+  }
+  window.__swarfRun = { open, close, forget, loadProgram, card, tell: (t, c) => tell(t, c), state: S, view: () => view, preview: PV };
 })();
