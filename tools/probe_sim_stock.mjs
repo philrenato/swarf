@@ -10,7 +10,7 @@ import puppeteer from 'puppeteer-core';
 import { readFileSync } from 'node:fs';
 const kmz = process.argv[2] || new URL('./fixtures/kiri_cube_rough.kmz', import.meta.url).pathname;
 const b64 = readFileSync(kmz).toString('base64');
-const browser = await puppeteer.launch({ executablePath: '/Applications/Google Chrome for Testing.app/Contents/MacOS/Google Chrome for Testing', headless: 'new', defaultViewport: { width: 1600, height: 1000 }, args: ['--enable-webgl', '--use-gl=angle', '--enable-unsafe-swiftshader'] });
+const browser = await puppeteer.launch({ executablePath: (process.env.HOME + '/.local/bin/chrome-for-testing'), headless: 'new', defaultViewport: { width: 1600, height: 1000 }, args: ['--enable-webgl', '--use-gl=angle', '--enable-unsafe-swiftshader'] });
 const problems = [];
 try {
     const page = await browser.newPage();

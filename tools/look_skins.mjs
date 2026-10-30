@@ -3,7 +3,7 @@
 // Shots: the empty bed, the view menu, SHAPE, a part with its size card and sentence,
 // toolpaths, simulate with the machine, DRAW with a part picked, and CONTROL with the job.
 import puppeteer from 'puppeteer-core';
-const CHROME = process.env.CHROME || '/Applications/Google Chrome for Testing.app/Contents/MacOS/Google Chrome for Testing';
+const CHROME = process.env.CHROME || (process.env.HOME + '/.local/bin/chrome-for-testing');
 const PAGE = process.argv[2] || 'http://127.0.0.1:8139/swarf-app/';
 const OUT = process.argv[3] || '/tmp';
 const SKINS = process.argv.slice(4).length ? process.argv.slice(4) : ['glass', 'classic', 'swarf'];

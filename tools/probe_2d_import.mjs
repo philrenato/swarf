@@ -4,7 +4,7 @@
 // left out.   node tools/probe_2d_import.mjs [url]
 import puppeteer from 'puppeteer-core';
 import { fileURLToPath } from 'node:url';
-const CHROME = process.env.CHROME || '/Applications/Google Chrome for Testing.app/Contents/MacOS/Google Chrome for Testing';
+const CHROME = process.env.CHROME || (process.env.HOME + '/.local/bin/chrome-for-testing');
 const PAGE = process.argv[2] || 'http://localhost:8080/kiri/';
 const FIX = fileURLToPath(new URL('./fixtures-2d/', import.meta.url));
 const wait = ms => new Promise(r => setTimeout(r, ms));

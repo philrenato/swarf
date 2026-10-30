@@ -5,7 +5,7 @@
 // ❚❚ pauses; the X/Y/Z numbers stay the machine's own.
 //   node tools/probe_playhead.mjs [url]
 import puppeteer from 'puppeteer-core';
-const CHROME = process.env.CHROME || '/Applications/Google Chrome for Testing.app/Contents/MacOS/Google Chrome for Testing';
+const CHROME = process.env.CHROME || (process.env.HOME + '/.local/bin/chrome-for-testing');
 const PAGE = process.argv[2] || 'http://localhost:8080/kiri/';
 const OUT = process.env.OUT || '/tmp/swarf-playhead';
 const wait = ms => new Promise(r => setTimeout(r, ms));

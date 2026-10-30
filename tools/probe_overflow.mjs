@@ -11,7 +11,7 @@
  */
 import puppeteer from 'puppeteer-core';
 
-const CHROME = process.env.CHROME || '/Applications/Google Chrome for Testing.app/Contents/MacOS/Google Chrome for Testing';
+const CHROME = process.env.CHROME || (process.env.HOME + '/.local/bin/chrome-for-testing');
 const URL = process.argv[2] || 'http://localhost:8080/kiri/';
 const SLOP = 2; // px — sub-pixel rounding is not a clip
 
