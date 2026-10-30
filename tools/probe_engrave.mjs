@@ -53,7 +53,7 @@ try {
   await wait(300);
   const openDraw = async () => {
     await page.click('#swarf-step-draw');
-    await page.waitForFunction(() => window.__swarfDraw.state(), { timeout: 5000 });
+    await page.waitForFunction(() => window.__swarfDraw.state(), { timeout: 15000 });
     await page.evaluate(() => { const S = window.__swarfDraw.state(), r = document.getElementById('sd-svg').getBoundingClientRect(); S.k = 2.5; S.ox = r.width / 2 - 100; S.oy = r.height / 2 + 40; });
   };
   // an existing part: a 100 x 60 rectangle, 10 mm thick
@@ -110,8 +110,9 @@ try {
   // a reload: the lines and the step are still there, and still cut
   await page.reload({ waitUntil: 'domcontentloaded' });
   await ready(page);
-  await page.waitForFunction(() => window.kiri.api.widgets.all().length === 2, { timeout: 30000 }).catch(() => {});
-  await wait(1500);
+  // the saved parts, and their lines, come back one by one: on a busy machine that takes a while
+  await page.waitForFunction(() => window.kiri.api.widgets.all().length === 2 && window.kiri.api.widgets.all().every(w => w.meta && (w.meta.engrave || []).length && w.mesh), { timeout: 30000, polling: 200 }).catch(() => {});
+  await wait(2500);
   const back = await page.evaluate(() => ({ ws: window.kiri.api.widgets.all().map(w => (w.meta.engrave || []).map(l => l.depth).join()), ops: window.kiri.api.conf.get().process.ops.map(o => (o.engrave ? 'engrave' : o.type)) }));
   check(back.ws.sort().join('|') === '1.5|2.5' && back.ops.includes('engrave'), `after a reload: the lines are on their parts, the step is there (${JSON.stringify(back)})`);
   ({ pv, gc } = await paths(page));
