@@ -287,6 +287,28 @@ for (const [id, P] of Object.entries(T.PATTERNS)) {
   const tight = T.pierceChecks({ ...kerf, fill: { ...kerf.fill, params: { radius: 25, skin: 2.5 } } }, { thickness: 19 });
   ok(tight.warnings.some((x) => /thinner than two bit widths/.test(x)) && tight.warnings.some((x) => /may crack/.test(x)) && tight.notes.some((x) => /test strip/.test(x)), 'a tight bend: thin ribs and a cracking skin said; a test strip asked for');
 
+  // review 10-30 F2: the default skin follows the board (2.5 mm, never more than a quarter of it),
+  // so 6, 12 and 19 mm boards all get a kerf field on a quarter-turn mark at the default radius;
+  // a mark narrower than a pitch or two says the real reason (the mark, not the bend)
+  ok(T.defaultSkin(6) === 1.5 && T.defaultSkin(12) === 1.5 && T.defaultSkin(3) === 0.8 && T.defaultSkin(19, 200) === 2.5 && T.defaultSkin(12, 200) === 2.5 && T.defaultSkin(6, 200) === 1.5 && T.pierceDefaults('kerf').skin === 1.5, 'the default skin: min(2.5, board/4, what bends to 100 mm uncracked)');
+  const gq = T.newGrid(0, 0, 220, 180, 0.5);
+  T.paintWhere(gq, (x, y) => x > 10 && x < 210 && y > 10 && y < 170, 1);   // 200 long, 160 across the bend
+  const fields = [];
+  for (const th of [6, 12, 19]) {
+    const mk = { region: T.storeRegion(gq), xf: T.IDENTITY.slice(), fill: T.newPierce('kerf', { origin: [110, 90] }, th) };
+    const c = T.pierceCuts(mk, { thickness: th }), n = T.kerfCount(c), ch = T.pierceChecks(mk, { thickness: th });
+    fields.push(`${th} mm: skin ${mk.fill.params.skin}, every ${c.pitch.toFixed(1)} mm, ${n} kerfs`);
+    ok(n >= 3 && Math.abs(c.across - 158) < 3 && !ch.notes.some((x) => /across the bend;/.test(x)) && !ch.warnings.some((x) => /may crack|may snap/.test(x)), `a ${th} mm board, default radius, a 160 mm mark: ${n} kerfs, no warning`);
+  }
+  console.log('  kerf fields at radius 100:', fields.join(' · '));
+  const gn = T.newGrid(0, 0, 200, 60, 0.5);
+  T.paintWhere(gn, (x, y) => x > 10 && x < 190 && y > 10 && y < 50, 1);    // 180 long, 40 across
+  const narrow = T.pierceChecks({ region: T.storeRegion(gn), xf: T.IDENTITY.slice(), fill: T.newPierce('kerf', { origin: [100, 30] }, 6) }, { thickness: 6 });
+  const why = narrow.notes.find((x) => /across the bend;/.test(x)) || '';
+  ok(/This mark is 40 mm across the bend; kerfs fall every 71 mm, so only 1 fits: make the mark wider across the bend\. A quarter turn at 100 mm wants about 157 mm across\./.test(why) && !narrow.notes.some((x) => /gentle/.test(x)), `a narrow mark on 6 mm says why: "${why}"`);
+  const n19 = T.pierceChecks({ region: T.storeRegion(gn), xf: T.IDENTITY.slice(), fill: T.newPierce('kerf', { origin: [100, 30], params: { radius: 400, skin: 1.5 } }, 19) }, { thickness: 19 });
+  ok(n19.notes.some((x) => /across the bend; kerfs fall every 73 mm, so (only 1 fits|none fit): make the mark wider across the bend or the radius smaller/.test(x)), `a gentle bend may come down too: said (${n19.notes[1]})`);
+
   // holes: inside the mark, no smaller than the bit, smaller toward a soft edge; cleared through
   const holes = { region: reg, xf: T.IDENTITY.slice(), fill: T.newPierce('holes', { origin: [100, 60], params: { size: 10, spacing: 18, layout: 'hex' } }) };
   const H = T.pierceCuts(holes, { thickness: 12 });

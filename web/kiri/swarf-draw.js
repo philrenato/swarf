@@ -230,6 +230,9 @@
     // none of them reach cam while drawing
     window.addEventListener('keypress', hush, true);
     window.addEventListener('resize', render);
+    // the mm | in switch while drawing: the card and the bar follow it (review 10-30 F1)
+    S.onUnits = () => setTimeout(() => { if (S) render(); }, 0);
+    try { a.ui.units && a.ui.units.addEventListener('change', S.onUnits); } catch (e) { /* no units control */ }
     ui.svg.focus();
   }
 
@@ -247,6 +250,7 @@
     window.removeEventListener('keydown', key, true);
     window.removeEventListener('keypress', hush, true);
     window.removeEventListener('resize', render);
+    try { const u = api() && api().ui.units; if (u && S.onUnits) u.removeEventListener('change', S.onUnits); } catch (e) { /* gone */ }
     ui.el.remove();
     document.body.classList.remove('swarf-draw-open');
     S = null;

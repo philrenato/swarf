@@ -109,7 +109,10 @@
       const b = document.createElement('button');
       b.textContent = word; b.setAttribute('role', 'radio');
       b.addEventListener('click', () => {
-        if (sel.value !== k) { sel.value = k; if (sel.onchange) sel.onchange(); else sel.dispatchEvent(new Event('change')); }
+        // a real change event (review 10-30 F1): calling sel.onchange() reached Kiri alone, and
+        // the cards that listen (TEX, the tab card, auto tabs, DRAW) kept saying mm. A dispatched
+        // event runs Kiri's onchange property once, first (it was set before any listener), then them.
+        if (sel.value !== k) { sel.value = k; sel.dispatchEvent(new Event('change', { bubbles: true })); }
         show();
       });
       btns[k] = b; box.append(b);

@@ -223,7 +223,7 @@
     bs.onkeydown = e => { e.stopPropagation(); if (e.key === 'Enter') { bs.dataset.took = bs.value; takeBrush(); bs.blur(); ui.svg.focus(); } if (e.key === 'Escape') { render(); ui.svg.focus(); } };
     bs.onchange = () => { if (bs.dataset.took !== bs.value) takeBrush(); };
     // a unit changed in cam: the card and the bar say it, and no stale line stays
-    S.onUnits = () => { if (S) { say(''); render(); } };
+    S.onUnits = () => setTimeout(() => { if (S) { say(''); render(); } }, 0);
     try { a.ui.units && a.ui.units.addEventListener('change', S.onUnits); } catch (e) { /* no units control */ }
     $('tx-fit').onclick = () => { fit(!S.whole); render(); ui.svg.focus(); };
     $('tx-cancel').onclick = () => close(false);
@@ -664,16 +664,18 @@
       const opts = lib.length ? lib.map(([t, b]) => [String(t.id), `${b.name}${b.type === 'v' ? '' : ''}`]) : Object.entries(BITS).map(([k, b]) => [k, b.say]);
       return selRow('bit', 'tx-bit', opts, String(f.tool), f.fill === 'pierce' ? 'the straight bit that cuts the kerfs or holes; its width is the kerf' : 'the bit that cuts it: ball for smooth hollows, V for sharp grooves');
     };
-    const fillRow = f => (expert ? `<div class="sd-row tx-fills" title="texture carves the top; pierce cuts through it"><span>fill</span><button class="tx-fill${f.fill === 'texture' ? ' on' : ''}" data-fill="texture">texture</button><button class="tx-fill${f.fill === 'pierce' ? ' on' : ''}" data-fill="pierce">pierce</button></div>` : `<div class="sd-h">${f.fill}</div>`);
+    // pierce lives in advanced mode; a pierce mark seen from basic mode can still go back to
+    // texture (review 10-30 F11), and says where pierce lives
+    const fillRow = f => (expert || f.fill === 'pierce' ? `<div class="sd-row tx-fills" title="texture carves the top; pierce cuts through it"><span>fill</span><button class="tx-fill${f.fill === 'texture' ? ' on' : ''}" data-fill="texture">texture</button><button class="tx-fill${f.fill === 'pierce' ? ' on' : ''}" data-fill="pierce">pierce</button></div>${expert ? '' : '<div class="sd-note tx-adv">Pierce lives in advanced mode (view › advanced): here it can go back to texture.</div>'}` : `<div class="sd-h">${f.fill}</div>`);
     if (m && m.fill.fill === 'pierce') {
-      const f = m.fill, P = C.PIERCES[f.pattern], pr = { ...C.pierceDefaults(f.pattern), ...(f.params || {}) };
+      const f = m.fill, P = C.PIERCES[f.pattern], pr = { ...C.pierceDefaults(f.pattern, part.thick), ...(f.params || {}) };
       h += fillRow(f);
       h += selRow('pattern', 'tx-pat', Object.entries(C.PIERCES).map(([k, q]) => [k, q.label]), f.pattern, P.blurb);
       if (f.pattern === 'kerf') h += kerfPicture(part, f, pr);
       const tex = m.info && m.info.ver === m.ver ? m.info : null;
       if (!tex) h += '<div class="sd-note">Working out the cut…</div>';
       else {
-        h += `<div class="sd-note">About ${C.formatTime(tex.seconds)} to cut.</div>`;
+        h += `<div class="sd-note">${tex.seconds > 0 ? `About ${C.formatTime(tex.seconds)} to cut.` : 'Nothing to cut yet: no cut fits in the mark (below says why).'}</div>`;
         for (const n of tex.notes) h += `<div class="sd-note">${esc(n)}</div>`;
         for (const w of tex.warnings) h += `<div class="sd-note tx-warn">${esc(w)}</div>`;
       }
@@ -764,13 +766,13 @@
     // every change to the fill: undoable, remembered for the next mark, the picture and checks again
     const set = (fn) => { snap(); fn(f); m.ver++; part.dirty = true; try { localStorage.setItem(FILL, JSON.stringify({ ...f, origin: [0, 0] })); } catch (e) { /* private */ } render(); imagesSoon(); checkSoon(); };
     const pierce = f.fill === 'pierce';
-    const pick = v => set(f => { if (pierce) { f.pattern = v; f.params = C.pierceDefaults(v); return; } f.pattern = v; f.params = C.defaults(v); f.depth = f.params.depth; if (!PATHS[f.path]) f.path = 'auto'; });
+    const pick = v => set(f => { if (pierce) { f.pattern = v; f.params = C.pierceDefaults(v, part.thick); return; } f.pattern = v; f.params = C.defaults(v); f.depth = f.params.depth; if (!PATHS[f.path]) f.path = 'auto'; });
     for (const b of ui.card.querySelectorAll('.tx-fill')) b.onclick = () => {
       const to = b.dataset.fill;
       if (to !== f.fill) {
         snap();
         const keep = { angle: f.angle || 0, origin: f.origin, fade: to === 'pierce' ? 0 : 3 };
-        m.fill = normBit(to === 'pierce' ? C.newPierce('kerf', keep) : { ...C.newFill('waves'), ...keep });
+        m.fill = normBit(to === 'pierce' ? C.newPierce('kerf', keep, part.thick) : { ...C.newFill('waves'), ...keep });
         m.ver++; part.dirty = true;
         say(to === 'pierce' ? 'Pierce: cuts through the part. A starting point: cut a test strip first.' : 'Texture: carved into the part\'s top.');
         render(); imagesSoon(); checkSoon();
@@ -780,7 +782,7 @@
     const sv = $('tx-svg-save');
     if (sv) sv.onclick = () => {
       const txt = T().pierceSVG({ region: m.region, xf: m.xf, fill: m.fill }, { thickness: part.thick });
-      if (!txt) return say('Nothing to save: the mark has no cuts yet.');
+      if (!txt) return say('Nothing to save: no cut fits in the mark yet (the card says why).');
       const a = document.createElement('a');
       a.href = URL.createObjectURL(new Blob([txt], { type: 'image/svg+xml' }));
       a.download = `${part.name}-${f.pattern}.svg`;
@@ -808,7 +810,7 @@
           if (!isFinite(v)) return say(`Give ${q.label.toLowerCase()} a number.`);
           if (v < q.min || v > q.max) return say(`${q.label} goes from ${q.unit === 'mm' ? LEN.say(q.min) : q.min} to ${q.unit === 'mm' ? LEN.say(q.max) : q.max}${q.unit && q.unit !== 'mm' ? q.unit : ''}.`);
         }
-        set(f => { f.params = { ...(pierce ? C.pierceDefaults(f.pattern) : C.defaults(f.pattern)), ...(f.params || {}), [q.k]: q.type === 'range' ? r3(v) : v }; });
+        set(f => { f.params = { ...(pierce ? C.pierceDefaults(f.pattern, part.thick) : C.defaults(f.pattern)), ...(f.params || {}), [q.k]: q.type === 'range' ? r3(v) : v }; });
       });
     }
     bind('tx-scale', v => { if (!(v >= 5 && v <= 2000)) return say('Scale is a percentage from 5 to 2000.'); set(f => { f.scale = r3(v / 100); }); });
@@ -1140,8 +1142,11 @@
     if (!changed) return '';
     const r = syncSteps(a);
     const ops = a.conf.get().process.ops || [], free = ops.some(o => o && (o.type === 'outline' || o.type === 'rough'));
-    const added = `${r.added === 1 ? 'a texture step was' : `${r.added} texture steps were`} added`;
-    const steps = r.added ? (free ? `${added} before the cut-out` : `${added}; add an outline to cut the part free`) : r.removed ? `${r.removed === 1 ? 'its step was' : `${r.removed} steps were`} removed` : 'the texture steps cut them';
+    // worded per fill (review 10-30 F5: a pierce mark's toast said "a texture step")
+    const by = r.addedBy || { texture: r.added, pierce: 0 };
+    const kinds = ['texture', 'pierce'].filter(k => by[k]).map(k => (by[k] === 1 ? `${r.added === 1 ? 'a' : '1'} ${k} step` : `${by[k]} ${k} steps`));
+    const added = `${kinds.join(' and ')} ${r.added === 1 ? 'was' : 'were'} added`;
+    const steps = r.added ? (free ? `${added} before the cut-out` : `${added}; add an outline to cut the part free`) : r.removed ? `${r.removed === 1 ? 'its step was' : `${r.removed} steps were`} removed` : 'their steps cut them';
     return kept ? `${kept === 1 ? '1 mark is' : `${kept} marks are`} kept: ${steps}. Next: toolpaths.` : `No marks left${r.removed ? `: ${steps}` : ''}.`;
   }
 
@@ -1183,6 +1188,7 @@
     const s = a.conf.get(), proc = s.process, ops = proc.ops || (proc.ops = []);
     const marks = marksOnBed(a);
     let added = 0, removed = 0, changed = false;
+    const addedBy = { texture: 0, pierce: 0 };
     for (let i = ops.length - 1; i >= 0 && !addOnly; i--) {
       const o = ops[i];
       if (STEP(o) && !marks.has(o.texmark)) { ops.splice(i, 1); removed++; }
@@ -1209,7 +1215,7 @@
         let at = ops.findIndex(o => o && (o.type === 'outline' || o.type === 'rough' || o.type === '|' || (type === 'texture' && o.type === 'pierce')));
         if (at < 0) at = ops.length;
         ops.splice(at, 0, op);
-        if (was) changed = true; else added++;
+        if (was) changed = true; else { added++; addedBy[type]++; }
         continue;
       }
       // a new bit: the material's numbers for it again (swarf-material.js re-derives an unstamped step)
@@ -1228,7 +1234,7 @@
       a.conf.save();
       a.event.emit('cam.op.render');
     }
-    return { added, removed };
+    return { added, removed, addedBy };
   }
   // each texture step's marks, from every part's own, when the toolpaths are made: the mark, the
   // part's top and its thickness (the moves never go below the board)

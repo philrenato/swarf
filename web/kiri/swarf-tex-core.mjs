@@ -1741,9 +1741,21 @@ export const PIERCES = {
 };
 // the skin's allowable bending strain: birch ply about 0.75 % (0.5–1 %), a guess until strips are bent
 export const SKIN_STRAIN = 0.0075;
-export function pierceDefaults(id) { const o = {}; for (const q of PIERCES[id].params) o[q.k] = q.def; return o; }
-export function newPierce(pattern = 'kerf', over = {}) {
-  return { fill: 'pierce', pattern, params: pierceDefaults(pattern), angle: 0, origin: [0, 0], fade: 0, tool: 'flat18', ...over };
+// the skin a board of thickness T starts with: 2.5 mm, but never more than a quarter of the board
+// (review 10-30: 2.5 mm on 6 mm plywood left 3.5 mm to flex, so the kerfs fell 91 mm apart), nor
+// more than bends to the default radius without cracking (SKIN_STRAIN: 1.5 mm at 100 mm)
+export function defaultSkin(T, R = 100) {
+  const crack = Math.floor(2 * SKIN_STRAIN * R * 10 + 1e-9) / 10;
+  return Math.min(2.5, crack, T > 0 ? Math.round(T / 4 * 10) / 10 : 2.5);
+}
+export function pierceDefaults(id, T) {
+  const o = {};
+  for (const q of PIERCES[id].params) o[q.k] = q.def;
+  if (id === 'kerf') o.skin = defaultSkin(T);
+  return o;
+}
+export function newPierce(pattern = 'kerf', over = {}, T) {
+  return { fill: 'pierce', pattern, params: pierceDefaults(pattern, T), angle: 0, origin: [0, 0], fade: 0, tool: 'flat18', ...over };
 }
 // the bit a fill names: a full spec (fill.bit, from a host's tool library), or one of TOOLS by id
 export function fillTool(f) {
@@ -1764,7 +1776,7 @@ export function pierceCuts(mark, o = {}) {
   if (!region || (region.type === 'paint' && !region.data.some((v) => v))) return null;
   const A = mark.xf || IDENTITY, s = xfScale(A), I = xfInvert(A);
   const tool = fillTool(f), w = tool.diameter, T = o.thickness > 0 ? o.thickness : 19;
-  const p = { ...pierceDefaults(f.pattern), ...(f.params || {}) };
+  const p = { ...pierceDefaults(f.pattern, T), ...(f.params || {}) };
   // on its part: a cut that meets the part's edge runs out through it (an open notch)
   let onTop = null;
   if (o.part && region.type === 'paint') {
@@ -1793,13 +1805,25 @@ export function pierceCuts(mark, o = {}) {
     const box = { u0: b.x0 - ox, v0: b.y0 - oy, u1: b.x1 - ox, v1: b.y1 - oy };
     const dash = Math.max(4 * w, 12) / s, period = (p.slot + p.bridge) / s;
     const lines = linesInBox(ang, pm, box);
+    // how far the mark reaches across the bend (square to the kerfs), in the part's mm: a mark
+    // narrower than a pitch or two holds no more than a kerf or two, and the notes say so
+    {
+      const nx = -Math.sin(ang), ny = Math.cos(ang), N = 96;
+      let v0 = Infinity, v1 = -Infinity;
+      for (let j = 0; j <= N; j++) for (let i = 0; i <= N; i++) {
+        const x = b.x0 + (b.x1 - b.x0) * i / N, y = b.y0 + (b.y1 - b.y0) * j / N;
+        if (cutMask.sd(x, y) < 0) continue;
+        const v = x * nx + y * ny; if (v < v0) v0 = v; if (v > v1) v1 = v;
+      }
+      out.across = v1 >= v0 ? (v1 - v0) * s : 0;
+    }
     lines.forEach(([[ax, ay], [bx, by]], li) => {
       const L = Math.hypot(bx - ax, by - ay), dx = (bx - ax) / L, dy = (by - ay) / L, n = Math.ceil(L / step);
       // this line's place along the pattern, so bridges stagger row to row
       const t0 = (ax + ox) * dx + (ay + oy) * dy, stag = (li & 1) ? period / 2 : 0;
       let run = null;
       // a slot only where it cuts the part: one wholly past the edge would cut air
-      const flush = () => { if (run && run[4] && Math.hypot(run[2] - run[0], run[3] - run[1]) * s >= w) out.slots.push({ a: toPart(run[0], run[1]), b: toPart(run[2], run[3]) }); run = null; };
+      const flush = () => { if (run && run[4] && Math.hypot(run[2] - run[0], run[3] - run[1]) * s >= w) out.slots.push({ a: toPart(run[0], run[1]), b: toPart(run[2], run[3]), line: li }); run = null; };
       for (let i = 0; i <= n; i++) {
         const t = i * L / n, x = ax + ox + dx * t, y = ay + oy + dy * t;
         const m = weight(x, y), along = t0 + t;
@@ -1893,19 +1917,33 @@ export function pierceToolpath(mark, o = {}) {
   return { moves: E.moves, cuts, tool, strategy: cuts.slots.length ? 'slots' : 'holes' };
 }
 
+// the kerfs as lines across the bend: slots on one line (bridges) count once
+export function kerfCount(cuts) {
+  if (!cuts || !cuts.slots.length) return 0;
+  return new Set(cuts.slots.map((q, i) => (q.line ?? i))).size;
+}
+
 // What to say about a pierce mark, in plain words; every limit here wants a test strip
 export function pierceChecks(mark, o = {}) {
   const cuts = pierceCuts(mark, o);
   if (!cuts) return { warnings: [], notes: [], cuts: null };
   const f = mark.fill, tool = fillTool(f), w = tool.diameter, T = o.thickness > 0 ? o.thickness : 19;
-  const p = { ...pierceDefaults(f.pattern), ...(f.params || {}) };
+  const p = { ...pierceDefaults(f.pattern, T), ...(f.params || {}) };
   const L = o.len || ((v) => `${fmt(v, 1)} mm`);
   const warnings = [], notes = ['These numbers are a starting point: cut a test strip first.'];
   if (tool.type !== 'flat') warnings.push(`A ${tool.name} leaves a ${tool.type === 'v' ? 'V' : 'round'}-bottomed cut; through cuts want a straight (flat) bit.`);
   if (f.pattern === 'kerf') {
     const skin = Math.min(Math.max(0, p.skin), T), rib = cuts.pitch - w;
-    notes.unshift(`Kerfs every ${L(cuts.pitch)}, ${cuts.through ? 'right through' : `${L(T - skin)} deep, leaving ${L(skin)}`}, ${cuts.slots.length} cut${cuts.slots.length === 1 ? '' : 's'}${cuts.slots.length <= 2 ? ': a bend this gentle needs few kerfs; a smaller radius adds more' : ''}.`,
+    // kerfs counted as lines across the bend (bridges break one kerf into slots)
+    const nk = kerfCount(cuts);
+    notes.unshift(`Kerfs every ${L(cuts.pitch)}, ${cuts.through ? 'right through' : `${L(T - skin)} deep, leaving ${L(skin)}`}, ${nk} kerf${nk === 1 ? '' : 's'}.`,
       `Every ${L(cuts.pitch)} = bit ${L(w)} × radius ${L(p.radius)} ÷ (board ${L(T)} − skin ${L(skin)}): where the kerfs just close when it bends.`);
+    // too few kerfs: the reason is the mark, not the bend (review 10-30 F2: "a bend this gentle
+    // needs few kerfs" sent students to the radius, which on a thin board cracks the skin first)
+    if (nk < 3 && cuts.across > 0) {
+      const rmin = skin > 0 ? skin / (2 * SKIN_STRAIN) : 0, tighter = p.radius > rmin * 1.25 + 1;
+      notes.splice(1, 0, `This mark is ${L(roundProse(cuts.across))} across the bend; kerfs fall every ${L(roundProse(cuts.pitch))}, so ${nk ? `only ${nk} fit${nk === 1 ? 's' : ''}` : 'none fit'}: make the mark wider across the bend${tighter ? ' or the radius smaller' : ''}. A quarter turn at ${L(p.radius)} wants about ${L(roundProse(Math.PI / 2 * p.radius))} across.`);
+    }
     if (rib < 2 * w) warnings.push(`The kerfs are ${L(cuts.pitch)} apart: the wood between them is thinner than two bit widths and may snap. Ask for a gentler bend (a bigger radius) or use a thinner bit.`);
     if (skin > 0) {
       const rmin = skin / (2 * SKIN_STRAIN);
@@ -2299,7 +2337,7 @@ const API = {
   markChecks, BASIC, shadeHeight, SWATCH_SPAN, swatch,
   clipToPart, edgeDistance, insideReach, controlsFor, splineAt, sampleCurve, paintLoops, fitCurves, curvesCross, rewriteFromCurves, nearestOnCurves,
   partMesh, partMeshSize, autoMeshRes, meshCheck, meshNormals, meshSTL, meshOBJ, meshGLB,
-  roundProse, PIERCES, SKIN_STRAIN, pierceDefaults, newPierce, fillTool, kerfPitch, pierceCuts, pierceToolpath, pierceChecks, pierceSVG,
+  roundProse, PIERCES, SKIN_STRAIN, defaultSkin, kerfCount, pierceDefaults, newPierce, fillTool, kerfPitch, pierceCuts, pierceToolpath, pierceChecks, pierceSVG,
 };
 if (typeof window !== 'undefined') window.SwarfTexCore = API;
 export default API;
