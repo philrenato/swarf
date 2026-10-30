@@ -208,8 +208,12 @@ function confirm(message, buttons, input, opt = {}) {
             html.appendAll(opt.post);
         }
         dialog.innerHTML = html.join('');
+        // swarf (r086, from the .swarf review): Esc closes the dialog with no button pressed; it
+        // answers as cancel does (false), so whoever asked is never left waiting (an import
+        // stayed "loading a group" for good)
         dialog.onclose = () => {
             feature.on_key = onkey_save;
+            if (!answered) { answered = true; setTimeout(() => { resolve(false) }, 0); }
         };
         // swarf: answered before it showed (a button pressed in the 150 ms before showModal,
         // as a quick script does) means it never shows: it came back over the parts it made

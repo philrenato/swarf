@@ -394,9 +394,13 @@ function setup_keybd_nav() {
     const helpReset = $('swarf-reset-profile');
     if (helpReset) helpReset.onclick = (ev) => {
         ev.stopPropagation();
-        if (confirm('Reset swarf to factory defaults? This clears all saved settings and reloads.')) {
-            if (window.__swarfResetProfile) window.__swarfResetProfile();
-        }
+        // (whole-app review r086 F10) asked in swarf's own card, not the browser's
+        document.body.click();
+        const pre = ["<div class='f-col a-center swarf-shape'><h3>Start swarf over?</h3>",
+            "<p class='swarf-shape-why' style='color:inherit;max-width:340px'>Every setting, bit and part on this computer goes, and swarf reloads as new. A project saved as a .swarf file is kept: open it again after.</p></div>"];
+        api.uc.confirm(undefined, { 'keep everything': false, 'start over': 'reset' }, undefined, { pre }).then(v => {
+            if (v === 'reset' && window.__swarfResetProfile) window.__swarfResetProfile();
+        });
     };
     // swarf: reparent #panel-left and #panel-right out of #mid so fixed positioning
     // actually pins to the viewport. Some ancestor in Kiri's flow has a containing block
@@ -408,6 +412,23 @@ function setup_keybd_nav() {
         };
         reparent('panel-left');
         reparent('panel-right');
+        // (whole-app review r086 C3) advanced's own panels (machine profile, stock, limits,
+        // origin, expert) sat over the right rail, see-through. They are a column of their own
+        // beside toolpaths, below the notice line, scrolling if they run long.
+        const left = document.getElementById('panel-left'), tp = document.getElementById('panel-right');
+        if (!left || !tp) return;
+        const dock = () => {
+            const r = tp.getBoundingClientRect();
+            if (!left.offsetParent || r.height < 4) return;
+            const top = 136;
+            const set = (k, v) => left.style.setProperty(k, v, 'important');
+            set('top', top + 'px'); set('left', Math.round(r.right + 10) + 'px'); set('right', 'auto'); set('bottom', 'auto');
+            set('width', '280px'); set('max-height', Math.max(160, innerHeight - top - 100) + 'px');
+        };
+        if (window.ResizeObserver) { new ResizeObserver(dock).observe(tp); new ResizeObserver(dock).observe(left); }
+        window.addEventListener('resize', dock);
+        new MutationObserver(() => setTimeout(dock, 0)).observe(document.body, { attributes: true, attributeFilter: ['class'] });
+        setTimeout(dock, 0);
     })();
 
     // swarf: click-to-open menus (kill Kiri's hover-to-open — markup note: "like a real app")
@@ -431,6 +452,43 @@ function setup_keybd_nav() {
         });
         document.addEventListener('click', close);
         document.addEventListener('keydown', (ev) => { if (ev.key === 'Escape') close(); });
+        // swarf (whole-app review r086 F7): the menu bar and the mode row take Tab. Enter or
+        // Space presses a step or opens a menu (its first item takes the focus); arrows walk the
+        // open menu's items; Esc closes it. One focus ring per skin (swarf.css).
+        const press = (el, ev) => { ev.preventDefault(); ev.stopPropagation(); el.click(); };
+        const items = m => [...m.querySelectorAll('.top-menu-drop .content > div')].filter(d => d.offsetParent && !d.classList.contains('hide'));
+        menus.forEach(m => {
+            if (!m.querySelector(':scope > .top-menu-drop')) return;
+            m.tabIndex = 0;
+            m.setAttribute('role', 'button');
+            m.setAttribute('aria-haspopup', 'menu');
+            for (const d of m.querySelectorAll('.top-menu-drop .content > div')) { d.tabIndex = -1; d.setAttribute('role', 'menuitem'); }
+            m.addEventListener('keydown', ev => {
+                const list = items(m), at = list.indexOf(document.activeElement);
+                if ((ev.key === 'Enter' || ev.key === ' ') && at >= 0) return press(list[at], ev);
+                if (ev.key === 'Enter' || ev.key === ' ' || (ev.key === 'ArrowDown' && !m.classList.contains('swarf-open'))) {
+                    press(m, ev);
+                    setTimeout(() => { const f = items(m)[0]; if (f) f.focus(); }, 0);
+                    return;
+                }
+                if (ev.key === 'ArrowDown' || ev.key === 'ArrowUp') {
+                    ev.preventDefault();
+                    const n = list[(at + (ev.key === 'ArrowDown' ? 1 : list.length - 1)) % list.length];
+                    if (n) n.focus();
+                }
+                if (ev.key === 'Escape') { close(); m.focus(); }
+            });
+        });
+        const steps = () => document.querySelectorAll('#mode-tools > .swarf-step');
+        const stepKeys = () => steps().forEach(s => {
+            if (s.dataset.swarfTab) return;
+            s.dataset.swarfTab = '1';
+            s.tabIndex = 0;
+            s.setAttribute('role', 'button');
+            s.addEventListener('keydown', ev => { if ((ev.key === 'Enter' || ev.key === ' ') && !ev.repeat) press(s, ev); });
+        });
+        stepKeys();
+        setTimeout(stepKeys, 1500);
     })();
 
     // swarf r44 (review 10-28 #7): one camera rule. The view frames all the parts with one
@@ -567,10 +625,28 @@ function setup_keybd_nav() {
         document.addEventListener('click', (e) => {
             if (!wrap.contains(e.target)) wrap.classList.remove('open');
         });
+        // (review r086 F2) the pill docks under the right rail, never inside its panels: its top
+        // follows the rail's bottom as panels open, close and scroll; with no rail it keeps its corner
+        const dock = () => {
+            const rail = document.getElementById('swarf-right-rail');
+            const r = rail && rail.offsetParent !== null ? rail.getBoundingClientRect() : null;
+            if (r && r.height > 4) { wrap.style.top = Math.round(r.bottom + 8) + 'px'; wrap.style.bottom = 'auto'; }
+            else { wrap.style.top = ''; wrap.style.bottom = ''; }
+        };
+        const rail = document.getElementById('swarf-right-rail');
+        if (rail && window.ResizeObserver) new ResizeObserver(dock).observe(rail);
+        window.addEventListener('resize', dock);
+        new MutationObserver(dock).observe(document.body, { attributes: true, attributeFilter: ['class'] });
+        setTimeout(dock, 0);
 
         // rule engine: pull current settings + ops, evaluate each rule, render warnings
         function evaluate() {
             const warnings = [];
+            // (whole-app review r086 F4) a concern's numbers follow mm | in too
+            const inch = !!window.SwarfLength && window.SwarfLength.unit() === 'in';
+            const len = (v, dp = 1) => inch ? `${+(v / 25.4).toFixed(dp + 2)} in` : `${(+v).toFixed(dp)} mm`;
+            const pair = (a, b) => inch ? `${+(a / 25.4).toFixed(1)} × ${+(b / 25.4).toFixed(1)} in` : `${a.toFixed(0)} × ${b.toFixed(0)} mm`;
+            const rate = v => inch ? `${+(v / 25.4).toFixed(1)} in/min` : `${v} mm/min`;
             try {
                 const settings = api.conf.get();
                 const proc = settings.process || {};
@@ -597,7 +673,7 @@ function setup_keybd_nav() {
                     if (op.rate && op.plunge && op.plunge > op.rate * 0.5) {
                         warnings.push({
                             title: `plunge rate near feed rate`,
-                            body: `plunging at ${op.plunge} mm/min vs feed ${op.rate} mm/min — the palette holds plunge at 30–40% of feed.`,
+                            body: `plunging at ${rate(op.plunge)} vs feed ${rate(op.rate)}: swarf's presets plunge at 30–40% of feed.`,
                             hint: 'too fast a plunge snaps end-mills'
                         });
                     }
@@ -611,15 +687,15 @@ function setup_keybd_nav() {
                     if (op.ov_botz != null && op.ov_botz !== 0 && proc.camStockZ !== undefined) {
                         const thick = Math.max(0, ...api.widgets.all().filter(w => !w.track.synth).map(w => (w.track.box || {}).d || 0));
                         if (op.ov_botz < -2 || (thick && op.ov_botz > thick)) warnings.push({
-                            title: `${op.type} bottom is ${op.ov_botz} mm`,
-                            body: op.ov_botz < -2 ? `that is ${(-op.ov_botz).toFixed(1)} mm below the bottom of the board: into the spoilboard or the table.` : 'that is above the top of the board: the step cuts nothing.',
+                            title: `${op.type} bottom is ${len(op.ov_botz)}`,
+                            body: op.ov_botz < -2 ? `that is ${len(-op.ov_botz)} below the bottom of the board: into the spoilboard or the table.` : 'that is above the top of the board: the step cuts nothing.',
                             hint: 'leave the override at 0 to cut to the part\'s own bottom' });
                     }
                     // rule 3 — step-down past half the tool diameter, the palette's ceiling
                     if (op.down && td && op.down > td * 0.5) {
                         warnings.push({
                             title: `step-down over half the tool diameter`,
-                            body: `${op.down.toFixed(2)} mm step-down on a ${td.toFixed(2)} mm tool — the palette stays under ${(td / 2).toFixed(2)} mm.`,
+                            body: `a ${len(op.down, 2)} step-down on a ${len(td, 2)} bit: swarf's presets stay under ${len(td / 2, 2)}.`,
                             hint: 'split into shallower passes for safer cutting'
                         });
                     }
@@ -664,15 +740,15 @@ function setup_keybd_nav() {
                     const sx = b.max.x - b.min.x, sy = b.max.y - b.min.y, sz = b.max.z - b.min.z;
                     if (bw && bd && (sx > bw + 0.5 || sy > bd + 0.5)) warnings.push({
                         title: `${name} is bigger than the ${mach}'s bed`,
-                        body: `${sx.toFixed(0)} × ${sy.toFixed(0)} mm; the bed is ${bw.toFixed(0)} × ${bd.toFixed(0)} mm. The machine cannot cut it as it is.`,
+                        body: `${pair(sx, sy)}; the bed is ${pair(bw, bd)}. The machine cannot cut it as it is.`,
                         hint: 'make it smaller, or choose the other machine (setup › machine)' });
                     else if (bw && bd && (p.x + b.min.x < -bw / 2 - 0.5 || p.x + b.max.x > bw / 2 + 0.5 || p.y + b.min.y < -bd / 2 - 0.5 || p.y + b.max.y > bd / 2 + 0.5)) warnings.push({
                         title: `${name} hangs off the bed`,
-                        body: `part of it sits outside the ${mach}'s ${bw.toFixed(0)} × ${bd.toFixed(0)} mm bed.`,
+                        body: `part of it sits outside the ${mach}'s ${pair(bw, bd)} bed.`,
                         hint: 'drag it back onto the bed' });
                     // the shop's ShopBot rule (KCAD guidelines): boards from 1/4 to 2 1/2 in; thinner goes to the laser
                     if (soft && (sz < 6.35 - 0.05 || sz > 63.5 + 0.05)) warnings.push({
-                        title: `${name} is ${sz.toFixed(1)} mm thick`,
+                        title: `${name} is ${len(sz)} thick`,
                         body: sz < 6.35 ? 'the ShopBot takes boards from 1/4 in (6.35 mm) up. Thinner sheet goes to the laser.' : 'the ShopBot takes boards up to 2 1/2 in (63.5 mm) thick.',
                         hint: sz < 6.35 ? 'use the laser for thin sheet' : 'ask the technician about thicker stock' });
                 }
@@ -730,7 +806,7 @@ function setup_keybd_nav() {
         // re-evaluate on settings + op changes
         // conf.save emits settings.saved on every op add/edit; the material
         // system emits cam.op.render after a re-derive
-        ['settings','settings.saved','cam.op.render','widget.add','widget.delete','device.selected','selection.move','selection.scale','selection.drag','slice.end']
+        ['settings','settings.saved','cam.op.render','widget.add','widget.delete','device.selected','selection.move','selection.scale','selection.drag','slice.end','units.set']
             .forEach(ev => api.event.on(ev, evaluate));
         window.addEventListener('swarf.material.change', evaluate);
     })();
@@ -817,23 +893,28 @@ function setup_keybd_nav() {
             { kind:'run', name:'the shop\'s bits', body:'1/4 straight 48-005, 1/4 up-cut 52-910, 1/4 down-cut 57-910, 1/2 straight 48-072, in the tool list. in wood they cut with the shop\'s own numbers (120 in/min, 1/8 in a pass, 12,000 rpm).', tags:'bits tools shop upcut downcut straight part number feeds' },
             { kind:'run', name:'keep the zero', body:'a zero you set is kept across files, test cuts, a reconnect or a reload: one press of use the zero you set takes it back, no re-zeroing. it is dropped after a bit change or a box restart.', tags:'zero keep reuse reload reconnect' },
             { kind:'run', name:'search down', body:'on the z plate card: how far the bit comes down looking for the plate, 60 mm unless you raise it.', tags:'z plate search down distance touch off' },
-            { kind:'op', name:'rough', body:'first pass that clears bulk material in horizontal layers above the part. fast, deep, sloppy by design — finished later by contour.', tags:'roughing clearing bulk first pass' },
+            { kind:'run', name:'undo', body:'edit › undo, or ⌘Z (Ctrl+Z): takes back the last change to the parts, tabs or steps, a delete too. edit › redo, or ⇧⌘Z, puts it back.', tags:'undo redo take back cmd-z ctrl-z mistake edit menu' },
+            { kind:'run', name:'select all', body:'edit › select all, or ⌘A: picks every part on the bed, to move, size or delete them together. edit › delete, or the delete key, removes the picked parts (undo brings them back); with nothing picked it does nothing.', tags:'select all pick every part delete edit menu cmd-a' },
+            { kind:'run', name:'export', body:'export (in the row, or file › export the machine file) makes the file the machine runs: name it, read how long it takes, how big it is, which bit and which material, and press save name.sbp. also save the project (.swarf) keeps the parts and steps to open again.', tags:'export save sbp file machine file gcode shopbot file' },
+            { kind:'run', name:'simulate', body:'watch the bit cut the board before the machine does. space plays and pauses; speed × runs it faster (1 is the machine\'s own speed); done says how much of the cut has run. chips, lightstreams and machine show or hide what they name.', tags:'simulate play pause speed done chips lightstreams preview' },
+            { kind:'run', name:'keys', body:'cam: ⌘Z undo, ⇧⌘Z redo, ⌘A select all, ⌘S save project, delete removes the picked parts. tab walks the menus and the step row; enter or space presses. draw, tex and control print their own keys on their buttons.', tags:'keys keyboard shortcuts tab focus enter space' },
+            { kind:'op', name:'rough', body:'the first pass: it clears most of the wood in flat layers above the part, fast and deep, and leaves a little for contour to finish.', tags:'roughing clearing bulk first pass' },
             { kind:'op', name:'contour', body:'smooth surface pass. cutter crawls across the X or Y axis at a fine stepover, riding part curves. typical stepover 5–15% of tool diameter.', tags:'contouring finishing surface 2.5d' },
-            { kind:'op', name:'outline', body:"cuts the part free from the stock by following its silhouette. usually the last cutting op. add tabs so the part doesn't fly out.", tags:'outline cutout silhouette' },
-            { kind:'op', name:'pocket', body:'clears flat-bottomed cavities — trays, countersinks, recesses. selection-driven; pick the floor face and swarf clears down to it, inside its walls.', tags:'pocket cavity tray' },
-            { kind:'param', name:'stepover', body:'how far the tool moves sideways between passes, as a fraction of tool diameter. swarf loads 10–20% for metal and 30–45% for wood, foam and plastic. wider cuts faster and loads the tool harder.', tags:'stepover sideways pass spacing' },
-            { kind:'param', name:'step-down', body:'depth of cut per layer. swarf keeps every preset under half the tool diameter, which is conservative for wood and about right for metal. deeper than the tool is wide and the flutes cannot clear the chips.', tags:'depth of cut step down doc layer' },
-            { kind:'param', name:'feed rate', body:'how fast the tool moves through material, in mm/min. when in doubt: slower is safer.', tags:'feed feedrate mm/min cutting speed' },
+            { kind:'op', name:'outline', body:"cuts the part free from the board along its outside edge. usually the last step. add tabs so the part doesn't fly out.", tags:'outline cutout silhouette' },
+            { kind:'op', name:'pocket', body:'clears flat-bottomed hollows: trays, recesses, a sunk hole. pick the floor face and swarf clears down to it, inside its walls.', tags:'pocket cavity tray' },
+            { kind:'param', name:'stepover', body:'how far the bit moves sideways between passes, as a share of its width: the step card says 40 % of bit. swarf starts wood, foam and plastic at 30–45 %. wider cuts faster and works the bit harder.', tags:'stepover sideways pass spacing percent of bit' },
+            { kind:'param', name:'step-down', body:'how deep each pass cuts, in mm or inches as mm | in says (type 1/8 or 3 mm). swarf keeps every preset under half the bit\'s width, which is careful for wood. deeper than the bit is wide and its flutes cannot clear the chips.', tags:'depth of cut step down stepdown doc layer pass' },
+            { kind:'param', name:'feed rate', body:'how fast the bit moves through the wood: mm/min, or in/min when mm | in says in. when in doubt: slower is safer.', tags:'feed feedrate mm/min in/min cutting speed' },
             { kind:'param', name:'plunge rate', body:'how fast the tool drives down into material. usually 30–50% of feed rate. too fast snaps end-mills.', tags:'plunge plungerate descent' },
             { kind:'param', name:'spindle speed', body:'RPM of the cutter. it follows the material and the tool width, not a fixed number — a wider tool at the same RPM cuts faster at its edge, so it has to slow down. the MR-1 tops out at 8000. on the ShopBot the router is set by hand on its dial, 1 (10,000 rpm) to 5 (21,000); the cut card names the setting the file asks for.', tags:'spindle rpm cutter speed' },
-            { kind:'param', name:'ease down', body:'ramp into the cut at an angle instead of plunging straight down. easier on the tool, especially for end-mills with no center cut. on by default, and the material sets the angle — 1.8 degrees for metal, up to 10 for foam.', tags:'ease down ramp helix descent' },
+            { kind:'param', name:'ease down', body:'ramp into the cut at an angle instead of plunging straight down. easier on the tool, especially for end-mills with no center cut. on by default, and the material sets the angle: a shallow one for hard wood, up to 10 degrees for foam.', tags:'ease down ramp helix descent' },
             { kind:'param', name:'depth first', body:'finish each Z layer top-to-bottom in one region before moving to the next. opposite is layer-first (sweep all regions per layer).', tags:'depth first order strategy' },
             { kind:'param', name:'tab', body:"small uncut bridge of stock that holds the part during the outline cut so it doesn't shift or fly out. break/sand off after.", tags:'tab tabs holding bridge' },
             { kind:'param', name:'material', body:'what you are cutting. the MATERIAL row at the top of TOOLPATHS sets the feed, plunge, spindle speed, step-down, stepover and ramp angle for every operation, and retints the stock and the chips. the values are conservative starting points for HSS tooling — slow enough to survive a first cut, not fast.', tags:'material stock feeds speeds preset palette' },
-            { kind:'param', name:'stock', body:'the raw block of material on the machine bed. defaults to part-bbox in student mode; expert mode lets you size it independently.', tags:'stock material block bed' },
+            { kind:'param', name:'stock', body:'the board on the machine\'s bed. swarf sizes it to the parts; advanced lets you size it yourself.', tags:'stock material block bed' },
             { kind:'param', name:'z top / z bottom', body:'upper and lower Z bounds for the carving. defines the slab swarf will work inside.', tags:'z top bottom bounds height' },
             { kind:'param', name:'z clearance', body:'how high above stock the tool retracts during rapids. high enough to clear clamps; low enough not to waste time.', tags:'z clearance retract rapid' },
-            { kind:'tool', name:'end-mill', body:'flat-bottomed cutter, the workhorse. fewer flutes clear chips better in soft material; more flutes give a finer finish in metal. swarf assumes 2-flute HSS, or 4-flute for steel.', tags:'endmill flat cutter mill flutes' },
+            { kind:'tool', name:'end-mill', body:'a flat-bottomed bit, the workhorse (the step card calls it end, as in end 1/4). fewer flutes clear chips better in wood and plastic; the shop\'s ShopBot bits are 2-flute.', tags:'endmill flat cutter mill flutes' },
             { kind:'tool', name:'ball-end', body:'spherical tip. for 3D contour finishing on curved surfaces. leaves a cusp pattern proportional to stepover.', tags:'ballend spherical 3d finishing' },
             { kind:'tool', name:'v-bit', body:'conical cutter for engraving and chamfering. depth controls the line width.', tags:'vbit cone engraving chamfer' },
             { kind:'tool', name:'drill', body:'plunges straight down to make holes. paired with the drill operation (expert mode).', tags:'drill hole plunge' },

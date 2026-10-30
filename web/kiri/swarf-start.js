@@ -37,6 +37,11 @@
     document.body.append(card);
   }
 
+  // (review r086 F4) a bed's size in cam's units: 2438 × 1219 mm, or 96 × 48 in
+  function bed(w, d) {
+    const inch = window.SwarfLength && window.SwarfLength.unit() === 'in';
+    return inch ? `${Math.round(w / 25.4)} × ${Math.round(d / 25.4)} in` : `${Math.round(w)} × ${Math.round(d)} mm`;
+  }
   function show() {
     const a = api();
     if (!card || !a || !a.widgets) return;
@@ -48,10 +53,12 @@
     if (!empty) { closed = false; }
     card.classList.toggle('on', empty && !closed && !cls.contains('swarf-run-open') && !cls.contains('swarf-draw-open'));
     card.classList.toggle('compact', compact);
+    // (review r086 C3) a router (the ShopBot, the MR-1): no lathe, index, loop or laser steps
+    try { document.body.classList.toggle('swarf-router', /shopbot|mr-1/i.test(a.conf.get().device.deviceName || '')); } catch (e) { /* no device yet */ }
     try { card.querySelector('.row.sb').style.display = /shopbot/i.test(a.conf.get().device.deviceName || '') ? '' : 'none'; } catch (e) { /* no device yet */ }
     // which machine, and its bed, as DRAW names it
     try { card.querySelector('.swarf-start-quick').style.display = /shopbot/i.test(a.conf.get().device.deviceName || '') ? '' : 'none'; } catch (e) { /* no device yet */ }
-    try { const d = a.conf.get().device; card.querySelector('.bed').textContent = `${(d.deviceName || 'machine').replace(/\./g, ' ')} · bed ${Math.round(d.bedWidth)} × ${Math.round(d.bedDepth)} mm`; } catch (e) { /* no device yet */ }
+    try { const d = a.conf.get().device; card.querySelector('.bed').textContent = `${(d.deviceName || 'machine').replace(/\./g, ' ')} · bed ${bed(d.bedWidth, d.bedDepth)}`; } catch (e) { /* no device yet */ }
   }
 
   let tries = 0;
@@ -75,7 +82,7 @@
       } catch (e) { /* private window: the default already says front-left */ }
       // after a delete the bed is empty because the student emptied it: a strip, not the big card
       a.event.on('widget.delete', () => { compact = true; });
-      for (const ev of ['widget.add', 'widget.delete', 'platform.layout', 'mode.set', 'device.select']) a.event.on(ev, () => setTimeout(show, 0));
+      for (const ev of ['widget.add', 'widget.delete', 'platform.layout', 'mode.set', 'device.select', 'units.set']) a.event.on(ev, () => setTimeout(show, 0));
       new MutationObserver(show).observe(document.body, { attributes: true, attributeFilter: ['class'] });
       show();
       setTimeout(show, 600);
@@ -87,7 +94,7 @@
         const cur = (a.conf.get().device || {}).deviceName || '';
         const pre = ["<div class='f-col a-center swarf-shape'><h3>Which machine?</h3>",
           `<p class='swarf-shape-why' style='color:inherit;max-width:340px'>Now: ${cur.replace(/\./g, ' ')}. The ShopBot is the shop's 4 × 8 ft router, run from swarf's control. The MR-1 is the benchtop mill; it takes the exported file.</p></div>`];
-        a.uc.confirm(undefined, { 'ShopBot (4 × 8 ft bed)': 'ShopBot.Basic', 'MR-1 (500 × 500 mm bed)': 'Langmuir.MR-1', 'machine settings': 'edit', cancel: false }, undefined, { pre }).then(v => {
+        a.uc.confirm(undefined, { [`ShopBot (${bed(2438.4, 1219.2)} bed)`]: 'ShopBot.Basic', [`MR-1 (${bed(500, 500)} bed)`]: 'Langmuir.MR-1', 'machine settings': 'edit', cancel: false }, undefined, { pre }).then(v => {
           if (v === 'edit') return a.show.devices();
           if (v && v !== cur) a.devices.select(v);
         });
@@ -96,8 +103,8 @@
       a.event.on('device.selected', () => setTimeout(() => {
         try {
           const d = a.conf.get().device || {}, big = [];
-          for (const w of a.widgets.all()) { const g = w.mesh.geometry; g.computeBoundingBox(); const b = g.boundingBox; if (b.max.x - b.min.x > d.bedWidth + 0.5 || b.max.y - b.min.y > d.bedDepth + 0.5) big.push(`${(w.meta && w.meta.file || 'a part').replace(/\.[^.]+$/, '')} is ${(b.max.x - b.min.x).toFixed(0)} × ${(b.max.y - b.min.y).toFixed(0)} mm`); }
-          if (big.length) a.show.alert(`${big.join('; ')}: bigger than this machine's ${d.bedWidth.toFixed(0)} × ${d.bedDepth.toFixed(0)} mm bed.`, 10);
+          for (const w of a.widgets.all()) { const g = w.mesh.geometry; g.computeBoundingBox(); const b = g.boundingBox; if (b.max.x - b.min.x > d.bedWidth + 0.5 || b.max.y - b.min.y > d.bedDepth + 0.5) big.push(`${(w.meta && w.meta.file || 'a part').replace(/\.[^.]+$/, '')} is ${bed(b.max.x - b.min.x, b.max.y - b.min.y)}`); }
+          if (big.length) a.show.alert(`${big.join('; ')}: bigger than this machine's ${bed(d.bedWidth, d.bedDepth)} bed.`, 10);
         } catch (e) { /* no parts yet */ }
       }, 300));
       // on an empty bed, toolpaths and export say why nothing happens (review 10-28b #16)

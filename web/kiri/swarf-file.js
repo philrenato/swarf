@@ -273,11 +273,20 @@
   }
 
   // DRAW or TEX open: leave as done does, so what is on the board goes in the file
+  // (whole-app review r086 F5) a save never leaves the mode or drops work: an outline still being
+  // drawn refuses the save, in DRAW's own line, saying why; otherwise the mode keeps its changes
+  // as done does, the file is written, and the mode comes straight back, as it was left
   function leaveModes(apply) {
     for (const M of [window.__swarfTex, window.__swarfDraw]) {
-      if (!M || !M.state || !M.state()) continue;
+      const st = M && M.state && M.state();
+      if (!st) continue;
+      if (apply && Array.isArray(st.pen) && st.pen.length) {
+        if (M.say) M.say('Finish the outline first (click its first point to close it, or press Esc to drop it), then save.');
+        return false;
+      }
       M.close(apply);
       if (M.state()) return false;
+      if (apply) setTimeout(() => { if (!M.state()) M.open(); }, 0);
     }
     return true;
   }

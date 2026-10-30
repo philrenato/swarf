@@ -186,7 +186,7 @@ html[data-skin="glass"] button.selected, html[data-skin="glass"] #panel-right #o
 html[data-skin="glass"] #swarf-run .sr-modes button.on, html[data-skin="glass"] #swarf-run .sr-jog .sr-modes button.on, html[data-skin="glass"] #swarf-run .sr-sim button.on,
 html[data-skin="glass"] #swarf-run .sr-vtools button.on, html[data-skin="glass"] #swarf-draw .sd-bar button.on, html[data-skin="glass"] #swarf-draw .sd-card button.tx-pick.on, html[data-skin="glass"] #swarf-draw .sd-card button.tx-sw.on, html[data-skin="glass"] #swarf-draw .sd-card button.tx-fill.on, html[data-skin="glass"] #swarf-draw .sd-bar .sd-go,
 html[data-skin="glass"] #swarf-run .sr-actions .cut, html[data-skin="glass"] #swarf-run .sr-card .row .go, html[data-skin="glass"] #swarf-run .sr-pad button:active,
-html[data-skin="glass"] #swarf-run .sr-pad button.held, html[data-skin="glass"] #swarf-start button:first-of-type, html[data-skin="glass"] #swarf-sim-machine.on,
+html[data-skin="glass"] #swarf-run .sr-pad button.held, html[data-skin="glass"] #swarf-start .row:not(.sb) button:first-of-type, html[data-skin="glass"] #swarf-sim-machine.on, html[data-skin="glass"] .swarf-x-card .swarf-x-go,
 html[data-skin="glass"] #layer-animate button:nth-of-type(2) {
   background: var(--g-aqua) !important; border-color: rgba(94, 99, 106, .55) !important; color: #ffffff !important;
   box-shadow: var(--g-aqua-shadow) !important; text-shadow: 0 1px 1px rgba(56, 59, 64,.45) !important;
@@ -352,3 +352,16 @@ html[data-skin="glass"] #swarf-run .sr-actions .cut:not(:disabled):not(.wait):no
 /* the small "add a step" label sits over the scene through the glass (the wood in simulate):
    dark enough to read on it (legibility 10-29: 3.9:1 over the orange board) */
 html[data-skin="glass"] .swarf-add-op-label { color: #3a3b3d !important; }
+
+/* (whole-app review r086 B6) one typeface: the cards, concerns, help, export, preferences, the
+   simulate bar and the step card speak in the body font; mono stays for numbers (DRO, size
+   fields, the stamp) and code */
+html[data-skin="glass"] #swarf-start, html[data-skin="glass"] #swarf-start *:not([class*="fa-"]):not(.fas), html[data-skin="glass"] #swarf-concerns, html[data-skin="glass"] #swarf-concerns *:not([class*="fa-"]):not(.fas),
+html[data-skin="glass"] .swarf-help-modal, html[data-skin="glass"] .swarf-help-modal *:not([class*="fa-"]):not(.fas), html[data-skin="glass"] #mod-x-any, html[data-skin="glass"] #mod-x-any *:not([class*="fa-"]):not(.fas),
+html[data-skin="glass"] #mod-prefs, html[data-skin="glass"] #mod-prefs *:not([class*="fa-"]):not(.fas), html[data-skin="glass"] #layer-animate, html[data-skin="glass"] #layer-animate *:not([class*="fa-"]):not(.fas),
+html[data-skin="glass"] .swarf-op-params, html[data-skin="glass"] .swarf-op-params *:not([class*="fa-"]):not(.fas), html[data-skin="glass"] #oplist .draggable *:not([class*="fa-"]):not(.fas), html[data-skin="glass"] #layers *:not([class*="fa-"]):not(.fas) {
+  font-family: var(--g-font) !important;
+}
+html[data-skin="glass"] #mod-x-any textarea { font-family: var(--g-mono) !important; }
+/* the simulate bar's words read at 4.5:1 (legibility pass) */
+html[data-skin="glass"] #layer-animate .swarf-sim-word, html[data-skin="glass"] #layer-animate .swarf-sim-name { color: #3d4045 !important; }

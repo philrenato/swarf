@@ -118,7 +118,7 @@
       a.event.on('selection.scale', () => { clearTimeout(resizing); resizing = setTimeout(() => { const v = AX.map(([b]) => parseFloat(($(`size_${b}`) || {}).value || 0) * scale()); said(`Resized to ${L() && L().unit() === 'in' ? v.map(x => L().say(x).replace(/ in$/, '')).join(' × ') + ' in' : v.map(x => +x.toFixed(2)).join(' × ') + ' mm'}.`); }, 120); });
       a.event.on('widget.duplicate', nw => said(`Made a copy, ${nm(nw)}, beside it.`));
       // (not DRAW's done, which swaps parts and says so itself)
-      a.event.on('widget.delete', w => !document.body.classList.contains('swarf-draw-open') && !window.__swarfRestoring && setTimeout(() => { if (window.__swarfRestoring) return; const n = a.widgets.all().length; said(`Deleted ${nm(Array.isArray(w) ? w[0] : w)}.${n ? ` ${n} part${n === 1 ? '' : 's'} left.` : ''} ⌘Z brings it back.`); }, 0));
+      a.event.on('widget.delete', w => !(Array.isArray(w) && !w.length) && !document.body.classList.contains('swarf-draw-open') && !window.__swarfRestoring && setTimeout(() => { if (window.__swarfRestoring) return; const n = a.widgets.all().length; said(`Deleted ${nm(Array.isArray(w) ? w[0] : w)}.${n ? ` ${n} part${n === 1 ? '' : 's'} left.` : ''} ⌘Z brings it back.`); }, 0));
       a.event.on('preview.begin', () => said(''));
       for (const ev of ['widget.select', 'widget.deselect', 'selection.scale', 'selection.move', 'selection.rotate', 'platform.layout', 'widget.add', 'widget.delete']) a.event.on(ev, () => setTimeout(show, 0));
       new MutationObserver(show).observe(document.body, { attributes: true, attributeFilter: ['class'] });
