@@ -620,6 +620,7 @@
                         <dt>regions</dt><dd>draw › regions (G): overlapping outlines split into every region they make. click a region to fill or empty it; apply, done or another tool makes the filled regions the parts.</dd>
                         <dt>pencil</dt><dd>draw › pencil (N): drag freehand and it becomes a few smooth points that move like the pen's. points in the card fits it again: fewer is smoother. end near the start to close it.</dd>
                         <dt>engrave</dt><dd>draw a line over a part (the pencil, or the pen: click its last point again), give it an engrave depth, press done: an engrave step cuts along the line, the bit's center on it, that deep from the part's top.</dd>
+                        <dt>tex</dt><dd>mark a part, then texture the mark (draw makes shapes; tex marks them). the brush (B) paints a mark, erase (U) or option takes it away, rectangle (R) and ellipse (E) drag one out, region (G) fills the part's top less its holes. the card picks the pattern, its scale, turn, soft edge and depth, the bit and the path. done keeps the marks: each is a texture step before the outline.</dd>
                         <dt>fonts</dt><dd>draw › text › font: the built-in Russo One, this computer's fonts (Chrome and Edge ask first), or a .ttf or .otf file. each word keeps its own font.</dd>
                         <dt>shape</dt><dd>a circle, rectangle, ring, polygon, star or slot, with a thickness.</dd>
                         <dt>modes</dt><dd>cam, draw and control. in draw or control the step row folds to those three.</dd>
@@ -906,6 +907,7 @@
 <script src="swarf-length.js"></script>
 <script src="swarf-shape.js"></script>
 <script src="swarf-draw.js"></script>
+<script src="swarf-tex.js"></script>
 <script src="swarf-sim-machine.js"></script>
 <script src="swarf-size.js"></script>
 <script src="swarf-start.js"></script>
@@ -918,6 +920,7 @@
 <script src="swarf-bedname.js"></script>
 <script type="module" src="swarf-vector.mjs"></script>
 <script type="module" src="swarf-draw-geom.mjs"></script>
+<script type="module" src="swarf-tex-core.mjs"></script>
 <!-- swarf accessibility layer: dialog focus-trap, live-region slice progress,
      aria-pressed on sim-bar toggles. Pattern adapted from Rendre's a11y pass. -->
 <script src="swarf-a11y.js"></script>

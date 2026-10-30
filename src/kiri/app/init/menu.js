@@ -284,6 +284,11 @@ function modeTools(actions) {
             span([icon('fas fa-pen-nib')]),
             label({ _: 'draw' })
         ]),
+        // swarf: TEX — mark a part's top, then fill the mark with a texture (web/kiri/swarf-tex.js)
+        span({ id: 'swarf-step-tex', class: 'swarf-step', title: "tex: mark a part with the brush, a rectangle, an ellipse or a region, then texture it" }, [
+            span([icon('fas fa-paintbrush')]),
+            label({ _: 'tex' })
+        ]),
         // Combined TOOLPATHS — fires preview (slice + render paths). Clicking
         // also switches to arrange view so the left drawer for op editing
         // stays reachable. The old 'view-arrange' button is gone because the

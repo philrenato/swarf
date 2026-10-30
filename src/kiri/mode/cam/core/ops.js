@@ -17,6 +17,7 @@ import { OpPocket } from '../work/op-pocket.js';
 import { OpRegister } from '../work/op-register.js';
 import { OpRough } from '../work/op-rough.js';
 import { OpShadow } from '../work/op-shadow.js';
+import { OpTexture } from '../work/op-texture.js';
 import { OpTrace } from '../work/op-trace.js';
 import { OpXRay } from '../work/op-xray.js';
 
@@ -38,6 +39,7 @@ export const ops = {
     "register":  OpRegister,
     "rough":     OpRough,
     "shadow":    OpShadow,
+    "texture":   OpTexture,
     "trace":     OpTrace,
     "xray":      OpXRay
 };

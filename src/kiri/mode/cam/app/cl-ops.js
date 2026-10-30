@@ -686,6 +686,19 @@ export function createPopOps() {
         action: UC.newRow([UC.newButton(LANG.cf_menu, opFlip)], { class: "ext-buttons f-row" })
     };
 
+    // swarf: TEX's texture step. Its bit, pattern and path are the mark's (TEX); here its feeds
+    createPopOp('texture', {
+        spindle: 'camTextureSpindle',
+        rate: 'camTextureSpeed',
+        plunge: 'camTexturePlunge',
+        down: 'camTextureDown',
+    }).inputs = {
+        spindle: UC.newInput(LANG.cc_spnd_s, { title: LANG.cc_spnd_l, convert: toInt, show: hasSpindle }),
+        rate: UC.newInput(LANG.cc_feed_s, { title: LANG.cc_feed_l, convert: toInt, units }),
+        plunge: UC.newInput(LANG.cc_plng_s, { title: LANG.cc_plng_l, convert: toInt, units }),
+        down: UC.newInput(LANG.cc_sdwn_s, { title: LANG.cc_sdwn_l, convert: toFloat, units }),
+    };
+
     createPopOp('gcode', {
         gcode: 'camCustomGcode',
     }).inputs = {

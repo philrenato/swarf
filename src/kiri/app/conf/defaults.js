@@ -1147,6 +1147,34 @@ export const conf = {
                 // part number, and the library's numbers (in, in/s, rpm), which cap swarf's in wood
                 swarf: { cut: "straight", part: "48-072", shop: { pass: 0.25, plunge: 1, feed: 4, rpm: 12000 } },
             },
+            // swarf: TEX's V-bits (the ball bits are ball 1/8 and ball 1/4 above). A 1/2 in V whose
+            // flute length makes its included angle: half of 90° is 45°, half of 60° is 30°
+            {
+                id: 1105,
+                number: 25,
+                type: "tapermill",
+                name: "V-bit 90° 1/2",
+                metric: false,
+                shaft_diam: 0.5,
+                shaft_len:  1,
+                flute_diam: 0.5,
+                flute_len:  0.25,
+                taper_angle: 45,
+                taper_tip: 0,
+            },
+            {
+                id: 1106,
+                number: 26,
+                type: "tapermill",
+                name: "V-bit 60° 1/2",
+                metric: false,
+                shaft_diam: 0.5,
+                shaft_len:  1,
+                flute_diam: 0.5,
+                flute_len:  0.433,
+                taper_angle: 30,
+                taper_tip: 0,
+            },
         ],
         // currently selected device (current mode)
         device:{},

@@ -1051,6 +1051,8 @@ export async function prepare_one(widget, settings, print, firstPoint, update) {
         setTool,
         setTravelBoundary,
         tip2tipEmit,
+        // swarf: the texture step lifts to safe height in its part's own coordinates
+        toWidgetCoords,
         widget,
         zSafe,
     };

@@ -2144,12 +2144,13 @@ html[data-skin="classic"] #mod-prefs.swarf-prefs { border-radius: 0 !important; 
 /* ---- modes (swarf-modes.js, Phil 10-28): in draw or control the row folds to cam · draw · control ---- */
 #swarf-step-cam { display: none !important; }
 body.swarf-focus #swarf-step-cam { display: flex !important; }
-body.swarf-focus #mode-tools > span:not(#swarf-step-cam):not(#swarf-step-draw):not(#swarf-step-run) { display: none !important; }
+body.swarf-focus #mode-tools > span:not(#swarf-step-cam):not(#swarf-step-draw):not(#swarf-step-tex):not(#swarf-step-run) { display: none !important; }
 body.swarf-focus #mode-tools { z-index: 80 !important; }
 body.swarf-focus #mode-tools > span.selected:not(.swarf-step-on) { background: transparent !important; box-shadow: none !important; }
-#mode-tools > span#swarf-step-draw.swarf-step-on { background: var(--swarf-accent) !important; }
-#mode-tools > span#swarf-step-draw.swarf-step-on label, #mode-tools > span#swarf-step-draw.swarf-step-on i, #mode-tools > span#swarf-step-draw.swarf-step-on svg { color: #fff !important; fill: #fff !important; }
-html[data-skin="glass"] #mode-tools > span#swarf-step-draw.swarf-step-on { background: var(--g-aqua) !important; box-shadow: var(--g-aqua-shadow) !important; }
+#mode-tools > span#swarf-step-draw.swarf-step-on, #mode-tools > span#swarf-step-tex.swarf-step-on { background: var(--swarf-accent) !important; }
+#mode-tools > span#swarf-step-draw.swarf-step-on label, #mode-tools > span#swarf-step-draw.swarf-step-on i, #mode-tools > span#swarf-step-draw.swarf-step-on svg,
+#mode-tools > span#swarf-step-tex.swarf-step-on label, #mode-tools > span#swarf-step-tex.swarf-step-on i, #mode-tools > span#swarf-step-tex.swarf-step-on svg { color: #fff !important; fill: #fff !important; }
+html[data-skin="glass"] #mode-tools > span#swarf-step-draw.swarf-step-on, html[data-skin="glass"] #mode-tools > span#swarf-step-tex.swarf-step-on { background: var(--g-aqua) !important; box-shadow: var(--g-aqua-shadow) !important; }
 body.swarf-focus #swarf-step-cam { border-right: 1px solid var(--swarf-line-2); }
 #mod-prefs .f-row.gap10.swarf-prefs-old { display: none !important; }
 
@@ -2350,3 +2351,10 @@ html[data-skin] #swarf-draw svg .sd-part.sd-line.on { fill: none !important; str
 #swarf-draw .sd-reg.on:hover { fill: rgba(216,210,198,.3); }
 html[data-skin] #swarf-draw svg .sd-part.sd-regsrc, #swarf-draw svg .sd-part.sd-regsrc { stroke-dasharray: none !important; stroke-width: 1; pointer-events: none; }
 #swarf-draw .sd-card select.wide { width: 140px; text-overflow: ellipsis; } #swarf-draw .sd-card select#sd-mode { width: 100%; flex: 1; }
+/* TEX: DRAW's board with marks on it (swarf-tex.js); its colors are DRAW's, in every skin */
+#swarf-draw.sd-tex .sd-card { width: 260px; max-height: calc(100% - 130px); overflow-y: auto; }
+#swarf-draw.sd-tex .sd-card select { width: 136px; text-overflow: ellipsis; }
+#swarf-draw.sd-tex .sd-card .tx-warn { border-left: 2px solid var(--swarf-amber); padding-left: 7px; }
+#swarf-draw.sd-tex .sd-card .sd-row { flex-wrap: wrap; }
+#swarf-draw.sd-tex .tx-brush { pointer-events: none; }
+#swarf-draw.sd-tex svg { cursor: crosshair; }

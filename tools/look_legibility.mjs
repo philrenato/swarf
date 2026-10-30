@@ -114,6 +114,18 @@ try {
     await page.keyboard.press('g'); await wait(400); await audit(page, skin, '07i-regions', found);
     await page.keyboard.press('v'); await wait(200);
     await page.evaluate(() => [...document.querySelectorAll('#swarf-draw button')].find(b => /cancel/i.test(b.textContent))?.click()); await wait(800);
+    // TEX's cards: the brush over the part, then a mark's card with a warning (dots the bit can't make)
+    await page.click('#swarf-step-tex').catch(() => {}); await wait(1000);
+    await page.keyboard.press('b'); await wait(200);
+    const mid = await page.evaluate(() => { const S = window.__swarfTex.state(), p = S && S.parts[0], r = document.getElementById('tx-svg').getBoundingClientRect(); if (!p) return null; const x = p.pos[0] + (p.box[0] + p.box[2]) / 2, y = p.pos[1] + (p.box[1] + p.box[3]) / 2; return [r.left + S.ox + x * S.k, r.top + S.oy - y * S.k]; });
+    if (mid) { await page.mouse.move(mid[0] - 30, mid[1]); await page.mouse.down(); await page.mouse.move(mid[0] + 30, mid[1], { steps: 8 }); await page.mouse.up(); }
+    await page.mouse.move(mid ? mid[0] : 700, mid ? mid[1] + 20 : 500); await wait(400);
+    await audit(page, skin, '07j-tex-brush', found);
+    await page.evaluate(() => { const s = document.getElementById('tx-pat'); if (s) { s.value = 'dots'; s.dispatchEvent(new Event('change')); } });
+    await page.evaluate(() => { const i = document.getElementById('tx-p-diameter'); if (i) { i.value = '3'; i.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true })); } });
+    await page.waitForFunction(() => /About/.test(document.getElementById('tx-card')?.textContent || ''), { timeout: 15000 }).catch(() => {});
+    await wait(500); await audit(page, skin, '07k-tex-mark', found);
+    await page.evaluate(() => document.getElementById('tx-cancel')?.click()); await wait(800);
     for (const [id, name] of [['swarf-concordance', '07c-concordance'], ['swarf-help-search', '07d-help-search'], ['app-help', '07e-about']]) {
       await page.evaluate(id => document.getElementById(id)?.click(), id); await wait(700);
       await audit(page, skin, name, found);

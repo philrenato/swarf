@@ -343,6 +343,12 @@ export function opRender() {
             label = 'engrave';
             title = ` title="cuts the lines drawn in DRAW into their parts, the bit's center on each line, to each line's engrave depth"`;
         }
+        // swarf: a mark made in TEX, textured into its part's top (web/kiri/swarf-tex.js)
+        if (rec.type === 'texture') {
+            label = rec.texlabel || 'texture';
+            const est = rec.texest > 0 && window.SwarfTexCore ? `, about ${window.SwarfTexCore.formatTime(rec.texest)}` : '';
+            title = ` title="the mark made in TEX, cut into the part's top by its bit and path${est}. Open tex to change it."`;
+        }
         const SWARF_OP_FIELDS = {
             rough:   ['tool','rate','down','step','inside'],
             outline: ['tool','rate','down','step','inside','outside'],
@@ -352,6 +358,8 @@ export function opRender() {
             trace:   ['tool','rate','down'],
             drill:   ['tool','rate','down'],
             area:    ['tool','rate','down','step'],
+            // the bit and the path are the mark's, set in TEX
+            texture: ['rate','down'],
         };
         // boolean fields render as checkboxes
         const BOOL_FIELDS = { inside: true, outside: true, all: true, flats: true, curves: true };

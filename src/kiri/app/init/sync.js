@@ -709,6 +709,8 @@ function setup_keybd_nav() {
                     }
                 }
             } catch (e) { /* tabs not ready yet */ }
+            // TEX's marks: what each cannot do as set, in TEX's words (web/kiri/swarf-tex.js)
+            try { if (window.__swarfTex) warnings.push(...window.__swarfTex.concerns()); } catch (e) { /* tex not ready */ }
             render(warnings);
         }
         function render(warnings) {
@@ -784,6 +786,12 @@ function setup_keybd_nav() {
             { kind:'run', name:'regions', body:"draw › regions (G): overlapping outlines split into every region they make. click a region to fill or empty it; apply, done or another tool makes the filled regions the parts.", tags:'regions region fill empty overlap boolean shapereason draw' },
             { kind:'run', name:'pencil', body:"draw › pencil (N): drag freehand and it becomes a few smooth points that move like the pen's. points in the card fits it again: fewer is smoother. end near the start to close it.", tags:'pencil freehand sketch points smooth draw' },
             { kind:'run', name:'engrave', body:"draw a line over a part (the pencil, or the pen: click its last point again), give it an engrave depth, press done: an engrave step cuts along the line, the bit's center on it, that deep from the part's top.", tags:'engrave engraved line groove carve depth trace draw' },
+            { kind:'run', name:'tex', body:"the mode for marking a part and texturing the mark (draw makes shapes; tex marks them). pick a part, mark it with the brush, rectangle, ellipse or a region, then pick a pattern in the card. done keeps the marks and adds a texture step for each, before the cut-out; cancel drops them.", tags:'tex texture mark marking surface finish pattern carve decorate mode' },
+            { kind:'run', name:'brush', body:"tex › brush (B) paints a mark on a part; hold option (alt) or use erase (U) to take it away. [ and ] make the brush smaller or larger. the soft edge in the card fades the texture to nothing at the mark's edge.", tags:'brush paint erase eraser mark tex soft edge size' },
+            { kind:'run', name:'mark', body:"in tex, the area of a part to texture. paint it, drag a rectangle (R) or an ellipse (E), or click a region (G): the part's whole top less its holes. a mark moves, turns, scales and copies with its part and is saved with it. arrows slide the picked mark; delete removes it.", tags:'mark region area rectangle ellipse tex move copy saved' },
+            { kind:'run', name:'patterns', body:"tex's textures: polka dots, dashes & dots, Morse (your words), flutes, knurl, Perlin noise, ocean waves, stone wall, basket weave, step & repeat. each has its own numbers; scale and turn change any of them, depth sets how deep.", tags:'pattern patterns texture dots morse flutes knurl noise waves stone weave repeat motif tex' },
+            { kind:'run', name:'soft edge', body:"tex › soft edge: how far in from a mark's edge the texture takes to reach its full depth, so it fades out instead of stopping at a wall.", tags:'soft edge fade feather falloff tex' },
+            { kind:'op', name:'texture step', body:"one step per tex mark, before the outline. a ball bit leaves smooth hollows, a V-bit sharp grooves. its path: raster passes, cross-hatch, one plunge per dot, or along each groove's center (best for the pattern unless you pick). the bit never goes below the mark's depth or the board. concerns say when a bit cannot make the pattern.", tags:'texture step raster crosshatch plunge centerline ball v-bit vbit bit path tex' },
             { kind:'run', name:'fonts', body:"draw › text › font: the built-in Russo One, this computer's fonts (Chrome and Edge ask first), or a .ttf or .otf file. each word keeps its own font.", tags:'font fonts text typeface system local draw' },
             { kind:'run', name:'shape', body:'a circle, rectangle, ring, polygon, star or slot, with a thickness.', tags:'shape circle rectangle ring polygon star slot' },
             { kind:'run', name:'modes', body:'cam, draw and control. in draw or control the step row folds to those three.', tags:'modes cam draw control' },
