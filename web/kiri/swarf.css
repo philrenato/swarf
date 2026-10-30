@@ -716,7 +716,7 @@ body.swarf-run-open #gdpr, body.swarf-run-open #install-swarf, body.swarf-run-op
 }
 /* rail plates inherit the same mill-red / chamfered treatment as panel-right */
 /* (review r086 F2) a panel keeps its height: headers and rows never squash, the rail scrolls */
-#swarf-right-rail > .set2-group { flex-shrink: 0 !important; }
+#swarf-right-rail > .set2-group, #panel-left .set2-group { flex-shrink: 0 !important; }
 #swarf-right-rail .set2-group {
   background: var(--swarf-bg-2) !important;
   border: 1px solid var(--swarf-line-2) !important;
@@ -1372,7 +1372,8 @@ body:not(.swarf-expert) .swarf-add-op-grid > .swarf-expert-only {
 }
 /* (review r086 F4) each number names its unit, in mm or in */
 .swarf-op-params .swarf-op-row > .swarf-op-unit { flex: 0 0 48px; font-style: normal; font-size: 10px; white-space: nowrap; }
-.swarf-op-params .swarf-op-num > input { text-align: right; }
+.swarf-op-params .swarf-op-num > input { text-align: right; width: 0; }
+.swarf-op-params { box-sizing: border-box; max-width: 100%; }
 .swarf-op-params .swarf-op-row > input:focus,
 .swarf-op-params .swarf-op-row > select:focus {
   outline: 1px solid var(--swarf-accent, #b03030);
@@ -2484,4 +2485,25 @@ html[data-skin="glass"] #mode-tools > .swarf-step:focus-visible { outline: 3px s
 html[data-skin="classic"] #menubar .top-menu > span:focus-visible, html[data-skin="classic"] .top-menu-drop .content > div:focus-visible,
 html[data-skin="classic"] #mode-tools > .swarf-step:focus-visible { outline: 1px dotted #000 !important; outline-offset: -3px; }
 /* a menu item's key, at its right */
-.top-menu-drop .content > div .swarf-key { margin-left: auto; padding-left: 18px; opacity: .6; font-size: 11px; }
+.top-menu-drop .content > div:has(.swarf-key) { position: relative; padding-right: 64px !important; }
+.top-menu-drop .content > div .swarf-key { position: absolute; right: 36px; top: 50%; transform: translateY(-50%); opacity: .6; font-size: 11px; text-transform: none !important; letter-spacing: 0; pointer-events: none; }
+.swarf-x-card .swarf-x-name input { text-align: left !important; }
+
+/* (whole-app review r086 B5) the simulate bar: its name in every skin, words for its numbers */
+#layer-animate::before { display: none !important; }
+#layer-animate .swarf-sim-name { font-weight: 700; font-size: 12px; padding: 0 12px 0 0; margin-right: 6px; border-right: 1px solid var(--swarf-line, #2a2a2a); text-transform: none; letter-spacing: 0; color: var(--swarf-text, #d8d2c6); }
+html:not([data-skin]) #layer-animate .swarf-sim-name { color: var(--swarf-accent-hi, #ff3a2a); }
+#layer-animate label.swarf-sim-word, #layer-animate .swarf-sim-word { display: flex; align-items: center; align-self: stretch; background: none !important; border: 0 !important; padding: 0 2px 0 8px !important; font-size: 12px; text-transform: none !important; letter-spacing: 0; color: inherit; }
+#layer-animate .swarf-sim-name { display: flex; align-items: center; align-self: stretch; }
+#layer-animate .swarf-sim-unit { padding-left: 2px !important; }
+
+/* (whole-app review r086 B4) the layer range slider is advanced's: a student's toolpaths view
+   keeps the toggles (bit · direction · moves · cuts) and the watermark clear */
+body:not(.swarf-expert) #layer-slider #slider { display: none !important; }
+#layers, #layers label { font-family: inherit !important; text-transform: none !important; }
+/* (whole-app review r086 B3) the step list's "end of ops chain" bar is advanced's too */
+body:not(.swarf-expert) #oplist > .clock { display: none !important; }
+/* (whole-app review r086 F8) preferences fit a 720 px window: the card scrolls */
+#mod-prefs { max-height: calc(100vh - 80px); overflow-y: auto !important; }
+/* (whole-app review r086 C4) strategy's machinist rows wait in advanced */
+body:not(.swarf-expert) .swarf-adv-row { display: none !important; }

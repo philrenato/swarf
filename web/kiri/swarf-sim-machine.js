@@ -116,7 +116,7 @@
     if (on) near();
     if (!on || kind !== 'bed') slide(0);
     if (on && kind === 'bed' && gantry) { const b = placeBed(); rail.position.set(0, b.y, 0); }
-    if (chip) { chip.classList.toggle('on', wanted()); chip.title = TITLE[kind] || 'Show the machine'; }
+    if (chip) { chip.classList.toggle('on', wanted()); chip.classList.toggle('swarf-toggle-on', wanted()); chip.classList.toggle('swarf-toggle-off', !wanted()); chip.title = TITLE[kind] || 'Show the machine'; }
     try { space().refresh(); } catch (e) { /* gone */ }
   }
 
@@ -155,6 +155,7 @@
     if (!host || chip) return;
     chip = document.createElement('button');
     chip.id = 'swarf-sim-machine';
+    chip.className = 'swarf-sim-extra swarf-toggle';   // (review r086 B5) the same pill as chips and lightstreams
     chip.textContent = 'machine';
     chip.title = TITLE[kind] || 'Show the machine';
     // turning it on steps back to show the machine; off comes back to the parts (review 10-28b #17)

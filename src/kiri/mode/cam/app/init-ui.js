@@ -331,6 +331,13 @@ export function opRender() {
     if (!opUnitsHooked && api.event) {
         opUnitsHooked = true;
         api.event.on('units.set', () => setTimeout(opRender, 0));
+        // (whole-app review r086 C4) strategy's machinist rows (tool init, first z max, force z
+        // max, engage factor) are advanced's; a student's strategy is ease down, depth first,
+        // inner first and the ease angle
+        for (const k of ['camToolInit', 'camFirstZMax', 'camForceZMax', 'camFullEngage']) {
+            const row = api.ui[k] && api.ui[k].closest && api.ui[k].closest('.var-row');
+            if (row) row.classList.add('swarf-adv-row');
+        }
     }
     let oplist = env.current?.process?.ops;
     if (!(env.isCamMode && oplist)) {

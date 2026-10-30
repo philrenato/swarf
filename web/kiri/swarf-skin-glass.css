@@ -352,3 +352,14 @@ html[data-skin="glass"] #swarf-run .sr-actions .cut:not(:disabled):not(.wait):no
 /* the small "add a step" label sits over the scene through the glass (the wood in simulate):
    dark enough to read on it (legibility 10-29: 3.9:1 over the orange board) */
 html[data-skin="glass"] .swarf-add-op-label { color: #3a3b3d !important; }
+
+/* (whole-app review r086 B6) one typeface: the cards, concerns, help, export, preferences, the
+   simulate bar and the step card speak in the body font; mono stays for numbers (DRO, size
+   fields, the stamp) and code */
+html[data-skin="glass"] #swarf-start, html[data-skin="glass"] #swarf-start *:not([class*="fa-"]):not(.fas), html[data-skin="glass"] #swarf-concerns, html[data-skin="glass"] #swarf-concerns *:not([class*="fa-"]):not(.fas),
+html[data-skin="glass"] .swarf-help-modal, html[data-skin="glass"] .swarf-help-modal *:not([class*="fa-"]):not(.fas), html[data-skin="glass"] #mod-x-any, html[data-skin="glass"] #mod-x-any *:not([class*="fa-"]):not(.fas),
+html[data-skin="glass"] #mod-prefs, html[data-skin="glass"] #mod-prefs *:not([class*="fa-"]):not(.fas), html[data-skin="glass"] #layer-animate, html[data-skin="glass"] #layer-animate *:not([class*="fa-"]):not(.fas),
+html[data-skin="glass"] .swarf-op-params, html[data-skin="glass"] .swarf-op-params *:not([class*="fa-"]):not(.fas), html[data-skin="glass"] #oplist .draggable *:not([class*="fa-"]):not(.fas), html[data-skin="glass"] #layers *:not([class*="fa-"]):not(.fas) {
+  font-family: var(--g-font) !important;
+}
+html[data-skin="glass"] #mod-x-any textarea { font-family: var(--g-mono) !important; }

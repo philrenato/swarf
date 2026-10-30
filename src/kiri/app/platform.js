@@ -1246,16 +1246,20 @@ function load_files(files, group) {
                 load_dec();
             } else if (issvg) {
                 // swarf: as an .ai or .pdf does (load_svg_into), so each part keeps its own
-                // drawing (meta.svg) and DRAW, TEX and "save drawing" can use it
+                // drawing (meta.svg) and DRAW, TEX and "save drawing" can use it; open lines are
+                // said as an .ai's are, and cancel (or Esc) ends the load as it began
+                const text = data.textDecode('utf-8');
+                const open = svgOpenLines(text);
                 loadSVGDialog(opt => {
                     group = group || [];
-                    const made = load_svg_into(group, data.textDecode('utf-8'), name, opt);
+                    const made = load_svg_into(group, text, name, opt);
                     if (made.length === 0) {
-                        api.show.alert(`SVG contains no polylines`, 10);
-                        api.show.alert(`Fonts must be converted to paths`, 10);
+                        api.show.alert(open ? `${open} open line${open > 1 ? 's' : ''} and no closed shape: only closed shapes can be given a thickness` : 'no closed shapes found in that drawing: text must be turned into outlines first', 10);
+                    } else if (open) {
+                        api.show.alert(`${open} open line${open > 1 ? 's were' : ' was'} left out: only closed shapes can be given a thickness`, 10);
                     }
                     load_dec();
-                });
+                }, load_dec);
             } else if (isai) {
                 // swarf r36: Illustrator / PDF drawings through Unreason's reader (web/kiri/swarf-vector.mjs),
                 // as SVG in mm into the same thickness dialog as an SVG
@@ -1272,7 +1276,7 @@ function load_files(files, group) {
                         group = group || [];
                         load_svg_into(group, r.svg, name.replace(/\.(ai|pdf)$/i, ''), opt);
                         load_dec();
-                    });
+                    }, load_dec);
                 }).catch(e => { api.show.alert(`could not read that drawing: ${e.message}`, 10); load_dec(); });
             } else if (isdxf) {
                 loadDXFDialog(opt => {
@@ -1286,7 +1290,7 @@ function load_files(files, group) {
                         load_verts(group, dxf[ind++], ind ? `${name}-${ind}` : name);
                     }
                     load_dec();
-                });
+                }, load_dec);
             }
             // swarf: a whole project (web/kiri/swarf-file.js)
             else if (isswarf) {
@@ -1332,7 +1336,22 @@ function depthRead(text) {
     return NaN;
 }
 
-function loadSVGDialog(doit) {
+// swarf: the open lines in an SVG (a path with no closing z, a polyline, a line): they make no
+// part, so the import says how many it left out, as an .ai or .pdf import does
+function svgOpenLines(text) {
+    try {
+        const doc = new DOMParser().parseFromString(text, 'image/svg+xml');
+        let open = doc.querySelectorAll('polyline, line').length;
+        for (const p of doc.querySelectorAll('path')) {
+            for (const sub of (p.getAttribute('d') || '').split(/(?=[Mm])/)) {
+                if (/[LlHhVvCcSsQqTtAa]/.test(sub) && !/[Zz]\s*$/.test(sub.trim())) open++;
+            }
+        }
+        return open;
+    } catch (e) { return 0; }
+}
+
+function loadSVGDialog(doit, cancel = () => {}) {
     // swarf: the dialog speaks SHAPE's words (review 10-28b #7), and starts at
     // the last thickness SHAPE used, so a drawing and a shape come out alike
     const t = lastThickness();
@@ -1355,9 +1374,9 @@ function loadSVGDialog(doit) {
         "</div>"
     ]};
     api.uc.confirm(undefined, {'make parts':true, cancel:false}, undefined, opt).then((ok) => {
-        if (!ok) return;
+        if (!ok) return cancel();
         let depth = depthRead($('svg-depth').value);
-        if (!(depth > 0)) return;
+        if (!(depth > 0)) return cancel();
         let arcs = Math.max(0.01, parseFloat($('svg-arcs').value));
         let marc = Math.max(1, parseInt($('svg-marc').value));
         let sdpi = Math.max(0, parseInt($('svg-dpi').value));
@@ -1372,7 +1391,7 @@ function loadSVGDialog(doit) {
  * @param {Function} doit - Callback with options: {soup, depth, segmentSize, minSegments}
  * @private
  */
-function loadDXFDialog(doit) {
+function loadDXFDialog(doit, cancel = () => {}) {
     const rnd = Date.now().toString(36);
     const host = $('mod-any');
     host.innerHTML = [
@@ -1405,10 +1424,14 @@ function loadDXFDialog(doit) {
     const okBtn = $(`dxf-convert-ok-${rnd}`);
     const cancelBtn = $(`dxf-convert-cancel-${rnd}`);
 
+    // swarf: cancel, Esc or a click outside ends the load as it began (never "loading" for good)
+    let settled = false;
+    const quit = () => { if (settled) return; settled = true; cancel(); };
     okBtn.onclick = () => {
         const d = depthRead(depth.value);
+        settled = true;
         api.modal.hide();
-        if (!(d > 0)) return;
+        if (!(d > 0)) return cancel();
         setTimeout(() => {
             doit({
                 soup: nest.checked,
@@ -1419,12 +1442,13 @@ function loadDXFDialog(doit) {
             });
         }, 50);
     };
-    cancelBtn.onclick = () => api.modal.hide();
+    cancelBtn.onclick = () => { api.modal.hide(); quit(); };
     depth.onkeypress = (ev) => {
         if (ev.key === 'Enter' || ev.charCode === 13) okBtn.click();
     };
     api.modal.show('any');
     setTimeout(() => depth.focus(), 0);
+    const watch = setInterval(() => { if (settled) return clearInterval(watch); if (!api.modal.visible()) { clearInterval(watch); quit(); } }, 400);
 }
 
 /**

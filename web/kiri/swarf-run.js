@@ -304,6 +304,10 @@ body.swarf-run-open { filter: none !important; }
 /* ---- jog panel, tidy (Phil 10-27: "a little sloppy") ---- */
 .sr-col > .sr-jog { flex: none; padding-bottom: 12px; }
 .sr-col > .sr-mach { flex: 1 1 auto; }
+/* (whole-app review r086 F8) on a short screen (1280×720, 1366×768) the right column scrolls:
+   the simulated speed pills and the sounds chip stay reachable, never under the window's edge */
+.sr-grid > .sr-col:last-child { overflow-y: auto; overscroll-behavior: contain; }
+.sr-grid > .sr-col:last-child > .sr-box { flex-shrink: 0; }
 .sr-jog .sr-dro { margin: 0 12px; gap: 4px; }
 .sr-jog .sr-axis { grid-template-columns: 30px 1fr; padding: 4px 14px 4px 12px; }
 .sr-jog .sr-axis .v, .sr-jog .sr-axis input.v { padding-right: 0; }

@@ -414,16 +414,16 @@ function setup_keybd_nav() {
         reparent('panel-right');
         // (whole-app review r086 C3) advanced's own panels (machine profile, stock, limits,
         // origin, expert) sat over the right rail, see-through. They are a column of their own
-        // under toolpaths, the same width, scrolling if they run long.
+        // beside toolpaths, below the notice line, scrolling if they run long.
         const left = document.getElementById('panel-left'), tp = document.getElementById('panel-right');
         if (!left || !tp) return;
         const dock = () => {
             const r = tp.getBoundingClientRect();
             if (!left.offsetParent || r.height < 4) return;
-            const top = Math.round(r.bottom + 10);
+            const top = 136;
             const set = (k, v) => left.style.setProperty(k, v, 'important');
-            set('top', top + 'px'); set('left', Math.round(r.left) + 'px'); set('right', 'auto'); set('bottom', 'auto');
-            set('width', Math.round(r.width) + 'px'); set('max-height', Math.max(120, innerHeight - top - 96) + 'px');
+            set('top', top + 'px'); set('left', Math.round(r.right + 10) + 'px'); set('right', 'auto'); set('bottom', 'auto');
+            set('width', '280px'); set('max-height', Math.max(160, innerHeight - top - 100) + 'px');
         };
         if (window.ResizeObserver) { new ResizeObserver(dock).observe(tp); new ResizeObserver(dock).observe(left); }
         window.addEventListener('resize', dock);
@@ -888,23 +888,28 @@ function setup_keybd_nav() {
             { kind:'run', name:'the shop\'s bits', body:'1/4 straight 48-005, 1/4 up-cut 52-910, 1/4 down-cut 57-910, 1/2 straight 48-072, in the tool list. in wood they cut with the shop\'s own numbers (120 in/min, 1/8 in a pass, 12,000 rpm).', tags:'bits tools shop upcut downcut straight part number feeds' },
             { kind:'run', name:'keep the zero', body:'a zero you set is kept across files, test cuts, a reconnect or a reload: one press of use the zero you set takes it back, no re-zeroing. it is dropped after a bit change or a box restart.', tags:'zero keep reuse reload reconnect' },
             { kind:'run', name:'search down', body:'on the z plate card: how far the bit comes down looking for the plate, 60 mm unless you raise it.', tags:'z plate search down distance touch off' },
-            { kind:'op', name:'rough', body:'first pass that clears bulk material in horizontal layers above the part. fast, deep, sloppy by design — finished later by contour.', tags:'roughing clearing bulk first pass' },
+            { kind:'run', name:'undo', body:'edit › undo, or ⌘Z (Ctrl+Z): takes back the last change to the parts, tabs or steps, a delete too. edit › redo, or ⇧⌘Z, puts it back.', tags:'undo redo take back cmd-z ctrl-z mistake edit menu' },
+            { kind:'run', name:'select all', body:'edit › select all, or ⌘A: picks every part on the bed, to move, size or delete them together. edit › delete, or the delete key, removes the picked parts (undo brings them back); with nothing picked it does nothing.', tags:'select all pick every part delete edit menu cmd-a' },
+            { kind:'run', name:'export', body:'export (in the row, or file › export the machine file) makes the file the machine runs: name it, read how long it takes, how big it is, which bit and which material, and press save name.sbp. also save the project (.swarf) keeps the parts and steps to open again.', tags:'export save sbp file machine file gcode shopbot file' },
+            { kind:'run', name:'simulate', body:'watch the bit cut the board before the machine does. space plays and pauses; speed × runs it faster (1 is the machine\'s own speed); done says how much of the cut has run. chips, lightstreams and machine show or hide what they name.', tags:'simulate play pause speed done chips lightstreams preview' },
+            { kind:'run', name:'keys', body:'cam: ⌘Z undo, ⇧⌘Z redo, ⌘A select all, ⌘S save project, delete removes the picked parts. tab walks the menus and the step row; enter or space presses. draw, tex and control print their own keys on their buttons.', tags:'keys keyboard shortcuts tab focus enter space' },
+            { kind:'op', name:'rough', body:'the first pass: it clears most of the wood in flat layers above the part, fast and deep, and leaves a little for contour to finish.', tags:'roughing clearing bulk first pass' },
             { kind:'op', name:'contour', body:'smooth surface pass. cutter crawls across the X or Y axis at a fine stepover, riding part curves. typical stepover 5–15% of tool diameter.', tags:'contouring finishing surface 2.5d' },
-            { kind:'op', name:'outline', body:"cuts the part free from the stock by following its silhouette. usually the last cutting op. add tabs so the part doesn't fly out.", tags:'outline cutout silhouette' },
-            { kind:'op', name:'pocket', body:'clears flat-bottomed cavities — trays, countersinks, recesses. selection-driven; pick the floor face and swarf clears down to it, inside its walls.', tags:'pocket cavity tray' },
-            { kind:'param', name:'stepover', body:'how far the tool moves sideways between passes, as a fraction of tool diameter. swarf loads 10–20% for metal and 30–45% for wood, foam and plastic. wider cuts faster and loads the tool harder.', tags:'stepover sideways pass spacing' },
-            { kind:'param', name:'step-down', body:'depth of cut per layer. swarf keeps every preset under half the tool diameter, which is conservative for wood and about right for metal. deeper than the tool is wide and the flutes cannot clear the chips.', tags:'depth of cut step down doc layer' },
-            { kind:'param', name:'feed rate', body:'how fast the tool moves through material, in mm/min. when in doubt: slower is safer.', tags:'feed feedrate mm/min cutting speed' },
+            { kind:'op', name:'outline', body:"cuts the part free from the board along its outside edge. usually the last step. add tabs so the part doesn't fly out.", tags:'outline cutout silhouette' },
+            { kind:'op', name:'pocket', body:'clears flat-bottomed hollows: trays, recesses, a sunk hole. pick the floor face and swarf clears down to it, inside its walls.', tags:'pocket cavity tray' },
+            { kind:'param', name:'stepover', body:'how far the bit moves sideways between passes, as a share of its width: the step card says 40 % of bit. swarf starts wood, foam and plastic at 30–45 %. wider cuts faster and works the bit harder.', tags:'stepover sideways pass spacing percent of bit' },
+            { kind:'param', name:'step-down', body:'how deep each pass cuts, in mm or inches as mm | in says (type 1/8 or 3 mm). swarf keeps every preset under half the bit\'s width, which is careful for wood. deeper than the bit is wide and its flutes cannot clear the chips.', tags:'depth of cut step down stepdown doc layer pass' },
+            { kind:'param', name:'feed rate', body:'how fast the bit moves through the wood: mm/min, or in/min when mm | in says in. when in doubt: slower is safer.', tags:'feed feedrate mm/min in/min cutting speed' },
             { kind:'param', name:'plunge rate', body:'how fast the tool drives down into material. usually 30–50% of feed rate. too fast snaps end-mills.', tags:'plunge plungerate descent' },
             { kind:'param', name:'spindle speed', body:'RPM of the cutter. it follows the material and the tool width, not a fixed number — a wider tool at the same RPM cuts faster at its edge, so it has to slow down. the MR-1 tops out at 8000. on the ShopBot the router is set by hand on its dial, 1 (10,000 rpm) to 5 (21,000); the cut card names the setting the file asks for.', tags:'spindle rpm cutter speed' },
-            { kind:'param', name:'ease down', body:'ramp into the cut at an angle instead of plunging straight down. easier on the tool, especially for end-mills with no center cut. on by default, and the material sets the angle — 1.8 degrees for metal, up to 10 for foam.', tags:'ease down ramp helix descent' },
+            { kind:'param', name:'ease down', body:'ramp into the cut at an angle instead of plunging straight down. easier on the tool, especially for end-mills with no center cut. on by default, and the material sets the angle: a shallow one for hard wood, up to 10 degrees for foam.', tags:'ease down ramp helix descent' },
             { kind:'param', name:'depth first', body:'finish each Z layer top-to-bottom in one region before moving to the next. opposite is layer-first (sweep all regions per layer).', tags:'depth first order strategy' },
             { kind:'param', name:'tab', body:"small uncut bridge of stock that holds the part during the outline cut so it doesn't shift or fly out. break/sand off after.", tags:'tab tabs holding bridge' },
             { kind:'param', name:'material', body:'what you are cutting. the MATERIAL row at the top of TOOLPATHS sets the feed, plunge, spindle speed, step-down, stepover and ramp angle for every operation, and retints the stock and the chips. the values are conservative starting points for HSS tooling — slow enough to survive a first cut, not fast.', tags:'material stock feeds speeds preset palette' },
-            { kind:'param', name:'stock', body:'the raw block of material on the machine bed. defaults to part-bbox in student mode; expert mode lets you size it independently.', tags:'stock material block bed' },
+            { kind:'param', name:'stock', body:'the board on the machine\'s bed. swarf sizes it to the parts; advanced lets you size it yourself.', tags:'stock material block bed' },
             { kind:'param', name:'z top / z bottom', body:'upper and lower Z bounds for the carving. defines the slab swarf will work inside.', tags:'z top bottom bounds height' },
             { kind:'param', name:'z clearance', body:'how high above stock the tool retracts during rapids. high enough to clear clamps; low enough not to waste time.', tags:'z clearance retract rapid' },
-            { kind:'tool', name:'end-mill', body:'flat-bottomed cutter, the workhorse. fewer flutes clear chips better in soft material; more flutes give a finer finish in metal. swarf assumes 2-flute HSS, or 4-flute for steel.', tags:'endmill flat cutter mill flutes' },
+            { kind:'tool', name:'end-mill', body:'a flat-bottomed bit, the workhorse (the step card calls it end, as in end 1/4). fewer flutes clear chips better in wood and plastic; the shop\'s ShopBot bits are 2-flute.', tags:'endmill flat cutter mill flutes' },
             { kind:'tool', name:'ball-end', body:'spherical tip. for 3D contour finishing on curved surfaces. leaves a cusp pattern proportional to stepover.', tags:'ballend spherical 3d finishing' },
             { kind:'tool', name:'v-bit', body:'conical cutter for engraving and chamfering. depth controls the line width.', tags:'vbit cone engraving chamfer' },
             { kind:'tool', name:'drill', body:'plunges straight down to make holes. paired with the drill operation (expert mode).', tags:'drill hole plunge' },
@@ -915,11 +920,9 @@ function setup_keybd_nav() {
         ];
         function render(query) {
             const q = (query || '').trim().toLowerCase();
-            const matches = !q ? INDEX : INDEX.filter(e =>
-                e.name.toLowerCase().includes(q) ||
-                e.body.toLowerCase().includes(q) ||
-                e.tags.toLowerCase().includes(q)
-            );
+            // (whole-app review r086 C5) a name that matches comes first, then tags, then the body
+            const rank = e => e.name.toLowerCase().includes(q) ? 0 : e.tags.toLowerCase().includes(q) ? 1 : e.body.toLowerCase().includes(q) ? 2 : 3;
+            const matches = !q ? INDEX : INDEX.filter(e => rank(e) < 3).map((e, i) => [rank(e), i, e]).sort((a, b) => a[0] - b[0] || a[1] - b[1]).map(x => x[2]);
             if (matches.length === 0) {
                 results.innerHTML = '<div class="swarf-help-empty"><p>no matches.</p><p>try a control name, a parameter, or a phrase like &ldquo;why rough&rdquo;.</p></div>';
                 return;

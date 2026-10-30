@@ -83,7 +83,8 @@ function create(name, view) {
                 if (!DYN[label]) {
                     let check = DYN[label] = {
                         group: [],
-                        toggle: UC.newBoolean(label, (abc) => {
+                        // swarf (whole-app review r086 B4): the toolpaths view's toggles in words
+                        toggle: UC.newBoolean(({ tool: 'bit', arrows: 'direction', moving: 'moves', milling: 'cuts' })[label] || label, (abc) => {
                             ctrl.group.forEach(mat => {
                                 mat.visible = ctrl.toggle.checked;
                             });

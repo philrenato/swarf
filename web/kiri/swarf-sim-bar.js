@@ -69,11 +69,8 @@
     const cfg = CFG[kind];
     const on  = !!window[cfg.flag];
     b.textContent = on ? cfg.onLabel : cfg.offLabel;
-    // ON = mill-red. OFF = solid black with a faint red hairline so the
-    // button is fully visible in its "off" state (Phil markup r10-c).
-    b.style.background   = on ? '#7e0e0e' : '#000';   // the deeper red: white text reads on it (legibility pass)
-    b.style.borderColor  = on ? 'var(--swarf-accent-hi, #d02020)' : 'var(--swarf-accent, #7a2a1a)';
-    b.style.color        = '#fff';
+    // (whole-app review r086 B5) one pill style for every toggle on the bar, chips, lightstreams
+    // and machine alike: each skin draws .swarf-toggle-on / -off (the swarf skin: on = mill-red)
     b.title              = on ? cfg.onTitle : cfg.offTitle;
     b.classList.toggle('swarf-toggle-on',  on);
     b.classList.toggle('swarf-toggle-off', !on);
@@ -84,16 +81,6 @@
     const b = document.createElement('button');
     b.type = 'button';
     b.className = 'swarf-sim-extra swarf-toggle swarf-toggle-' + kind;
-    // solid black/red toggle style (overrides #layer-animate button rules)
-    b.style.border = '1px solid var(--swarf-accent, #7a2a1a)';
-    b.style.fontFamily = '"JetBrains Mono","IBM Plex Mono",ui-monospace,monospace';
-    b.style.fontSize = '11px';
-    b.style.letterSpacing = '0.1em';
-    b.style.textTransform = 'lowercase';
-    b.style.padding = '6px 10px';
-    b.style.margin = '0 2px';
-    b.style.cursor = 'pointer';
-    b.style.borderRadius = '3px';
     b.onclick = () => {
       window[cfg.flag] = !window[cfg.flag];
       try { localStorage.setItem(cfg.key, window[cfg.flag] ? '1' : '0'); } catch (e) {}
@@ -117,6 +104,23 @@
     if (!bar || bar.dataset.swarfExtras === '1') return;
     if (!bar.querySelector('button')) return; // wait for Kiri to populate
     bar.dataset.swarfExtras = '1';
+    // (whole-app review r086 B5) the bar names itself in every skin, and its two numbers say
+    // what they are: "speed ×1" and "done 35 %"
+    const name = document.createElement('span');
+    name.className = 'swarf-sim-name';
+    name.textContent = 'simulate';
+    bar.prepend(name);
+    const pct = [...bar.querySelectorAll('label')].find(l => l.textContent.trim() === '%');
+    if (pct) {
+      pct.textContent = 'done';
+      pct.classList.add('swarf-sim-word');
+      const v = pct.nextElementSibling;
+      if (v && v.tagName === 'INPUT') {
+        v.title = 'how much of the cut has run';
+        const u = document.createElement('span'); u.className = 'swarf-sim-word swarf-sim-unit'; u.textContent = '%';
+        v.after(u);
+      }
+    }
 
     // swarf r10-f (Phil feedback): paths button lives only in TOOLPATHS
     // view via Kiri's native label checkboxes — not here. Sim-bar keeps
@@ -140,8 +144,8 @@
       field.min = '0.5'; field.max = '100'; field.step = '0.5';
       field.value = String(window.__swarfCustomSpeed || 1);
       field.className = 'swarf-sim-extra swarf-sim-speedfield';
-      field.style.cssText = 'width:58px; height:26px; padding:0 6px; background:rgba(0,0,0,0.55); color:#fff; border:1px solid var(--swarf-accent,#7a2a1a); border-radius:3px; font-family:"JetBrains Mono","IBM Plex Mono",ui-monospace,monospace; font-size:12px; text-align:right; margin:0 2px;';
-      field.title = 'simulate speed multiplier — 0.5 to 100';
+      field.style.cssText = 'width:52px; height:26px; padding:0 6px; text-align:right; margin:0 2px;';
+      field.title = 'how fast simulate runs: 1 is the machine\'s own speed, up to 100 times';
       const commit = () => {
         let v = parseFloat(field.value);
         if (!Number.isFinite(v) || v <= 0) v = 1;
@@ -155,6 +159,8 @@
       field.addEventListener('keydown', (e) => { if (e.key === 'Enter') field.blur(); });
       field.addEventListener('click', (e) => e.stopPropagation());
       speedLabelEl.parentNode.insertBefore(field, speedLabelEl.nextSibling);
+      const sw = document.createElement('span'); sw.className = 'swarf-sim-word'; sw.textContent = 'speed ×';
+      field.before(sw);
     }
   }
 

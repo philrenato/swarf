@@ -153,7 +153,7 @@ html[data-skin="classic"] #swarf-run .sr-pad button.held { box-shadow: var(--c-i
 /* a toggle that is on: BeOS yellow, pressed in */
 html[data-skin="classic"] button.selected, html[data-skin="classic"] #swarf-run .sr-modes button.on, html[data-skin="classic"] #swarf-run .sr-jog .sr-modes button.on,
 html[data-skin="classic"] #swarf-run .sr-sim button.on, html[data-skin="classic"] #swarf-run .sr-vtools button.on, html[data-skin="classic"] #swarf-draw .sd-bar button.on, html[data-skin="classic"] #swarf-draw .sd-card button.tx-pick.on, html[data-skin="classic"] #swarf-draw .sd-card button.tx-sw.on, html[data-skin="classic"] #swarf-draw .sd-card button.tx-fill.on,
-html[data-skin="classic"] #swarf-sim-machine.on, html[data-skin="classic"] #layer-animate button:nth-of-type(2) {
+html[data-skin="classic"] #swarf-sim-machine.on, html[data-skin="classic"] #layer-animate button:nth-of-type(2), html[data-skin="classic"] .swarf-toggle-on {
   background: var(--c-tab) !important; box-shadow: var(--c-in) !important; color: #000 !important;
 }
 /* the button that goes ahead: bold, with the Platinum default ring */
@@ -335,3 +335,13 @@ html[data-skin="classic"] #swarf-run .sr-actions button.wait { box-shadow: inset
 html[data-skin="classic"] #swarf-run .sr-mach .sr-out { color: #fff !important; text-shadow: 1px 1px 0 #000 !important; }   /* links in the machine box sit on the blue desktop */
 /* cut ready or a job moving: white on navy (the skin map's .cut:not(:disabled) black outranked it) */
 html[data-skin="classic"] #swarf-run .sr-actions .cut:not(:disabled):not(.wait):not(.quiet) { color: #fff !important; }
+
+/* (whole-app review r086 B6) one typeface: the cards, concerns, help, export, preferences, the
+   simulate bar and the step card in Geneva; Monaco stays for numbers and code */
+html[data-skin="classic"] #swarf-start, html[data-skin="classic"] #swarf-start *:not([class*="fa-"]):not(.fas), html[data-skin="classic"] #swarf-concerns, html[data-skin="classic"] #swarf-concerns *:not([class*="fa-"]):not(.fas),
+html[data-skin="classic"] .swarf-help-modal, html[data-skin="classic"] .swarf-help-modal *:not([class*="fa-"]):not(.fas), html[data-skin="classic"] #mod-x-any, html[data-skin="classic"] #mod-x-any *:not([class*="fa-"]):not(.fas),
+html[data-skin="classic"] #mod-prefs, html[data-skin="classic"] #mod-prefs *:not([class*="fa-"]):not(.fas), html[data-skin="classic"] #layer-animate, html[data-skin="classic"] #layer-animate *:not([class*="fa-"]):not(.fas),
+html[data-skin="classic"] .swarf-op-params, html[data-skin="classic"] .swarf-op-params *:not([class*="fa-"]):not(.fas), html[data-skin="classic"] #oplist .draggable *:not([class*="fa-"]):not(.fas), html[data-skin="classic"] #layers *:not([class*="fa-"]):not(.fas) {
+  font-family: var(--c-font) !important;
+}
+html[data-skin="classic"] #mod-x-any textarea { font-family: var(--c-mono) !important; }

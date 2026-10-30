@@ -157,7 +157,31 @@ function otag(o) {
     return tags.join('');
 }
 
+// swarf (whole-app review r086 B2): the bit library in swarf's words, each size with its unit
+function swarfToolWords(tool) {
+    const { ui } = api;
+    const u = tool && tool.metric ? 'mm' : 'in';
+    const head = document.querySelectorAll('#mod-tools .t-head label');
+    ['bits', 'the picked bit', 'its shape'].forEach((t, i) => { if (head[i]) head[i].textContent = t; });
+    const word = (inp, w, title) => {
+        const row = inp && inp.closest && inp.closest('.var-row');
+        const l = row && row.querySelector('label');
+        if (l) { l.textContent = w; if (title) l.title = title; }
+    };
+    word(ui.toolNum, 'number', 'the bit\'s number on the machine');
+    word(ui.toolMetric, 'sizes in mm', 'ticked: the sizes below are in millimeters; not ticked: in inches');
+    word(ui.toolShaftDiam, `width (${u})`); word(ui.toolShaftLen, `length (${u})`);
+    word(ui.toolFluteDiam, `width (${u})`); word(ui.toolFluteLen, `length (${u})`);
+    word(ui.toolTaperTip, `tip (${u})`); word(ui.toolTaperAngle, 'angle (°)');
+    if (ui.toolAdd) ui.toolAdd.title = 'add a bit';
+    if (ui.toolDelete) ui.toolDelete.title = 'remove the picked bit';
+    if (ui.toolCopy) ui.toolCopy.title = 'a copy of the picked bit';
+    if (ui.toolsImport) { ui.toolsImport.textContent = 'open bits…'; ui.toolsImport.title = 'add bits from a saved list'; }
+    if (ui.toolsExport) { ui.toolsExport.textContent = 'save bits…'; ui.toolsExport.title = 'save this list of bits as a file'; }
+}
+
 function renderTool(tool) {
+    swarfToolWords(tool);
     const { ui } = api;
     $('tool-view').innerHTML = '<svg id="tool-svg" width="100%" height="100%"></svg>';
     setTimeout(() => {
@@ -270,8 +294,11 @@ function _showTools() {
     setToolChanged(false);
 
     ui.toolsClose.onclick = function() {
-        if (editTools.changed && !confirm("abandon changes?")) return;
-        api.dialog.hide();
+        // swarf (r086): asked in swarf's own card, not the browser's
+        if (!editTools.changed) return api.dialog.hide();
+        api.uc.confirm('Close the bits without saving your changes?', { 'keep editing': false, 'close without saving': true }).then(yes => {
+            if (yes) api.dialog.hide();
+        });
     };
     ui.toolAdd.onclick = function() {
         let metric = settings().controller.units === 'mm';
