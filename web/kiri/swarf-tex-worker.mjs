@@ -26,6 +26,7 @@ function mesh({ id, loops, thickness, marks, res, cut, format, name }) {
     const M = C.partMesh({ loops, thickness, marks, res, cut });
     const check = C.meshCheck(M);
     if (format === 'obj') self.postMessage({ id, text: C.meshOBJ(M, name), triangles: M.triangles, check });
+    else if (format === 'glb') { const buf = C.meshGLB(M, name); self.postMessage({ id, buf, glb: true, triangles: M.triangles, check }, [buf]); }
     else { const buf = C.meshSTL(M, name); self.postMessage({ id, buf, triangles: M.triangles, check }, [buf]); }
   } catch (err) {
     self.postMessage({ id, error: String(err && err.message || err) });

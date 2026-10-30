@@ -440,5 +440,37 @@ for (const [id, P] of Object.entries(T.PATTERNS)) {
   ok(T.partMeshSize([[[0, 0], [2440, 0], [2440, 1220], [0, 1220]]], T.autoMeshRes([[[0, 0], [2440, 0], [2440, 1220], [0, 1220]]])).triangles < 1.2e6, 'a 4 x 8 sheet by default stays near a million triangles');
 }
 
+// 20. no stair steps: every wall lies on the true outline (the part's polygon, a hole's circle, a
+//     slot's sides), kerf grooves to a skin keep sharp walls, and the files carry normals
+{
+  const disc = []; for (let k = 0; k < 64; k++) { const a = k / 64 * 2 * Math.PI; disc.push([50 + 40 * Math.cos(a), 40 + 40 * Math.sin(a)]); }
+  const loops = [disc];
+  const g = T.newGrid(5, -5, 95, 85, 0.5); T.paintWhere(g, (x, y) => y > 40, 1);
+  const kerf = { region: T.storeRegion(g), xf: T.IDENTITY.slice(), fill: T.newPierce('kerf', { origin: [50, 50], params: { radius: 80, skin: 3, bridge: 0, slot: 80 } }) };
+  const g2 = T.newGrid(5, -5, 95, 85, 0.5); T.paintWhere(g2, (x, y) => y < 35, 1);
+  const holes = { region: T.storeRegion(g2), xf: T.IDENTITY.slice(), fill: T.newPierce('holes', { origin: [50, 20], params: { size: 9, spacing: 15, layout: 'hex' } }) };
+  const M = T.partMesh({ loops, thickness: 12, marks: [kerf, holes], res: 1 }), c = T.meshCheck(M);
+  ok(c.watertight, `a disc with kerfs to a skin and holes through: watertight (${c.badEdges} bad of ${c.edges}), ${M.triangles} triangles`);
+  // every wall vertex on the disc's polygon or on a hole's circle (no grid stairs)
+  const H = T.pierceCuts(holes, { thickness: 12, part: loops }).holes;
+  const onOutline = (x, y) => T.edgeDistance(loops, x, y) < 1e-4 || H.some((h) => Math.abs(Math.hypot(x - h.x, y - h.y) - h.d / 2) < 0.02);
+  let off = 0, walls = 0;
+  for (let t = 0; t < M.indices.length; t += 3) if (M.kinds[t / 3] === 1) for (let e = 0; e < 3; e++) { const v = M.indices[t + e]; walls++; if (!onOutline(M.positions[v * 3], M.positions[v * 3 + 1])) off++; }
+  ok(walls > 0 && off === 0, `every wall corner lies on the true outline (${off} of ${walls} off it)`);
+  // the kerf grooves: their floors at the skin (12 - 9 = 3 mm left), walls within a hair of vertical
+  const K = T.pierceCuts(kerf, { thickness: 12, part: loops });
+  let floorAt = Infinity;
+  for (let t = 0; t < M.indices.length; t += 3) if (M.kinds[t / 3] === 0) for (let e = 0; e < 3; e++) { const v = M.indices[t + e], x = M.positions[v * 3], y = M.positions[v * 3 + 1], z = M.positions[v * 3 + 2]; if (K.slots.some((q) => T.edgeDistance([[q.a, q.b]], x, y) < K.width / 2 - 0.1)) floorAt = Math.min(floorAt, z); }
+  ok(Math.abs(floorAt - 3) < 1e-3, `kerf grooves to the skin: their floor at ${floorAt.toFixed(3)} mm (3 mm of skin)`);
+  const N = T.meshNormals(M);
+  let up = 0, n = 0; for (let t = 0; t < M.indices.length; t += 3) if (M.kinds[t / 3] === 0) { n++; if (N.face[t + 2] > 0) up++; }
+  ok(n && up === n, 'the top faces up');
+  const obj = T.meshOBJ(M);
+  ok((obj.match(/^vn /gm) || []).length === M.positions.length / 3 + (M.kinds.length - M.kinds.filter((k) => k === 0).length) && /^f \d+\/\/\d+/m.test(obj), 'OBJ: smooth normals on the top, one a face on the walls and the bottom');
+  const glb = new DataView(T.meshGLB(M));
+  const jl = glb.getUint32(12, true), json = JSON.parse(new TextDecoder().decode(new Uint8Array(glb.buffer, 20, jl)));
+  ok(glb.getUint32(0, true) === 0x46546c67 && glb.getUint32(8, true) === glb.byteLength && json.accessors[2].count === M.indices.length && json.meshes[0].primitives[0].attributes.NORMAL === 1, `GLB: ${glb.byteLength} bytes, ${json.accessors[0].count} vertices, ${json.accessors[2].count / 3} triangles, in meters, y up`);
+}
+
 console.log(`\n${pass} passed, ${fail} failed  (${((Date.now() - t0) / 1000).toFixed(1)} s)`);
 process.exit(fail ? 1 : 0);

@@ -1973,9 +1973,12 @@ ${circles}
 //     leaves, the drop cutter's moves stamped into a heightmap as the simulation does)
 //     res: mm a grid cell; by default the finest under `maxCells` cells
 //
-// The top is a heightfield on a grid: each cell on the part's top is a column, its top corners at
-// the surface, walls where it meets the outside, a hole or a through-cut. Corners shared between
-// cells are one vertex, so the surface is continuous and every edge belongs to two triangles.
+// The walls follow the true outline: the part's polygon and every through-cut's real shape (a slot
+// the bit's width round its path, a hole its circle), never the grid. The top is cut into strips at
+// every outline vertex, every grid row and every crossing; each strip into trapezoids between the
+// outline's edges, each trapezoid zipped into triangles through the grid's columns, so the top is a
+// heightfield inside the true outline. Grooves left to a skin get their walls from two loops a hair
+// either side of their edge. Each point is one vertex, so every edge belongs to two triangles.
 export function partMeshSize(loops, res) {
   const b = loopsBox(loops), area = Math.max(1, (b[2] - b[0]) * (b[3] - b[1]));
   return { cells: Math.ceil(area / (res * res)), triangles: Math.ceil(area / (res * res)) * 4 + Math.ceil(2 * ((b[2] - b[0]) + (b[3] - b[1])) / res) * 2 };
@@ -1986,78 +1989,187 @@ export function autoMeshRes(loops, maxCells = 250000) {
   return Math.max(0.5, Math.sqrt(area / maxCells));
 }
 export function partMesh(o) {
-  const loops = o.loops, T = o.thickness, marks = o.marks || [];
-  const res = o.res > 0 ? o.res : autoMeshRes(loops, o.maxCells);
-  const b = loopsBox(loops), x0 = b[0] - res, y0 = b[1] - res;
-  const nx = Math.ceil((b[2] - b[0]) / res) + 2, ny = Math.ceil((b[3] - b[1]) / res) + 2, NX = nx + 1, NY = ny + 1;
-  // the part's top: cells whose middle is inside an odd number of loops (scanline)
-  const segs = [];
-  for (const L of loops) for (let i = 0; i < L.length; i++) { const a = L[i], c = L[(i + 1) % L.length]; if (a[1] !== c[1]) segs.push(a[1] < c[1] ? [a[0], a[1], c[0], c[1]] : [c[0], c[1], a[0], a[1]]); }
-  const mat = new Uint8Array(nx * ny);
-  for (let j = 0; j < ny; j++) {
-    const y = y0 + (j + 0.5) * res, xs = [];
-    for (const q of segs) if (y >= q[1] && y < q[3]) xs.push(q[0] + (y - q[1]) * (q[2] - q[0]) / (q[3] - q[1]));
-    xs.sort((p, q) => p - q);
-    for (let k = 0; k + 1 < xs.length; k += 2) for (let i = Math.max(0, Math.ceil((xs[k] - x0) / res - 0.5)); i <= Math.min(nx - 1, Math.floor((xs[k + 1] - x0) / res - 0.5)); i++) mat[j * nx + i] = 1;
-  }
-  // how deep the marks go at each grid corner (0 = the top, T = through)
-  const D = new Float32Array(NX * NY);
-  const deepen = (fn) => { for (let j = 0; j < NY; j++) for (let i = 0; i < NX; i++) { const k = j * NX + i, d = fn(x0 + i * res, y0 + j * res); if (d > D[k]) D[k] = d; } };
+  const T = o.thickness, marks = o.marks || [];
+  const res = o.res > 0 ? o.res : autoMeshRes(o.loops, o.maxCells);
+  // ── the outline: the part's loops (outer counterclockwise, holes clockwise) and every through-cut
+  //    (clockwise), so material is where the winding is positive: cuts that cross the edge or each
+  //    other need no boolean ──
+  const area2 = (L) => { let a = 0; for (let i = 0, j = L.length - 1; i < L.length; j = i++) a += (L[j][0] + L[i][0]) * (L[j][1] - L[i][1]); return -a / 2; };
+  const pip = (p, L) => { let n = false; for (let i = 0, j = L.length - 1; i < L.length; j = i++) if ((L[i][1] > p[1]) !== (L[j][1] > p[1]) && p[0] < (L[j][0] - L[i][0]) * (p[1] - L[i][1]) / (L[j][1] - L[i][1]) + L[i][0]) n = !n; return n; };
+  const clean = (L) => { const out = []; for (const q of L) { const l = out[out.length - 1]; if (!l || Math.hypot(q[0] - l[0], q[1] - l[1]) > 1e-6) out.push([q[0], q[1]]); } if (out.length > 1 && Math.hypot(out[0][0] - out[out.length - 1][0], out[0][1] - out[out.length - 1][1]) < 1e-6) out.pop(); return out; };
+  const partLoops = o.loops.map(clean).filter((L) => L.length >= 3).map((L, i, all) => {
+    const depth = all.reduce((n, M, k) => n + (k !== i && pip(L[0], M) ? 1 : 0), 0);
+    const ccw = area2(L) > 0, want = depth % 2 === 0;
+    return ccw === want ? L : L.slice().reverse();
+  });
+  const circle = (cx, cy, r, cw) => { const n = Math.max(24, Math.ceil(2 * Math.PI * r / Math.min(0.6, res))); const L = []; for (let k = 0; k < n; k++) { const a = (cw ? -1 : 1) * k / n * 2 * Math.PI; L.push([cx + r * Math.cos(a), cy + r * Math.sin(a)]); } return L; };
+  const stadium = (a, b, r, cw) => {
+    const dx = b[0] - a[0], dy = b[1] - a[1], L0 = Math.hypot(dx, dy) || 1e-9, ux = dx / L0, uy = dy / L0, nx = -uy, ny = ux;
+    const n = Math.max(8, Math.ceil(Math.PI * r / Math.min(0.6, res))), out = [];
+    // counterclockwise: down the right side of a→b, round b, up the left, round a
+    for (let k = 0; k <= n; k++) { const t = -Math.PI / 2 + k / n * Math.PI, c = Math.cos(t), s = Math.sin(t); out.push([b[0] + r * (ux * c + nx * s), b[1] + r * (uy * c + ny * s)]); }
+    for (let k = 0; k <= n; k++) { const t = Math.PI / 2 + k / n * Math.PI, c = Math.cos(t), s = Math.sin(t); out.push([a[0] + r * (ux * c + nx * s), a[1] + r * (uy * c + ny * s)]); }
+    return cw ? out.reverse() : out;
+  };
+  const cutLoops = [], breaks = [], depthFns = [];
+  // ── how deep the marks go at a point (0 the top, T through) ──
   for (const m of marks) {
     if (!m || !m.fill) continue;
-    if (o.cut) {
-      const p = markToolpath(m, { maxDepth: T, part: loops, res: Math.max(0.2, Math.min(res, 0.6)) });
-      if (!p.moves || !p.moves.length) continue;
-      const sim = createSim({ x0, y0, nx: NX, ny: NY, res }, p.tool || fillTool(m.fill));
-      sim.run(p.moves);
-      for (let k = 0; k < D.length; k++) if (-sim.Z[k] > D[k]) D[k] = Math.min(T, -sim.Z[k]);
-    } else if (m.fill.fill === 'pierce') {
-      const c = pierceCuts(m, { thickness: T, part: loops });
+    if (m.fill.fill === 'pierce') {
+      const c = pierceCuts(m, { thickness: T, part: o.loops });
       if (!c) continue;
-      const w2 = c.width / 2;
-      for (const q of c.slots) deepen((x, y) => (segDist(x, y, [q.a[0], q.a[1], q.b[0], q.b[1]]) <= w2 ? c.depth : 0));
-      for (const h of c.holes) deepen((x, y) => (Math.hypot(x - h.x, y - h.y) <= h.d / 2 ? T : 0));
+      const w2 = c.width / 2, eps = Math.min(0.02, res / 10);
+      if (c.through) for (const q of c.slots) cutLoops.push(stadium(q.a, q.b, w2, true));
+      else for (const q of c.slots) {
+        // a groove to its skin: its walls sharp, as two near loops the surface steps between
+        breaks.push(stadium(q.a, q.b, w2 - eps, false), stadium(q.a, q.b, w2 + eps, false));
+        depthFns.push((x, y) => (segDist(x, y, [q.a[0], q.a[1], q.b[0], q.b[1]]) <= w2 ? c.depth : 0));
+      }
+      for (const h of c.holes) cutLoops.push(circle(h.x, h.y, h.d / 2, true));
+      if (o.cut) { const p = markToolpath(m, { maxDepth: T, part: o.loops }); if (p.moves && p.moves.length) depthFns.push(simDepth(p, m)); }
+    } else if (o.cut) {
+      const p = markToolpath(m, { maxDepth: T, part: o.loops, res: Math.max(0.2, Math.min(res, 0.6)) });
+      if (p.moves && p.moves.length) depthFns.push(simDepth(p, m));
     } else {
-      const tex = markTexture(m, { part: loops });
-      if (tex) deepen((x, y) => Math.min(T, tex.h(x, y)));
+      const tex = markTexture(m, { part: o.loops });
+      if (tex) depthFns.push((x, y) => Math.min(T, tex.h(x, y)));
     }
   }
-  // a cell cut right through is gone
-  for (let j = 0; j < ny; j++) for (let i = 0; i < nx; i++) {
-    const k = j * nx + i;
-    if (!mat[k]) continue;
-    const a = j * NX + i, dmin = Math.min(D[a], D[a + 1], D[a + NX], D[a + NX + 1]);
-    if (dmin >= T - 1e-6 || (D[a] + D[a + 1] + D[a + NX] + D[a + NX + 1]) / 4 >= T - 1e-6) mat[k] = 0;
+  // what a mark's bit leaves, on a fine heightmap over its moves, read bilinearly
+  function simDepth(p, m) {
+    let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+    for (const q of p.moves) if (!q.rapid) { x0 = Math.min(x0, q.x); y0 = Math.min(y0, q.y); x1 = Math.max(x1, q.x); y1 = Math.max(y1, q.y); }
+    const tool = p.tool || fillTool(m.fill), pad = tool.R + 1, r = Math.min(res, 0.25);
+    x0 -= pad; y0 -= pad; x1 += pad; y1 += pad;
+    const nx = Math.ceil((x1 - x0) / r) + 1, ny = Math.ceil((y1 - y0) / r) + 1;
+    const sim = createSim({ x0, y0, nx, ny, res: r }, tool);
+    sim.run(p.moves);
+    return (x, y) => {
+      const fx = (x - x0) / r, fy = (y - y0) / r;
+      if (fx < 0 || fy < 0 || fx > nx - 1 || fy > ny - 1) return 0;
+      const i = Math.min(nx - 2, fx | 0), j = Math.min(ny - 2, fy | 0), tx = fx - i, ty = fy - j, k = j * nx + i, Z = sim.Z;
+      return Math.min(T, -((Z[k] * (1 - tx) + Z[k + 1] * tx) * (1 - ty) + (Z[k + nx] * (1 - tx) + Z[k + nx + 1] * tx) * ty));
+    };
   }
-  // two cells meeting only at a corner would share a vertex four walls use: fill one of them
-  for (let pass = 0, changed = true; changed && pass < 8; pass++) {
-    changed = false;
-    for (let j = 0; j + 1 < ny; j++) for (let i = 0; i + 1 < nx; i++) {
-      const a = mat[j * nx + i], bb = mat[j * nx + i + 1], c = mat[(j + 1) * nx + i], d = mat[(j + 1) * nx + i + 1];
-      if (a && d && !bb && !c) { mat[j * nx + i + 1] = 1; changed = true; }
-      else if (bb && c && !a && !d) { mat[j * nx + i] = 1; changed = true; }
+  const depthAt = (x, y) => { let d = 0; for (const f of depthFns) { const v = f(x, y); if (v > d) d = v; } return d; };
+  // ── every edge, its winding (a counterclockwise loop counts +1 inside it; a break line 0) ──
+  const E = [];
+  const addLoops = (Ls, boundary) => { for (const L of Ls) for (let i = 0; i < L.length; i++) { const a = L[i], b = L[(i + 1) % L.length]; if (a[1] === b[1]) { if (boundary) E.push({ a, b, h: true }); continue; } E.push({ a, b, w: boundary ? (b[1] > a[1] ? -1 : 1) : 0, y0: Math.min(a[1], b[1]), y1: Math.max(a[1], b[1]) }); } };
+  addLoops(partLoops, true); addLoops(cutLoops, true); addLoops(breaks, false);
+  const slanted = E.filter((e) => !e.h), xAt = (e, y) => e.a[0] + (y - e.a[1]) * (e.b[0] - e.a[0]) / (e.b[1] - e.a[1]);
+  // ── the strips: every vertex's height, every grid row, every crossing of two edges ──
+  const box = loopsBox(partLoops), ys = new Set();
+  for (const e of E) { ys.add(e.a[1]); ys.add(e.b[1]); }
+  const gy0 = Math.floor(box[1] / res) * res, gx0 = Math.floor(box[0] / res) * res;
+  for (let y = gy0; y <= box[3] + res; y += res) if (y > box[1] && y < box[3]) ys.add(+y.toFixed(9));
+  {
+    // crossings, found through a bucket grid of the edges
+    const cell = Math.max(2, res * 4), B = new Map(), key = (i, j) => i * 73856093 ^ j * 19349663;
+    slanted.forEach((e, n) => { const i0 = Math.floor(Math.min(e.a[0], e.b[0]) / cell), i1 = Math.floor(Math.max(e.a[0], e.b[0]) / cell), j0 = Math.floor(e.y0 / cell), j1 = Math.floor(e.y1 / cell); for (let i = i0; i <= i1; i++) for (let j = j0; j <= j1; j++) { const k = key(i, j); let l = B.get(k); if (!l) B.set(k, l = []); l.push(n); } });
+    const seen = new Set();
+    for (const l of B.values()) for (let p = 0; p < l.length; p++) for (let q = p + 1; q < l.length; q++) {
+      const A = slanted[l[p]], C = slanted[l[q]], k = l[p] < l[q] ? l[p] * 1e7 + l[q] : l[q] * 1e7 + l[p];
+      if (seen.has(k)) continue; seen.add(k);
+      const d = (A.b[0] - A.a[0]) * (C.b[1] - C.a[1]) - (A.b[1] - A.a[1]) * (C.b[0] - C.a[0]);
+      if (Math.abs(d) < 1e-12) continue;
+      const s = ((C.a[0] - A.a[0]) * (C.b[1] - C.a[1]) - (C.a[1] - A.a[1]) * (C.b[0] - C.a[0])) / d, t = ((C.a[0] - A.a[0]) * (A.b[1] - A.a[1]) - (C.a[1] - A.a[1]) * (A.b[0] - A.a[0])) / d;
+      if (s > 1e-9 && s < 1 - 1e-9 && t > 1e-9 && t < 1 - 1e-9) ys.add(A.a[1] + s * (A.b[1] - A.a[1]));
     }
   }
-  const at = (i, j) => (i >= 0 && j >= 0 && i < nx && j < ny ? mat[j * nx + i] : 0);
-  const pos = [], idx = [], top = new Int32Array(NX * NY).fill(-1), bot = new Int32Array(NX * NY).fill(-1);
-  // the top never comes down to the bottom: a sliver left by a deep cut keeps a hair of board
-  const floor = Math.min(0.2, T * 0.02);
-  const vt = (i, j) => { const k = j * NX + i; if (top[k] < 0) { top[k] = pos.length / 3; pos.push(x0 + i * res, y0 + j * res, Math.max(floor, T - D[k])); } return top[k]; };
-  const vb = (i, j) => { const k = j * NX + i; if (bot[k] < 0) { bot[k] = pos.length / 3; pos.push(x0 + i * res, y0 + j * res, 0); } return bot[k]; };
-  const wall = (pi, pj, qi, qj) => { const pb = vb(pi, pj), qb = vb(qi, qj), qt = vt(qi, qj), pt = vt(pi, pj); idx.push(pb, qb, qt, pb, qt, pt); };
-  for (let j = 0; j < ny; j++) for (let i = 0; i < nx; i++) {
-    if (!at(i, j)) continue;
-    const a = vt(i, j), bb = vt(i + 1, j), c = vt(i + 1, j + 1), d = vt(i, j + 1);
-    idx.push(a, bb, c, a, c, d);
-    const A = vb(i, j), B = vb(i + 1, j), Cc = vb(i + 1, j + 1), Dd = vb(i, j + 1);
-    idx.push(A, Cc, B, A, Dd, Cc);
-    // walls on each side that meets no material, along the cell's counterclockwise edge
-    if (!at(i, j - 1)) wall(i, j, i + 1, j);
-    if (!at(i + 1, j)) wall(i + 1, j, i + 1, j + 1);
-    if (!at(i, j + 1)) wall(i + 1, j + 1, i, j + 1);
-    if (!at(i - 1, j)) wall(i, j + 1, i, j);
+  const Y = [...ys].sort((p, q) => p - q).filter((y, i, a) => i === 0 || y - a[i - 1] > 1e-7);
+  const isGrid = (y) => Math.abs((y - gy0) / res - Math.round((y - gy0) / res)) < 1e-6;
+  // ── each strip's trapezoids: between consecutive separators where material is ──
+  slanted.sort((p, q) => p.y0 - q.y0);
+  const strips = [];
+  let act = [], ei = 0;
+  for (let k = 0; k + 1 < Y.length; k++) {
+    const ya = Y[k], yb = Y[k + 1], ym = (ya + yb) / 2;
+    while (ei < slanted.length && slanted[ei].y0 <= ym) act.push(slanted[ei++]);
+    act = act.filter((e) => e.y1 > ym);
+    const here = act.filter((e) => e.y0 < ym).map((e) => ({ e, xm: xAt(e, ym) })).sort((p, q) => p.xm - q.xm);
+    const traps = [];
+    let w = 0, left = null;
+    for (const { e } of here) {
+      if (e.w) {
+        const before = w; w += e.w;
+        if (before <= 0 && w > 0) left = { e, wall: true };
+        else if (before > 0 && w <= 0 && left) { traps.push([left, { e, wall: true }]); left = null; }
+      } else if (w > 0 && left) { traps.push([left, { e, wall: false }]); left = { e, wall: false }; }
+    }
+    strips.push({ ya, yb, traps: traps.map(([L, R]) => ({ L, R, xla: xAt(L.e, ya), xlb: xAt(L.e, yb), xra: xAt(R.e, ya), xrb: xAt(R.e, yb) })) });
   }
-  return { positions: Float32Array.from(pos), indices: Uint32Array.from(idx), res, cells: nx * ny, triangles: idx.length / 3 };
+  // ── each line's vertices: every trapezoid corner on it, and the grid's columns on a grid row ──
+  const lineX = Y.map(() => []);
+  strips.forEach((s, k) => { for (const t of s.traps) { lineX[k].push(t.xla, t.xra); lineX[k + 1].push(t.xlb, t.xrb); } });
+  const covered = (k) => { const iv = []; if (k > 0) for (const t of strips[k - 1].traps) iv.push([t.xlb, t.xrb]); if (k < strips.length) for (const t of strips[k].traps) iv.push([t.xla, t.xra]); return iv; };
+  for (let k = 0; k < Y.length; k++) {
+    if (isGrid(Y[k])) for (const [a, b] of covered(k)) for (let x = Math.ceil((a - gx0) / res) * res + gx0; x < b; x += res) if (x > a) lineX[k].push(x);
+    lineX[k] = lineX[k].sort((p, q) => p - q).filter((x, i, a) => i === 0 || x - a[i - 1] > 1e-7);
+  }
+  // ── vertices: one top and one bottom per point ──
+  const pos = [], kind = [], idx = [], vmap = new Map(), floor = Math.min(0.2, T * 0.02);
+  const snapX = (k, x) => { const L = lineX[k]; let lo = 0, hi = L.length - 1; while (lo < hi) { const m = (lo + hi) >> 1; if (L[m] < x - 1e-7) lo = m + 1; else hi = m; } return L[lo]; };
+  const vert = (k, x, top) => {
+    x = snapX(k, x);
+    const key = `${k}:${x.toFixed(7)}:${top ? 1 : 0}`;
+    let v = vmap.get(key);
+    if (v === undefined) { v = pos.length / 3; vmap.set(key, v); pos.push(x, Y[k], top ? Math.max(floor, T - depthAt(x, Y[k])) : 0); }
+    return v;
+  };
+  const tri = (a, b, c, kd) => { idx.push(a, b, c); kind.push(kd); };
+  const chain = (k, a, b) => lineX[k].filter((x) => x >= a - 1e-7 && x <= b + 1e-7);
+  strips.forEach((s, k) => {
+    for (const t of s.traps) {
+      // the top and the bottom: zip the two chains, left to right
+      const A = chain(k, t.xla, t.xra), Bc = chain(k + 1, t.xlb, t.xrb);
+      for (const top of [true, false]) {
+        let i = 0, j = 0;
+        while (i < A.length - 1 || j < Bc.length - 1) {
+          const ia = vert(k, A[i], top), jb = vert(k + 1, Bc[j], top);
+          const fa = i < A.length - 1 ? (A[i + 1] - t.xla) / Math.max(1e-9, t.xra - t.xla) : Infinity;
+          const fb = j < Bc.length - 1 ? (Bc[j + 1] - t.xlb) / Math.max(1e-9, t.xrb - t.xlb) : Infinity;
+          if (fa <= fb) {
+            const na = vert(k, A[i + 1], top);
+            top ? tri(ia, na, jb, 0) : tri(ia, jb, na, 2); i++;
+          } else {
+            const nb = vert(k + 1, Bc[j + 1], top);
+            top ? tri(ia, nb, jb, 0) : tri(ia, jb, nb, 2); j++;
+          }
+        }
+      }
+      // the sides that are the outline: walls, outward
+      const wall = (pk, px, qk, qx) => { const pb = vert(pk, px, false), qb = vert(qk, qx, false), qt = vert(qk, qx, true), pt = vert(pk, px, true); tri(pb, qb, qt, 1); tri(pb, qt, pt, 1); };
+      if (t.L.wall) wall(k + 1, t.xlb, k, t.xla);
+      if (t.R.wall) wall(k, t.xra, k + 1, t.xrb);
+    }
+  });
+  // ── walls along each line where material is on one side only ──
+  for (let k = 0; k < Y.length; k++) {
+    const below = k > 0 ? strips[k - 1].traps.map((t) => [t.xlb, t.xrb]) : [], above = k < strips.length ? strips[k].traps.map((t) => [t.xla, t.xra]) : [];
+    const inside = (iv, x) => iv.some(([a, b]) => x > a + 1e-7 && x < b - 1e-7);
+    const L = lineX[k];
+    for (let i = 0; i + 1 < L.length; i++) {
+      const xm = (L[i] + L[i + 1]) / 2, b = inside(below, xm), a = inside(above, xm);
+      if (b === a) continue;
+      const p = b ? L[i + 1] : L[i], q = b ? L[i] : L[i + 1];
+      const pb = vert(k, p, false), qb = vert(k, q, false), qt = vert(k, q, true), pt = vert(k, p, true);
+      tri(pb, qb, qt, 1); tri(pb, qt, pt, 1);
+    }
+  }
+  return { positions: Float32Array.from(pos), indices: Uint32Array.from(idx), kinds: Uint8Array.from(kind), res, triangles: idx.length / 3 };
+}
+// smooth normals on the top (area-weighted over its triangles), flat on the walls and the bottom
+export function meshNormals(mesh) {
+  const P = mesh.positions, I = mesh.indices, K = mesh.kinds, vn = new Float32Array(P.length), fn = new Float32Array(I.length);
+  for (let t = 0; t < I.length; t += 3) {
+    const a = I[t] * 3, b = I[t + 1] * 3, c = I[t + 2] * 3;
+    const ux = P[b] - P[a], uy = P[b + 1] - P[a + 1], uz = P[b + 2] - P[a + 2], vx = P[c] - P[a], vy = P[c + 1] - P[a + 1], vz = P[c + 2] - P[a + 2];
+    const nx = uy * vz - uz * vy, ny = uz * vx - ux * vz, nz = ux * vy - uy * vx, l = Math.hypot(nx, ny, nz) || 1;
+    fn[t] = nx / l; fn[t + 1] = ny / l; fn[t + 2] = nz / l;
+    if (!K || K[t / 3] === 0) for (const v of [a, b, c]) { vn[v] += nx; vn[v + 1] += ny; vn[v + 2] += nz; }
+  }
+  for (let v = 0; v < vn.length; v += 3) { const l = Math.hypot(vn[v], vn[v + 1], vn[v + 2]) || 1; vn[v] /= l; vn[v + 1] /= l; vn[v + 2] /= l; }
+  return { vertex: vn, face: fn };
 }
 // every edge in exactly two triangles, once each way; the enclosed volume
 export function meshCheck(mesh) {
@@ -2088,12 +2200,57 @@ export function meshSTL(mesh, name = 'swarf') {
   }
   return buf;
 }
-// a Wavefront OBJ (mm; z up, as swarf's other OBJ exports)
+// a Wavefront OBJ (mm; z up, as swarf's other OBJ exports), with normals: smooth across the top so
+// it renders soft, one per face on the walls and the bottom so their edges stay hard
 export function meshOBJ(mesh, name = 'swarf') {
-  const P = mesh.positions, I = mesh.indices, out = [`# ${name}, mm, z up`, `o ${name.replace(/\s+/g, '_')}`];
+  const P = mesh.positions, I = mesh.indices, K = mesh.kinds, N = meshNormals(mesh), out = [`# ${name}, mm, z up`, `o ${name.replace(/\s+/g, '_')}`];
+  const nv = P.length / 3;
   for (let i = 0; i < P.length; i += 3) out.push(`v ${+P[i].toFixed(4)} ${+P[i + 1].toFixed(4)} ${+P[i + 2].toFixed(4)}`);
-  for (let t = 0; t < I.length; t += 3) out.push(`f ${I[t] + 1} ${I[t + 1] + 1} ${I[t + 2] + 1}`);
-  return out.join('\n') + '\n';
+  for (let i = 0; i < P.length; i += 3) out.push(`vn ${+N.vertex[i].toFixed(5)} ${+N.vertex[i + 1].toFixed(5)} ${+N.vertex[i + 2].toFixed(5)}`);
+  let extra = 0;
+  const faces = [];
+  for (let t = 0; t < I.length; t += 3) {
+    if (!K || K[t / 3] === 0) { faces.push(`f ${I[t] + 1}//${I[t] + 1} ${I[t + 1] + 1}//${I[t + 1] + 1} ${I[t + 2] + 1}//${I[t + 2] + 1}`); continue; }
+    out.push(`vn ${+N.face[t].toFixed(5)} ${+N.face[t + 1].toFixed(5)} ${+N.face[t + 2].toFixed(5)}`);
+    const n = nv + (++extra);
+    faces.push(`f ${I[t] + 1}//${n} ${I[t + 1] + 1}//${n} ${I[t + 2] + 1}//${n}`);
+  }
+  return out.concat(faces).join('\n') + '\n';
+}
+// a binary glTF (GLB): one mesh, positions and normals, smooth top and hard walls. glTF is in
+// meters with y up: x stays, the part's z (up) is y, its y is -z; 1 mm = 0.001
+export function meshGLB(mesh, name = 'swarf') {
+  const P = mesh.positions, I = mesh.indices, K = mesh.kinds, N = meshNormals(mesh);
+  const pos = [], nrm = [], idx = [];
+  const put = (x, y, z, nx, ny, nz) => { pos.push(x * 0.001, z * 0.001, -y * 0.001); nrm.push(nx, nz, -ny); return pos.length / 3 - 1; };
+  // the top's vertices once each, smooth; a wall's or the bottom's own corners, flat
+  const topV = new Int32Array(P.length / 3).fill(-1);
+  for (let t = 0; t < I.length; t += 3) {
+    if (!K || K[t / 3] === 0) {
+      for (let e = 0; e < 3; e++) { const v = I[t + e]; if (topV[v] < 0) topV[v] = put(P[v * 3], P[v * 3 + 1], P[v * 3 + 2], N.vertex[v * 3], N.vertex[v * 3 + 1], N.vertex[v * 3 + 2]); idx.push(topV[v]); }
+    } else for (let e = 0; e < 3; e++) { const v = I[t + e]; idx.push(put(P[v * 3], P[v * 3 + 1], P[v * 3 + 2], N.face[t], N.face[t + 1], N.face[t + 2])); }
+  }
+  const F = Float32Array.from(pos), Nn = Float32Array.from(nrm), U = Uint32Array.from(idx);
+  const min = [Infinity, Infinity, Infinity], max = [-Infinity, -Infinity, -Infinity];
+  for (let i = 0; i < F.length; i += 3) for (let k = 0; k < 3; k++) { min[k] = Math.min(min[k], F[i + k]); max[k] = Math.max(max[k], F[i + k]); }
+  const bin = new Uint8Array(F.byteLength + Nn.byteLength + U.byteLength);
+  bin.set(new Uint8Array(F.buffer), 0); bin.set(new Uint8Array(Nn.buffer), F.byteLength); bin.set(new Uint8Array(U.buffer), F.byteLength + Nn.byteLength);
+  const json = {
+    asset: { version: '2.0', generator: 'swarf tex' },
+    scene: 0, scenes: [{ nodes: [0] }], nodes: [{ mesh: 0, name }],
+    meshes: [{ name, primitives: [{ attributes: { POSITION: 0, NORMAL: 1 }, indices: 2, mode: 4 }] }],
+    buffers: [{ byteLength: bin.byteLength }],
+    bufferViews: [{ buffer: 0, byteOffset: 0, byteLength: F.byteLength, target: 34962 }, { buffer: 0, byteOffset: F.byteLength, byteLength: Nn.byteLength, target: 34962 }, { buffer: 0, byteOffset: F.byteLength + Nn.byteLength, byteLength: U.byteLength, target: 34963 }],
+    accessors: [{ bufferView: 0, componentType: 5126, count: F.length / 3, type: 'VEC3', min, max }, { bufferView: 1, componentType: 5126, count: Nn.length / 3, type: 'VEC3' }, { bufferView: 2, componentType: 5125, count: U.length, type: 'SCALAR' }],
+  };
+  let js = new TextEncoder().encode(JSON.stringify(json));
+  const jpad = (4 - js.length % 4) % 4, bpad = (4 - bin.length % 4) % 4;
+  const total = 12 + 8 + js.length + jpad + 8 + bin.length + bpad, buf = new ArrayBuffer(total), dv = new DataView(buf), u8 = new Uint8Array(buf);
+  dv.setUint32(0, 0x46546c67, true); dv.setUint32(4, 2, true); dv.setUint32(8, total, true);
+  dv.setUint32(12, js.length + jpad, true); dv.setUint32(16, 0x4e4f534a, true); u8.set(js, 20); for (let i = 0; i < jpad; i++) u8[20 + js.length + i] = 0x20;
+  const b0 = 20 + js.length + jpad;
+  dv.setUint32(b0, bin.length + bpad, true); dv.setUint32(b0 + 4, 0x004e4942, true); u8.set(bin, b0 + 8);
+  return buf;
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -2141,7 +2298,7 @@ const API = {
   regionSpec, storeRegion, xfApply, xfInvert, xfThen, xfScale, placeTexture, newFill, markTexture, pathFor, markToolpath, feedRuns,
   markChecks, BASIC, shadeHeight, SWATCH_SPAN, swatch,
   clipToPart, edgeDistance, insideReach, controlsFor, splineAt, sampleCurve, paintLoops, fitCurves, curvesCross, rewriteFromCurves, nearestOnCurves,
-  partMesh, partMeshSize, autoMeshRes, meshCheck, meshSTL, meshOBJ,
+  partMesh, partMeshSize, autoMeshRes, meshCheck, meshNormals, meshSTL, meshOBJ, meshGLB,
   roundProse, PIERCES, SKIN_STRAIN, pierceDefaults, newPierce, fillTool, kerfPitch, pierceCuts, pierceToolpath, pierceChecks, pierceSVG,
 };
 if (typeof window !== 'undefined') window.SwarfTexCore = API;

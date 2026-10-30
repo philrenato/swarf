@@ -504,7 +504,7 @@
     const done = r => {
       if (!S) return;
       if (r.error) return say(`The mesh could not be made: ${r.error}.`);
-      const blob = r.buf ? new Blob([r.buf], { type: 'model/stl' }) : new Blob([r.text], { type: 'text/plain' });
+      const blob = r.buf ? new Blob([r.buf], { type: r.glb ? 'model/gltf-binary' : 'model/stl' }) : new Blob([r.text], { type: 'text/plain' });
       const a = document.createElement('a');
       a.href = URL.createObjectURL(blob); a.download = `${name}.${fmt}`;
       document.body.append(a); a.click(); a.remove();
@@ -516,7 +516,7 @@
     if (w) { const id = ++asked; pending.set(id, done); w.postMessage({ id, ...ask }); return; }
     try {
       const M = T().partMesh(ask), check = T().meshCheck(M);
-      done(fmt === 'obj' ? { text: T().meshOBJ(M, name), triangles: M.triangles, check } : { buf: T().meshSTL(M, name), triangles: M.triangles, check });
+      done(fmt === 'obj' ? { text: T().meshOBJ(M, name), triangles: M.triangles, check } : fmt === 'glb' ? { buf: T().meshGLB(M, name), glb: true, triangles: M.triangles, check } : { buf: T().meshSTL(M, name), triangles: M.triangles, check });
     } catch (e) { done({ error: e.message || String(e) }); }
   }
   // fewer or more points: fitted again from the paint
@@ -720,7 +720,7 @@
       const res = S.meshRes || r3(T().autoMeshRes(part.loops)), size = T().partMeshSize(part.loops, res);
       h += `<details class="tx-more tx-mesh"${S.meshOpen ? ' open' : ''}><summary>save as a mesh</summary>
         ${selRow('version', 'tx-mesh-cut', [['designed', 'as designed'], ['cut', 'as cut']], S.meshCut ? 'cut' : 'designed', 'as designed: each pattern\'s own surface; as cut: what the bits leave, as simulate shows it')}
-        ${selRow('file', 'tx-mesh-fmt', [['stl', 'STL'], ['obj', 'OBJ']], S.meshFmt || 'stl', 'the part with its marks, a closed solid in mm')}
+        ${selRow('file', 'tx-mesh-fmt', [['stl', 'STL'], ['obj', 'OBJ'], ['glb', 'GLB']], S.meshFmt || 'stl', 'the part with its marks, a closed solid: STL and OBJ in mm, GLB (glTF) in meters with y up as glTF wants')}
         ${lenRow('detail', 'tx-mesh-res', res, 'the grid the top is made on: finer is closer and bigger')}
         <div class="sd-note">About ${(size.triangles / 1000).toFixed(0)} thousand triangles, ${(size.triangles * 50 / 1e6).toFixed(1)} MB as STL.</div>
         <div class="sd-row"><button id="tx-mesh-save" title="the part as a mesh with its marks, for rendering">save the part</button></div></details>`;
