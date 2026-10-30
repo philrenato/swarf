@@ -412,5 +412,33 @@ for (const [id, P] of Object.entries(T.PATTERNS)) {
   ok(Math.abs(r - 5) < 0.6, `a 10 mm wide strip reaches ${r.toFixed(2)} mm in from its edge`);
 }
 
+// 19. the part as a mesh with its marks applied: watertight both ways, the volume the marks take,
+//     a pierce hole right through, STL and OBJ written whole
+{
+  const loops = [[[0, 0], [100, 0], [100, 60], [0, 60]], [[70, 20], [85, 20], [85, 40], [70, 40]]];
+  const g = T.newGrid(-5, -5, 105, 65, 0.5); T.paintWhere(g, (x) => x < 50, 1);
+  const tex = { region: T.storeRegion(g), xf: T.IDENTITY.slice(), fill: T.newFill('waves', { origin: [50, 30], depth: 2 }) };
+  const g2 = T.newGrid(-5, -5, 105, 65, 0.5); T.paintWhere(g2, (x, y) => x > 55 && y < 50, 1);
+  const hol = { region: T.storeRegion(g2), xf: T.IDENTITY.slice(), fill: T.newPierce('holes', { origin: [60, 10], params: { size: 8, spacing: 16, layout: 'grid' } }) };
+  const solid = 100 * 60 * 12 - 15 * 20 * 12;
+  const bare = T.meshCheck(T.partMesh({ loops, thickness: 12, marks: [], res: 0.5 }));
+  ok(bare.watertight && Math.abs(bare.volume - solid) < 1, `the bare part: watertight, ${bare.volume.toFixed(0)} mm³ (a 100 x 60 x 12 board less a 15 x 20 hole is ${solid})`);
+  for (const cut of [false, true]) {
+    const M = T.partMesh({ loops, thickness: 12, marks: [tex, hol], res: 0.5, cut }), c = T.meshCheck(M);
+    const holesVol = T.pierceCuts(hol, { thickness: 12, part: loops }).holes.reduce((a, h) => a + Math.PI * h.d * h.d / 4 * 12, 0);
+    ok(c.watertight && c.volume < solid - holesVol * 0.8 && c.volume > solid - holesVol * 1.2 - 100 * 60 * 2, `${cut ? 'as cut' : 'as designed'}: watertight (${c.badEdges} bad edges of ${c.edges}), ${c.volume.toFixed(0)} mm³ left, ${M.triangles} triangles`);
+    // a hole's middle is open right through: no top there
+    const h0 = T.pierceCuts(hol, { thickness: 12, part: loops }).holes[0], P = M.positions;
+    let over = 0; for (let i = 0; i < P.length; i += 3) if (Math.hypot(P[i] - h0.x, P[i + 1] - h0.y) < h0.d / 2 - 1 && P[i + 2] > 0.5) over++;
+    ok(over === 0, `${cut ? 'as cut' : 'as designed'}: the holes go through`);
+    if (!cut) {
+      const stl = T.meshSTL(M), obj = T.meshOBJ(M);
+      ok(stl.byteLength === 84 + 50 * M.triangles && new DataView(stl).getUint32(80, true) === M.triangles, `STL: ${stl.byteLength} bytes, ${M.triangles} triangles`);
+      ok((obj.match(/^f /gm) || []).length === M.triangles && (obj.match(/^v /gm) || []).length === M.positions.length / 3, 'OBJ: every face and vertex');
+    }
+  }
+  ok(T.partMeshSize([[[0, 0], [2440, 0], [2440, 1220], [0, 1220]]], T.autoMeshRes([[[0, 0], [2440, 0], [2440, 1220], [0, 1220]]])).triangles < 1.2e6, 'a 4 x 8 sheet by default stays near a million triangles');
+}
+
 console.log(`\n${pass} passed, ${fail} failed  (${((Date.now() - t0) / 1000).toFixed(1)} s)`);
 process.exit(fail ? 1 : 0);

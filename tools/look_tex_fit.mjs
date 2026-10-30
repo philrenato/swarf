@@ -76,7 +76,7 @@ try {
         C.stampStroke(g, a[0], a[1], b[0], b[1], 10, 1);
         p.marks.push({ id: 'fit' + p.marks.length, made: 'brush', region: g, xf: C.IDENTITY.slice(), fill: C.newFill('knurl', { tool: 1018 }), ver: 1 });
       }
-      S.mark = 1; p.dirty = true;
+      S.mark = 1; p.dirty = true; S.meshOpen = true;   // the mesh fold open too
     });
     await page.keyboard.press('b'); await wait(1500);
     found.push(...await audit(page, `${skin} ${w}x${h} texture (brush)`));

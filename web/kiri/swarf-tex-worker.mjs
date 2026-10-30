@@ -4,6 +4,7 @@
 import C from './swarf-tex-core.mjs';
 
 self.onmessage = (e) => {
+  if (e.data.kind === 'mesh') return mesh(e.data);
   const { id, mark, thickness, part, down, rate, plunge } = e.data;
   try {
     const len = (v) => `⟦${+v}⟧`;
@@ -19,3 +20,14 @@ self.onmessage = (e) => {
     self.postMessage({ id, error: String(err && err.message || err) });
   }
 };
+// the part as a mesh with its marks (as designed or as cut), written as STL or OBJ
+function mesh({ id, loops, thickness, marks, res, cut, format, name }) {
+  try {
+    const M = C.partMesh({ loops, thickness, marks, res, cut });
+    const check = C.meshCheck(M);
+    if (format === 'obj') self.postMessage({ id, text: C.meshOBJ(M, name), triangles: M.triangles, check });
+    else { const buf = C.meshSTL(M, name); self.postMessage({ id, buf, triangles: M.triangles, check }, [buf]); }
+  } catch (err) {
+    self.postMessage({ id, error: String(err && err.message || err) });
+  }
+}

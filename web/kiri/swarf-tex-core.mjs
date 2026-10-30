@@ -1962,6 +1962,141 @@ ${circles}
 }
 
 // ---------------------------------------------------------------------------------------------
+// The part as a mesh with its marks applied, for rendering (Phil 10-30: "is there a way to export
+// those out as renderable meshes?"). A watertight solid in mm, z up from the board's bottom (0) to
+// its top (the board's thickness): its outline and holes as walls, its top displaced by every
+// texture, every pierce cut through (or down to its skin).
+//
+//   partMesh({ loops, thickness, marks, res, cut }) -> { positions, indices, res, cells, triangles }
+//     loops: the part's outline and holes (even-odd), its own frame, mm
+//     cut: false = as designed (each pattern's own surface); true = as cut (what each mark's bit
+//     leaves, the drop cutter's moves stamped into a heightmap as the simulation does)
+//     res: mm a grid cell; by default the finest under `maxCells` cells
+//
+// The top is a heightfield on a grid: each cell on the part's top is a column, its top corners at
+// the surface, walls where it meets the outside, a hole or a through-cut. Corners shared between
+// cells are one vertex, so the surface is continuous and every edge belongs to two triangles.
+export function partMeshSize(loops, res) {
+  const b = loopsBox(loops), area = Math.max(1, (b[2] - b[0]) * (b[3] - b[1]));
+  return { cells: Math.ceil(area / (res * res)), triangles: Math.ceil(area / (res * res)) * 4 + Math.ceil(2 * ((b[2] - b[0]) + (b[3] - b[1])) / res) * 2 };
+}
+const loopsBox = (loops) => { const b = [Infinity, Infinity, -Infinity, -Infinity]; for (const L of loops) for (const q of L) { b[0] = Math.min(b[0], q[0]); b[1] = Math.min(b[1], q[1]); b[2] = Math.max(b[2], q[0]); b[3] = Math.max(b[3], q[1]); } return b; };
+export function autoMeshRes(loops, maxCells = 250000) {
+  const b = loopsBox(loops), area = Math.max(1, (b[2] - b[0]) * (b[3] - b[1]));
+  return Math.max(0.5, Math.sqrt(area / maxCells));
+}
+export function partMesh(o) {
+  const loops = o.loops, T = o.thickness, marks = o.marks || [];
+  const res = o.res > 0 ? o.res : autoMeshRes(loops, o.maxCells);
+  const b = loopsBox(loops), x0 = b[0] - res, y0 = b[1] - res;
+  const nx = Math.ceil((b[2] - b[0]) / res) + 2, ny = Math.ceil((b[3] - b[1]) / res) + 2, NX = nx + 1, NY = ny + 1;
+  // the part's top: cells whose middle is inside an odd number of loops (scanline)
+  const segs = [];
+  for (const L of loops) for (let i = 0; i < L.length; i++) { const a = L[i], c = L[(i + 1) % L.length]; if (a[1] !== c[1]) segs.push(a[1] < c[1] ? [a[0], a[1], c[0], c[1]] : [c[0], c[1], a[0], a[1]]); }
+  const mat = new Uint8Array(nx * ny);
+  for (let j = 0; j < ny; j++) {
+    const y = y0 + (j + 0.5) * res, xs = [];
+    for (const q of segs) if (y >= q[1] && y < q[3]) xs.push(q[0] + (y - q[1]) * (q[2] - q[0]) / (q[3] - q[1]));
+    xs.sort((p, q) => p - q);
+    for (let k = 0; k + 1 < xs.length; k += 2) for (let i = Math.max(0, Math.ceil((xs[k] - x0) / res - 0.5)); i <= Math.min(nx - 1, Math.floor((xs[k + 1] - x0) / res - 0.5)); i++) mat[j * nx + i] = 1;
+  }
+  // how deep the marks go at each grid corner (0 = the top, T = through)
+  const D = new Float32Array(NX * NY);
+  const deepen = (fn) => { for (let j = 0; j < NY; j++) for (let i = 0; i < NX; i++) { const k = j * NX + i, d = fn(x0 + i * res, y0 + j * res); if (d > D[k]) D[k] = d; } };
+  for (const m of marks) {
+    if (!m || !m.fill) continue;
+    if (o.cut) {
+      const p = markToolpath(m, { maxDepth: T, part: loops, res: Math.max(0.2, Math.min(res, 0.6)) });
+      if (!p.moves || !p.moves.length) continue;
+      const sim = createSim({ x0, y0, nx: NX, ny: NY, res }, p.tool || fillTool(m.fill));
+      sim.run(p.moves);
+      for (let k = 0; k < D.length; k++) if (-sim.Z[k] > D[k]) D[k] = Math.min(T, -sim.Z[k]);
+    } else if (m.fill.fill === 'pierce') {
+      const c = pierceCuts(m, { thickness: T, part: loops });
+      if (!c) continue;
+      const w2 = c.width / 2;
+      for (const q of c.slots) deepen((x, y) => (segDist(x, y, [q.a[0], q.a[1], q.b[0], q.b[1]]) <= w2 ? c.depth : 0));
+      for (const h of c.holes) deepen((x, y) => (Math.hypot(x - h.x, y - h.y) <= h.d / 2 ? T : 0));
+    } else {
+      const tex = markTexture(m, { part: loops });
+      if (tex) deepen((x, y) => Math.min(T, tex.h(x, y)));
+    }
+  }
+  // a cell cut right through is gone
+  for (let j = 0; j < ny; j++) for (let i = 0; i < nx; i++) {
+    const k = j * nx + i;
+    if (!mat[k]) continue;
+    const a = j * NX + i, dmin = Math.min(D[a], D[a + 1], D[a + NX], D[a + NX + 1]);
+    if (dmin >= T - 1e-6 || (D[a] + D[a + 1] + D[a + NX] + D[a + NX + 1]) / 4 >= T - 1e-6) mat[k] = 0;
+  }
+  // two cells meeting only at a corner would share a vertex four walls use: fill one of them
+  for (let pass = 0, changed = true; changed && pass < 8; pass++) {
+    changed = false;
+    for (let j = 0; j + 1 < ny; j++) for (let i = 0; i + 1 < nx; i++) {
+      const a = mat[j * nx + i], bb = mat[j * nx + i + 1], c = mat[(j + 1) * nx + i], d = mat[(j + 1) * nx + i + 1];
+      if (a && d && !bb && !c) { mat[j * nx + i + 1] = 1; changed = true; }
+      else if (bb && c && !a && !d) { mat[j * nx + i] = 1; changed = true; }
+    }
+  }
+  const at = (i, j) => (i >= 0 && j >= 0 && i < nx && j < ny ? mat[j * nx + i] : 0);
+  const pos = [], idx = [], top = new Int32Array(NX * NY).fill(-1), bot = new Int32Array(NX * NY).fill(-1);
+  // the top never comes down to the bottom: a sliver left by a deep cut keeps a hair of board
+  const floor = Math.min(0.2, T * 0.02);
+  const vt = (i, j) => { const k = j * NX + i; if (top[k] < 0) { top[k] = pos.length / 3; pos.push(x0 + i * res, y0 + j * res, Math.max(floor, T - D[k])); } return top[k]; };
+  const vb = (i, j) => { const k = j * NX + i; if (bot[k] < 0) { bot[k] = pos.length / 3; pos.push(x0 + i * res, y0 + j * res, 0); } return bot[k]; };
+  const wall = (pi, pj, qi, qj) => { const pb = vb(pi, pj), qb = vb(qi, qj), qt = vt(qi, qj), pt = vt(pi, pj); idx.push(pb, qb, qt, pb, qt, pt); };
+  for (let j = 0; j < ny; j++) for (let i = 0; i < nx; i++) {
+    if (!at(i, j)) continue;
+    const a = vt(i, j), bb = vt(i + 1, j), c = vt(i + 1, j + 1), d = vt(i, j + 1);
+    idx.push(a, bb, c, a, c, d);
+    const A = vb(i, j), B = vb(i + 1, j), Cc = vb(i + 1, j + 1), Dd = vb(i, j + 1);
+    idx.push(A, Cc, B, A, Dd, Cc);
+    // walls on each side that meets no material, along the cell's counterclockwise edge
+    if (!at(i, j - 1)) wall(i, j, i + 1, j);
+    if (!at(i + 1, j)) wall(i + 1, j, i + 1, j + 1);
+    if (!at(i, j + 1)) wall(i + 1, j + 1, i, j + 1);
+    if (!at(i - 1, j)) wall(i, j + 1, i, j);
+  }
+  return { positions: Float32Array.from(pos), indices: Uint32Array.from(idx), res, cells: nx * ny, triangles: idx.length / 3 };
+}
+// every edge in exactly two triangles, once each way; the enclosed volume
+export function meshCheck(mesh) {
+  const P = mesh.positions, I = mesh.indices, E = new Map();
+  let bad = 0, vol = 0;
+  for (let t = 0; t < I.length; t += 3) {
+    const v = [I[t], I[t + 1], I[t + 2]];
+    for (let e = 0; e < 3; e++) { const a = v[e], c = v[(e + 1) % 3], k = a < c ? `${a},${c}` : `${c},${a}`, s = a < c ? 1 : -1, r = E.get(k) || [0, 0]; r[0]++; r[1] += s; E.set(k, r); }
+    const [ax, ay, az] = [P[v[0] * 3], P[v[0] * 3 + 1], P[v[0] * 3 + 2]], [bx, by, bz] = [P[v[1] * 3], P[v[1] * 3 + 1], P[v[1] * 3 + 2]], [cx, cy, cz] = [P[v[2] * 3], P[v[2] * 3 + 1], P[v[2] * 3 + 2]];
+    vol += (ax * (by * cz - bz * cy) - ay * (bx * cz - bz * cx) + az * (bx * cy - by * cx)) / 6;
+  }
+  for (const r of E.values()) if (r[0] !== 2 || r[1] !== 0) bad++;
+  return { watertight: bad === 0, badEdges: bad, edges: E.size, volume: vol, triangles: I.length / 3 };
+}
+// a binary STL (mm)
+export function meshSTL(mesh, name = 'swarf') {
+  const P = mesh.positions, I = mesh.indices, n = I.length / 3, buf = new ArrayBuffer(84 + 50 * n), dv = new DataView(buf);
+  const head = `${name} (mm)`.slice(0, 79);
+  for (let i = 0; i < head.length; i++) dv.setUint8(i, head.charCodeAt(i) & 127);
+  dv.setUint32(80, n, true);
+  for (let t = 0, o = 84; t < n; t++, o += 50) {
+    const a = I[t * 3] * 3, b = I[t * 3 + 1] * 3, c = I[t * 3 + 2] * 3;
+    const ux = P[b] - P[a], uy = P[b + 1] - P[a + 1], uz = P[b + 2] - P[a + 2], vx = P[c] - P[a], vy = P[c + 1] - P[a + 1], vz = P[c + 2] - P[a + 2];
+    let nx = uy * vz - uz * vy, ny = uz * vx - ux * vz, nz = ux * vy - uy * vx; const l = Math.hypot(nx, ny, nz) || 1; nx /= l; ny /= l; nz /= l;
+    dv.setFloat32(o, nx, true); dv.setFloat32(o + 4, ny, true); dv.setFloat32(o + 8, nz, true);
+    for (let k = 0; k < 3; k++) { const q = I[t * 3 + k] * 3; dv.setFloat32(o + 12 + k * 12, P[q], true); dv.setFloat32(o + 16 + k * 12, P[q + 1], true); dv.setFloat32(o + 20 + k * 12, P[q + 2], true); }
+    dv.setUint16(o + 48, 0, true);
+  }
+  return buf;
+}
+// a Wavefront OBJ (mm; z up, as swarf's other OBJ exports)
+export function meshOBJ(mesh, name = 'swarf') {
+  const P = mesh.positions, I = mesh.indices, out = [`# ${name}, mm, z up`, `o ${name.replace(/\s+/g, '_')}`];
+  for (let i = 0; i < P.length; i += 3) out.push(`v ${+P[i].toFixed(4)} ${+P[i + 1].toFixed(4)} ${+P[i + 2].toFixed(4)}`);
+  for (let t = 0; t < I.length; t += 3) out.push(`f ${I[t] + 1} ${I[t + 1] + 1} ${I[t + 2] + 1}`);
+  return out.join('\n') + '\n';
+}
+
+// ---------------------------------------------------------------------------------------------
 // Pictures: a height field shaded as a carved surface, for any host to draw (marks, swatches).
 //
 // shadeHeight(H, W, Hn, res, colors, inside, depth) -> Uint8ClampedArray RGBA, row 0 at the top.
@@ -2006,6 +2141,7 @@ const API = {
   regionSpec, storeRegion, xfApply, xfInvert, xfThen, xfScale, placeTexture, newFill, markTexture, pathFor, markToolpath, feedRuns,
   markChecks, BASIC, shadeHeight, SWATCH_SPAN, swatch,
   clipToPart, edgeDistance, insideReach, controlsFor, splineAt, sampleCurve, paintLoops, fitCurves, curvesCross, rewriteFromCurves, nearestOnCurves,
+  partMesh, partMeshSize, autoMeshRes, meshCheck, meshSTL, meshOBJ,
   roundProse, PIERCES, SKIN_STRAIN, pierceDefaults, newPierce, fillTool, kerfPitch, pierceCuts, pierceToolpath, pierceChecks, pierceSVG,
 };
 if (typeof window !== 'undefined') window.SwarfTexCore = API;

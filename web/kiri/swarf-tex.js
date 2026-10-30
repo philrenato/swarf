@@ -495,6 +495,30 @@
     const said = D.adopt({ widget: w, loops, as, name, markId: m.id });
     if (D.say) D.say(said);
   }
+  // ── the part as a mesh with its marks, for rendering (worked out in the worker) ──
+  function saveMesh(part) {
+    const w = texWorker(), cut = !!S.meshCut, fmt = S.meshFmt || 'stl', res = S.meshRes || T().autoMeshRes(part.loops);
+    const marks = part.marks.filter(markHas).map(m => ({ id: m.id, region: m.region, xf: m.xf, fill: m.fill }));
+    const name = `${part.name}${cut ? ' as cut' : ''}`;
+    say(`Making ${name} as a mesh…`);
+    const done = r => {
+      if (!S) return;
+      if (r.error) return say(`The mesh could not be made: ${r.error}.`);
+      const blob = r.buf ? new Blob([r.buf], { type: 'model/stl' }) : new Blob([r.text], { type: 'text/plain' });
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob); a.download = `${name}.${fmt}`;
+      document.body.append(a); a.click(); a.remove();
+      setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+      S.lastMesh = { name: a.download, bytes: blob.size, triangles: r.triangles, check: r.check };
+      say(`Saved ${a.download}: ${r.triangles} triangles, ${r.check && r.check.watertight ? 'a closed solid' : 'NOT closed'}, in mm.`);
+    };
+    const ask = { kind: 'mesh', loops: part.loops, thickness: part.thick, marks, res, cut, format: fmt, name };
+    if (w) { const id = ++asked; pending.set(id, done); w.postMessage({ id, ...ask }); return; }
+    try {
+      const M = T().partMesh(ask), check = T().meshCheck(M);
+      done(fmt === 'obj' ? { text: T().meshOBJ(M, name), triangles: M.triangles, check } : { buf: T().meshSTL(M, name), triangles: M.triangles, check });
+    } catch (e) { done({ error: e.message || String(e) }); }
+  }
   // fewer or more points: fitted again from the paint
   function pointsCount(n) {
     const m = curMark();
@@ -692,6 +716,15 @@
       h += lenRow('grit', 'tx-grit', f.grit || 0, 'a fine, rough noise added on top (0 for none)');
       h += '</details>';
     }
+    if (part && part.marks.some(markHas)) {
+      const res = S.meshRes || r3(T().autoMeshRes(part.loops)), size = T().partMeshSize(part.loops, res);
+      h += `<details class="tx-more tx-mesh"${S.meshOpen ? ' open' : ''}><summary>save as a mesh</summary>
+        ${selRow('version', 'tx-mesh-cut', [['designed', 'as designed'], ['cut', 'as cut']], S.meshCut ? 'cut' : 'designed', 'as designed: each pattern\'s own surface; as cut: what the bits leave, as simulate shows it')}
+        ${selRow('file', 'tx-mesh-fmt', [['stl', 'STL'], ['obj', 'OBJ']], S.meshFmt || 'stl', 'the part with its marks, a closed solid in mm')}
+        ${lenRow('detail', 'tx-mesh-res', res, 'the grid the top is made on: finer is closer and bigger')}
+        <div class="sd-note">About ${(size.triangles / 1000).toFixed(0)} thousand triangles, ${(size.triangles * 50 / 1e6).toFixed(1)} MB as STL.</div>
+        <div class="sd-row"><button id="tx-mesh-save" title="the part as a mesh with its marks, for rendering">save the part</button></div></details>`;
+    }
     ui.card.innerHTML = h;
     ui.card.scrollTop = keepTop;
     scrollCue();
@@ -706,6 +739,13 @@
       el.onchange = () => { if (el.dataset.took === el.value) return; fn(value(), el); };
     };
     for (const b of ui.card.querySelectorAll('.tx-pick')) b.onclick = () => { S.mark = +b.dataset.mi; render(); checkSoon(); ui.svg.focus(); };
+    const md = ui.card.querySelector('.tx-mesh');
+    if (md) md.ontoggle = () => { if (S) { S.meshOpen = md.open; scrollCue(); } };
+    bind('tx-mesh-cut', v => { S.meshCut = v === 'cut'; render(); });
+    bind('tx-mesh-fmt', v => { S.meshFmt = v; render(); });
+    bind('tx-mesh-res', v => { if (!(v >= 0.1)) return say('Give the detail at least 0.1 mm.'); S.meshRes = r3(v); render(); });
+    const ms = $('tx-mesh-save');
+    if (ms) ms.onclick = () => saveMesh(part);
     const det = ui.card.querySelector('.tx-more');
     // the toggle event lands after the card is drawn, so TEX may have closed by then
     if (det) det.ontoggle = () => { if (!S) return; if (det.classList.contains('tx-more-p')) S.morePierce = det.open; else S.more = det.open; scrollCue(); };
@@ -1303,5 +1343,5 @@
     return (x, y, r) => marks.some(q => { if (at(q, x, y)) return true; for (let k = 0; k < 16; k++) { const a = k / 16 * 2 * Math.PI; for (const f of [0.5, 1]) if (at(q, x + r * f * Math.cos(a), y + r * f * Math.sin(a))) return true; } return false; });
   }
 
-  window.__swarfTex = { open, close, state: () => S, concerns, syncSteps, texAreas, pierceAvoid, BITS };
+  window.__swarfTex = { open, close, state: () => S, lastMesh: () => S && S.lastMesh, concerns, syncSteps, texAreas, pierceAvoid, BITS };
 })();

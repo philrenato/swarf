@@ -251,8 +251,8 @@ try {
   await page.waitForFunction(() => window.__swarfTex.state(), { timeout: 5000 });
   await page.evaluate(() => { const S = window.__swarfTex.state(); S.sel = 0; S.mark = 0; });
   await page.keyboard.press('v');
-  await page.waitForFunction(() => /About/.test(document.getElementById('tx-card').textContent), { timeout: 15000 }).catch(() => {});
-  const small = await page.evaluate(() => { const c = document.getElementById('tx-card'), cr = c.getBoundingClientRect(), n = [...c.querySelectorAll('.sd-note')].find(n => /About/.test(n.textContent)), seen = id => { const e = document.getElementById(id); return !!e && e.getBoundingClientRect().bottom <= cr.bottom + 0.5; }; return { note: !!n && n.getBoundingClientRect().bottom <= cr.bottom, depth: seen('tx-depth'), bit: seen('tx-bit'), path: seen('tx-path'), fits: c.scrollHeight <= c.clientHeight + 1, inView: cr.bottom <= innerHeight }; });
+  await page.waitForFunction(() => /About [^.]* to cut/.test(document.getElementById('tx-card').textContent), { timeout: 15000 }).catch(() => {});
+  const small = await page.evaluate(() => { const c = document.getElementById('tx-card'), cr = c.getBoundingClientRect(), n = [...c.querySelectorAll('.sd-note')].find(n => /About [^.]* to cut/.test(n.textContent)), seen = id => { const e = document.getElementById(id); return !!e && e.getBoundingClientRect().bottom <= cr.bottom + 0.5; }; return { note: !!n && n.getBoundingClientRect().bottom <= cr.bottom, depth: seen('tx-depth'), bit: seen('tx-bit'), path: seen('tx-path'), fits: c.scrollHeight <= c.clientHeight + 1, inView: cr.bottom <= innerHeight }; });
   check(small.note && small.depth && small.bit && small.path && small.fits && small.inView, `at 1280 x 720 the basic card fits: cut time, depth, bit and path in view, no scrolling (${JSON.stringify(small)})`);
   await page.screenshot({ path: `${OUT}-1280.png` });
   await page.click('#tx-cancel');
@@ -317,6 +317,20 @@ try {
   await page.screenshot({ path: `${OUT}-pierce-sim.png` });
   check(!errors.length, `simulate plays the pierce step with no error${errors.length ? ` (${errors[0]})` : ''}`);
   await page.evaluate(() => window.kiri.api.view.set_arrange()); await wait(600);
+
+  // SAVE AS A MESH: the part with its texture and its kerfs, as designed and as cut, a closed solid
+  await page.click('#swarf-step-tex');
+  await page.waitForFunction(() => window.__swarfTex.state(), { timeout: 5000 });
+  await page.evaluate(() => { const S = window.__swarfTex.state(); S.sel = 0; S.mark = 0; S.meshOpen = true; });
+  await page.keyboard.press('v');
+  for (const cut of ['designed', 'cut']) {
+    await setSelect(page, 'tx-mesh-cut', cut);
+    await page.evaluate(() => document.getElementById('tx-mesh-save').click());
+    await page.waitForFunction(c => { const m = window.__swarfTex.lastMesh(); return m && (c === 'cut' ? / as cut\./.test(m.name) : !/ as cut/.test(m.name)); }, { timeout: 60000 }, cut).catch(() => {});
+    const lm = await page.evaluate(() => window.__swarfTex.lastMesh());
+    check(lm && lm.check.watertight && lm.triangles > 1000 && lm.bytes === 84 + 50 * lm.triangles, `save as a mesh, as ${cut}: ${lm && lm.name}, ${lm && lm.triangles} triangles, ${lm && lm.check.watertight ? 'a closed solid' : 'NOT closed'}, ${lm && lm.bytes} bytes STL`);
+  }
+  await page.click('#tx-cancel'); await wait(300);
 
   // POINTS (H): the texture mark's edge as points; its rightmost dragged 10 mm right, the paint and
   // the file's texture follow it there
