@@ -363,3 +363,5 @@ html[data-skin="glass"] .swarf-op-params, html[data-skin="glass"] .swarf-op-para
   font-family: var(--g-font) !important;
 }
 html[data-skin="glass"] #mod-x-any textarea { font-family: var(--g-mono) !important; }
+/* the simulate bar's words read at 4.5:1 (legibility pass) */
+html[data-skin="glass"] #layer-animate .swarf-sim-word, html[data-skin="glass"] #layer-animate .swarf-sim-name { color: #3d4045 !important; }
