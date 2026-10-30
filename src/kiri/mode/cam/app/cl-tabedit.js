@@ -286,9 +286,8 @@ function buildCard() {
     card.id = 'swarf-tabcard';
     card.setAttribute('role', 'group');
     card.setAttribute('aria-label', 'the picked tab');
-    const lbl = Object.assign(document.createElement('span'), { className: 'lbl', textContent: 'tab' });
     els.kind = Object.assign(document.createElement('span'), { className: 'kind' });
-    card.append(lbl, els.kind);
+    card.append(els.kind);
     els.f = {};
     for (const [key, word, , title] of KEYS) {
         const inp = document.createElement('input');
@@ -345,7 +344,7 @@ function showCard(keepNote) {
     const rec = recOf(picked);
     if (!rec) return hideCard();
     if (!card) buildCard();
-    els.kind.textContent = !rec.auto ? 'your own' : rec.pinned ? 'auto, kept as you set it' : 'auto';
+    els.kind.textContent = !rec.auto ? 'your own tab' : rec.pinned ? 'auto tab, stays as you set it' : 'auto tab';
     els.auto.style.display = rec.auto && rec.pinned ? '' : 'none';
     for (const [key, , d] of KEYS) {
         const el = els.f[key];
