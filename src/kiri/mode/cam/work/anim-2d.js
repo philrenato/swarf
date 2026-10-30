@@ -19,7 +19,10 @@ export function init(worker) {
 
         const { process } = settings;
         const { print } = worker.current;
-        const density = parseInt(settings.controller.animesh) * 1000;
+        // swarf: a texture's relief is a millimeter or two over a few: when a step textures
+        // or pierces a part, the heightmap gets twice the points (at most a million)
+        const textured = (process.ops || []).some(o => o && (o.type === 'texture' || o.type === 'pierce') && !o.disabled);
+        const density = Math.min(textured ? 1e6 : Infinity, parseInt(settings.controller.animesh) * 1000 * (textured ? 2 : 1));
 
         pathIndex = 0;
         path = print.output.flat();
