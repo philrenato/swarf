@@ -2537,8 +2537,8 @@ body:not(.swarf-expert) #oplist > .clock { display: none !important; }
 /* (whole-app review r086 C4) strategy's machinist rows wait in advanced */
 body:not(.swarf-expert) .swarf-adv-row { display: none !important; }
 
-/* r086 check P13: steps on an empty bed wait for a part: dimmed, and the list says so */
-body.swarf-bed-empty #oplist:has(.draggable) .draggable { opacity: .45; }
+/* r086 check P13: steps on an empty bed wait for a part, and the list says so (not dimmed: a dimmed
+   step fell under 4.5:1 in the legibility pass, and it is still a live control) */
 body.swarf-bed-empty #oplist:has(.draggable)::before {
   content: 'No part on the bed: these steps wait for the next one.'; display: block; padding: 2px 2px 6px;
   font-size: 11px; line-height: 1.3; color: var(--swarf-text-2); white-space: normal; text-transform: none !important; letter-spacing: 0;

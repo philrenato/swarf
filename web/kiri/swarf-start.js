@@ -48,7 +48,7 @@
     const empty = a.widgets.all().length === 0;
     const cls = document.body.classList;
     // the steps stay for the next part (a delete comes back with ⌘Z, a part drawn next reuses them);
-    // with no part they are dimmed and say so (r086 check P13)
+    // with no part the list says they wait (r086 check P13)
     cls.toggle('swarf-bed-empty', empty);
     // never over a dialog (Fable review 3 #14: it floated over setup › machine)
     const modal = (document.getElementById('dialog') || {}).open || [...document.querySelectorAll('#modal, .mdialog')].some(m => m.offsetParent && getComputedStyle(m).display !== 'none' && m.id !== 'swarf-start');
