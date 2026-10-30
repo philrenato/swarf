@@ -405,5 +405,12 @@ for (const [id, P] of Object.entries(T.PATTERNS)) {
   ok(T.roundProse(166.67) === 167 && T.roundProse(11.55) === 11.5 && T.roundProse(4.97) === 5, 'lengths in sentences are rounded: 167, 11.5, 5');
 }
 
+// 18. how far in the paint reaches (a bit wider than twice this cannot go round it)
+{
+  const g = T.newGrid(0, 0, 60, 40, 0.5); T.paintWhere(g, (x, y) => x > 10 && x < 50 && y > 10 && y < 20, 1);
+  const r = T.insideReach(g);
+  ok(Math.abs(r - 5) < 0.6, `a 10 mm wide strip reaches ${r.toFixed(2)} mm in from its edge`);
+}
+
 console.log(`\n${pass} passed, ${fail} failed  (${((Date.now() - t0) / 1000).toFixed(1)} s)`);
 process.exit(fail ? 1 : 0);

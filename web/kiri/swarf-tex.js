@@ -473,6 +473,28 @@
     render(); imagesSoon(); checkSoon();
     return true;
   }
+  // ── a mark made into DRAW geometry: a part of its own, or a hole through its part ──
+  // The outline is handed to DRAW (its own hole path: a hole inside, a notch across the edge), and
+  // DRAW's done makes it. The mark goes when that outline is made, since it is the part's shape now
+  // (a texture left on a hole would cut air); cancel in DRAW and the mark stays as it was.
+  function makeOutline(part, m, as) {
+    const C = T(), c = curveOf(m);
+    if (!c.loops.length) return say('Paint the mark first: an outline comes from its edge.');
+    if (C.curvesCross(c)) return say('The mark\'s edge crosses itself: fix its points first (points, H).');
+    const a = api(), ops = a.conf.get().process.ops || [], tools = a.conf.get().tools || [];
+    const cut = ops.find(o => o && (o.type === 'outline' || o.type === 'rough')), tool = cut && tools.find(t => t.id === cut.tool);
+    const bit = tool ? (tool.metric ? 1 : 25.4) * (tool.flute_diam || 0.25) : 6.35;
+    const reach = C.insideReach(m.region) * C.xfScale(m.xf);
+    if (reach * 2 < bit * 1.05) return say(`The mark is too narrow for the ${tool ? tool.name : '1/4 in'} bit (${LEN.say(bit)}) that cuts the outline: make it wider first.`);
+    const loops = c.loops.map(L => C.sampleCurve(L.handles, 12).pts.map(q => bedOf(part, m, q)));
+    const w = part.w, name = `${m.made || 'mark'} from ${part.name}`;
+    close(true);
+    const D = window.__swarfDraw;
+    if (!D) return;
+    D.open();
+    const said = D.adopt({ widget: w, loops, as, name, markId: m.id });
+    if (D.say) D.say(said);
+  }
   // fewer or more points: fitted again from the paint
   function pointsCount(n) {
     const m = curMark();
@@ -608,6 +630,7 @@
         const c = curveOf(m), n = c.loops.reduce((a, L) => a + L.handles.length, 0);
         h += `<div class="sd-row tx-ptsrow" title="how many points the edge is fitted to: fewer is smoother, more follows the paint closer"><span>points</span><input id="tx-npts" value="${n}" inputmode="numeric"><button id="tx-fewer" title="fewer points: smoother">fewer</button><button id="tx-more" title="more points: closer to the paint">more</button></div>`;
       }
+      if (m && markHas(m) && (S.tool === 'select' || S.tool === 'points')) h += '<div class="sd-row tx-makes"><button id="tx-as-part" title="a new part from this mark\'s outline, beside this one, the board\'s thickness (in DRAW: press done to make it)">make it a part</button><button id="tx-as-hole" title="cut this mark\'s outline through the part, as DRAW\'s holes (in DRAW: press done to make it)">make it a hole</button></div>';
       h += `<div class="sd-row tx-picks">${part.marks.map((q, i) => `<button class="tx-pick${i === S.mark ? ' on' : ''}" data-mi="${i}" title="pick this mark">${esc(markName(q, i))}</button>`).join('')}<button id="tx-new" title="start another mark on this part (the brush paints it)">new mark</button>${m ? '<button id="tx-del" title="remove this mark (Delete, with select)">delete</button>' : ''}</div>`;
       if (!m) h += `<div class="sd-note">${part.marks.length ? 'Pick a mark, or start a new one.' : 'Paint on the part with the brush, or drag a rectangle or an ellipse: that is the mark. Then fill it here.'}</div>`;
     }
@@ -686,6 +709,7 @@
     if (det) det.ontoggle = () => { if (!S) return; if (det.classList.contains('tx-more-p')) S.morePierce = det.open; else S.more = det.open; scrollCue(); };
     const nb = $('tx-new');
     if (nb) nb.onclick = () => { snap(); part.marks.push(newMark(part)); S.mark = part.marks.length - 1; part.dirty = true; if (S.tool === 'select') S.tool = 'brush'; say('A new mark: paint it on the part.'); render(); ui.svg.focus(); };
+    for (const [id, as] of [['tx-as-part', 'part'], ['tx-as-hole', 'hole']]) { const b = $(id); if (b) b.onclick = () => { makeOutline(part, m, as); }; }
     const db = $('tx-del');
     if (db) db.onclick = () => { delMark(); ui.svg.focus(); };
     const cnt = () => (m && m.curve ? m.curve.count : 12);

@@ -27,6 +27,6 @@ for (const [f, q] of refs) {
 // and the features that help is told about stay findable by their plain names
 for (const q of ['windows', 'zadig', 'e-stop', 'router test', 'feed override', 'inch', 'disconnect', 'search down', 'kcad', 'quick start',
   // TEX (swarf-tex.js): the mode, its tools and its step
-  'tex', 'brush', 'erase', 'mark', 'soft edge', 'patterns', 'ocean waves', 'texture step', 'v-bit', 'plunge', 'points', 'pierce', 'kerf', 'test strip'])
+  'tex', 'brush', 'erase', 'mark', 'soft edge', 'patterns', 'ocean waves', 'texture step', 'v-bit', 'plunge', 'points', 'pierce', 'kerf', 'test strip', 'make it a part', 'make it a hole'])
   assert.ok(find(q).length, `help search "${q}" finds nothing`);
 console.log('help refs: ok');

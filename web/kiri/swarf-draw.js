@@ -241,6 +241,8 @@
       const bad = S.parts.find(p => !p.gone && p.dirty && checkCross(p));
       if (bad) { S.sel = S.parts.indexOf(bad); render(); say(crossSay(bad, bad.cross) + ' Then press done.'); return; }
       commit();
+      // a TEX mark made into this outline: the mark goes now the outline is made
+      if (S.fromTex) dropTexMark(S.fromTex.markId);
     }
     window.removeEventListener('keydown', key, true);
     window.removeEventListener('keypress', hush, true);
@@ -1081,6 +1083,54 @@
     S.sel = S.parts.indexOf(main);
     return out.length > 1 ? `${main.name} is ${out.length} parts now.` : '';
   }
+  // ── TEX hands a mark's outline over (swarf-tex.js: make it a part, make it a hole) ──
+  // loops: bed polylines (outer loops counterclockwise, the mark's own holes clockwise). A part is a
+  // new drawing beside its part; a hole is cut from the part as DRAW's "cut from the part" does
+  // (inside: a hole; across the edge: a notch). Nothing is made until done; cancel drops it and the
+  // mark stays. Returns what to say, or a refusal.
+  function adopt({ widget, loops, as, name, markId }) {
+    if (!S) return 'DRAW is not open.';
+    const closed = loops.map(L => (L.length && (L[0][0] !== L[L.length - 1][0] || L[0][1] !== L[L.length - 1][1]) ? [...L, L[0]] : L));
+    const area2 = L => { let a = 0; for (let i = 0, j = L.length - 1; i < L.length; j = i++) a += (L[j][0] + L[i][0]) * (L[j][1] - L[i][1]); return -a / 2; };
+    const host = S.parts.find(p => p.w === widget && canHost(p));
+    snap();
+    S.fromTex = { markId };
+    if (as === 'part') {
+      const b = [Infinity, Infinity, -Infinity, -Infinity];
+      for (const L of closed) for (const q of L) { b[0] = Math.min(b[0], q[0]); b[1] = Math.min(b[1], q[1]); b[2] = Math.max(b[2], q[0]); b[3] = Math.max(b[3], q[1]); }
+      // beside its part, as a copy sits beside its original (12 mm to the right)
+      const hb = host ? boxOf(host.curves) : null;
+      const dx = hb ? hb[2] - b[0] + 12 : 0;
+      const thick = host ? host.thick : thicknessOf(widget);
+      S.parts.push({ w: null, name, thick, edge: { kind: 'straight', size: 2 }, curves: closed.map(L => ({ crv: V().polyCrv(L.map(([x, y]) => [x + dx, y]), true) })), dirty: true });
+      S.sel = S.parts.length - 1; S.pts.clear(); S.tool = 'select';
+      fit(); render();
+      return `${name}: a part from the mark's outline, ${Math.round(thicknessOf(widget) * 100) / 100} mm thick, beside ${host ? host.name : 'its part'}. Press done to make it (the mark goes), or cancel.`;
+    }
+    if (!host) { S.undo.pop(); S.fromTex = null; return 'That part has no drawing to cut a hole in: holes are cut in parts made from a drawing (draw, shape, or a 2D file).'; }
+    let said = '';
+    for (const mine of closed.filter(L => area2(L) > 0)) {
+      const hl = loopsOf(host), arr = G().regions([...hl, mine]), fill = [];
+      arr.faces.forEach((f, i) => { if (!f.at) return; if (inPart(f.at, hl) && !inside(f.at, mine)) fill.push(i); });
+      said = rebuild(host, [host], arr, fill) || said;
+      S.undo.pop();                              // one undo for the whole hole (snap() above)
+    }
+    S.tool = 'select'; S.pts.clear();
+    fit(); render();
+    return `${said ? said + ' ' : ''}The mark is cut from ${host.name}${closed.some(L => area2(L) < 0) ? ' (its inner islands stay part of the board: a hole is its outer edge)' : ''}. Press done to make it (the mark goes), or cancel.`;
+  }
+  // the mark that became an outline leaves every part it was on (copies share its id), with its step
+  function dropTexMark(id) {
+    const a = api();
+    for (const w of a.widgets.all()) {
+      if (!(w.meta && Array.isArray(w.meta.tex))) continue;
+      const left = w.meta.tex.filter(m => m.id !== id);
+      if (left.length === w.meta.tex.length) continue;
+      if (left.length) w.meta.tex = left; else delete w.meta.tex;
+      if (w.saveState) w.saveState(() => {});
+    }
+    if (window.__swarfTex) setTimeout(() => window.__swarfTex.syncSteps(a), 0);
+  }
   const modeSay = () => ({
     auto: 'An outline drawn inside a part cuts a hole in it; anywhere else it is a part of its own.',
     add: 'The next outline over a part joins it: one part.',
@@ -1468,5 +1518,5 @@
     }
   }, 150);
 
-  window.__swarfDraw = { open, close, bedCurves, state: () => S, isChain, text: TEXT, fonts: FONTS, engraveAreas };
+  window.__swarfDraw = { open, close, bedCurves, state: () => S, isChain, text: TEXT, fonts: FONTS, engraveAreas, adopt, say };
 })();

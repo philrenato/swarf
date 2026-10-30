@@ -349,11 +349,15 @@ export function opRender() {
         if (rec.type === 'pierce') {
             label = rec.texlabel || 'pierce';
             const est = rec.texest > 0 && window.SwarfTexCore ? `, about ${window.SwarfTexCore.formatTime(rec.texest)}` : '';
-            title = ` title="the mark made in TEX, cut through the part (or to its skin) by its straight bit${est}. A starting point: cut a test strip. Open tex to change it."`;
+            const full = String(label).replace(/"/g, '&quot;');
+            title = ` title="${full}: the mark made in TEX, cut through the part (or to its skin) by its straight bit${est}. A starting point: cut a test strip. Open tex to change it."`;
+            clazz.push('tex-step');
         } else if (rec.type === 'texture') {
             label = rec.texlabel || 'texture';
             const est = rec.texest > 0 && window.SwarfTexCore ? `, about ${window.SwarfTexCore.formatTime(rec.texest)}` : '';
-            title = ` title="the mark made in TEX, cut into the part's top by its bit and path${est}. Open tex to change it."`;
+            const full = String(label).replace(/"/g, '&quot;');
+            title = ` title="${full}: the mark made in TEX, cut into the part's top by its bit and path${est}. Open tex to change it."`;
+            clazz.push('tex-step');
         }
         const SWARF_OP_FIELDS = {
             rough:   ['tool','rate','down','step','inside'],

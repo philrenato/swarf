@@ -364,6 +364,45 @@ try {
   ({ pv, gc } = await paths(page));
   const grown = spanOf(gc);
   check(pv === 'preview.end' && grown.x1 - before.x1 > 6 && grown.x1 - before.x1 < 13, `the file's texture follows the dragged point (its far edge ${before.x1.toFixed(1)} → ${grown.x1.toFixed(1)})`);
+
+  // MAKE IT A PART / A HOLE: the texture mark becomes a part of its own beside its part (DRAW's done
+  // makes it, the mark goes); a new rectangle mark becomes a hole cut through the part
+  const before2 = await page.evaluate(() => window.kiri.api.widgets.all().length);
+  await page.click('#swarf-step-tex');
+  await page.waitForFunction(() => window.__swarfTex.state(), { timeout: 5000 });
+  await page.evaluate(() => { const S = window.__swarfTex.state(); S.sel = 0; S.mark = S.parts[0].marks.findIndex(m => m.fill.fill === 'texture'); });
+  await page.keyboard.press('v');
+  const mk2 = await page.evaluate(() => { const S = window.__swarfTex.state(), p = S.parts[0], m = p.marks[S.mark], g = m.region; let b = [Infinity, Infinity, -Infinity, -Infinity]; for (let j = 0; j < g.ny; j++) for (let i = 0; i < g.nx; i++) if (g.data[j * g.nx + i]) { const x = g.x0 + (i + 0.5) * g.res, y = g.y0 + (j + 0.5) * g.res; b = [Math.min(b[0], x), Math.min(b[1], y), Math.max(b[2], x), Math.max(b[3], y)]; } return { id: m.id, w: b[2] - b[0], h: b[3] - b[1], btn: !!document.getElementById('tx-as-part') }; });
+  await page.evaluate(() => document.getElementById('tx-as-part').click());
+  await page.waitForFunction(() => window.__swarfDraw.state(), { timeout: 5000 });
+  const inDraw = await page.evaluate(() => { const S = window.__swarfDraw.state(), p = S.parts[S.sel]; return { name: p && p.name, fresh: p && !p.w, say: document.getElementById('sd-say').textContent }; });
+  check(mk2.btn && inDraw.fresh && /a part from the mark's outline/.test(inDraw.say), `make it a part: DRAW opens with the new part picked ("${inDraw.say}")`);
+  await page.click('#sd-done'); await wait(1500);
+  const madeP = await page.evaluate(id => { const a = window.kiri.api, ws = a.widgets.all(); const w = ws[ws.length - 1], g = w.mesh.geometry; g.computeBoundingBox(); const b = g.boundingBox; return { n: ws.length, w: b.max.x - b.min.x, h: b.max.y - b.min.y, t: b.max.z - b.min.z, gone: ws.every(x => !(x.meta.tex || []).some(m => m.id === id)), ops: a.conf.get().process.ops.map(o => o.type) }; }, mk2.id);
+  check(madeP.n === before2 + 1 && Math.abs(madeP.w - mk2.w) < 1.5 && Math.abs(madeP.h - mk2.h) < 1.5 && Math.abs(madeP.t - 19) < 0.05 && madeP.gone && !madeP.ops.includes('texture'), `done: a new part with the mark's outline (${madeP.w.toFixed(1)} x ${madeP.h.toFixed(1)} x ${madeP.t.toFixed(1)}, the mark ${mk2.w.toFixed(1)} x ${mk2.h.toFixed(1)}); the mark and its step are gone (${madeP.ops})`);
+  // a rectangle mark inside the part, made a hole (the new part put away, so the file holds one part)
+  await page.evaluate(() => { const a = window.kiri.api, ws = a.widgets.all(); a.platform.delete(ws[ws.length - 1]); });
+  await wait(500);
+  await page.click('#swarf-step-tex');
+  await page.waitForFunction(() => window.__swarfTex.state(), { timeout: 5000 });
+  await page.evaluate(() => { const S = window.__swarfTex.state(), r = document.getElementById('tx-svg').getBoundingClientRect(); S.k = 2.5; S.ox = r.width / 2 - 150; S.oy = r.height / 2 + 100; S.sel = S.parts.findIndex(p => /^rectangle 1$/.test(p.name)); S.mark = -1; });
+  const P1 = await page.evaluate(() => { const S = window.__swarfTex.state(), p = S.parts[S.sel]; return [p.pos[0] + p.box[0], p.pos[1] + p.box[1]]; });
+  await page.keyboard.press('r');
+  await drag(page, [P1[0] + 15, P1[1] + 45], [P1[0] + 40, P1[1] + 70]);
+  await page.keyboard.press('v');
+  await page.evaluate(() => document.getElementById('tx-as-hole').click());
+  await page.waitForFunction(() => window.__swarfDraw.state(), { timeout: 5000 });
+  const hd = await page.evaluate(() => ({ say: document.getElementById('sd-say').textContent }));
+  check(/is cut from rectangle 1/.test(hd.say), `make it a hole: DRAW cuts it from the part ("${hd.say}")`);
+  await page.click('#sd-done'); await wait(1500);
+  ({ pv, gc } = await paths(page));
+  const otool = await page.evaluate(() => { const s = window.kiri.api.conf.get(), op = s.process.ops.find(o => o.type === 'outline'); return s.tools.find(t => t.id === op.tool).number; });
+  const deep = moves(gc).filter(q => q.tool === otool && q.cut && q.z <= -18.9);
+  // the hole's own cut: the outline's through-cut points well inside the part's outer cut
+  const ob = [Math.min(...deep.map(q => q.x)), Math.min(...deep.map(q => q.y)), Math.max(...deep.map(q => q.x)), Math.max(...deep.map(q => q.y))];
+  const inner = deep.filter(q => q.x > ob[0] + 8 && q.x < ob[2] - 8 && q.y > ob[1] + 8 && q.y < ob[3] - 8);
+  const ib = inner.length ? [Math.max(...inner.map(q => q.x)) - Math.min(...inner.map(q => q.x)), Math.max(...inner.map(q => q.y)) - Math.min(...inner.map(q => q.y))] : [0, 0];
+  check(pv === 'preview.end' && inner.length > 3 && Math.abs(ib[0] - ib[1]) < 2 && ib[0] > 15 && ib[0] < 26, `done: the file cuts the hole right through (${inner.length} cuts at Z -19, ${ib.map(v => v.toFixed(1)).join(' x ')} inside the 25 x 25 hole, the bit's center)`);
   await page.evaluate(() => { localStorage.setItem('swarf-expert', '0'); document.body.classList.remove('swarf-expert'); });
 } finally {
   await browser.close();

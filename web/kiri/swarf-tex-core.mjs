@@ -1501,6 +1501,16 @@ function chamfer(set, nx, ny) {
   }
   return D;
 }
+// how far in from its own edge the paint reaches at its deepest (mm in the grid's frame): a bit wider
+// than twice this cannot go round it
+export function insideReach(region) {
+  const g = regionSpec(region), N = g.nx * g.ny, off = new Uint8Array(N);
+  for (let k = 0; k < N; k++) off[k] = g.data[k] ? 0 : 1;
+  const D = chamfer(off, g.nx, g.ny);
+  let m = 0;
+  for (let k = 0; k < N; k++) if (g.data[k] && D[k] > m) m = D[k];
+  return m * g.res;
+}
 // how far a point (part frame) is from the part's edge (any loop)
 export function edgeDistance(loops, x, y) {
   let d = Infinity;
@@ -1995,7 +2005,7 @@ const API = {
   simulate, compare, FILLS, PATHS, IDENTITY, encodeRuns, decodeRuns, newGrid, paintWhere, stampDisc, stampStroke, gridCount,
   regionSpec, storeRegion, xfApply, xfInvert, xfThen, xfScale, placeTexture, newFill, markTexture, pathFor, markToolpath, feedRuns,
   markChecks, BASIC, shadeHeight, SWATCH_SPAN, swatch,
-  clipToPart, edgeDistance, controlsFor, splineAt, sampleCurve, paintLoops, fitCurves, curvesCross, rewriteFromCurves, nearestOnCurves,
+  clipToPart, edgeDistance, insideReach, controlsFor, splineAt, sampleCurve, paintLoops, fitCurves, curvesCross, rewriteFromCurves, nearestOnCurves,
   roundProse, PIERCES, SKIN_STRAIN, pierceDefaults, newPierce, fillTool, kerfPitch, pierceCuts, pierceToolpath, pierceChecks, pierceSVG,
 };
 if (typeof window !== 'undefined') window.SwarfTexCore = API;

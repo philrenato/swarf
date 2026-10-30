@@ -1315,6 +1315,8 @@ body:not(.swarf-expert) .swarf-add-op-grid > .swarf-expert-only {
 /* whole row label becomes a pointer target too — click anywhere on the op name
    to toggle the parameter drawer (r5 affordance). */
 #oplist .draggable.has-params > .label { cursor: pointer; }
+/* a TEX step's label stays on one line (its whole name in the row's tooltip), so edit stays beside it */
+#oplist .draggable.tex-step > .label { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; flex: 1 1 0; }
 #oplist .draggable.has-params > .label::after {
   content: "▸"; margin-left: 6px;
   color: var(--swarf-text-3, #58534a);
@@ -2367,6 +2369,7 @@ html[data-skin] #swarf-draw svg .sd-part.sd-regsrc, #swarf-draw svg .sd-part.sd-
 #swarf-draw.sd-tex .tx-sw img { width: 40px; height: 40px; border-radius: 4px; display: block; }
 #swarf-draw.sd-tex .tx-sw span { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 #swarf-draw.sd-tex .tx-picks { gap: 4px; }
+#swarf-draw.sd-tex .tx-makes { gap: 4px; flex-wrap: nowrap; }
 #swarf-draw.sd-tex .tx-more { margin-top: 6px; }
 #swarf-draw.sd-tex .tx-more > summary { cursor: pointer; font-size: 12px; font-weight: 600; margin: 6px 0; }
 /* a pierce mark's cuts, in the skin's pen color; the fill row as the bar's tools */
