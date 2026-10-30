@@ -186,7 +186,7 @@ html[data-skin="glass"] button.selected, html[data-skin="glass"] #panel-right #o
 html[data-skin="glass"] #swarf-run .sr-modes button.on, html[data-skin="glass"] #swarf-run .sr-jog .sr-modes button.on, html[data-skin="glass"] #swarf-run .sr-sim button.on,
 html[data-skin="glass"] #swarf-run .sr-vtools button.on, html[data-skin="glass"] #swarf-draw .sd-bar button.on, html[data-skin="glass"] #swarf-draw .sd-card button.tx-pick.on, html[data-skin="glass"] #swarf-draw .sd-card button.tx-sw.on, html[data-skin="glass"] #swarf-draw .sd-card button.tx-fill.on, html[data-skin="glass"] #swarf-draw .sd-bar .sd-go,
 html[data-skin="glass"] #swarf-run .sr-actions .cut, html[data-skin="glass"] #swarf-run .sr-card .row .go, html[data-skin="glass"] #swarf-run .sr-pad button:active,
-html[data-skin="glass"] #swarf-run .sr-pad button.held, html[data-skin="glass"] #swarf-start button:first-of-type, html[data-skin="glass"] #swarf-sim-machine.on,
+html[data-skin="glass"] #swarf-run .sr-pad button.held, html[data-skin="glass"] #swarf-start button:first-of-type, html[data-skin="glass"] #swarf-sim-machine.on, html[data-skin="glass"] .swarf-x-card .swarf-x-go,
 html[data-skin="glass"] #layer-animate button:nth-of-type(2) {
   background: var(--g-aqua) !important; border-color: rgba(94, 99, 106, .55) !important; color: #ffffff !important;
   box-shadow: var(--g-aqua-shadow) !important; text-shadow: 0 1px 1px rgba(56, 59, 64,.45) !important;

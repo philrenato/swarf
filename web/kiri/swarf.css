@@ -172,7 +172,10 @@ body.swarf-sky-working {
 }
 
 /* ---- Guarantee the viewport actually has a box to render into (markup: 'where is the 3D?') ---- */
-#mid { min-height: calc(100vh - 40px); }
+#mid { min-height: calc(100vh - 46px); }
+/* (review r086 F3) the app is the window: it never scrolls as a page (Space in simulate, a
+   trackpad flick or a focused field below the fold moved the menubar and wordmark off the top) */
+html, body { overflow: hidden !important; overscroll-behavior: none; }
 #mid-mid { min-width: 60vw; min-height: calc(100vh - 100px); }
 #container { min-height: calc(100vh - 100px); }
 
@@ -700,7 +703,9 @@ body.swarf-run-open #gdpr, body.swarf-run-open #install-swarf, body.swarf-run-op
   top: 96px;
   right: 16px;
   width: 320px;
-  max-height: calc(100vh - 120px);
+  /* (review r086 F2) the rail ends above the concerns pill, which docks under it, and the
+     pill above the size card: the rail scrolls, it never squashes or slides under either */
+  max-height: calc(100vh - 230px);
   overflow-y: auto;
   z-index: 5;
   padding: 0;
@@ -710,6 +715,8 @@ body.swarf-run-open #gdpr, body.swarf-run-open #install-swarf, body.swarf-run-op
   flex-direction: column;
 }
 /* rail plates inherit the same mill-red / chamfered treatment as panel-right */
+/* (review r086 F2) a panel keeps its height: headers and rows never squash, the rail scrolls */
+#swarf-right-rail > .set2-group { flex-shrink: 0 !important; }
 #swarf-right-rail .set2-group {
   background: var(--swarf-bg-2) !important;
   border: 1px solid var(--swarf-line-2) !important;
@@ -1363,6 +1370,9 @@ body:not(.swarf-expert) .swarf-add-op-grid > .swarf-expert-only {
   border-radius: 2px;
   min-width: 0;
 }
+/* (review r086 F4) each number names its unit, in mm or in */
+.swarf-op-params .swarf-op-row > .swarf-op-unit { flex: 0 0 48px; font-style: normal; font-size: 10px; white-space: nowrap; }
+.swarf-op-params .swarf-op-num > input { text-align: right; }
 .swarf-op-params .swarf-op-row > input:focus,
 .swarf-op-params .swarf-op-row > select:focus {
   outline: 1px solid var(--swarf-accent, #b03030);
@@ -2440,3 +2450,38 @@ body.swarf-draw-open #swarf-tabcard { display: none !important; }
 #swarf-tabcard .note:empty { display: none; }
 body:has(#modal[style*="flex"]) #swarf-tabcard { z-index: -1 !important; pointer-events: none !important; }
 @media (max-width: 1100px) { #swarf-tabcard { flex-wrap: wrap; left: 16px; right: 16px; transform: none; justify-content: center; } }
+
+/* (whole-app review r086 B1) export in cam: one swarf card. Kiri's rows hide (its gcode preview
+   shows only when preferences ask for it); the card speaks in the body font in wet plastic and
+   classic, in mono in the swarf skin. */
+#mod-x-any.swarf-x > :not(.swarf-x-card):not(#code-preview-head):not(#code-preview) { display: none !important; }
+#mod-x-any.swarf-x { min-width: 420px; max-width: 520px; }
+.swarf-x-card { display: flex; flex-direction: column; gap: 10px; padding: 4px 2px; }
+html[data-skin] #mod-x-any.swarf-x, html[data-skin] .swarf-x-card { font-family: system-ui, -apple-system, "Helvetica Neue", Arial, sans-serif !important; }
+.swarf-x-card h3 { margin: 0; font-size: 16px; font-weight: 600; text-transform: none; letter-spacing: 0; color: var(--swarf-text); }
+.swarf-x-card p { margin: 0; font-size: 13px; line-height: 1.4; color: var(--swarf-text-2); }
+.swarf-x-card .swarf-x-facts { color: var(--swarf-text); font-variant-numeric: tabular-nums; }
+.swarf-x-card .swarf-x-name { display: flex; align-items: center; gap: 8px; font-size: 13px; text-transform: none; letter-spacing: 0; }
+.swarf-x-card .swarf-x-name input { flex: 1 1 auto; min-width: 0; font: inherit; font-size: 14px; padding: 6px 8px; }
+.swarf-x-card .swarf-x-name em { font-style: normal; color: var(--swarf-text-2); }
+.swarf-x-card .swarf-x-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-top: 4px; }
+.swarf-x-card .swarf-x-row .grow { flex: 1 1 auto; }
+.swarf-x-card button { font: inherit; font-size: 13px; text-transform: none; letter-spacing: 0; padding: 8px 14px; cursor: pointer; }
+.swarf-x-card .swarf-x-proj, .swarf-x-card .swarf-x-zip { font-size: 12px; }
+.swarf-x-card .swarf-x-go { font-weight: 600; }
+
+/* (whole-app review r086 C3) a router (the ShopBot, the MR-1) has no lathe, rotary index, loop or
+   laser: advanced does not offer those steps there */
+body.swarf-router #op-add-list > #cam-lathe, body.swarf-router #op-add-list > #cam-index,
+body.swarf-router #op-add-list > #cam-loop, body.swarf-router #op-add-list > #laser-on,
+body.swarf-router #op-add-list > #laser-off { display: none !important; }
+
+/* (whole-app review r086 F7) one focus ring for the menu bar, its items and the mode row */
+#menubar .top-menu > span:focus-visible, .top-menu-drop .content > div:focus-visible, #mode-tools > .swarf-step:focus-visible {
+  outline: 2px solid var(--swarf-accent-hi, #d02020) !important; outline-offset: 2px; }
+html[data-skin="glass"] #menubar .top-menu > span:focus-visible, html[data-skin="glass"] .top-menu-drop .content > div:focus-visible,
+html[data-skin="glass"] #mode-tools > .swarf-step:focus-visible { outline: 3px solid rgba(64, 140, 255, .75) !important; outline-offset: 2px; }
+html[data-skin="classic"] #menubar .top-menu > span:focus-visible, html[data-skin="classic"] .top-menu-drop .content > div:focus-visible,
+html[data-skin="classic"] #mode-tools > .swarf-step:focus-visible { outline: 1px dotted #000 !important; outline-offset: -3px; }
+/* a menu item's key, at its right */
+.top-menu-drop .content > div .swarf-key { margin-left: auto; padding-left: 18px; opacity: .6; font-size: 11px; }

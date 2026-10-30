@@ -149,10 +149,24 @@ class KeyboardControl {
 
         // swarf: no keyboard shortcuts except Delete/Backspace for removing the selected part.
         // Every other Kiri hotkey is suppressed here. swarf keeps only the keys a student needs.
+        // (whole-app review r086 F1: with nothing picked Delete is nothing, says nothing; inside
+        // CONTROL, DRAW or TEX it never reaches a part the screen cannot show)
         if (evt.keyCode === 8 || evt.keyCode === 46) {
             if (this.inputHasFocus()) return false;
-            this.#platform.delete(this.#selection.meshes());
+            const cl = this.#DOC.body.classList;
+            if (cl.contains('swarf-run-open') || cl.contains('swarf-draw-open') || cl.contains('swarf-tex-open')) return false;
+            const picked = this.#selection.meshes();
+            if (!picked || !picked.length) return false;
+            this.#platform.delete(picked);
             evt.preventDefault();
+        }
+        // ⌘A picks every part (edit › select all), in cam only
+        if ((evt.metaKey || evt.ctrlKey) && !evt.shiftKey && !evt.altKey && (evt.key === 'a' || evt.key === 'A')) {
+            if (this.inputHasFocus()) return false;
+            const cl = this.#DOC.body.classList;
+            if (cl.contains('swarf-run-open') || cl.contains('swarf-draw-open')) return false;
+            evt.preventDefault();
+            this.#platform.select_all();
         }
         return false;
 
@@ -257,6 +271,14 @@ class KeyboardControl {
         for (let handler of this.#api.feature.on_key2) {
             if (handler({key:evt})) return;
         }
+
+        // swarf (whole-app review r086 F6): Kiri's letter keys are retired in cam too. r opened
+        // Kiri's recent files, e its raw machine list, p said "nothing to slice", x exported, ? the
+        // about box and Z cleared every setting: none is in help, and a student brushing the
+        // keyboard met Kiri's words. DRAW, TEX and CONTROL keep their own keys (printed on their
+        // buttons); cam's are ⌘Z, ⇧⌘Z, ⌘A, ⌘S and Delete, on keydown.
+        this.#onUnhandledKey(evt);
+        return false;
 
         // Handle widget grouping (disabled: broken, conflicts with hash settings)
         if (evt.ctrlKey) {

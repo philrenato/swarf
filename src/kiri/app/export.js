@@ -197,6 +197,75 @@ function bindField(field, varname) {
 }
 
 /**
+ * swarf (whole-app review r086 B1): the export dialog as a swarf card. One name field, one line of
+ * what the file is ("about 3 min · 71 KB · end 1/4 · hard wood"), one button that saves the file
+ * the machine runs ("save circle.sbp"), a quiet "also save the project". Kiri's own rows (gcode
+ * preview, one file per step) stay reachable in advanced. Outside cam the dialog is Kiri's.
+ */
+function swarfExportCard(on, { filename, fileext, info, download, sections }) {
+    const box = $('mod-x-any');
+    if (!box) return;
+    box.classList.toggle('swarf-x', !!on);
+    let card = box.querySelector('.swarf-x-card');
+    if (card) card.remove();
+    if (!on) return;
+    const ext = String(fileext || 'gcode').replace(/^\./, '');
+    const set = api.conf.get();
+    const dev = (set.device && set.device.deviceName) || '';
+    const shopbot = /shopbot/i.test(dev);
+    const machine = shopbot ? 'ShopBot' : (dev.replace(/^[^.]*\./, '').replace(/\./g, ' ') || 'machine');
+    const esc = t => String(t).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
+    // what the file is, in one line
+    const t = Math.round(info.time || 0);
+    const time = t < 60 ? 'under a minute' : t < 3600 ? `about ${Math.round(t / 60)} min` : `about ${Math.floor(t / 3600)} h ${Math.round((t % 3600) / 60)} min`;
+    const b = info.bytes || 0;
+    const size = b < 1024 ? `${b} bytes` : b < 1048576 ? `${Math.round(b / 1024)} KB` : `${(b / 1048576).toFixed(1)} MB`;
+    const ops = ((set.process && set.process.ops) || []).filter(op => op && op.type !== '|' && !op.disabled);
+    const bits = [];
+    for (const op of ops) {
+        const tool = (set.tools || []).find(tl => tl.id == op.tool);
+        const nm = tool && (tool.name || `bit #${tool.number}`);
+        if (nm && !bits.includes(nm)) bits.push(nm);
+    }
+    const msel = document.getElementById('swarf-material-select');
+    const mat = msel && msel.selectedOptions[0] ? msel.selectedOptions[0].textContent.trim() : '';
+    const facts = [time, size, bits.length > 2 ? `${bits.length} bits` : bits.join(', then '), mat].filter(Boolean).join(' · ');
+    const expert = document.body.classList.contains('swarf-expert');
+    card = document.createElement('div');
+    card.className = 'swarf-x-card';
+    card.innerHTML = `<h3>Save the ${esc(machine)} file</h3>`
+        + `<p class="swarf-x-why">${shopbot ? 'The file <b>control</b> runs on the ShopBot.' : `The file the ${esc(machine)} runs: take it to the machine.`}</p>`
+        + `<label class="swarf-x-name"><span>name</span><input type="text" spellcheck="false" autocomplete="off"/><em>.${esc(ext)}</em></label>`
+        + `<p class="swarf-x-facts">${esc(facts)}</p>`
+        + `<div class="swarf-x-row"><button class="swarf-x-proj" type="button" title="the parts, the steps and the settings, to open again in swarf">also save the project (.swarf)</button>`
+        + (expert && sections ? `<button class="swarf-x-zip" type="button" title="a separate file for each step, in one .zip">one file per step (.zip)</button>` : '')
+        + `<span class="grow"></span><button class="swarf-x-go" type="button"></button></div>`;
+    box.prepend(card);
+    const name = card.querySelector('input');
+    const go = card.querySelector('.swarf-x-go');
+    const kiriName = $('print-filename');
+    const clean = v => String(v || '').trim().replace(/\.(sbp|nc|gcode|tap|txt)$/i, '').replace(/[\\/:*?"<>|]+/g, '-') || filename;
+    const paint = () => { go.textContent = `save ${clean(name.value)}.${ext}`; };
+    name.value = filename;
+    paint();
+    name.addEventListener('input', paint);
+    name.addEventListener('keydown', ev => { ev.stopPropagation(); if (ev.key === 'Enter') go.click(); });
+    go.onclick = () => {
+        if (kiriName) kiriName.value = clean(name.value);
+        download();
+        api.modal.hide();
+        api.show.alert(`Saved ${clean(name.value)}.${ext}${shopbot ? ': open it in control to cut it.' : '.'}`, 6);
+    };
+    card.querySelector('.swarf-x-proj').onclick = () => {
+        api.modal.hide();
+        if (window.SwarfFile) window.SwarfFile.save({ name: clean(name.value) });
+    };
+    const zip = card.querySelector('.swarf-x-zip');
+    if (zip) zip.onclick = () => { if (kiriName) kiriName.value = clean(name.value); $('print-zip').onclick(); };
+    setTimeout(() => { try { name.focus(); name.select(); } catch (e) { /* closed */ } }, 50);
+}
+
+/**
  * Present gcode export dialog with download/send options.
  * Complex UI setup that handles:
  * - Local download of gcode, zip (CAM operations), or 3MF (FDM)
@@ -317,7 +386,8 @@ function exportGCodeDialog(gcode, sections, info, names) {
 
     function download() {
         filename = $('print-filename').value;
-        api.util.download(gcode, filename + "." + fileext);
+        // swarf: a device extension written with its dot (".sbp") saved "name..sbp"
+        api.util.download(gcode, filename + "." + String(fileext).replace(/^\./, ''));
         // saveAs(getBlob(), filename + "." + fileext);
     }
 
@@ -356,6 +426,8 @@ function exportGCodeDialog(gcode, sections, info, names) {
     }
 
     api.modal.show('xany');
+        // swarf (review r086 B1): in cam the dialog is one swarf card, the file the machine runs
+        swarfExportCard(MODE === MODES.CAM, { filename, fileext, info, download, sections });
         let set = api.conf.get();
         let fdm = MODE === MODES.FDM;
         let cam = MODE === MODES.CAM;

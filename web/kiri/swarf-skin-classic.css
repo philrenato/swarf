@@ -158,7 +158,7 @@ html[data-skin="classic"] #swarf-sim-machine.on, html[data-skin="classic"] #laye
 }
 /* the button that goes ahead: bold, with the Platinum default ring */
 html[data-skin="classic"] #swarf-draw .sd-bar .sd-go, html[data-skin="classic"] #swarf-run .sr-card .row .go, html[data-skin="classic"] #swarf-run .sr-actions .cut,
-html[data-skin="classic"] #swarf-start button:first-of-type, html[data-skin="classic"] #dialog button:first-of-type {
+html[data-skin="classic"] #swarf-start button:first-of-type, html[data-skin="classic"] #dialog button:first-of-type, html[data-skin="classic"] .swarf-x-card .swarf-x-go {
   font-weight: 700 !important; box-shadow: var(--c-out), 0 0 0 2px #c0c0c0, 0 0 0 3px #000 !important; margin: 3px !important;
 }
 html[data-skin="classic"] #swarf-run .sr-actions .stop { background: #c0c0c0 !important; color: #c00000 !important; font-weight: 700 !important; }

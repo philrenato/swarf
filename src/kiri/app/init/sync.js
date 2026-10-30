@@ -394,9 +394,13 @@ function setup_keybd_nav() {
     const helpReset = $('swarf-reset-profile');
     if (helpReset) helpReset.onclick = (ev) => {
         ev.stopPropagation();
-        if (confirm('Reset swarf to factory defaults? This clears all saved settings and reloads.')) {
-            if (window.__swarfResetProfile) window.__swarfResetProfile();
-        }
+        // (whole-app review r086 F10) asked in swarf's own card, not the browser's
+        document.body.click();
+        const pre = ["<div class='f-col a-center swarf-shape'><h3>Start swarf over?</h3>",
+            "<p class='swarf-shape-why' style='color:inherit;max-width:340px'>Every setting, bit and part on this computer goes, and swarf reloads as new. A project saved as a .swarf file is kept: open it again after.</p></div>"];
+        api.uc.confirm(undefined, { 'keep everything': false, 'start over': 'reset' }, undefined, { pre }).then(v => {
+            if (v === 'reset' && window.__swarfResetProfile) window.__swarfResetProfile();
+        });
     };
     // swarf: reparent #panel-left and #panel-right out of #mid so fixed positioning
     // actually pins to the viewport. Some ancestor in Kiri's flow has a containing block
@@ -408,6 +412,23 @@ function setup_keybd_nav() {
         };
         reparent('panel-left');
         reparent('panel-right');
+        // (whole-app review r086 C3) advanced's own panels (machine profile, stock, limits,
+        // origin, expert) sat over the right rail, see-through. They are a column of their own
+        // under toolpaths, the same width, scrolling if they run long.
+        const left = document.getElementById('panel-left'), tp = document.getElementById('panel-right');
+        if (!left || !tp) return;
+        const dock = () => {
+            const r = tp.getBoundingClientRect();
+            if (!left.offsetParent || r.height < 4) return;
+            const top = Math.round(r.bottom + 10);
+            const set = (k, v) => left.style.setProperty(k, v, 'important');
+            set('top', top + 'px'); set('left', Math.round(r.left) + 'px'); set('right', 'auto'); set('bottom', 'auto');
+            set('width', Math.round(r.width) + 'px'); set('max-height', Math.max(120, innerHeight - top - 96) + 'px');
+        };
+        if (window.ResizeObserver) { new ResizeObserver(dock).observe(tp); new ResizeObserver(dock).observe(left); }
+        window.addEventListener('resize', dock);
+        new MutationObserver(() => setTimeout(dock, 0)).observe(document.body, { attributes: true, attributeFilter: ['class'] });
+        setTimeout(dock, 0);
     })();
 
     // swarf: click-to-open menus (kill Kiri's hover-to-open — markup note: "like a real app")
@@ -431,6 +452,43 @@ function setup_keybd_nav() {
         });
         document.addEventListener('click', close);
         document.addEventListener('keydown', (ev) => { if (ev.key === 'Escape') close(); });
+        // swarf (whole-app review r086 F7): the menu bar and the mode row take Tab. Enter or
+        // Space presses a step or opens a menu (its first item takes the focus); arrows walk the
+        // open menu's items; Esc closes it. One focus ring per skin (swarf.css).
+        const press = (el, ev) => { ev.preventDefault(); ev.stopPropagation(); el.click(); };
+        const items = m => [...m.querySelectorAll('.top-menu-drop .content > div')].filter(d => d.offsetParent && !d.classList.contains('hide'));
+        menus.forEach(m => {
+            if (!m.querySelector(':scope > .top-menu-drop')) return;
+            m.tabIndex = 0;
+            m.setAttribute('role', 'button');
+            m.setAttribute('aria-haspopup', 'menu');
+            for (const d of m.querySelectorAll('.top-menu-drop .content > div')) { d.tabIndex = -1; d.setAttribute('role', 'menuitem'); }
+            m.addEventListener('keydown', ev => {
+                const list = items(m), at = list.indexOf(document.activeElement);
+                if ((ev.key === 'Enter' || ev.key === ' ') && at >= 0) return press(list[at], ev);
+                if (ev.key === 'Enter' || ev.key === ' ' || (ev.key === 'ArrowDown' && !m.classList.contains('swarf-open'))) {
+                    press(m, ev);
+                    setTimeout(() => { const f = items(m)[0]; if (f) f.focus(); }, 0);
+                    return;
+                }
+                if (ev.key === 'ArrowDown' || ev.key === 'ArrowUp') {
+                    ev.preventDefault();
+                    const n = list[(at + (ev.key === 'ArrowDown' ? 1 : list.length - 1)) % list.length];
+                    if (n) n.focus();
+                }
+                if (ev.key === 'Escape') { close(); m.focus(); }
+            });
+        });
+        const steps = () => document.querySelectorAll('#mode-tools > .swarf-step');
+        const stepKeys = () => steps().forEach(s => {
+            if (s.dataset.swarfTab) return;
+            s.dataset.swarfTab = '1';
+            s.tabIndex = 0;
+            s.setAttribute('role', 'button');
+            s.addEventListener('keydown', ev => { if ((ev.key === 'Enter' || ev.key === ' ') && !ev.repeat) press(s, ev); });
+        });
+        stepKeys();
+        setTimeout(stepKeys, 1500);
     })();
 
     // swarf r44 (review 10-28 #7): one camera rule. The view frames all the parts with one
@@ -567,6 +625,19 @@ function setup_keybd_nav() {
         document.addEventListener('click', (e) => {
             if (!wrap.contains(e.target)) wrap.classList.remove('open');
         });
+        // (review r086 F2) the pill docks under the right rail, never inside its panels: its top
+        // follows the rail's bottom as panels open, close and scroll; with no rail it keeps its corner
+        const dock = () => {
+            const rail = document.getElementById('swarf-right-rail');
+            const r = rail && rail.offsetParent !== null ? rail.getBoundingClientRect() : null;
+            if (r && r.height > 4) { wrap.style.top = Math.round(r.bottom + 8) + 'px'; wrap.style.bottom = 'auto'; }
+            else { wrap.style.top = ''; wrap.style.bottom = ''; }
+        };
+        const rail = document.getElementById('swarf-right-rail');
+        if (rail && window.ResizeObserver) new ResizeObserver(dock).observe(rail);
+        window.addEventListener('resize', dock);
+        new MutationObserver(dock).observe(document.body, { attributes: true, attributeFilter: ['class'] });
+        setTimeout(dock, 0);
 
         // rule engine: pull current settings + ops, evaluate each rule, render warnings
         function evaluate() {

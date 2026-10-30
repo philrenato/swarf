@@ -167,7 +167,21 @@
       }).observe(bar, { childList: true, subtree: true, attributes: true, attributeFilter: ['class','style'] });
     }
   }
+  // (review r086 F3) Space in simulate plays and pauses; it never scrolls the page
+  function onSpace(e) {
+    if (e.key !== ' ' || e.metaKey || e.ctrlKey || e.altKey) return;
+    const bar = document.getElementById('layer-animate');
+    if (!bar || !bar.offsetParent || document.body.classList.contains('swarf-run-open') || document.body.classList.contains('swarf-draw-open')) return;
+    const t = e.target;
+    if (t && (/^(INPUT|TEXTAREA|SELECT|BUTTON)$/.test(t.tagName) || t.isContentEditable)) return;
+    e.preventDefault();
+    if (e.repeat) return;
+    const vis = title => [...bar.querySelectorAll(`button[title="${title}"]`)].find(b => b.offsetParent);
+    const b = vis('pause') && window.__swarfSimPlaying ? vis('pause') : vis('play');
+    if (b) { b.click(); window.__swarfSimPlaying = b.title === 'play'; }
+  }
   function boot() {
+    document.addEventListener('keydown', onSpace);
     wireObservers();
     // poll a few times in case layer-animate materializes after load
     let tries = 0;

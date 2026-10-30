@@ -19,6 +19,8 @@ function settings() {
 function unitsSave() {
     api.conf.update({ controller: true });
     platform.update_size();
+    // swarf (review r086 F4): everything that shows a length redraws in the new unit
+    api.event.emit('units.set', api.view.unit_scale() === 25.4 ? 'in' : 'mm');
 }
 
 function aniMeshSave() {

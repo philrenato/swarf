@@ -715,6 +715,8 @@ function platformDelete(widget, defer) {
         return;
     }
     if (Array.isArray(widget)) {
+        // swarf (review r086 F1): an empty list deletes nothing, so it says nothing
+        if (!widget.length) return;
         const mc = widget.slice();
         for (let i = 0; i < mc.length; i++) {
             platform.delete(mc[i].widget || mc[i], true);

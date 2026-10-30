@@ -509,6 +509,16 @@ html[data-skin] #swarf-run .sr-jog .sr-zrow button.next, html[data-skin] #swarf-
   // Step and speed rows (Phil 10-27: findable, plain, more humane than most control software), in cam's
   // units (Phil 10-30: "when in inches the jog panel is still in mm"); inside, steps stay mm and speeds mm/min
   function inch() { return !!window.SwarfLength && SwarfLength.unit() === 'in'; }
+  // (review r086 F4) a length in words, in cam's units: "19.1 mm", or "3/4 in" / "0.75 in"
+  function len(mm, dp) {
+    if (!inch()) return `${+(+mm).toFixed(dp == null ? 1 : dp)} mm`;
+    const v = mm / 25.4, f = Math.round(v * 16);
+    return `${Math.abs(v * 16 - f) < 1e-6 && window.SwarfLength ? SwarfLength.say(mm).replace(/ in$/, '') : +v.toFixed(2)} in`;
+  }
+  const lens = (a, dp) => inch() ? a.map(v => len(v, dp).replace(/ in$/, '')).join(' × ') + ' in' : a.map(v => +(+v).toFixed(dp == null ? 1 : dp)).join(' × ') + ' mm';
+  // the "go to … above z 0" height: 5 mm, or 0.2 in
+  const goZmm = () => inch() ? 5.08 : 5;
+  const goZword = () => inch() ? '0.2 in' : '5 mm';
   function rateRows() {
     const IN = 25.4, ui = inch(), u = ui ? 'in' : 'mm';
     S.rowsUnit = u;
@@ -648,7 +658,7 @@ html[data-skin] #swarf-run .sr-jog .sr-zrow button.next, html[data-skin] #swarf-
           // before Z is zeroed there is no Z 0 to name: it lifts from where it is (Fable 3 #12)
           text: S.zeroZ ? 'Up to 25 mm (1 in) over Z 0 (if it is lower), then over to X 0, Y 0.' : 'Up 25 mm (1 in) from where it is, then over to X 0, Y 0.',
           go: 'move', run: () => { const z = S.machine.state.pos.z; S.machine.goTo({ z: S.zeroZ ? Math.max(z, SAFE_Z) : z + 25.4, x: 0, y: 0 }); } }) }),
-        el.goZ = h('button', { text: 'go to 5 above z 0', title: 'Down to 5 mm above Z 0, slowly', onclick: () => aboutToMove({ title: 'The bit is about to come down', text: 'Down to 5 mm above Z 0, slowly. Check nothing is under the bit but the board.', go: 'move', run: () => { setJogSpeed(); S.machine.goTo({ z: 5 }); } }) }),
+        el.goZ = h('button', { text: `go to ${goZword()} above z 0`, title: `Down to ${goZword()} above Z 0, slowly`, onclick: () => aboutToMove({ title: 'The bit is about to come down', text: `Down to ${goZword()} above Z 0, slowly. Check nothing is under the bit but the board.`, go: 'move', run: () => { setJogSpeed(); S.machine.goTo({ z: goZmm() }); } }) }),
         el.cornersBtn = h('button', { text: 'table corners', title: 'Zero at, or go to, the table\'s front-left or front-right corner', onclick: cornersCard })));
 
     // program (lower left)
@@ -1212,14 +1222,14 @@ html[data-skin] #swarf-run .sr-jog .sr-zrow button.next, html[data-skin] #swarf-
     if (!S.prog) return;
     const p = S.prog.parsed, b = P.cutBounds(p);
     const add = (t, cls) => el.plan.append(h('div', { class: cls || '', text: t }));
-    el.facts.textContent = b ? `${(b.max.x - b.min.x).toFixed(0)} × ${(b.max.y - b.min.y).toFixed(0)} mm · ${(-Math.min(0, b.min.z)).toFixed(1)} mm deep · about ${mins(p.seconds)}` : '';
+    el.facts.textContent = b ? `${lens([b.max.x - b.min.x, b.max.y - b.min.y], 0)} · ${len(-Math.min(0, b.min.z))} deep · about ${mins(p.seconds)}` : '';
     const pr = problems();
     if (!pr.block.length) add(`${p.unitsGuessed ? '? units not named, read as millimeters' : p.units === 'in' ? '✓ inches, turned into millimeters' : '✓ millimeters'} · ✓ fits the table · ✓ ${p.moves.length} moves read`, 'ok');
     const t = fileTools();
     if (t.names.length) add(`bit  ${t.names.join(', then ')}`);
     if (t.rpm.length) add(`router  ${t.rpm.map(dialFor).join(', then ')}`);
     const changes = p.events.filter(e => e.kind === 'tool-change');
-    if (changes.length > 1) add(`${changes.length} tool changes: at each one the bit stops ${CHANGE_Z} mm up with the router off; change it, zero Z again, then continue`, 'w');
+    if (changes.length > 1) add(`${changes.length} tool changes: at each one the bit stops ${len(CHANGE_Z, 0)} up with the router off; change it, zero Z again, then continue`, 'w');
     for (const x of pr.block) add(x, 'b');
     for (const x of pr.warn) add(x, 'w');
   }
@@ -1337,7 +1347,8 @@ html[data-skin] #swarf-run .sr-jog .sr-zrow button.next, html[data-skin] #swarf-
     const okXY = !!(S.zeroXY && S.zeroSetAt), okZ = !!(S.zeroZ && S.zeroSetAt);
     el.goXY.disabled = !okXY || !!running; el.goZ.disabled = !okZ || !!running;
     el.goXY.title = okXY ? 'Up, then over to X 0, Y 0' : 'zero X Y first (or press "use the zero you set")';
-    el.goZ.title = okZ ? 'Down to 5 mm above Z 0, slowly' : 'zero Z first (z plate, or zero z)';
+    el.goZ.title = okZ ? `Down to ${goZword()} above Z 0, slowly` : 'zero Z first (z plate, or zero z)';
+    el.goZ.textContent = `go to ${goZword()} above z 0`;
     el.strip.classList.toggle('on', !!running && !(st && st.paused));
     el.btn.trace.classList.toggle('next', now === 'trace' && !running);
     el.btn.pause.disabled = !running;
@@ -1391,7 +1402,7 @@ html[data-skin] #swarf-run .sr-jog .sr-zrow button.next, html[data-skin] #swarf-
       case 'load': return say(S.camBusy ? 'Making the toolpaths…' : S.camError || 'No toolpaths yet. Add a step to your part (rough, contour, outline, pocket), then press control.');
       case 'check': return say(problems().block[0], 'bad');
       case 'zero':
-        if (S.toolChange) return say(`${S.toolChange} The bit is ${CHANGE_Z} mm up and the router is off. Change the bit, then press z plate to zero Z on ${o.z} (or lower it onto a sheet of paper and press zero z), then continue from line ${S.stoppedAt}.`, 'warn');
+        if (S.toolChange) return say(`${S.toolChange} The bit is ${len(CHANGE_Z, 0)} up and the router is off. Change the bit, then press z plate to zero Z on ${o.z} (or lower it onto a sheet of paper and press zero z), then continue from line ${S.stoppedAt}.`, 'warn');
         if (S.zeroLost) return say('The box lost its position while it was unplugged. Zero X Y and Z again before you go on.', 'warn');
         if (!S.zeroXY) return say(`Jog the bit over ${o.xy}, then press zero x y. Step 10 to get close, then 1.`);
         if (/top/.test(o.z)) return say(`Now Z, on ${o.z}: press z plate and the bit finds the board itself with the touch plate. Or lower it with step 0.1 onto a sheet of paper until it just drags, then press zero z.`);
@@ -1451,13 +1462,15 @@ html[data-skin] #swarf-run .sr-jog .sr-zrow button.next, html[data-skin] #swarf-
     const known = !sim && !!(m.plateCfg && m.plateCfg.confirmed);
     let base = null, seen = null, proved = known, zeroed = false;
     const checks = [
-      ['over', `The bit is over your board, less than ${Math.round((m.plateCfg && m.plateCfg.travel) || 60)} mm above the plate (its search distance).`],
+      ['over', `The bit is over your board, less than ${len((m.plateCfg && m.plateCfg.travel) || 60, 0)} above the plate (its search distance).`],
       ['clip', 'The ground clip is on the black Allen screw in the side of the router\'s housing, its wire clear of the bit.'],
       ['under', 'The plate lies flat on the board, right under the bit. Hands clear.']
     ];
     const boxes = {};
     const body = h('div', { class: 'sr-plate' });
-    const thick = h('input', { type: 'text', inputmode: 'decimal', value: String(+m.plateCfg.thickness.toFixed(3)), title: 'Measure your plate with calipers: Z zero is this much below where the bit touches' });
+    // (review r086 F4) the plate's numbers in cam's units; a bare number typed is in them too
+    const plateShow = mm => window.SwarfLength ? SwarfLength.show(mm) : String(+(+mm).toFixed(3));
+    const thick = h('input', { type: 'text', inputmode: 'decimal', value: plateShow(m.plateCfg.thickness), title: `Measure your plate with calipers: Z zero is this much below where the bit touches (${inch() ? '0.12 in or 3 mm' : '3 mm or 1/8 in'} both work)` });
     const circuit = h('p', { class: 'sr-circuit' });
     const touchBtn = sim ? h('button', { text: 'touch the plate to the bit', title: 'The simulator has no plate: this stands in for the touch', onclick: () => { proved = true; show(); } }) : null;
     const go = h('button', { class: 'go' });
@@ -1506,19 +1519,20 @@ html[data-skin] #swarf-run .sr-jog .sr-zrow button.next, html[data-skin] #swarf-
     if (!sim && !known) { base = m.state.inputs ? { ...m.state.inputs } : null; S.plateWatch = watch; }
     thick.addEventListener('keydown', e => e.stopPropagation());
     // how far the bit searches down for the plate (Phil 10-29: 60 mm by default, raise it by hand)
-    const reach = h('input', { type: 'text', inputmode: 'decimal', value: String(Math.round((m.plateCfg && m.plateCfg.travel) || 60)), title: 'How far the bit comes down looking for the plate before it gives up' });
+    const reachShow = () => inch() ? String(+(((m.plateCfg && m.plateCfg.travel) || 60) / 25.4).toFixed(2)) : String(Math.round((m.plateCfg && m.plateCfg.travel) || 60));
+    const reach = h('input', { type: 'text', inputmode: 'decimal', value: reachShow(), title: 'How far the bit comes down looking for the plate before it gives up' });
     reach.addEventListener('keydown', e => e.stopPropagation());
     reach.addEventListener('change', () => {
-      const t = mmOf(reach.value, 'mm');
-      if (!(t >= 10 && t <= 150) || !m.setPlateTravel || !m.setPlateTravel(t)) { reach.value = String(Math.round((m.plateCfg && m.plateCfg.travel) || 60)); say('Search down is 10 to 150 mm.', 'warn'); return; }
-      reach.value = String(+t.toFixed(1));
+      const t = mmOf(reach.value);
+      if (!(t >= 10 && t <= 150) || !m.setPlateTravel || !m.setPlateTravel(t)) { reach.value = reachShow(); say(inch() ? 'Search down is 1/2 to 6 in (10 to 150 mm).' : 'Search down is 10 to 150 mm.', 'warn'); return; }
+      reach.value = inch() ? String(+(t / 25.4).toFixed(2)) : String(+t.toFixed(1));
       const over = boxes.over && boxes.over.nextElementSibling;
-      if (over) over.textContent = `The bit is over your board, less than ${Math.round(t)} mm above the plate (its search distance).`;
+      if (over) over.textContent = `The bit is over your board, less than ${len(t, 0)} above the plate (its search distance).`;
     });
     thick.addEventListener('change', () => {
-      const t = mmOf(thick.value, 'mm');
-      if (!(t > 0 && t < 50) || !m.setPlateThickness || !m.setPlateThickness(t)) { thick.value = String(+m.plateCfg.thickness.toFixed(3)); say('A plate is between 0 and 50 mm thick: measure yours with calipers.', 'warn'); }
-      else thick.value = String(+t.toFixed(3));
+      const t = mmOf(thick.value);
+      if (!(t > 0 && t < 50) || !m.setPlateThickness || !m.setPlateThickness(t)) { thick.value = plateShow(m.plateCfg.thickness); say(inch() ? 'A plate is under 2 in (50 mm) thick: measure yours with calipers.' : 'A plate is between 0 and 50 mm thick: measure yours with calipers.', 'warn'); }
+      else thick.value = plateShow(t);
     });
     put.addEventListener('change', show);
     go.onclick = async () => {
@@ -1534,8 +1548,8 @@ html[data-skin] #swarf-run .sr-jog .sr-zrow button.next, html[data-skin] #swarf-
       el.sheet.classList.add('on'); show(); refresh();
     };
     body.append(h('h2', { text: 'Zero Z with the plate' }),
-      h('div', { class: 'sr-plate-t' }, h('span', { text: 'plate thickness' }), thick, h('span', { text: 'mm: measure your plate with calipers' })),
-      h('div', { class: 'sr-plate-t' }, h('span', { text: 'search down' }), reach, h('span', { text: 'mm: how far the bit comes down looking for the plate' })));
+      h('div', { class: 'sr-plate-t' }, h('span', { text: 'plate thickness' }), thick, h('span', { text: `${inch() ? 'in' : 'mm'}: measure your plate with calipers` })),
+      h('div', { class: 'sr-plate-t' }, h('span', { text: 'search down' }), reach, h('span', { text: `${inch() ? 'in' : 'mm'}: how far the bit comes down looking for the plate` })));
     for (const [k, t] of checks) {
       boxes[k] = h('input', { type: 'checkbox' });
       boxes[k].addEventListener('change', show);
@@ -1900,7 +1914,7 @@ html[data-skin] #swarf-run .sr-jog .sr-zrow button.next, html[data-skin] #swarf-
         el.card.append(h('p', { text: 'swarf does not know where the table is yet (this machine has no home switches). Jog the bit right over the front-left corner of the table, the corner nearest you on the left, then press below. It holds until the machine is switched off.' }));
       } else {
         const p = m.mabs();
-        el.card.append(h('p', { text: `Front-left corner learnt ${new Date(c.at).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}. The bit is ${(p.x - c.x).toFixed(1)} mm right of it and ${(p.y - c.y).toFixed(1)} mm back. The table is ${T.x.toFixed(0)} × ${T.y.toFixed(0)} mm.` }));
+        el.card.append(h('p', { text: `Front-left corner learnt ${new Date(c.at).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}. The bit is ${len(p.x - c.x)} right of it and ${len(p.y - c.y)} back. The table is ${lens([T.x, T.y], 0)}.` }));
         const rowFor = (name, cx, cy) => h('div', { class: 'sr-needrow' }, h('b', { text: '⌐' }), h('span', {}, h('strong', { text: name })),
           h('button', { text: 'make it X 0, Y 0', title: `The ${name} corner becomes X 0, Y 0; the bit does not move`, onclick: () => { zeroAtCorner(cx, cy); shut(); tell(`X 0, Y 0 is now the table's ${name} corner. The bit did not move.`); } }),
           h('button', { text: 'go there', title: `Up to 25 mm (1 in), then over the ${name} corner`, onclick: () => aboutToMove({ title: 'The bit is about to move', text: `Up to 25 mm (1 in) over Z 0 (if it is lower), then over the table's ${name} corner.`, go: 'move', run: () => goCorner(cx, cy) }) }));
@@ -2287,7 +2301,7 @@ html[data-skin] #swarf-run .sr-jog .sr-zrow button.next, html[data-skin] #swarf-
   }
   function open() {
     if (!el.root) build();
-    else if (S.rowsUnit !== (inch() ? 'in' : 'mm')) rateRows();
+    else if (S.rowsUnit !== (inch() ? 'in' : 'mm')) { rateRows(); renderPlan(); }
     place();
     if (!S.placeHooked) { window.addEventListener('resize', place); S.placeHooked = true; }
     el.root.classList.add('open');
@@ -2413,7 +2427,7 @@ html[data-skin] #swarf-run .sr-jog .sr-zrow button.next, html[data-skin] #swarf-
   // a card on control's sheet, for swarf-lessons.js: nodes in, the sheet shown; null hides it
   function card(nodes) {
     if (!el.root) build();
-    else if (S.rowsUnit !== (inch() ? 'in' : 'mm')) rateRows();
+    else if (S.rowsUnit !== (inch() ? 'in' : 'mm')) { rateRows(); renderPlan(); }
     if (!nodes) { el.sheet.classList.remove('on'); refresh(); return; }
     el.card.innerHTML = ''; el.card.append(...nodes); el.sheet.classList.add('on');
   }

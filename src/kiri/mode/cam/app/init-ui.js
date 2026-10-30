@@ -299,7 +299,39 @@ const opDel = (rec) => {
     }
 };
 
+// swarf (review r086 F4): the step card's numbers in the student's unit. Ops keep mm, mm/min and
+// stepover as a fraction of the bit; only the card's words and fields change.
+function opInch() {
+    const L = window.SwarfLength;
+    return L ? L.unit() === 'in' : api.view.unit_scale() === 25.4;
+}
+function opShow(f, v) {
+    v = +v;
+    if (!Number.isFinite(v)) return '';
+    const L = window.SwarfLength, inch = opInch();
+    if (f === 'rate') return String(inch ? +(v / 25.4).toFixed(1) : Math.round(v));
+    if (f === 'step') return String(+(v * 100).toFixed(1));
+    if (f === 'down') return L ? L.show(v) : String(+(v / (inch ? 25.4 : 1)).toFixed(inch ? 4 : 3));
+    return String(v);
+}
+function opParse(f, text) {
+    const L = window.SwarfLength, inch = opInch();
+    const n = parseFloat(String(text).replace(',', '.'));
+    if (f === 'rate') return n > 0 ? n * (inch ? 25.4 : 1) : NaN;
+    if (f === 'step') return n > 0 ? Math.min(100, n) / 100 : NaN;
+    if (f === 'down') {
+        const mm = L ? L.parse(text) : n * (inch ? 25.4 : 1);
+        return mm >= 0 ? mm : NaN;
+    }
+    return n;
+}
+let opUnitsHooked = false;
+
 export function opRender() {
+    if (!opUnitsHooked && api.event) {
+        opUnitsHooked = true;
+        api.event.on('units.set', () => setTimeout(opRender, 0));
+    }
     let oplist = env.current?.process?.ops;
     if (!(env.isCamMode && oplist)) {
         return;
@@ -381,14 +413,18 @@ export function opRender() {
             const labels = { tool: 'tool', rate: 'feed', down: 'stepdown', step: 'stepover',
                              inside: 'inside only', outside: 'outside only', all: 'clear all',
                              flats: 'flats', curves: 'curves' };
+            // (review r086 F4) every number says its unit and follows mm | in: feed in mm/min or
+            // in/min, step-down a length (fractions typed), stepover a share of the bit's width
+            const inch = opInch();
             const tips = {
-                tool: 'which cutter to use for this operation',
-                rate: 'feed rate in mm/min — how fast the tool moves through material',
-                down: 'step-down — how deep each layer cuts (mm)',
-                step: 'stepover — sideways distance between passes (mm)',
+                tool: 'which bit cuts this step',
+                rate: `feed: how fast the bit moves through the wood, in ${inch ? 'inches' : 'mm'} per minute`,
+                down: `step-down: how deep each pass cuts, in ${inch ? 'inches (3/4, 1/8 and 3 mm work too)' : 'mm (1/8 in works too)'}`,
+                step: 'stepover: how far apart the passes are, as a share of the bit\'s width (40 means 40 %)',
                 inside: 'cut only inside the part outline',
                 outside: 'cut only outside the part outline',
             };
+            const units = { rate: inch ? 'in/min' : 'mm/min', down: inch ? 'in' : 'mm', step: '% of bit' };
             const rows = swarfFields.map(f => {
                 const tip = tips[f] ? ` title="${tips[f]}"` : '';
                 if (f === 'tool') {
@@ -397,7 +433,7 @@ export function opRender() {
                 if (BOOL_FIELDS[f]) {
                     return `<label class="swarf-op-row swarf-op-bool"${tip}><input type="checkbox" data-swarf-field="${f}" data-op="${mark + i}"${rec[f] ? ' checked' : ''}/><span>${labels[f]}</span></label>`;
                 }
-                return `<label class="swarf-op-row"${tip}><span>${labels[f]}</span><input type="number" step="0.01" data-swarf-field="${f}" data-op="${mark + i}"/></label>`;
+                return `<label class="swarf-op-row swarf-op-num"${tip}><span>${labels[f]}</span><input type="text" inputmode="decimal" data-swarf-field="${f}" data-op="${mark + i}"/><em class="swarf-op-unit">${units[f] || ''}</em></label>`;
             }).join('');
             drawerHtml = `<div id="${mark + i}-p" class="swarf-op-params" data-op="${mark + i}">${rows}</div>`;
         }
@@ -446,8 +482,9 @@ export function opRender() {
                             if (t.id === rec.tool) o.selected = true;
                             inp.appendChild(o);
                         }
-                    } else {
-                        if (rec[f] !== undefined && rec[f] !== null) inp.value = rec[f];
+                    } else if (inp.type !== 'checkbox') {
+                        if (rec[f] !== undefined && rec[f] !== null) inp.value = opShow(f, rec[f]);
+                        inp.addEventListener('keydown', ev => { if (ev.key === 'Enter') inp.blur(); });
                     }
                     inp.addEventListener('change', () => {
                         if (f === 'tool') {
@@ -458,8 +495,9 @@ export function opRender() {
                         } else if (inp.type === 'checkbox') {
                             rec[f] = inp.checked;
                         } else {
-                            const v = parseFloat(inp.value);
-                            if (!Number.isNaN(v)) rec[f] = v;
+                            const v = opParse(f, inp.value);
+                            if (Number.isFinite(v)) rec[f] = v;
+                            inp.value = opShow(f, rec[f]);
                         }
                         api.conf.save();
                     });
