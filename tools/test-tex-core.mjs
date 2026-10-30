@@ -223,5 +223,35 @@ ok(T.morseEncode('hi there') === '.... .. / - .... . .-. .', 'morse words split 
   ok(T.markTexture({ region: T.storeRegion(empty), fill: T.newFill('waves') }) === null, 'an empty region has no texture');
 }
 
+// 12. the card's words from the core: lowercase names, one or two numbers that size each pattern
+//     shown first, seeds offered as a shuffle; the feature size in the app's units
+for (const [id, P] of Object.entries(T.PATTERNS)) {
+  ok(P.label === P.label.toLowerCase(), `${id}: its name is lowercase ("${P.label}")`);
+  const basic = P.params.filter((q) => q.basic).map((q) => q.k);
+  ok(basic.length >= 1 && basic.length <= 2 && !basic.includes('depth') && !basic.includes('seed'), `${id}: ${basic.join(', ')} first`);
+  ok(P.params.filter((q) => q.k === 'seed').every((q) => q.shuffle && !q.basic), `${id}: a seed is a shuffle`);
+}
+{
+  const g = T.newGrid(0, 0, 80, 50, 0.5);
+  T.paintWhere(g, () => true, 1);
+  const chk = T.markChecks({ region: T.storeRegion(g), fill: T.newFill('noise', { tool: 'ball14', origin: [40, 25] }) }, { thickness: 19, len: (v) => `${(v / 25.4).toFixed(3)} in` });
+  const line = chk.notes.find((n) => /finest detail/.test(n)) || '';
+  ok(/\(~0\.138 in finest lumps\)/.test(line) && !/ mm/.test(line), `the feature size in inches: "${line}"`);
+}
+
+// 13. pictures: a swatch for every pattern, shaded inside the host's bounded range
+{
+  const lo = [60, 50, 40], hi = [230, 220, 200];
+  for (const id of Object.keys(T.PATTERNS)) {
+    const D = T.swatch(id, 32, { lo, hi });
+    let mn = 255, mx = 0, out = 0;
+    for (let i = 0; i < D.length; i += 4) { mn = Math.min(mn, D[i]); mx = Math.max(mx, D[i]); if (D[i] < lo[0] - 1 || D[i] > hi[0] + 1 || D[i + 3] !== 255) out++; }
+    ok(D.length === 32 * 32 * 4 && out === 0 && mx - mn > 30, `${id} swatch: ${mn}..${mx}, all within ${lo[0]}..${hi[0]}`);
+  }
+  const H = new Float32Array(9).fill(1), inside = new Uint8Array(9); inside[4] = 1;
+  const D = T.shadeHeight(H, 3, 3, 1, { lo, hi }, inside);
+  ok(D[3] === 0 && D[4 * 4 + 3] === 255, 'shadeHeight leaves pixels outside the mask clear');
+}
+
 console.log(`\n${pass} passed, ${fail} failed  (${((Date.now() - t0) / 1000).toFixed(1)} s)`);
 process.exit(fail ? 1 : 0);

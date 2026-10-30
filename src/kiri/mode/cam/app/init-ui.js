@@ -293,6 +293,8 @@ const opDel = (rec) => {
         oplist.splice(pos, 1);
         api.conf.save();
         opRender();
+        // swarf: a step taken away by hand (TEX takes a texture step's mark with it)
+        api.event.emit('cam.op.deleted', rec);
     }
 };
 
@@ -358,8 +360,8 @@ export function opRender() {
             trace:   ['tool','rate','down'],
             drill:   ['tool','rate','down'],
             area:    ['tool','rate','down','step'],
-            // the bit and the path are the mark's, set in TEX
-            texture: ['rate','down'],
+            // the bit and the path are the mark's, set in TEX; its passes' depth only in advanced
+            texture: document.body.classList.contains('swarf-expert') ? ['rate','down'] : ['rate'],
         };
         // boolean fields render as checkboxes
         const BOOL_FIELDS = { inside: true, outside: true, all: true, flats: true, curves: true };

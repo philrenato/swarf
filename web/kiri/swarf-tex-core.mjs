@@ -379,7 +379,7 @@ const PROFILES = ['ball', 'cone', 'flat'];
 
 export const PATTERNS = {
   dots: {
-    label: 'Polka dots', blurb: 'Dimples on a grid or hex lattice.',
+    label: 'polka dots', blurb: 'Dimples on a grid or hex lattice.',
     params: [P('pitch', 'Spacing', 3, 40, 0.5, 10), P('diameter', 'Dot size', 1, 30, 0.5, 6.5), P('depth', 'Depth', 0.2, 6, 0.1, 1.6),
       S('layout', 'Layout', ['hex', 'grid'], 'hex'), S('profile', 'Profile', PROFILES, 'ball')],
     build(p) {
@@ -394,7 +394,7 @@ export const PATTERNS = {
     },
   },
   dashdot: {
-    label: 'Dashes & dots', blurb: 'Rows of a repeating dash-dot sequence.',
+    label: 'dashes & dots', blurb: 'Rows of a repeating dash-dot sequence.',
     params: [T('sequence', 'Sequence', '-.'), P('dash', 'Dash length', 3, 40, 0.5, 12), P('width', 'Width', 1, 12, 0.25, 4),
       P('gap', 'Gap', 1, 20, 0.25, 4), P('rows', 'Row spacing', 3, 40, 0.5, 9), P('shift', 'Row shift', 0, 40, 0.5, 8),
       P('depth', 'Depth', 0.2, 5, 0.1, 1.4), S('profile', 'Profile', PROFILES, 'ball')],
@@ -406,7 +406,7 @@ export const PATTERNS = {
     },
   },
   morse: {
-    label: 'Morse', blurb: 'Your words as dots and dashes.',
+    label: 'morse', blurb: 'Your words as dots and dashes.',
     params: [T('text', 'Message', 'SWARF'), P('unit', 'Unit', 1, 12, 0.25, 3.2), P('width', 'Width', 0.8, 10, 0.1, 3.2),
       P('rows', 'Row spacing', 3, 40, 0.5, 8), P('shift', 'Row shift', 0, 60, 0.5, 13),
       P('depth', 'Depth', 0.2, 5, 0.1, 1.2), S('profile', 'Profile', PROFILES, 'ball')],
@@ -423,7 +423,7 @@ export const PATTERNS = {
     },
   },
   ribs: {
-    label: 'Flutes', blurb: 'Parallel grooves, straight or wavy.',
+    label: 'flutes', blurb: 'Parallel grooves, straight or wavy.',
     params: [P('pitch', 'Spacing', 2, 40, 0.5, 8), P('width', 'Groove width', 1, 30, 0.25, 6.35), P('depth', 'Depth', 0.2, 6, 0.1, 2),
       P('wiggle', 'Wiggle', 0, 15, 0.5, 0), P('wavelength', 'Wiggle length', 10, 200, 1, 60), S('profile', 'Profile', PROFILES, 'ball')],
     build(p) {
@@ -447,7 +447,7 @@ export const PATTERNS = {
     },
   },
   knurl: {
-    label: 'Knurl', blurb: 'Crossed V grooves leave a field of pyramids.',
+    label: 'knurl', blurb: 'Crossed V grooves leave a field of pyramids.',
     params: [P('pitch', 'Spacing', 2, 30, 0.5, 6), P('depth', 'Depth', 0.2, 8, 0.1, 3), P('cross', 'Crossing angle', 20, 90, 1, 90, '°'),
       P('land', 'Flat tops', 0, 0.8, 0.05, 0, '')],
     build(p) {
@@ -465,8 +465,8 @@ export const PATTERNS = {
     },
   },
   noise: {
-    label: 'Perlin noise', blurb: 'Fractal lumps: hammered, cast, cratered.',
-    params: [P('scale', 'Size', 4, 120, 1, 28), P('octaves', 'Octaves', 1, 6, 1, 3, ''), P('roughness', 'Roughness', 0.2, 0.8, 0.05, 0.5, ''),
+    label: 'noise', blurb: 'Fractal lumps: hammered, cast, cratered.',
+    params: [P('scale', 'Lump size', 4, 120, 1, 28), P('octaves', 'Detail', 1, 6, 1, 3, ''), P('roughness', 'Roughness', 0.2, 0.8, 0.05, 0.5, ''),
       P('depth', 'Depth', 0.2, 6, 0.1, 2), S('style', 'Style', ['smooth', 'billow', 'ridged'], 'smooth'), P('seed', 'Seed', 1, 99, 1, 7, '')],
     build(p) {
       const o = { octaves: p.octaves | 0, roughness: p.roughness, seed: p.seed | 0 };
@@ -478,9 +478,9 @@ export const PATTERNS = {
     },
   },
   waves: {
-    label: 'Ocean waves', blurb: 'A sum of wave trains with sharp crests.',
-    params: [P('wavelength', 'Wavelength', 6, 120, 1, 30), P('count', 'Wave trains', 1, 10, 1, 6, ''), P('spread', 'Spread', 0, 90, 1, 40, '°'),
-      P('chop', 'Choppiness', 1, 4, 0.1, 2.2, ''), P('warp', 'Wander', 0, 1, 0.05, 0.35, ''), P('depth', 'Depth', 0.2, 6, 0.1, 2.2), P('seed', 'Seed', 1, 99, 1, 3, '')],
+    label: 'ocean waves', blurb: 'A sum of wave trains with sharp crests.',
+    params: [P('wavelength', 'Wavelength', 6, 120, 1, 30), P('count', 'Waves', 1, 10, 1, 6, ''), P('spread', 'Spread', 0, 90, 1, 40, '°'),
+      P('chop', 'Sharp crests', 1, 4, 0.1, 2.2, ''), P('warp', 'Wander', 0, 1, 0.05, 0.35, ''), P('depth', 'Depth', 0.2, 6, 0.1, 2.2), P('seed', 'Seed', 1, 99, 1, 3, '')],
     build(p) {
       const seed = p.seed | 0, N = Math.max(1, p.count | 0), sp = p.spread * Math.PI / 180;
       const W = [];
@@ -509,10 +509,10 @@ export const PATTERNS = {
     },
   },
   stone: {
-    label: 'Stone wall', blurb: 'Voronoi stones in mortar, each at its own height.',
+    label: 'stone wall', blurb: 'Voronoi stones in mortar, each at its own height.',
     params: [P('size', 'Stone size', 6, 80, 1, 26), P('mortar', 'Mortar width', 0.8, 10, 0.1, 3.2), P('depth', 'Mortar depth', 0.3, 6, 0.1, 2.4),
-      P('jitter', 'Height jitter', 0, 3, 0.05, 0.6), P('crown', 'Edge roll', 0, 3, 0.05, 0.8), P('regular', 'Regularity', 0, 1, 0.05, 0.15, ''),
-      P('rough', 'Surface grit', 0, 1, 0.05, 0.25), P('seed', 'Seed', 1, 99, 1, 11, '')],
+      P('jitter', 'Stone heights', 0, 3, 0.05, 0.6), P('crown', 'Rounded edges', 0, 3, 0.05, 0.8), P('regular', 'Evenness', 0, 1, 0.05, 0.15, ''),
+      P('rough', 'Stone texture', 0, 1, 0.05, 0.25), P('seed', 'Seed', 1, 99, 1, 11, '')],
     build(p) {
       const S = p.size, hm = p.mortar / 2, seed = p.seed | 0, jit = 1 - 0.95 * clamp01(p.regular);
       const roll = Math.max(0.5, S * 0.18);
@@ -530,14 +530,14 @@ export const PATTERNS = {
     },
   },
   weave: {
-    label: 'Basket weave', blurb: 'Over-under strands, like woven cane.',
-    params: [P('thread', 'Strand width', 3, 40, 0.5, 9), P('depth', 'Depth', 0.2, 5, 0.1, 1.8), S('draft', 'Draft', ['basket', 'plain', 'twill', 'satin', 'herring'], 'basket')],
+    label: 'basket weave', blurb: 'Over-under strands, like woven cane.',
+    params: [P('thread', 'Strand width', 3, 40, 0.5, 9), P('depth', 'Depth', 0.2, 5, 0.1, 1.8), S('draft', 'Weave', ['basket', 'plain', 'twill', 'satin', 'herring'], 'basket')],
     build(p) {
       return { h: (u, v) => p.depth * (1 - weave01(u / p.thread, v / p.thread, p.draft)), depth: p.depth, feature: p.thread * 0.5, featureLabel: `${fmt(p.thread)} mm strands`, kind: 'surface' };
     },
   },
   motif: {
-    label: 'Step & repeat', blurb: 'Any motif, stepped across the region.',
+    label: 'step & repeat', blurb: 'Any motif, stepped across the region.',
     params: [S('shape', 'Motif', Object.keys(MOTIFS), 'x'), P('size', 'Size', 4, 80, 0.5, 14), P('px', 'Step X', 4, 100, 0.5, 18), P('py', 'Step Y', 4, 100, 0.5, 18),
       S('stagger', 'Stagger', ['yes', 'no'], 'yes'), S('flip', 'Flip alternate rows', ['no', 'yes'], 'no'), P('width', 'Line width', 0.6, 10, 0.1, 2.4),
       P('depth', 'Depth', 0.2, 5, 0.1, 1.2), S('fill', 'Fill', ['outline', 'pocket'], 'outline'), S('profile', 'Profile', PROFILES, 'cone')],
@@ -577,6 +577,20 @@ export const PATTERNS = {
     },
   },
 };
+
+// The one or two numbers that size each pattern: what a card shows first. The rest (and every
+// seed, which a card can offer as a shuffle) are the pattern's finer points.
+export const BASIC = {
+  dots: ['pitch', 'diameter'], dashdot: ['sequence', 'width'], morse: ['text'], ribs: ['pitch', 'width'], knurl: ['pitch'],
+  noise: ['scale'], waves: ['wavelength'], stone: ['size', 'mortar'], weave: ['thread'], motif: ['shape', 'size'],
+};
+// one word each, for a swatch's caption
+const SHORT = { dots: 'dots', dashdot: 'dash-dot', morse: 'morse', ribs: 'flutes', knurl: 'knurl', noise: 'noise', waves: 'waves', stone: 'stone', weave: 'weave', motif: 'repeat' };
+for (const id in PATTERNS) PATTERNS[id].short = SHORT[id] || PATTERNS[id].label;
+for (const [id, ks] of Object.entries(BASIC)) for (const q of PATTERNS[id].params) {
+  if (ks.includes(q.k)) q.basic = true;
+  if (q.k === 'seed') q.shuffle = true;
+}
 
 export function defaults(id) {
   const o = {};
@@ -1104,6 +1118,8 @@ export function analyze(tex, toolIn, o = {}) {
   // lengths said the app's way (o.len: v mm -> '1/8 in'); millimeters by default
   const L1 = o.len || ((v) => `${fmt(v, 1)} mm`), L2 = o.len || ((v) => `${fmt(v, 2)} mm`);
   const finest = tool.type === 'v' ? Math.max(0.2, wAt) : wAt;
+  // the pattern's own words ("6.5 mm dots") at its placed size, in the app's units
+  const featureLabel = String(tex.featureLabel || '').replace(/([\d.]+) mm/, (m, v) => L1(+v * (tex.scale || 1)));
   notes.push(`${tool.name}: ${tool.type === 'v' ? `${L1(wAt)} wide at ${L1(d)} deep, finer when shallower` : `the narrowest cut it makes ${L1(d)} deep is ${L1(wAt)}`}.`);
   if (tex.depth > maxDepth + 1e-6) warnings.push(`The pattern goes ${L1(tex.depth)} deep; max depth is ${L1(maxDepth)}, so the deepest parts come out flat at ${L1(maxDepth)}.`);
   if (tex.kind === 'dots' && tex.dotDiameter) {
@@ -1135,7 +1151,7 @@ export function analyze(tex, toolIn, o = {}) {
   } else if (tex.kind === 'surface') {
     const F = tex.feature;
     if (tool.type === 'flat') warnings.push(`A flat end mill leaves stair-steps and flat-bottomed valleys on a curved texture; a ball nose follows the slopes.`);
-    if (tool.type !== 'v' && tool.widthAt(Math.min(d, tool.R)) > F * 1.6) notes.push(`The finest detail here is about ${L1(F)} (${tex.featureLabel}); a ${tool.name} rounds over anything narrower than ~${L1(tool.widthAt(Math.min(d, tool.R)))}, so the finest detail softens.`);
+    if (tool.type !== 'v' && tool.widthAt(Math.min(d, tool.R)) > F * 1.6) notes.push(`The finest detail here is about ${L1(F)} (${featureLabel}); a ${tool.name} rounds over anything narrower than ~${L1(tool.widthAt(Math.min(d, tool.R)))}, so the finest detail softens.`);
   }
   return { finest, widthAtDepth: wAt, warnings, notes, tool };
 }
@@ -1406,13 +1422,50 @@ export function markChecks(mark, o = {}) {
   return { warnings, notes: a.notes, tex, tool, strategy };
 }
 
+// ---------------------------------------------------------------------------------------------
+// Pictures: a height field shaded as a carved surface, for any host to draw (marks, swatches).
+//
+// shadeHeight(H, W, Hn, res, colors, inside, depth) -> Uint8ClampedArray RGBA, row 0 at the top.
+//   H: W x Hn depths (mm below the top, row 0 = the far edge); res: mm per pixel;
+//   colors: { lo, hi } [r, g, b] for a deep wall in shadow and a top in the light — a host passes
+//   a bounded range around its own surface color, so a mark reads alike on light and dark grounds;
+//   inside: optional W x Hn 0/1 (transparent where 0); depth: the deepest it can go (else H's own).
+export function shadeHeight(H, W, Hn, res, colors, inside, depth) {
+  const D = new Uint8ClampedArray(W * Hn * 4), { lo, hi } = colors;
+  let dmax = depth || 0;
+  if (!dmax) for (let k = 0; k < H.length; k++) if (H[k] > dmax) dmax = H[k];
+  dmax = Math.max(0.5, dmax);
+  const L = [-0.55, 0.55, 0.63];
+  for (let j = 0; j < Hn; j++) for (let i = 0; i < W; i++) {
+    const k = j * W + i, o = k * 4;
+    if (inside && !inside[k]) continue;
+    // lit from the back left; the surface is z = -h, its normal (hx, hy, 1) with y up the page
+    const hx = (H[j * W + Math.min(W - 1, i + 1)] - H[j * W + Math.max(0, i - 1)]) / (2 * res) * 1.6;
+    const hy = (H[Math.max(0, j - 1) * W + i] - H[Math.min(Hn - 1, j + 1) * W + i]) / (2 * res) * 1.6;
+    const sh = Math.max(0, (hx * L[0] + hy * L[1] + L[2]) / Math.hypot(hx, hy, 1)) / 0.93;
+    const t = clamp01(0.62 * Math.min(1, sh) + 0.38 * (1 - H[k] / dmax));
+    D[o] = lo[0] + (hi[0] - lo[0]) * t; D[o + 1] = lo[1] + (hi[1] - lo[1]) * t; D[o + 2] = lo[2] + (hi[2] - lo[2]) * t; D[o + 3] = 255;
+  }
+  return D;
+}
+
+// A pattern's swatch: an N x N picture of a patch sized to show a few repeats, at its own numbers
+export const SWATCH_SPAN = { dots: 40, dashdot: 52, morse: 60, ribs: 44, knurl: 30, noise: 90, waves: 90, stone: 70, weave: 44, motif: 50 };
+export function swatch(id, N, colors, params) {
+  const span = SWATCH_SPAN[id] || 50, res = span / N;
+  const tex = texture({ pattern: id, params, transform: { ox: 0, oy: 0 } });
+  const H = new Float32Array(N * N);
+  for (let j = 0; j < N; j++) for (let i = 0; i < N; i++) H[j * N + i] = tex.base.h(i * res, (N - 1 - j) * res);
+  return shadeHeight(H, N, N, res, colors, null, tex.depth);
+}
+
 const API = {
   hash3, perlin2, fbm2, worley2, cap, stepRepeat, blend, MORSE, morseEncode, strokeField, WEAVE_DRAFTS, MOTIFS, PATTERNS, defaults,
   rectMask, ellipseMask, polygonMask, paintMask, unionMask, makeMask, maskWeight, texture, TOOLS, makeTool, toolOffsets, dropCutter,
   heightGrid, stepoverForScallop, rasterPath, plungeDots, centerlinePath, toolpath, estimateTime, formatTime, analyze, createSim,
   simulate, compare, FILLS, PATHS, IDENTITY, encodeRuns, decodeRuns, newGrid, paintWhere, stampDisc, stampStroke, gridCount,
   regionSpec, storeRegion, xfApply, xfInvert, xfThen, xfScale, placeTexture, newFill, markTexture, pathFor, markToolpath, feedRuns,
-  markChecks,
+  markChecks, BASIC, shadeHeight, SWATCH_SPAN, swatch,
 };
 if (typeof window !== 'undefined') window.SwarfTexCore = API;
 export default API;

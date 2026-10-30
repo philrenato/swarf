@@ -124,6 +124,15 @@ try {
   st = await page.evaluate(() => { const S = window.__swarfTex.state(), m = S.parts[S.sel].marks[S.mark]; return { pattern: m.fill.pattern, depth: m.fill.depth, tool: m.fill.tool, card: document.getElementById('tx-card').textContent, img: !!document.querySelector('#tx-svg image.tx-mark') }; });
   check(st.pattern === 'waves' && st.depth === 2 && st.tool === 'ball14' && /About .* to cut/.test(st.card) && st.img, `the card fills the mark: ${st.pattern}, ${st.depth} mm, ${st.tool}; "${(/About [^.]*/.exec(st.card) || [''])[0]}"; the mark drawn on the board`);
   await page.screenshot({ path: `${OUT}-board.png` });
+  const look = await page.evaluate(() => {
+    const c = document.getElementById('tx-card'), cr = c.getBoundingClientRect(), note = [...c.querySelectorAll('.sd-note')].find(n => /About/.test(n.textContent));
+    const pick = c.querySelector('.tx-pick.on'), other = document.getElementById('tx-new'), bg = el => el && getComputedStyle(el).backgroundColor;
+    return { sws: c.querySelectorAll('.tx-sw').length, on: [...c.querySelectorAll('.tx-sw.on')].map(b => b.dataset.pat), more: !!c.querySelector('details.tx-more:not([open])'),
+      seen: !!note && note.getBoundingClientRect().bottom <= cr.bottom, edge: !!document.querySelector('#tx-svg path.tx-edge'), pick: pick && pick.textContent, lit: !!pick && bg(pick) !== bg(other) };
+  });
+  check(look.sws === 10 && look.on.join() === 'waves' && look.more, `the card: ten swatches, waves lit, the finer points folded (${JSON.stringify({ sws: look.sws, on: look.on, more: look.more })})`);
+  check(look.seen, 'the cut time is in view, up by the pattern');
+  check(look.edge && look.lit && /^1 · brush \d+ × \d+ mm$/.test(look.pick), `the picked mark: its edge dashed on the board, its button lit and named ("${look.pick}")`);
   // Escape steps back (tool, mark, part) and does not leave while there is something to undo
   await page.keyboard.press('Escape'); await page.keyboard.press('Escape'); await page.keyboard.press('Escape'); await page.keyboard.press('Escape');
   const esc = await page.evaluate(() => ({ open: !!window.__swarfTex.state(), say: document.getElementById('tx-say').textContent }));
@@ -156,7 +165,7 @@ try {
     const xs = cutsT.map(q => q.x), ys = cutsT.map(q => q.y);
     const span = [Math.max(...xs) - Math.min(...xs), Math.max(...ys) - Math.min(...ys)];
     const firstO = M.findIndex(q => q.tool !== box.tool && q.tool), lastT = M.map(q => q.tool).lastIndexOf(box.tool);
-    return { n: cutsT.length, lo, span, before: firstO < 0 || lastT < firstO, outlineDeep: Math.min(...O.map(q => q.z)) };
+    return { n: cutsT.length, lo, span, x0: Math.min(...xs), before: firstO < 0 || lastT < firstO, outlineDeep: Math.min(...O.map(q => q.z)) };
   };
   let J = judge(gc);
   const bw = box.b[2] - box.b[0], bh = box.b[3] - box.b[1];
@@ -199,6 +208,8 @@ try {
   await page.waitForFunction(() => window.__swarfTex.state(), { timeout: 5000 });
   const again = await page.evaluate(() => window.__swarfTex.state().parts[0].marks.map(m => m.fill.pattern));
   check(again.join() === 'waves', `TEX opens with the mark (${again})`);
+  const shaded = await page.waitForFunction(() => window.__swarfTex.state().parts[0].marks.every(m => m.img && m.img.mode === 'full'), { timeout: 5000 }).then(() => true, () => false);
+  check(shaded, 'TEX opens with its marks shaded (not flat)');
   await page.evaluate(() => { const S = window.__swarfTex.state(); S.sel = 0; S.mark = 0; });
   await page.keyboard.press('b');
   const inch = await page.evaluate(() => ({ depth: document.getElementById('tx-depth')?.value, u: [...document.querySelectorAll('#tx-card .u')].map(u => u.textContent).filter(Boolean) }));
@@ -214,6 +225,19 @@ try {
   await wait(200);
   check(!(await page.evaluate(() => !!window.__swarfTex.state())), 'Escape leaves TEX when nothing changed');
 
+  // DRAW: the part slid 1 mm to the right keeps its mark, moved with it, and its step
+  await page.click('#swarf-step-draw');
+  await page.waitForFunction(() => window.__swarfDraw.state(), { timeout: 5000 });
+  await page.evaluate(() => { const S = window.__swarfDraw.state(); S.sel = S.parts.findIndex(p => !p.line); });
+  await page.keyboard.press('ArrowRight');
+  await page.click('#sd-done');
+  await wait(1500);
+  k = await tex(page);
+  check(k.ws.length === 1 && k.ws[0].marks.length === 1 && k.ws[0].marks[0].cells === mk.cells && k.ops.filter(o => o.startsWith('texture')).length === 1, `DRAW rebuilds the part slid 1 mm: its mark and its step stay (${JSON.stringify(k.ws[0] && k.ws[0].marks)}; ${k.ops})`);
+  ({ pv, gc } = await paths(page));
+  const J5 = judge(gc);
+  check(pv === 'preview.end' && J5.n === J.n && Math.abs(J5.span[0] - J.span[0]) < 0.3, `and the file still cuts it, the same size (${J5.n} cuts, ${J5.span.map(v => v.toFixed(1)).join(' x ')})`);
+
   // a copy of the part keeps the mark, and the same step cuts both
   await page.evaluate(() => { const a = window.kiri.api, w = a.widgets.all()[0]; a.platform.deselect(); a.platform.select(w); a.selection.duplicate(); });
   await wait(800);
@@ -222,9 +246,26 @@ try {
   ({ pv, gc } = await paths(page));
   const J3 = judge(gc);
   check(pv === 'preview.end' && J3.n > J.n * 1.8 && J3.lo >= -2.001, `the step cuts both parts (${J3.n} cuts, lowest ${J3.lo})`);
+  await page.setViewport({ width: 1280, height: 720 });
+  await page.click('#swarf-step-tex');
+  await page.waitForFunction(() => window.__swarfTex.state(), { timeout: 5000 });
+  await page.evaluate(() => { const S = window.__swarfTex.state(); S.sel = 0; S.mark = 0; });
+  await page.keyboard.press('v');
+  await page.waitForFunction(() => /About/.test(document.getElementById('tx-card').textContent), { timeout: 15000 }).catch(() => {});
+  const small = await page.evaluate(() => { const c = document.getElementById('tx-card'), cr = c.getBoundingClientRect(), n = [...c.querySelectorAll('.sd-note')].find(n => /About/.test(n.textContent)), d = document.getElementById('tx-depth'); return { note: !!n && n.getBoundingClientRect().bottom <= cr.bottom, depth: !!d && d.getBoundingClientRect().bottom <= cr.bottom, inView: cr.bottom <= innerHeight }; });
+  check(small.note && small.depth && small.inView, `at 1280 x 720 the cut time and the depth are in the card's view (${JSON.stringify(small)})`);
+  await page.screenshot({ path: `${OUT}-1280.png` });
+  await page.click('#tx-cancel');
+  await page.setViewport({ width: 1440, height: 900 });
+  await wait(300);
   // the concerns: a texture deeper than the board is said
   const said = await page.evaluate(() => { const a = window.kiri.api; for (const w of a.widgets.all()) for (const m of w.meta.tex) m.fill.depth = 25; a.conf.save(); return [...document.querySelectorAll('#swarf-concerns-body .swarf-concern')].map(c => c.textContent).filter(t => /texture/.test(t)); });
   check(said.some(t => /cut through/.test(t)), `concerns say a texture deeper than the board (${said[0] && said[0].slice(0, 90)}…)`);
+  // the step taken away in cam: its mark goes with it, said, and does not come back
+  await page.evaluate(() => { const row = [...document.querySelectorAll('#oplist > div')].find(r => /^texture/.test(r.querySelector('.label')?.textContent || '')); row?.querySelector('.del')?.dispatchEvent(new MouseEvent('mousedown', { bubbles: true })); });
+  await wait(600);
+  const gone = await page.evaluate(() => ({ marks: window.kiri.api.widgets.all().map(w => (w.meta.tex || []).length), ops: window.kiri.api.conf.get().process.ops.map(o => o.type), say: document.getElementById('alert-text')?.textContent || document.body.innerText.match(/The mark on [^\n]*/)?.[0] || '' }));
+  check(gone.marks.every(n => n === 0) && !gone.ops.includes('texture') && /gone with its step/.test(gone.say), `a texture step taken away in cam takes its mark, and says so (${JSON.stringify(gone)})`);
 } finally {
   await browser.close();
 }

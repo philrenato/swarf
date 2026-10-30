@@ -1332,6 +1332,7 @@
       }
       if (!ws.length) { failed.push(`${p.name} not made: ${(ws.error || 'swarf could not make it from its drawing. Is the outline crossing itself?').replace(/\.$/, '')}${p.w ? '; the part stays as it was' : ''}.`); continue; }
       if (!p.w) fresh = true;
+      if (p.w) carryMarks(p.w, ws);
       if (p.w) a.platform.delete(p.w);
       made.push(...ws);
       built++;
@@ -1339,6 +1340,8 @@
       p.w = ws[0]; p.dirty = false;
     }
     if (made.length) a.platform.select(made[0]);
+    // TEX's marks came across with their parts: their steps follow (named for the new parts)
+    if (made.some(w => w.meta && w.meta.tex) && window.__swarfTex) setTimeout(() => window.__swarfTex.syncSteps(a, true), 0);
     if (fresh && a.frame) setTimeout(() => a.frame(), 120);   // Fable review 3 #17: done counts as a landing
     // engraved lines: each onto the part under it, in that part's own frame (local = bed − its place)
     const lines = S.parts.filter(p => p.line);
@@ -1375,10 +1378,40 @@
       a.show.alert([...adapted.map(x => x + '.'), ...failed].join(' ') + (failed.length ? ' Open draw again to change it.' : '') + (lineSay ? ' ' + lineSay.trim() : ''), 14);
       return;
     }
-    const partSay = !n ? '' : open.length ? `${open.join(', ')}: open lines were left out (only closed outlines get a thickness; draw a line in DRAW to engrave it).` : `${n === 1 ? (made.length > 1 ? `Made from the drawing: ${made.length} pieces, kept together.` : '1 part rebuilt from the drawing.') : `${n} drawings made into parts.`} Next: a step (${made.some(w => w.meta.edge) ? 'contour shapes the edge, outline cuts it out' : 'outline cuts it out'}), then toolpaths.`;
+    const partSay = !n ? '' : open.length ? `${open.join(', ')}: open lines were left out (only closed outlines get a thickness; draw a line in DRAW to engrave it).` : `${n === 1 ? (made.length > 1 ? `Made from the drawing: ${made.length} pieces, kept together.` : '1 part rebuilt from the drawing.') : `${n} drawings made into parts.`} Next: a step (${made.some(w => w.meta.edge) ? 'contour shapes the edge, outline cuts it out' : 'outline cuts it out'}), then toolpaths. Or tex, to texture its top.`;
     const all = [partSay, lineSay.trim()].filter(Boolean).join(' ');
     if (all) a.show.alert(all, 10);
   }
+  // A part rebuilt from its drawing keeps TEX's marks (meta.tex): each goes to the new piece under its
+  // middle (the first piece if none), moved into that piece's own frame (local = bed − its place).
+  // A part slid whole carries its marks along; one reshaped keeps them where they were painted,
+  // and concerns say if the new outline leaves some of a mark off the part.
+  function carryMarks(old, ws) {
+    const C = window.SwarfTexCore;
+    if (!(C && old.meta && Array.isArray(old.meta.tex) && old.meta.tex.length && ws.length)) return;
+    const op = old.track.pos;
+    const boxOf = w => { const g = w.mesh.geometry; g.computeBoundingBox(); const b = g.boundingBox, q = w.track.pos; return [q.x + b.min.x, q.y + b.min.y, q.x + b.max.x, q.y + b.max.y]; };
+    const boxes = ws.map(boxOf), ob = boxOf(old);
+    // the same size as before: the part was slid in DRAW, and its marks slide with it
+    const nb = [Math.min(...boxes.map(q => q[0])), Math.min(...boxes.map(q => q[1])), Math.max(...boxes.map(q => q[2])), Math.max(...boxes.map(q => q[3]))];
+    const slid = Math.abs((nb[2] - nb[0]) - (ob[2] - ob[0])) < 0.05 && Math.abs((nb[3] - nb[1]) - (ob[3] - ob[1])) < 0.05;
+    const dx = slid ? nb[0] - ob[0] : 0, dy = slid ? nb[1] - ob[1] : 0;
+    for (const m of clone(old.meta.tex)) {
+      // the painted middle, on the bed
+      const g = C.regionSpec(m.region);
+      let sx = 0, sy = 0, n = 0;
+      const st = Math.max(1, Math.round(Math.sqrt(g.nx * g.ny / 20000)));
+      if (g.data) for (let j = 0; j < g.ny; j += st) for (let i = 0; i < g.nx; i += st) if (g.data[j * g.nx + i]) { sx += g.x0 + (i + 0.5) * g.res; sy += g.y0 + (j + 0.5) * g.res; n++; }
+      const c = C.xfApply(m.xf || C.IDENTITY, n ? sx / n : 0, n ? sy / n : 0), bx = c[0] + op.x + dx, by = c[1] + op.y + dy;
+      let k = boxes.findIndex(b => bx >= b[0] && bx <= b[2] && by >= b[1] && by <= b[3]);
+      if (k < 0) k = 0;
+      const np = ws[k].track.pos;
+      m.xf = C.xfThen(m.xf || C.IDENTITY, [1, 0, 0, 1, op.x + dx - np.x, op.y + dy - np.y]);
+      (ws[k].meta.tex = ws[k].meta.tex || []).push(m);
+    }
+    for (const w of ws) if (w.meta.tex && w.saveState) w.saveState(() => {});
+  }
+
   // the engrave step: a trace that follows each line, bit center on it, filled in from the parts'
   // lines each time the toolpaths are made (slice.begin). Added once, first, so the lines are cut
   // before the outline cuts the part free.
