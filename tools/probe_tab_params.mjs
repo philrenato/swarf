@@ -1,6 +1,6 @@
 // TAB SETTINGS, parametric (Phil 10-29: "make all the tab attributes parametric and editable"):
 // on a 300 x 200 part of 3/4 in plywood on the ShopBot, every field of tabs › auto tabs shows the
-// automatic value in grey, and a typed value is pinned and the applied tabs follow at once:
+// automatic value in grey, and a typed value is pinned and the placed tabs follow at once:
 // length, height (held under the board), reach, how many, from corners; a tab placed by hand
 // takes a typed length; a scale puts the tabs back at the new size with the pinned count; a
 // material change puts them back on the next slice; inches are typed as fractions; the settings
@@ -77,11 +77,11 @@ try {
   const hidden = await page.evaluate(() => ['camTabsWidth', 'camTabsHeight', 'camTabsDepth'].map(k => { const el = window.kiri.api.ui[k]; const row = el && (el.closest('.var-row') || el.parentNode); return !row || row.offsetParent === null || row.classList.contains('hide'); }));
   check(hidden.every(Boolean), `the three old size inputs are not shown twice (${hidden})`);
 
-  // apply the starting set, then every field moves them
-  await page.evaluate(() => { window.__swarfAutoTabs.preview(); document.getElementById('swarf-autotabs-apply').click(); });
+  // auto tabs place the starting set at once, then every field moves them
+  await page.evaluate(() => { document.getElementById('swarf-autotabs-go').click(); });
   await wait(400);
   let t = await tabs();
-  check(t.list.length === 4 && t.boxes === 4 && t.set, `applied: 4 auto tabs, and the part keeps its settings (${t.list.length}, ${!!t.set})`);
+  check(t.list.length === 4 && t.boxes === 4 && t.set, `placed: 4 auto tabs, and the part keeps its settings (${t.list.length}, ${!!t.set})`);
 
   await type('width', '20');
   t = await tabs(); f = await fieldsNow();

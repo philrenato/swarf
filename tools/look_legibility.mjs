@@ -92,6 +92,17 @@ try {
     await wait(500); await audit(page, skin, '04-part', found);
     await page.evaluate(() => { const el = [...document.getElementById('op-add-list').children].find(c => c.innerText.trim().toLowerCase() === 'outline'); el?.dispatchEvent(new MouseEvent('click', { bubbles: true })); });
     await wait(400);
+    // a picked tab's card (cl-tabedit.js), with its note showing
+    await page.evaluate(() => {
+      const a = window.kiri.api, w = a.widgets.all()[0], E = window.__swarfTabEdit;
+      if (!w || !E || !window.__swarfAutoTabs) return;
+      window.__swarfAutoTabs.place();
+      const l = a.widgets.annotate(w.id).tab || [];
+      if (l[0]) { E.pick(w, l[0].id); E.resize('height', 999); }
+    });
+    await wait(400); await audit(page, skin, '04b-tab-card', found);
+    await page.evaluate(() => window.__swarfTabEdit && window.__swarfTabEdit.unpick());
+    await wait(200);
     await page.evaluate(() => document.getElementById('act-paths')?.click());
     await page.evaluate(() => new Promise(res => { window.kiri.api.event.on('preview.end', res); setTimeout(res, 60000); }));
     await wait(500); await audit(page, skin, '05-toolpaths', found);

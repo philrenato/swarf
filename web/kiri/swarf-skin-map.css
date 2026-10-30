@@ -1946,3 +1946,26 @@ html[data-skin] #swarf-draw .sd-reg.on {
 html[data-skin] #swarf-draw .sd-reg.on:hover {
     fill: rgb(var(--sk-n8) / calc(0.3 * var(--sk-a-n8, 1)))
 }
+html[data-skin] #swarf-tabcard {
+    background: rgb(var(--sk-n1) / calc(0.95 * var(--sk-a-n1, 1)));
+    border: 1px solid rgb(var(--sk-n3) / calc(1 * var(--sk-a-n3, 1)));
+    box-shadow: 0 8px 28px rgb(var(--sk-shadow) / calc(0.45 * var(--sk-a-shadow, 1)))
+}
+html[data-skin] #swarf-tabcard .ax input {
+    background: rgb(var(--sk-n3) / calc(1 * var(--sk-a-n3, 1)));
+    border: 1px solid rgb(var(--sk-n4) / calc(1 * var(--sk-a-n4, 1)));
+    color: rgb(var(--sk-n9) / calc(1 * var(--sk-a-n9, 1)))
+}
+html[data-skin] #swarf-tabcard .ax input:focus {
+    border-color: rgb(var(--sk-n7) / calc(1 * var(--sk-a-n7, 1)))
+}
+html[data-skin] #swarf-tabcard .sep {
+    background: rgb(var(--sk-n3) / calc(1 * var(--sk-a-n3, 1)))
+}
+html[data-skin] #swarf-tabcard .act {
+    background: rgb(var(--sk-n2) / calc(1 * var(--sk-a-n2, 1)));
+    border: 1px solid rgb(var(--sk-n4) / calc(1 * var(--sk-a-n4, 1)))
+}
+html[data-skin] #swarf-tabcard .act:hover {
+    border-color: rgb(var(--sk-n7) / calc(1 * var(--sk-a-n7, 1)))
+}

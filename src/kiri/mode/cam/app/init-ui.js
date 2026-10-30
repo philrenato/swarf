@@ -17,7 +17,8 @@ import { space } from '../../../../moto/space.js';
 import { Stack } from '../../../app/stack.js';
 import { surfaceOn, surfaceDone } from './cl-surface.js';
 import { tabAdd, tabDone, tabClear, restoreTabs, rotateTabs, updateTabs, clearTabs, mirrorTabs } from './cl-tab.js';
-import { autoRefresh, autoForget } from './cl-autotab.js';
+import { autoRefresh, autoForget, autoHold, autoHeld, tabSnap, tabUndo } from './cl-autotab.js';
+import { tabEditInit } from './cl-tabedit.js';
 import { traceOn, traceDone, unselectTraces } from './cl-trace.js';
 import { toolOrder } from './tools.js';
 import { Widget, newWidget } from '../../../app/widget.js';
@@ -713,6 +714,9 @@ export function zPlaneSelect({ which, onselect }) {
 
 export function init() {
 
+    // swarf: click a tab to pick it, drag it along the edge, Delete, its card (cl-tabedit.js)
+    tabEditInit();
+
     api.event.on('tool.mesh.face-normal', normal => {
         env.poppedRec.degrees = (Math.atan2(normal.y, normal.z) * RAD2DEG).round(2);
         env.poppedRec.absolute = true;
@@ -900,10 +904,13 @@ export function init() {
         "selection.scale",
     ], () => {
         // swarf: said, not silent (torture test 10-29: a resize left the part with no tabs and only
-        // "Resized to ..."); auto tabs come back by themselves at the new size (cl-autotab.js)
+        // "Resized to ..."); auto tabs come back by themselves at the new size (cl-autotab.js),
+        // and the ones moved or resized by hand (pinned) stay, scaled with their part
         let hand = 0, auto = 0;
         for (const w of api.widgets.all()) for (const r of (w.anno && w.anno.tab) || []) { if (r.auto) auto++; else hand++; }
+        const held = autoHold();
         tabClear();
+        autoHeld(held);
         // after the size card's own "Resized to ..." (a 120 ms debounce), so this is the line left showing
         if (hand) setTimeout(() => api.show.alert(`the resize took away ${hand} tab${hand === 1 ? '' : 's'} you placed by hand: place ${hand === 1 ? 'it' : 'them'} again (tabs › +)${auto ? '; the auto tabs are placed again' : ''}`, 10), 400);
     });
@@ -1002,7 +1009,7 @@ export function init() {
                 return tabDone();
             case api.ui.tabClr:
                 api.uc.confirm("clear tabs?").then(ok => {
-                    if (ok) { tabClear(); autoForget(); }
+                    if (ok) { const before = tabSnap(); tabClear(); autoForget(); tabUndo(before, 'clear tabs'); }
                 });
                 break;
         }
@@ -1016,7 +1023,7 @@ export function init() {
     api.event
         .on("cam.tabs.add", tabAdd)
         .on("cam.tabs.done", tabDone)
-        .on("cam.tabs.clear", () => { tabClear(); autoForget(); });
+        .on("cam.tabs.clear", () => { const before = tabSnap(); tabClear(); autoForget(); tabUndo(before, 'clear tabs'); });
 
     api.event
         .on("cam.zplane.show", zPlaneShow)
@@ -1088,10 +1095,12 @@ export function init() {
         }
     });
 
-    api.event.on("widget.mirror", widget => {
+    api.event.on("widget.mirror", rec => {
         if (!env.isCamMode) {
             return;
         }
+        // swarf: widget.js emits { widget }; the handlers below want the widget itself
+        const widget = rec && rec.widget ? rec.widget : rec;
         if (traceOn) {
             traceDone();
         }
