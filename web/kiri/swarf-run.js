@@ -29,7 +29,7 @@
     load: 'Load: the toolpaths from cam (press control with a part and a step on the bed), or a file from other software.',
     check: 'Check: swarf reads the file: millimeters, fits the table, every line it can run.',
     zero: 'Zero: jog the bit to your board\'s X 0, Y 0 and press zero x y; then zero z, or use the z plate.',
-    trace: 'Trace: the bit runs the rectangle the cut fills, 25 mm up, router off. An air cut runs the whole file above the board. Both need a program and the zero.',
+    get trace() { return `Trace: the bit runs the rectangle the cut fills, ${up()} up, router off. An air cut runs the whole file above the board. Both need a program and the zero.`; },
     cut: 'Cut: after a trace, a short checklist, then the router starts.'
   };
   const CHANGE_Z = 50;          // a tool change lifts this far over the work, room for a wrench
@@ -519,6 +519,12 @@ html[data-skin] #swarf-run .sr-jog .sr-zrow button.next, html[data-skin] #swarf-
     const v = mm / 25.4, f = Math.round(v * 16);
     return `${Math.abs(v * 16 - f) < 1e-6 && window.SwarfLength ? SwarfLength.say(mm).replace(/ in$/, '') : +v.toFixed(2)} in`;
   }
+  // a length in a sentence, in cam's units: the nearest 16th in inches (r086 check S2/S3)
+  const prose = (mm, dp) => window.SwarfLength ? SwarfLength.prose(mm, inch() ? 'in' : 'mm', dp) : `${+(+mm).toFixed(dp == null ? 1 : dp)} mm`;
+  // the lift before any move over the work (SAFE_Z): "25 mm" (with "(1 in)" where the line said it), or "1 in"
+  const up = paren => inch() ? '1 in' : paren ? '25 mm (1 in)' : '25 mm';
+  // the way in, in the student's units: "up to 1 in, over to X 0.47, Y 1.57" (r086 check S2)
+  const wayWords = plan => window.SwarfRunPlan.entryWords(plan, inch() ? { len: v => prose(v, 0), at: v => +(v / 25.4).toFixed(2) } : { len: v => prose(v, 0) });
   const lens = (a, dp) => inch() ? a.map(v => len(v, dp).replace(/ in$/, '')).join(' × ') + ' in' : a.map(v => +(+v).toFixed(dp == null ? 1 : dp)).join(' × ') + ' mm';
   // the "go to … above z 0" height: 5 mm, or 0.2 in
   const goZmm = () => inch() ? 5.08 : 5;
@@ -584,6 +590,14 @@ html[data-skin] #swarf-run .sr-jog .sr-zrow button.next, html[data-skin] #swarf-
     el.say = h('div', { class: 'sr-say' });
     el.strip = h('div', { class: 'sr-strip' });   // MASQ's working strip: on while the machine runs
     root.append(h('div', { class: 'sr-top' }, el.steps, el.say), el.strip);
+    // the mm | in switch with control open: its sentence and the steps' words follow (r086 check S2)
+    try {
+      const u = window.kiri.api.ui.units;
+      if (u) u.addEventListener('change', () => setTimeout(() => {
+        for (const n of el.steps.children) n.title = STEP_SAYS[n.dataset.step];
+        if (S.open) refresh();
+      }, 0));
+    } catch (e) { /* no units control */ }
 
     // grid
     const grid = h('div', { class: 'sr-grid' });
@@ -665,7 +679,7 @@ html[data-skin] #swarf-run .sr-jog .sr-zrow button.next, html[data-skin] #swarf-
         el.homeBtn = h('button', { text: 'home', title: 'run to the home sensors', onclick: () => aboutToMove({ title: 'The machine is about to home', text: 'It lifts, then runs to the home sensors in the -X, -Y corner.', go: 'home', run: () => S.machine.home() }) }),
         el.goXY = h('button', { text: 'go to x y 0', title: 'Up, then over to X 0, Y 0', onclick: () => aboutToMove({ title: 'The bit is about to move',
           // before Z is zeroed there is no Z 0 to name: it lifts from where it is (Fable 3 #12)
-          text: S.zeroZ ? 'Up to 25 mm (1 in) over Z 0 (if it is lower), then over to X 0, Y 0.' : 'Up 25 mm (1 in) from where it is, then over to X 0, Y 0.',
+          text: S.zeroZ ? `Up to ${up(1)} over Z 0 (if it is lower), then over to X 0, Y 0.` : `Up ${up(1)} from where it is, then over to X 0, Y 0.`,
           go: 'move', run: () => { const z = S.machine.state.pos.z; S.machine.goTo({ z: S.zeroZ ? Math.max(z, SAFE_Z) : z + 25.4, x: 0, y: 0 }); } }) }),
         el.goZ = h('button', { text: `go to ${goZword()} above z 0`, title: `Down to ${goZword()} above Z 0, slowly`, onclick: () => aboutToMove({ title: 'The bit is about to come down', text: `Down to ${goZword()} above Z 0, slowly. Check nothing is under the bit but the board.`, go: 'move', run: () => { setJogSpeed(); S.machine.goTo({ z: goZmm() }); } }) }),
         el.cornersBtn = h('button', { text: 'table corners', title: 'Zero at, or go to, the table\'s front-left or front-right corner', onclick: cornersCard })));
@@ -691,7 +705,7 @@ html[data-skin] #swarf-run .sr-jog .sr-zrow button.next, html[data-skin] #swarf-
     el.faultBar = h('div', { class: 'sr-faultbar', style: 'display:none' }, el.faultText, h('button', { class: 'go', text: 'all clear…', onclick: () => faultCard() }));
     el.prog.append(el.faultBar, el.fileInput, h('div', { class: 'sr-file' }, el.fileName, el.fromCam), el.start, h('div', {}, el.otherFile, el.lessonLink));
     el.btn = {
-      trace: h('button', { class: 'trace', text: 'trace', title: 'Run the rectangle the cut fills, 25 mm up, router off', onclick: () => askCut('trace') }),
+      trace: h('button', { class: 'trace', text: 'trace', title: `Run the rectangle the cut fills, ${up()} up, router off`, onclick: () => askCut('trace') }),
       air: h('button', { class: 'air', text: 'air cut', title: 'Run the whole file above your board, router off', onclick: () => askCut('air') }),
       cut: h('button', { class: 'cut', text: 'cut', title: 'cut the file: the router starts', onclick: askCut }),
       pause: h('button', { class: 'pause', text: 'pause', title: 'pause: the router stops, the bit stays put', onclick: pauseResume }),
@@ -714,7 +728,7 @@ html[data-skin] #swarf-run .sr-jog .sr-zrow button.next, html[data-skin] #swarf-
       e.stopImmediatePropagation(); needsCard(k);
     }, true);
     el.fromLine = h('input', { type: 'number', min: '1', value: '1' });
-    el.fromBtn = h('button', { text: 'continue from line', title: 'Up to 25 mm, over, then cut from this line on', onclick: () => askCut('from') });
+    el.fromBtn = h('button', { text: 'continue from line', title: `Up to ${up()}, over, then cut from this line on`, onclick: () => askCut('from') });
     el.fromRow = h('div', { class: 'sr-from' }, 'continue after a stop:', el.fromLine, el.fromBtn);
     el.prog.append(el.fromRow);
     el.plan = h('div', { class: 'sr-plan' });
@@ -1191,10 +1205,10 @@ html[data-skin] #swarf-run .sr-jog .sr-zrow button.next, html[data-skin] #swarf-
     const all = P.boundsOf(p.moves);
     if (all) {
       const span = all.max.z - all.min.z, travel = L.z[1] - L.z[0];
-      if (span > travel - 25) out.block.push(`The file moves Z over ${span.toFixed(0)} mm, more than the Z axis travels (${(travel - 25).toFixed(0)} mm to work with). Check the file's Z numbers.`);
-      else if (all.max.z > 150) out.warn.push(`The file lifts the bit ${all.max.z.toFixed(0)} mm above zero: check it clears the top of the Z axis.`);
+      if (span > travel - 25) out.block.push(`The file moves Z over ${prose(span, 0)}, more than the Z axis travels (${prose(travel - 25, 0)} to work with). Check the file's Z numbers.`);
+      else if (all.max.z > 150) out.warn.push(`The file lifts the bit ${prose(all.max.z, 0)} above zero: check it clears the top of the Z axis.`);
     }
-    if (b && b.min.z < -38.1) out.warn.push(`The cut goes ${(-b.min.z).toFixed(1)} mm deep, more than most router bits reach (1 1/2 in, 38 mm). Check the file and that the bit is long enough.`);
+    if (b && b.min.z < -38.1) out.warn.push(`The cut goes ${prose(-b.min.z)} deep, more than most router bits reach (${inch() ? '1 1/2 in' : '38 mm, 1 1/2 in'}). Check the file and that the bit is long enough.`);
     if (b && b.min.z < 0) {
       const dive = p.moves.find(m => m.rapid && Math.min(m.z, m.z0) < -0.05 && Math.hypot(m.x - m.x0, m.y - m.y0) > 0.05);
       if (dive) out.warn.push(`Line ${dive.line}: a rapid move goes across below the top of the board (Z ${Math.min(dive.z, dive.z0).toFixed(1)}): at rapid speed through the wood. Check the file.`);
@@ -1322,11 +1336,11 @@ html[data-skin] #swarf-run .sr-jog .sr-zrow button.next, html[data-skin] #swarf-
       b.dataset.why = list.length ? `${word} needs: ${list.join(', then ')}.` : '';
       b.title = list.length ? b.dataset.why : title;
     };
-    wait(el.btn.trace, testWhy, 'Trace', 'Run the rectangle the cut fills, 25 mm up, router off');
+    wait(el.btn.trace, testWhy, 'Trace', `Run the rectangle the cut fills, ${up()} up, router off`);
     wait(el.btn.air, testWhy, 'An air cut', 'Run the whole file above your board, router off');
     wait(el.btn.cut, cutWhy, 'Cut', 'cut the file: the router starts');
     el.fromBtn.disabled = running || cutWhy.length > 0;
-    el.fromBtn.title = cutWhy.length ? `Continue needs: ${cutWhy.join(', then ')}.` : 'Up to 25 mm, over, then cut from this line on';
+    el.fromBtn.title = cutWhy.length ? `Continue needs: ${cutWhy.join(', then ')}.` : `Up to ${up()}, over, then cut from this line on`;
     el.need.innerHTML = '';
     if (!running && need.some(n => !n.ok)) {
       el.need.append(h('b', { text: 'to run:' }));
@@ -1395,7 +1409,7 @@ html[data-skin] #swarf-run .sr-jog .sr-zrow button.next, html[data-skin] #swarf-
     if (st && st.dialog) return say(`The file asks: ${st.dialog.caption || st.dialog.message}`, 'warn');
     if (st && st.running) {
       const total = S.prog ? S.prog.parsed.lines : 0;
-      const what = { trace: 'Tracing the rectangle the cut fills, 25 mm up, router off', air: 'Running an air cut, router off', cut: 'Cutting', from: 'Cutting', preview: 'Previewing' }[S.job] || 'Running';
+      const what = { trace: `Tracing the rectangle the cut fills, ${up()} up, router off`, air: 'Running an air cut, router off', cut: 'Cutting', from: 'Cutting', preview: 'Previewing' }[S.job] || 'Running';
       const left = timeLeft();
       const where = left ? `, about ${mins(left)} left` : '';
       if (st.paused) return say(`${what}: paused, router off. Press resume to go on, or end the job.`, 'warn');
@@ -1416,7 +1430,7 @@ html[data-skin] #swarf-run .sr-jog .sr-zrow button.next, html[data-skin] #swarf-
         if (!S.zeroXY) return say(`Jog the bit over ${o.xy}, then press zero x y. Step 10 to get close, then 1.`);
         if (/top/.test(o.z)) return say(`Now Z, on ${o.z}: press z plate and the bit finds the board itself with the touch plate. Or lower it with step 0.1 onto a sheet of paper until it just drags, then press zero z.`);
         return say(`Lower the bit to ${o.z}: step 1 to get close, then 0.1, with a sheet of paper under the bit until it just drags. Then press zero z.`);
-      case 'trace': return say('Press trace. The bit runs the rectangle your cut fills, 25 mm up, router off. Check it clears every screw and clamp and stays over your board.');
+      case 'trace': return say(`Press trace. The bit runs the rectangle your cut fills, ${up()} up, router off. Check it clears every screw and clamp and stays over your board.`);
       case 'cut':
         if (S.lostAt) return say(`The USB link dropped at line ${S.lostAt}. If the machine is still moving or the router still turns, press the floor e-stop. Plug in, press connect, then continue from line ${S.lostAt}.`, 'bad');
         if (S.stoppedAt && st && st.resumeLine === S.stoppedAt) return say(`${st.note[0].toUpperCase()}${st.note.slice(1)}. The router is off and the bit is up.`, 'warn');
@@ -1506,7 +1520,7 @@ html[data-skin] #swarf-run .sr-jog .sr-zrow button.next, html[data-skin] #swarf-
       if (touchBtn) touchBtn.style.display = proved ? 'none' : '';
       go.textContent = 'touch off';
       go.disabled = !(all && proved);
-      go.title = go.disabled ? (proved ? 'Tick the three checks first' : 'Prove the circuit first: touch the plate to the bit') : 'The bit comes down slowly, touches, lifts, touches again and lifts 25 mm. Any key stops it.';
+      go.title = go.disabled ? (proved ? 'Tick the three checks first' : 'Prove the circuit first: touch the plate to the bit') : `The bit comes down slowly, touches, lifts, touches again and lifts ${up()}. Any key stops it.`;
     };
     // the inputs as they stand with the clip on: a touch changes exactly one of them
     const watch = st => {
@@ -1796,11 +1810,11 @@ html[data-skin] #swarf-run .sr-jog .sr-zrow button.next, html[data-skin] #swarf-
     const items = test ? testChecklist() : checklist(from ? line : 0);
     const checks = items.map(t => h('input', { type: 'checkbox' }));
     const b = P.cutBounds(S.prog.parsed);
-    const size = b ? `${(b.max.x - b.min.x).toFixed(0)} × ${(b.max.y - b.min.y).toFixed(0)} mm` : '';
+    const size = b ? lens([b.max.x - b.min.x, b.max.y - b.min.y], 0) : '';
     const words = {
-      trace: { h: 'Trace the border', go: 'trace', p: `The machine is about to move. The bit goes up to 25 mm (1 in) over Z 0, then runs the rectangle the cut fills (${size}), router off. It checks the outside of the cut only, not clamps inside it. Watch that it stays over your board and clears every clamp. Check each one:` },
-      air: { h: `Run ${S.prog.name} as an air cut`, go: 'air cut', p: `The machine is about to move. The whole file runs ${AIR_CLEAR} mm above its highest point, router off, about ${mins(S.prog.parsed.seconds)}. It is not a clamp check: watch the path before you cut. Check each one:` },
-      from: { h: `Continue from line ${line}`, go: `continue from line ${line}`, p: `The machine is about to move and the router to start. The bit goes up to 25 mm (1 in), over to where that line starts, starts the router, then cuts the rest of the file. Check each one:` },
+      trace: { h: 'Trace the border', go: 'trace', p: `The machine is about to move. The bit goes up to ${up(1)} over Z 0, then runs the rectangle the cut fills (${size}), router off. It checks the outside of the cut only, not clamps inside it. Watch that it stays over your board and clears every clamp. Check each one:` },
+      air: { h: `Run ${S.prog.name} as an air cut`, go: 'air cut', p: `The machine is about to move. The whole file runs ${prose(AIR_CLEAR)} above its highest point, router off, about ${mins(S.prog.parsed.seconds)}. It is not a clamp check: watch the path before you cut. Check each one:` },
+      from: { h: `Continue from line ${line}`, go: `continue from line ${line}`, p: `The machine is about to move and the router to start. The bit goes up to ${up(1)}, over to where that line starts, starts the router, then cuts the rest of the file. Check each one:` },
       cut: { h: `Cut ${S.prog.name}`, go: 'cut', p: `The machine is about to move and the router to start. The file runs to the end, about ${mins(S.prog.parsed.seconds)}. Check each one:` }
     }[from ? 'from' : test ? kind : 'cut'];
     const plan = makePlan(from ? 'from' : test ? kind : 'cut', line);
@@ -1809,7 +1823,7 @@ html[data-skin] #swarf-run .sr-jog .sr-zrow button.next, html[data-skin] #swarf-
     const update = () => { go.disabled = !!bad || !checks.every(c => c.checked); };
     checks.forEach(c => c.addEventListener('change', update));
     // the way in, from where the bit is now: the same moves the machine will make
-    const way = plan && window.SwarfRunPlan ? window.SwarfRunPlan.entryWords(plan) : '';
+    const way = plan && window.SwarfRunPlan ? wayWords(plan) : '';
     const back = () => { el.sheet.classList.remove('on'); showPlan(null); };
     el.card.append(h('h2', { text: words.h }), h('p', { text: words.p }),
       ...(way ? [h('p', { class: 'sr-way', text: `The way in: ${way}.` })] : []),
@@ -1926,7 +1940,7 @@ html[data-skin] #swarf-run .sr-jog .sr-zrow button.next, html[data-skin] #swarf-
         el.card.append(h('p', { text: `Front-left corner learnt ${new Date(c.at).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}. The bit is ${len(p.x - c.x)} right of it and ${len(p.y - c.y)} back. The table is ${lens([T.x, T.y], 0)}.` }));
         const rowFor = (name, cx, cy) => h('div', { class: 'sr-needrow' }, h('b', { text: '⌐' }), h('span', {}, h('strong', { text: name })),
           h('button', { text: 'make it X 0, Y 0', title: `The ${name} corner becomes X 0, Y 0; the bit does not move`, onclick: () => { zeroAtCorner(cx, cy); shut(); tell(`X 0, Y 0 is now the table's ${name} corner. The bit did not move.`); } }),
-          h('button', { text: 'go there', title: `Up to 25 mm (1 in), then over the ${name} corner`, onclick: () => aboutToMove({ title: 'The bit is about to move', text: `Up to 25 mm (1 in) over Z 0 (if it is lower), then over the table's ${name} corner.`, go: 'move', run: () => goCorner(cx, cy) }) }));
+          h('button', { text: 'go there', title: `Up to ${up(1)}, then over the ${name} corner`, onclick: () => aboutToMove({ title: 'The bit is about to move', text: `Up to ${up(1)} over Z 0 (if it is lower), then over the table's ${name} corner.`, go: 'move', run: () => goCorner(cx, cy) }) }));
         el.card.append(rowFor('front left', c.x, c.y), rowFor('front right', c.x + T.x, c.y));
       }
       el.card.append(h('div', { class: 'row' },
@@ -1966,7 +1980,7 @@ html[data-skin] #swarf-run .sr-jog .sr-zrow button.next, html[data-skin] #swarf-
       const ok = h('button', { text: 'right way', onclick: () => ok.classList.add('ok') });
       return h('div', { class: 'sr-chk' },
         h('b', { text: a.toUpperCase() }),
-        h('button', { text: a === 'z' ? '+20 mm up' : '+20 mm', onclick: () => { ok.classList.remove('ok'); m.jog(a, 20); } }),
+        h('button', { text: a === 'z' ? `+${prose(20, 0)} up` : `+${prose(20, 0)}`, onclick: () => { ok.classList.remove('ok'); m.jog(a, 20); } }),
         h('span', { text: AXIS_HINT[a] }),
         ok,
         h('button', { text: 'wrong way', onclick: () => { ok.classList.remove('ok'); m.setFlip(a, !m.flip[a]); } }));
@@ -2202,7 +2216,7 @@ html[data-skin] #swarf-run .sr-jog .sr-zrow button.next, html[data-skin] #swarf-
     const veiled = !!(st.running && st.paused);
     if (veiled && !el.veil.classList.contains('on') && document.activeElement && document.activeElement.blur) document.activeElement.blur();
     if (veiled && !el.veil.classList.contains('on') && el.veilWay) {
-      const rp = resumePlan(), way = rp && window.SwarfRunPlan ? window.SwarfRunPlan.entryWords(rp) : '';
+      const rp = resumePlan(), way = rp && window.SwarfRunPlan ? wayWords(rp) : '';
       el.veilWay.textContent = rp && rp.problems.length ? `It can't resume: ${rp.problems[0]}.` : way ? `The way back in: ${way}.` : '';
       el.veilWay.classList.toggle('bad', !!(rp && rp.problems.length));
       if (el.resumeBtn) {

@@ -206,7 +206,9 @@
   }
 
   // the way in, in words, for the cards: "up to 25 mm, the router on, over to X 12, Y 40, down to Z -1.5"
-  function entryWords(plan) {
+  // (opt.len: a height in words, opt.at: a coordinate's number, both in the student's units; r086 check S2)
+  function entryWords(plan, opt) {
+    const len = (opt && opt.len) || (v => `${v.toFixed(0)} mm`), at = (opt && opt.at) || (v => v.toFixed(0));
     const out = [];
     let p = plan.from || { x: 0, y: 0, z: 0 };
     for (const s of plan.steps) {
@@ -214,9 +216,9 @@
       if (!s.move) continue;
       if (s.phase !== 'entry') break;
       const m = s.move;
-      if (m.z > p.z + 1e-6 && Math.hypot(m.x - p.x, m.y - p.y) < 1e-6) out.push(`up to ${m.z.toFixed(0)} mm`);
-      else if (m.z < p.z - 1e-6) out.push(`slowly down to Z ${m.z.toFixed(1)}`);
-      else out.push(`over to X ${m.x.toFixed(0)}, Y ${m.y.toFixed(0)}`);
+      if (m.z > p.z + 1e-6 && Math.hypot(m.x - p.x, m.y - p.y) < 1e-6) out.push(`up to ${len(m.z)}`);
+      else if (m.z < p.z - 1e-6) out.push(`slowly down to Z ${opt && opt.at ? opt.at(m.z) : m.z.toFixed(1)}`);
+      else out.push(`over to X ${at(m.x)}, Y ${at(m.y)}`);
       p = m;
     }
     return out.join(', ');

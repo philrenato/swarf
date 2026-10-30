@@ -10,6 +10,9 @@
  *                                so a field read back is the same length)
  *   SwarfLength.field(mm)        a design field's text: "3/16" or "0.079" in inches (TEX, tabs)
  *   SwarfLength.say(mm)          words: "19.05 mm", or "3/4 in" when it is an exact 64th, else "0.7874 in"
+ *   SwarfLength.prose(mm, u, dp) a length in a sentence: in inches the nearest 16th ("2 9/16 in", what a
+ *                                tape measure reads), a length under a 32nd in hundredths ("0.02 in");
+ *                                in mm to dp places (default 1), as the sentences always said it
  *
  * Everything inside swarf stays in millimeters; only the cards' words and fields change.
  */
@@ -79,7 +82,18 @@
     return `${frac(mm / IN) || +(mm / IN).toFixed(4)} in`;
   }
 
-  const api = { unit, parse, show, field, say, IN };
+  // a length in a sentence (r086 check S3): a student bends plywood with a tape measure, not a
+  // rule in 64ths, so a pitch of 71 mm is "2 13/16 in" wherever it is said, never "2 51/64" in one
+  // line and "2 13/16" in the next.
+  function prose(mm, u, dp) {
+    if (!Number.isFinite(+mm)) return '';
+    if ((u || unit()) !== 'in') return `${+(+mm).toFixed(dp == null ? 1 : dp)} mm`;
+    const v = mm / IN, n = Math.round(v * 16);
+    if (!n && Math.abs(v) > 1e-9) return `${+v.toFixed(2)} in`;
+    return `${frac(n / 16) || 0} in`;
+  }
+
+  const api = { unit, parse, show, field, say, prose, IN };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.SwarfLength = api;
 })(typeof window !== 'undefined' ? window : globalThis);

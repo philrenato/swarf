@@ -86,6 +86,19 @@ try {
   const moving = await page.evaluate(() => window.__swarfRun.state.machine.state.moving);
   check(/about to move/.test(t) && !moving, `go to x y 0 asks first, the bit still ("${t.slice(0, 60)}…")`);
   await shut();
+  // r086 check S2: in inches no sentence in control says mm (the trace line, the trace and air cut
+  // cards, the way in, go to x y 0)
+  const switchTo = u => page.evaluate(u => [...document.querySelectorAll('#swarf-units button')].find(b => b.textContent === u).click(), u);
+  await switchTo('in'); await wait(600);
+  const mmIn = [];
+  const sayNow = sp(await page.evaluate(() => document.querySelector('#swarf-run .sr-say')?.textContent || ''));
+  mmIn.push(['say', sayNow]);
+  for (const b of ['trace', 'air']) { await page.click(`#swarf-run .sr-actions .${b}`); await wait(300); mmIn.push([b, await sheet()]); await shut(); }
+  await press('go to x y 0'); await wait(300); mmIn.push(['go to', await sheet()]); await shut();
+  const mmLeft = mmIn.filter(([, x]) => /\d mm\b/.test(x));
+  check(/1 in up/.test(sayNow) && /up to 1 in over Z 0/.test(mmIn[1][1]) && /3\/16 in above its highest point/.test(mmIn[2][1]) && /The way in: up to \d/.test(mmIn[2][1]) && !mmLeft.length,
+    `in inches control's sentences say in (${mmLeft.length ? mmLeft.map(([k, x]) => `${k}: "${x.match(/[^.]*\d mm\b[^.]*/)[0].trim()}"`).join('; ') : `"${sayNow.slice(0, 70)}…", "${(mmIn[2][1].match(/The way in:[^.]*/) || [''])[0]}"`})`);
+  await switchTo('mm'); await wait(400);
   // the table's corners: learn front-left here, then front right becomes X 0: here reads -table length
   await press('table corners'); await wait(300);
   await press('the bit is over the front-left corner'); await wait(200);
