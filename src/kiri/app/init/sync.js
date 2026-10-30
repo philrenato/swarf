@@ -689,7 +689,8 @@ function setup_keybd_nav() {
             const warnings = [];
             // (whole-app review r086 F4) a concern's numbers follow mm | in too
             const inch = !!window.SwarfLength && window.SwarfLength.unit() === 'in';
-            const len = (v, dp = 1) => inch ? `${+(v / 25.4).toFixed(dp + 2)} in` : `${(+v).toFixed(dp)} mm`;
+            // (r086 check S3) in inches a sentence says the nearest 16th, as a tape measure reads
+            const len = (v, dp = 1) => inch ? window.SwarfLength.prose(v, 'in') : `${(+v).toFixed(dp)} mm`;
             const pair = (a, b) => inch ? `${+(a / 25.4).toFixed(1)} × ${+(b / 25.4).toFixed(1)} in` : `${a.toFixed(0)} × ${b.toFixed(0)} mm`;
             const rate = v => inch ? `${+(v / 25.4).toFixed(1)} in/min` : `${v} mm/min`;
             try {
@@ -821,7 +822,7 @@ function setup_keybd_nav() {
                         const loose = holes ? a.loose.filter(h => h.tabs === 0) : [];
                         if (loose.length) {
                             const big = Math.max(...loose.map(h => h.across));
-                            const say = window.SwarfLength ? window.SwarfLength.say(big) : `${big} mm`;
+                            const say = inch ? len(big) : window.SwarfLength ? window.SwarfLength.say(big) : `${big} mm`;
                             warnings.push({
                                 title: `${loose.length} loose piece${loose.length === 1 ? '' : 's'} inside ${name}`,
                                 body: `${loose.length === 1 ? 'a hole leaves' : `${loose.length} holes leave`} a piece cut free (${loose.length === 1 ? '' : 'the widest '}${say} across) with no tab. It can fly when it comes loose.`,

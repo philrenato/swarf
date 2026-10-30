@@ -11,7 +11,8 @@
  *   SwarfLength.field(mm)        a design field's text: "3/16" or "0.079" in inches (TEX, tabs)
  *   SwarfLength.say(mm)          words: "19.05 mm", or "3/4 in" when it is an exact 64th, else "0.7874 in"
  *   SwarfLength.prose(mm, u, dp) a length in a sentence: in inches the nearest 16th ("2 9/16 in", what a
- *                                tape measure reads), a length under a 32nd in hundredths ("0.02 in");
+ *                                tape measure reads; under 1/8 the nearest 32nd), under a 64th in
+ *                                thousandths ("0.012 in");
  *                                in mm to dp places (default 1), as the sentences always said it
  *
  * Everything inside swarf stays in millimeters; only the cards' words and fields change.
@@ -88,9 +89,10 @@
   function prose(mm, u, dp) {
     if (!Number.isFinite(+mm)) return '';
     if ((u || unit()) !== 'in') return `${+(+mm).toFixed(dp == null ? 1 : dp)} mm`;
-    const v = mm / IN, n = Math.round(v * 16);
-    if (!n && Math.abs(v) > 1e-9) return `${+v.toFixed(2)} in`;
-    return `${frac(n / 16) || 0} in`;
+    // under an eighth (a skin, a texture's depth) a 16th is twice too coarse: the nearest 32nd
+    const v = mm / IN, d = Math.abs(v) < 0.125 - 1 / 64 ? 32 : 16, n = Math.round(v * d);
+    if (!n && Math.abs(v) > 1e-9) return `${+v.toFixed(3)} in`;
+    return `${frac(n / d) || 0} in`;
   }
 
   const api = { unit, parse, show, field, say, prose, IN };

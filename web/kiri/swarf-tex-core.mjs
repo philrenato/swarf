@@ -1929,7 +1929,9 @@ export function pierceChecks(mark, o = {}) {
   if (!cuts) return { warnings: [], notes: [], cuts: null };
   const f = mark.fill, tool = fillTool(f), w = tool.diameter, T = o.thickness > 0 ? o.thickness : 19;
   const p = { ...pierceDefaults(f.pattern, T), ...(f.params || {}) };
-  const L = o.len || ((v) => `${fmt(v, 1)} mm`);
+  // every length said once, one way (r086 check S3: the pitch read 2 37/64 in one sentence and
+  // 2 9/16 in the next): o.len rounds (the app's prose); by default the app's mm rounding
+  const L = o.len || ((v) => `${fmt(roundProse(v), 1)} mm`);
   const warnings = [], notes = ['These numbers are a starting point: cut a test strip first.'];
   if (tool.type !== 'flat') warnings.push(`A ${tool.name} leaves a ${tool.type === 'v' ? 'V' : 'round'}-bottomed cut; through cuts want a straight (flat) bit.`);
   if (f.pattern === 'kerf') {
@@ -1942,7 +1944,7 @@ export function pierceChecks(mark, o = {}) {
     // needs few kerfs" sent students to the radius, which on a thin board cracks the skin first)
     if (nk < 3 && cuts.across > 0) {
       const rmin = skin > 0 ? skin / (2 * SKIN_STRAIN) : 0, tighter = p.radius > rmin * 1.25 + 1;
-      notes.splice(1, 0, `This mark is ${L(roundProse(cuts.across))} across the bend; kerfs fall every ${L(roundProse(cuts.pitch))}, so ${nk ? `only ${nk} fit${nk === 1 ? 's' : ''}` : 'none fit'}: make the mark wider across the bend${tighter ? ' or the radius smaller' : ''}. A quarter turn at ${L(p.radius)} wants about ${L(roundProse(Math.PI / 2 * p.radius))} across.`);
+      notes.splice(1, 0, `This mark is ${L(cuts.across)} across the bend; kerfs fall every ${L(cuts.pitch)}, so ${nk ? `only ${nk} fit${nk === 1 ? 's' : ''}` : 'none fit'}: make the mark wider across the bend${tighter ? ' or the radius smaller' : ''}. A quarter turn at ${L(p.radius)} wants about ${L(Math.PI / 2 * p.radius)} across.`);
     }
     if (rib < 2 * w) warnings.push(`The kerfs are ${L(cuts.pitch)} apart: the wood between them is thinner than two bit widths and may snap. Ask for a gentler bend (a bigger radius) or use a thinner bit.`);
     if (skin > 0) {

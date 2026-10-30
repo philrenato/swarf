@@ -22,7 +22,8 @@
     unit: () => (window.SwarfLength ? window.SwarfLength.unit() : 'mm'),
     fld: v => (window.SwarfLength ? (window.SwarfLength.field || window.SwarfLength.show)(v) : String(v)),
     parse: t => (window.SwarfLength ? window.SwarfLength.parse(t) : parseFloat(t)),
-    say: v => (window.SwarfLength ? window.SwarfLength.say(v) : `${+(+v).toFixed(2)} mm`)
+    say: v => (window.SwarfLength ? window.SwarfLength.say(v) : `${+(+v).toFixed(2)} mm`),
+    prose: v => (window.SwarfLength && window.SwarfLength.prose ? window.SwarfLength.prose(v, undefined, 2) : `${+(+v).toFixed(2)} mm`)
   };
   const api = () => window.kiri && window.kiri.api;
   const T = () => window.SwarfTexCore;
@@ -488,7 +489,7 @@
     const cut = ops.find(o => o && (o.type === 'outline' || o.type === 'rough')), tool = cut && tools.find(t => t.id === cut.tool);
     const bit = tool ? (tool.metric ? 1 : 25.4) * (tool.flute_diam || 0.25) : 6.35;
     const reach = C.insideReach(m.region) * C.xfScale(m.xf);
-    if (reach * 2 < bit * 1.05) return say(`The mark is too narrow for the ${tool ? tool.name : '1/4 in'} bit (${LEN.say(bit)}) that cuts the outline: make it wider first.`);
+    if (reach * 2 < bit * 1.05) return say(`The mark is too narrow for the ${tool ? tool.name : '1/4 in'} bit (${LEN.prose(bit)}) that cuts the outline: make it wider first.`);
     const loops = c.loops.map(L => C.sampleCurve(L.handles, 12).pts.map(q => bedOf(part, m, q)));
     const w = part.w, name = `${m.made || 'mark'} from ${part.name}`;
     close(true);
@@ -829,7 +830,7 @@
     bind('tx-depth', v => {
       if (!(v >= 0.1)) return say('Give the texture at least 0.1 mm of depth.');
       set(f => { f.depth = r3(v); f.params = { ...(f.params || {}), depth: r3(v) }; });
-      if (part.thick && v >= part.thick) say(`${LEN.say(v)} is as deep as ${part.name} is thick: the texture would cut through. It stops at the board's bottom.`);
+      if (part.thick && v >= part.thick) say(`${LEN.prose(v)} is as deep as ${part.name} is thick: the texture would cut through. It stops at the board's bottom.`);
     });
     bind('tx-grit', v => { if (!(v >= 0 && v <= 3)) return say('Grit goes from 0 to 3 mm.'); set(f => { f.grit = r3(v); }); });
     bind('tx-bit', v => set(f => {
@@ -860,7 +861,9 @@
     } catch (e) { worker = false; }
     return worker || null;
   }
-  const prose = v => (LEN.unit() === 'in' ? LEN.say(Math.round(v / 25.4 * 64) / 64 * 25.4) : LEN.say(T().roundProse(v)));
+  // a length in the card's sentences: in inches the nearest 16th (SwarfLength.prose; r086 check S3),
+  // in mm as before. Every length the checks say passes here once, so one pitch reads one way.
+  const prose = v => (LEN.unit() === 'in' ? LEN.prose(v) : LEN.say(T().roundProse(v)));
   const says = t => String(t).replace(/⟦([-\d.e+]+)⟧/g, (_, v) => prose(+v));
   function info(part, m) {
     const op = stepOf(m.id) || {}, ver = m.ver;
@@ -1045,7 +1048,7 @@
       if (e.shiftKey) { const s = Math.max(Math.abs(b[0] - d.at[0]), Math.abs(b[1] - d.at[1])); b = [d.at[0] + Math.sign(b[0] - d.at[0] || 1) * s, d.at[1] + Math.sign(b[1] - d.at[1] || 1) * s]; }
       d.to = b; S.box = [d.at, b];
       render();
-      say(`${LEN.say(Math.abs(b[0] - d.at[0]))} × ${LEN.say(Math.abs(b[1] - d.at[1]))}`);
+      say(`${LEN.prose(Math.abs(b[0] - d.at[0]))} × ${LEN.prose(Math.abs(b[1] - d.at[1]))}`);
     }
   }
   function up() {
@@ -1107,7 +1110,7 @@
     if (k === '[' || k === ']') {
       S.brush = r3(Math.max(0.5, Math.min(300, S.brush * (k === ']' ? 1.25 : 0.8))));
       try { localStorage.setItem(BRUSH, String(S.brush)); } catch (er) { /* private */ }
-      say(`Brush ${LEN.say(S.brush)} across.`); render(); return;
+      say(`Brush ${LEN.prose(S.brush)} across.`); render(); return;
     }
     if ((k === 'Delete' || k === 'Backspace') && S.tool === 'points') { e.preventDefault(); pointsDelete(); return; }
     if ((k === 'Delete' || k === 'Backspace') && curMark() && S.tool === 'select') { e.preventDefault(); delMark(); return; }

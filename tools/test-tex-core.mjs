@@ -4,6 +4,7 @@
 // its moves never below its depth or the board, and room left for a pierce fill.
 //   node tools/test-tex-core.mjs
 import * as T from '../web/kiri/swarf-tex-core.mjs';
+import { createRequire } from 'node:module';
 
 let pass = 0, fail = 0;
 const ok = (cond, msg) => { if (cond) { pass++; } else { fail++; console.log('FAIL', msg); } };
@@ -306,6 +307,15 @@ for (const [id, P] of Object.entries(T.PATTERNS)) {
   const narrow = T.pierceChecks({ region: T.storeRegion(gn), xf: T.IDENTITY.slice(), fill: T.newPierce('kerf', { origin: [100, 30] }, 6) }, { thickness: 6 });
   const why = narrow.notes.find((x) => /across the bend;/.test(x)) || '';
   ok(/This mark is 40 mm across the bend; kerfs fall every 71 mm, so only 1 fits: make the mark wider across the bend\. A quarter turn at 100 mm wants about 157 mm across\./.test(why) && !narrow.notes.some((x) => /gentle/.test(x)), `a narrow mark on 6 mm says why: "${why}"`);
+  // r086 check S3: in inches the card says the nearest 16th, and one pitch the same way in every line
+  {
+    const LEN = createRequire(import.meta.url)('../web/kiri/swarf-length.js');
+    const inch = T.pierceChecks({ region: T.storeRegion(gn), xf: T.IDENTITY.slice(), fill: T.newPierce('kerf', { origin: [100, 30] }, 6) }, { thickness: 6, len: (v) => LEN.prose(v, 'in') });
+    const all = inch.notes.concat(inch.warnings).join(' ');
+    const pitches = [...all.matchAll(/(?:Kerfs every|kerfs fall every|Every) ([\d /]+ in)/g)].map((m) => m[1]);
+    ok(pitches.length === 3 && new Set(pitches).size === 1 && !/\/(32|64) in/.test(all) && !/\d\.\d+ in/.test(all) && /This mark is 1 9\/16 in across the bend; kerfs fall every 2 3\/4 in/.test(all),
+      `inch prose: one pitch said one way (${pitches.join(', ')}), no 64ths or decimals: "${all.slice(0, 200)}"`);
+  }
   const n19 = T.pierceChecks({ region: T.storeRegion(gn), xf: T.IDENTITY.slice(), fill: T.newPierce('kerf', { origin: [100, 30], params: { radius: 400, skin: 1.5 } }, 19) }, { thickness: 19 });
   ok(n19.notes.some((x) => /across the bend; kerfs fall every 73 mm, so (only 1 fits|none fit): make the mark wider across the bend or the radius smaller/.test(x)), `a gentle bend may come down too: said (${n19.notes[1]})`);
 

@@ -52,7 +52,9 @@ export const FIELDS = [
 ];
 
 const SL = () => window.SwarfLength;
-const say = mm => (SL() ? SL().say(mm) : `${(+mm).toFixed(2)} mm`);
+// a length in a sentence: the nearest 16th in inches (r086 check S3: "0.1874 in tall" beside a
+// field reading 3/16), mm as before; the fields keep SwarfLength.field
+const say = mm => (SL() ? (SL().prose ? SL().prose(mm, undefined, 2) : SL().say(mm)) : `${(+mm).toFixed(2)} mm`);
 const clone = o => JSON.parse(JSON.stringify(o));
 const r2 = v => Math.round(v * 100) / 100;
 const plural = (n, word) => `${n} ${word}${n === 1 ? '' : 's'}`;

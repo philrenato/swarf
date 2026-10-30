@@ -21,8 +21,8 @@ assert.equal(L.field(2, 'in'), '0.079'); assert.equal(L.field(30, 'in'), '1.181'
 for (let k = 1; k <= 4000; k++) { const mm = k * 0.137; assert.ok(Math.abs(L.parse(L.field(mm, 'in'), 'in') - mm) < 0.0131, `${mm} mm → ${L.field(mm, 'in')}`); }
 // a length in a sentence (r086 check S3): the nearest 16th in inches, mm as before
 assert.equal(L.prose(71, 'in'), '2 13/16 in'); assert.equal(L.prose(65.5, 'in'), '2 9/16 in'); assert.equal(L.prose(4.76, 'in'), '3/16 in');
-assert.equal(L.prose(20, 'in'), '13/16 in'); assert.equal(L.prose(25, 'in'), '1 in'); assert.equal(L.prose(0.5, 'in'), '0.02 in');
+assert.equal(L.prose(20, 'in'), '13/16 in'); assert.equal(L.prose(25, 'in'), '1 in'); assert.equal(L.prose(0.5, 'in'), '1/32 in'); assert.equal(L.prose(0.8, 'in'), '1/32 in'); assert.equal(L.prose(0.3, 'in'), '0.012 in'); assert.equal(L.prose(0.1, 'in'), '0.004 in'); assert.equal(L.prose(1.5, 'in'), '1/16 in');
 assert.equal(L.prose(-3.2, 'in'), '-1/8 in'); assert.equal(L.prose(0, 'in'), '0 in'); assert.equal(L.prose(NaN, 'in'), '');
 assert.equal(L.prose(71, 'mm'), '71 mm'); assert.equal(L.prose(4.76, 'mm'), '4.8 mm'); assert.equal(L.prose(4.76, 'mm', 2), '4.76 mm');
-for (let k = 1; k <= 4000; k++) { const mm = k * 0.137, t = L.prose(mm, 'in'); assert.ok(/^(\d+ )?(\d+\/(2|4|8|16) )?in$|^\d+ in$|^0\.\d+ in$/.test(t) || /^\d+ \d+\/(2|4|8|16) in$/.test(t), `${mm} → ${t}`); if (mm >= 0.8) assert.ok(Math.abs(L.parse(t, 'in') - mm) <= 25.4 / 32 + 1e-9, `${mm} → ${t} within a 32nd`); }
+for (let k = 1; k <= 4000; k++) { const mm = k * 0.137, t = L.prose(mm, 'in'); assert.ok(/^(\d+ )?(\d+\/(2|4|8|16|32) )?in$|^0\.\d+ in$/.test(t), `${mm} → ${t}`); if (/\/32/.test(t)) assert.ok(mm < 3.2, `${mm} → ${t}: 32nds only under 1/8`); if (mm >= 0.8) assert.ok(Math.abs(L.parse(t, 'in') - mm) <= 25.4 / 32 + 1e-9, `${mm} → ${t} within a 32nd`); }
 console.log('length: ok');
