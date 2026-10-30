@@ -154,6 +154,8 @@ for (const [W, H] of [[1440, 900], [1280, 720]]) for (const skin of ['glass', 'c
       return c ? { h: c.querySelector('h3').textContent, go: c.querySelector('.swarf-x-go').textContent, facts: c.querySelector('.swarf-x-facts').textContent, kiri: !!document.getElementById('print-download').offsetParent, heads: [...box.querySelectorAll('.header')].filter(e => e.offsetParent).length } : null;
     });
     check(x && /^save .+\.sbp$/.test(x.go) && !x.go.includes('..'), `export is one swarf card: "${x && x.h}", button "${x && x.go}"`);
+    // (r086 check S4) with no project a sequence number keeps two exports of one part apart
+    check(x && /-\d{3}\.sbp$/.test(x.go), `no project: the export keeps its sequence number ("${x && x.go}")`);
     check(x && /min|minute/.test(x.facts) && /KB|bytes|MB/.test(x.facts), `export says what the file is: "${x && x.facts}"`);
     check(x && !x.kiri && !x.heads, `Kiri's gcode button and ( job ) heads are hidden (${x && x.kiri}, ${x && x.heads})`);
     await page.evaluate(() => { const c = document.querySelector('.swarf-x-card input'); c.value = 'my part'; c.dispatchEvent(new Event('input')); });

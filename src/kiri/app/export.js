@@ -41,6 +41,9 @@ export function exportFile(options) {
     // swarf: a project saved or opened as a .swarf names the export after itself (review 10-30 F9)
     const project = window.SwarfFile && window.SwarfFile.projectName && window.SwarfFile.projectName();
     if (project) names.unshift(String(project).replace(/ /g, '-').substring(0, 40));
+    // the project's name goes bare (r086 check S4: cutting-board.swarf exported cutting-board-002.sbp);
+    // a sequence number only when there is no project, to keep two exports of "rectangle" apart
+    names.project = !!project;
     api.event.emit('export', mode);
     switch (mode) {
         case 'WEDM':
@@ -135,7 +138,7 @@ function exportLaserDialog(data, names) {
     localSet('kiri-print-seq', printSeq++);
 
     const fileroot = names[0] || "laser";
-    const filename = `${fileroot}-${(printSeq.toString().padStart(3,"0"))}`;
+    const filename = names.project ? fileroot : `${fileroot}-${(printSeq.toString().padStart(3,"0"))}`;
     const settings = api.conf.get();
     const driver = laser_driver;
     const { process } = settings;
@@ -287,7 +290,7 @@ function exportGCodeDialog(gcode, sections, info, names) {
     let settings = api.conf.get(),
         MODE = api.mode.get_id(),
         name = names[0] || (MODE === MODES.CAM ? "cnc" : "print"),
-        pre = `${name}-${(printSeq.toString().padStart(3,"0"))}`,
+        pre = names.project ? name : `${name}-${(printSeq.toString().padStart(3,"0"))}`,
         filename = pre,// + (new Date().getTime().toString(36)),
         fileext = settings.device.gcodeFExt || "gcode",
         codeproc = settings.device.gcodeProc,

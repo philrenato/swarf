@@ -224,6 +224,13 @@ try {
   check(Object.keys(kz.files).join() === 'workspace.json' && ktypes.every(t => F.KIRI_OPS.includes(t) || t === '|') && ktypes.filter(t => t !== '|').join() === 'outline' && ktypes.includes('|') && kws.work.length === 2, `the .kmz: Kiri's workspace.json only, Kiri's steps and its end-of-steps marker only (${ktypes})`);
   const allK = JSON.stringify(kws.settings.sproc || {});
   check(!/"type":"(texture|pierce)"/.test(allK), 'no swarf-only step in its saved processes either');
+  // r086 check S4: the machine file takes the project's name bare (it was probe-chair-002.sbp)
+  await toolpaths(page);
+  await page.evaluate(() => document.getElementById('act-export').click());
+  await page.waitForFunction(() => { const c = document.querySelector('#mod-x-any.swarf-x .swarf-x-card'); return c && c.offsetParent; }, { timeout: 30000 }).catch(() => {});
+  const xname = await page.evaluate(() => { const c = document.querySelector('#mod-x-any .swarf-x-card'); return c ? { name: c.querySelector('input').value, go: c.querySelector('.swarf-x-go').textContent } : null; });
+  check(xname && xname.name === 'probe-chair' && xname.go === 'save probe-chair.sbp', `the export after saving probe-chair.swarf is named for the project, no sequence number (${JSON.stringify(xname)})`);
+  await page.evaluate(() => window.kiri.api.modal.hide()); await wait(400);
   // reopening in A itself: the same job, and control asks for zero again
   await page.evaluate(() => window.kiri.api.widgets.all()[0].move(5, 5, 0));
   // toolpaths on the bed before the open: they leave with the parts the file replaces
