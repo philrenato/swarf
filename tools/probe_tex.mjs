@@ -252,8 +252,8 @@ try {
   await page.evaluate(() => { const S = window.__swarfTex.state(); S.sel = 0; S.mark = 0; });
   await page.keyboard.press('v');
   await page.waitForFunction(() => /About/.test(document.getElementById('tx-card').textContent), { timeout: 15000 }).catch(() => {});
-  const small = await page.evaluate(() => { const c = document.getElementById('tx-card'), cr = c.getBoundingClientRect(), n = [...c.querySelectorAll('.sd-note')].find(n => /About/.test(n.textContent)), d = document.getElementById('tx-depth'); return { note: !!n && n.getBoundingClientRect().bottom <= cr.bottom, depth: !!d && d.getBoundingClientRect().bottom <= cr.bottom, inView: cr.bottom <= innerHeight }; });
-  check(small.note && small.depth && small.inView, `at 1280 x 720 the cut time and the depth are in the card's view (${JSON.stringify(small)})`);
+  const small = await page.evaluate(() => { const c = document.getElementById('tx-card'), cr = c.getBoundingClientRect(), n = [...c.querySelectorAll('.sd-note')].find(n => /About/.test(n.textContent)), seen = id => { const e = document.getElementById(id); return !!e && e.getBoundingClientRect().bottom <= cr.bottom + 0.5; }; return { note: !!n && n.getBoundingClientRect().bottom <= cr.bottom, depth: seen('tx-depth'), bit: seen('tx-bit'), path: seen('tx-path'), fits: c.scrollHeight <= c.clientHeight + 1, inView: cr.bottom <= innerHeight }; });
+  check(small.note && small.depth && small.bit && small.path && small.fits && small.inView, `at 1280 x 720 the basic card fits: cut time, depth, bit and path in view, no scrolling (${JSON.stringify(small)})`);
   await page.screenshot({ path: `${OUT}-1280.png` });
   await page.click('#tx-cancel');
   await page.setViewport({ width: 1440, height: 900 });
@@ -327,8 +327,8 @@ try {
   await page.waitForFunction(() => window.__swarfTex.state(), { timeout: 5000 });
   await page.evaluate(() => { const S = window.__swarfTex.state(), r = document.getElementById('tx-svg').getBoundingClientRect(); S.k = 2.5; S.ox = r.width / 2 - 150; S.oy = r.height / 2 + 100; S.sel = 0; S.mark = S.parts[0].marks.findIndex(m => m.fill.fill === 'texture'); });
   await page.keyboard.press('h');
-  const pts = await page.evaluate(() => { const S = window.__swarfTex.state(), p = S.parts[0], m = p.marks[S.mark]; const g = m.region; let x1 = -Infinity; for (let j = 0; j < g.ny; j++) for (let i = 0; i < g.nx; i++) if (g.data[j * g.nx + i]) x1 = Math.max(x1, g.x0 + (i + 1) * g.res); const H = [...document.querySelectorAll('#tx-svg rect.sd-pt')].map(r => { const b = r.getBoundingClientRect(); return [b.left + b.width / 2, b.top + b.height / 2]; }); return { n: H.length, right: H.sort((a, b) => b[0] - a[0])[0], x1: x1 + p.pos[0], curve: !!document.querySelector('#tx-svg path.tx-curve'), card: document.getElementById('tx-card').textContent }; });
-  check(pts.n >= 4 && pts.curve && /Drag a point/.test(pts.card), `points (H): the mark's edge shows ${pts.n} points on its curve`);
+  const pts = await page.evaluate(() => { const S = window.__swarfTex.state(), p = S.parts[0], m = p.marks[S.mark]; const g = m.region; let x1 = -Infinity; for (let j = 0; j < g.ny; j++) for (let i = 0; i < g.nx; i++) if (g.data[j * g.nx + i]) x1 = Math.max(x1, g.x0 + (i + 1) * g.res); const H = [...document.querySelectorAll('#tx-svg rect.sd-pt')].map(r => { const b = r.getBoundingClientRect(); return [b.left + b.width / 2, b.top + b.height / 2]; }); return { n: H.length, right: H.sort((a, b) => b[0] - a[0])[0], x1: x1 + p.pos[0], curve: !!document.querySelector('#tx-svg path.tx-curve'), card: document.getElementById('tx-say').textContent }; });
+  check(pts.n >= 4 && pts.curve && new RegExp(`fitted to ${pts.n} points`).test(pts.card), `points (H): the mark's edge shows ${pts.n} points on its curve, fitted to the paint ("${pts.card}")`);
   await page.mouse.move(pts.right[0], pts.right[1]); await page.mouse.down();
   for (let i = 1; i <= 10; i++) { await page.mouse.move(pts.right[0] + 25 * i / 10, pts.right[1]); await wait(20); }
   await page.mouse.up(); await wait(300);
@@ -337,6 +337,24 @@ try {
   await page.keyboard.down('Meta'); await page.keyboard.press('z'); await page.keyboard.up('Meta');
   const undone = await page.evaluate(() => { const S = window.__swarfTex.state(), p = S.parts[0], m = p.marks[S.mark], g = m.region; let x1 = -Infinity; for (let j = 0; j < g.ny; j++) for (let i = 0; i < g.nx; i++) if (g.data[j * g.nx + i]) x1 = Math.max(x1, g.x0 + (i + 1) * g.res); return x1 + p.pos[0]; });
   check(Math.abs(undone - pts.x1) < 0.01, `⌘Z puts the edge back (${undone.toFixed(1)})`);
+  // T3: arrows move the picked point, as DRAW's do (5 presses: 5 mm)
+  const pick1 = await page.evaluate(() => [...document.querySelectorAll('#tx-svg rect.sd-pt')].map(r => { const b = r.getBoundingClientRect(); return [b.left + b.width / 2, b.top + b.height / 2]; }).sort((a, b) => b[0] - a[0])[0]);
+  await page.mouse.click(pick1[0], pick1[1]); await wait(100);
+  for (let i = 0; i < 5; i++) { await page.keyboard.press('ArrowRight'); await wait(60); }
+  const edgeX = () => page.evaluate(() => { const S = window.__swarfTex.state(), p = S.parts[0], m = p.marks[S.mark], g = m.region; let x1 = -Infinity; for (let j = 0; j < g.ny; j++) for (let i = 0; i < g.nx; i++) if (g.data[j * g.nx + i]) x1 = Math.max(x1, g.x0 + (i + 1) * g.res); return x1 + p.pos[0]; });
+  const arrowed = await edgeX();
+  check(Math.abs(arrowed - pts.x1 - 5) < 1, `arrows move the picked point: 5 presses, the edge 5 mm out (${pts.x1.toFixed(1)} → ${arrowed.toFixed(1)})`);
+  for (let i = 0; i < 5; i++) { await page.keyboard.down('Meta'); await page.keyboard.press('z'); await page.keyboard.up('Meta'); }
+  // T2: a point dragged far across the mark stops where the edge would cross, and stays there
+  const pick2 = await page.evaluate(() => { const R = [...document.querySelectorAll('#tx-svg rect.sd-pt')].map(r => { const b = r.getBoundingClientRect(); return [b.left + b.width / 2, b.top + b.height / 2]; }); return { right: R.sort((a, b) => b[0] - a[0])[0], left: R.sort((a, b) => a[0] - b[0])[0] }; });
+  const startX = await edgeX(), startCells = await page.evaluate(() => { const S = window.__swarfTex.state(); return S.parts[0].marks[S.mark].region.data.reduce((a, v) => a + v, 0); });
+  await page.mouse.move(pick2.right[0], pick2.right[1]); await page.mouse.down();
+  for (let i = 1; i <= 30; i++) { await page.mouse.move(pick2.right[0] + (pick2.left[0] - 60 - pick2.right[0]) * i / 30, pick2.right[1]); await wait(15); }
+  await page.mouse.up(); await wait(300);
+  const landed = await page.evaluate(() => { const S = window.__swarfTex.state(), m = S.parts[0].marks[S.mark]; return { say: document.getElementById('tx-say').textContent, cross: window.SwarfTexCore.curvesCross(m.curve), cells: m.region.data.reduce((a, v) => a + v, 0) }; });
+  const landedX = await edgeX();
+  check(/stopped where the edge would have crossed/i.test(landed.say) && !landed.cross && landed.cells > 0 && landed.cells !== startCells, `a drag that would cross lands at its last good place, not back at the start, said ("${landed.say}"; ${startCells} → ${landed.cells} cells)`);
+  await page.keyboard.down('Meta'); await page.keyboard.press('z'); await page.keyboard.up('Meta');
   // drag it again, keep it, and the file's texture follows
   const pts2 = await page.evaluate(() => [...document.querySelectorAll('#tx-svg rect.sd-pt')].map(r => { const b = r.getBoundingClientRect(); return [b.left + b.width / 2, b.top + b.height / 2]; }).sort((a, b) => b[0] - a[0])[0]);
   await page.mouse.move(pts2[0], pts2[1]); await page.mouse.down();

@@ -2375,6 +2375,22 @@ html[data-skin] #swarf-draw svg .sd-part.sd-regsrc, #swarf-draw svg .sd-part.sd-
 #swarf-draw.sd-tex .tx-fills { gap: 4px; }
 #swarf-draw.sd-tex .tx-check { display: flex; align-items: center; gap: 6px; cursor: pointer; }
 #swarf-draw.sd-tex .tx-check input { width: auto; margin: 0; }
+/* the brush size in the bar; small swatches in one row on a short window; the points row on one line */
+#swarf-draw.sd-tex .tx-bsize { display: inline-flex; align-items: center; gap: 4px; font-size: 12px; }
+#swarf-draw.sd-tex .tx-bsize input { font: inherit; width: 52px; text-align: right; padding: 4px 6px; border-radius: 6px; border: 1px solid currentColor; background: transparent; color: inherit; }
+#swarf-draw.sd-tex .tx-sws.tx-compact { grid-template-columns: repeat(10, 1fr); gap: 2px; }
+#swarf-draw.sd-tex .tx-sws.tx-compact .tx-sw { padding: 1px; }
+#swarf-draw.sd-tex .tx-sws.tx-compact .tx-sw img { width: 20px; height: 20px; border-radius: 3px; }
+#swarf-draw.sd-tex .tx-sws.tx-compact .tx-sw span { display: none; }
+#swarf-draw.sd-tex .sd-card .tx-ptsrow { flex-wrap: nowrap; }
+#swarf-draw.sd-tex .sd-card .tx-ptsrow input { width: 44px; }
+/* the kerfed board from the side, in the skin's own text color */
+#swarf-draw.sd-tex .tx-kerfpic { flex: none; height: 56px; margin: 2px 0 4px; color: var(--swarf-text); }
+#swarf-draw.sd-tex .tx-kerfpic svg { display: block; width: 100%; height: 56px; }
+#swarf-draw.sd-tex .tx-kp-board { fill: currentColor; fill-opacity: .18; stroke: currentColor; stroke-opacity: .6; }
+#swarf-draw.sd-tex .tx-kp-kerf rect { fill: currentColor; fill-opacity: .7; }
+#swarf-draw.sd-tex .tx-kp-arc { fill: none; stroke: currentColor; stroke-dasharray: 3 2; stroke-opacity: .7; }
+#swarf-draw.sd-tex .tx-kp-t { fill: currentColor; font-size: 9px; }
 #swarf-draw.sd-tex .tx-edge { fill: none !important; vector-effect: non-scaling-stroke; pointer-events: none; }
 #swarf-draw.sd-tex .sd-card select { width: 136px; text-overflow: ellipsis; }
 #swarf-draw.sd-tex .sd-card .tx-warn { border-left: 2px solid var(--swarf-amber); padding-left: 7px; }

@@ -384,5 +384,26 @@ for (const [id, P] of Object.entries(T.PATTERNS)) {
   ok(near && near.d < 0.5 && (near.span === k || near.span === (k - 1 + outer.handles.length) % outer.handles.length), 'a click by the curve finds the span to add a point to');
 }
 
+// 17. points fitted by error: a notched stroke gets enough points that the curve stays within ~1 mm
+//     of the paint's edge (12 fixed points cut across the notch)
+{
+  const g = T.newGrid(0, 0, 120, 60, 0.5);
+  T.stampStroke(g, 10, 20, 100, 20, 9, 1); T.stampStroke(g, 55, 20, 55, 50, 7, 1);       // a T: a notch each side of the stem
+  const fit = T.fitCurves(g, { tol: 1 }), n = fit.loops.reduce((a, l) => a + l.handles.length, 0);
+  const back = T.rewriteFromCurves(g, fit);
+  let worst = 0;
+  for (let j = 0; j < g.ny; j++) for (let i = 0; i < g.nx; i++) {
+    const k = j * g.nx + i; if (back.data[k] === g.data[k]) continue;
+    // how far this changed cell is from the paint's edge
+    let d = 0; while (d < 20) { d++; let edge = false; for (let dj = -d; dj <= d && !edge; dj++) for (let di = -d; di <= d; di++) { const q = (j + dj) * g.nx + i + di; if (q >= 0 && q < g.data.length && g.data[q] !== g.data[k]) { edge = true; break; } } if (edge) break; }
+    worst = Math.max(worst, d * g.res);
+  }
+  const crude = T.rewriteFromCurves(g, T.fitCurves(g, { count: 12 }));
+  let lost = 0; for (let k = 0; k < g.data.length; k++) if (crude.data[k] !== g.data[k]) lost++;
+  let lostFit = 0; for (let k = 0; k < g.data.length; k++) if (back.data[k] !== g.data[k]) lostFit++;
+  ok(worst <= 1.5 && n > 12 && lostFit < lost / 2, `fitted by error: ${n} points, the edge within ${worst} mm of the paint (12 points change ${lost} cells, these ${lostFit})`);
+  ok(T.roundProse(166.67) === 167 && T.roundProse(11.55) === 11.5 && T.roundProse(4.97) === 5, 'lengths in sentences are rounded: 167, 11.5, 5');
+}
+
 console.log(`\n${pass} passed, ${fail} failed  (${((Date.now() - t0) / 1000).toFixed(1)} s)`);
 process.exit(fail ? 1 : 0);

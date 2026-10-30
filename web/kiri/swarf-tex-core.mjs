@@ -1612,8 +1612,19 @@ export function paintLoops(region) {
   }
   return loops;
 }
-// FIT: { loops: [{ handles, orient }] }, `count` handles on the longest loop, the rest by length
-export function fitCurves(region, { count = 12, minCount = 4 } = {}) {
+// how far a curve through these handles strays from the polyline it was fitted to (its worst point)
+function fitError(handles, P) {
+  const C = sampleCurve(handles, 8).pts;
+  let worst = 0;
+  const near = (q, L) => { let d = Infinity; for (let i = 0; i < L.length; i++) { const a = L[i], b = L[(i + 1) % L.length]; d = Math.min(d, segDist(q[0], q[1], [a[0], a[1], b[0], b[1]])); } return d; };
+  for (const q of C) worst = Math.max(worst, near(q, P));
+  for (let i = 0; i < P.length; i += Math.max(1, Math.floor(P.length / 120))) worst = Math.max(worst, near(P[i], C));
+  return worst;
+}
+// FIT: { loops: [{ handles, orient }] }. With `tol` (mm in the grid's frame): each loop gets the fewest
+// points, from one per ~10 mm up, whose curve stays within tol of the paint's edge. With `count`
+// instead: that many on the longest loop, the rest by length (fewer and more).
+export function fitCurves(region, { count = 0, tol = 1, minCount = 4, maxCount = 80 } = {}) {
   const g = regionSpec(region);
   const raw = paintLoops(g).filter((P) => loopLen(P) > 4 * g.res);
   if (!raw.length) return { loops: [] };
@@ -1621,7 +1632,13 @@ export function fitCurves(region, { count = 12, minCount = 4 } = {}) {
   const Lmax = Math.max(...faired.map(loopLen));
   return {
     loops: faired.map((P) => {
-      const handles = resampleLoop(P, Math.max(minCount, Math.round(count * loopLen(P) / Lmax)));
+      let n;
+      if (count > 0) n = Math.max(minCount, Math.round(count * loopLen(P) / Lmax));
+      else {
+        n = Math.max(minCount, Math.min(maxCount, Math.round(loopLen(P) / 10)));
+        while (n < maxCount && fitError(resampleLoop(P, n), P) > tol) n = Math.min(maxCount, Math.ceil(n * 1.25));
+      }
+      const handles = resampleLoop(P, n);
       return { handles, orient: Math.sign(loopArea2(handles)) || 1 };
     }),
   };
@@ -1696,16 +1713,19 @@ export function nearestOnCurves(curves, x, y) {
 // The soft edge thins the pattern toward the mark's edge: slots break into shorter dashes,
 // holes get smaller (and drop out under the bit's own size).
 
-const PIERCE_P = (k, label, min, max, step, def, unit = 'mm', basic = false) => ({ k, label, type: 'range', min, max, step, def, unit, basic });
+const PIERCE_P = (k, label, min, max, step, def, unit = 'mm', basic = false, tip = '') => ({ k, label, type: 'range', min, max, step, def, unit, basic, tip });
 export const PIERCES = {
   kerf: {
     label: 'kerfs', short: 'kerfs', blurb: 'Parallel cuts along a bend line: the part bends across them.',
-    params: [PIERCE_P('radius', 'Bend radius', 20, 3000, 1, 200, 'mm', true), PIERCE_P('skin', 'Skin left', 0, 20, 0.1, 2.5, 'mm', true),
-      PIERCE_P('bridge', 'Bridge', 0, 60, 0.5, 0), PIERCE_P('slot', 'Slot length', 10, 600, 1, 80)],
+    params: [PIERCE_P('radius', 'Bend radius', 20, 3000, 1, 100, 'mm', true, 'the inside of the curve you want: a coffee can is about 50 mm, a bucket about 150. Smaller bends tighter and needs kerfs closer together'),
+      PIERCE_P('skin', 'Skin left', 0, 20, 0.1, 2.5, 'mm', true, 'wood left under every kerf, on the face that stays smooth (the outside of the bend). 0 cuts right through; then bridges hold the strips together'),
+      PIERCE_P('bridge', 'Bridge', 0, 60, 0.5, 0, 'mm', false, 'uncut wood between the slots along each kerf; 0 for kerfs that run unbroken'),
+      PIERCE_P('slot', 'Slot length', 10, 600, 1, 80, 'mm', false, 'how long each cut is between bridges (with bridges)')],
   },
   holes: {
     label: 'holes', short: 'holes', blurb: 'Round holes right through, on a grid or a hex lattice.',
-    params: [PIERCE_P('size', 'Hole size', 2, 80, 0.5, 10, 'mm', true), PIERCE_P('spacing', 'Spacing', 3, 160, 0.5, 18, 'mm', true),
+    params: [PIERCE_P('size', 'Hole size', 2, 80, 0.5, 10, 'mm', true, 'across each hole; no smaller than the bit'),
+      PIERCE_P('spacing', 'Spacing', 3, 160, 0.5, 18, 'mm', true, 'from one hole\'s middle to the next; the wood between is spacing less size'),
       { k: 'layout', label: 'Layout', type: 'select', options: ['hex', 'grid'], def: 'hex' }],
   },
 };
@@ -1722,6 +1742,7 @@ export function fillTool(f) {
   return makeTool(f && f.fill === 'pierce' ? 'flat18' : 'ball14');
 }
 // the kerf pitch for a bit width w, board T, skin s and bend radius R (closure: the kerfs just touch)
+export function roundProse(v) { const a = Math.abs(v); return a < 20 ? Math.round(v * 2) / 2 : Math.round(v); }
 export function kerfPitch(w, T, s, R) { return w * R / Math.max(1e-6, T - Math.max(0, s)); }
 
 // The cuts, in the part's frame: { slots: [{ a: [x, y], b: [x, y] }], holes: [{ x, y, d }], depth,
@@ -1873,7 +1894,8 @@ export function pierceChecks(mark, o = {}) {
   if (tool.type !== 'flat') warnings.push(`A ${tool.name} leaves a ${tool.type === 'v' ? 'V' : 'round'}-bottomed cut; through cuts want a straight (flat) bit.`);
   if (f.pattern === 'kerf') {
     const skin = Math.min(Math.max(0, p.skin), T), rib = cuts.pitch - w;
-    notes.unshift(`Kerfs every ${L(cuts.pitch)}, ${cuts.through ? 'right through' : `${L(T - skin)} deep, leaving ${L(skin)}`}, ${cuts.slots.length} cut${cuts.slots.length === 1 ? '' : 's'}.`);
+    notes.unshift(`Kerfs every ${L(cuts.pitch)}, ${cuts.through ? 'right through' : `${L(T - skin)} deep, leaving ${L(skin)}`}, ${cuts.slots.length} cut${cuts.slots.length === 1 ? '' : 's'}${cuts.slots.length <= 2 ? ': a bend this gentle needs few kerfs; a smaller radius adds more' : ''}.`,
+      `Every ${L(cuts.pitch)} = bit ${L(w)} × radius ${L(p.radius)} ÷ (board ${L(T)} − skin ${L(skin)}): where the kerfs just close when it bends.`);
     if (rib < 2 * w) warnings.push(`The kerfs are ${L(cuts.pitch)} apart: the wood between them is thinner than two bit widths and may snap. Ask for a gentler bend (a bigger radius) or use a thinner bit.`);
     if (skin > 0) {
       const rmin = skin / (2 * SKIN_STRAIN);
@@ -1974,7 +1996,7 @@ const API = {
   regionSpec, storeRegion, xfApply, xfInvert, xfThen, xfScale, placeTexture, newFill, markTexture, pathFor, markToolpath, feedRuns,
   markChecks, BASIC, shadeHeight, SWATCH_SPAN, swatch,
   clipToPart, edgeDistance, controlsFor, splineAt, sampleCurve, paintLoops, fitCurves, curvesCross, rewriteFromCurves, nearestOnCurves,
-  PIERCES, SKIN_STRAIN, pierceDefaults, newPierce, fillTool, kerfPitch, pierceCuts, pierceToolpath, pierceChecks, pierceSVG,
+  roundProse, PIERCES, SKIN_STRAIN, pierceDefaults, newPierce, fillTool, kerfPitch, pierceCuts, pierceToolpath, pierceChecks, pierceSVG,
 };
 if (typeof window !== 'undefined') window.SwarfTexCore = API;
 export default API;

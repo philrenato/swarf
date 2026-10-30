@@ -202,6 +202,7 @@
       <svg id="tx-svg" tabindex="0"></svg>
       <div class="sd-bar">
         ${['select', 'brush', 'erase', 'rect', 'ellipse', 'region', 'points'].map(btn).join('')}
+        <span class="tx-bsize" id="tx-bsize-wrap" title="across the brush ([ and ] change it)"><input id="tx-bsize" inputmode="text"><span class="u"></span></span>
         <span class="sd-sep"></span>
         <button id="tx-undo" title="undo (⌘Z)">undo</button>
         <button id="tx-fit" title="show the parts, or the whole bed (F) · pinch or ⌘-scroll to zoom, two fingers to slide">fit</button>
@@ -217,6 +218,13 @@
     ui.el = el; ui.svg = $('tx-svg'); ui.card = $('tx-card');
     for (const b of el.querySelectorAll('[data-tool]')) b.onclick = () => setTool(b.dataset.tool);
     $('tx-undo').onclick = undo;
+    const bs = $('tx-bsize');
+    const takeBrush = () => { const v = LEN.parse(bs.value); if (!(v >= 0.5)) { say('Give the brush at least 0.5 mm across.'); return; } S.brush = r3(v); try { localStorage.setItem(BRUSH, String(S.brush)); } catch (e) { /* private */ } render(); };
+    bs.onkeydown = e => { e.stopPropagation(); if (e.key === 'Enter') { bs.dataset.took = bs.value; takeBrush(); bs.blur(); ui.svg.focus(); } if (e.key === 'Escape') { render(); ui.svg.focus(); } };
+    bs.onchange = () => { if (bs.dataset.took !== bs.value) takeBrush(); };
+    // a unit changed in cam: the card and the bar say it, and no stale line stays
+    S.onUnits = () => { if (S) { say(''); render(); } };
+    try { a.ui.units && a.ui.units.addEventListener('change', S.onUnits); } catch (e) { /* no units control */ }
     $('tx-fit').onclick = () => { fit(!S.whole); render(); ui.svg.focus(); };
     $('tx-cancel').onclick = () => close(false);
     $('tx-done').onclick = () => close(true);
@@ -243,6 +251,7 @@
     window.removeEventListener('keypress', hush, true);
     window.removeEventListener('resize', render);
     clearTimeout(S.checkT); clearTimeout(S.imgT);
+    try { const u = api() && api().ui.units; if (u && S.onUnits) u.removeEventListener('change', S.onUnits); } catch (e) { /* gone */ }
     ui.el.remove();
     document.body.classList.remove('swarf-draw-open', 'swarf-tex-open');
     S = null;
@@ -361,8 +370,9 @@
   // ── points: the picked mark's edge as Pgon's and MASQ's region curve (swarf-tex-core fitCurves) ──
   function curveOf(m) {
     if (!(m.curve && m.curve.ver === m.ver)) {
-      const count = (m.curve && m.curve.count) || 12;
-      m.curve = { ver: m.ver, count, ...T().fitCurves(m.region, { count }) };
+      const count = m.curve && m.curve.count;
+      const fit = count ? T().fitCurves(m.region, { count }) : T().fitCurves(m.region, { tol: 1 / T().xfScale(m.xf) });
+      m.curve = { ver: m.ver, count: count || Math.max(...fit.loops.map(L => L.handles.length), 4), ...fit };
       S.pts = new Set();
     }
     return m.curve;
@@ -384,9 +394,9 @@
   }
   // the curve back into the mark: from the paint's grid at the start, clipped to the part's top.
   // A curve that would cross itself leaves the paint as it was, and says so.
-  function rewrite(part, m, base, curve) {
+  function rewrite(part, m, base, curve, dragging) {
     const r = T().rewriteFromCurves(base, curve);
-    if (!r) { say('That would make the edge cross itself: the mark stays as it was. Move the point back, or another way.'); return false; }
+    if (!r) { say(dragging ? 'Stopped where the edge would cross itself: let go and it stays there.' : 'That would make the edge cross itself: the mark stays as it was. Move the point back, or another way.'); return false; }
     const top = onTop(part, m), g = m.region;
     for (let j = 0; j < g.ny; j++) for (let i = 0; i < g.nx; i++) {
       const k = j * g.nx + i;
@@ -430,8 +440,8 @@
     d.moved = true;
     const curve = clone(d.start);
     for (const id of S.pts) { const [li, i] = id.split(':').map(Number), h = curve.loops[li] && curve.loops[li].handles[i]; if (h) { h[0] += dx; h[1] += dy; } }
-    d.ok = rewrite(d.part, d.m, d.base, curve);
-    if (!d.ok) { d.m.region.data.set(d.base.data); d.m.ver++; d.m.curve = { ...curve, ver: d.m.ver }; d.bad = true; } else d.bad = false;
+    // a curve that would cross is not taken: the mark stays at the last place that did not
+    d.bad = !rewrite(d.part, d.m, d.base, curve, true);
     renderSoon();
   }
   function pointsUp(d) {
@@ -445,8 +455,8 @@
       render(); return;
     }
     if (!d.moved) { S.undo.pop(); render(); return; }
-    // a drag that ended crossed: the paint from before it, and the points from before it
-    if (d.bad) { d.m.region.data.set(d.base.data); d.m.ver++; d.m.curve = { ...clone(d.start), ver: d.m.ver }; }
+    // a drag that ended crossed lands where it last did not (rewrite kept that), and says so
+    if (d.bad) say('The point stopped where the edge would have crossed itself.');
     render(); imagesSoon(); checkSoon();
   }
   function pointsDelete() {
@@ -530,6 +540,9 @@
     ui.svg.innerHTML = out.join('');
     for (const b of ui.el.querySelectorAll('[data-tool]')) b.classList.toggle('on', b.dataset.tool === S.tool);
     $('tx-undo').disabled = !S.undo.length;
+    const bwrap = $('tx-bsize-wrap'), bin = $('tx-bsize');
+    bwrap.style.display = S.tool === 'brush' || S.tool === 'erase' ? '' : 'none';
+    if (document.activeElement !== bin) { bin.value = LEN.fld(r3(S.brush)); bwrap.querySelector('.u').textContent = LEN.unit(); }
     if (!S.drag) card();
   }
 
@@ -543,6 +556,21 @@
     return `${i + 1} · ${m.made || 'mark'}${im ? ` ${n(w)} × ${n(h)} ${inch ? 'in' : 'mm'}` : ''}`;
   }
 
+  // a kerfed board from the side, to its numbers: the board, the kerfs a bit wide at their pitch, the
+  // skin left under them, and the arc it bends to (skin outside)
+  function kerfPicture(part, f, pr) {
+    const lib = T().fillTool(f), w = lib.diameter, Tb = part.thick || 19, skin = Math.min(Math.max(0, pr.skin), Tb);
+    const pitch = T().kerfPitch(w, Tb, skin, pr.radius);
+    const W = 240, H = 56, k = Math.min(3, (H - 28) / Tb), x0 = 10, y0 = 4, n = Math.max(2, Math.min(8, Math.floor((W - 30) / Math.max(1, pitch * k))));
+    const span = Math.min(W - 20, n * pitch * k + w * k);
+    let kerfs = '';
+    for (let i = 0; i < n; i++) { const x = x0 + w * k / 2 + i * pitch * k + pitch * k / 2; kerfs += `<rect x="${(x - w * k / 2).toFixed(1)}" y="${y0}" width="${Math.max(1, w * k).toFixed(1)}" height="${((Tb - skin) * k).toFixed(1)}"/>`; }
+    const by = y0 + Tb * k;
+    return `<div class="tx-kerfpic" title="from the side: kerfs a bit wide every ${esc(says(`⟦${pitch}⟧`))}, ${skin > 0 ? `${esc(says(`⟦${skin}⟧`))} of skin left under them` : 'right through'}; it bends with the skin outside">
+      <svg viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" aria-hidden="true"><rect class="tx-kp-board" x="${x0}" y="${y0}" width="${span.toFixed(1)}" height="${(Tb * k).toFixed(1)}"/><g class="tx-kp-kerf">${kerfs}</g>
+      <path class="tx-kp-arc" d="M${x0},${by + 6} Q${x0 + span / 2},${by + 6 + Math.min(10, 600 / pr.radius)} ${x0 + span},${by + 6}"/>
+      <text class="tx-kp-t" x="${x0 + span + 4}" y="${y0 + Tb * k - 1}">skin</text><text class="tx-kp-t" x="${x0 + span / 2 - 14}" y="${H - 2}">bends this way</text></svg></div>`;
+  }
   // the patterns as swatches, in the skin's colors, made once a visit
   function swatchHref(id) {
     S.sw = S.sw || {};
@@ -567,24 +595,20 @@
       if (q.shuffle) return `<div class="sd-row" title="another arrangement of the same pattern"><span>${word === 'seed' ? 'arrangement' : word}</span><button id="${id}" class="tx-shuffle">shuffle</button></div>`;
       if (q.type === 'select') return selRow(word, id, q.options.map(o => [o, o]), v);
       if (q.type === 'text') return `<div class="sd-row"><span>${word}</span><input id="${id}" class="wide" value="${esc(v)}"></div>`;
-      if (q.unit === 'mm') return lenRow(word, id, v);
-      return numRow(word, id, v, q.unit === '°' ? '°' : '');
+      if (q.unit === 'mm') return lenRow(word, id, v, q.tip);
+      return numRow(word, id, v, q.unit === '°' ? '°' : '', q.tip);
     };
     let h = '';
     if (!part) {
       h += `<div class="sd-note">${S.parts.length ? 'Click a part to mark it.' : 'No parts on the bed yet.'}</div>`;
-      if (S.tool === 'brush' || S.tool === 'erase') h += lenRow('brush size', 'tx-bsize', S.brush, 'across the brush ([ and ] change it)');
     } else {
       h += `<div class="sd-h">${esc(part.name)}</div>`;
       if (part.tilted) h += '<div class="sd-note">This part is tipped over: TEX marks the top of a part lying flat.</div>';
-      if (S.tool === 'brush' || S.tool === 'erase') h += lenRow('brush size', 'tx-bsize', S.brush, 'across the brush ([ and ] change it)');
-      else if (S.tool === 'points' && m && markHas(m)) {
+      if (S.tool === 'points' && m && markHas(m)) {
         const c = curveOf(m), n = c.loops.reduce((a, L) => a + L.handles.length, 0);
-        h += `<div class="sd-note">Drag a point to reshape the mark's edge. Click the edge to add one; Delete removes the picked ones.</div>
-          <div class="sd-row" title="how many points the edge is fitted to: fewer is smoother"><span>points</span><input id="tx-npts" value="${n}" inputmode="numeric"><button id="tx-fewer" title="fewer points: smoother">fewer</button><button id="tx-more" title="more points: closer to the paint">more</button></div>`;
-      } else if (S.tool !== 'select') h += `<div class="sd-note">${esc(TOOLS[S.tool].replace(/ \(\w\)$/, ''))}.</div>`;
-      if (part.marks.length) h += `<div class="sd-row tx-picks">${part.marks.map((q, i) => `<button class="tx-pick${i === S.mark ? ' on' : ''}" data-mi="${i}" title="pick this mark">${esc(markName(q, i))}</button>`).join('')}</div>`;
-      h += `<div class="sd-row"><button id="tx-new" title="start another mark on this part (the brush paints it)">new mark</button>${m ? '<button id="tx-del" title="remove this mark (Delete, with select)">delete mark</button>' : ''}</div>`;
+        h += `<div class="sd-row tx-ptsrow" title="how many points the edge is fitted to: fewer is smoother, more follows the paint closer"><span>points</span><input id="tx-npts" value="${n}" inputmode="numeric"><button id="tx-fewer" title="fewer points: smoother">fewer</button><button id="tx-more" title="more points: closer to the paint">more</button></div>`;
+      }
+      h += `<div class="sd-row tx-picks">${part.marks.map((q, i) => `<button class="tx-pick${i === S.mark ? ' on' : ''}" data-mi="${i}" title="pick this mark">${esc(markName(q, i))}</button>`).join('')}<button id="tx-new" title="start another mark on this part (the brush paints it)">new mark</button>${m ? '<button id="tx-del" title="remove this mark (Delete, with select)">delete</button>' : ''}</div>`;
       if (!m) h += `<div class="sd-note">${part.marks.length ? 'Pick a mark, or start a new one.' : 'Paint on the part with the brush, or drag a rectangle or an ellipse: that is the mark. Then fill it here.'}</div>`;
     }
     const expert = document.body.classList.contains('swarf-expert');
@@ -598,6 +622,7 @@
       const f = m.fill, P = C.PIERCES[f.pattern], pr = { ...C.pierceDefaults(f.pattern), ...(f.params || {}) };
       h += fillRow(f);
       h += selRow('pattern', 'tx-pat', Object.entries(C.PIERCES).map(([k, q]) => [k, q.label]), f.pattern, P.blurb);
+      if (f.pattern === 'kerf') h += kerfPicture(part, f, pr);
       const tex = m.info && m.info.ver === m.ver ? m.info : null;
       if (!tex) h += '<div class="sd-note">Working out the cut…</div>';
       else {
@@ -609,14 +634,15 @@
       h += lenRow('soft edge', 'tx-fade', f.fade || 0, 'how far in from the mark\'s edge the pattern thins out: shorter slots, smaller holes');
       h += numRow(f.pattern === 'kerf' ? 'bend line' : 'turn', 'tx-angle', r3(f.angle || 0), '°', f.pattern === 'kerf' ? 'which way the kerfs run: the part bends across them' : 'the lattice turned');
       h += bitRow(f);
-      const more = S.more ?? expert;
-      h += `<details class="tx-more"${more ? ' open' : ''}><summary>more</summary>`;
-      for (const q of P.params) if (!q.basic) h += paramRow(q, pr[q.k]);
       h += '<div class="sd-row"><button id="tx-svg-save" title="the cuts as an SVG in mm for the laser: cuts on the red layer, holes on the blue">save for the laser (svg)</button></div>';
+      // bridges and slots are second-order: folded, also in advanced mode
+      const more = S.morePierce ?? false;
+      h += `<details class="tx-more tx-more-p"${more ? ' open' : ''}><summary>more</summary>`;
+      for (const q of P.params) if (!q.basic) h += paramRow(q, pr[q.k]);
       h += '</details>';
     } else if (m) {
       const f = m.fill, P = C.PATTERNS[f.pattern], pr = { ...C.defaults(f.pattern), ...(f.params || {}) };
-      h += `${fillRow(f)}<div class="tx-sws">${Object.entries(C.PATTERNS).map(([k, p]) => `<button class="tx-sw${k === f.pattern ? ' on' : ''}" data-pat="${k}" title="${esc(p.label)}: ${esc(p.blurb)}"><img alt="" src="${swatchHref(k)}"><span>${esc(p.short)}</span></button>`).join('')}</div>`;
+      h += `${fillRow(f)}<div class="tx-sws${window.innerHeight < 820 ? ' tx-compact' : ''}">${Object.entries(C.PATTERNS).map(([k, p]) => `<button class="tx-sw${k === f.pattern ? ' on' : ''}" data-pat="${k}" title="${esc(p.label)}: ${esc(p.blurb)}"><img alt="" src="${swatchHref(k)}"><span>${esc(p.short)}</span></button>`).join('')}</div>`;
       h += selRow('pattern', 'tx-pat', Object.entries(C.PATTERNS).map(([k, p]) => [k, p.label]), f.pattern, P.blurb);
       // what it costs and what to watch for, up by the pattern where it is seen
       const tex = m.info && m.info.ver === m.ver ? m.info : null;
@@ -657,7 +683,7 @@
     for (const b of ui.card.querySelectorAll('.tx-pick')) b.onclick = () => { S.mark = +b.dataset.mi; render(); checkSoon(); ui.svg.focus(); };
     const det = ui.card.querySelector('.tx-more');
     // the toggle event lands after the card is drawn, so TEX may have closed by then
-    if (det) det.ontoggle = () => { if (!S) return; S.more = det.open; scrollCue(); };
+    if (det) det.ontoggle = () => { if (!S) return; if (det.classList.contains('tx-more-p')) S.morePierce = det.open; else S.more = det.open; scrollCue(); };
     const nb = $('tx-new');
     if (nb) nb.onclick = () => { snap(); part.marks.push(newMark(part)); S.mark = part.marks.length - 1; part.dirty = true; if (S.tool === 'select') S.tool = 'brush'; say('A new mark: paint it on the part.'); render(); ui.svg.focus(); };
     const db = $('tx-del');
@@ -667,7 +693,6 @@
     if (fw) fw.onclick = () => { pointsCount(cnt() * 0.75); ui.svg.focus(); };
     if (mo) mo.onclick = () => { pointsCount(cnt() * 1.35 + 1); ui.svg.focus(); };
     bind('tx-npts', v => { if (!(v >= 4)) return say('Give it at least 4 points.'); const c = m.curve, tot = c.loops.reduce((a, L) => a + L.handles.length, 0); pointsCount(c.count * v / Math.max(1, tot)); });
-    bind('tx-bsize', v => { if (!(v >= 0.5)) return say('Give the brush at least 0.5 mm across.'); S.brush = r3(v); try { localStorage.setItem(BRUSH, String(S.brush)); } catch (e) { /* private */ } render(); });
     if (!m) return;
     const f = m.fill;
     // every change to the fill: undoable, remembered for the next mark, the picture and checks again
@@ -752,7 +777,8 @@
     } catch (e) { worker = false; }
     return worker || null;
   }
-  const says = t => String(t).replace(/⟦([-\d.e+]+)⟧/g, (_, v) => LEN.say(+v));
+  const prose = v => (LEN.unit() === 'in' ? LEN.say(Math.round(v / 25.4 * 64) / 64 * 25.4) : LEN.say(T().roundProse(v)));
+  const says = t => String(t).replace(/⟦([-\d.e+]+)⟧/g, (_, v) => prose(+v));
   function info(part, m) {
     const op = stepOf(m.id) || {}, ver = m.ver;
     const ask = { mark: { id: m.id, region: m.region, xf: m.xf, fill: m.fill }, thickness: part.thick, part: part.loops, down: op.down || 0, rate: op.rate || 1500, plunge: op.plunge || 500 };
@@ -808,6 +834,11 @@
   }
   function setTool(t) {
     S.tool = t; S.box = null; S.drag = null;
+    const m = curMark();
+    if (t === 'points' && m && markHas(m)) {
+      const c = curveOf(m), n = c.loops.reduce((a, L) => a + L.handles.length, 0);
+      say(`The edge fitted to ${n} points; more follows the paint closer. Drag one to reshape it; click the edge to add one.`);
+    } else say(t === 'select' ? '' : `${WORD[t]}: ${TOOLS[t].replace(/ \(\w\)$/, '')}.`);
     render(); ui.svg.focus();
   }
   // the part under a bed point: the smallest whose top it is on
@@ -997,9 +1028,22 @@
     }
     if ((k === 'Delete' || k === 'Backspace') && S.tool === 'points') { e.preventDefault(); pointsDelete(); return; }
     if ((k === 'Delete' || k === 'Backspace') && curMark() && S.tool === 'select') { e.preventDefault(); delMark(); return; }
-    // arrows slide the picked mark on its part (shift: 10 mm)
+    // arrows slide the picked points (points), else the picked mark on its part (shift: 10 mm)
     const ar = { ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, 1], ArrowDown: [0, -1] }[k];
     const m = curMark();
+    if (ar && m && S.tool === 'points' && S.pts && S.pts.size) {
+      e.preventDefault();
+      const part = curPart(), st = e.shiftKey ? 10 : 1, I = T().xfInvert(m.xf);
+      // a step on the part, in the mark's frame (its turn and scale undone)
+      const du = I[0] * ar[0] * st + I[1] * ar[1] * st, dv = I[2] * ar[0] * st + I[3] * ar[1] * st;
+      const curve = clone({ loops: curveOf(m).loops, count: m.curve.count });
+      for (const id of S.pts) { const [li, i] = id.split(':').map(Number), h = curve.loops[li] && curve.loops[li].handles[i]; if (h) { h[0] += du; h[1] += dv; } }
+      snap();
+      const keep = new Set(S.pts);
+      if (rewrite(part, m, { ...m.region, data: m.region.data.slice() }, curve)) S.pts = keep; else S.undo.pop();
+      render(); imagesSoon(); checkSoon();
+      return;
+    }
     if (ar && m) {
       e.preventDefault();
       const s = e.shiftKey ? 10 : 1;
@@ -1152,7 +1196,7 @@
           loops = loops || localLoops(w).loops;
           const mark = { ...m, region: T().regionSpec(m.region) };
           const part = { loops };
-          const chk = T().markChecks(mark, { thickness: thick, len: LEN.say, part: part.loops });
+          const chk = T().markChecks(mark, { thickness: thick, len: prose, part: part.loops });
           said.set(key, chk.warnings);
           if (said.size > 200) said.delete(said.keys().next().value);
         }
