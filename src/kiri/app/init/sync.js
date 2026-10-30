@@ -798,10 +798,10 @@ function setup_keybd_nav() {
             { kind:'tex', name:'texture step', body:"one step per tex mark, before the outline. a ball bit leaves smooth hollows, a V-bit sharp grooves. its path: raster passes, cross-hatch, one plunge per dot, or along each groove's center (best for the pattern unless you pick). the bit never goes below the mark's depth or the board. concerns say when a bit cannot make the pattern.", tags:'texture step raster crosshatch plunge centerline ball v-bit vbit bit path tex' },
             { kind:'draw', name:'fonts', body:"draw › text › font: the built-in Russo One, this computer's fonts (Chrome and Edge ask first), or a .ttf or .otf file. each word keeps its own font.", tags:'font fonts text typeface system local draw' },
             { kind:'run', name:'shape', body:'a circle, rectangle, ring, polygon, star or slot, with a thickness.', tags:'shape circle rectangle ring polygon star slot' },
-            { kind:'run', name:'modes', body:'cam, draw, tex and control. draw makes shapes, tex marks and textures them, control runs the machine. in draw, tex or control the step row folds to those four.', tags:'modes cam draw tex control' },
+            { kind:'run', name:'modes', body:'cam, draw, tex and control. draw makes shapes, tex marks and textures them, control runs the machine. in draw, tex or control the step row folds to those four. in cam, tabs › auto tabs places the tabs at once (there is no apply); click a tab to move, resize or delete it. files › save project (.swarf), or ⌘S, keeps all of it in one file to open again here or on another computer.', tags:'modes cam draw tex control auto tabs save project swarf' },
             { kind:'run', name:'zero at', body:'where X 0, Y 0 sits on the stock: its front-left corner (the default), or its center for something round. you put the bit on that spot before you cut.', tags:'zero origin corner center center round x0 y0' },
             { kind:'run', name:'skin', body:'view › skin: wet plastic (default), classic, swarf.', tags:'skin theme look glass classic' },
-            { kind:'op', name:'auto tabs', body:'tabs › auto tabs: a starting set of tabs sized for the material, the bit, the board and the machine. how many: fewer to more; size: smaller to larger. the press places them at once, as ordinary tabs; undo or the trash takes them back.', tags:'auto tabs bridges hold parts cutout outline' },
+            { kind:'op', name:'auto tabs', body:'tabs › auto tabs: a starting set of tabs sized for the material, the bit, the board and the machine. how many: fewer to more; size: smaller to larger. the press places them at once, as ordinary tabs: there is no apply. click a tab to move, resize or delete it; undo or the trash takes them back.', tags:'auto tabs bridges hold parts cutout outline' },
             { kind:'op', name:'move a tab', body:'click a tab to pick it: drag it along the edge, press delete to remove it, or change its length, height and reach in its card. a tab you moved or resized stays as you set it when auto tabs are placed again (back to automatic lets go); where you deleted one stays empty. the trash starts over. undo takes back each change.', tags:'move tab drag tab delete tab remove tab resize tab pick tab single tab pinned back to automatic no tab here' },
             { kind:'op', name:'tab settings', body:'tabs: every number is a field — length, height, reach, count, from corners, hold inside pieces, holes from, in each hole. empty = automatic (grey); type a value to pin it. tabs follow their part: change a field, scale the part, or change the material, bit or machine, and they are placed again. all automatic empties them.', tags:'tab settings length height reach how many count corners holes pinned automatic parametric tab size' },
             { kind:'op', name:'loose pieces', body:'an outline that cuts through frees the part, and the piece inside every hole it cuts. with no tab it can catch the bit and fly. concerns and the cut checklist name each one; auto tabs hold them (hold inside pieces), or screw them down where the bit does not go. never reach in while the router turns.', tags:'loose pieces cut free through no tabs fly thrown slug hole inside piece retain hold down screw' },
@@ -844,11 +844,20 @@ function setup_keybd_nav() {
         ];
         function render(query) {
             const q = (query || '').trim().toLowerCase();
-            const matches = !q ? INDEX : INDEX.filter(e =>
-                e.name.toLowerCase().includes(q) ||
-                e.body.toLowerCase().includes(q) ||
-                e.tags.toLowerCase().includes(q)
-            );
+            // a name match beats a tag match beats a body match (review 10-30 C4: "tex" listed
+            // draw first, "tab" table corners); ties keep the index's order
+            const score = e => {
+                const n = e.name.toLowerCase();
+                if (n === q) return 100;
+                if (n.startsWith(q)) return 80;
+                if (n.includes(q)) return 60;
+                const t = ` ${e.tags.toLowerCase()} `;
+                if (t.includes(` ${q} `)) return 40;
+                if (t.includes(q)) return 20;
+                return e.body.toLowerCase().includes(q) ? 1 : 0;
+            };
+            const matches = !q ? INDEX : INDEX.map((e, i) => ({ e, i, s: score(e) })).filter(x => x.s > 0)
+                .sort((a, b) => b.s - a.s || a.i - b.i).map(x => x.e);
             if (matches.length === 0) {
                 results.innerHTML = '<div class="swarf-help-empty"><p>no matches.</p><p>try a control name, a parameter, or a phrase like &ldquo;why rough&rdquo;.</p></div>';
                 return;
