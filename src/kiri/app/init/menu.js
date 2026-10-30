@@ -163,7 +163,7 @@ function content(actions) {
                     menuItem(actions, { id: 'file-recent', lk: 'recent', text: 'recent', iconClass: 'fas fa-list' }),
                     menuItem(actions, {
                         id: 'file-import', lk: 'import', text: 'import', iconClass: 'fas fa-file-upload', children:
-                            input({ id: 'load-file', type: 'file', name: 'loadme', style: 'display:none', accept: '.km,.kmz,.stl,.obj,.svg,.dxf,.ai,.pdf,.png,.jpg,.jpeg,.gcode,.nc' })
+                            input({ id: 'load-file', type: 'file', name: 'loadme', style: 'display:none', accept: '.swarf,.km,.kmz,.stl,.obj,.svg,.dxf,.ai,.pdf,.png,.jpg,.jpeg,.gcode,.nc' })
                     }),
                     hr(),
                     menuItem(actions, { id: 'mesh-export-obj', lk: 'export-obj', text: 'save as OBJ', iconClass: 'fas fa-dice-d20' }),
@@ -171,7 +171,10 @@ function content(actions) {
                     // swarf r36: the drawing behind shapes and 2D imports, true size (web/kiri/swarf-shape.js)
                     menuItem(actions, { id: 'swarf-save-drawing', text: 'save drawing (DXF, AI, SVG, PDF)', iconClass: 'fas fa-bezier-curve' }),
                     hr(),
-                    menuItem(actions, { id: 'app-export', lk: 'rc_xpws', text: 'export work', iconClass: 'fas fa-download' }),
+                    // swarf: the whole project, to open again here or on another computer (web/kiri/swarf-file.js)
+                    menuItem(actions, { id: 'swarf-file-open', text: 'open project (.swarf)', title: 'open a .swarf: it takes the place of what is on the bed (you can also drop it on the bed)', iconClass: 'fas fa-folder-open', onclick(ev) { ev && ev.stopPropagation && ev.stopPropagation(); document.getElementById('load-file').click(); } }),
+                    menuItem(actions, { id: 'swarf-file-save', text: 'save project (.swarf)', title: 'everything: parts, drawings, marks, tabs, steps, material, bits and machine (⌘S); open it again by dropping it on the bed', iconClass: 'fas fa-floppy-disk' }),
+                    menuItem(actions, { id: 'app-export', text: 'save for Kiri:Moto (.kmz)', title: 'a workspace Kiri:Moto opens (it has no texture or pierce steps); .swarf keeps everything', iconClass: 'fas fa-download' }),
                     hr({ class: "app-hide" }),
                     menuItem(actions, { id: 'app-quit', lk: 'quit', text: 'quit', className: 'hide', onclick() { window.close() } })
                 ]
@@ -270,7 +273,7 @@ function modeTools(actions) {
             span([icon('fas fa-cube')]),
             label({ _: 'cam' })
         ]),
-        span({ id: 'swarf-step-file', class: 'swarf-step', title: 'open a file: a drawing (SVG, DXF, AI, PDF) or a model (STL, OBJ)', onclick() { $('load-file').click(); } }, [
+        span({ id: 'swarf-step-file', class: 'swarf-step', title: 'open a file: a drawing (SVG, DXF, AI, PDF), a model (STL, OBJ) or a project (.swarf)', onclick() { $('load-file').click(); } }, [
             span([icon('fas fa-file-arrow-up')]),
             label({ _: 'import' })
         ]),

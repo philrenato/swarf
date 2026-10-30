@@ -749,6 +749,8 @@ export function autoTabRow() {
         refresh: autoRefresh, forget: autoForget, audit: autoAudit, fields: FIELDS,
         get settings() { return clone(cur); },
         set(o) { cur = normal(Object.assign(clone(cur), o)); edited(); return clone(cur); },
+        // the card's rule as stored, after a .swarf brought its own (swarf-file.js): no tab moves
+        reload() { recall(); showFields(); return clone(cur); },
     };
     return [box];
 }

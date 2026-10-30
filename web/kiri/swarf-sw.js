@@ -60,6 +60,7 @@ const EAGER_URLS = [
     'swarf-a11y.js',
     'swarf-draw-geom.mjs',
     'swarf-tex.js',
+    'swarf-file.js',
     'swarf-tex-core.mjs',
     'swarf-tex-worker.mjs',
     'vendor/unreason/arrangement.mjs',

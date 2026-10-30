@@ -13,6 +13,7 @@ import { space } from '../../moto/space.js';
 import { THREE } from '../../ext/three.js';
 import { Widget, newWidget } from './widget.js';
 import { profileSolid } from './swarf-profile.js';
+import { JSZip } from '../../ext/jszip-esm.js';
 
 const V0 = new THREE.Vector3(0,0,0);
 
@@ -1156,6 +1157,7 @@ function load_files(files, group) {
             ispng = lower.endsWith(".png"),
             isjpg = lower.endsWith(".jpg"),
             iskmz = lower.endsWith(".kmz"),
+            isswarf = lower.endsWith(".swarf"),
             isini = lower.endsWith(".ini"),
             isgbr = lower.endsWith(".gbr"),
             israw = lower.endsWith(".raw") || lower.indexOf('.') < 0,
@@ -1285,6 +1287,13 @@ function load_files(files, group) {
                     }
                     load_dec();
                 });
+            }
+            // swarf: a whole project (web/kiri/swarf-file.js)
+            else if (isswarf) {
+                // as a .kmz does: the parts keep their places (no layout, no group centering)
+                const done = () => { if (--loading === 0) grouping = false; };
+                if (self.SwarfFile) self.SwarfFile.open(data, name, JSZip).finally(done);
+                else { api.show.alert('the project reader is still loading: try again', 6); done(); }
             }
             else if (iskmz) api.settings.import_zip(data, true);
             else if (isset) api.settings.import(data.textDecode('utf-8'), true);

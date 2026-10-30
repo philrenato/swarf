@@ -17,7 +17,7 @@
     row.append(
       b('make a shape', 'a circle, rectangle, ring, polygon, star or slot, with a thickness', () => $('swarf-step-shape') && $('swarf-step-shape').click()),
       b('draw one', 'draw an outline or type words on the bed, seen from above', () => window.__swarfDraw && window.__swarfDraw.open()),
-      b('open a file', 'a drawing (SVG, DXF, AI, PDF) or a model (STL, OBJ)', () => $('load-file') && $('load-file').click()));
+      b('open a file', 'a drawing (SVG, DXF, AI, PDF), a model (STL, OBJ) or a project (.swarf)', () => $('load-file') && $('load-file').click()));
     // the ShopBot works with an empty bed too (Phil 10-29): jog, zero, a test cut
     const row2 = document.createElement('div'); row2.className = 'row sb';
     row2.append(

@@ -19,7 +19,9 @@ export const devices = {
     show: showDevices,
     select: selectDevice,
     refresh: updateDeviceList,
-    update_laser_state: updateLaserState
+    update_laser_state: updateLaserState,
+    // swarf: a machine that comes with the app (not one made on this computer), for .swarf files
+    builtin: name => !!(devlist[api.mode.get_lower()] || {})[name]
 };
 
 function isBelt() {

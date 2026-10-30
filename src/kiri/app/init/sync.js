@@ -812,6 +812,8 @@ function setup_keybd_nav() {
             { kind:'run', name:'router test', body:'the small router button in the jog pad: asks first, sounds a warning, then runs the router until you press it again, any key, the e-stop or 60 s. nothing moves while it runs.', tags:'router test spindle on off button red' },
             { kind:'run', name:'feed override', body:'while a job runs: −5% / +5% from 50 to 150 %, on cutting moves only, never past the machine\'s top speed. each job starts at 100 %.', tags:'feed override speed faster slower percent 5' },
             { kind:'run', name:'inches', body:'mm | in at the top left (or setup › preferences › units) switches every number swarf shows, control\'s jog step, speed and position too. type 3/4, 1 1/2\", 0.75 in or 19 mm in any length field. control runs .sbp files written in inches.', tags:'inches inch mm units fraction convert' },
+            { kind:'run', name:'save project (.swarf)', body:'files › save project (.swarf), or ⌘S: one file with everything — the parts where they sit, their drawings (still editable in draw), tex marks, tabs (auto, pinned and by hand), the steps in order with their numbers, the board, material, bits and machine, and the units. open it on any computer: drop it on the bed, files › open project, or double-click it once swarf is installed. a bit or machine the computer does not have is added, and swarf says so. the machine zero never goes in the file: a reopened job asks for its zero like a new one.', tags:'save open project swarf file keep everything another computer drag drop' },
+            { kind:'run', name:'.swarf or .kmz', body:'.swarf keeps everything; .kmz opens in Kiri:Moto. files › save for Kiri:Moto (.kmz) writes the parts, machine and steps as Kiri:Moto reads them, less the tex steps (Kiri:Moto has no texture step). a skin, sounds and other choices of this computer stay on it, in both.', tags:'kmz kiri moto export workspace swarf file which' },
             { kind:'run', name:'the shop\'s bits', body:'1/4 straight 48-005, 1/4 up-cut 52-910, 1/4 down-cut 57-910, 1/2 straight 48-072, in the tool list. in wood they cut with the shop\'s own numbers (120 in/min, 1/8 in a pass, 12,000 rpm).', tags:'bits tools shop upcut downcut straight part number feeds' },
             { kind:'run', name:'keep the zero', body:'a zero you set is kept across files, test cuts, a reconnect or a reload: one press of use the zero you set takes it back, no re-zeroing. it is dropped after a bit change or a box restart.', tags:'zero keep reuse reload reconnect' },
             { kind:'run', name:'search down', body:'on the z plate card: how far the bit comes down looking for the plate, 60 mm unless you raise it.', tags:'z plate search down distance touch off' },
@@ -860,6 +862,10 @@ function setup_keybd_nav() {
     })();
 
     $('file-new').onclick = (ev) => { ev.stopPropagation(); settingsOps.new_workspace() };
+    // swarf: .swarf projects (web/kiri/swarf-file.js), loaded here too when a page's own index lacks the tag
+    if (!self.SwarfFile && !document.querySelector('script[src*="swarf-file.js"]')) {
+        const s = document.createElement('script'); s.src = 'swarf-file.js'; document.body.appendChild(s);
+    }
     $('file-recent').onclick = () => { api.modal.show('files') };
     $('file-import').onclick = (ev) => { api.event.import(ev); };
     $('view-top').onclick = space.view.top;
