@@ -459,7 +459,8 @@
     };
     for (const b of ui.card.querySelectorAll('.tx-pick')) b.onclick = () => { S.mark = +b.dataset.mi; render(); checkSoon(); ui.svg.focus(); };
     const det = ui.card.querySelector('.tx-more');
-    if (det) det.ontoggle = () => { S.more = det.open; scrollCue(); };
+    // the toggle event lands after the card is drawn, so TEX may have closed by then
+    if (det) det.ontoggle = () => { if (!S) return; S.more = det.open; scrollCue(); };
     const nb = $('tx-new');
     if (nb) nb.onclick = () => { snap(); part.marks.push(newMark(part)); S.mark = part.marks.length - 1; part.dirty = true; if (S.tool === 'select') S.tool = 'brush'; say('A new mark: paint it on the part.'); render(); ui.svg.focus(); };
     const db = $('tx-del');
