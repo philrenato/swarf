@@ -585,7 +585,7 @@ export const BASIC = {
   noise: ['scale'], waves: ['wavelength'], stone: ['size', 'mortar'], weave: ['thread'], motif: ['shape', 'size'],
 };
 // one word each, for a swatch's caption
-const SHORT = { dots: 'dots', dashdot: 'dash-dot', morse: 'morse', ribs: 'flutes', knurl: 'knurl', noise: 'noise', waves: 'waves', stone: 'stone', weave: 'weave', motif: 'repeat' };
+const SHORT = { dots: 'dots', dashdot: 'dashes', morse: 'morse', ribs: 'flutes', knurl: 'knurl', noise: 'noise', waves: 'waves', stone: 'stone', weave: 'weave', motif: 'repeat' };
 for (const id in PATTERNS) PATTERNS[id].short = SHORT[id] || PATTERNS[id].label;
 for (const [id, ks] of Object.entries(BASIC)) for (const q of PATTERNS[id].params) {
   if (ks.includes(q.k)) q.basic = true;
@@ -801,6 +801,7 @@ export const TOOLS = {
   v60: { id: 'v60', name: '60° V-bit', type: 'v', angle: 60, diameter: 12.7 },
   v90: { id: 'v90', name: '90° V-bit', type: 'v', angle: 90, diameter: 12.7 },
   flat14: { id: 'flat14', name: '1/4 in flat', type: 'flat', diameter: 6.35 },
+  flat18: { id: 'flat18', name: '1/8 in flat', type: 'flat', diameter: 3.175 },
 };
 
 export function makeTool(t) {
@@ -1236,7 +1237,7 @@ export function compare(Z, grid, tex, tol = 0.1) {
 // The region and the pattern both live in the mark's frame, so a mark scales, turns and mirrors
 // with its part as a picture would; its depth stays the depth.
 
-export const FILLS = { texture: 'texture' };
+export const FILLS = { texture: 'texture', pierce: 'pierce' };
 export const PATHS = ['auto', 'raster', 'crosshatch', 'plunge', 'centerline'];
 export const IDENTITY = [1, 0, 0, 1, 0, 0];
 
@@ -1375,9 +1376,10 @@ export function pathFor(tex, toolIn, style = 'auto') {
 
 // the mark's moves, part frame, z from the top (0) down; maxDepth caps them (the board's thickness)
 export function markToolpath(mark, o = {}) {
+  if (mark && mark.fill && mark.fill.fill === 'pierce') return pierceToolpath(mark, { ...o, thickness: o.thickness || o.maxDepth });
   const tex = markTexture(mark);
   if (!tex) return { moves: [], tex: null };
-  const tool = makeTool(mark.fill.tool || 'ball14');
+  const tool = fillTool(mark.fill);
   const strategy = pathFor(tex, tool, mark.fill.path);
   const b = tex.bbox, area = Math.max(1, (b.x1 - b.x0) * (b.y1 - b.y0));
   // a finer grid for small marks; a big one stays under a few million samples
@@ -1408,9 +1410,10 @@ export function feedRuns(moves) {
 // What to say about a mark: the tool's checks, and the board's
 //   o = { thickness (mm), len (v mm -> text), outside (0..1 of the mark off the part) }
 export function markChecks(mark, o = {}) {
+  if (mark && mark.fill && mark.fill.fill === 'pierce') return pierceChecks(mark, o);
   const tex = markTexture(mark);
   if (!tex) return { warnings: [], notes: [], tex: null };
-  const tool = makeTool(mark.fill.tool || 'ball14');
+  const tool = fillTool(mark.fill);
   const L = o.len || ((v) => `${fmt(v, 1)} mm`);
   const strategy = pathFor(tex, tool, mark.fill.path);
   const maxDepth = Math.min(tex.depth, o.thickness > 0 ? o.thickness : Infinity);
@@ -1420,6 +1423,231 @@ export function markChecks(mark, o = {}) {
   if (o.thickness > 0 && tex.depth >= o.thickness - 1e-6) warnings.unshift(`The texture goes ${L(tex.depth)} deep and the board is ${L(o.thickness)} thick: it would cut through. It stops at the board's bottom.`);
   if (o.outside > 0.02) warnings.push(`${Math.round(o.outside * 100)}% of the mark is off the part: that much of the texture cuts air, or the board around the part.`);
   return { warnings, notes: a.notes, tex, tool, strategy };
+}
+
+// ---------------------------------------------------------------------------------------------
+// Pierce: cuts that go through (or nearly through) the board from a mark, so the part bends or
+// lets light and air through. Ported from the bendy-ply generator (prototypes/bendply/bendgen.mjs),
+// router first. Every number here is a RULE OF THUMB until test strips are cut and measured.
+//
+//   fill = { fill: 'pierce', pattern: 'kerf' | 'holes', params, angle, origin, fade, tool, bit }
+//
+// kerf: straight cuts along the bend line (the mark's turn sets it), a bit wide, leaving `skin`
+//   under them (0 = right through). The pitch is where neighbouring kerfs just close when the
+//   part bends to the radius asked for: p = w·R / (T − s) (w the bit, T the board, s the skin).
+//   Bridges break each cut into slots (staggered row to row) so a through-cut part holds together.
+// holes: round holes on a grid or a hex lattice, through; each cleared from its middle outward,
+//   so nothing is left loose in it.
+// The soft edge thins the pattern toward the mark's edge: slots break into shorter dashes,
+// holes get smaller (and drop out under the bit's own size).
+
+const PIERCE_P = (k, label, min, max, step, def, unit = 'mm', basic = false) => ({ k, label, type: 'range', min, max, step, def, unit, basic });
+export const PIERCES = {
+  kerf: {
+    label: 'kerfs', short: 'kerfs', blurb: 'Parallel cuts along a bend line: the part bends across them.',
+    params: [PIERCE_P('radius', 'Bend radius', 20, 3000, 1, 200, 'mm', true), PIERCE_P('skin', 'Skin left', 0, 20, 0.1, 2.5, 'mm', true),
+      PIERCE_P('bridge', 'Bridge', 0, 60, 0.5, 0), PIERCE_P('slot', 'Slot length', 10, 600, 1, 80)],
+  },
+  holes: {
+    label: 'holes', short: 'holes', blurb: 'Round holes right through, on a grid or a hex lattice.',
+    params: [PIERCE_P('size', 'Hole size', 2, 80, 0.5, 10, 'mm', true), PIERCE_P('spacing', 'Spacing', 3, 160, 0.5, 18, 'mm', true),
+      { k: 'layout', label: 'Layout', type: 'select', options: ['hex', 'grid'], def: 'hex' }],
+  },
+};
+// the skin's allowable bending strain: birch ply about 0.75 % (0.5–1 %), a guess until strips are bent
+export const SKIN_STRAIN = 0.0075;
+export function pierceDefaults(id) { const o = {}; for (const q of PIERCES[id].params) o[q.k] = q.def; return o; }
+export function newPierce(pattern = 'kerf', over = {}) {
+  return { fill: 'pierce', pattern, params: pierceDefaults(pattern), angle: 0, origin: [0, 0], fade: 0, tool: 'flat18', ...over };
+}
+// the bit a fill names: a full spec (fill.bit, from a host's tool library), or one of TOOLS by id
+export function fillTool(f) {
+  if (f && f.bit && f.bit.type && f.bit.diameter > 0) return makeTool(f.bit);
+  if (f && typeof f.tool === 'string' && TOOLS[f.tool]) return makeTool(f.tool);
+  return makeTool(f && f.fill === 'pierce' ? 'flat18' : 'ball14');
+}
+// the kerf pitch for a bit width w, board T, skin s and bend radius R (closure: the kerfs just touch)
+export function kerfPitch(w, T, s, R) { return w * R / Math.max(1e-6, T - Math.max(0, s)); }
+
+// The cuts, in the part's frame: { slots: [{ a: [x, y], b: [x, y] }], holes: [{ x, y, d }], depth,
+// through, pitch, width, mask } — or null for an empty region.
+export function pierceCuts(mark, o = {}) {
+  const f = mark && mark.fill;
+  if (!f || f.fill !== 'pierce' || !PIERCES[f.pattern]) return null;
+  const region = regionSpec(mark.region);
+  if (!region || (region.type === 'paint' && !region.data.some((v) => v))) return null;
+  const A = mark.xf || IDENTITY, s = xfScale(A), I = xfInvert(A);
+  const tool = fillTool(f), w = tool.diameter, T = o.thickness > 0 ? o.thickness : 19;
+  const p = { ...pierceDefaults(f.pattern), ...(f.params || {}) };
+  const mask = makeMask(region);
+  const soft = Math.max(0, f.fade || 0) / s;
+  const weight = maskWeight(mask, soft);
+  const b = mask.bbox, ang = (f.angle || 0) * Math.PI / 180;
+  const out = { slots: [], holes: [], width: w, depth: T, through: true, pitch: 0, mask };
+  const toPart = (x, y) => xfApply(A, x, y);
+  if (f.pattern === 'kerf') {
+    const skin = Math.min(Math.max(0, p.skin), T);
+    out.through = skin <= 0;
+    out.depth = T - skin;
+    // in the mark's frame the pitch is the part's over the mark's scale
+    const pitch = out.pitch = kerfPitch(w, T, skin, p.radius);
+    const pm = pitch / s, step = Math.min(0.5, w / 4) / s;
+    const ox = (f.origin || [0, 0])[0], oy = (f.origin || [0, 0])[1];
+    const box = { u0: b.x0 - ox, v0: b.y0 - oy, u1: b.x1 - ox, v1: b.y1 - oy };
+    const dash = Math.max(4 * w, 12) / s, period = (p.slot + p.bridge) / s;
+    const lines = linesInBox(ang, pm, box);
+    lines.forEach(([[ax, ay], [bx, by]], li) => {
+      const L = Math.hypot(bx - ax, by - ay), dx = (bx - ax) / L, dy = (by - ay) / L, n = Math.ceil(L / step);
+      // this line's place along the pattern, so bridges stagger row to row
+      const t0 = (ax + ox) * dx + (ay + oy) * dy, stag = (li & 1) ? period / 2 : 0;
+      let run = null;
+      const flush = () => { if (run && Math.hypot(run[2] - run[0], run[3] - run[1]) * s >= w) out.slots.push({ a: toPart(run[0], run[1]), b: toPart(run[2], run[3]) }); run = null; };
+      for (let i = 0; i <= n; i++) {
+        const t = i * L / n, x = ax + ox + dx * t, y = ay + oy + dy * t;
+        const m = weight(x, y), along = t0 + t;
+        // the bit's center at least half the bit inside the mark, so no cut crosses its edge
+        let keep = mask.sd(x, y) * s >= w / 2 - 1e-6 && (m >= 0.999 || (m > 0.02 && (((along % dash) + dash) % dash) / dash < m));
+        if (keep && p.bridge > 0) keep = ((((along + stag) % period) + period) % period) < p.slot / s;
+        if (keep) { if (!run) run = [x, y, x, y]; else { run[2] = x; run[3] = y; } } else flush();
+      }
+      flush();
+    });
+  } else {
+    const hex = p.layout !== 'grid', px = p.spacing / s, py = hex ? px * Math.sqrt(3) / 2 : px;
+    const ox = (f.origin || [0, 0])[0], oy = (f.origin || [0, 0])[1];
+    const c = Math.cos(ang), sn = Math.sin(ang);
+    const cs = [[b.x0, b.y0], [b.x1, b.y0], [b.x0, b.y1], [b.x1, b.y1]].map(([x, y]) => [c * (x - ox) + sn * (y - oy), -sn * (x - ox) + c * (y - oy)]);
+    const lb = { u0: Math.min(...cs.map((q) => q[0])), u1: Math.max(...cs.map((q) => q[0])), v0: Math.min(...cs.map((q) => q[1])), v1: Math.max(...cs.map((q) => q[1])) };
+    for (const [u, v] of latticeCenters(px, py, hex ? 0.5 : 0, lb)) {
+      const x = ox + c * u - sn * v, y = oy + sn * u + c * v;
+      if (x < b.x0 || x > b.x1 || y < b.y0 || y > b.y1) continue;
+      const m = weight(x, y);
+      if (m <= 0) continue;
+      const d = p.size * Math.min(1, m);
+      // the whole hole inside the mark, and no smaller than the bit
+      if (d < w - 1e-6 || mask.sd(x, y) * s < d / 2 - 1e-6) continue;
+      const [X, Y] = toPart(x, y);
+      out.holes.push({ x: X, y: Y, d });
+    }
+  }
+  out.inv = I;
+  return out;
+}
+
+// The moves for a pierce mark, part frame, z from the top (0) down: each slot fed end to end at
+// each depth in turn, each hole spiralled out from its middle at each depth (a hole the bit's own
+// size is plunged). stepDown: the depth a pass (0 = all at once).
+export function pierceToolpath(mark, o = {}) {
+  const cuts = pierceCuts(mark, o);
+  if (!cuts) return { moves: [], cuts: null };
+  const tool = fillTool(mark.fill), E = emitter(o), w = tool.diameter;
+  const deep = o.maxDepth > 0 ? Math.min(cuts.depth, o.maxDepth) : cuts.depth;
+  const sd = o.stepDown > 0 ? o.stepDown : deep;
+  const zs = [];
+  for (let z = -sd; z > -deep + 1e-6; z -= sd) zs.push(z);
+  zs.push(-deep);
+  // nearest-neighbour order from the front-left, each slot from its nearer end
+  const left = cuts.slots.map((q) => ({ ...q }));
+  let cx = -Infinity, cy = -Infinity;
+  const order = [];
+  while (left.length) {
+    let bi = 0, bd = Infinity, rev = false;
+    left.forEach((q, i) => {
+      const da = Math.hypot(q.a[0] - cx, q.a[1] - cy), db = Math.hypot(q.b[0] - cx, q.b[1] - cy);
+      if (!isFinite(cx)) { const k = q.a[0] + q.a[1]; if (k < bd) { bd = k; bi = i; rev = false; } return; }
+      if (da < bd) { bd = da; bi = i; rev = false; }
+      if (db < bd) { bd = db; bi = i; rev = true; }
+    });
+    const q = left.splice(bi, 1)[0];
+    order.push(rev ? { a: q.b, b: q.a } : q);
+    const e = order[order.length - 1].b; cx = e[0]; cy = e[1];
+  }
+  for (const q of order) {
+    E.travelTo(q.a[0], q.a[1], o.clearZ ?? 1);
+    let at = q.a;
+    for (const z of zs) {
+      E.feed(at[0], at[1], z);
+      const to = at === q.a ? q.b : q.a;
+      E.feed(to[0], to[1], z);
+      at = to;
+    }
+    E.retract();
+  }
+  const holes = cuts.holes.slice().sort((h1, h2) => Math.round(h1.y / 5) - Math.round(h2.y / 5) || h1.x - h2.x);
+  for (const h of holes) {
+    E.travelTo(h.x, h.y, o.clearZ ?? 1);
+    const rmax = Math.max(0, (h.d - w) / 2), ring = Math.max(0.2, 0.4 * w);
+    for (const z of zs) {
+      E.feed(h.x, h.y, z);
+      if (rmax <= 0.01) continue;
+      // outward rings to the hole's edge, then back to the middle for the next depth
+      for (let r = Math.min(ring, rmax); ; r = Math.min(rmax, r + ring)) {
+        const n = Math.max(12, Math.ceil(2 * Math.PI * r / 0.5));
+        E.feed(h.x + r, h.y, z);
+        for (let k = 1; k <= n; k++) E.feed(h.x + r * Math.cos(k / n * TAU), h.y + r * Math.sin(k / n * TAU), z);
+        if (r >= rmax - 1e-9) break;
+      }
+      E.feed(h.x, h.y, z);
+    }
+    E.retract();
+  }
+  E.retract();
+  return { moves: E.moves, cuts, tool, strategy: cuts.slots.length ? 'slots' : 'holes' };
+}
+
+// What to say about a pierce mark, in plain words; every limit here wants a test strip
+export function pierceChecks(mark, o = {}) {
+  const cuts = pierceCuts(mark, o);
+  if (!cuts) return { warnings: [], notes: [], cuts: null };
+  const f = mark.fill, tool = fillTool(f), w = tool.diameter, T = o.thickness > 0 ? o.thickness : 19;
+  const p = { ...pierceDefaults(f.pattern), ...(f.params || {}) };
+  const L = o.len || ((v) => `${fmt(v, 1)} mm`);
+  const warnings = [], notes = ['These numbers are a starting point: cut a test strip first.'];
+  if (tool.type !== 'flat') warnings.push(`A ${tool.name} leaves a ${tool.type === 'v' ? 'V' : 'round'}-bottomed cut; through cuts want a straight (flat) bit.`);
+  if (f.pattern === 'kerf') {
+    const skin = Math.min(Math.max(0, p.skin), T), rib = cuts.pitch - w;
+    notes.unshift(`Kerfs every ${L(cuts.pitch)}, ${cuts.through ? 'right through' : `${L(T - skin)} deep, leaving ${L(skin)}`}, ${cuts.slots.length} cut${cuts.slots.length === 1 ? '' : 's'}.`);
+    if (rib < 2 * w) warnings.push(`The kerfs are ${L(cuts.pitch)} apart: the wood between them is thinner than two bit widths and may snap. Ask for a gentler bend (a bigger radius) or use a thinner bit.`);
+    if (skin > 0) {
+      const rmin = skin / (2 * SKIN_STRAIN);
+      if (p.radius < rmin) warnings.push(`With ${L(skin)} of skin, a bend tighter than about ${L(rmin)} may crack it. Leave less skin, or bend it gentler.`);
+      if (skin >= T) warnings.push(`The skin is as thick as the board: the kerfs cut nothing.`);
+    } else if (!(p.bridge > 0)) warnings.push(`With no skin and no bridges every kerf cuts right through: the part comes apart in strips. Leave some skin, or add bridges.`);
+    if (cuts.through && p.bridge > 0 && p.bridge < w) warnings.push(`Bridges ${L(p.bridge)} long are shorter than the bit is wide (${L(w)}): they may break. Make them longer.`);
+  } else {
+    notes.unshift(`${cuts.holes.length} hole${cuts.holes.length === 1 ? '' : 's'}, right through.`);
+    if (p.size < w) warnings.push(`A ${tool.name} can't cut ${L(p.size)} holes: the bit is ${L(w)} across. Make the holes bigger or use a thinner bit.`);
+    const web = p.spacing - p.size;
+    if (web < 2 * w) warnings.push(`Only ${L(Math.max(0, web))} of wood is left between the holes, less than two bit widths: it may break. Space them farther apart or make them smaller.`);
+  }
+  if (o.outside > 0.02) warnings.push(`${Math.round(o.outside * 100)}% of the mark is off the part: those cuts go through the board around the part.`);
+  return { warnings, notes, cuts, tool, strategy: cuts.slots.length ? 'slots' : 'holes' };
+}
+
+// A pierce mark for the laser: an SVG in mm, cuts on LightBurn's red layer (slots as lines, the
+// bit's width noted), holes on its blue layer. offset: where the part's frame sits on the sheet.
+export function pierceSVG(mark, o = {}) {
+  const cuts = pierceCuts(mark, o);
+  if (!cuts) return '';
+  const xs = [], ys = [];
+  for (const q of cuts.slots) { xs.push(q.a[0], q.b[0]); ys.push(q.a[1], q.b[1]); }
+  for (const h of cuts.holes) { xs.push(h.x - h.d / 2, h.x + h.d / 2); ys.push(h.y - h.d / 2, h.y + h.d / 2); }
+  if (!xs.length) return '';
+  const pad = 5, x0 = Math.min(...xs) - pad, y0 = Math.min(...ys) - pad, W = Math.max(...xs) + pad - x0, H = Math.max(...ys) + pad - y0;
+  const X = (x) => +(x - x0).toFixed(3), Y = (y) => +(H - (y - y0)).toFixed(3);
+  const lines = cuts.slots.map((q) => `<line x1="${X(q.a[0])}" y1="${Y(q.a[1])}" x2="${X(q.b[0])}" y2="${Y(q.b[1])}"/>`).join('\n');
+  const circles = cuts.holes.map((h) => `<circle cx="${X(h.x)}" cy="${Y(h.y)}" r="${+(h.d / 2).toFixed(3)}"/>`).join('\n');
+  return `<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="${+W.toFixed(3)}mm" height="${+H.toFixed(3)}mm" viewBox="0 0 ${+W.toFixed(3)} ${+H.toFixed(3)}">
+<!-- ${mark.fill.pattern}: kerf width ${fmt(cuts.width, 2)} mm, pitch ${fmt(cuts.pitch, 2)} mm. A starting point: cut a test strip. -->
+<g id="cuts" fill="none" stroke="#FF0000" stroke-width="0.1">
+${lines}
+</g>
+<g id="holes" fill="none" stroke="#0000FF" stroke-width="0.1">
+${circles}
+</g>
+</svg>
+`;
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -1466,6 +1694,7 @@ const API = {
   simulate, compare, FILLS, PATHS, IDENTITY, encodeRuns, decodeRuns, newGrid, paintWhere, stampDisc, stampStroke, gridCount,
   regionSpec, storeRegion, xfApply, xfInvert, xfThen, xfScale, placeTexture, newFill, markTexture, pathFor, markToolpath, feedRuns,
   markChecks, BASIC, shadeHeight, SWATCH_SPAN, swatch,
+  PIERCES, SKIN_STRAIN, pierceDefaults, newPierce, fillTool, kerfPitch, pierceCuts, pierceToolpath, pierceChecks, pierceSVG,
 };
 if (typeof window !== 'undefined') window.SwarfTexCore = API;
 export default API;

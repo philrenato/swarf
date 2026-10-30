@@ -218,7 +218,7 @@ ok(T.morseEncode('hi there') === '.... .. / - .... . .-. .', 'morse words split 
   ok(big.warnings.some((w) => /1\/4 in ball can't make 0\.118 in dots 0\.059 in deep/.test(w)), `the warning in the app's units: ${big.warnings[0]}`);
   ok(T.markChecks({ region: reg, fill: T.newFill('waves') }, { outside: 0.3 }).warnings.some((w) => /30% of the mark is off the part/.test(w)), 'a mark off its part is said');
   // room for a pierce fill: not a texture, so no texture moves (and no error)
-  ok(T.markTexture({ region: reg, fill: { fill: 'pierce', pattern: 'kerf' } }) === null && T.markToolpath({ region: reg, fill: { fill: 'pierce' } }).moves.length === 0, 'a pierce fill is left to a later step');
+  ok(T.markTexture({ region: reg, fill: T.newPierce('kerf') }) === null && T.markToolpath({ region: reg, fill: { fill: 'pierce' } }).moves.length === 0, 'a pierce fill is no texture; one with no pattern cuts nothing');
   const empty = T.newGrid(0, 0, 10, 10, 0.5);
   ok(T.markTexture({ region: T.storeRegion(empty), fill: T.newFill('waves') }) === null, 'an empty region has no texture');
 }
@@ -251,6 +251,58 @@ for (const [id, P] of Object.entries(T.PATTERNS)) {
   const H = new Float32Array(9).fill(1), inside = new Uint8Array(9); inside[4] = 1;
   const D = T.shadeHeight(H, 3, 3, 1, { lo, hi }, inside);
   ok(D[3] === 0 && D[4 * 4 + 3] === 255, 'shadeHeight leaves pixels outside the mask clear');
+}
+
+// 14. pierce: kerf pitch p = w·R/(T−s); slots a bit wide, inside the mark, never below the board;
+//     holes inside the mark, no smaller than the bit; the soft edge thins the pattern
+{
+  ok(Math.abs(T.kerfPitch(3.175, 19, 2.5, 200) - 3.175 * 200 / 16.5) < 1e-9, 'kerf pitch: w·R/(T−s)');
+  const g = T.newGrid(0, 0, 200, 120, 0.5);
+  T.paintWhere(g, (x, y) => x > 20 && x < 180 && y > 20 && y < 100, 1);
+  const reg = T.storeRegion(g), inMark = (x, y) => x >= 20 - 1e-6 && x <= 180 + 1e-6 && y >= 20 - 1e-6 && y <= 100 + 1e-6;
+  const kerf = { region: reg, xf: T.IDENTITY.slice(), fill: T.newPierce('kerf', { origin: [100, 60], params: { radius: 150, skin: 2.5, bridge: 0, slot: 80 } }) };
+  const K = T.pierceCuts(kerf, { thickness: 19 });
+  const w = 3.175, pitch = w * 150 / 16.5;
+  ok(Math.abs(K.pitch - pitch) < 1e-9 && K.width === w && Math.abs(K.depth - 16.5) < 1e-9 && !K.through, `kerfs: pitch ${K.pitch.toFixed(2)} mm, ${K.depth} deep, a ${K.width} mm bit`);
+  // every slot runs along x (turn 0), the bit's whole width inside the mark, spaced the pitch apart
+  const ys = [...new Set(K.slots.map((q) => +q.a[1].toFixed(3)))].sort((a, b) => a - b);
+  ok(K.slots.length >= 3 && K.slots.every((q) => Math.abs(q.a[1] - q.b[1]) < 1e-9 && inMark(q.a[0] - w / 2, q.a[1] - w / 2) && inMark(q.b[0] + w / 2, q.b[1] + w / 2)), `${K.slots.length} slots, each a bit wide inside the mark`);
+  ok(ys.slice(1).every((y, i) => Math.abs(y - ys[i] - pitch) < 0.01), 'slots spaced the pitch apart');
+  const KP = T.pierceToolpath(kerf, { thickness: 19, stepDown: 6 });
+  const lo = Math.min(...KP.moves.map((q) => q.z));
+  ok(Math.abs(lo + 16.5) < 1e-9 && KP.moves.every((q) => !q.rapid || q.z >= 0), `kerf moves: down to the skin (-16.5), passes of 6 mm, no rapid in the wood (lowest ${lo})`);
+  const cutsK = KP.moves.filter((q) => !q.rapid && q.z < 0);
+  ok(cutsK.every((q) => inMark(q.x - w / 2, q.y - w / 2) && inMark(q.x + w / 2, q.y + w / 2)), 'every kerf cut stays inside the mark');
+  // a turn of 90 sets the bend line across: slots now run along y
+  const K90 = T.pierceCuts({ ...kerf, fill: { ...kerf.fill, angle: 90 } }, { thickness: 19 });
+  ok(K90.slots.length && K90.slots.every((q) => Math.abs(q.a[0] - q.b[0]) < 1e-6), 'the mark\'s turn sets the bend line');
+  // through, with bridges: slots no longer than asked, staggered
+  const KT = T.pierceCuts({ ...kerf, fill: { ...kerf.fill, params: { radius: 150, skin: 0, bridge: 8, slot: 30 } } }, { thickness: 19 });
+  ok(KT.through && KT.depth === 19 && KT.slots.every((q) => Math.hypot(q.b[0] - q.a[0], q.b[1] - q.a[1]) <= 30 + 0.6), `through kerfs with bridges: ${KT.slots.length} slots no longer than 30 mm`);
+  ok(T.pierceChecks({ ...kerf, fill: { ...kerf.fill, params: { radius: 150, skin: 0, bridge: 0, slot: 30 } } }, { thickness: 19 }).warnings.some((x) => /comes apart in strips/.test(x)), 'no skin, no bridges: said');
+  // the soft edge thins the slots: less cut length near the edge
+  const len = (c) => c.slots.reduce((a, q) => a + Math.hypot(q.b[0] - q.a[0], q.b[1] - q.a[1]), 0);
+  const KF = T.pierceCuts({ ...kerf, fill: { ...kerf.fill, fade: 25 } }, { thickness: 19 });
+  ok(len(KF) < len(K) * 0.85 && KF.slots.length > K.slots.length, `the soft edge breaks the slots up near the edge (${len(K).toFixed(0)} → ${len(KF).toFixed(0)} mm, ${K.slots.length} → ${KF.slots.length} slots)`);
+  const tight = T.pierceChecks({ ...kerf, fill: { ...kerf.fill, params: { radius: 25, skin: 2.5 } } }, { thickness: 19 });
+  ok(tight.warnings.some((x) => /thinner than two bit widths/.test(x)) && tight.warnings.some((x) => /may crack/.test(x)) && tight.notes.some((x) => /test strip/.test(x)), 'a tight bend: thin ribs and a cracking skin said; a test strip asked for');
+
+  // holes: inside the mark, no smaller than the bit, smaller toward a soft edge; cleared through
+  const holes = { region: reg, xf: T.IDENTITY.slice(), fill: T.newPierce('holes', { origin: [100, 60], params: { size: 10, spacing: 18, layout: 'hex' } }) };
+  const H = T.pierceCuts(holes, { thickness: 12 });
+  ok(H.holes.length > 20 && H.holes.every((h) => inMark(h.x - h.d / 2, h.y - h.d / 2) && inMark(h.x + h.d / 2, h.y + h.d / 2) && h.d >= w), `${H.holes.length} holes, each wholly inside the mark`);
+  const HF = T.pierceCuts({ ...holes, fill: { ...holes.fill, fade: 20 } }, { thickness: 12 });
+  ok(HF.holes.some((h) => h.d < 10 - 1e-6) && HF.holes.every((h) => h.d >= w - 1e-9 && h.d <= 10 + 1e-9), 'the soft edge makes the holes smaller near the edge, never under the bit');
+  const HP = T.pierceToolpath(holes, { thickness: 12, stepDown: 4 });
+  const hc = HP.moves.filter((q) => !q.rapid && q.z <= -12 + 1e-9);
+  ok(Math.abs(Math.min(...HP.moves.map((q) => q.z)) + 12) < 1e-9 && H.holes.every((h) => hc.some((q) => Math.abs(Math.hypot(q.x - h.x, q.y - h.y) - (h.d - w) / 2) < 0.05)), 'each hole cleared to its edge, right through');
+  ok(T.pierceChecks({ ...holes, fill: { ...holes.fill, params: { size: 2, spacing: 5 } } }, { thickness: 12 }).warnings.some((x) => /can't cut 2 mm holes/.test(x)), 'holes smaller than the bit: said');
+  ok(T.markToolpath(holes, { maxDepth: 12 }).moves.length === T.pierceToolpath(holes, { thickness: 12 }).moves.length, 'markToolpath cuts a pierce mark through the board it is given');
+  // turned and scaled with its part: holes keep inside the moved mark
+  const hx = { ...holes, xf: [0, -1, 1, 0, 0, 0] }, H2 = T.pierceCuts(hx, { thickness: 12 });
+  ok(H2.holes.length === H.holes.length, 'a turned mark has the same holes');
+  const svg = T.pierceSVG(kerf, { thickness: 19 });
+  ok(/<svg[^>]+width="[\d.]+mm"/.test(svg) && (svg.match(/<line /g) || []).length === K.slots.length && /stroke="#FF0000"/.test(svg) && /test strip/.test(svg), 'the laser SVG: one red line a slot, in mm');
 }
 
 console.log(`\n${pass} passed, ${fail} failed  (${((Date.now() - t0) / 1000).toFixed(1)} s)`);

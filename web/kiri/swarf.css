@@ -2176,6 +2176,7 @@ h1, h2, h3, h4, .sr-card h2, .sr-veilcard h2, #swarf-start h2, .menu-title, #swa
 html[data-skin="glass"] :focus-visible { outline-color: #303236 !important; }
 html[data-skin="classic"] :focus-visible { outline: 1px dotted #000 !important; outline-offset: -4px !important; }
 .swarf-search .swarf-result-kind.shop { color: var(--swarf-text); }
+.swarf-search .swarf-result-kind.tex, .swarf-search .swarf-result-kind.draw { color: var(--swarf-text); }
 
 /* one casing rule in every skin (Phil 10-28: "Your call on casing, just make it consistent"):
    no skin turns words to capitals or Title Case (the uppercase and capitalize rules are gone);
