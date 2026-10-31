@@ -37,7 +37,7 @@ export function originSelect() {
 
     CAM.traces((ids) => {
         api.hide.alert(alert);
-        alert = api.show.alert("select origin<br>[esc] to cancel", 1000);
+        alert = api.show.alert("select origin · Esc to cancel", 1000);
         let ends = {};
         let points = {};
         let color = new THREE.Color( 0xff0000 );

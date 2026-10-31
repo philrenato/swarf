@@ -24,6 +24,9 @@ import { toolOrder } from './tools.js';
 import { Widget, newWidget } from '../../../app/widget.js';
 import { zPlaneStart, zPlaneDone, zPlaneSelecting } from './cl-zplane.js';
 
+// a step's label can carry a file name (TEX's marks): text, never markup (deep review 10-31 M1)
+const esc = t => String(t).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
+
 const { BufferGeometryUtils } = THREE;
 
 const DEG2RAD = Math.PI / 180;
@@ -389,13 +392,13 @@ export function opRender() {
         if (rec.type === 'pierce') {
             label = rec.texlabel || 'pierce';
             const est = rec.texest > 0 && window.SwarfTexCore ? `, about ${window.SwarfTexCore.formatTime(rec.texest)}` : '';
-            const full = String(label).replace(/"/g, '&quot;');
+            const full = esc(label);
             title = ` title="${full}: the mark made in TEX, cut through the part (or to its skin) by its straight bit${est}. A starting point: cut a test strip. Open tex to change it."`;
             clazz.push('tex-step');
         } else if (rec.type === 'texture') {
             label = rec.texlabel || 'texture';
             const est = rec.texest > 0 && window.SwarfTexCore ? `, about ${window.SwarfTexCore.formatTime(rec.texest)}` : '';
-            const full = String(label).replace(/"/g, '&quot;');
+            const full = esc(label);
             title = ` title="${full}: the mark made in TEX, cut into the part's top by its bit and path${est}. Open tex to change it."`;
             clazz.push('tex-step');
         }
@@ -446,7 +449,7 @@ export function opRender() {
         }
         html.appendAll([
             `<div id="${mark + i}" class="${clazz.join(' ')}${swarfFields ? ' has-params' : ''}"${title}>`,
-            `<label class="label">${label}</label>`,
+            `<label class="label">${esc(label)}</label>`,
             clock ? '' :
                 `<label id="${mark + i}-x" class="del"><i class="fa-solid fa-xmark"></i></label>`,
             swarfFields ? `<label id="${mark + i}-c" class="swarf-op-chevron" title="edit parameters"><i class="fa-solid fa-chevron-down"></i></label>` : '',

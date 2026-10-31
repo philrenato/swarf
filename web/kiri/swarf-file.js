@@ -398,7 +398,10 @@
     setTimeout(() => { window.__swarfRestoring = false; }, 5000);   // never left on by a throw
     try { if (a.view && a.view.set_arrange) a.view.set_arrange(); } catch (e) { /* no view yet */ }
     return new Promise(resolve => {
-      a.conf.import({ settings: merged.settings, work: ws.work || [], view: ws.view, version: ws.version, time: ws.time || Date.now() }, false);
+      // a file Kiri cannot take (a bad part) lets go of the holds, or feeds stay frozen till a reload
+      // (deep review 10-31 M3); the throw rejects, and open() says swarf could not open it
+      try { a.conf.import({ settings: merged.settings, work: ws.work || [], view: ws.view, version: ws.version, time: ws.time || Date.now() }, false); }
+      catch (e) { window.__swarfMaterialHold = false; window.__swarfRestoring = false; throw e; }
       // Kiri adds the parts in a batch (150 ms); then the material, the tab card, the camera
       setTimeout(() => {
         const want = sj.material || local['swarf.material.current'];

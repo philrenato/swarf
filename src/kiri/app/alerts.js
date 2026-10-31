@@ -7,6 +7,8 @@ import { api } from './api.js';
  * @type {Array<[string, number, number, boolean]>}
  */
 let alerts = [];
+// notices are text: a file name, a bit or machine name from a shared .swarf must never run as markup
+const esc = t => String(t).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
 
 /**
  * Display an alert message to the user
@@ -86,7 +88,7 @@ function update(clear) {
     }
     if (alerts.length > 0) {
         // each one has its × so nobody waits for it to fade (Phil 10-30); a click elsewhere still clears all
-        ui.alert.text.innerHTML = alerts.map((v, i) => ['<p class="alert-one"><span>',v[0],'</span><button class="alert-x" data-i="',i,'" title="close" aria-label="close">×</button></p>'].join('')).join('');
+        ui.alert.text.innerHTML = alerts.map((v, i) => ['<p class="alert-one"><span>',esc(v[0]),'</span><button class="alert-x" data-i="',i,'" title="close" aria-label="close">×</button></p>'].join('')).join('');
         for (let x of ui.alert.text.querySelectorAll('.alert-x')) {
             x.onclick = ev => { ev.stopPropagation(); hide(alerts[+x.dataset.i]); };
         }

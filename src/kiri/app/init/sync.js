@@ -164,7 +164,7 @@ export async function init_sync() {
 
     // warn users they are running a beta release
     if (beta && beta > 0 && sdb.kiri_beta != beta) {
-        api.show.alert('<b style="color:red">caution:</b> beta code ahead', 10);
+        api.show.alert('caution: beta code ahead', 10);
         sdb.kiri_beta = beta;
     }
 
@@ -172,7 +172,7 @@ export async function init_sync() {
     let devwarn = sdb.kiri_dev;
     if (location.host === 'dev.grid.space' && devwarn !== version) {
         api.alerts.show('this is a development server', 10);
-        api.alerts.show('use <a href="https://grid.space/kiri">grid.space</a> for production', 10);
+        api.alerts.show('use grid.space/kiri for production', 10);
         sdb.kiri_dev = version;
     }
 
