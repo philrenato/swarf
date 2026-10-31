@@ -88,7 +88,7 @@ ok(out.local['model.opacity'] === 0.4, 'view preferences stay this computer\'s')
 ok(out.devices['Shop router'].bedWidth === 1000, 'this computer\'s own machine of that name is not swapped');
 ok(out.devices['Shop router (chair)'] && out.devices['Shop router (chair)'].bedWidth === 1200, 'the file\'s machine comes in under a new name');
 ok(out.filter.CAM === 'Shop router (chair)' && out.device.deviceName === 'Shop router (chair)' && out.device.bedWidth === 1200 && out.cdev.CAM.bedWidth === 1200, 'and the job is on it');
-ok(notes.some(t => /set up differently/.test(t) && /Shop router \(chair\.swarf\)/.test(t)), `and says so: ${notes[0]}`);
+ok(notes.some(t => /set up differently/.test(t) && /Shop router \(chair\)/.test(t)), `and says so: ${notes[0]}`);
 ok(out.tools.find(t => t.id === 1003 && t.name === 'v-bit'), 'a missing bit the steps use is added');
 ok(!out.tools.find(t => t.id === 1009), 'a bit no step uses is not added');
 ok(out.tools.find(t => t.id === 1002).name === 'eighth', 'this computer\'s bit 1002 stays');
