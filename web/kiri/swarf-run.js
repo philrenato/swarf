@@ -307,6 +307,12 @@ body.swarf-run-open { filter: none !important; }
 /* (whole-app review r086 F8) on a short screen (1280×720, 1366×768) the right column scrolls:
    the simulated speed pills and the sounds chip stay reachable, never under the window's edge */
 .sr-grid > .sr-col:last-child { overflow-y: auto; overscroll-behavior: contain; }
+.sr-col.swarf-more::after, .sr-plan.swarf-more::after {
+  content: 'more below \\25BE'; position: sticky; bottom: 4px; display: block; width: max-content; flex-shrink: 0; align-self: center;
+  margin: -26px auto 0; padding: 2px 12px; border-radius: 999px; pointer-events: none; z-index: 3;
+  font-size: 11px; line-height: 16px; color: var(--swarf-text-2); background: var(--swarf-bg-2);
+  box-shadow: 0 0 0 1px var(--swarf-line), 0 -6px 16px 8px color-mix(in srgb, var(--swarf-bg-2) 70%, transparent);
+}
 .sr-grid > .sr-col:last-child > .sr-box { flex-shrink: 0; }
 .sr-jog .sr-dro { margin: 0 12px; gap: 4px; }
 .sr-jog .sr-axis { grid-template-columns: 30px 1fr; padding: 4px 14px 4px 12px; }
@@ -555,7 +561,11 @@ html[data-skin] #swarf-run .sr-jog .sr-zrow button.next, html[data-skin] #swarf-
     stepIn.addEventListener('change', () => {
       const v = mmOf(stepIn.value);
       if (v > 600) { stepIn.value = ''; tell(`A jog step goes up to ${ui ? 'about 24 in (600 mm)' : '600 mm (about 24 in)'}. For longer moves use continuous, or go to.`, 'warn'); return; }
-      if (v > 0) pickStep(v, null);
+      if (v > 0) { pickStep(v, null); return; }
+      // not a step (abc, 0, -5, empty): the row shows the step a press will really move (deep review S17)
+      const typed = stepIn.value.trim();
+      rateRows();
+      if (typed) tell(`swarf could not read "${typed}" as a step above 0: each press still moves ${S.jogStep === 'cont' ? 'for as long as you hold it' : window.SwarfLength ? window.SwarfLength.say(S.jogStep) : S.jogStep + ' mm'}.`, 'warn');
     });
     stepIn.addEventListener('keydown', e => { if (e.key === 'Enter') stepIn.blur(); });
     el.modes.insertBefore(stepIn, el.modes.querySelector('button.held'));
@@ -768,7 +778,18 @@ html[data-skin] #swarf-run .sr-jog .sr-zrow button.next, html[data-skin] #swarf-
     for (const ev of ['pointerup', 'pointerleave', 'pointercancel']) el.checkBtn.addEventListener(ev, holdOff);
     el.stat.append(h('div', { class: 'sr-stat' }, el.big, el.rows, el.ask, el.simCtl, el.soundBtn, el.checkBtn, el.note));
 
-    grid.append(h('div', { class: 'sr-col' }, el.view, el.prog), h('div', { class: 'sr-col' }, el.jog, el.stat));
+    grid.append(h('div', { class: 'sr-col' }, el.view, el.prog), el.rightCol = h('div', { class: 'sr-col' }, el.jog, el.stat));
+    // a box that scrolls says so while there is more below (deep review S4: at 1280×720 the go-to row,
+    // the speed and the simulator note sat under the window with nothing to show it), as the rail does
+    for (const box of [el.rightCol, el.plan]) {
+      let rq = 0;
+      const more = () => { rq = 0; box.classList.toggle('swarf-more', box.scrollHeight - box.clientHeight - box.scrollTop > 6); };
+      const soon = () => { if (!rq) rq = requestAnimationFrame(more); };
+      box.addEventListener('scroll', soon, { passive: true });
+      window.addEventListener('resize', soon);
+      if (window.ResizeObserver) new ResizeObserver(soon).observe(box);
+      new MutationObserver(soon).observe(box, { childList: true, subtree: true, characterData: true });
+    }
     el.fromCam.classList.add('sr-link'); el.fromCam.textContent = 'make the toolpaths again';
 
     // cut checklist sheet
@@ -1365,8 +1386,10 @@ html[data-skin] #swarf-run .sr-jog .sr-zrow button.next, html[data-skin] #swarf-
     // Z's keys as the keyboard names them: fn + arrows on a Mac, Page Up / Page Down elsewhere (review 10-29)
     const zKeys = /Mac/i.test(navigator.platform || navigator.userAgent) ? 'fn ↑ ↓  Z' : 'PgUp PgDn  Z';
     if (el.keys) el.keys.textContent = running ? 'any key pauses   ·   emergency: the red e-stop on the floor' : `← → ↑ ↓  X Y   ·   ${zKeys}   ·   space stops`;   // Fable 3 #10
-    el.otherFile.style.display = S.prog ? '' : 'none';
-    el.lessonLink.style.display = S.prog ? '' : 'none';
+    // the links stand in for the button row, never beside it (deep review S14: two "a test cut" after a finish)
+    const startShown = !S.prog || finished;
+    el.otherFile.style.display = S.prog && !startShown ? '' : 'none';
+    el.lessonLink.style.display = S.prog && !startShown ? '' : 'none';
     el.fromCam.style.display = S.prog && S.prog.source === 'cam' ? '' : 'none';
     // the control that does the next thing is lit
     const first = need.find(n => !n.ok);
@@ -1411,7 +1434,7 @@ html[data-skin] #swarf-run .sr-jog .sr-zrow button.next, html[data-skin] #swarf-
 
   function coach(now, st) {
     // an answer to a press stays a few seconds: the machine's state updates would wipe it at once
-    if (S.hold && Date.now() < S.hold.until && !(st && st.running)) return say(S.hold.text, S.hold.cls);
+    if (S.hold && Date.now() < S.hold.until && (S.hold.running || !(st && st.running))) return say(S.hold.text, S.hold.cls);
     if (S.fault && !(st && (st.running || st.routerUnknown))) return say(`${S.fault[0].toUpperCase()}${S.fault.slice(1)}. Check the machine, then press all clear in the line under the buttons. Jogs still work, to lift the bit clear.`, 'bad');
     if (st && st.routerUnknown) return say(`${S.lostAt ? `The USB link dropped at line ${S.lostAt}. ` : ''}swarf can't tell whether the router is still on: press the red e-stop on the floor and wait until the bit has stopped turning. Then plug in and press connect${S.lostAt ? `; continue from line ${S.lostAt} after` : ''}.`, 'bad');
     if (S.connMsg && (!st || st.kind === 'sim' || !st.connected)) return say(S.connMsg, 'bad');
@@ -1449,8 +1472,9 @@ html[data-skin] #swarf-run .sr-jog .sr-zrow button.next, html[data-skin] #swarf-
     }
   }
 
-  function tell(text, cls) {
-    S.hold = { text, cls, until: Date.now() + 5000 };
+  // running: true keeps the line over a running job's status (a refused press must be seen)
+  function tell(text, cls, running) {
+    S.hold = { text, cls, until: Date.now() + 5000, running: !!running };
     say(text, cls);
     clearTimeout(S.holdT); S.holdT = setTimeout(() => { S.hold = null; refresh(); }, 5100);
   }
@@ -1789,7 +1813,7 @@ html[data-skin] #swarf-run .sr-jog .sr-zrow button.next, html[data-skin] #swarf-
     view.progress(0);
     if (S.machine instanceof M.SimMachine) S.machine.timeScale = S.simRate;
     S.machine.run(plan);
-    if (!S.machine.state.running) tell(`Not run: ${S.machine.state.note}.`, 'warn');
+    if (!S.machine.state.running) tell(`Not run: ${String(S.machine.state.note || '').replace(/^not run: /i, '')}.`, 'warn');
     refresh();
   }
 
@@ -2347,7 +2371,7 @@ html[data-skin] #swarf-run .sr-jog .sr-zrow button.next, html[data-skin] #swarf-
   }
   function close() {
     playStop();
-    if (S.machine && S.machine.state.running) { say('Stop the job before leaving control.', 'warn'); return; }
+    if (S.machine && S.machine.state.running) { tell('Stop the job before leaving control.', 'warn', true); return; }
     el.root.classList.remove('open');
     const step = document.getElementById('swarf-step-run');
     if (step) step.classList.remove('swarf-step-on');
@@ -2444,7 +2468,7 @@ html[data-skin] #swarf-run .sr-jog .sr-zrow button.next, html[data-skin] #swarf-
         const tools = document.getElementById('mode-tools');
         if (tools) tools.addEventListener('click', e => {
           if (!S.open || e.target.closest('#swarf-step-run')) return;
-          if (S.machine && S.machine.state.running) { e.stopPropagation(); e.preventDefault(); say('Stop the job before leaving control.', 'warn'); return; }
+          if (S.machine && S.machine.state.running) { e.stopPropagation(); e.preventDefault(); tell('Stop the job before leaving control.', 'warn', true); return; }
           close();
         }, true);
       }

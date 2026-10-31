@@ -49,14 +49,18 @@
     const d = mm(t.flute_diam || t.shaft_diam);
     if (!(d > 0)) return null;
     const name = t.name || `#${t.number}`;
-    if (t.type === 'ballmill') return { id: `lib${t.id}`, name, type: 'ball', diameter: d };
-    if (t.type === 'endmill') return { id: `lib${t.id}`, name, type: 'flat', diameter: d };
+    // how deep its flutes reach (deep review 10-31 M1: a 1/2 in flute was asked for 37 mm)
+    const flute = mm(t.flute_len) > 0 ? mm(t.flute_len) : undefined;
+    if (t.type === 'ballmill') return { id: `lib${t.id}`, name, type: 'ball', diameter: d, flute };
+    if (t.type === 'endmill') return { id: `lib${t.id}`, name, type: 'flat', diameter: d, flute };
     if (t.type === 'tapermill') {
       const half = t.taper_angle > 0 ? t.taper_angle : Math.atan((d - mm(t.taper_tip)) / 2 / Math.max(1e-6, mm(t.flute_len))) * 180 / Math.PI;
-      return half > 1 && half < 89 ? { id: `lib${t.id}`, name, type: 'v', angle: 2 * half, diameter: d } : null;
+      return half > 1 && half < 89 ? { id: `lib${t.id}`, name, type: 'v', angle: 2 * half, diameter: d, flute: mm(t.flute_len) > 0 ? mm(t.flute_len) : undefined } : null;
     }
     return null;
   }
+  // a fill's bit in words: the library's name, or the core id's
+  const bitName = f => (f && f.bit && f.bit.name) || ((BITS[f && f.tool] || {}).say) || 'bit';
   function libraryBits(pierce) {
     const a = api(), tools = (a && a.conf.get().tools) || [];
     const out = tools.map(t => [t, bitOf(t)]).filter(([, b]) => b && (pierce ? b.type === 'flat' : true));
@@ -190,8 +194,10 @@
       for (const L of loops) for (const q of L) { b[0] = Math.min(b[0], q[0]); b[1] = Math.min(b[1], q[1]); b[2] = Math.max(b[2], q[0]); b[3] = Math.max(b[3], q[1]); }
       parts.push({ w, name: nameOf(w), pos, loops, drawn, box: b, ...sizeOf(w), tilted: !!(w.meta && w.meta.tilted), marks: (w.meta && Array.isArray(w.meta.tex) ? w.meta.tex : []).map(loadMark), dirty: false });
     }
-    let brush = 12;
-    try { brush = parseFloat(localStorage.getItem(BRUSH)) || 12; } catch (e) { /* private */ }
+    // 12 mm, or 1/2 in when the units are inches (deep review P6: 0.472 in)
+    const brush0 = LEN.unit() === 'in' ? 12.7 : 12;
+    let brush = brush0;
+    try { brush = parseFloat(localStorage.getItem(BRUSH)) || brush0; } catch (e) { /* private */ }
     S = { parts, bed: [dev.bedWidth || 600, dev.bedDepth || 600], sel: -1, mark: -1, tool: 'select', brush, drag: null, hover: null, undo: [] };
     build();
     const picked = a.selection.widgets ? a.selection.widgets() : [];
@@ -221,7 +227,7 @@
         <button id="tx-undo" title="undo (⌘Z)">undo</button>
         <button id="tx-fit" title="show the parts, or the whole bed (F) · pinch or ⌘-scroll to zoom, two fingers to slide">fit</button>
         <span class="sd-grow"></span>
-        <button id="tx-cancel" title="close without changing the marks (Esc twice)">cancel</button>
+        <button id="tx-cancel" title="close without changing the marks (press twice, or Esc twice)">cancel</button>
         <button id="tx-done" class="sd-go" title="keep the marks and close">done</button>
       </div>
       <div class="sd-card" id="tx-card"></div>
@@ -234,14 +240,22 @@
     $('tx-undo').onclick = undo;
     const bs = $('tx-bsize');
     const takeBrush = () => { const v = LEN.parse(bs.value); if (!(v >= 0.5)) { say('Give the brush at least 0.5 mm across.'); return; } S.brush = r3(v); try { localStorage.setItem(BRUSH, String(S.brush)); } catch (e) { /* private */ } render(); };
-    bs.onkeydown = e => { e.stopPropagation(); if (e.key === 'Enter') { bs.dataset.took = bs.value; takeBrush(); bs.blur(); ui.svg.focus(); } if (e.key === 'Escape') { render(); ui.svg.focus(); } };
+    bs.onkeydown = e => { e.stopPropagation(); if (e.key === 'Enter') { bs.dataset.took = bs.value; takeBrush(); bs.blur(); ui.svg.focus(); } if (e.key === 'Escape') { bs.dataset.took = bs.value; render(); ui.svg.focus(); } };
     bs.onchange = () => { if (bs.dataset.took !== bs.value) takeBrush(); };
     // a unit changed in cam: the card and the bar say it, and no stale line stays
     S.onUnits = () => setTimeout(() => { if (S) { say(''); render(); } }, 0);
     // (api(), not a: build has no a, and the ReferenceError hid in this catch since r2 N5)
     try { const u = api().ui.units; if (u) u.addEventListener('change', S.onUnits); } catch (e) { /* no units control */ }
     $('tx-fit').onclick = () => { fit(!S.whole); render(); ui.svg.focus(); };
-    $('tx-cancel').onclick = () => close(false);
+    // cancel with changes asks once, as Esc does (deep review S1: it threw marks away at once)
+    $('tx-cancel').onclick = () => {
+      if (S.parts.some(p => p.dirty) && !(S.cancelAt && performance.now() - S.cancelAt < 4000)) {
+        S.cancelAt = performance.now();
+        say('Press cancel again to throw away your changes, or done to keep them.');
+        return;
+      }
+      close(false);
+    };
     $('tx-done').onclick = () => close(true);
     ui.svg.addEventListener('pointerdown', down);
     ui.svg.addEventListener('pointermove', move);
@@ -723,7 +737,9 @@
       const tex = m.info && m.info.ver === m.ver ? m.info : null;
       if (!tex) h += '<div class="sd-note">Working out the cut…</div>';
       else {
-        h += `<div class="sd-note">About ${C.formatTime(tex.seconds)} to cut.</div>`;
+        // nothing fits (a mark narrower than the bit): say why, never "About 0 s" (deep review S7)
+        h += tex.seconds > 0.5 ? `<div class="sd-note">About ${C.formatTime(tex.seconds)} to cut.</div>`
+          : `<div class="sd-note tx-warn">Nothing to cut: the mark is too narrow for the ${esc(bitName(f))}. Paint it wider, or pick a smaller bit.</div>`;
         for (const w of tex.warnings) h += `<div class="sd-note tx-warn">${esc(w)}</div>`;
       }
       for (const q of P.params) if (q.basic) h += paramRow(q, pr[q.k]);
@@ -763,7 +779,7 @@
       if (el.tagName === 'BUTTON') { el.onclick = () => { fn(null, el); ui.svg.focus(); }; return; }
       const value = () => (el.classList.contains('wide') ? el.value : rd(el));
       // Enter takes the value at once (as DRAW's fields do); the change that follows on blur is the same one
-      el.onkeydown = e => { e.stopPropagation(); if (e.key === 'Enter') { el.dataset.took = el.value; fn(value(), el); el.blur(); } if (e.key === 'Escape') { render(); ui.svg.focus(); } };
+      el.onkeydown = e => { e.stopPropagation(); if (e.key === 'Enter') { el.dataset.took = el.value; fn(value(), el); el.blur(); } if (e.key === 'Escape') { el.dataset.took = el.value; render(); ui.svg.focus(); } };
       el.onchange = () => { if (el.dataset.took === el.value) return; fn(value(), el); };
     };
     for (const b of ui.card.querySelectorAll('.tx-pick')) b.onclick = () => { S.mark = +b.dataset.mi; render(); checkSoon(); ui.svg.focus(); };
@@ -1111,10 +1127,15 @@
       if (S.mark >= 0) { S.mark = -1; render(); return; }
       if (S.sel >= 0) { S.sel = -1; render(); return; }
       // the last Escape leaves, never throwing marks away without asking (as DRAW)
-      if (S.parts.some(p => p.dirty) && !(S.escAt && performance.now() - S.escAt < 3000)) {
-        S.escAt = performance.now();
-        say('Press Escape again to leave without your changes, or done to keep them.');
-        return;
+      // a burst of Escs stops on the question: only a press after a beat answers it (deep review S1)
+      if (S.parts.some(p => p.dirty)) {
+        const since = S.escAt ? performance.now() - S.escAt : Infinity;
+        if (since < 400) return;
+        if (since > 3000) {
+          S.escAt = performance.now();
+          say('Press Escape again to leave without your changes, or done to keep them.');
+          return;
+        }
       }
       close(false);
       return;
@@ -1175,7 +1196,7 @@
     const by = r.addedBy || { texture: r.added, pierce: 0 };
     const kinds = ['texture', 'pierce'].filter(k => by[k]).map(k => (by[k] === 1 ? `${r.added === 1 ? 'a' : '1'} ${k} step` : `${by[k]} ${k} steps`));
     const added = `${kinds.join(' and ')} ${r.added === 1 ? 'was' : 'were'} added`;
-    const steps = r.added ? (free ? `${added} before the cut-out` : `${added}; add an outline to cut the part free`) : r.removed ? `${r.removed === 1 ? 'its step was' : `${r.removed} steps were`} removed` : 'their steps cut them';
+    const steps = r.added ? (free ? `${added} before the cut-out` : `${added}; add an outline to cut the part free`) : r.removed ? `${r.removed === 1 ? 'its step was' : `${r.removed} steps were`} removed` : kept === 1 ? 'its step cuts it' : 'their steps cut them';
     return kept ? `${kept === 1 ? '1 mark is' : `${kept} marks are`} kept: ${steps}. Next: toolpaths.` : `No marks left${r.removed ? `: ${steps}` : ''}.`;
   }
 

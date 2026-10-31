@@ -203,7 +203,8 @@ function hoverNow(e) {
 
 function onKey(e) {
     if (!picked) return;
-    if (e.key === 'Escape') { tabUnpick(); return; }
+    // Esc in one of the card's fields reverts that field (its own handler), not the whole card (deep review S5)
+    if (e.key === 'Escape') { if (inputHasFocus()) return; tabUnpick(); return; }
     if ((e.key === 'Delete' || e.key === 'Backspace') && !inputHasFocus() && !(api.modal && api.modal.visible && api.modal.visible())) {
         // the tab goes, not the part it is on
         e.preventDefault();

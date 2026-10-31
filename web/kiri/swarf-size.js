@@ -67,10 +67,24 @@
     delete fields[a].dataset.typed;
     // a length as typed (3/4, 1 1/2", 19 mm), in cam's units
     const src = $(`size_${a}`), v = (L() ? L().parse(fields[a].value) : parseFloat(fields[a].value)) / scale();
-    if (!src || !(v > 0)) { show(); return; }
+    if (!src || !(v > 0)) {
+      const typed = fields[a].value.trim();
+      if (src && typed) api().show.alert(`swarf could not read "${typed}" as a ${fields[a].dataset.word} above 0: it stays as it was.`, 5);
+      show(); return;
+    }
     if (Math.abs(v - parseFloat(src.was ?? src.value)) < 1e-6) return;
     // width and depth move together when kept; height (the board's thickness) stays its own
     const together = keep.box.checked && a !== 'z';
+    // the bed and the machine's reach first, as the shape dialog does (deep review 10-31 M1: 99999
+    // went to cam's scale and froze the page)
+    const was = parseFloat(src.was ?? src.value), k = was > 0 ? v / was : 1, mm = x => x * scale();
+    const now = b => parseFloat(($(`size_${b}`) || {}).value) || 0;
+    const w = mm(a === 'x' ? v : together ? now('x') * k : now('x')), d = mm(a === 'y' ? v : together ? now('y') * k : now('y')), t = mm(a === 'z' ? v : now('z'));
+    const dev = (api().conf.get().device) || {}, bw = dev.bedWidth || Infinity, bd = dev.bedDepth || Infinity;
+    const say = n => (L() ? L().say(n) : `${+n.toFixed(1)} mm`);
+    const no = (w > bw || d > bd) && (w > bd || d > bw) ? `That is bigger than the bed (${say(bw)} × ${say(bd)}): the size stays as it was.`
+      : t > 150 ? `That is thicker than the machine can cut (${say(150)}): the size stays as it was.` : null;
+    if (no) { api().show.alert(no, 6); show(); return; }
     for (const [b] of AX) { const l = $(`lock_${b}`); if (l) l.checked = together && b !== 'z'; }
     src.value = String(v);
     src.dispatchEvent(new Event('blur'));

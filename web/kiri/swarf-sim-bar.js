@@ -186,8 +186,21 @@
     const b = vis('pause') && window.__swarfSimPlaying ? vis('pause') : vis('play');
     if (b) { b.click(); window.__swarfSimPlaying = b.title === 'play'; }
   }
+  // Esc leaves simulate for the toolpaths, as Esc leaves DRAW, TEX and the tab card (deep review S8)
+  function onEsc(e) {
+    if (e.key !== 'Escape') return;
+    const bar = document.getElementById('layer-animate');
+    if (!bar || !bar.offsetParent || document.body.classList.contains('swarf-run-open') || document.body.classList.contains('swarf-draw-open')) return;
+    const t = e.target;
+    if (t && (/^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName) || t.isContentEditable)) return;
+    const modal = document.getElementById('modal');
+    if (modal && modal.style.display === 'flex') return;
+    const paths = document.getElementById('act-paths');
+    if (paths) paths.click();
+  }
   function boot() {
     document.addEventListener('keydown', onSpace);
+    document.addEventListener('keydown', onEsc);
     wireObservers();
     // poll a few times in case layer-animate materializes after load
     let tries = 0;

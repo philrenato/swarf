@@ -17,7 +17,7 @@
  * Parametric (Phil 10-29: "make all the tab attributes parametric and editable"): every number
  * the rule uses has a field: length, height, reach, how many, from corners, big hole, in each
  * hole, and whether big holes get tabs at all. An empty field is automatic and shows the rule's
- * value in grey; a typed value is pinned. A part that has auto tabs keeps its settings
+ * value in gray; a typed value is pinned. A part that has auto tabs keeps its settings
  * (annotation `tabset`), so its tabs follow them:
  *   - change a field and the selected parts' tabs are placed again at once
  *   - scale a part, or change its material, bit, board or machine, and its auto tabs are
@@ -517,7 +517,7 @@ function describe(plans) {
     if (plans.some(p => p.hand)) line += ' Your own tabs stay.';
     const pinned = plans.reduce((a, p) => a + p.pinned, 0), spots = plans.reduce((a, p) => a + p.spots, 0);
     if (pinned) line += ` ${plural(pinned, 'tab')} you moved or resized stay${pinned === 1 ? 's' : ''} as ${pinned === 1 ? 'it is' : 'they are'}.`;
-    if (spots) line += ` ${plural(spots, 'place')} where you deleted one stay${spots === 1 ? 's' : ''} empty (the trash starts over).`;
+    if (spots) line += ` ${plural(spots, 'place')} where you deleted one stay${spots === 1 ? 's' : ''} empty (remove all starts over).`;
     if (plans.some(p => p.plan.small)) line += ' A small part: fewer tabs fit.';
     if (plans.some(p => p.rule.capped)) line += ` Height held to ${say(r.height)}, under the board's thickness.`;
     // what it could not do, said, not left to a success line (codex review 10-29)
@@ -533,7 +533,7 @@ function sayLine(text) {
     if (els.say) els.say.textContent = text;
 }
 
-// the fields: pinned values as typed, automatic ones as grey placeholders from the first part
+// the fields: pinned values as typed, automatic ones as gray placeholders from the first part
 function showFields(plan) {
     if (!els.fields) return;
     if (!plan) {

@@ -4,7 +4,7 @@ import { createRequire } from 'node:module';
 const L = createRequire(import.meta.url)('../web/kiri/swarf-length.js');
 const near = (a, b) => Math.abs(a - b) < 1e-9;
 const cases = [
-  ['3/4', 'in', 19.05], ['1 1/2', 'in', 38.1], ['1-1/2"', 'mm', 38.1], ['0.75 in', 'mm', 19.05], ['.75in', 'mm', 19.05],
+  ['3/4', 'in', 19.05], ['3/4', 'mm', 19.05], ['1 1/2', 'mm', 38.1], ['12', 'mm', 12], ['1 1/2', 'in', 38.1], ['1-1/2"', 'mm', 38.1], ['0.75 in', 'mm', 19.05], ['.75in', 'mm', 19.05],
   ['19.05 mm', 'in', 19.05], ['19.05', 'mm', 19.05], ['2 cm', 'in', 20], ['-1/8', 'in', -3.175], ['1 inch', 'mm', 25.4],
   ['2 inches', 'mm', 50.8], ['12″', 'mm', 304.8], ['0,5', 'mm', 0.5], [' 6 ', 'in', 152.4]
 ];

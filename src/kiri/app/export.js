@@ -242,7 +242,7 @@ function swarfExportCard(on, { filename, fileext, info, download, sections }) {
     card = document.createElement('div');
     card.className = 'swarf-x-card';
     card.innerHTML = `<h3>Save the ${esc(machine)} file</h3>`
-        + `<p class="swarf-x-why">${shopbot ? 'The file <b>control</b> runs on the ShopBot.' : `The file the ${esc(machine)} runs: take it to the machine.`}</p>`
+        + `<p class="swarf-x-why">${shopbot ? 'The file that <b>control</b>, the last step in the row, runs on the ShopBot.' : `The file the ${esc(machine)} runs: take it to the machine.`}</p>`
         + `<label class="swarf-x-name"><span>name</span><input type="text" spellcheck="false" autocomplete="off"/><em>.${esc(ext)}</em></label>`
         + `<p class="swarf-x-facts">${esc(facts)}</p>`
         + `<div class="swarf-x-row"><button class="swarf-x-proj" type="button" title="the parts, the steps and the settings, to open again in swarf">also save the project (.swarf)</button>`

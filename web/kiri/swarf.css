@@ -2381,6 +2381,10 @@ body.swarf-draw-open #panel-right, body.swarf-draw-open #swarf-right-rail, body.
 /* advanced mode's settings panels (machine profile, stock, limits, origin, expert) step aside for
    DRAW's and TEX's boards: they drew over the card, and TEX's pierce lives in advanced mode */
 body.swarf-draw-open #panel-slide { display: none !important; }
+/* and for control (deep review 10-31 M2: limits sat over air cut, origin over trace); the
+   toolpath speed legend is cam's alone (M3: "59 56 53" read as a live readout in control) */
+body.swarf-run-open #panel-slide, body.swarf-run-open #panel-left { display: none !important; }
+body.swarf-focus #speeds, body.swarf-run-open #speeds { display: none !important; }
 /* review 10-30 B4: TEX's card ran under the install / version chips at 1440×900; DRAW and TEX
    step them aside as control does */
 body.swarf-draw-open #install-swarf, body.swarf-draw-open #ver, body.swarf-draw-open #gdpr,

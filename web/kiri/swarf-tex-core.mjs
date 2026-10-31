@@ -1134,7 +1134,7 @@ export function analyze(tex, toolIn, o = {}) {
       const mx = (tex.bbox.x0 + tex.bbox.x1) / 2, my = (tex.bbox.y0 + tex.bbox.y1) / 2;
       const c = tex.dots().reduce((b, q) => (!b || Math.hypot(q.x - mx, q.y - my) < Math.hypot(b.x - mx, b.y - my) ? q : b), null);
       const reach = c ? -dropCutter(tex.h, tool, c.x, c.y, { res: Math.min(0.1, D / 20) }) : 0;
-      warnings.push(`A ${tool.name} can't make ${L1(D)} dots ${L1(dp)} deep${tool.type === 'flat' ? ` — it is ${L2(tool.diameter)} across` : ''}. Plunged, it would make ${L1(dent)} dents; rastered without gouging it only gets ${L2(reach)} deep at each dot's center.`);
+      warnings.push(`The ${tool.name} can't make ${L1(D)} dots ${L1(dp)} deep${tool.type === 'flat' ? ` — it is ${L2(tool.diameter)} across` : ''}. Plunged, it would make ${L1(dent)} dents; rastered without gouging it only gets ${L2(reach)} deep at each dot's center.`);
       if (pr !== tex.params.profile && tool.type !== 'ball') notes.push(`Plunged dots take the cutter's shape: ${pr}-bottomed, not ${tex.params.profile}.`);
     } else if (o.strategy === 'plunge' && tool.type === 'ball' && tex.params.profile === 'ball') {
       notes.push(`Plunged dots will be ${L1(tool.widthAt(dp))} across with the ball's own ${L2(tool.R)} radius.`);
@@ -1145,7 +1145,7 @@ export function analyze(tex, toolIn, o = {}) {
     if (tool.type !== 'v') warnings.push(`Knurl grooves come to a sharp V at the bottom; a ${tool.name} can't reach it and rounds every valley. A V-bit at ${fmt(ga, 0)}° cuts it exactly in two passes (Centerline).`);
   } else if (tex.kind === 'strokes' && tex.strokeWidth && tex.params.fill !== 'pocket') {
     const W = tex.strokeWidth, dp = Math.min(tex.params.depth, maxDepth);
-    if (tool.type !== 'v' && tool.widthAt(dp) > W * 1.03) warnings.push(`A ${tool.name} can't cut ${L1(W)} grooves ${L1(dp)} deep; the narrowest groove it can cut that deep is ${L1(tool.widthAt(dp))}. Raster will leave them shallower; centerline will cut them wider.`);
+    if (tool.type !== 'v' && tool.widthAt(dp) > W * 1.03) warnings.push(`The ${tool.name} can't cut ${L1(W)} grooves ${L1(dp)} deep; the narrowest groove it can cut that deep is ${L1(tool.widthAt(dp))}. Raster will leave them shallower; centerline will cut them wider.`);
     if (tool.type === 'v' && o.strategy === 'centerline') {
       const need = (W / 2) / tool.tanHalf;
       notes.push(`V-carve: to be ${L1(W)} wide the ${tool.name} cuts ${L2(Math.min(need, maxDepth))} deep (design says ${L1(dp)}) with a V bottom.`);
@@ -1427,6 +1427,8 @@ export function markChecks(mark, o = {}) {
   // the max-depth line says it in the pattern's words; the board's own comes first
   const warnings = a.warnings.filter((w) => !/^The pattern goes/.test(w));
   if (o.thickness > 0 && tex.depth >= o.thickness - 1e-6) warnings.unshift(`The texture goes ${L(tex.depth)} deep and the board is ${L(o.thickness)} thick: it would cut through. It stops at the board's bottom.`);
+  const deep = Math.min(tex.depth, o.thickness > 0 ? o.thickness : Infinity);
+  if (tool.flute > 0 && deep > tool.flute + 0.1) warnings.unshift(`The ${tool.name} cuts ${L(tool.flute)} deep at most (its flutes); this texture goes ${L(deep)}. Make it shallower or use a longer bit.`);
   if (o.outside > 0.02) warnings.push(`${Math.round(o.outside * 100)}% of the mark is off the part: that much of the texture cuts air, or the board around the part.`);
   return { warnings, notes: a.notes, tex, tool, strategy };
 }
@@ -1936,7 +1938,10 @@ export function pierceChecks(mark, o = {}) {
   // 2 9/16 in the next): o.len rounds (the app's prose); by default the app's mm rounding
   const L = o.len || ((v) => `${fmt(roundProse(v), 1)} mm`);
   const warnings = [], notes = ['These numbers are a starting point: cut a test strip first.'];
-  if (tool.type !== 'flat') warnings.push(`A ${tool.name} leaves a ${tool.type === 'v' ? 'V' : 'round'}-bottomed cut; through cuts want a straight (flat) bit.`);
+  if (tool.type !== 'flat') warnings.push(`The ${tool.name} leaves a ${tool.type === 'v' ? 'V' : 'round'}-bottomed cut; through cuts want a straight (flat) bit.`);
+  // deeper than the bit's flutes: the shank rubs, or the collet meets the board (fill.bit.flute, mm)
+  const deep = cuts.through ? T : T - Math.min(Math.max(0, p.skin || 0), T);
+  if (tool.flute > 0 && deep > tool.flute + 0.1) warnings.unshift(`The ${tool.name} cuts ${L(tool.flute)} deep at most (its flutes); this goes ${L(deep)}. Use thinner stock, a longer bit, or a texture instead.`);
   if (f.pattern === 'kerf') {
     const skin = Math.min(Math.max(0, p.skin), T), rib = cuts.pitch - w;
     // kerfs counted as lines across the bend (bridges break one kerf into slots)
@@ -1958,7 +1963,7 @@ export function pierceChecks(mark, o = {}) {
     if (cuts.through && p.bridge > 0 && p.bridge < w) warnings.push(`Bridges ${L(p.bridge)} long are shorter than the bit is wide (${L(w)}): they may break. Make them longer.`);
   } else {
     notes.unshift(`${cuts.holes.length} hole${cuts.holes.length === 1 ? '' : 's'}, right through.`);
-    if (p.size < w) warnings.push(`A ${tool.name} can't cut ${L(p.size)} holes: the bit is ${L(w)} across. Make the holes bigger or use a thinner bit.`);
+    if (p.size < w) warnings.push(`The ${tool.name} can't cut ${L(p.size)} holes: the bit is ${L(w)} across. Make the holes bigger or use a thinner bit.`);
     const web = p.spacing - p.size;
     if (web < 2 * w) warnings.push(`Only ${L(Math.max(0, web))} of wood is left between the holes, less than two bit widths: it may break. Space them farther apart or make them smaller.`);
   }
@@ -1993,7 +1998,7 @@ export function pierceSVG(mark, o = {}) {
   const circles = cuts.holes.map((h) => `<circle cx="${X(h.x)}" cy="${Y(h.y)}" r="${+(h.d / 2).toFixed(3)}"/>`).join('\n');
   return `<?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg" width="${+W.toFixed(3)}mm" height="${+H.toFixed(3)}mm" viewBox="0 0 ${+W.toFixed(3)} ${+H.toFixed(3)}">
-<!-- ${mark.fill.pattern}: kerf width ${fmt(cuts.width, 2)} mm, pitch ${fmt(cuts.pitch, 2)} mm. A starting point: cut a test strip. -->
+<!-- ${mark.fill.pattern}: ${mark.fill.pattern === 'kerf' ? `kerf width ${fmt(cuts.width, 2)} mm, pitch ${fmt(cuts.pitch, 2)} mm` : `${(cuts.holes || []).length} holes, bit ${fmt(cuts.width, 2)} mm`}. A starting point: cut a test strip. -->
 <g id="cuts" fill="none" stroke="#FF0000" stroke-width="0.1">
 ${lines}
 </g>

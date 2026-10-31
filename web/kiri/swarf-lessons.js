@@ -47,6 +47,12 @@
   // a length typed in mm, or with its unit (6in, 1 1/2"): Phil 10-29
   const num = (v, d) => { const n = window.SwarfLength ? SwarfLength.parse(v, 'mm') : parseFloat(String(v).replace(',', '.')); return isFinite(n) ? n : d; };
   const f3 = v => (Math.round(v * 1000) / 1000).toString();
+  // the board card in cam's units (deep review 10-31 S6: it asked in mm with inches set); held in mm
+  const LN = () => window.SwarfLength;
+  const unitNow = () => (LN() ? LN().unit() : 'mm');
+  const fld = mm => (LN() ? LN().field(mm) : String(+(+mm).toFixed(2)));
+  const numU = (v, d) => { const n = LN() ? LN().parse(v) : parseFloat(String(v).replace(',', '.')); return isFinite(n) ? n : d; };
+  const prose = mm => (LN() ? LN().prose(mm) : `${+(+mm).toFixed(1)} mm`);
   let L = null;   // the lesson in hand: { lesson, board, bit, size, depth, … }
 
   function board() { try { return JSON.parse(localStorage.getItem(KEY)) || { w: 200, d: 150, t: 12, bit: 'e38' }; } catch (e) { return { w: 200, d: 150, t: 12, bit: 'e38' }; } }
@@ -69,19 +75,19 @@
   function boardCard(lesson) {
     const r = R(), b = board();
     // 6in becomes 152.4 as soon as it is typed (Phil 10-29)
-    const inp = (v, title) => { const i = el('input', { type: 'text', inputmode: 'decimal', value: String(v), title: `${title} (6in or 1 1/2" work too)`, style: 'width:72px;text-align:right' }); i.addEventListener('change', () => { const n = num(i.value, NaN); if (isFinite(n)) i.value = String(+n.toFixed(2)); }); return i; };
+    const inp = (v, title) => { const i = el('input', { type: 'text', inputmode: 'decimal', value: fld(v), title: `${title} (${unitNow() === 'in' ? '6, 1 1/2 or 38 mm' : '150, 6in or 1 1/2"'} all work)`, style: 'width:72px;text-align:right' }); i.addEventListener('change', () => { const n = numU(i.value, NaN); if (isFinite(n)) i.value = fld(n); }); return i; };
     const w = inp(b.w, 'left to right'), d = inp(b.d, 'front to back'), t = inp(b.t, 'thickness: measure it');
     for (const i of [w, d, t]) i.addEventListener('keydown', e => e.stopPropagation());
     const checks = [
       tick('the board lies flat, its front-left corner toward the table\'s front-left corner'),
-      tick('four screws, one in each corner of the board, no more than 10 mm in from its edges'),
+      tick(`four screws, one in each corner of the board, no more than ${prose(10)} in from its edges`),
       tick('the screw heads sit below the top of the board')];
     const say = el('p', { class: 'sr-circuit' });
     const go = btn('next: the bit', () => {
-      const W = num(w.value, 0), D = num(d.value, 0), T = num(t.value, 0);
+      const W = numU(w.value, 0), D = numU(d.value, 0), T = numU(t.value, 0);
       const min = lesson.id === 'square' ? 2 * MARGIN + 40 : 2 * MARGIN + 40;
-      if (!(W >= min && D >= min)) { say.textContent = `The board needs to be at least ${min} × ${min} mm for this test.`; return; }
-      if (!(T >= 3 && T <= 40)) { say.textContent = 'Measure the board\'s thickness with calipers: between 3 and 40 mm.'; return; }
+      if (!(W >= min && D >= min)) { say.textContent = `The board needs to be at least ${prose(min)} × ${prose(min)} for this test.`; return; }
+      if (!(T >= 3 && T <= 40)) { say.textContent = `Measure the board's thickness with calipers: between ${prose(3)} and ${prose(40)}.`; return; }
       Object.assign(b, { w: W, d: D, t: T });
       try { localStorage.setItem(KEY, JSON.stringify(b)); } catch (e) { /* private */ }
       bitCard(lesson, b);
@@ -89,11 +95,11 @@
     const update = () => { go.disabled = !checks.every(([c]) => c.checked); };
     checks.forEach(([c]) => c.addEventListener('change', update)); update();
     r.card([el('h2', { text: `Test cut: ${lesson.name}` }),
-      el('p', { text: 'A scrap of plywood, 12 mm or so, about 200 × 150 mm (any size from 80 mm square up). How big is yours?' }),
+      el('p', { text: `A scrap of plywood, ${unitNow() === 'in' ? '1/2 in' : '12 mm'} or so, about ${unitNow() === 'in' ? '8 × 6 in' : '200 × 150 mm'} (any size from ${prose(80)} square up). How big is yours?` }),
       el('div', { class: 'sr-board-size' },
         el('label', {}, w, el('small', { text: 'width' })), el('span', { text: '×' }),
         el('label', {}, d, el('small', { text: 'depth' })), el('span', { text: '×' }),
-        el('label', {}, t, el('small', { text: 'thickness' })), el('span', { text: 'mm' })),
+        el('label', {}, t, el('small', { text: 'thickness' })), el('span', { text: unitNow() })),
       ...checks.map(c => c[1]), say,
       row(btn('back', choose), go)]);
   }
@@ -145,7 +151,7 @@
     }
     const N = 180;
     for (const z of zs) for (let i = 0; i <= N; i++) { const a = -Math.PI / 2 - (i / N) * 2 * Math.PI; ci.push([cx + C / 2 * Math.cos(a), cy + C / 2 * Math.sin(a), z]); }
-    return { size: S, circle: C, depth, paths: [sq, ci], what: `a ${S} mm square and a ${C} mm circle, ${depth} mm deep` };
+    return { size: S, circle: C, depth, paths: [sq, ci], what: `a ${prose(S)} square and a ${prose(C)} circle, ${prose(depth)} deep` };
   }
   function lesson2(b, bit) {
     // the part to its drawn size: the bit's center runs r outside it, clockwise (conventional), four tabs
@@ -166,7 +172,7 @@
         path.push([bx, by, z]);
       }
     }
-    return { size: P, depth, paths: [path], what: `a ${P} mm square, cut through with four tabs` };
+    return { size: P, depth, paths: [path], what: `a ${prose(P)} square, cut through with four tabs` };
   }
 
   function load(lesson, b, bit) {
@@ -177,7 +183,7 @@
     r.loadProgram(name + '.sbp', sbp(name, bit, g.paths), 'lesson', {
       origin: { xy: 'the front-left corner of your plywood (not the table\'s)', z: 'the top of your board' }, lesson: lesson.id });
     r.card([el('h2', { text: 'The test cut is loaded' }),
-      el('p', { text: `${g.what}, centered on your ${b.w} × ${b.d} mm board.` }),
+      el('p', { text: `${g.what}, centered on your ${prose(b.w)} × ${prose(b.d)} board.` }),
       el('p', { text: 'Now control\'s own steps, the sentence at the top says each one: jog over the front-left corner of the plywood and press zero x y; zero Z on top with the z plate; trace (the bit must stay over the plywood and clear every screw); then cut.' }),
       row(btn('start', () => r.card(null), 'go'))]);
   }

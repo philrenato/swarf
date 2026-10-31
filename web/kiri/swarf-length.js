@@ -41,13 +41,15 @@
     if (um) s = s.slice(0, -u.length).trim();
     let sign = 1;
     if (/^[-+]/.test(s)) { if (s[0] === '-') sign = -1; s = s.slice(1).trim(); }
-    let v;
+    let v, frac = true;
     let m;
     if ((m = s.match(/^(\d+)(?:\s+|\s*-\s*)(\d+)\s*\/\s*(\d+)$/))) v = +m[1] + (+m[3] ? +m[2] / +m[3] : NaN);
     else if ((m = s.match(/^(\d+)\s*\/\s*(\d+)$/))) v = +m[2] ? +m[1] / +m[2] : NaN;
-    else if (/^(\d+\.?\d*|\.\d+)$/.test(s)) v = +s;
+    else if (/^(\d+\.?\d*|\.\d+)$/.test(s)) { v = +s; frac = false; }
     else return NaN;
-    const k = SUFFIX[u] || ((def || unit()) === 'in' ? IN : 1);
+    // a fraction with no unit is inches whatever the setting: nobody means 3/4 of a millimeter
+    // (deep review 10-31 S3: 3/4 in mm mode made a 0.75 mm part)
+    const k = SUFFIX[u] || (frac || (def || unit()) === 'in' ? IN : 1);
     return sign * v * k;
   }
 

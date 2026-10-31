@@ -376,7 +376,8 @@ function setup_keybd_nav() {
     if (ui.acct.don8) ui.acct.don8.onclick = (ev) => { ev.stopPropagation(); api.modal.show('don8') };
     if (ui.acct.export) {
         ui.acct.export.onclick = (ev) => { ev.stopPropagation(); settingsOps.export_profile() };
-        ui.acct.export.title = LANG.acct_xpo;
+        // swarf: the menu item's own title says what a .kmz is (menu.js); Kiri's "make a backup of your
+        // device" wrote over it (deep review P5)
     }
     // prevent modal input from propagating to parents
     ui.modalBox.onclick = (ev) => { ev.stopPropagation() };
@@ -586,6 +587,9 @@ function setup_keybd_nav() {
         };
         api.event.on('widget.add', added);
         api.event.on('widget.delete', () => setTimeout(() => { if (!meshes().length) { wasEmpty = true; frame(); } }, 60));
+        // a deleted part's toolpaths leave the bed with it (deep review S19: its ring stayed drawn beside
+        // the next part until toolpaths was pressed again); the steps stay, the paths are made again
+        api.event.on('widget.delete', w => { if (Array.isArray(w) && !w.length) return; if (api.view && !api.view.is_arrange()) api.view.set_arrange(); });
         api.event.on('widgets.loaded', () => { wasEmpty = !meshes().length; always(); });
         api.event.on('load.url', always);
         api.event.on('device.select', () => setTimeout(() => { if (!meshes().length) bed(); }, 300));
@@ -697,6 +701,7 @@ function setup_keybd_nav() {
         }
 
         // rule engine: pull current settings + ops, evaluate each rule, render warnings
+        const tabsOpened = new Set();
         function evaluate() {
             const warnings = [];
             // (whole-app review r086 F4) a concern's numbers follow mm | in too
@@ -827,6 +832,12 @@ function setup_keybd_nav() {
                         if (w.track.synth) continue;
                         const name = (w.meta && w.meta.file || 'a part').replace(/\.[^.]+$/, '');
                         const a = audit(w);
+                        // the first time a part is cut free with no tabs, the tabs drawer opens on its
+                        // auto tabs button: the hint names it, so it should be in sight (deep review S10)
+                        if (outer && a.outerTabs === 0 && !tabsOpened.has(w.id)) {
+                            tabsOpened.add(w.id);
+                            setTimeout(() => { const hd = document.querySelector('#cam-tabs .set-header'); if (hd && hd.classList.contains('hidden')) hd.click(); }, 0);
+                        }
                         if (outer && a.outerTabs === 0) warnings.push({
                             title: `${name} is cut free with no tabs`,
                             body: `the ${outl.some(o => o.type === 'outline') ? 'outline' : 'rough'} cuts all the way down around it, so on the last pass the part comes loose. The spinning bit can grab it and throw it.`,
@@ -856,8 +867,10 @@ function setup_keybd_nav() {
                 body.innerHTML = '<div class="swarf-empty">setup looks clean — no concerns to flag.</div>';
                 return;
             }
+            // a concern's title carries a file name: text, never markup (deep review 10-31, as M1)
+            const esc = t => String(t ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
             body.innerHTML = warnings.map(w =>
-                `<div class="swarf-concern"><strong>${w.title}</strong>${w.body}<em>${w.hint}</em></div>`
+                `<div class="swarf-concern"><strong>${esc(w.title)}</strong>${esc(w.body)}<em>${esc(w.hint)}</em></div>`
             ).join('');
         }
         evaluate();
@@ -935,9 +948,9 @@ function setup_keybd_nav() {
             { kind:'run', name:'modes', body:'cam, draw, tex and control. draw makes shapes, tex marks and textures them, control runs the machine. in draw, tex or control the step row folds to those four. in cam, tabs › auto tabs places the tabs at once (there is no apply); click a tab to move, resize or delete it. files › save project (.swarf), or ⌘S, keeps all of it in one file to open again here or on another computer.', tags:'modes cam draw tex control auto tabs save project swarf' },
             { kind:'run', name:'zero at', body:'where X 0, Y 0 sits on the stock: its front-left corner (the default), or its center for something round. you put the bit on that spot before you cut.', tags:'zero origin corner center center round x0 y0' },
             { kind:'run', name:'skin', body:'view › skin: wet plastic (default), classic, swarf.', tags:'skin theme look glass classic' },
-            { kind:'op', name:'auto tabs', body:'tabs › auto tabs: a starting set of tabs sized for the material, the bit, the board and the machine. how many: fewer to more; size: smaller to larger. the press places them at once, as ordinary tabs: there is no apply. click a tab to move, resize or delete it; undo or the trash takes them back.', tags:'auto tabs bridges hold parts cutout outline' },
-            { kind:'op', name:'move a tab', body:'click a tab to pick it: drag it along the edge, press delete to remove it, or change its length, height and reach in its card. a tab you moved or resized stays as you set it when auto tabs are placed again (back to automatic lets go); where you deleted one stays empty. the trash starts over. undo takes back each change.', tags:'move tab drag tab delete tab remove tab resize tab pick tab single tab pinned back to automatic no tab here' },
-            { kind:'op', name:'tab settings', body:'tabs: every number is a field — length, height, reach, count, from corners, hold inside pieces, holes from, in each hole. empty = automatic (grey); type a value to pin it. tabs follow their part: change a field, scale the part, or change the material, bit or machine, and they are placed again. all automatic empties them.', tags:'tab settings length height reach how many count corners holes pinned automatic parametric tab size' },
+            { kind:'op', name:'auto tabs', body:'tabs › auto tabs: a starting set of tabs sized for the material, the bit, the board and the machine. how many: fewer to more; size: smaller to larger. the press places them at once, as ordinary tabs: there is no apply. click a tab to move, resize or delete it; undo or remove all takes them back.', tags:'auto tabs bridges hold parts cutout outline' },
+            { kind:'op', name:'move a tab', body:'click a tab to pick it: drag it along the edge, press delete to remove it, or change its length, height and reach in its card. a tab you moved or resized stays as you set it when auto tabs are placed again (back to automatic lets go); where you deleted one stays empty. remove all starts over. undo takes back each change.', tags:'move tab drag tab delete tab remove tab resize tab pick tab single tab pinned back to automatic no tab here' },
+            { kind:'op', name:'tab settings', body:'tabs: every number is a field — length, height, reach, count, from corners, hold inside pieces, holes from, in each hole. empty = automatic (gray); type a value to pin it. tabs follow their part: change a field, scale the part, or change the material, bit or machine, and they are placed again. all automatic empties them.', tags:'tab settings length height reach how many count corners holes pinned automatic parametric tab size' },
             { kind:'op', name:'loose pieces', body:'an outline that cuts through frees the part, and the piece inside every hole it cuts. with no tab it can catch the bit and fly. concerns and the cut checklist name each one; auto tabs hold them (hold inside pieces), or screw them down where the bit does not go. never reach in while the router turns.', tags:'loose pieces cut free through no tabs fly thrown slug hole inside piece retain hold down screw' },
             { kind:'run', name:'windows', body:'control runs in Chrome or Edge on Windows too. quit ShopBot 3 first: the box takes one program at a time. press disconnect (or close the tab) before going back to ShopBot 3. if Chrome lists no port for the box, check the box is on and its cable in, quit ShopBot 3, and press connect again.', tags:'windows pc com port com3 shopbot 3 chrome edge one program driver' },
             { kind:'run', name:'windows laptop', body:'your own Windows laptop (no ShopBot software): give the box a driver once with Zadig (zadig.akeo.ie): Options › List All Devices, pick V204ShopBot (USB ID 10C4 83C4), set WinUSB, Replace Driver. never on a PC that runs ShopBot 3.', tags:'windows laptop zadig winusb driver student usb' },
