@@ -86,8 +86,8 @@ ok(JSON.stringify(here) === before, 'the merge does not change this computer\'s 
 ok(out.controller.units === 'in' && out.controller.zoomSpeed === 2 && out.controller.dark === true && out.controller.view.left === 1, 'units from the file; zoom, dark, camera stay this computer\'s');
 ok(out.local['model.opacity'] === 0.4, 'view preferences stay this computer\'s');
 ok(out.devices['Shop router'].bedWidth === 1000, 'this computer\'s own machine of that name is not swapped');
-ok(out.devices['Shop router (chair.swarf)'] && out.devices['Shop router (chair.swarf)'].bedWidth === 1200, 'the file\'s machine comes in under a new name');
-ok(out.filter.CAM === 'Shop router (chair.swarf)' && out.device.deviceName === 'Shop router (chair.swarf)' && out.device.bedWidth === 1200 && out.cdev.CAM.bedWidth === 1200, 'and the job is on it');
+ok(out.devices['Shop router (chair)'] && out.devices['Shop router (chair)'].bedWidth === 1200, 'the file\'s machine comes in under a new name');
+ok(out.filter.CAM === 'Shop router (chair)' && out.device.deviceName === 'Shop router (chair)' && out.device.bedWidth === 1200 && out.cdev.CAM.bedWidth === 1200, 'and the job is on it');
 ok(notes.some(t => /set up differently/.test(t) && /Shop router \(chair\.swarf\)/.test(t)), `and says so: ${notes[0]}`);
 ok(out.tools.find(t => t.id === 1003 && t.name === 'v-bit'), 'a missing bit the steps use is added');
 ok(!out.tools.find(t => t.id === 1009), 'a bit no step uses is not added');
@@ -95,8 +95,8 @@ ok(out.tools.find(t => t.id === 1002).name === 'eighth', 'this computer\'s bit 1
 const theirs = out.tools.find(t => t.name === 'eighth (theirs)');
 ok(theirs && theirs.id !== 1002 && theirs.number === 2, 'the file\'s different bit 1002 comes in under a new id, its number (the T in the program) kept');
 ok(out.process.ops[2].tool === theirs.id && out.sproc.CAM.default.ops[2].tool === theirs.id, 'its step uses it');
-ok(out.process.ops[2].preset === `softwood:${theirs.id}:Shop router (chair.swarf):3.175:`, `its material stamp follows, so its numbers are kept (${out.process.ops[2].preset})`);
-ok(out.process.ops[0].preset === 'softwood:1001:Shop router (chair.swarf):6.350:1,2,3,4', 'every stamp follows the machine\'s new name');
+ok(out.process.ops[2].preset === `softwood:${theirs.id}:Shop router (chair):3.175:`, `its material stamp follows, so its numbers are kept (${out.process.ops[2].preset})`);
+ok(out.process.ops[0].preset === 'softwood:1001:Shop router (chair):6.350:1,2,3,4', 'every stamp follows the machine\'s new name');
 ok(notes.some(t => /"v-bit"/.test(t) && /added/.test(t)) && notes.some(t => /eighth \(theirs\)/.test(t)), `bits: said (${notes.join(' | ')})`);
 ok(out.process.ops.map(o => o.type).join() === 'outline,texture,pocket' && out.process.camStockX === 300, 'the steps in order, the board');
 ok(out.sproc.CAM.mine.ops[0].type === 'rough', 'this computer\'s other saved processes stay');

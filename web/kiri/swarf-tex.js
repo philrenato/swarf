@@ -1019,7 +1019,8 @@
         const ci = Math.floor((u - g.x0) / g.res), cj = Math.floor((v - g.y0) / g.res);
         if (ci >= 0 && cj >= 0 && ci < g.nx && cj < g.ny && g.data[cj * g.nx + ci]) mi = i;
       }
-      S.sel = at; S.mark = mi >= 0 ? mi : (S.sel === at && curMark() ? S.mark : (part.marks.length ? 0 : -1));
+      const same = S.sel === at;
+      S.sel = at; S.mark = mi >= 0 ? mi : (same && curMark() ? S.mark : (part.marks.length ? 0 : -1));
       render(); checkSoon();
       return;
     }
@@ -1101,7 +1102,7 @@
     e.stopPropagation();
     const k = e.key;
     if ((e.metaKey || e.ctrlKey) && k.toLowerCase() === 'z') { e.preventDefault(); undo(); return; }
-    if (k === 'Alt') { S.alt = true; window.addEventListener('keyup', function u(ev) { if (ev.key === 'Alt') { if (S) { S.alt = false; render(); } window.removeEventListener('keyup', u, true); } }, true); render(); return; }
+    if (k === 'Alt') { if (e.repeat) return; S.alt = true; window.addEventListener('keyup', function u(ev) { if (ev.key === 'Alt') { if (S) { S.alt = false; render(); } window.removeEventListener('keyup', u, true); } }, true); render(); return; }
     if (k === ' ') { e.preventDefault(); if (S.space) return; S.space = true; window.addEventListener('keyup', function u(ev) { if (ev.key === ' ') { if (S) S.space = false; window.removeEventListener('keyup', u, true); } }, true); return; }
     if (k === 'Escape') {
       e.preventDefault();

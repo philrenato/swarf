@@ -2412,7 +2412,6 @@ html[data-skin] #swarf-draw svg .sd-part.sd-regsrc, #swarf-draw svg .sd-part.sd-
 #swarf-draw.sd-tex .sd-card .tx-parthead > .sd-h { flex: 1 1 auto; min-width: 0; margin: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 #swarf-draw.sd-tex .sd-card .tx-parthead button { flex: none; }
 #swarf-draw.sd-tex .tx-swhint { min-height: 2.9em; margin: 0 0 2px; }
-#swarf-draw.sd-tex .tx-swhint.tx-short { min-height: 0; }
 #swarf-draw.sd-tex .tx-makes { gap: 4px; flex-wrap: nowrap; }
 #swarf-draw.sd-tex .tx-more { margin-top: 6px; }
 #swarf-draw.sd-tex .tx-more > summary { cursor: pointer; font-size: 12px; font-weight: 600; margin: 6px 0; }
@@ -2420,8 +2419,6 @@ html[data-skin] #swarf-draw svg .sd-part.sd-regsrc, #swarf-draw svg .sd-part.sd-
 #swarf-draw.sd-tex .tx-cut { fill: none; stroke: var(--swarf-text); stroke-linecap: round; opacity: .85; pointer-events: none; }
 #swarf-draw.sd-tex circle.tx-cut { stroke-width: 1.2px; fill: var(--swarf-text); fill-opacity: .25; }
 #swarf-draw.sd-tex .tx-fills { gap: 4px; }
-#swarf-draw.sd-tex .tx-check { display: flex; align-items: center; gap: 6px; cursor: pointer; }
-#swarf-draw.sd-tex .tx-check input { width: auto; margin: 0; }
 /* the brush size in the bar; small swatches in one row on a short window; the points row on one line */
 #swarf-draw.sd-tex .tx-bsize { display: inline-flex; align-items: center; gap: 4px; font-size: 12px; }
 #swarf-draw.sd-tex .tx-bsize input { font: inherit; width: 52px; text-align: right; padding: 4px 6px; border-radius: 6px; border: 1px solid currentColor; background: transparent; color: inherit; }

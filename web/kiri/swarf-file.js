@@ -152,6 +152,8 @@
     // the machine
     const fdev = clone(file.device || (file.cdev && file.cdev[MODE]) || null);
     let devName = (file.filter && file.filter[MODE]) || (fdev && fdev.deviceName) || '';
+    // a name that is an object's own key (__proto__, constructor) cannot be a map's key (deep review P10)
+    if (typeof devName !== 'string' || devName in Object.prototype) devName = '';
     const oldDev = devName;
     if (fdev && devName) {
       const fileCode = file.devices && file.devices[devName];
@@ -160,8 +162,9 @@
       if (fileCode) {
         if (!mine && !builtin) { out.devices[devName] = clone(fileCode); notes.push(`The machine "${devName}" was not on this computer: swarf added it ${from}.`); }
         else if (mine && !same(mine, fileCode)) {
-          let n = `${devName} (${from.replace(/^from /, '')})`, i = 2;
-          while (out.devices[n]) n = `${devName} (${from.replace(/^from /, '')} ${i++})`;
+          const proj = String(opt.name || 'file').replace(/\.swarf$/i, '').replace(/\./g, ' ');
+          let n = `${devName} (${proj})`, i = 2;
+          while (out.devices[n]) n = `${devName} (${proj} ${i++})`;
           out.devices[n] = clone(fileCode);
           notes.push(`This computer has its own "${devName}", set up differently: the file's comes in as "${n}", so the job is made for the machine it was made for.`);
           devName = n;
@@ -194,7 +197,8 @@
     if (renamed.length) notes.push(`This computer's tool library has ${renamed.length === 1 ? 'a different bit' : 'different bits'} under the same number as ${renamed.map(n => `"${n}"`).join(', ')}: the file's ${renamed.length === 1 ? 'comes' : 'come'} in as ${renamed.length === 1 ? 'a new bit' : 'new bits'}, and the steps use ${renamed.length === 1 ? 'it' : 'them'}.`);
     // the steps, the board, and every other process number
     const proc = clone(file.process || {});
-    const pname = proc.processName || (file.cproc && file.cproc[MODE]) || 'default';
+    let pname = proc.processName || (file.cproc && file.cproc[MODE]) || 'default';
+    if (typeof pname !== 'string' || pname in Object.prototype) pname = 'default';
     out.process = proc;
     out.sproc[MODE][pname] = clone(proc);
     out.cproc[MODE] = pname;
@@ -264,7 +268,7 @@
   const projectName = () => (project && api() && api().widgets.all().length ? project : null);
   const app = () => window.SWARF_VERSION || '';
   const units = () => { try { return api().conf.get().controller.units === 'in' ? 'in' : 'mm'; } catch (e) { return 'mm'; } };
-  const say = (t, s) => { try { api().show.alert(t, s || 8); } catch (e) { console.log(t); } };
+  const say = (t, s) => { try { api().show.alert(t, s || 8); } catch (e) { console.warn(t); } };
   const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
   function current() {

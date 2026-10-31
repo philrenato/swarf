@@ -1,6 +1,6 @@
 // TAB SETTINGS, parametric (Phil 10-29: "make all the tab attributes parametric and editable"):
 // on a 300 x 200 part of 3/4 in plywood on the ShopBot, every field of tabs › auto tabs shows the
-// automatic value in grey, and a typed value is pinned and the placed tabs follow at once:
+// automatic value in gray, and a typed value is pinned and the placed tabs follow at once:
 // length, height (held under the board), reach, how many, from corners; a tab placed by hand
 // takes a typed length; a scale puts the tabs back at the new size with the pinned count; a
 // material change puts them back on the next slice; inches are typed as fractions; the settings
@@ -67,7 +67,7 @@ try {
   };
   const say = () => page.evaluate(() => document.getElementById('swarf-autotabs-say').textContent);
 
-  // the panel shows every attribute, automatic values in grey
+  // the panel shows every attribute, automatic values in gray
   let f = await fieldsNow();
   check(Object.values(f).every(v => v !== null), `every attribute has a field (${Object.keys(f).join(', ')})`);
   check(f.width.v === '' && near(+f.width.ph, 12.7) && f.width.unit === 'mm', `length is automatic: grey ${f.width.ph} ${f.width.unit}`);

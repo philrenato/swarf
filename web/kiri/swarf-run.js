@@ -1927,7 +1927,7 @@ html[data-skin] #swarf-run .sr-jog .sr-zrow button.next, html[data-skin] #swarf-
   }
   function corner() {
     if (S.corner === undefined) { try { S.corner = JSON.parse(localStorage.getItem(CORNER)) || null; } catch (e) { S.corner = null; } }
-    // a corner learnt from the real box's count is lost when the box restarts (zeroLost), the simulator's when the page reloads
+    // a corner learned from the real box's count is lost when the box restarts (zeroLost), the simulator's when the page reloads
     // only for this page and this connection (design review 10-28 #6): a reload or a reconnect may hide a restart
     return S.corner && S.corner.kind === (isDirect() ? 'shopbot' : 'sim') && S.corner.page === PAGE_ID && S.corner.session === (S.connSession || 0) ? S.corner : null;
   }
@@ -1946,7 +1946,7 @@ html[data-skin] #swarf-run .sr-jog .sr-zrow button.next, html[data-skin] #swarf-
         el.card.append(h('p', { text: 'swarf does not know where the table is yet (this machine has no home switches). Jog the bit right over the front-left corner of the table, the corner nearest you on the left, then press below. It holds until the machine is switched off.' }));
       } else {
         const p = m.mabs();
-        el.card.append(h('p', { text: `Front-left corner learnt ${new Date(c.at).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}. The bit is ${len(p.x - c.x)} right of it and ${len(p.y - c.y)} back. The table is ${lens([T.x, T.y], 0)}.` }));
+        el.card.append(h('p', { text: `Front-left corner learned ${new Date(c.at).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}. The bit is ${len(p.x - c.x)} right of it and ${len(p.y - c.y)} back. The table is ${lens([T.x, T.y], 0)}.` }));
         const rowFor = (name, cx, cy) => h('div', { class: 'sr-needrow' }, h('b', { text: '⌐' }), h('span', {}, h('strong', { text: name })),
           h('button', { text: 'make it X 0, Y 0', title: `The ${name} corner becomes X 0, Y 0; the bit does not move`, onclick: () => { zeroAtCorner(cx, cy); shut(); tell(`X 0, Y 0 is now the table's ${name} corner. The bit did not move.`); } }),
           h('button', { text: 'go there', title: `Up to ${up(1)}, then over the ${name} corner`, onclick: () => aboutToMove({ title: 'The bit is about to move', text: `Up to ${up(1)} over Z 0 (if it is lower), then over the table's ${name} corner.`, go: 'move', run: () => goCorner(cx, cy) }) }));
@@ -2158,7 +2158,7 @@ html[data-skin] #swarf-run .sr-jog .sr-zrow button.next, html[data-skin] #swarf-
       if (ok) {
         // connecting again after the e-stop is the student's say-so: its warnings go
         if (S.estopHit) { S.estopHit = false; S.fault = null; S.hold = null; }
-        S.connSession = (S.connSession || 0) + 1;   // a table corner learnt before this connection no longer counts
+        S.connSession = (S.connSession || 0) + 1;   // a table corner learned before this connection no longer counts
         // the card keeps its count while powered; a count that moved while unplugged means a restart
         const was = S.lastSteps, now = d.steps;
         // up to two queued blocks (~300 ticks) still run after a drop; a restart moves the count far more

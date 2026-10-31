@@ -184,8 +184,15 @@ function moveTo(widget, rec, at) {
     light(true);
 }
 
+// one look per frame, the last move's (deep review P8: a raycast on every pointermove)
+let hoverEv = null;
 function onHover(e) {
-    if (drag || e.buttons || !canPick(e, true)) return;
+    if (drag || e.buttons) return;
+    if (!hoverEv) requestAnimationFrame(() => { const ev = hoverEv; hoverEv = null; hoverNow(ev); });
+    hoverEv = e;
+}
+function hoverNow(e) {
+    if (drag || !canPick(e, true)) return;
     const el = e.target;
     const over = !!tabAt(e);
     if (over) el.style.cursor = 'grab';

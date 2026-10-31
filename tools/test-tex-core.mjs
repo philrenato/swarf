@@ -367,10 +367,10 @@ for (const [id, P] of Object.entries(T.PATTERNS)) {
   }
   ok(n > 50 && near / n > 0.95, `the bit reaches the edge: ${near} of ${n} cells just inside it cut to the design`);
   ok(past === 0, 'and never cuts farther past the edge than its own reach');
-  // pierce: holes centred on the part only; a hole meeting the edge opens out through it
+  // pierce: holes centered on the part only; a hole meeting the edge opens out through it
   const hm = { region: T.storeRegion(g2), xf: T.IDENTITY.slice(), fill: T.newPierce('holes', { origin: [2, 2], params: { size: 8, spacing: 14, layout: 'grid' } }) };
   const H = T.pierceCuts(hm, { thickness: 12, part });
-  ok(H.holes.length && H.holes.every((h) => h.x >= 0 && h.x <= 100 && h.y >= 0 && h.y <= 60 && !(h.x > 70 && h.x < 85 && h.y > 20 && h.y < 40)), `${H.holes.length} holes, each centred on the part's top (none in its hole)`);
+  ok(H.holes.length && H.holes.every((h) => h.x >= 0 && h.x <= 100 && h.y >= 0 && h.y <= 60 && !(h.x > 70 && h.x < 85 && h.y > 20 && h.y < 40)), `${H.holes.length} holes, each centered on the part's top (none in its hole)`);
   ok(H.holes.some((h) => h.x - h.d / 2 < 0 || h.y - h.d / 2 < 0), 'holes at the edge open out through it');
   ok(T.pierceChecks(hm, { thickness: 12, part }).notes.some((x) => /open notches/.test(x)), 'open notches: said');
   // a kerf running 3 mm in from the edge leaves a sliver: said

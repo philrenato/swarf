@@ -1119,7 +1119,7 @@
       S.parts.push({ w: null, name, thick, edge: { kind: 'straight', size: 2 }, curves: closed.map(L => ({ crv: V().polyCrv(L.map(([x, y]) => [x + dx, y]), true) })), dirty: true });
       S.sel = S.parts.length - 1; S.pts.clear(); S.tool = 'select';
       fit(); render();
-      return `${name}: a part from the mark's outline, ${Math.round(thicknessOf(widget) * 100) / 100} mm thick, beside ${host ? host.name : 'its part'}. Press done to make it (the mark goes), or cancel.`;
+      return `${name}: a part from the mark's outline, ${LEN.say(thicknessOf(widget))} thick, beside ${host ? host.name : 'its part'}. Press done to make it (the mark goes), or cancel.`;
     }
     if (!host) { S.undo.pop(); S.fromTex = null; return 'That part has no drawing to cut a hole in: holes are cut in parts made from a drawing (draw, shape, or a 2D file).'; }
     let said = '';

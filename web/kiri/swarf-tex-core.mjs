@@ -1717,7 +1717,7 @@ export function nearestOnCurves(curves, x, y) {
 //   fill = { fill: 'pierce', pattern: 'kerf' | 'holes', params, angle, origin, fade, tool, bit }
 //
 // kerf: straight cuts along the bend line (the mark's turn sets it), a bit wide, leaving `skin`
-//   under them (0 = right through). The pitch is where neighbouring kerfs just close when the
+//   under them (0 = right through). The pitch is where neighboring kerfs just close when the
 //   part bends to the radius asked for: p = w·R / (T − s) (w the bit, T the board, s the skin).
 //   Bridges break each cut into slots (staggered row to row) so a through-cut part holds together.
 // holes: round holes on a grid or a hex lattice, through; each cleared from its middle outward,
@@ -1860,7 +1860,7 @@ export function pierceCuts(mark, o = {}) {
 }
 
 // The moves for a pierce mark, part frame, z from the top (0) down: each slot fed end to end at
-// each depth in turn, each hole spiralled out from its middle at each depth (a hole the bit's own
+// each depth in turn, each hole spiraled out from its middle at each depth (a hole the bit's own
 // size is plunged). stepDown: the depth a pass (0 = all at once).
 export function pierceToolpath(mark, o = {}) {
   const cuts = pierceCuts(mark, o);
@@ -1871,7 +1871,7 @@ export function pierceToolpath(mark, o = {}) {
   const zs = [];
   for (let z = -sd; z > -deep + 1e-6; z -= sd) zs.push(z);
   zs.push(-deep);
-  // nearest-neighbour order from the front-left, each slot from its nearer end
+  // nearest-neighbor order from the front-left, each slot from its nearer end
   const left = cuts.slots.map((q) => ({ ...q }));
   let cx = -Infinity, cy = -Infinity;
   const order = [];
