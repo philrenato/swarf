@@ -650,6 +650,15 @@ html[data-skin] #swarf-run .sr-jog .sr-zrow button.next, html[data-skin] #swarf-
     el.modes = h('div', { class: 'sr-modes sr-steprow' });
     el.speeds = h('div', { class: 'sr-modes' });
     rateRows();
+    // the mm | in switch pressed with control open (1366 look 10-31): rows, plan and readout follow
+    try {
+      const u = window.kiri.api.ui.units;
+      if (u) u.addEventListener('change', () => {
+        if (S.rowsUnit === (inch() ? 'in' : 'mm')) return;
+        rateRows(); renderPlan(); refresh();
+        if (S.machine) for (const a of ['x', 'y', 'z']) el.dro[a].textContent = posText(S.machine.state.pos[a] || 0);
+      });
+    } catch (e) { /* no units control */ }
     el.jog.append(el.modes, el.speeds);
     const pad = h('div', { class: 'sr-pad' });
     const WORDS = { '+Y': 'away', '−Y': 'toward', '−X': 'left', '+X': 'right', '+Z': 'up', '−Z': 'down' };

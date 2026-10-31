@@ -9,7 +9,8 @@ import puppeteer from 'puppeteer-core';
 import { CHROME } from './chrome-path.mjs';
 const PAGE = process.argv[2] || 'http://127.0.0.1:8139/swarf-app/';
 const SKINS = process.argv.slice(3).length ? process.argv.slice(3) : ['glass', 'classic', 'swarf'];
-const SIZES = [[1440, 900], [1280, 720]];
+// SIZES=1366x768,1024x768 checks other windows
+const SIZES = process.env.SIZES ? process.env.SIZES.split(',').map(s => s.split('x').map(Number)) : [[1440, 900], [1280, 720]];
 const wait = ms => new Promise(r => setTimeout(r, ms));
 const browser = await puppeteer.launch({ executablePath: CHROME, headless: 'new', args: ['--window-size=1440,900'] });
 const found = [];

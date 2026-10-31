@@ -1987,6 +1987,11 @@ body.swarf-phone > *:not(#swarf-phone-wall) { display: none !important; }
 #install-swarf.on {
   display: inline-block;
 }
+/* the simulate bar shown: the two pills ride above it (1366 look 10-31: install swarf sat on
+   advanced's "machine" button) */
+body:has(#layer-animate:not(.hide)) :is(#ver, #install-swarf) {
+  bottom: 84px;
+}
 #install-swarf:hover {
   background: var(--swarf-accent);
   color: #fff;

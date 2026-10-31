@@ -44,7 +44,9 @@ const toolpaths = async page => { await page.evaluate(() => new Promise(res => {
 const alerts = page => page.evaluate(() => [...document.querySelectorAll('#alert-area, #alert-text')].filter(e => e.offsetParent).map(e => e.innerText.replace(/\s+/g, ' ').trim()).join(' | '));
 
 // F2 + F3: rail and page, three skins at two sizes
-for (const [W, H] of [[1440, 900], [1280, 720]]) for (const skin of ['glass', 'classic', 'swarf']) {
+// SIZES=1366x768,1024x768 checks other windows
+const SIZES = process.env.SIZES ? process.env.SIZES.split(',').map(s => s.split('x').map(Number)) : [[1440, 900], [1280, 720]];
+for (const [W, H] of SIZES) for (const skin of ['glass', 'classic', 'swarf']) {
   const { browser, page } = await open(W, H, skin);
   const tag = `${skin} ${W}×${H}`;
   try {
