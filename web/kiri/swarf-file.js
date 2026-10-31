@@ -213,9 +213,17 @@
     return { settings: out, notes };
   }
 
-  // a .kmz's settings, for Kiri:Moto: swarf's own steps (TEX's) left out. Changes `set` in place
-  // (it is the export's own copy); returns how many steps were left out.
-  function kmzSafe(set) {
+  // a .kmz's settings, for Kiri:Moto: swarf's own steps (TEX's) left out, and every tab's turn as
+  // { x, y, z, w }, the way Kiri:Moto reads it (swarf writes [x, y, z, w]; deep review 10-31 S3).
+  // Changes `set` and `work` in place (the export's own copies); returns how many steps were left out.
+  function kmzTabs(anno) {
+    for (const t of (anno && Array.isArray(anno.tab) ? anno.tab : [])) {
+      if (Array.isArray(t.rot)) { const [x, y, z, w] = t.rot; t.rot = { x, y, z, w }; }
+    }
+  }
+  function kmzSafe(set, work) {
+    for (const a of Object.values((set && set.widget) || {})) kmzTabs(a);
+    for (const w of (Array.isArray(work) ? work : [])) kmzTabs(w && w.anno);
     let dropped = 0;
     const keep = (list, count) => {
       // '|' is Kiri's own end-of-steps marker (cam's step list keeps one last), not a step
@@ -349,7 +357,16 @@
     const Z = JSZip || window.JSZip;
     if (!Z) return Promise.reject(new Error('the zip reader is not loaded'));
     return new Z().loadAsync(data).then(zip => {
-      const get = n => (zip.files[n] ? zip.files[n].async('string').then(t => JSON.parse(t)) : Promise.resolve(null));
+      // a ceiling before inflating (deep review 10-31 S2): a tiny file that unpacks to gigabytes
+      // would take the tab, and the work on the bed, with it
+      const CAP = { 'manifest.json': 1 << 16, 'swarf.json': 1 << 22, 'workspace.json': 1 << 28 };
+      const get = n => {
+        const f = zip.files[n];
+        if (!f) return Promise.resolve(null);
+        const size = f._data && f._data.uncompressedSize;
+        if (size > CAP[n]) return Promise.reject(new Error(`its ${n} unpacks to ${Math.round(size / 1048576)} MB, more than a project holds`));
+        return f.async('string').then(t => JSON.parse(t));
+      };
       return Promise.all([get('manifest.json'), get('workspace.json'), get('swarf.json')]).then(([manifest, workspace, swarf]) => ({ manifest, workspace, swarf }));
     });
   }

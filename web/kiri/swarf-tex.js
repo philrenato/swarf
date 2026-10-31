@@ -37,7 +37,8 @@
     ball14: { tool: 1018, say: '1/4 in ball' },
     v60: { tool: 1106, say: '60° V-bit' },
     v90: { tool: 1105, say: '90° V-bit' },
-    flat14: { tool: 1101, say: '1/4 in straight (flat)' }
+    flat14: { tool: 1101, say: '1/4 in straight (flat)' },
+    flat18: { tool: 1001, say: '1/8 in straight (flat)' }
   };
   // the tool library's bits as the core's: ball, V (its included angle from its taper) or flat.
   // A texture takes any of the three, a pierce a flat (straight) bit. With none in the library,
@@ -136,9 +137,19 @@
   }
 
   // ── marks: a paint grid in the mark's frame, xf to the part's ──
+  // a fill this swarf can draw: a pattern from a newer swarf (or an edited file) becomes the plain
+  // one of its kind, and says so (deep review 10-31 S1: the card threw and left the mode half-open)
+  let unknownFills = 0;
+  function knownFill(f) {
+    const C = T();
+    if (f && f.fill === 'pierce' && C.PIERCES[f.pattern]) return f;
+    if (f && f.fill === 'texture' && C.PATTERNS[f.pattern]) return f;
+    unknownFills++;
+    return f && f.fill === 'pierce' ? C.newPierce('kerf', { tool: f.tool }) : C.newFill('waves', { tool: f && f.tool || 'ball14' });
+  }
   function loadMark(m) {
     const region = T().regionSpec(m.region);
-    return { id: m.id, made: m.made, region: { ...region, data: region.data ? region.data.slice() : region.data }, xf: (m.xf || T().IDENTITY).slice(), fill: normBit(clone(m.fill)), est: m.est, ver: 1 };
+    return { id: m.id, made: m.made, region: { ...region, data: region.data ? region.data.slice() : region.data }, xf: (m.xf || T().IDENTITY).slice(), fill: normBit(knownFill(clone(m.fill))), est: m.est, ver: 1 };
   }
   function storeMark(m) {
     return { id: m.id, made: m.made, region: T().storeRegion(m.region), xf: m.xf.slice(), fill: clone(m.fill), est: m.est };
@@ -170,6 +181,7 @@
     if (D && D.state()) { D.close(true); if (D.state()) return; }
     const dev = a.conf.get().device || {};
     const parts = [];
+    unknownFills = 0;
     for (const w of a.widgets.all()) {
       if (w.track && w.track.synth) continue;
       const { loops, drawn } = localLoops(w);
@@ -189,6 +201,7 @@
     say(!parts.length ? 'No parts yet: import one, make a shape or draw one, then come back to mark it.'
       : S.sel >= 0 ? `${parts[S.sel].name} is picked: paint on it with the brush (B), or drag a rectangle (R) or an ellipse (E).`
         : 'Pick a part, then mark it: the brush paints, the rectangle and ellipse drag out, a region fills its top.');
+    if (unknownFills) say(`${unknownFills === 1 ? 'A mark has' : unknownFills + ' marks have'} a pattern from a newer swarf: shown as the plain one of its kind. Done keeps the change; cancel leaves the file's as it was.`);
     render();
     imagesSoon();
     checkSoon();
@@ -505,16 +518,17 @@
     const marks = part.marks.filter(markHas).map(m => ({ id: m.id, region: m.region, xf: m.xf, fill: m.fill }));
     const name = `${part.name}${cut ? ' as cut' : ''}`;
     say(`Making ${name} as a mesh…`);
+    // TEX may be shut by the time the worker answers: the file still comes, said as a notice
+    const tell = t => { if (S) say(t); else { const a = api(); if (a) a.show.alert(t, 8); } };
     const done = r => {
-      if (!S) return;
-      if (r.error) return say(`The mesh could not be made: ${r.error}.`);
+      if (r.error) return tell(`The mesh could not be made: ${r.error}.`);
       const blob = r.buf ? new Blob([r.buf], { type: r.glb ? 'model/gltf-binary' : 'model/stl' }) : new Blob([r.text], { type: 'text/plain' });
       const a = document.createElement('a');
       a.href = URL.createObjectURL(blob); a.download = `${name}.${fmt}`;
       document.body.append(a); a.click(); a.remove();
       setTimeout(() => URL.revokeObjectURL(a.href), 4000);
-      S.lastMesh = { name: a.download, bytes: blob.size, triangles: r.triangles, check: r.check };
-      say(`Saved ${a.download}: ${r.triangles} triangles, ${r.check && r.check.watertight ? 'a closed solid' : 'NOT closed'}, in mm.`);
+      if (S) S.lastMesh = { name: a.download, bytes: blob.size, triangles: r.triangles, check: r.check };
+      tell(`Saved ${a.download}: ${r.triangles} triangles, ${r.check && r.check.watertight ? 'a closed solid' : 'NOT closed'}, in mm.`);
     };
     const ask = { kind: 'mesh', loops: part.loops, thickness: part.thick, marks, res, cut, format: fmt, name };
     if (w) { const id = ++asked; pending.set(id, done); w.postMessage({ id, ...ask }); return; }
@@ -1175,8 +1189,10 @@
     if (typeof bit === 'number' && tools.some(t => t.id === bit)) return bit;
     const want = (BITS[bit] || BITS.ball14).tool;
     if (tools.some(t => t.id === want)) return want;
-    const ball = tools.find(t => t.type === 'ballmill');
-    return ball ? ball.id : (tools[0] && tools[0].id);
+    // the same kind of bit, never a ball standing in for a straight one (deep review 10-31 S5)
+    const kind = String(bit).startsWith('flat') ? 'endmill' : String(bit).startsWith('v') ? 'tapermill' : 'ballmill';
+    const like = tools.find(t => t.type === kind);
+    return like ? like.id : (tools[0] && tools[0].id);
   }
   function marksOnBed(a) {
     const out = new Map();

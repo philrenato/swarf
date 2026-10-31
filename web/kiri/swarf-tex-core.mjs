@@ -594,7 +594,7 @@ for (const [id, ks] of Object.entries(BASIC)) for (const q of PATTERNS[id].param
 
 export function defaults(id) {
   const o = {};
-  for (const q of PATTERNS[id].params) o[q.k] = q.def;
+  for (const q of (PATTERNS[id] ? PATTERNS[id].params : [])) o[q.k] = q.def;
   return o;
 }
 
@@ -615,7 +615,7 @@ export function rectMask(x0, y0, x1, y1) {
   };
 }
 export function ellipseMask(cx, cy, rx, ry) {
-  rx = Math.abs(rx); ry = Math.abs(ry);
+  rx = Math.max(1e-6, Math.abs(rx)); ry = Math.max(1e-6, Math.abs(ry));
   return {
     bbox: { x0: cx - rx, y0: cy - ry, x1: cx + rx, y1: cy + ry },
     sd(x, y) {
@@ -627,6 +627,7 @@ export function ellipseMask(cx, cy, rx, ry) {
   };
 }
 export function polygonMask(pts) {
+  if (!pts || pts.length < 3) throw new Error('polygonMask needs three points or more');
   const xs = pts.map((p) => p[0]), ys = pts.map((p) => p[1]);
   const segs = pts.map((p, i) => [p[0], p[1], pts[(i + 1) % pts.length][0], pts[(i + 1) % pts.length][1]]);
   return {
@@ -806,7 +807,7 @@ export const TOOLS = {
 
 export function makeTool(t) {
   if (typeof t === 'string') t = TOOLS[t];
-  const R = t.diameter / 2, ta = t.type === 'v' ? Math.tan(t.angle * Math.PI / 360) : 0;
+  const R = t.diameter / 2, ta = t.type === 'v' ? Math.max(1e-6, Math.tan(t.angle * Math.PI / 360)) : 0;
   const prof = t.type === 'ball' ? (r) => (r > R ? Infinity : R - Math.sqrt(Math.max(0, R * R - r * r)))
     : t.type === 'v' ? (r) => (r > R ? Infinity : r / ta)
       : (r) => (r > R ? Infinity : 0);
@@ -1100,6 +1101,7 @@ export function estimateTime(moves, { feed = 38, plunge = 12.7, rapidXY = 50, ra
 }
 
 export function formatTime(s) {
+  if (!Number.isFinite(s)) return '';
   if (s < 60) return `${Math.round(s)} s`;
   const m = Math.floor(s / 60), r = Math.round(s % 60);
   if (m < 10) return `${m} min ${r ? r + ' s' : ''}`.trim();
@@ -1750,7 +1752,7 @@ export function defaultSkin(T, R = 100) {
 }
 export function pierceDefaults(id, T) {
   const o = {};
-  for (const q of PIERCES[id].params) o[q.k] = q.def;
+  for (const q of (PIERCES[id] ? PIERCES[id].params : [])) o[q.k] = q.def;
   if (id === 'kerf') o.skin = defaultSkin(T);
   return o;
 }
@@ -1759,7 +1761,8 @@ export function newPierce(pattern = 'kerf', over = {}, T) {
 }
 // the bit a fill names: a full spec (fill.bit, from a host's tool library), or one of TOOLS by id
 export function fillTool(f) {
-  if (f && f.bit && f.bit.type && f.bit.diameter > 0) return makeTool(f.bit);
+  // a V's angle inside (0, 180): a saved file's 0 would make every depth NaN
+  if (f && f.bit && f.bit.type && f.bit.diameter > 0 && (f.bit.type !== 'v' || (f.bit.angle > 0 && f.bit.angle < 180))) return makeTool(f.bit);
   if (f && typeof f.tool === 'string' && TOOLS[f.tool]) return makeTool(f.tool);
   return makeTool(f && f.fill === 'pierce' ? 'flat18' : 'ball14');
 }

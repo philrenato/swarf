@@ -48,7 +48,7 @@ function export_profile() {
         let json = api.conf.export({work, clear:true});
         // swarf: a .kmz is for Kiri:Moto, which has no texture or pierce step (TEX's): those
         // stay out of it, and a .swarf keeps them (web/kiri/swarf-file.js)
-        let dropped = self.SwarfFile ? self.SwarfFile.kmzSafe(json.settings) : 0;
+        let dropped = self.SwarfFile ? self.SwarfFile.kmzSafe(json.settings, json.work) : 0;
         if (dropped) api.show.alert(`${dropped} TEX step${dropped === 1 ? ' was' : 's were'} left out: Kiri:Moto has no texture step. Save a project (.swarf) to keep everything.`, 10);
 
         api.client.zip([
