@@ -836,7 +836,7 @@ function setup_keybd_nav() {
                         // auto tabs button: the hint names it, so it should be in sight (deep review S10)
                         if (outer && a.outerTabs === 0 && !tabsOpened.has(w.id)) {
                             tabsOpened.add(w.id);
-                            setTimeout(() => { const hd = document.querySelector('#cam-tabs .set-header'); if (hd && hd.classList.contains('hidden')) hd.click(); }, 0);
+                            setTimeout(() => { const hd = document.querySelector('#cam-tabs .set-header'), row = document.querySelector('#cam-tabs .swarf-autotabs-row'); if (hd && row && row.classList.contains('hide')) hd.click(); }, 0);
                         }
                         if (outer && a.outerTabs === 0) warnings.push({
                             title: `${name} is cut free with no tabs`,

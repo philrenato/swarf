@@ -117,11 +117,10 @@ ok(kset.process.ops.every(o => F.KIRI_OPS.includes(o.type)) && kset.sproc.CAM.ot
 const kclock = { process: { ops: [{ type: 'outline' }, { type: 'texture' }, { type: '|' }] } };
 F.kmzSafe(kclock);
 ok(kclock.process.ops.map(o => o.type).join() === 'outline,|', 'Kiri\'s end-of-steps marker stays in a .kmz');
-// a tab's turn as Kiri:Moto reads it ({ x, y, z, w }), in the settings' copy and the parts' own
-const tabs = () => ({ tab: [{ pos: { x: 1, y: 2, z: 3 }, dim: { x: 4, y: 5, z: 6 }, rot: [0, 0, 0.5, 0.866] }, { rot: { x: 0, y: 0, z: 0, w: 1 } }] });
-const kt = { process: { ops: [] }, widget: { w1: tabs() } }, kw = [{ id: 'w1', anno: tabs() }, { id: 'w2' }];
-F.kmzSafe(kt, kw);
-ok([kt.widget.w1, kw[0].anno].every(a => a.tab[0].rot.z === 0.5 && a.tab[0].rot.w === 0.866 && !Array.isArray(a.tab[0].rot) && a.tab[1].rot.w === 1), 'a .kmz\'s tabs turn as { x, y, z, w }, in both copies');
+// a tab's rot stays Kiri:Moto's own array (its loader destructures it)
+const kt = { process: { ops: [] }, widget: { w1: { tab: [{ rot: [0, 0, 0.5, 0.866] }] } } };
+F.kmzSafe(kt);
+ok(Array.isArray(kt.widget.w1.tab[0].rot), 'a .kmz keeps each tab\'s rot as the array Kiri:Moto reads');
 ok(F.KIRI_OPS.length === 19 && !F.KIRI_OPS.includes('texture') && !F.KIRI_OPS.includes('pierce'), 'Kiri:Moto\'s step list');
 // Kiri's own op list (src/kiri/mode/cam/core/ops.js) less swarf's: the list here matches it
 const ops = readFileSync(root + 'src/kiri/mode/cam/core/ops.js', 'utf8');

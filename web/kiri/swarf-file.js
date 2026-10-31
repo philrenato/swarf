@@ -217,17 +217,10 @@
     return { settings: out, notes };
   }
 
-  // a .kmz's settings, for Kiri:Moto: swarf's own steps (TEX's) left out, and every tab's turn as
-  // { x, y, z, w }, the way Kiri:Moto reads it (swarf writes [x, y, z, w]; deep review 10-31 S3).
-  // Changes `set` and `work` in place (the export's own copies); returns how many steps were left out.
-  function kmzTabs(anno) {
-    for (const t of (anno && Array.isArray(anno.tab) ? anno.tab : [])) {
-      if (Array.isArray(t.rot)) { const [x, y, z, w] = t.rot; t.rot = { x, y, z, w }; }
-    }
-  }
-  function kmzSafe(set, work) {
-    for (const a of Object.values((set && set.widget) || {})) kmzTabs(a);
-    for (const w of (Array.isArray(work) ? work : [])) kmzTabs(w && w.anno);
+  // a .kmz's settings, for Kiri:Moto: swarf's own steps (TEX's) left out. Changes `set` in place
+  // (it is the export's own copy); returns how many steps were left out. A tab's rot stays the
+  // array Kiri:Moto writes and reads itself (cl-tab.js: let [x, y, z, w] = rec.rot).
+  function kmzSafe(set) {
     let dropped = 0;
     const keep = (list, count) => {
       // '|' is Kiri's own end-of-steps marker (cam's step list keeps one last), not a step

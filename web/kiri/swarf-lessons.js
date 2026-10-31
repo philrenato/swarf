@@ -53,6 +53,8 @@
   const fld = mm => (LN() ? LN().field(mm) : String(+(+mm).toFixed(2)));
   const numU = (v, d) => { const n = LN() ? LN().parse(v) : parseFloat(String(v).replace(',', '.')); return isFinite(n) ? n : d; };
   const prose = mm => (LN() ? LN().prose(mm) : `${+(+mm).toFixed(1)} mm`);
+  // two sizes, the unit said once: "220 × 160 mm", "8 5/8 × 6 5/16 in"
+  const dims = (a, b) => `${prose(a).replace(/ (mm|in)$/, '')} × ${prose(b)}`;
   let L = null;   // the lesson in hand: { lesson, board, bit, size, depth, … }
 
   function board() { try { return JSON.parse(localStorage.getItem(KEY)) || { w: 200, d: 150, t: 12, bit: 'e38' }; } catch (e) { return { w: 200, d: 150, t: 12, bit: 'e38' }; } }
@@ -86,7 +88,7 @@
     const go = btn('next: the bit', () => {
       const W = numU(w.value, 0), D = numU(d.value, 0), T = numU(t.value, 0);
       const min = lesson.id === 'square' ? 2 * MARGIN + 40 : 2 * MARGIN + 40;
-      if (!(W >= min && D >= min)) { say.textContent = `The board needs to be at least ${prose(min)} × ${prose(min)} for this test.`; return; }
+      if (!(W >= min && D >= min)) { say.textContent = `The board needs to be at least ${dims(min, min)} for this test.`; return; }
       if (!(T >= 3 && T <= 40)) { say.textContent = `Measure the board's thickness with calipers: between ${prose(3)} and ${prose(40)}.`; return; }
       Object.assign(b, { w: W, d: D, t: T });
       try { localStorage.setItem(KEY, JSON.stringify(b)); } catch (e) { /* private */ }
@@ -183,7 +185,7 @@
     r.loadProgram(name + '.sbp', sbp(name, bit, g.paths), 'lesson', {
       origin: { xy: 'the front-left corner of your plywood (not the table\'s)', z: 'the top of your board' }, lesson: lesson.id });
     r.card([el('h2', { text: 'The test cut is loaded' }),
-      el('p', { text: `${g.what}, centered on your ${prose(b.w)} × ${prose(b.d)} board.` }),
+      el('p', { text: `${g.what}, centered on your ${dims(b.w, b.d)} board.` }),
       el('p', { text: 'Now control\'s own steps, the sentence at the top says each one: jog over the front-left corner of the plywood and press zero x y; zero Z on top with the z plate; trace (the bit must stay over the plywood and clear every screw); then cut.' }),
       row(btn('start', () => r.card(null), 'go'))]);
   }
