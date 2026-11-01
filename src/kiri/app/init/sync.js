@@ -585,7 +585,7 @@ function setup_keybd_nav() {
                 const st = window.__swarfSimStock;
                 if (!st && ++n < 40) return;
                 clearInterval(t);
-                if (st && space.view.fit) try { st.updateMatrixWorld && st.updateMatrixWorld(); space.view.fit(undefined, { padding: FILL, objects: [st], visibleOnly: false }); } catch (e) { /* no view */ }
+                if (st && space.view.fit) try { st.updateMatrixWorld && st.updateMatrixWorld(); space.view.fit(undefined, { padding: FILL * 1.35, objects: [st], visibleOnly: false }); } catch (e) { /* no view */ }
             }, 50);
         });
         const always = () => { requestAnimationFrame(frame); setTimeout(frame, 250); };
