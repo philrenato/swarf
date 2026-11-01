@@ -104,7 +104,7 @@
     const verts = [];
     const hw = width / 2;
     for (const pl of polylines) {
-      if (pl.length < 2) continue;
+      if (pl.length < 2 || hidden.has(pl.step)) continue;
       for (let i = 0; i < pl.length - 1; i++) {
         const a = pl[i], b = pl[i + 1];
         const tx = b.x - a.x, ty = b.y - a.y, tz = b.z - a.z;
@@ -184,7 +184,11 @@
   function rebuild() {
     if (!core) return;
     const coreVerts  = buildQuads(CORE_WIDTH_MM);
-    if (coreVerts.length === 0) return;
+    // every step's box unticked: the trail empties (it kept the last drawing before)
+    if (coreVerts.length === 0) {
+      if (hidden.size) { window.__swarfLSPoints = 0; for (const o of [core, halo, bloom]) o.geometry.setAttribute('position', new window.THREE.BufferAttribute(new Float32Array(0), 3)); }
+      return;
+    }
     const haloVerts  = buildQuads(HALO_WIDTH_MM);
     const bloomVerts = buildQuads(BLOOM_WIDTH_MM);
     const corePos  = Float32Array.from(coreVerts);
@@ -292,18 +296,78 @@
     if (!polylines.length) polylines.push([]);
     const p = { x: pos.x, y: pos.y, z: pos.z }, top = boardTop(), prev = lastPos;
     lastPos = p;
+    // a new step starts its own line (from where the last one ended), so its box hides only its own cut
+    const step = evt.step;
+    if (step != null) { addStepBox(step); const a = polylines[polylines.length - 1]; if (a.step !== step) { if (a.length > 1) polylines.push([a[a.length - 1]]); polylines[polylines.length - 1].step = step; } }
     const active = polylines[polylines.length - 1];
     if (prev) {
       const d3 = Math.hypot(p.x - prev.x, p.y - prev.y, p.z - prev.z);
       const c = d3 > BREAK_3D_MM ? null : clip(prev, p, top);
-      if (!c) { if (active.length) polylines.push([]); return; }
+      if (!c) { if (active.length) newLine(step); return; }
       // into the board from the air: a new line from where it entered
-      if (prev.z > top) { polylines.push([c[0]]); }
+      if (prev.z > top) { newLine(step).push(c[0]); }
       polylines[polylines.length - 1].push(c[1]);
       // out of the board: the line ends at the top
-      if (p.z > top) polylines.push([]);
+      if (p.z > top) newLine(step);
     } else if (p.z <= top) active.push(p);
     rebuild();
+  }
+  // for the probes: each step's drawn segments, and whether its box hides them
+  window.__swarfLSSteps = () => { const o = {}; for (const pl of polylines) { const k = String(pl.step); o[k] = o[k] || { segs: 0, hidden: hidden.has(pl.step) }; o[k].segs += Math.max(0, pl.length - 1); } return o; };
+  function newLine(step) { const l = []; l.step = step; polylines.push(l); return l; }
+
+  // ---- each step's paths on and off (Phil 11-01: "when simulate is done can we allow the visible
+  // toolpaths to be turned on and off with checkboxes like toolpaths already does?") -------------
+  // The boxes are Kiri's own layer toggles (api.uc.newBoolean in #layers, the toolpaths view's bit ·
+  // direction · moves · cuts row), one per step named as the step list names it, raised above the
+  // sim bar. They work while it plays too: a step's box appears when its cut begins. Every run
+  // starts with all of them ticked, so a hidden step is never carried into the next simulate.
+  const hidden = new Set();   // steps whose trail is off
+  let boxes = {};             // step -> its checkbox
+  function stepLabel(i) {
+    let rec;
+    try { rec = (window.kiri.api.conf.get().process.ops || [])[i]; } catch (e) { /* no settings */ }
+    if (!rec || Array.isArray(rec)) return `step ${i + 1}`;
+    // as init-ui.js opRender names the step: DRAW's engrave, TEX's mark, else its type (and #note)
+    if (rec.engrave) return 'engrave';
+    if (rec.type === 'texture' || rec.type === 'pierce') return rec.texlabel || rec.type;
+    const tag = rec.note ? rec.note.split(' ').find(v => v.charAt(0) === '#') : null;
+    return (rec.mode ? rec.type + ' ' + rec.mode : rec.type) + (tag ? ` (${tag.slice(1)})` : '');
+  }
+  function addStepBox(step) {
+    if (boxes[step] && boxes[step].isConnected) return;
+    const api = window.kiri && window.kiri.api, uc = api && api.uc, row = document.getElementById('layers');
+    if (!uc || !row) return;
+    // two steps of one name are told apart by a number, as "outline 2"
+    const base = stepLabel(step), used = new Set(Object.values(boxes).filter(b => b.isConnected).map(b => b.swarfLabel));
+    let name = base;
+    for (let n = 2; used.has(name); n++) name = `${base} ${n}`;
+    const cp = uc.checkpoint();
+    uc.setGroup(row);
+    const box = uc.newBoolean(name, () => { if (box.checked) hidden.delete(step); else hidden.add(step); rebuild(); api.space && api.space.update && api.space.update(); }, { title: `show or hide the paths of the ${name} step` });
+    uc.restore(cp);
+    box.checked = !hidden.has(step);
+    box.swarfLabel = name; box.dataset.step = String(step);
+    box.parentNode.classList.add('swarf-sim-path');
+    boxes[step] = box;
+    showBoxes();
+  }
+  // the row shows in simulate, above its bar, while the trail is on (with it off there is nothing to toggle)
+  function showBoxes() {
+    const api = window.kiri && window.kiri.api, row = document.getElementById('layers'), bar = document.getElementById('layer-animate');
+    if (!row) return;
+    const anim = !!(api && api.view && api.view.is_animate && api.view.is_animate());
+    const on = anim && window.__swarfLightstream !== false && !!row.querySelector('.swarf-sim-path');
+    document.body.classList.toggle('swarf-sim-paths', on);
+    if (bar && bar.offsetHeight) document.documentElement.style.setProperty('--swarf-simbar-h', bar.offsetHeight + 'px');
+    if (on) row.style.display = 'flex';
+    else if (anim) row.style.display = 'none';
+  }
+  // a new simulate (or leaving it) takes the boxes away and ticks every step again
+  function dropBoxes() {
+    hidden.clear(); boxes = {};
+    for (const r of document.querySelectorAll('#layers .swarf-sim-path')) r.remove();
+    showBoxes();
   }
 
   function applyVisibility() {
@@ -317,9 +381,12 @@
     space = window.moto && window.moto.space;
     const api = window.kiri && window.kiri.api;
     if (!space || !space.world || !api || !api.event) return false;
-    api.event.on('swarf.tool.move', ({ pos }) => onMove({ pos }));
+    api.event.on('swarf.tool.move', ({ pos, step }) => onMove({ pos, step }));
     api.event.on('animate',          () => { ensure(); clearTrail(); applyVisibility(); });
-    api.event.on('function.animate', () => { ensure(); clearTrail(); applyVisibility(); });
+    api.event.on('function.animate', () => { ensure(); clearTrail(); applyVisibility(); dropBoxes(); });
+    api.event.on('view.set', () => { if (!(api.view.is_animate && api.view.is_animate())) dropBoxes(); });
+    window.addEventListener('swarf.lightstream.toggle', showBoxes);
+    window.addEventListener('resize', showBoxes);
     window.addEventListener('swarf.clear', clearTrail);
     // Respond to the sim-bar's lightstream on/off pill.
     window.addEventListener('swarf.lightstream.toggle', applyVisibility);

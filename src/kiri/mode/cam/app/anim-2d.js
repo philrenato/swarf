@@ -490,7 +490,7 @@ function checkMeshCommands(data) {
         deleteMesh(data.mesh_del);
     }
     if (data.mesh_move) {
-        const { id, pos } = data.mesh_move;
+        const { id, pos, step } = data.mesh_move;
         const mesh = meshes[id];
         if (mesh) {
             mesh.position.x = pos.x;
@@ -512,7 +512,7 @@ function checkMeshCommands(data) {
         // mode it's negative. Stock grid is id=0 and never moves after init,
         // so emit for any non-zero mesh_move.
         if (id !== 0 && id !== undefined) {
-            try { api.event.emit('swarf.tool.move', { id, pos }); } catch (e) {}
+            try { api.event.emit('swarf.tool.move', { id, pos, step }); } catch (e) {}
         }
     }
     if (data.mesh_update) {

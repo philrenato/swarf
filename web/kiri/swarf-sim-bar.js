@@ -122,9 +122,9 @@
       }
     }
 
-    // swarf r10-f (Phil feedback): paths button lives only in TOOLPATHS
-    // view via Kiri's native label checkboxes — not here. Sim-bar keeps
-    // chips + lightstreams only.
+    // swarf r10-f (Phil feedback): no paths button on the bar; the paths' checkboxes are Kiri's native
+    // label row, which in simulate (Phil 11-01) holds one box per step, above this bar
+    // (swarf-lightstream.js addStepBox). The bar keeps chips + lightstreams.
     bar.appendChild(makeToggle('chips'));
     bar.appendChild(makeToggle('lightstream'));
 

@@ -25,6 +25,9 @@ export function init(worker) {
         const density = Math.min(textured ? 1e6 : Infinity, parseInt(settings.controller.animesh) * 1000 * (textured ? 2 : 1));
 
         pathIndex = 0;
+        // swarf: every move carries its step's place in the step list (slice.js _swarfStep), sent with
+        // the bit's position, so the simulate trail can show and hide each step's paths
+        for (const level of print.output) if (Array.isArray(level)) for (const o of level) if (o) o.swarfStep = level.mode?._swarfStep;
         path = print.output.flat();
         tools = settings.tools;
         stock = settings.stock;
@@ -244,7 +247,7 @@ function renderMoves(id, moves, send, seed = 0) {
         }
         tool.pos = pos;
         deformMesh(pos, send);
-        toolUpdate = { mesh_move: { id, pos }};
+        toolUpdate = { mesh_move: { id, pos, step: last?.swarfStep }};
         // pause renderer at specified offsets
         if ((renderSpeed && renderDist >= renderSpeed) || (depth > 600)) {
             renderDist = depth = 0;
