@@ -15,8 +15,6 @@
   window.__swarfLightstreamLoaded = true;
 
   // ---- ribbon -----------------------------------------------------------
-  // Three overlaid flat quads (core / halo / bloom). All additive-blended so
-  // the falloff is additive: centerline is brightest, edges soften smoothly.
   let core = null, halo = null, bloom = null;
   let polylines = [[]], lastPos = null;
   let space = null;
@@ -39,21 +37,18 @@
   // don't get split — only true rapid repositioning breaks the line.
   const BREAK_3D_MM = 50;
 
-  // The ribbons are drawn incrementally (review r093-code A13: every tool move rebuilt all three from
-  // every polyline, three new arrays and buffers a move, never disposed — O(N²) over a run, slow on a
-  // texture's tens of thousands of moves). Each ribbon keeps one Float32Array, doubled when full; a
-  // move appends its new segments (18 floats a ribbon), uploads only that range and moves the draw
-  // range to the end. The whole trail is drawn again only where what is drawn changes behind the
-  // end: a step's box, the print stack's fill at toolpaths.
+  // The ribbons are drawn incrementally, so a texture's tens of thousands of moves stay cheap (review
+  // r093-code A13). Each ribbon keeps one Float32Array, doubled when full; a move appends its new
+  // segments (18 floats a ribbon), uploads only that range and moves the draw range to the end. The
+  // whole trail is drawn again only where what is drawn changes behind the end: a step's box, the
+  // print stack's fill at toolpaths.
   const CAP0 = 18 * 1024;       // floats a ribbon starts with (1024 segments)
   let ribbons = [];             // [{ obj, hw }] bloom, halo, core
   let cap = 0;                  // floats each ribbon's array holds
   let drawn = 0;                // floats of it drawn
   let synced = true;            // what is drawn is the polylines' segments (a rebuild with none to draw keeps the last drawing)
 
-  // Flat horizontal ribbon mesh: builds a quad strip per segment. Each quad
-  // is widened along the in-plane normal (tangent × Z-up) so the ribbon
-  // always lays flat on the XY plane, thin in Z — like tape along the path.
+  // one ribbon: a mesh of quads, one per segment (putSeg), additive so the centerline is brightest
   function buildRibbon(color, opacity, renderOrder) {
     const THREE = window.THREE;
     const mat = new THREE.MeshBasicMaterial({
@@ -103,8 +98,7 @@
       ny = -tx / lenXY;
       nz = 0;
     } else {
-      // pure vertical move: lateral = tangent × X_axis → (0, -tz, ty)
-      // simplified for vertical: ribbon faces camera (use X lateral)
+      // pure vertical move: widen along X, so the ribbon stands upright
       nx = 1;
       ny = 0;
       nz = 0;
@@ -245,11 +239,9 @@
     return out;
   }
 
-  // Pre-populate the ribbon from the rendered print stack at preview.end.
-  // Without this the ribbon stayed empty in TOOLPATHS view and only filled
-  // in once the user ran Simulate. Now the cut path shows the moment paths
-  // are generated; Simulate still clears the trail and draws it from swarf.tool.move
-  // events as before. Long segments are dropped as rapids.
+  // the trail from the rendered print stack at preview.end, so the toolpaths view shows the cut
+  // before any simulate (r15c); simulate clears it and draws from swarf.tool.move. Long segments
+  // are dropped as rapids.
   function populateFromPrintStack() {
     if (!ensure()) return;
     const api = window.kiri && window.kiri.api;
@@ -400,17 +392,11 @@
     window.addEventListener('swarf.lightstream.toggle', showBoxes);
     window.addEventListener('resize', showBoxes);
     window.addEventListener('swarf.clear', clearTrail);
-    // Respond to the sim-bar's lightstream on/off pill.
+    // the sim bar's lightstreams pill
     window.addEventListener('swarf.lightstream.toggle', applyVisibility);
-    // swarf r10-d: clear any residual ribbon when the user leaves simulate —
-    // otherwise a partial trail from a previous run paints as a tiny stray
-    // stream in TOOLPATHS view (Phil markup: "one tiny weird stream").
+    // leaving simulate leaves no partial trail behind (r10-d, Phil: "one tiny weird stream")
     api.event.on('animate.end',   clearTrail);
     api.event.on('preview.begin', clearTrail);
-    // r15c: preview.end pre-populates the ribbon from the freshly rendered
-    // print stack so the cut path is visible in TOOLPATHS view, not only
-    // during Simulate. Was clearTrail (kept the residual-stream fix; the
-    // populate path resets polylines first, so any stray ribbon is replaced).
     api.event.on('preview.end',   populateFromPrintStack);
     return true;
   }
