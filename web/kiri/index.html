@@ -98,7 +98,10 @@
         // not yet active: wait for it, then load once more through it. A fresh load, not reload():
         // Chrome carries a hard reload's bypass into reload(). Not twice in 10 s without shared
         // memory between, so a browser that can never share it isn't looped.
-        if (!r.active) await navigator.serviceWorker.ready;
+        // ready() can answer while the worker is still activating; a load sent then sometimes never
+        // brought the app (1 in 15 first visits, 091): wait until it is activated, as 088 did
+        const a = r.active || (await navigator.serviceWorker.ready).active;
+        if (a && a.state !== 'activated') await new Promise(res => { a.addEventListener('statechange', () => { if (a.state === 'activated') res(); }); setTimeout(res, 8000); });
         try {
             const t = +sessionStorage.getItem('swarf-coi-reload') || 0;
             if (Date.now() - t < 10000) return;
