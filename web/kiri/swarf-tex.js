@@ -398,7 +398,7 @@
     if (!part || !m || !markHas(m)) return '';
     const c = curveOf(m), out = [];
     S.pts = S.pts || new Set();
-    c.loops.forEach((L, li) => {
+    c.loops.forEach(L => {
       const P = T().sampleCurve(L.handles, 12).pts.map(q => bedOf(part, m, q));
       out.push(`<path class="sd-pen tx-curve" d="M${P.map(q => `${sx(q[0])},${sy(q[1])}`).join('L')}Z"/>`);
     });
@@ -676,7 +676,7 @@
     const expert = document.body.classList.contains('swarf-expert');
     const bitRow = f => {
       const lib = libraryBits(f.fill === 'pierce');
-      const opts = lib.length ? lib.map(([t, b]) => [String(t.id), `${b.name}${b.type === 'v' ? '' : ''}`]) : Object.entries(BITS).map(([k, b]) => [k, b.say]);
+      const opts = lib.length ? lib.map(([t, b]) => [String(t.id), b.name]) : Object.entries(BITS).map(([k, b]) => [k, b.say]);
       return selRow('bit', 'tx-bit', opts, String(f.tool), f.fill === 'pierce' ? 'the straight bit that cuts the kerfs or holes; its width is the kerf' : 'the bit that cuts it: ball for smooth hollows, V for sharp grooves');
     };
     // pierce lives in advanced mode; a pierce mark seen from basic mode can still go back to
@@ -1135,7 +1135,7 @@
     const t = target(p, !erase);
     if (!t) { S.undo.pop(); render(); return; }
     if (S.tool === 'brush' || S.tool === 'erase') {
-      S.drag = { kind: 'paint', t, last: p, val: erase ? 0 : 1, changed: false };
+      S.drag = { kind: 'paint', t, last: p, val: erase ? 0 : 1 };
       stamp(t, p, p, S.drag.val);
     } else S.drag = { kind: 'shape', t, at: p, val: erase ? 0 : 1 };
     ui.svg.setPointerCapture(e.pointerId);
@@ -1497,5 +1497,5 @@
     return (x, y, r) => marks.some(q => { if (at(q, x, y)) return true; for (let k = 0; k < 16; k++) { const a = k / 16 * 2 * Math.PI; for (const f of [0.5, 1]) if (at(q, x + r * f * Math.cos(a), y + r * f * Math.sin(a))) return true; } return false; });
   }
 
-  window.__swarfTex = { open, close, say, setTool, render, state: () => S, lastMesh: () => S && S.lastMesh, concerns, syncSteps, texAreas, pierceAvoid, BITS };
+  window.__swarfTex = { open, close, say, setTool, render, state: () => S, lastMesh: () => S && S.lastMesh, concerns, syncSteps, pierceAvoid };
 })();

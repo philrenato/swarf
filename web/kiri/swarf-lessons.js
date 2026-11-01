@@ -41,7 +41,6 @@
     for (const c of kids) if (c != null) e.append(c);
     return e;
   };
-  // no orphans: a sentence's last two words stay together (Phil 10-28)
   // no widow: the last two words held together; not in classic, whose Geneva draws that space double (review 10-29)
   const tie = t => typeof t === 'string' && t.trim().split(/\s+/).length > 3 && document.documentElement.dataset.skin !== 'classic' ? t.replace(/ (\S+)\s*$/, '\u00a0$1') : t;
   // a length typed in mm, or with its unit (6in, 1 1/2"): Phil 10-29
@@ -87,7 +86,7 @@
     const say = el('p', { class: 'sr-circuit' });
     const go = btn('next: the bit', () => {
       const W = numU(w.value, 0), D = numU(d.value, 0), T = numU(t.value, 0);
-      const min = lesson.id === 'square' ? 2 * MARGIN + 40 : 2 * MARGIN + 40;
+      const min = 2 * MARGIN + 40;
       if (!(W >= min && D >= min)) { say.textContent = `The board needs to be at least ${dims(min, min)} for this test.`; return; }
       if (!(T >= 3 && T <= 40)) { say.textContent = `Measure the board's thickness with calipers: between ${prose(3)} and ${prose(40)}.`; return; }
       Object.assign(b, { w: W, d: D, t: T });
@@ -127,7 +126,7 @@
     if (!D || !M) return fixed;
     const p = D(M, bit.d, { spindleMin: 10000, spindleMax: 21000, feedMax: 15240, feedMaxZ: 2540 });
     if (!p) return fixed;
-    return { feed: p.feed, plunge: Math.min(p.plunge, 600), pass: Math.min(fixed.pass, p.stepdown), rpm: p.spindle };
+    return { feed: p.feed, plunge: Math.min(p.plunge, 600), pass: Math.min(fixed.pass, p.stepdown) };
   }
   function sbp(name, bit, paths) {
     const fd = feeds(bit), out = [`'${name} - a swarf test cut`, "'UNITS:MM", 'IF %(25)=0 THEN GOTO UNIT_ERROR', 'SA',

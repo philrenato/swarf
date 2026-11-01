@@ -174,7 +174,7 @@
     let t0 = shapeT > 0 ? shapeT : 19.05, d0 = inch ? 0.79375 : 1;
     const m0 = 'auto';
     try { t0 = parseFloat(localStorage.getItem(THICK)) || t0; d0 = parseFloat(localStorage.getItem(DEPTH)) || d0; } catch (e) { /* private */ }
-    S = { parts, others, bed: [bw, bd], sel: -1, pts: new Set(), tool: 'select', pen: [], drag: null, undo: [], thick: t0, depth: d0, mode: m0, edge: { kind: 'straight', size: 2 }, removed: [], hover: null };
+    S = { parts, others, bed: [bw, bd], sel: -1, pts: new Set(), tool: 'select', pen: [], drag: null, undo: [], thick: t0, depth: d0, mode: m0, edge: { kind: 'straight', size: 2 }, hover: null };
     build();
     // the part picked in the workspace is the one picked here
     const picked = a.selection.widgets ? a.selection.widgets() : [];

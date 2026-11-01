@@ -206,6 +206,7 @@
       const name = (parts.length === 1 && a.widgets.all().find(w => w.meta && w.meta.svg === parts[0].svg)?.meta.file || 'swarf-drawing').replace(/[^\w.-]+/g, '-');
       const link = Object.assign(document.createElement('a'), { href: URL.createObjectURL(new Blob([out], { type })), download: `${name}.${kind}` });
       document.body.append(link); link.click(); link.remove();
+      setTimeout(() => URL.revokeObjectURL(link.href), 4000);
     });
   }
 
