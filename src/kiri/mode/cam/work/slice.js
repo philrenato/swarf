@@ -376,6 +376,10 @@ export async function cam_slice(settings, widget, onupdate, ondone) {
         opList.push({ op: new OPS.xray(state, { type: "xray" }) });
     }
 
+    // swarf: each step keeps its place in the step list, so prepare's levels (layerOut.mode) and
+    // simulate's moves can say which step they belong to (the sim's per-step path checkboxes)
+    proc.ops.forEach((op, i) => { if (op && !Array.isArray(op)) op._swarfStep = i; });
+
     // find index ops
     let activeOps = proc.ops.filter(op => !op.disabled);
 

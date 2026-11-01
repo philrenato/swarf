@@ -2540,6 +2540,9 @@ html:not([data-skin]) #layer-animate .swarf-sim-name { color: var(--swarf-accent
    keeps the toggles (bit · direction · moves · cuts) and the watermark clear */
 body:not(.swarf-expert) #layer-slider #slider { display: none !important; }
 #layers, #layers label { font-family: inherit !important; text-transform: none !important; }
+/* (Phil 11-01) simulate's per-step path boxes (swarf-lightstream.js): the toolpaths view's toggle row,
+   raised just above the sim bar (its height measured, as it wraps on a narrow window) */
+body.swarf-sim-paths #layer-slider { bottom: calc(var(--swarf-simbar-h, 52px) + 6px); }
 /* (whole-app review r086 B3) the step list's "end of ops chain" bar is advanced's too */
 body:not(.swarf-expert) #oplist > .clock { display: none !important; }
 /* (whole-app review r086 F8) preferences fit a 720 px window: the card scrolls */
