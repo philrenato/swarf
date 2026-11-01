@@ -50,7 +50,8 @@
     // a fraction with no unit is inches whatever the setting: nobody means 3/4 of a millimeter
     // (deep review 10-31 S3: 3/4 in mm mode made a 0.75 mm part)
     const k = SUFFIX[u] || (frac || (def || unit()) === 'in' ? IN : 1);
-    return sign * v * k;
+    // to a billionth of a mm, so 3/4 in is 19.05 and not 19.049999999999997 (Phil 11-01)
+    return Math.round(sign * v * k * 1e9) / 1e9;
   }
 
   // a field's number in the scene's precision (Phil 11-01: no 12.700000001): inches to 3 places,
