@@ -1533,7 +1533,8 @@ export function analyze(tex, toolIn, o = {}) {
   // the pattern's own words ("6.5 mm dots") at its placed size, in the app's units
   const featureLabel = String(tex.featureLabel || '').replace(/([\d.]+) mm/, (m, v) => L1(+v * (tex.scale || 1)));
   notes.push(`${tool.name}: ${tool.type === 'v' ? `${L1(wAt)} wide at ${L1(d)} deep, finer when shallower` : `the narrowest cut it makes ${L1(d)} deep is ${L1(wAt)}`}.`);
-  if (tex.depth > maxDepth + 1e-6) warnings.push(`The pattern goes ${L1(tex.depth)} deep; max depth is ${L1(maxDepth)}, so the deepest parts come out flat at ${L1(maxDepth)}.`);
+  // o.sayDepth false: the caller says the max-depth line in its own words (markChecks)
+  if (o.sayDepth !== false && tex.depth > maxDepth + 1e-6) warnings.push(`The pattern goes ${L1(tex.depth)} deep; max depth is ${L1(maxDepth)}, so the deepest parts come out flat at ${L1(maxDepth)}.`);
   if (tex.kind === 'dots' && tex.dotDiameter) {
     const D = tex.dotDiameter, dp = Math.min(tex.params.depth, maxDepth);
     if (tool.widthAt(dp) > D * 1.03) {
@@ -1933,9 +1934,9 @@ export function markChecks(mark, o = {}) {
   const L = o.len || ((v) => `${fmt(v, 1)} mm`);
   const strategy = pathFor(tex, tool, mark.fill.path);
   const maxDepth = Math.min(tex.depth, o.thickness > 0 ? o.thickness : Infinity);
-  const a = analyze(tex, tool, { maxDepth, strategy, len: o.len });
-  // the max-depth line says it in the pattern's words; the board's own comes first
-  const warnings = a.warnings.filter((w) => !/^The pattern goes/.test(w));
+  // the board's own words for the max depth come first, not the pattern's
+  const a = analyze(tex, tool, { maxDepth, strategy, len: o.len, sayDepth: false });
+  const warnings = a.warnings;
   if (o.thickness > 0 && tex.depth >= o.thickness - 1e-6) warnings.unshift(`The texture goes ${L(tex.depth)} deep and the board is ${L(o.thickness)} thick: it would cut through. It stops at the board's bottom.`);
   const deep = Math.min(tex.depth, o.thickness > 0 ? o.thickness : Infinity);
   if (tool.flute > 0 && deep > tool.flute + 0.1) warnings.unshift(`The ${tool.name} cuts ${L(tool.flute)} deep at most (its flutes); this texture goes ${L(deep)}. Make it shallower or use a longer bit.`);
