@@ -1323,10 +1323,12 @@ body:not(.swarf-expert) .swarf-add-op-grid > .swarf-expert-only {
   display: inline-flex; align-items: center; gap: 5px;
   letter-spacing: 0.02em; text-transform: none; font-weight: 600;
 }
+/* (r093 UX T6) the pill's word in the row's own face and size, not a bold mono: edit outlined, editing filled */
 #oplist .draggable .swarf-op-chevron::before {
   content: "edit";
-  font-size: 9px;
-  font-family: "JetBrains Mono", "IBM Plex Mono", ui-monospace, monospace;
+  font-size: 11px;
+  font-family: inherit;
+  font-weight: 500;
   color: inherit;
 }
 #oplist .draggable .swarf-op-chevron:hover {
@@ -1344,6 +1346,11 @@ body:not(.swarf-expert) .swarf-add-op-grid > .swarf-expert-only {
 /* whole row label becomes a pointer target too — click anywhere on the op name
    to toggle the parameter drawer (r5 affordance). */
 #oplist .draggable.has-params > .label { cursor: pointer; }
+/* (r093 UX T5) an open step's × stays in its header row, after edit ▾, not halfway down the card */
+#oplist .draggable.has-params > .label { order: 0; }
+#oplist .draggable.has-params > .swarf-op-chevron { order: 1; }
+#oplist .draggable.has-params > .del { order: 2; position: static; margin-right: -2px; }
+#oplist .draggable.has-params > .swarf-op-params { order: 3; }
 /* a TEX step's label stays on one line (its whole name in the row's tooltip), so edit stays beside it */
 #oplist .draggable.tex-step > .label { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; flex: 1 1 0; }
 /* review r093-ux T2: the tiny chevron read as a stray dot ("rough ·"); the edit ▾ pill says it folds */
@@ -2564,6 +2571,11 @@ body:not(.swarf-expert) #layer-slider #slider { display: none !important; }
 /* (Phil 11-01) simulate's per-step path boxes (swarf-lightstream.js): the toolpaths view's toggle row,
    raised just above the sim bar (its height measured, as it wraps on a narrow window) */
 body.swarf-sim-paths #layer-slider { bottom: calc(var(--swarf-simbar-h, 52px) + 6px); }
+/* (r093 UX T10) the toolpaths view's toggles (bit · direction · moves · cuts) sit where simulate's
+   step boxes do, just above the sim bar's line, as one pill strip in both views */
+body:not(.swarf-expert) #layer-slider { bottom: calc(var(--swarf-simbar-h, 72px) + 6px); }
+body:not(.swarf-expert) #layers:has(.var-row) { align-self: center; width: max-content; max-width: 100%; flex-wrap: wrap; padding: 3px 12px 0;
+  border-radius: 999px; background: var(--swarf-more-bg, var(--swarf-bg-2)); box-shadow: 0 0 0 1px var(--swarf-line), 0 4px 14px rgba(0,0,0,.18); }
 /* (whole-app review r086 B3) the step list's "end of ops chain" bar is advanced's too */
 body:not(.swarf-expert) #oplist > .clock { display: none !important; }
 /* (whole-app review r086 F8) preferences fit a 720 px window: the card scrolls */
