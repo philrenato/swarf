@@ -149,6 +149,11 @@ try {
   await page.keyboard.press('b');
   await setField(page, 'tx-bsize', '0.5');
   await drag(page, [15, 40], [60, 45], 20);
+  // every design choice a mark carries (Phil 11-01: "all relevant settings and design features need to
+  // be saved in the .swarf file"): turned, scaled, raised, floored, a cove falloff, a row of beads, a finish
+  await page.evaluate(() => { const S = window.__swarfTex.state(), m = S.parts[S.sel].marks[S.mark];
+    Object.assign(m.fill, { angle: 30, scale: 1.25, relief: 'up', floor: 0.5, curve: 'cove', fade: 2, grit: 0.2, finish: 'ridged',
+      border: { style: 'beads', width: 4, depth: 1, inset: 0.5, pitch: 5, along: 'paint' } }); m.ver++; });
   await page.click('#tx-done');
   await wait(1200);
   // steps: TEX's texture, then a rough and an outline (its step-down changed by hand)
@@ -287,6 +292,14 @@ try {
     check(!!q && JSON.stringify(q.pos) === JSON.stringify(p.pos) && q.verts === p.verts, `${p.file}: same place ${JSON.stringify(p.pos)} and mesh (${q && JSON.stringify(q.pos)}, ${q && q.verts}/${p.verts})`);
     check(!!q && q.meta === p.meta, `${p.file}: its meta whole (drawing, marks) ${q && q.meta.length}/${p.meta.length} chars${q && q.meta !== p.meta ? firstDiff(p.meta, q.meta) : ''}`);
     check(!!q && q.anno === p.anno, `${p.file}: its anno whole (tabs, pins, "no tab here" spots, tab settings)${q && q.anno !== p.anno ? firstDiff(p.anno, q.anno) : ''}`);
+  }
+  { // the mark's design, by name, after the round trip
+    const dp = b0.parts.find(x => !/plate/.test(x.file)), f = dp && ((JSON.parse(dp.meta).tex || [])[0] || {}).fill || {};
+    const want = { angle: 30, scale: 1.25, relief: 'up', floor: 0.5, curve: 'cove', fade: 2, grit: 0.2, finish: 'ridged' };
+    const off = Object.entries(want).filter(([k, v]) => f[k] !== v).map(([k]) => k);
+    const b = f.border || {};
+    if (!(b.style === 'beads' && b.width === 4 && b.depth === 1 && b.inset === 0.5 && b.pitch === 5 && b.along === 'paint')) off.push('border');
+    check(!off.length, `the mark's design comes back: direction, scale, relief, floor, falloff, soft edge, grit, finish, border${off.length ? ` (lost: ${off.join(', ')})` : ''}`);
   }
   check(b0.ops === a1.ops && b0.op2 === a1.op2, `the steps, in order, with every setting${b0.ops !== a1.ops ? firstDiff(a1.ops, b0.ops) : ''}`);
   check(b0.stock === a1.stock, `the board ${b0.stock}${b0.stock !== a1.stock ? ' vs ' + a1.stock : ''}`);
