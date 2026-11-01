@@ -132,10 +132,10 @@ try {
   const look = await page.evaluate(() => {
     const c = document.getElementById('tx-card'), cr = c.getBoundingClientRect(), note = [...c.querySelectorAll('.sd-note')].find(n => /About/.test(n.textContent));
     const pick = c.querySelector('.tx-pick.on'), other = document.getElementById('tx-new'), bg = el => el && getComputedStyle(el).backgroundColor;
-    return { sws: c.querySelectorAll('.tx-sw').length, on: [...c.querySelectorAll('.tx-sw.on')].map(b => b.dataset.pat), more: !!c.querySelector('details.tx-more:not([open])'),
+    return { sws: c.querySelectorAll('.tx-sw').length, patterns: Object.keys(window.SwarfTexCore.PATTERNS).length, on: [...c.querySelectorAll('.tx-sw.on')].map(b => b.dataset.pat), more: !!c.querySelector('details.tx-more:not([open])'),
       seen: !!note && note.getBoundingClientRect().bottom <= cr.bottom, edge: !!document.querySelector('#tx-svg path.tx-edge'), pick: pick && pick.textContent, lit: !!pick && bg(pick) !== bg(other) };
   });
-  check(look.sws === 12 && look.on.join() === 'waves' && look.more, `the card: twelve swatches, waves lit, the finer points folded (${JSON.stringify({ sws: look.sws, on: look.on, more: look.more })})`);
+  check(look.sws === look.patterns && look.on.join() === 'waves' && look.more, `the card: a swatch for each of the ${look.patterns} patterns, waves lit, the finer points folded (${JSON.stringify({ sws: look.sws, on: look.on, more: look.more })})`);
   check(look.seen, 'the cut time is in view, up by the pattern');
   check(look.edge && look.lit && /^1 · brush \d+ × \d+ mm$/.test(look.pick), `the picked mark: its edge dashed on the board, its button lit and named ("${look.pick}")`);
   // Escape steps back (tool, mark, part) and does not leave while there is something to undo
