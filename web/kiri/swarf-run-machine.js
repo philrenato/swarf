@@ -74,6 +74,13 @@
       this.set({ plateCfg: { ...this.plateCfg } });
       return true;
     }
+    // search down, as on the real driver (review A5: the plate card refused every value in the simulator)
+    setPlateTravel(t) {
+      if (!(t >= 10 && t <= 150)) return false;
+      this.plateCfg.travel = t;
+      this.set({ plateCfg: { ...this.plateCfg } });
+      return true;
+    }
     get jogSpeed() { return this.cfg.jog; }
     idle() {
       return new Promise(res => { const un = this.on(st => { if (!this.queue.length && !st.moving) { setTimeout(() => un(), 0); res(); } }); });

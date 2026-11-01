@@ -862,12 +862,17 @@ html[data-skin] #swarf-run .sr-jog .sr-zrow button.next, html[data-skin] #swarf-
       new ResizeObserver(() => this.resize(box)).observe(box);
       this.resize(box);
       const loop = () => {
+        // nothing to draw while control is shut (review A15: it rendered every frame forever); open() wakes it
+        if (!S.open) { this.raf = 0; return; }
         // close in on the job the gantry would fill the view: only the bed shows until you zoom out
         if (this.ghostParts) this.ghostParts.gantry.visible = this.sph.r > 1800;
-        this.renderer.render(this.scene, this.camera); requestAnimationFrame(loop);
+        this.renderer.render(this.scene, this.camera); this.raf = requestAnimationFrame(loop);
       };
-      loop();
+      this.loop = loop;
+      this.raf = 0;
+      this.wake();
     },
+    wake() { if (!this.raf && this.loop) this.raf = requestAnimationFrame(this.loop); },
     resize(box) {
       const w = box.clientWidth, hh = box.clientHeight;
       if (!w || !hh) return;
@@ -1214,6 +1219,7 @@ html[data-skin] #swarf-run .sr-jog .sr-zrow button.next, html[data-skin] #swarf-
   }
 
   function problems() {
+    if (S.prMemo) return S.prMemo;     // inside one refresh (review A14)
     const out = { block: [], warn: [] };
     if (!S.prog) return out;
     const p = S.prog.parsed;
@@ -1337,7 +1343,14 @@ html[data-skin] #swarf-run .sr-jog .sr-zrow button.next, html[data-skin] #swarf-
     b.animate([{ boxShadow: '0 0 0 0 rgba(242,237,228,0)' }, { boxShadow: '0 0 0 6px rgba(242,237,228,.6)' }, { boxShadow: '0 0 0 0 rgba(242,237,228,0)' }], { duration: 700, iterations: 2 });
   }
 
+  // problems() rescans every move and every widget: worked out once a refresh, not 4-6 times (review
+  // A14). Nothing a refresh runs changes the file, the zero or the position, and the memo ends with it.
   function refresh() {
+    S.prMemo = null;
+    S.prMemo = problems();
+    try { return refreshOnce(); } finally { S.prMemo = null; }
+  }
+  function refreshOnce() {
     const st = S.machine ? S.machine.state : null;
     const now = stepNow();
     const idx = STEPS.indexOf(now);
@@ -1623,20 +1636,31 @@ html[data-skin] #swarf-run .sr-jog .sr-zrow button.next, html[data-skin] #swarf-
   // up against the bit, the circuit check), 'flat' (on the board, the bit coming down to it) and
   // 'away' (put back). Ink on the light skins, the faint ghost on the dark one. It renders only
   // while the card is open.
+  // One renderer for every plate card (review A8: each card made a WebGL context it never let go,
+  // and Chrome drops the oldest past ~16, the control viewer's); its canvas moves into each card.
+  let plateGL = null;
   function plateView() {
     const THREE = window.THREE, PM = window.SwarfPlateModel;
     if (!THREE || !PM) return null;
-    const wrap = h('div', { class: 'sr-plate-view' }), canvas = h('canvas');
+    const W = 460, H = 200;
+    if (!plateGL) {
+      const canvas = h('canvas');
+      const r = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
+      r.setPixelRatio(Math.min(2, window.devicePixelRatio || 1)); r.setSize(W, H, false); r.setClearColor(0, 0);
+      const scene = new THREE.Scene(), cam = new THREE.PerspectiveCamera(30, W / H, 1, 5000);
+      cam.up.set(0, 0, 1); cam.position.set(200, -340, 150); cam.lookAt(-10, 0, 46);   // the bit, the plate, and the clip on its screw up the housing
+      plateGL = { canvas, r, scene, cam, models: {} };
+    }
+    const { canvas, r, scene, cam } = plateGL;
+    const mine = plateGL.owner = {};     // a card opened after this one takes the canvas, and this one's loop ends
+    const wrap = h('div', { class: 'sr-plate-view' });
     const labels = { bit: h('span', { text: 'bit', class: 'l' }), clip: h('span', { text: 'ground clip', class: 'r' }), plate: h('span', { text: 'plate', class: 'b' }) };
     // a picture of the steps, not the machine's live position (follow-up review)
     wrap.append(canvas, ...Object.values(labels), h('em', { class: 'sr-plate-note', text: 'a picture, not the live machine' }));
-    const W = 460, H = 200;
-    const r = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
-    r.setPixelRatio(Math.min(2, window.devicePixelRatio || 1)); r.setSize(W, H, false); r.setClearColor(0, 0);
-    const scene = new THREE.Scene(), cam = new THREE.PerspectiveCamera(30, W / H, 1, 5000);
-    cam.up.set(0, 0, 1); cam.position.set(200, -340, 150); cam.lookAt(-10, 0, 46);   // the bit, the plate, and the clip on its screw up the housing
     const dark = !document.documentElement.getAttribute('data-skin');
-    const model = PM.build(THREE, { style: dark ? 'ghost' : 'ink' });
+    const style = dark ? 'ghost' : 'ink';
+    const model = plateGL.models[style] || (plateGL.models[style] = PM.build(THREE, { style }));
+    for (const k of Object.keys(plateGL.models)) scene.remove(plateGL.models[k].group);
     scene.add(model.group);
     let pose = 'test', t0 = performance.now(), raf = 0;
     const place = () => {
@@ -1648,8 +1672,10 @@ html[data-skin] #swarf-run .sr-jog .sr-zrow button.next, html[data-skin] #swarf-
         labels[k].style.display = k === 'plate' && pose === 'away' ? 'none' : '';
       }
     };
+    // rests while the sheet is off (touch off hides it); pose() wakes it for the card's next step
+    // (review A9: the loop ended there, and "Z is zero" kept the bit halfway down)
     const frame = now => {
-      if (!document.contains(canvas) || !el.sheet.classList.contains('on')) { r.dispose(); raf = 0; return; }
+      if (plateGL.owner !== mine || !document.contains(canvas) || !el.sheet.classList.contains('on')) { raf = 0; return; }
       // flat: the bit comes down to the plate, touches, lifts, as touch off will do
       const k = ((now - t0) / 3200) % 1, still = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
       const bitZ = pose === 'flat' ? (still ? 12 : 3 + 32 * Math.abs(Math.cos(k * Math.PI))) : pose === 'test' ? 30 : 60;
@@ -1658,7 +1684,10 @@ html[data-skin] #swarf-run .sr-jog .sr-zrow button.next, html[data-skin] #swarf-
       raf = requestAnimationFrame(frame);
     };
     raf = requestAnimationFrame(frame);
-    return { el: wrap, pose(p) { if (p !== pose) { pose = p; t0 = performance.now(); } } };
+    return { el: wrap, pose(p) {
+      if (p !== pose) { pose = p; t0 = performance.now(); }
+      if (!raf && plateGL.owner === mine) raf = requestAnimationFrame(frame);
+    } };
   }
 
   async function plateZero() {
@@ -1681,11 +1710,12 @@ html[data-skin] #swarf-run .sr-jog .sr-zrow button.next, html[data-skin] #swarf-
   function progKey() { return S.prog ? `${S.prog.source}|${S.prog.name}|${originText().xy}` : ''; }
   function keepZero() {
     const had = S.zeroHad || { xy: true, z: true };
-    S.zeroXY = !!had.xy; S.zeroZ = !!had.z; S.zx = S.zy = !!had.xy; S.zeroReconnect = false; S.discAt = 0; S.discWhy = '';
     // the board still clamped is not the machine still knowing where it is (codex review 10-29): after
     // the link dropped, or a job stopped short, the zero comes back but the trace does not. Tracing
-    // again shows the bit going round the board where it should, before any cut
+    // again shows the bit going round the board where it should, before any cut.
+    // Read before the flags below are cleared (review A4: it read them after, and never fired)
     const unsure = !!(S.lostAt || S.stoppedAt || (S.zeroReconnect && !S.discAt));
+    S.zeroXY = !!had.xy; S.zeroZ = !!had.z; S.zx = S.zy = !!had.xy; S.zeroReconnect = false; S.discAt = 0; S.discWhy = '';
     if (unsure) { S.traced = false; tell('Zero kept. Trace once before you cut: it shows the machine still knows where your board is.', 'warn'); }
     refresh();
   }
@@ -2186,7 +2216,11 @@ html[data-skin] #swarf-run .sr-jog .sr-zrow button.next, html[data-skin] #swarf-
         // the card keeps its count while powered; a count that moved while unplugged means a restart
         const was = S.lastSteps, now = d.steps;
         // up to two queued blocks (~300 ticks) still run after a drop; a restart moves the count far more
-        if (was && ['x', 'y', 'z'].some(a => Math.abs(was[a] - now[a]) > 600)) {
+        // a saved origin read back broken and reset (review A18): the zero kept with it is gone too
+        if (d.originRepaired) {
+          S.zeroXY = S.zeroZ = S.traced = false; S.zx = S.zy = false; S.zeroSetAt = 0; S.zeroHad = null;
+          saveZero();
+        } else if (was && ['x', 'y', 'z'].some(a => Math.abs(was[a] - now[a]) > 600)) {
           S.zeroXY = S.zeroZ = S.traced = false; S.zx = S.zy = false; S.zeroSetAt = 0; S.zeroHad = null; S.zeroLost = true;
           saveZero();
           setCorner(null);   // the count restarted: the table's corner is unknown again
@@ -2197,7 +2231,7 @@ html[data-skin] #swarf-run .sr-jog .sr-zrow button.next, html[data-skin] #swarf-
           S.zeroXY = S.zeroZ = S.traced = false; S.zx = S.zy = false; S.zeroReconnect = true;
         }
         if (S.unsub) S.unsub();
-        if (S.machine && S.machine.timer) clearTimeout(S.machine.timer);
+        if (S.machine) { if (S.machine.stopPoll) S.machine.stopPoll(); else if (S.machine.timer) clearTimeout(S.machine.timer); }   // review A6
         S.machine = d;
         // the machine says when: about to move, the router about to start, finished once the bit has coasted (third review #6)
         d.onCue = name => { if (window.SwarfSound) SwarfSound.play(name); };
@@ -2208,7 +2242,7 @@ html[data-skin] #swarf-run .sr-jog .sr-zrow button.next, html[data-skin] #swarf-
     }
     if (S.machine && !manual) return;
     if (S.unsub) S.unsub();
-    if (S.machine && S.machine.timer) clearTimeout(S.machine.timer);
+    if (S.machine) { if (S.machine.stopPoll) S.machine.stopPoll(); else if (S.machine.timer) clearTimeout(S.machine.timer); }
     S.machine = new M.SimMachine();
     S.machine.timeScale = S.simRate;
     if (manual && !(D && D.supported())) S.connMsg = NO_USB();
@@ -2365,6 +2399,7 @@ html[data-skin] #swarf-run .sr-jog .sr-zrow button.next, html[data-skin] #swarf-
     if (step) step.classList.add('swarf-step-on');
     document.body.classList.add('swarf-run-open');   // lifts swarf's phase filters (the gray after export) off Run
     S.open = true;
+    view.wake();
     if (!S.machine) connect(false);
     view.resize(el.view);
     refresh();

@@ -75,12 +75,23 @@
       });
     }
 
+    // A write that threw (the box unplugged) takes its reply with it (review A7): the wait was left
+    // pending, so the next command said "a reply is already pending" and not the real cause.
+    // Only the wait this write made is dropped.
+    async send(bytes, p, w) {
+      try { await this.link.write(bytes); } catch (e) {
+        if (p) p.catch(() => {});
+        if (w && this.want === w) { clearTimeout(w.timer); this.want = null; w.reject(e); }
+        throw e;
+      }
+    }
+
     // Commands queue: each waits for the one before to be answered.
     cmd(bytes, reply = 50) {
       const go = async () => {
         if (this.streaming) throw new Error('card: busy moving');
-        const p = reply ? this.expect(reply) : null;
-        await this.link.write(Uint8Array.from(bytes));
+        const was = this.want, p = reply ? this.expect(reply) : null;
+        await this.send(Uint8Array.from(bytes), p, this.want !== was ? this.want : null);
         return p ? p : new Uint8Array(0);
       };
       const r = this.queue.then(go, go);
@@ -185,8 +196,8 @@
           }
           const blk = this.block(pay);
           for (let tries = 0; ; tries++) {
-            const wait = this.expect(6);
-            await this.link.write(blk);
+            const was = this.want, wait = this.expect(6);
+            await this.send(blk, wait, this.want !== was ? this.want : null);
             const ack = await wait;
             // A report (D4/D5) where an ack belongs. After the END block it is
             // the normal end: with the card's window full the ack waits for a
