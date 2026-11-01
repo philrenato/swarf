@@ -131,9 +131,10 @@ function update_info() {
         dy = bounds.max.y - bounds.min.y,
         dz = bounds.max.z - bounds.min.z,
         scale = api.view.unit_scale();
-    ui.size.X.value = ui.size.X.was = (dx / scale).round(2)
-    ui.size.Y.value = ui.size.Y.was = (dy / scale).round(2)
-    ui.size.Z.value = ui.size.Z.was = (dz / scale).round(2)
+    // swarf (Phil 11-01): inches to 4 places, so 20 mm reads 0.787 in the size card, not 0.79
+    ui.size.X.value = ui.size.X.was = (dx / scale).round(scale === 25.4 ? 4 : 2)
+    ui.size.Y.value = ui.size.Y.was = (dy / scale).round(scale === 25.4 ? 4 : 2)
+    ui.size.Z.value = ui.size.Z.was = (dz / scale).round(scale === 25.4 ? 4 : 2)
     ui.scale.X.value = ui.scale.X.was = track.scale.x.round(2);
     ui.scale.Y.value = ui.scale.Y.was = track.scale.y.round(2);
     ui.scale.Z.value = ui.scale.Z.was = track.scale.z.round(2);
