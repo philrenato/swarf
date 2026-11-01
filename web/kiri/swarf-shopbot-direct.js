@@ -77,7 +77,39 @@
       try { Object.assign(this.homeCfg, JSON.parse(localStorage.getItem(HOME_KEY)) || {}); } catch (e) { /* none saved */ }
       this.plateCfg = Object.assign({}, PLATE);
       try { Object.assign(this.plateCfg, JSON.parse(localStorage.getItem(PLATE_KEY)) || {}); } catch (e) { /* none saved */ }
+      this.saneSaved();
       this.planner.m.invert = this.invertMask();
+    }
+
+    // Saved settings as read back, checked field by field (review A18: a corrupt origin made every
+    // position NaN and every jog was refused). A bad field takes the default; a repaired origin is
+    // said (originRepaired), so control retires the zero kept with it.
+    saneSaved() {
+      const num = (v, ok) => typeof v === 'number' && Number.isFinite(v) && ok(v);
+      const input = v => Number.isInteger(v) && v >= 1 && v <= 16, level = v => v === 0 || v === 1;
+      for (const a of ['x', 'y', 'z']) {
+        if (!num(this.origin[a], () => true)) { this.origin[a] = 0; this.originRepaired = true; }
+        if (typeof this.flip[a] !== 'boolean') this.flip[a] = false;
+      }
+      const H = this.homeCfg, obj = v => !!v && typeof v === 'object';
+      if (H.set !== undefined && !obj(H.set)) { delete H.set; H.confirmed = false; }
+      if (!obj(H.offset)) H.offset = { ...HOME.offset };
+      if (!obj(H.travel)) H.travel = { ...HOME.travel };
+      for (const a of ['x', 'y']) {
+        const s = H[a];
+        // a sensor not read back is a sensor not set: home asks for it again
+        if (!(obj(s) && input(s.input) && level(s.hit))) { H[a] = { ...HOME[a] }; H.confirmed = false; if (H.set) H.set = { ...H.set, [a]: false }; }
+        if (!num(H.offset[a], () => true)) H.offset[a] = HOME.offset[a];
+        if (!num(H.travel[a], v => v > 0)) H.travel[a] = HOME.travel[a];
+      }
+      for (const k of ['fast', 'slow', 'backOff', 'block']) if (!num(H[k], v => v > 0)) H[k] = HOME[k];
+      if (typeof H.confirmed !== 'boolean') H.confirmed = false;
+      const P = this.plateCfg;
+      if (!input(P.input) || !level(P.hit)) { P.input = PLATE.input; P.hit = PLATE.hit; P.confirmed = false; }
+      if (!num(P.thickness, v => v > 0 && v < 50)) P.thickness = PLATE.thickness;     // setPlateThickness's range
+      if (!num(P.travel, v => v >= 10 && v <= 150)) P.travel = PLATE.travel;          // setPlateTravel's
+      for (const k of ['fast', 'slow', 'lift']) if (!num(P[k], v => v > 0)) P[k] = PLATE[k];
+      if (typeof P.confirmed !== 'boolean') P.confirmed = false;
     }
 
     invertMask() { return (this.flip.x ? 1 : 0) | (this.flip.y ? 2 : 0) | (this.flip.z ? 4 : 0); }
@@ -274,7 +306,7 @@
     async estopped() {
       if (!this.link || this.estopping) return;
       this.estopping = true;
-      clearTimeout(this.timer);
+      this.stopPoll();
       this.quiet();
       const off = await this.outputsOff().catch(() => false);
       const link = this.link;
@@ -293,7 +325,7 @@
       if (!this.link) return true;
       if (this.busy() || this.state.moving) { this.set({ note: 'stop the job before you disconnect' }); return false; }
       if (!(await this.outputsOff())) { this.set({ routerUnknown: true, note: 'the off did not reach the card: press the red e-stop on the floor' }); return false; }
-      clearTimeout(this.timer);
+      this.stopPoll();
       this.quiet();
       const link = this.link;
       link.onClose = null;
@@ -307,7 +339,7 @@
     // the line and asks for a reconnect. Whether the card stops the spindle on
     // its own after a drop is not yet proven on the box.
     lost() {
-      clearTimeout(this.timer);
+      this.stopPoll();
       this.quiet();
       const mid = this.state.running;
       // best known position: what the planner had sent (the card is at most the queued blocks behind)
@@ -342,9 +374,14 @@
       return { x: p.x + o.x / u.x, y: p.y + o.y / u.y, z: p.z + o.z / u.z };
     }
 
+    // A loop already waiting on the card when the poll is stopped or restarted must not carry on
+    // (review A6: it rescheduled itself after disconnect, and routerTest stacked a second loop)
+    stopPoll() { clearTimeout(this.timer); this.pollGen = (this.pollGen || 0) + 1; }
     poll() {
-      clearTimeout(this.timer);
+      this.stopPoll();
+      const gen = this.pollGen;
       const loop = async () => {
+        if (gen !== this.pollGen) return;
         if (this.estopPending && this.link && !this.busy() && !this.state.moving) { this.estopped(); return; }
         // the router on by hand and the e-stop pressed: off at once, then swarf lets go
         if (this.routerTesting && this.state.inputs && !this.stopClear()) {
@@ -356,6 +393,7 @@
         const paused = this.state.running && this.state.paused && !this.state.moving;
         if (this.card && !this.card.streaming && (!this.state.running || paused) && !this.testing && !this.homing) {
           try { this.read(await this.card.status()); } catch (e) { /* busy or gone; onClose reports loss */ }
+          if (gen !== this.pollGen) return;
           // the e-stop pressed at rest or during a pause is the same stop as during a move: outputs
           // off and let go; a paused job is over (torture test 10-29: a pause hid it, and resume ran on)
           if (this.link && this.state.inputs && !this.stopClear() && !this.estopping) {
