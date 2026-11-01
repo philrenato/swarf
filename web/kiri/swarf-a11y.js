@@ -1,11 +1,7 @@
 /*
- * swarf accessibility layer — self-contained, bolts onto existing markup
- * without touching Kiri's own modal/progress/toggle code. Pattern borrowed
- * from Rendre's rendre.html a11y pass (dialogA11y/liveProgressA11y/
- * progressBarA11y/segGroupAria) and adapted to swarf's actual DOM:
- * Kiri's modal system toggles inline style.display on .mdialog elements
- * (see src/kiri/app/modal.js) rather than an "on" class, and swarf's
- * sim-bar toggles use .swarf-toggle-on/-off rather than Rendre's .act/.ptog.
+ * swarf accessibility layer, bolted onto existing markup: dialog roles and focus trap (Kiri's
+ * modal.js flips style.display on .mdialog), live progress text, aria-pressed on the sim-bar
+ * toggles, and the cam panels made inert while DRAW or TEX is open.
  */
 (function dialogA11y() {
     const FOCUSABLE = 'a[href],button:not([disabled]),input:not([disabled]),select:not([disabled]),textarea:not([disabled]),[tabindex]:not([tabindex="-1"])';
@@ -76,9 +72,8 @@
     live('progtxt');
 })();
 
-/* sim-bar toggles (chips / paths / lightstreams) expose their on/off state
-   as aria-pressed, not just the swarf-toggle-on/-off class. Synced from one
-   delegated click listener so any toggle added later is covered for free. */
+/* sim-bar toggles (chips, lightstreams, machine, bed slides) expose their on/off state as
+   aria-pressed, not just the swarf-toggle-on/-off class. */
 (function toggleAria() {
     const sync = b => b.setAttribute('aria-pressed', b.classList.contains('swarf-toggle-on') ? 'true' : 'false');
     document.querySelectorAll('.swarf-toggle').forEach(sync);
@@ -86,9 +81,10 @@
         const b = e.target.closest('.swarf-toggle');
         if (b) sync(b);
     });
-    // toggles are (re)built after simulate/toolpaths view transitions — catch those too
+    // every toggle lives in the simulate bar: watch it (not the whole body, which mutates per frame
+    // in simulate) for toggles added and for classes flipped in code (review r093 B3)
     new MutationObserver(() => document.querySelectorAll('.swarf-toggle').forEach(sync))
-        .observe(document.body, { childList: true, subtree: true });
+        .observe(document.getElementById('layer-animate') || document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ['class'] });
 })();
 
 /* review 10-30 F7: with DRAW or TEX open, cam's panels sit behind the board; Tab from the board's
