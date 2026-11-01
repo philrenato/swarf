@@ -1676,6 +1676,77 @@ export function markTexture(mark, o = {}) {
   return placeTexture(tex, A);
 }
 
+// ---------------------------------------------------------------------------------------------
+// The TEX recipe (v1): a mark's texture as a file another app can draw (Phil 11-01: Unreason first).
+// The pattern, its numbers, the turn and scale, the shaping and the region, in the mark's own mm;
+// how it is cut (bit, path, finish) apart, for readers that cut. `check` carries 64 depths and the
+// stroke and dot counts, so a reader can say whether it draws what swarf draws, never "close".
+// A pattern whose meaning changes gets a new number in PATTERN_VERSIONS; a reader refuses one it
+// does not know rather than half-read it.
+export const RECIPE_FORMAT = 'tex-recipe', RECIPE_VERSION = 1, RECIPE_CORE = 'swarf-tex-core 093';
+export const PATTERN_VERSIONS = Object.fromEntries(Object.keys(PATTERNS).map((k) => [k, 1]));
+export function recipeOf(mark) {
+  const f = mark && mark.fill;
+  if (!f || f.fill !== 'texture' || !PATTERNS[f.pattern]) return null;
+  const region = storeRegion(regionSpec(mark.region));
+  const r = {
+    format: RECIPE_FORMAT, version: RECIPE_VERSION, core: RECIPE_CORE,
+    pattern: f.pattern, patternVersion: PATTERN_VERSIONS[f.pattern],
+    params: { ...defaults(f.pattern), ...(f.params || {}), depth: f.depth },
+    transform: { angle: f.angle || 0, scale: f.scale || 1, origin: (f.origin || [0, 0]).slice() },
+    shape: { relief: f.relief === 'up' ? 'up' : 'in', floor: +f.floor || 0, fade: +f.fade || 0, curve: f.curve || 'smooth', grit: +f.grit || 0,
+      border: f.border && f.border.style && f.border.style !== 'none' ? { ...borderDefaults(), ...f.border } : null },
+    region: { frame: 'plane-mm', ...region },
+    making: { tool: f.tool, bit: f.bit || null, path: f.path || 'auto', finish: f.finish || 'standard' },
+  };
+  r.check = checkOf(r);
+  return r;
+}
+// the fill a recipe stands for (and back into a mark, in its own frame)
+export function fillOfRecipe(r) {
+  const s = r.shape || {};
+  return {
+    fill: 'texture', pattern: r.pattern, params: { ...r.params }, depth: r.params.depth, angle: r.transform.angle, scale: r.transform.scale,
+    origin: r.transform.origin.slice(), fade: s.fade || 0, curve: s.curve || 'smooth', relief: s.relief, floor: s.floor || 0, grit: s.grit || 0,
+    border: s.border ? { ...s.border } : undefined, tool: r.making && r.making.tool, bit: r.making && r.making.bit || undefined,
+    path: (r.making && r.making.path) || 'auto', finish: (r.making && r.making.finish) || 'standard',
+  };
+}
+export function textureOfRecipe(r) {
+  const why = recipeRefusal(r);
+  if (why) throw new Error(why);
+  const { frame, ...region } = r.region;
+  return markTexture({ region, xf: IDENTITY.slice(), fill: fillOfRecipe(r) });
+}
+// why a recipe cannot be read here, or null
+export function recipeRefusal(r) {
+  if (!r || r.format !== RECIPE_FORMAT) return 'not a TEX recipe';
+  if (r.version !== RECIPE_VERSION) return `TEX recipe version ${r.version}; this reads version ${RECIPE_VERSION}`;
+  if (!PATTERNS[r.pattern]) return `the pattern "${r.pattern}" is not one this core draws`;
+  if (r.patternVersion !== PATTERN_VERSIONS[r.pattern]) return `${PATTERNS[r.pattern].label} version ${r.patternVersion}; this core draws version ${PATTERN_VERSIONS[r.pattern]}`;
+  return null;
+}
+// 64 depths on an 8 x 8 grid over the region's box (cell middles), and the stroke and dot counts
+export function checkOf(r) {
+  const tex = textureOfRecipe(r);
+  if (!tex) return { grid: [], strokes: 0, dots: 0, tol: 1e-6 };
+  const b = tex.bbox, grid = [];
+  for (let j = 0; j < 8; j++) for (let i = 0; i < 8; i++) {
+    const x = b.x0 + (i + 0.5) * (b.x1 - b.x0) / 8, y = b.y0 + (j + 0.5) * (b.y1 - b.y0) / 8;
+    grid.push([+x.toFixed(6), +y.toFixed(6), +tex.h(x, y).toFixed(9)]);
+  }
+  return { grid, strokes: tex.kind === 'strokes' ? tex.strokes().length : 0, dots: tex.kind === 'dots' ? tex.dots().length : 0, tol: 1e-6 };
+}
+// a reader's own depths h(x, y) against the recipe's check: { ok, off, worst, said }
+export function verifyRecipe(r, h, counts = {}) {
+  const c = r.check || { grid: [] }, tol = c.tol || 1e-6;
+  let off = 0, worst = 0;
+  for (const [x, y, z] of c.grid) { const e = Math.abs(h(x, y) - z); if (e > tol) off++; worst = Math.max(worst, e); }
+  const cnt = (counts.strokes != null && counts.strokes !== c.strokes) || (counts.dots != null && counts.dots !== c.dots);
+  const ok = !off && !cnt;
+  return { ok, off, worst, said: ok ? `matches ${r.core}` : `this reader draws a different texture: ${off} of ${c.grid.length} samples off by up to ${+worst.toFixed(3)} mm${cnt ? ', and its strokes or dots count differently' : ''}` };
+}
+
 // the fill's shaping in the mark's frame (lengths over the mark's scale s; depths stay)
 export function fillShape(f, s = 1) {
   const b = f.border && f.border.style && f.border.style !== 'none' ? { ...borderDefaults(), ...f.border } : null;
@@ -2669,6 +2740,7 @@ const API = {
   markChecks, BASIC, shadeHeight, SWATCH_SPAN, swatch,
   clipToPart, edgeDistance, insideReach, controlsFor, splineAt, sampleCurve, paintLoops, fitCurves, curvesCross, rewriteFromCurves, nearestOnCurves,
   partMesh, partMeshSize, autoMeshRes, meshCheck, meshNormals, meshSTL, meshOBJ, meshGLB,
+  RECIPE_FORMAT, RECIPE_VERSION, RECIPE_CORE, PATTERN_VERSIONS, recipeOf, fillOfRecipe, textureOfRecipe, recipeRefusal, checkOf, verifyRecipe,
   CURVES, CURVE_WORDS, BORDERS, BORDER_WORDS, borderDefaults, isoLines, alongLines, fillShape,
   roundProse, PIERCES, SKIN_STRAIN, defaultSkin, kerfCount, pierceDefaults, newPierce, fillTool, kerfPitch, pierceCuts, pierceToolpath, pierceChecks, pierceSVG,
 };

@@ -549,5 +549,23 @@ for (const [id, P] of Object.entries(T.PATTERNS)) {
   ok(tp.strategy === 'raster' && lo < -2.9 && lo > -3.01, `a shaped mark rasters (${tp.strategy}) to the border's 3 mm (lowest ${lo.toFixed(2)})`);
 }
 
+// 42. the TEX recipe (Phil 11-01: textures out to Unreason): a mark's recipe survives JSON, draws the same
+//     texture from the file alone, its check matches this core, a changed number is caught by the check,
+//     and an unknown pattern version is refused by name
+{
+  const g = T.newGrid(0, 0, 100, 60, 0.5); T.paintWhere(g, (x, y) => x > 5 && x < 95 && y > 5 && y < 55, 1);
+  const mark = { id: 'r', region: T.storeRegion(g), xf: T.IDENTITY.slice(), fill: T.newFill('ribs', { angle: 20, fade: 4, relief: 'up', border: { style: 'bead', width: 5, depth: 1.5 } }) };
+  const r = JSON.parse(JSON.stringify(T.recipeOf(mark)));
+  ok(r.format === 'tex-recipe' && r.version === 1 && r.check.grid.length === 64 && r.check.grid.some((s) => s[2] > 0.1) && r.making.finish === 'standard', `a recipe with 64 check depths (deepest ${Math.max(...r.check.grid.map((s) => s[2])).toFixed(3)} mm)`);
+  const a = T.markTexture(mark), b = T.textureOfRecipe(r);
+  let same = true; for (let x = 0; x <= 100; x += 1.7) for (let y = 0; y <= 60; y += 2.3) if (Math.abs(a.h(x, y) - b.h(x, y)) > 1e-12) same = false;
+  ok(same, 'the recipe alone draws the mark\'s texture, everywhere');
+  ok(T.verifyRecipe(r, b.h).ok && /matches swarf-tex-core/.test(T.verifyRecipe(r, b.h).said), 'its own check matches');
+  const r2 = JSON.parse(JSON.stringify(r)); r2.params.pitch = 9;
+  const v = T.verifyRecipe(r, T.textureOfRecipe(r2).h);
+  ok(!v.ok && v.off > 10, `a reader with another spacing is caught: ${v.said}`);
+  ok(/version 7/.test(T.recipeRefusal({ ...r, patternVersion: 7 })) && /not one this core draws/.test(T.recipeRefusal({ ...r, pattern: 'plaid' })), 'an unknown pattern version or pattern is refused by name');
+}
+
 console.log(`\n${pass} passed, ${fail} failed  (${((Date.now() - t0) / 1000).toFixed(1)} s)`);
 process.exit(fail ? 1 : 0);
