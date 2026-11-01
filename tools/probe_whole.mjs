@@ -79,9 +79,9 @@ for (const [W, H] of SIZES) for (const skin of ['glass', 'classic', 'swarf']) {
       const s = document.getElementById('swarf-autotabs-say'), b = document.getElementById('swarf-autotabs-go');
       const sr = s && s.getBoundingClientRect(), br = b && b.getBoundingClientRect();
       const more = rail.scrollHeight - rail.clientHeight - rail.scrollTop > 6;
-      return { text: s ? s.textContent.slice(0, 60) : '', say: sr && [Math.round(sr.top), Math.round(sr.bottom)], btn: br && Math.round(br.bottom), rail: [Math.round(rr.top), Math.round(rr.bottom)], seen: !!sr && sr.height > 4 && sr.top >= rr.top - 1 && sr.bottom <= rr.bottom + 1 && sr.bottom <= innerHeight, under: !!sr && !!br && sr.top >= br.bottom - 1 && sr.top - br.bottom < 16, more, cue: rail.classList.contains('swarf-more') && /more below/.test(getComputedStyle(rail, '::after').content) };
+      return { text: s ? s.textContent.slice(0, 60) : '', say: sr && [Math.round(sr.top), Math.round(sr.bottom)], btn: br && Math.round(br.bottom), rail: [Math.round(rr.top), Math.round(rr.bottom)], seen: !!sr && sr.height > 4 && sr.top >= rr.top - 1 && sr.bottom <= rr.bottom + 1 && sr.bottom <= innerHeight, under: !!sr && !!br && sr.top >= br.bottom - 1 && sr.top - br.bottom < 110 && (() => { const f = document.querySelector('.swarf-autotabs-fields'); return !f || sr.bottom <= f.getBoundingClientRect().top + 1; })(), more, cue: rail.classList.contains('swarf-more') && /more below/.test(getComputedStyle(rail, '::after').content) };
     });
-    check(go && at.seen && at.under && /tab/.test(at.text), `${tag}: the auto tabs sentence is in sight right under its button (${JSON.stringify(at)})`);
+    check(go && at.seen && at.under && /tab/.test(at.text), `${tag}: the auto tabs sentence is in sight under its button and sliders, above the fields (${JSON.stringify(at)})`);
     check(at.more === at.cue, `${tag}: the rail shows "more below" exactly when it runs past its foot (more ${at.more}, cue ${at.cue})`);
     if (skin === 'glass') {
       await toolpaths(page);

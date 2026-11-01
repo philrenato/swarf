@@ -2264,7 +2264,8 @@ html:not([data-skin]) #swarf-run .sr-keyrow button.sr-router.on small { color: #
 .swarf-autotabs-slider .name { width: 62px; flex: none; }
 .swarf-autotabs-slider .end { flex: none; font-size: 11px; opacity: 0.8; }
 .swarf-autotabs-slider input[type=range] { flex: 1; min-width: 60px; accent-color: var(--swarf-accent); }
-.swarf-autotabs-say { line-height: 1.35; min-height: 1em; }
+/* room for its usual three lines, so the fields under it hold still as the sliders change it (Phil 11-01) */
+.swarf-autotabs-say { line-height: 1.35; min-height: 4.05em; flex-shrink: 0; }
 .swarf-autotabs-say:empty { display: none; }
 /* auto tabs' fields: every attribute, empty = automatic (grey), typed = pinned */
 .swarf-autotabs, .swarf-autotabs * { text-transform: none !important; }
@@ -2340,7 +2341,11 @@ html[data-skin] #swarf-draw svg .sd-part.sd-regsrc, #swarf-draw svg .sd-part.sd-
 #swarf-draw.sd-tex .sd-card .tx-parthead { flex-wrap: nowrap; gap: 4px; }
 #swarf-draw.sd-tex .sd-card .tx-parthead > .sd-h { flex: 1 1 auto; min-width: 0; margin: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 #swarf-draw.sd-tex .sd-card .tx-parthead button { flex: none; }
-#swarf-draw.sd-tex .tx-swhint { min-height: 2.9em; margin: 0 0 2px; }
+/* two lines, always (hovering a swatch changes the words, never the card's height) */
+#swarf-draw.sd-tex .tx-swhint { height: 2.9em; flex-shrink: 0; margin: 0 0 2px; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+/* the time line: one line, so a long message never pushes the rows below it */
+#swarf-draw.sd-tex .tx-status { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex-shrink: 0; }
+#swarf-draw.sd-tex .tx-status .tx-warn { border: 0 !important; padding: 0 !important; margin: 0 !important; display: inline; }
 #swarf-draw.sd-tex .tx-makes { gap: 4px; flex-wrap: nowrap; }
 #swarf-draw.sd-tex .tx-more { margin-top: 6px; }
 #swarf-draw.sd-tex .tx-more > summary { cursor: pointer; font-size: 12px; font-weight: 600; margin: 6px 0; }

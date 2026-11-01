@@ -659,7 +659,7 @@
     };
     // a slider for a field (its id), as paramRow's
     const sl = (id, min, max, step, v, word = '') => `<input type="range" class="sd-slide" data-for="${id}" min="${min}" max="${max}" step="${step}" value="${Math.min(max, Math.max(min, +v || 0))}"${word ? ` aria-label="${esc(word)}"` : ''}>`;
-    let h = '';
+    let h = '', warns = '';
     if (!part) {
       h += `<div class="sd-note">${S.parts.length ? 'Click a part to mark it.' : 'No parts on the bed yet.'}</div>`;
     } else {
@@ -722,13 +722,17 @@
       if (!compact) h += selRow('pattern', 'tx-pat', Object.entries(C.PATTERNS).map(([k, p]) => [k, p.label]), f.pattern, P.blurb);
       // what it costs and what to watch for, up by the pattern where it is seen
       const tex = m.info && m.info.ver === m.ver ? m.info : null;
-      if (!tex) h += '<div class="sd-note">Working out the cut…</div>';
-      else {
+      // one line up here, always one line: the time, or that it is being worked out. What to watch for goes
+      // below the controls (Phil 11-01: "make sure that the UI doesn't jump around when sliders etc are
+      // moved": a warning that came and went above them moved every row 35 px under the pointer)
+      warns = '';
+      if (tex) {
         // nothing fits (a mark narrower than the bit): say why, never "About 0 s" (deep review S7)
-        h += tex.seconds > 0.5 ? `<div class="sd-note">About ${C.formatTime(tex.seconds)} to cut.</div>`
-          : `<div class="sd-note tx-warn">Nothing to cut: the mark is too narrow for the ${esc(bitName(f))}. Paint it wider, or pick a smaller bit.</div>`;
-        for (const w of tex.warnings) h += `<div class="sd-note tx-warn">${esc(w)}</div>`;
+        if (!(tex.seconds > 0.5)) warns += `<div class="sd-note tx-warn">Nothing to cut: the mark is too narrow for the ${esc(bitName(f))}. Paint it wider, or pick a smaller bit.</div>`;
+        for (const w of tex.warnings) warns += `<div class="sd-note tx-warn">${esc(w)}</div>`;
       }
+      const nw = tex ? tex.warnings.length + (tex.seconds > 0.5 ? 0 : 1) : 0;
+      h += `<div class="sd-note tx-status">${!tex ? 'Working out the cut…' : tex.seconds > 0.5 ? `About ${C.formatTime(tex.seconds)} to cut.` : 'Nothing to cut yet.'}${nw ? ` <span class="tx-warn">${nw === 1 ? 'A note' : `${nw} notes`} below.</span>` : ''}</div>`;
       for (const q of P.params) if (q.basic) h += paramRow(q, pr[q.k]);
       h += lenRow('depth', 'tx-depth', f.depth, 'the deepest the texture goes below the part\'s top', sl('tx-depth', 0.2, 6, 0.1, f.depth));
       h += lenRow('soft edge', 'tx-fade', f.fade || 0, 'how far in from the mark\'s edge the texture takes to reach its full depth', sl('tx-fade', 0, 20, 0.5, f.fade || 0));
@@ -760,8 +764,12 @@
       const ok = { auto: true, raster: true, crosshatch: true, plunge: kind === 'dots', centerline: kind === 'strokes' };
       const pathRow = selRow('path', 'tx-path', Object.entries(PATHS).filter(([k]) => ok[k]).map(([k, t]) => [k, k === 'auto' && tex ? `${t}: ${PATHS[tex.strategy]}` : t]), ok[f.path] ? f.path : 'auto', 'how the bit goes over it: best picks one plunge per dot when the bit can make the dots, a V-bit along each groove, else raster');
       // how finely the raster goes: smooth to bold ridges (Phil 11-01: finer and coarser, the passes showing on purpose)
-      const rasters = !tex || tex.strategy === 'raster' || tex.strategy === 'crosshatch';
-      const finRow = rasters ? selRow('finish', 'tx-finish', Object.entries(C.FINISH_WORDS), f.finish || 'standard', 'how close the passes run: smoother takes longer; ridged and bold leave the passes showing as part of the look') : '';
+      // while the cut is worked out, the last path known decides, so the finish row neither comes nor goes
+      const strat = tex ? tex.strategy : m.lastStrategy;
+      const rasters = !strat || strat === 'raster' || strat === 'crosshatch';
+      const finRow0 = selRow('finish', 'tx-finish', Object.entries(C.FINISH_WORDS), f.finish || 'standard', 'how close the passes run: smoother takes longer; ridged and bold leave the passes showing as part of the look');
+      // always there (a row that came with a raster path moved every row under it): idle off a raster
+      const finRow = rasters ? finRow0 : finRow0.replace('<select id="tx-finish"', '<select id="tx-finish" disabled title="finish sets how close a raster\'s passes run; this path follows the lines"');
       if (!compact) h += pathRow + finRow;
       // the pattern's finer points: folded, open in advanced mode
       const more = S.more ?? document.body.classList.contains('swarf-expert');
@@ -782,6 +790,8 @@
         <div class="sd-note">About ${(size.triangles / 1000).toFixed(0)} thousand triangles, ${(size.triangles * 50 / 1e6).toFixed(1)} MB as STL.</div>
         <div class="sd-row"><button id="tx-mesh-save" title="the part as a mesh with its marks, for rendering">save the part</button></div></details>`;
     }
+    // what to watch for, at the card's end, so its coming and going moves no control (Phil 11-01)
+    if (m && m.fill.fill !== 'pierce') h += warns;
     ui.card.innerHTML = h;
     ui.card.scrollTop = keepTop;
     scrollCue();
@@ -981,7 +991,7 @@
       info(p, m).then(r => {
         m.asking = 0;
         if (!S || !r || r.ver !== m.ver) return;
-        m.info = r; m.est = r.seconds;
+        m.info = r; m.est = r.seconds; m.lastStrategy = r.strategy;
         if (!S.drag) render();
       }).catch(e => { m.asking = 0; console.warn('swarf tex', e); });
     }, 250);

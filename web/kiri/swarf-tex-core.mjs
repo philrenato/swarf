@@ -554,7 +554,7 @@ export const PATTERNS = {
     },
   },
   blob: {
-    label: 'blobtex', blurb: 'Circles of every size that melt into each other, puffed in or out by how wide they are.',
+    label: 'blobtex', blurb: 'Circles of every size melting together, puffed in or out.',
     params: [P('size', 'Blob size', 3, 40, 0.5, 10), P('variety', 'Size variety', 0, 1, 0.05, 0.6, ''), P('density', 'Density', 10, 100, 5, 60, '%'),
       P('merge', 'Merge', 0, 1, 0.05, 0.5, ''), S('puff', 'Puff', ['dish', 'pillow'], 'dish'), P('span', 'Puff span', 1, 30, 0.5, 8),
       S('shape', 'Puff shape', ['round', 'dome', 'soft'], 'round'), P('depth', 'Depth', 0.2, 6, 0.1, 2), P('seed', 'Seed', 1, 99, 1, 3, '')],
@@ -697,7 +697,7 @@ export const PATTERNS = {
     },
   },
   memphis: {
-    label: 'memphis', blurb: 'Squiggles, zigzags, triangles and rings tossed across the top, like an 80s print.',
+    label: 'memphis', blurb: 'Squiggles, zigzags, triangles and rings, like an 80s print.',
     params: [S('mix', 'Mix', ['everything', 'squiggles', 'shapes', 'confetti'], 'everything'), P('size', 'Glyph size', 6, 60, 0.5, 16),
       P('density', 'Density', 10, 100, 5, 100, '%'), P('spacing', 'Spacing', 8, 80, 0.5, 22), P('width', 'Line width', 0.8, 8, 0.1, 2.4), P('depth', 'Depth', 0.2, 5, 0.1, 1.4),
       S('fill', 'Shapes', ['outline', 'solid'], 'outline'), P('turn', 'Tumble', 0, 1, 0.05, 1, ''), P('scatter', 'Scatter', 0, 0.45, 0.01, 0.3, ''), S('profile', 'Profile', PROFILES, 'cone'), P('seed', 'Seed', 1, 99, 1, 8, '')],
@@ -752,7 +752,7 @@ export const PATTERNS = {
     },
   },
   quilt: {
-    label: 'quilted', blurb: 'Puffed cells between stitched seams: diamond, square, honeycomb or channel.',
+    label: 'quilted', blurb: 'Puffed cells between stitched seams.',
     params: [S('style', 'Quilting', ['diamond', 'square', 'honeycomb', 'channel'], 'diamond'), P('size', 'Cell size', 10, 80, 0.5, 32),
       P('depth', 'Depth', 0.3, 6, 0.1, 2.4), P('puff', 'Puff', 0, 1, 0.05, 0.7, ''), P('seam', 'Seam width', 0.8, 8, 0.1, 2),
       S('stitch', 'Stitches', ['line', 'dashes'], 'line'), P('stitchLen', 'Stitch length', 2, 20, 0.5, 6), P('angle', 'Diamond angle', 30, 90, 1, 60, '°')],
