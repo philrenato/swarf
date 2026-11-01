@@ -2655,7 +2655,6 @@ export function partMesh(o) {
     }
   }
   const Y = [...ys].sort((p, q) => p - q).filter((y, i, a) => i === 0 || y - a[i - 1] > 1e-7);
-  const isGrid = (y) => Math.abs((y - gy0) / res - Math.round((y - gy0) / res)) < 1e-6;
   // ── each strip's trapezoids: between consecutive separators where material is ──
   slanted.sort((p, q) => p.y0 - q.y0);
   const strips = [];

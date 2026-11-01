@@ -16,7 +16,6 @@ const require = createRequire(import.meta.url);
 const JSZip = require('jszip');
 const F = require('../web/kiri/swarf-file.js');
 const PAGE = process.argv[2] || 'http://localhost:8080/kiri/';
-const OUT = process.env.OUT || '/tmp/swarf-file';
 const wait = ms => new Promise(r => setTimeout(r, ms));
 const bad = [], errors = [];
 const check = (ok, what) => { console.log(ok ? 'ok  ' : 'FAIL', what); if (!ok) bad.push(what); };
