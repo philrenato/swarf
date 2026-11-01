@@ -83,6 +83,11 @@
     <script>
     (async () => {
         if (!('serviceWorker' in navigator)) return;
+        try {
+            const h = sessionStorage.getItem('swarf-coi-hash');
+            sessionStorage.removeItem('swarf-coi-hash');
+            if (h && !location.hash) history.replaceState(history.state, '', location.pathname + location.search + h);
+        } catch (e) { }
         const need = window.crossOriginIsolated === false;
         const r = await navigator.serviceWorker.register('swarf-sw.js');
         // a hard reload (⌘⇧R) loads the page past the worker while the worker still answers as
@@ -97,7 +102,10 @@
             } catch (e) { return !navigator.serviceWorker.controller; }
         };
         if (need && r.active && again()) {
-            window.location.reload();
+            // a fresh load, not reload(): Chrome carries a hard reload's bypass into reload(). The
+            // same address with its #hash would only scroll, so the hash waits in sessionStorage
+            try { if (location.hash) sessionStorage.setItem('swarf-coi-hash', location.hash); } catch (e) { }
+            location.replace(location.pathname + location.search);
         } else if (need && !r.active) {
             await new Promise(resolve => {
                 (r.installing || r.waiting).addEventListener('statechange', e => {
