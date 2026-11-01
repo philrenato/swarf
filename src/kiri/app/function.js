@@ -508,9 +508,7 @@ function preparePreview(callback, scale = 1, offset = 0) {
  */
 function prepareAnimation() {
     if (!window.SharedArrayBuffer) {
-        api.alerts.show("The security context of this");
-        api.alerts.show("window prevents animations.");
-        api.alerts.show("Try a Chromium-based browser");
+        api.alerts.show("Simulate can't run in this window: it can't share memory with swarf's helpers. A private window can do this: open swarf in a normal window, or reload.", 10);
         return;
     }
     api.event.emit("function.animate", {mode: api.conf.get().mode});

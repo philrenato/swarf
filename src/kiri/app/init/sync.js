@@ -140,10 +140,11 @@ export async function init_sync() {
     // swarf: no cookie banner (swarf sets no cookies; the markup is gone)
 
     // warn of degraded functionality when SharedArrayBuffers are missing
-    if (api.feature.work_alerts && !window.SharedArrayBuffer) {
-        api.alerts.show("The security context of this", 10);
-        api.alerts.show("Window blocks important functionality.", 10);
-        api.alerts.show("Try a Chromium-base Browser instead", 10);
+    // swarf: one plain sentence, and none on a first visit, whose one reload (swarf-sw.js, index.html)
+    // brings the shared memory (live 086 in Firefox: three broken lines flashed before that reload)
+    const swReload = 'serviceWorker' in navigator && !navigator.serviceWorker.controller;
+    if (api.feature.work_alerts && !window.SharedArrayBuffer && !swReload) {
+        api.alerts.show("This window can't share memory with swarf's helpers, so simulate and some steps won't run. A private window can do this: open swarf in a normal window, or reload.", 12);
     }
 
     // add keyboard focus handler (must use for iframes)

@@ -386,7 +386,7 @@
       if (!f.workspace || !f.workspace.settings) { say(`${name} has no parts or settings in it: swarf could not open it.`, 8); return false; }
       return confirmReplace(name).then(go => go ? restore(f, name, chk) : false);
     // a zip library's words (and its web link) mean nothing to a student: the file is not a project
-    }).catch(e => { console.warn('swarf open', name, e); say(/zip|central directory|signature/i.test(e.message || '') ? `swarf could not open ${name}: it is not a swarf project file.` : `swarf could not open ${name}: ${e.message}`, 8); return false; })
+    }).catch(e => { console.warn('swarf open', name, e); say(/central directory|is this a zip|corrupted zip|signature/i.test(e.message || '') ? `swarf could not open ${name}: it is not a swarf project file.` : `swarf could not open ${name}: ${e.message}`, 8); return false; })
       .finally(() => { busy = false; });
   }
 
