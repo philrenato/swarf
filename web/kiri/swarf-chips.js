@@ -12,8 +12,7 @@
  *     unbounded over a long simulation)
  *   - Variety comes from four geometry flavors (curl, flake, coil, dot)
  *     sharing one InstancedMesh each for fast GPU submission
- *   - Chips only spawn while the tool is actually cutting (not during rapids),
- *     approximated as "XY motion AND Z near or below stock top"
+ *   - Chips spawn while simulating and the tool moves in XY
  *
  * Not physics-accurate. Reads as "the machine is throwing chips."
  */
@@ -29,11 +28,7 @@
     return;
   }
 
-  // swarf v010: cut caps ~40% — Phil reported Chrome at ~40% CPU, chip physics
-  // was the biggest per-frame cost. Visual density barely changes.
-  // r15: bump airborne cap + gravity + drag so we can spawn more chips that
-  // stay closer to the tool (see spawn rate + velocity tweaks below).
-  // r15b: Phil asked to double chip count + speed again. Cap doubled.
+  // r15b: Phil asked for more chips, closer to the tool; the caps bound the per-frame cost
   const AIRBORNE_MAX = 440;
   const SETTLED_MAX  = 900;
   const GRAVITY      = 260;   // mm/s² (Three.js mm units)
@@ -200,11 +195,8 @@
       for (const p of settled)  p.visible = v || p.count > 0;
     };
 
-    // active airborne chip records per flavor (one array per pool so swap-
-    // remove stays within a single pool's slot-space — previous global
-    // `chips[]` array was swap-removing across flavors and corrupting the
-    // instance-slot bookkeeping, which meant chips either didn't render or
-    // stuck at phantom positions).
+    // active airborne chip records, one array per flavor so a swap-remove stays inside one
+    // pool's instance slots
     const chips = flavors.map(() => []); // chips[flavor][i] = {slot,pos,vel,...}
     const settledSlots = flavors.map(() => 0);
     const settledCount = flavors.map(() => 0);
@@ -214,7 +206,6 @@
     let lastToolPos = null;
     let lastToolTime = 0;
     let toolVel = { x: 0, y: 0, z: 0 };
-    let stockTopZ = 0; // updated on cam.stock events if available
     let simulating = false;
 
     function pickFlavor() {
@@ -245,8 +236,7 @@
       const theta = Math.random() * Math.PI * 2;
       // angular velocity → linear tangent velocity at perimeter
       const omega = (SPIN_RPM * Math.PI * 2) / 60; // rad/s
-      // r15: halved throw velocity so chips pile near the cutter instead of
-      // flinging across the platform.
+      // low throw so chips pile near the cutter (r15)
       const tanMag = omega * TOOL_R * 0.002;
       // tangent direction in XY plane
       const tx = -Math.sin(theta) * tanMag;
@@ -460,8 +450,7 @@
       const api = window.kiri && window.kiri.api;
       if (!api || !api.event) return false;
 
-      let firstSpawnLogged = false;
-      api.event.on('swarf.tool.move', ({ id, pos }) => {
+      api.event.on('swarf.tool.move', ({ pos }) => {
         ensureTickRunning();
         const t = performance.now() / 1000;
         if (lastToolPos) {
@@ -473,23 +462,14 @@
         lastToolPos = { x: pos.x, y: pos.y, z: pos.z };
         lastToolTime = t;
 
-        // r6: forgiving spawn gate — simulate + XY motion. Earlier we also
-        // required Z near stock top, but that silently killed spawning when
-        // the part origin wasn't at top, making chips look "broken".
+        // simulate + XY motion only: a Z test failed when the part origin was not at its top (r6)
         const moving = Math.hypot(toolVel.x, toolVel.y) > 0.2;
-        // r15: Phil asked for more chips, closer to the tool. Spawn 1-2 per
-        // hook fire (100% chance of 1, 70% chance of a second) — the shorter
-        // throw distances below keep the visual busy near the cutter.
-        // r15b: doubled again — 2 guaranteed + 70% for a 3rd + 40% for a 4th
-        // (avg ~3.1 per event, vs. prior ~1.7). Throw velocities unchanged.
+        // about three chips per move (r15b, Phil: more chips)
         if (simulating && moving) {
           spawnChip(pos);
           spawnChip(pos);
           if (Math.random() < 0.7) spawnChip(pos);
           if (Math.random() < 0.4) spawnChip(pos);
-          if (!firstSpawnLogged) {
-            firstSpawnLogged = true;
-          }
         }
       });
 
