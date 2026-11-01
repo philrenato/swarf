@@ -273,9 +273,9 @@
     if (!window.THREE) return null;
     const key = name + '@' + (repeat || 2) + ':N';
     if (_normalCache[key]) return _normalCache[key];
-    const make = TEXMAP[name];
-    if (!make) return null;
-    const src = make();
+    // the color map's own canvas: a second make() is another random texture (review r093 A12)
+    const src = (getTexture(name, repeat) || {}).image;
+    if (!src) return null;
     const w = src.width, h = src.height;
     const sctx = src.getContext('2d');
     const data = sctx.getImageData(0, 0, w, h).data;
@@ -773,7 +773,7 @@
         machines = data.machines || {};
         defaultId = data.default;
         if (!materials.length) return;
-        const stored = localStorage.getItem(STORAGE_KEY);
+        let stored = null; try { stored = localStorage.getItem(STORAGE_KEY); } catch (e) { /* storage blocked */ }
         // `default` is declared in the JSON so the dropdown can be ordered
         // for reading (hardest first) without that order deciding what a
         // first-time student lands on.
@@ -797,10 +797,7 @@
             try { window.kiri.api.event.on('slice.end', () => setTimeout(applyToStock, 30)); } catch (e) {}
             try { window.kiri.api.event.on('view.set',  () => setTimeout(applyToStock, 30)); } catch (e) {}
             try { window.kiri.api.event.on('animate',   () => setTimeout(applyToStock, 30)); } catch (e) {}
-            // swarf v010 r3: Kiri's platform.js overrides widget.mesh.material.color
-            // on hover/select/disable. Re-apply our appearance after any
-            // selection state change so materials can't drift to stale colors.
-            try { window.kiri.api.event.on('selection.*',      () => setTimeout(applyToStock, 10)); } catch (e) {}
+            // Kiri's platform.js recolors a part on select: put the material back after
             try { window.kiri.api.event.on('widget.select',    () => setTimeout(applyToStock, 10)); } catch (e) {}
             try { window.kiri.api.event.on('widget.deselect',  () => setTimeout(applyToStock, 10)); } catch (e) {}
             // the list depends on the machine (no metals on the ShopBot)

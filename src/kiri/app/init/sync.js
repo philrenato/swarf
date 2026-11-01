@@ -650,12 +650,13 @@ function setup_keybd_nav() {
             const item = document.getElementById('swarf-expert-toggle');
             if (item) item.classList.toggle('selected', !!on);
         };
-        apply(localStorage.getItem(key) === '1');
+        let was = null; try { was = localStorage.getItem(key); } catch (e) { /* storage blocked */ }
+        apply(was === '1');
         const tog = $('swarf-expert-toggle');
         if (tog) tog.onclick = (ev) => {
             ev.stopPropagation();
             const next = document.body.classList.contains('swarf-expert') ? 0 : 1;
-            localStorage.setItem(key, String(next));
+            try { localStorage.setItem(key, String(next)); } catch (e) { /* storage blocked */ }
             apply(next);
         };
     })();

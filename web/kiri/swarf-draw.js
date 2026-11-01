@@ -241,7 +241,7 @@
     ui.svg.focus();
   }
 
-  const hush = e => e.stopPropagation();
+  const hush = e => { if (!/^(INPUT|SELECT|TEXTAREA)$/.test(e.target && e.target.tagName)) e.stopPropagation(); };   // a prompt's Enter still lands (review r093 A3)
   function close(apply) {
     if (!S) return;
     if (apply && S.tool === 'regions') applyRegions();
@@ -351,7 +351,7 @@
       const x = 20, y = (r.height || window.innerHeight) - 46;
       out.push(`<path class="sd-scale" d="M${x},${y - 4}V${y}H${x + len * k}V${y - 4}"/><text class="sd-lab" x="${x}" y="${y - 8}">${inch ? LEN.say(len) : len >= 1000 ? len / 1000 + ' m' : len + ' mm'}</text>`);
     }
-    for (const o of S.others) out.push(`<rect class="sd-other" x="${sx(o[0])}" y="${sy(o[3])}" width="${(o[2] - o[0]) * k}" height="${(o[3] - o[1]) * k}"><title>${o[4]}: no drawing to edit</title></rect>`);
+    for (const o of S.others) out.push(`<rect class="sd-other" x="${sx(o[0])}" y="${sy(o[3])}" width="${(o[2] - o[0]) * k}" height="${(o[3] - o[1]) * k}"><title>${esc(o[4])}: no drawing to edit</title></rect>`);
     // wider places to press (review 10-28 #12), under the parts so a press on a part wins:
     // near any outline picks its part, and so does anywhere in a word's box (inside an o, between letters)
     S.parts.forEach((part, pi) => {
@@ -976,7 +976,7 @@
   }
   // a choice in the font list: done(name) runs with the font ready
   async function pickFont(v, done) {
-    const use = name => { TEXT.font = FONTS.get(name); TEXT.name = name; done(name); say(`Letters now in ${name}.`); render(); };
+    const use = name => { if (!S) return; TEXT.font = FONTS.get(name); TEXT.name = name; done(name); say(`Letters now in ${name}.`); render(); };
     if (v.startsWith('font:')) { const n = v.slice(5); if (n === BUILTIN && !FONTS.has(n)) await fontReady().catch(() => {}); if (FONTS.has(n)) use(n); return; }
     if (v === 'ask') {
       try {
@@ -1040,6 +1040,7 @@
   const wordName = (str, or) => (String(str).trim().replace(/\s+/g, '-').replace(/[^\w.-]/g, '').slice(0, 24)) || or;
   async function placeText(m) {
     try { await fontReady(); } catch (e) { say(`Text needs its font: ${e.message}.`); return; }
+    if (!S) return;   // DRAW closed while the font came (review r093 A19)
     const t = { str: TEXT.str, h: TEXT.h, at: [snapMM(m[0]), snapMM(m[1])], font: TEXT.name };
     const curves = textCurves(t);
     if (!curves.length) { say('Type some letters in the card first.'); return; }
@@ -1534,5 +1535,5 @@
     }
   }, 150);
 
-  window.__swarfDraw = { open, close, bedCurves, state: () => S, isChain, text: TEXT, fonts: FONTS, engraveAreas, adopt, say };
+  window.__swarfDraw = { open, close, setTool, render, bedCurves, state: () => S, isChain, text: TEXT, fonts: FONTS, engraveAreas, adopt, say };
 })();

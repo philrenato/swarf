@@ -212,6 +212,9 @@
     // nothing rendered). Fresh profile forces the r14 code path.
     try {
       const MIG_R12 = 'swarf.r14.profile-reset-v8';
+      // a new browser has nothing to reset: mark it and go on (review r093 A10: every first visit
+      // deleted an empty database and reloaded, on top of the service worker's own reload)
+      if (!localStorage.getItem(MIG_R12) && !localStorage.getItem('ws-settings')) localStorage.setItem(MIG_R12, '1');
       if (!localStorage.getItem(MIG_R12)) {
         localStorage.removeItem('ws-settings');
         // mark BEFORE reload so we don't loop

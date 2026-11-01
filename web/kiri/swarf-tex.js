@@ -276,7 +276,7 @@
     window.addEventListener('resize', render);
     ui.svg.focus();
   }
-  const hush = e => e.stopPropagation();
+  const hush = e => { if (!/^(INPUT|SELECT|TEXTAREA)$/.test(e.target && e.target.tagName)) e.stopPropagation(); };   // a prompt's Enter still lands (review r093 A3)
 
   // done (apply) or cancel: either way TEX closes. Done never keeps you in TEX (Phil: a mode may
   // adapt, never trap): what it could not do, it says after.
@@ -683,7 +683,7 @@
     const part = curPart(), m = curMark(), C = T();
     const keepTop = ui.card.scrollTop;
     const lenRow = (word, id, v, tip, slide = '') => `<div class="sd-row${slide ? ' sd-slid' : ''}"${tip ? ` title="${esc(tip)}"` : ''}><span>${word}</span>${slide}<input id="${id}" value="${LEN.fld(r3(v))}" inputmode="text" data-len="1"><span class="u">${LEN.unit()}</span></div>`;
-    const numRow = (word, id, v, unit, tip, slide = '') => `<div class="sd-row${slide ? ' sd-slid' : ''}"${tip ? ` title="${esc(tip)}"` : ''}><span>${word}</span>${slide}<input id="${id}" value="${v}" inputmode="decimal"><span class="u">${unit}</span></div>`;
+    const numRow = (word, id, v, unit, tip, slide = '') => `<div class="sd-row${slide ? ' sd-slid' : ''}"${tip ? ` title="${esc(tip)}"` : ''}><span>${word}</span>${slide}<input id="${id}" value="${esc(v)}" inputmode="decimal"><span class="u">${unit}</span></div>`;
     const selRow = (word, id, opts, v, tip) => `<div class="sd-row"${tip ? ` title="${esc(tip)}"` : ''}><span>${word}</span><select id="${id}">${opts.map(([k, t]) => `<option value="${esc(k)}"${k === v ? ' selected' : ''}>${esc(t)}</option>`).join('')}</select><span class="u"></span></div>`;
     const paramRow = (q, v) => {
       const id = `tx-p-${q.k}`, word = q.label.toLowerCase();
@@ -980,7 +980,7 @@
     try {
       worker = new Worker(new URL('swarf-tex-worker.mjs', document.baseURI), { type: 'module' });
       worker.onmessage = e => { const r = pending.get(e.data.id); pending.delete(e.data.id); if (r) r(e.data); };
-      worker.onerror = () => { worker = false; for (const r of pending.values()) r({ error: 'no worker' }); pending.clear(); };
+      worker.onerror = () => { try { worker.terminate(); } catch (e) { /* gone */ } worker = false; for (const r of pending.values()) r({ error: 'no worker' }); pending.clear(); };
     } catch (e) { worker = false; }
     return worker || null;
   }
@@ -992,9 +992,11 @@
     const op = stepOf(m.id) || {}, ver = m.ver;
     const ask = { mark: { id: m.id, region: m.region, xf: m.xf, fill: m.fill }, thickness: part.thick, part: part.loops, down: op.down || 0, rate: op.rate || 1500, plunge: op.plunge || 500 };
     const done = r => (r.error ? null : { ver, warnings: r.warnings.map(says), notes: r.notes.map(says), strategy: r.strategy, seconds: r.seconds });
+    // a check that fails says so, never "Working out the cut…" for good (review r093 A1)
+    const failed = e => ({ ver, warnings: [`swarf could not work out this cut: ${String(e && e.message || e)}`], notes: [], strategy: 'raster', seconds: 0 });
     const w = texWorker();
-    if (w) return new Promise(res => { const id = ++asked; pending.set(id, r => res(done(r) || here())); w.postMessage({ id, ...ask }); });
-    return Promise.resolve(here());
+    if (w) return new Promise(res => { const id = ++asked; pending.set(id, r => { if (!r.error) return res(done(r)); try { res(here()); } catch (e) { res(failed(r.error === 'no worker' ? e : r.error)); } }); w.postMessage({ id, ...ask }); });
+    try { return Promise.resolve(here()); } catch (e) { return Promise.resolve(failed(e)); }
     // no worker (an old browser): the same work here
     function here() {
       const C = T(), chk = C.markChecks(ask.mark, { thickness: part.thick, len: v => `⟦${v}⟧`, part: part.loops });
@@ -1197,7 +1199,13 @@
       S.box = null;
       const b = d.to;
       if (!b || Math.abs(b[0] - d.at[0]) < 1 || Math.abs(b[1] - d.at[1]) < 1) { S.undo.pop(); say('Drag farther: a shape needs at least 1 mm each way.'); render(); return; }
-      if (!shapeInto(d.t, [d.at, b], S.tool, d.val)) { S.undo.pop(); say('That shape is off the mark\'s part.'); }
+      // off the part: said, and a mark this press made, still empty, goes again (review r093 A2)
+      if (!shapeInto(d.t, [d.at, b], S.tool, d.val)) {
+        S.undo.pop();
+        const { part, m } = d.t, i = part.marks.indexOf(m);
+        if (i >= 0 && !markHas(m)) { part.marks.splice(i, 1); S.mark = part.marks.length - 1; }
+        say('That shape is off the part: drag it over the part\'s top.'); render(); return;
+      }
     }
     if (d.kind === 'paint' || d.kind === 'shape') {
       const m = d.t.m;

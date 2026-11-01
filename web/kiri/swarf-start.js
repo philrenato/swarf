@@ -96,7 +96,7 @@
         e.stopImmediatePropagation(); e.preventDefault();
         const cur = (a.conf.get().device || {}).deviceName || '';
         const pre = ["<div class='f-col a-center swarf-shape'><h3>Which machine?</h3>",
-          `<p class='swarf-shape-why' style='color:inherit;max-width:340px'>Now: ${cur.replace(/\./g, ' ')}. The ShopBot is the shop's 4 × 8 ft router, run from swarf's control. The MR-1 is the benchtop mill; it takes the exported file.</p></div>`];
+          `<p class='swarf-shape-why' style='color:inherit;max-width:340px'>Now: ${String(cur).replace(/\./g, ' ').replace(/[&<>"']/g, c => `&#${c.charCodeAt(0)};`)}. The ShopBot is the shop's 4 × 8 ft router, run from swarf's control. The MR-1 is the benchtop mill; it takes the exported file.</p></div>`];
         a.uc.confirm(undefined, { [`ShopBot (${bed(2438.4, 1219.2)} bed)`]: 'ShopBot.Basic', [`MR-1 (${bed(500, 500)} bed)`]: 'Langmuir.MR-1', 'machine settings': 'edit', cancel: false }, undefined, { pre }).then(v => {
           if (v === 'edit') return a.show.devices();
           if (v && v !== cur) a.devices.select(v);

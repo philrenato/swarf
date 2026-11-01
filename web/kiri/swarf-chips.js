@@ -517,7 +517,7 @@
     };
     let hookTries = 0;
     const hookPoll = setInterval(() => {
-      if (hookApi() || ++hookTries > 100) clearInterval(hookPoll);
+      if (hookApi() || ++hookTries > 800) clearInterval(hookPoll);   // 120 s, as the space poll (review r093 A21)
     }, 150);
   }
 })();

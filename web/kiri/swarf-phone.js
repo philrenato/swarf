@@ -15,9 +15,12 @@
   'use strict';
   const KEY = 'swarf_phone_mode'; // "auto" | "on" | "off"
   const params = new URLSearchParams(location.search);
-  if (params.get('phone') === '1') localStorage.setItem(KEY, 'on');
-  if (params.get('full') === '1') localStorage.setItem(KEY, 'off');
-  const pref = localStorage.getItem(KEY) || 'auto';
+  // storage can be blocked (a lab policy): the wall still works, it just forgets (review r093 A11)
+  const get = () => { try { return localStorage.getItem(KEY); } catch (e) { return null; } };
+  const put = v => { try { localStorage.setItem(KEY, v); } catch (e) { /* blocked */ } };
+  if (params.get('phone') === '1') put('on');
+  if (params.get('full') === '1') put('off');
+  const pref = get() || 'auto';
 
   const MQ = '(max-width: 820px), (pointer: coarse) and (max-width: 1000px)';
   function isNarrow() { return window.matchMedia(MQ).matches; }
@@ -79,7 +82,7 @@
   }
   // re-evaluate on orientation changes only if the user hasn't overridden
   window.addEventListener('resize', () => {
-    if ((localStorage.getItem(KEY) || 'auto') === 'auto') {
+    if ((get() || 'auto') === 'auto') {
       const block = isNarrow();
       document.body.classList.toggle('swarf-phone', block);
       if (block) mount();
