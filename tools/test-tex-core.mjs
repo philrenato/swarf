@@ -524,5 +524,30 @@ for (const [id, P] of Object.entries(T.PATTERNS)) {
   ok(n(30) < n(100) * 0.6, `memphis density 30% cuts fewer moves (${n(30)} vs ${n(100)})`);
 }
 
+// 41. shaping (Phil 11-01: invert, falloffs, border bands, "lots of mixing and remixing"): relief up turns
+//     the pattern over, the floor sinks the mark, each border has its section, beads sit pitch apart, and
+//     the toolpath cuts what the field says (a raster, never below the deepest part)
+{
+  const mask = { type: 'rect', x0: 0, y0: 0, x1: 100, y1: 60 };
+  const tx = (shape, soft = 0) => T.texture({ pattern: 'ribs', params: { depth: 2 }, mask, soft, shape });
+  const base = tx({}), up = tx({ relief: 'up' }), fl = tx({ floor: 1.5 });
+  let inv = true, add = true;
+  for (let x = 10; x < 90; x += 0.7) { const y = 30, h = base.h(x, y); if (Math.abs(up.h(x, y) - (2 - h)) > 1e-9) inv = false; if (Math.abs(fl.h(x, y) - (1.5 + h)) > 1e-9) add = false; }
+  ok(inv && add && up.kind === 'surface' && fl.depth === 3.5, 'relief up = depth − h, the floor adds to h; both rasters; depth counts the floor');
+  const B = st => tx({ border: { style: st, width: 6, depth: 2 } });
+  ok(B('groove').h(3, 30) === 2 && B('bead').h(3, 30) === 0 && B('step').h(1, 30) === 2 && B('rim').h(3, 30) === 0 && Math.abs(B('chamfer').h(1.5, 30) - 1.5) < 1e-9,
+    'border sections: a groove deepest mid-band, a bead at the top mid-band, a step all down, a rim untouched, a chamfer a ramp');
+  ok(Math.abs(B('groove').h(20, 30) - base.h(20, 30)) < 1e-9 && tx({ border: { style: 'step', width: 6, depth: 2, inset: 4 } }).h(2, 30) === 0, 'inside the band the pattern is as it was; an inset leaves the top before the band');
+  const bd = tx({ border: { style: 'beads', width: 6, depth: 2, pitch: 8 } });
+  let tops = 0; for (let x = 4; x < 96; x += 0.25) if (bd.h(x, 3) < 0.02 && bd.h(x - 0.25, 3) >= 0.02) tops++;
+  ok(tops >= 10 && tops <= 13, `a row of beads along the bottom edge, 8 mm apart: ${tops} tops across 92 mm`);
+  ok(Math.abs(T.CURVES.round(0.5) - Math.sqrt(0.75)) < 1e-9 && T.CURVES.cove(0.5) < 0.5 && T.CURVES.straight(0.3) === 0.3, 'falloff curves: round steep at the edge, cove gentle');
+  // painted short of the grid's own sides: a paint mask's edge is where the paint stops
+  const g = T.newGrid(0, 0, 60, 40, 0.5); T.paintWhere(g, (x, y) => x > 5 && x < 55 && y > 5 && y < 35, 1);
+  const tp = T.markToolpath({ id: 'b', region: g, xf: T.IDENTITY.slice(), fill: T.newFill('ribs', { tool: 'ball18', border: { style: 'step', width: 6, depth: 3 }, relief: 'up' }) }, { res: 0.5 });
+  const lo = Math.min(...tp.moves.filter((m) => !m.rapid).map((m) => m.z));
+  ok(tp.strategy === 'raster' && lo < -2.9 && lo > -3.01, `a shaped mark rasters (${tp.strategy}) to the border's 3 mm (lowest ${lo.toFixed(2)})`);
+}
+
 console.log(`\n${pass} passed, ${fail} failed  (${((Date.now() - t0) / 1000).toFixed(1)} s)`);
 process.exit(fail ? 1 : 0);

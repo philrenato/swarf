@@ -826,11 +826,116 @@ export function makeMask(spec) {
   }
   throw new Error('unknown mask ' + spec.type);
 }
+// How the soft edge comes up to full depth, 0..1 over its width (Phil 11-01: falloffs at the edge):
+// smooth eases in and out; straight is a plain ramp; round drops steeply at the edge and levels off
+// (a rounded-over rim); cove starts gently and steepens (a scooped hollow).
+export const CURVES = {
+  smooth: smoothstep,
+  straight: (t) => t,
+  round: (t) => Math.sqrt(Math.max(0, 1 - (1 - t) * (1 - t))),
+  cove: (t) => 1 - Math.sqrt(Math.max(0, 1 - t * t)),
+};
+export const CURVE_WORDS = { smooth: 'smooth', straight: 'straight ramp', round: 'round: steep at the edge', cove: 'cove: gentle at the edge' };
 // 0..1 inside the region; the soft edge ramps from the boundary inward over `soft` mm.
-export function maskWeight(mask, soft = 0) {
+export function maskWeight(mask, soft = 0, curve = 'smooth') {
   if (!mask) return () => 1;
   if (soft <= 0) return (x, y) => (mask.sd(x, y) >= 0 ? 1 : 0);
-  return (x, y) => { const d = mask.sd(x, y); return d <= 0 ? 0 : d >= soft ? 1 : smoothstep(d / soft); };
+  const C = CURVES[curve] || smoothstep;
+  return (x, y) => { const d = mask.sd(x, y); return d <= 0 ? 0 : d >= soft ? 1 : C(d / soft); };
+}
+
+// The border: a band along the mark's edge, `inset` in from it and `width` wide, cut to its own
+// depth in one of these sections (u runs 0 at the band's outer side to 1 at its inner side; the
+// value is how deep below the top, as a share of the border's depth). beads are worked apart.
+export const BORDERS = {
+  none: null,
+  groove: (u) => Math.sqrt(Math.max(0, 1 - (2 * u - 1) ** 2)),
+  vgroove: (u) => 1 - Math.abs(2 * u - 1),
+  bead: (u) => 1 - Math.sqrt(Math.max(0, 1 - (2 * u - 1) ** 2)),
+  beads: null,
+  step: () => 1,
+  chamfer: (u) => 1 - u,
+  roundover: (u) => 1 - Math.sqrt(Math.max(0, 1 - (1 - u) * (1 - u))),
+  cove: (u) => Math.sqrt(Math.max(0, 1 - u * u)),
+  rim: () => 0,
+};
+export const BORDER_WORDS = {
+  none: 'none', groove: 'round groove', vgroove: 'V groove', bead: 'round bead', beads: 'a row of beads', step: 'step down',
+  chamfer: 'chamfer', roundover: 'roundover', cove: 'cove', rim: 'plain rim (left at the top)',
+};
+export function borderDefaults() { return { style: 'none', width: 6, depth: 2, inset: 0, pitch: 6, along: 'all' }; }
+
+// The level-`level` lines of f over a box, by marching squares, as polylines ({ pts, closed }).
+export function isoLines(f, bbox, res, level = 0) {
+  const nx = Math.max(2, Math.ceil((bbox.x1 - bbox.x0) / res) + 1), ny = Math.max(2, Math.ceil((bbox.y1 - bbox.y0) / res) + 1);
+  const g = new Float32Array(nx * ny);
+  for (let j = 0; j < ny; j++) for (let i = 0; i < nx; i++) g[j * nx + i] = f(bbox.x0 + i * res, bbox.y0 + j * res) - level;
+  const X = (i) => bbox.x0 + i * res, Y = (j) => bbox.y0 + j * res;
+  const at = (k1, k2, x1, y1, x2, y2) => { const a = g[k1], b = g[k2], t = a === b ? 0.5 : a / (a - b); return [x1 + (x2 - x1) * t, y1 + (y2 - y1) * t]; };
+  const segs = [], ends = new Map();
+  const add = (ka, pa, kb, pb) => {
+    const n = segs.length; segs.push([ka, pa, kb, pb]);
+    for (const k of [ka, kb]) { const l = ends.get(k); if (l) l.push(n); else ends.set(k, [n]); }
+  };
+  for (let j = 0; j < ny - 1; j++) for (let i = 0; i < nx - 1; i++) {
+    const a = j * nx + i, b = a + 1, c = a + nx + 1, d = a + nx;
+    const code = (g[a] > 0 ? 1 : 0) | (g[b] > 0 ? 2 : 0) | (g[c] > 0 ? 4 : 0) | (g[d] > 0 ? 8 : 0);
+    if (code === 0 || code === 15) continue;
+    const E = [
+      () => ['h' + i + ',' + j, at(a, b, X(i), Y(j), X(i + 1), Y(j))],
+      () => ['v' + (i + 1) + ',' + j, at(b, c, X(i + 1), Y(j), X(i + 1), Y(j + 1))],
+      () => ['h' + i + ',' + (j + 1), at(d, c, X(i), Y(j + 1), X(i + 1), Y(j + 1))],
+      () => ['v' + i + ',' + j, at(a, d, X(i), Y(j), X(i), Y(j + 1))],
+    ];
+    const pair = (p, q) => { const [ka, pa] = E[p](), [kb, pb] = E[q](); add(ka, pa, kb, pb); };
+    const mid = (g[a] + g[b] + g[c] + g[d]) / 4 > 0;
+    switch (code) {
+      case 1: case 14: pair(3, 0); break;
+      case 2: case 13: pair(0, 1); break;
+      case 3: case 12: pair(3, 1); break;
+      case 4: case 11: pair(1, 2); break;
+      case 6: case 9: pair(0, 2); break;
+      case 7: case 8: pair(3, 2); break;
+      case 5: if (mid) { pair(3, 2); pair(0, 1); } else { pair(3, 0); pair(1, 2); } break;
+      case 10: if (mid) { pair(3, 0); pair(1, 2); } else { pair(3, 2); pair(0, 1); } break;
+    }
+  }
+  const used = new Uint8Array(segs.length), out = [];
+  const next = (k, from) => (ends.get(k) || []).find((n) => n !== from && !used[n]);
+  for (let s0 = 0; s0 < segs.length; s0++) {
+    if (used[s0]) continue;
+    used[s0] = 1;
+    const [ka, pa, kb, pb] = segs[s0];
+    const fwd = [pb], back = [];
+    let k = kb, n = s0;
+    for (;;) { const m = next(k, n); if (m === undefined) break; used[m] = 1; const S2 = segs[m]; const far = S2[0] === k ? 2 : 0; fwd.push(S2[far + 1]); k = S2[far]; n = m; }
+    const closed = k === ka;
+    if (!closed) {
+      k = ka; n = s0;
+      for (;;) { const m = next(k, n); if (m === undefined) break; used[m] = 1; const S2 = segs[m]; const far = S2[0] === k ? 2 : 0; back.push(S2[far + 1]); k = S2[far]; n = m; }
+    }
+    out.push({ pts: [...back.reverse(), pa, ...fwd], closed });
+  }
+  return out;
+}
+// points along polylines, `pitch` apart (a closed one evenly, its pitch bent to fit a whole number)
+export function alongLines(lines, pitch) {
+  const out = [];
+  for (const { pts, closed } of lines) {
+    const P = closed ? [...pts, pts[0]] : pts, cum = [0];
+    for (let i = 1; i < P.length; i++) cum.push(cum[i - 1] + Math.hypot(P[i][0] - P[i - 1][0], P[i][1] - P[i - 1][1]));
+    const L = cum[cum.length - 1];
+    if (L < pitch * 0.5) continue;
+    const n = closed ? Math.max(1, Math.round(L / pitch)) : Math.floor(L / pitch) + 1, step = closed ? L / n : pitch;
+    const off = closed ? 0 : (L - (n - 1) * step) / 2;
+    for (let q = 0, i = 1; q < n; q++) {
+      const t = off + q * step;
+      while (i < P.length - 1 && cum[i] < t) i++;
+      const f = (t - cum[i - 1]) / Math.max(1e-9, cum[i] - cum[i - 1]);
+      out.push([P[i - 1][0] + (P[i][0] - P[i - 1][0]) * f, P[i - 1][1] + (P[i][1] - P[i - 1][1]) * f]);
+    }
+  }
+  return out;
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -861,8 +966,58 @@ export function texture(spec) {
     depth += spec.overlay.amount;
   }
   const mask = makeMask(spec.mask);
-  const w = maskWeight(mask, spec.soft || 0);
-  const h = (x, y) => { const m = w(x, y); return m > 0 ? hb(x, y) * m : 0; };
+  const sh = spec.shape || {}, curve = sh.curve || 'smooth';
+  const w = maskWeight(mask, spec.soft || 0, curve);
+  let h = (x, y) => { const m = w(x, y); return m > 0 ? hb(x, y) * m : 0; };
+  // the mark shaped (Phil 11-01: "invert, where background lowers and tex raises", falloffs, a border
+  // band of various characters; lots of mixing and remixing): relief up turns the pattern over (its
+  // high places are cut, its low ones stay), floor sinks the whole mark first, and a border band runs
+  // along the edge. Any of them makes a surface the raster cuts (no plunges or centerlines).
+  const B = sh.border && sh.border.style && sh.border.style !== 'none' ? { ...borderDefaults(), ...sh.border } : null;
+  const up = sh.relief === 'up', floor = Math.max(0, +sh.floor || 0);
+  let kind = base.kind;
+  if (up || floor > 0 || B) {
+    kind = 'surface';
+    const soft = spec.soft || 0, C = CURVES[curve] || smoothstep, d0 = depth;
+    const edge = spec.edge ? makeMask(spec.edge) : mask;
+    const B0 = B ? Math.max(0, B.inset) : 0, Bw = B ? Math.max(0.1, B.width) : 0, B1 = B0 + Bw, Bd = B ? Math.max(0, B.depth) : 0;
+    const prof = B && BORDERS[B.style];
+    // the beads' centers: on the middle of the band, `pitch` apart, worked out once
+    let bead = null;
+    if (B && B.style === 'beads' && mask) {
+      const R = Bw / 2, pitch = Math.max(Bw * 0.5, B.pitch || Bw), bb = mask.bbox;
+      const lines = isoLines((x, y) => edge.sd(x, y), { x0: bb.x0 - 1, y0: bb.y0 - 1, x1: bb.x1 + 1, y1: bb.y1 + 1 }, Math.max(0.15, Math.min(0.5, Bw / 6)), B0 + R);
+      const cs = alongLines(lines, pitch), cell = Math.max(R, pitch), grid = new Map();
+      for (const c of cs) { const key = Math.floor(c[0] / cell) + ',' + Math.floor(c[1] / cell); const l = grid.get(key); if (l) l.push(c); else grid.set(key, [c]); }
+      bead = (x, y) => {
+        const gx = Math.floor(x / cell), gy = Math.floor(y / cell);
+        let r2 = Infinity;
+        for (let a = -1; a <= 1; a++) for (let b = -1; b <= 1; b++) for (const c of grid.get((gx + a) + ',' + (gy + b)) || []) r2 = Math.min(r2, (c[0] - x) ** 2 + (c[1] - y) ** 2);
+        const q = Math.sqrt(r2) / R;
+        return q >= 1 ? 1 : 1 - Math.sqrt(1 - q * q);
+      };
+      bead.count = cs.length;
+    }
+    const band = (u, x, y) => (bead ? bead(x, y) : prof ? prof(Math.min(1, Math.max(0, u))) : 0) * Bd;
+    h = (x, y) => {
+      const d = mask ? mask.sd(x, y) : 1;
+      if (d <= 0) return 0;
+      if (B) {
+        const e = edge ? edge.sd(x, y) : d;
+        // off the part (the bit's reach past its edge) the band's outer side carries on
+        if (e < B0) return B0 > 0 ? 0 : band(0, x, y);
+        if (e <= B1) return band((e - B0) / Bw, x, y);
+      }
+      const di = B ? Math.min(d, (edge ? edge.sd(x, y) : d) - B1) : d;
+      const m = di <= 0 ? 0 : soft <= 0 || di >= soft ? 1 : C(di / soft);
+      if (m <= 0) return 0;
+      const v = hb(x, y);
+      return (floor + (up ? d0 - v : v)) * m;
+    };
+    depth = Math.max(floor + d0, Bd);
+    if (B && B.style !== 'rim' && B.style !== 'step') feature = Math.min(feature || Infinity, Bw / 2);
+    if (bead) feature = Math.min(feature, Bw / 2);
+  }
   const bbox = mask ? mask.bbox : (spec.board ? { x0: 0, y0: 0, x1: spec.board.w, y1: spec.board.h } : { x0: -50, y0: -50, x1: 50, y1: 50 });
   const localBox = (pad = 0) => {
     const cs = [[bbox.x0, bbox.y0], [bbox.x1, bbox.y0], [bbox.x0, bbox.y1], [bbox.x1, bbox.y1]];
@@ -870,7 +1025,7 @@ export function texture(spec) {
     return { u0: Math.min(...us) - pad, u1: Math.max(...us) + pad, v0: Math.min(...vs) - pad, v1: Math.max(...vs) + pad };
   };
   return {
-    pattern: spec.pattern, label: pat.label, params, h, w, mask, bbox, depth, feature, kind: base.kind,
+    pattern: spec.pattern, label: pat.label, params, h, w, mask, bbox, depth, feature, kind, shape: sh,
     featureLabel: base.featureLabel, base, scale: sc, code: base.code,
     strokeWidth: base.strokeWidth ? base.strokeWidth * sc : 0,
     dotDiameter: base.dotDiameter ? base.dotDiameter * sc : 0,
@@ -1514,9 +1669,20 @@ export function markTexture(mark, o = {}) {
     transform: { angle: f.angle || 0, scale: f.scale || 1, ox: (f.origin || [0, 0])[0], oy: (f.origin || [0, 0])[1] },
     mask: region,
     soft: Math.max(0, f.fade || 0) / s,
+    shape: fillShape(f, s),
+    edge: f.border && f.border.along !== 'paint' && region.part ? region.part : null,
     overlay: f.grit > 0 ? { pattern: 'noise', params: { scale: 7, octaves: 2, depth: 1, seed: 5 }, amount: f.grit, mode: 'add' } : null,
   });
   return placeTexture(tex, A);
+}
+
+// the fill's shaping in the mark's frame (lengths over the mark's scale s; depths stay)
+export function fillShape(f, s = 1) {
+  const b = f.border && f.border.style && f.border.style !== 'none' ? { ...borderDefaults(), ...f.border } : null;
+  return {
+    relief: f.relief === 'up' ? 'up' : 'in', floor: Math.max(0, +f.floor || 0), curve: f.curve || 'smooth',
+    border: b ? { ...b, width: b.width / s, inset: b.inset / s, pitch: b.pitch / s } : null,
+  };
 }
 
 // which path a texture takes with a tool: the one asked for when it fits the pattern, else the
@@ -1637,7 +1803,8 @@ export function clipToPart(region, xf, loops, extend = 0) {
 export function edgeMask(c) {
   const reg = paintMask(c.region), fm = paintMask(c.fade), R = c.region, small = R.res * 0.25;
   const inR = (x, y) => { const i = Math.floor((x - R.x0) / R.res), j = Math.floor((y - R.y0) / R.res); return i >= 0 && j >= 0 && i < R.nx && j < R.ny && R.data[j * R.nx + i] === 1; };
-  return { bbox: reg.bbox, empty: reg.empty, sd: (x, y) => (inR(x, y) ? Math.max(small, fm.sd(x, y)) : Math.min(-small, reg.sd(x, y))), cut: reg };
+  const part = c.paint ? paintMask(c.paint) : null;
+  return { bbox: reg.bbox, empty: reg.empty, sd: (x, y) => (inR(x, y) ? Math.max(small, fm.sd(x, y)) : Math.min(-small, reg.sd(x, y))), cut: reg, part };
 }
 // distance (in cells) from every cell to the nearest set cell: two-pass chamfer
 function chamfer(set, nx, ny) {
@@ -2502,6 +2669,7 @@ const API = {
   markChecks, BASIC, shadeHeight, SWATCH_SPAN, swatch,
   clipToPart, edgeDistance, insideReach, controlsFor, splineAt, sampleCurve, paintLoops, fitCurves, curvesCross, rewriteFromCurves, nearestOnCurves,
   partMesh, partMeshSize, autoMeshRes, meshCheck, meshNormals, meshSTL, meshOBJ, meshGLB,
+  CURVES, CURVE_WORDS, BORDERS, BORDER_WORDS, borderDefaults, isoLines, alongLines, fillShape,
   roundProse, PIERCES, SKIN_STRAIN, defaultSkin, kerfCount, pierceDefaults, newPierce, fillTool, kerfPitch, pierceCuts, pierceToolpath, pierceChecks, pierceSVG,
 };
 if (typeof window !== 'undefined') window.SwarfTexCore = API;

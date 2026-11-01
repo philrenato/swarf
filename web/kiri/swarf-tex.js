@@ -695,6 +695,8 @@
       if (q.unit === 'mm') return lenRow(word, id, v, q.tip, slide);
       return numRow(word, id, v, q.unit === '°' || q.unit === '%' ? q.unit : '', q.tip, slide);
     };
+    // a slider for a field (its id), as paramRow's
+    const sl = (id, min, max, step, v, word = '') => `<input type="range" class="sd-slide" data-for="${id}" min="${min}" max="${max}" step="${step}" value="${Math.min(max, Math.max(min, +v || 0))}"${word ? ` aria-label="${esc(word)}"` : ''}>`;
     let h = '';
     if (!part) {
       h += `<div class="sd-note">${S.parts.length ? 'Click a part to mark it.' : 'No parts on the bed yet.'}</div>`;
@@ -754,7 +756,8 @@
       // at 720p the swatches keep their captions on two rows of five (review 10-30 B3: ten unlabeled
       // 16 px squares); the hint line goes (the captions and the pattern select name it) and path folds into more
       if (!compact) h += `<div class="sd-note tx-swhint" id="tx-swhint">${esc(`${P.label}: ${P.blurb}`)}</div>`;
-      h += selRow('pattern', 'tx-pat', Object.entries(C.PATTERNS).map(([k, p]) => [k, p.label]), f.pattern, P.blurb);
+      // a short window keeps the captioned swatches only (the select repeats them), so the shape row fits
+      if (!compact) h += selRow('pattern', 'tx-pat', Object.entries(C.PATTERNS).map(([k, p]) => [k, p.label]), f.pattern, P.blurb);
       // what it costs and what to watch for, up by the pattern where it is seen
       const tex = m.info && m.info.ver === m.ver ? m.info : null;
       if (!tex) h += '<div class="sd-note">Working out the cut…</div>';
@@ -765,10 +768,33 @@
         for (const w of tex.warnings) h += `<div class="sd-note tx-warn">${esc(w)}</div>`;
       }
       for (const q of P.params) if (q.basic) h += paramRow(q, pr[q.k]);
-      h += lenRow('depth', 'tx-depth', f.depth, 'the deepest the texture goes below the part\'s top');
-      h += lenRow('soft edge', 'tx-fade', f.fade || 0, 'how far in from the mark\'s edge the texture takes to reach its full depth');
+      h += lenRow('depth', 'tx-depth', f.depth, 'the deepest the texture goes below the part\'s top', sl('tx-depth', 0.2, 12, 0.1, f.depth));
+      h += lenRow('soft edge', 'tx-fade', f.fade || 0, 'how far in from the mark\'s edge the texture takes to reach its full depth', sl('tx-fade', 0, 30, 0.5, f.fade || 0));
+      // which way it runs, and which way up (Phil 11-01: direction control; "the ability to invert,
+      // where background lowers and tex raises"), on the front: they change the look most
+      const turnRows = numRow('direction', 'tx-angle', r3(f.angle || 0), '°', 'which way the pattern runs: 0 as drawn, 90 a quarter turn', sl('tx-angle', 0, 180, 1, f.angle || 0, 'direction'))
+        + selRow('relief', 'tx-relief', [['in', 'cut in'], ['up', 'stands up']], f.relief === 'up' ? 'up' : 'in', 'cut in: the pattern is carved into the top. stands up: the ground around it is cut away and the pattern is left standing');
+      if (!compact) h += turnRows;
+      // the edge: how the soft edge falls off, and a border band along it (Phil 11-01). A short window
+      // folds direction and relief in here too, so the basic card still fits without scrolling
+      const bo = { ...C.borderDefaults(), ...(f.border || {}) }, hasB = bo.style !== 'none';
+      const edgeOpen = S.edgeOpen ?? hasB;
+      const said = [compact && (f.angle || f.relief === 'up') ? `${f.relief === 'up' ? 'stands up' : ''}${f.angle && f.relief === 'up' ? ', ' : ''}${f.angle ? `${r3(f.angle)}°` : ''}` : '', hasB ? C.BORDER_WORDS[bo.style] : ''].filter(Boolean).join(', ');
+      h += `<details class="tx-more tx-edge"${edgeOpen ? ' open' : ''}><summary>${compact ? 'shape and edge' : 'edge'}${said ? `: ${esc(said)}` : ''}</summary>`;
+      if (compact) h += turnRows;
+      h += selRow('falloff', 'tx-curve', Object.entries(C.CURVE_WORDS), f.curve || 'smooth', 'the shape of the soft edge, from the mark\'s edge in to full depth (with a soft edge above 0)');
+      h += selRow('border', 'tx-border', Object.entries(C.BORDER_WORDS), bo.style, 'a band along the mark\'s edge, cut its own way: a groove, a bead or a row of beads, a step, a chamfer, a roundover, a cove, or a plain rim the texture stops short of');
+      if (hasB) {
+        h += lenRow('width', 'tx-b-width', bo.width, 'how wide the band is', sl('tx-b-width', 1, 40, 0.5, bo.width));
+        if (bo.style !== 'rim') h += lenRow('depth', 'tx-b-depth', bo.depth, 'how deep the band goes below the top', sl('tx-b-depth', 0.2, 10, 0.1, bo.depth));
+        if (bo.style === 'beads') h += lenRow('bead spacing', 'tx-b-pitch', bo.pitch, 'from one bead\'s middle to the next: the band\'s width makes them touch', sl('tx-b-pitch', 2, 60, 0.5, bo.pitch));
+        h += lenRow('in from edge', 'tx-b-inset', bo.inset, 'how far in from the mark\'s edge the band starts; the top is left between', sl('tx-b-inset', 0, 30, 0.5, bo.inset));
+        if (m.region && m.region.type === 'paint') h += selRow('along', 'tx-b-along', [['all', 'every edge, the part\'s too'], ['paint', 'only where the paint stops']], bo.along === 'paint' ? 'paint' : 'all', 'where the paint runs to the part\'s edge, the band can follow that edge too');
+      }
+      h += '</details>';
       h += bitRow(f);
-      const kind = P.build(C.defaults(f.pattern)).kind;
+      // relief, a floor or a border make a surface for the raster (no plunges or centerlines)
+      const kind = f.relief === 'up' || f.floor > 0 || hasB ? 'surface' : P.build(C.defaults(f.pattern)).kind;
       const ok = { auto: true, raster: true, crosshatch: true, plunge: kind === 'dots', centerline: kind === 'strokes' };
       const pathRow = selRow('path', 'tx-path', Object.entries(PATHS).filter(([k]) => ok[k]).map(([k, t]) => [k, k === 'auto' && tex ? `${t}: ${PATHS[tex.strategy]}` : t]), ok[f.path] ? f.path : 'auto', 'how the bit goes over it: best picks one plunge per dot when the bit can make the dots, a V-bit along each groove, else raster');
       // how finely the raster goes: smooth to bold ridges (Phil 11-01: finer and coarser, the passes showing on purpose)
@@ -780,8 +806,8 @@
       h += `<details class="tx-more"${more ? ' open' : ''}><summary>more</summary>`;
       if (compact) h += pathRow + finRow;
       for (const q of P.params) if (!q.basic && q.k !== 'depth') h += paramRow(q, pr[q.k]);
-      h += numRow('scale', 'tx-scale', r3((f.scale || 1) * 100), '%', 'the pattern larger or smaller');
-      h += numRow('turn', 'tx-angle', r3(f.angle || 0), '°', 'the pattern turned');
+      h += numRow('scale', 'tx-scale', r3((f.scale || 1) * 100), '%', 'the pattern larger or smaller', sl('tx-scale', 25, 400, 5, r3((f.scale || 1) * 100), 'scale'));
+      h += lenRow('floor', 'tx-floor', f.floor || 0, 'the whole mark sunk this deep first, the texture on its floor (0 for none)', sl('tx-floor', 0, 12, 0.1, f.floor || 0));
       h += lenRow('grit', 'tx-grit', f.grit || 0, 'a fine, rough noise added on top (0 for none)');
       h += '</details>';
     }
@@ -826,6 +852,7 @@
     for (const det of ui.card.querySelectorAll('.tx-more')) det.ontoggle = () => {
       if (!S) return;
       if (det.classList.contains('tx-why')) S.whyOpen = det.open;
+      else if (det.classList.contains('tx-edge')) S.edgeOpen = det.open;
       else if (det.classList.contains('tx-more-p')) S.morePierce = det.open; else S.more = det.open;
       scrollCue();
     };
@@ -906,10 +933,25 @@
     bind('tx-depth', v => {
       if (!(v >= 0.1)) return say('Give the texture at least 0.1 mm of depth.');
       // as deep as the board or more: held 1 mm short, said, and the field shows it (deep review P8)
-      const top = part.thick > 1.5 ? part.thick - 1 : v, d = Math.min(v, top);
+      const top = part.thick > 1.5 ? Math.max(0.1, part.thick - 1 - (+f.floor || 0)) : v, d = Math.min(v, top);
       set(f => { f.depth = r3(d); f.params = { ...(f.params || {}), depth: r3(d) }; });
       if (d < v) say(`${LEN.prose(v)} is as deep as ${part.name} is thick or more: the texture would cut through, so it goes ${LEN.prose(d)} deep.`);
     });
+    // the deepest the mark goes: its floor and texture, or its border
+    const deepest = g => Math.max((+g.floor || 0) + (+g.depth || 0), g.border && g.border.style && g.border.style !== 'none' && g.border.style !== 'rim' ? +g.border.depth || 0 : 0);
+    const room = part.thick > 1.5 ? part.thick - 1 : Infinity;
+    // a change that would cut through: held, said (as depth's)
+    const fits = (g, what) => { if (deepest(g) <= room) return true; say(`That takes ${what} to ${LEN.prose(deepest(g))}, as deep as ${part.name} is thick or more: it stays as it was.`); render(); return false; };
+    bind('tx-relief', v => set(f => { f.relief = v === 'up' ? 'up' : 'in'; }));
+    bind('tx-curve', v => set(f => { f.curve = v; }));
+    bind('tx-floor', v => { if (!(v >= 0)) return say('The floor is 0 or more.'); if (!fits({ ...f, floor: v }, 'the mark')) return; set(f => { f.floor = r3(v); }); });
+    const border = (k, v) => { const b = { ...C.borderDefaults(), ...(f.border || {}), [k]: v }; if (!fits({ ...f, border: b }, 'the border')) return; set(f => { f.border = b; }); };
+    bind('tx-border', v => { if (v !== 'none') S.edgeOpen = true; border('style', v); });
+    bind('tx-b-width', v => { if (!(v >= 0.5 && v <= 200)) return say('Give the border a width from 0.5 mm.'); border('width', r3(v)); });
+    bind('tx-b-depth', v => { if (!(v >= 0.1)) return say('Give the border at least 0.1 mm of depth.'); border('depth', r3(v)); });
+    bind('tx-b-inset', v => { if (!(v >= 0)) return say('In from the edge is 0 or more.'); border('inset', r3(v)); });
+    bind('tx-b-pitch', v => { if (!(v >= 1)) return say('Give the beads at least 1 mm between middles.'); border('pitch', r3(v)); });
+    bind('tx-b-along', v => border('along', v === 'paint' ? 'paint' : 'all'));
     bind('tx-grit', v => { if (!(v >= 0 && v <= 3)) return say('Grit goes from 0 to 3 mm.'); set(f => { f.grit = r3(v); }); });
     bind('tx-bit', v => set(f => {
       const t = ((api().conf.get().tools) || []).find(t => String(t.id) === String(v));
