@@ -83,37 +83,29 @@
     <script>
     (async () => {
         if (!('serviceWorker' in navigator)) return;
+        // the #hash a fresh load below left off (the same address with it would only scroll)
         try {
             const h = sessionStorage.getItem('swarf-coi-hash');
             sessionStorage.removeItem('swarf-coi-hash');
             if (h && !location.hash) history.replaceState(history.state, '', location.pathname + location.search + h);
         } catch (e) { }
         const need = window.crossOriginIsolated === false;
+        // shared memory here: the last fresh load worked, so the next one may go at once
+        if (!need) { try { sessionStorage.removeItem('swarf-coi-reload'); } catch (e) { } }
         const r = await navigator.serviceWorker.register('swarf-sw.js');
-        // a hard reload (⌘⇧R) loads the page past the worker while the worker still answers as
-        // its controller: no shared memory, no restore, until one more plain reload. Reload then
-        // too, but not twice in 10 s, so a browser that can never share memory isn't looped.
-        const again = () => {
-            try {
-                const t = +sessionStorage.getItem('swarf-coi-reload') || 0;
-                if (Date.now() - t < 10000) return false;
-                sessionStorage.setItem('swarf-coi-reload', String(Date.now()));
-                return true;
-            } catch (e) { return !navigator.serviceWorker.controller; }
-        };
-        if (need && r.active && again()) {
-            // a fresh load, not reload(): Chrome carries a hard reload's bypass into reload(). The
-            // same address with its #hash would only scroll, so the hash waits in sessionStorage
-            try { if (location.hash) sessionStorage.setItem('swarf-coi-hash', location.hash); } catch (e) { }
-            location.replace(location.pathname + location.search);
-        } else if (need && !r.active) {
-            await new Promise(resolve => {
-                (r.installing || r.waiting).addEventListener('statechange', e => {
-                    if (e.target.state === 'activated') resolve();
-                });
-            });
-            window.location.reload();
-        }
+        if (!need) return;
+        // a first visit, or a hard reload (⌘⇧R), which loads past the worker and may find it
+        // not yet active: wait for it, then load once more through it. A fresh load, not reload():
+        // Chrome carries a hard reload's bypass into reload(). Not twice in 10 s without shared
+        // memory between, so a browser that can never share it isn't looped.
+        if (!r.active) await navigator.serviceWorker.ready;
+        try {
+            const t = +sessionStorage.getItem('swarf-coi-reload') || 0;
+            if (Date.now() - t < 10000) return;
+            sessionStorage.setItem('swarf-coi-reload', String(Date.now()));
+            if (location.hash) sessionStorage.setItem('swarf-coi-hash', location.hash);
+        } catch (e) { if (navigator.serviceWorker.controller) return; }
+        location.replace(location.pathname + location.search);
     })();
     </script>
     <link href="manifest.json" rel="manifest">

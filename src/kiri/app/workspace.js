@@ -19,6 +19,7 @@ const FILES = openFiles(new Index(SETUP.d ? SETUP.d[0] : 'kiri'));
 
 /** Auto-save timer handle */
 let autoSaveTimer = null;
+let restoring = 0, restoreTimer = null;   // swarf: saved parts still loading (restore)
 
 /**
  * Reload the application page.
@@ -112,6 +113,14 @@ function set_focus(sel, point) {
  * @param {boolean} [quiet] - Suppress "workspace saved" alert
  */
 function save(quiet) {
+    // swarf: never while restore is still loading saved parts: the list written now would lack
+    // them, and the clean-up below would delete their stored data for good (a slow load, e.g.
+    // after a hard reload, let a startup auto-save erase the work)
+    if (restoring) {
+        clearTimeout(autoSaveTimer);
+        autoSaveTimer = setTimeout(() => api.space.save(quiet), 500);
+        return;
+    }
     api.conf.save();
     const newWidgets = [];
     const oldWidgets = js2o(SDB.getItem('ws-widgets'), []);
@@ -176,8 +185,15 @@ function restore(ondone, skip_widget_load) {
 
     // load any widget by name that was saved to the workspace
     // after the last widget is loaded, call ondone()
+    // swarf: saves wait until every saved part has answered (or a minute has passed)
+    if (toload.length) {
+        restoring = toload.length;
+        clearTimeout(restoreTimer);
+        restoreTimer = setTimeout(() => { restoring = 0; }, 60000);
+    }
     for (let widgetid of toload) {
         Widget.loadFromState(widgetid, (widget) => {
+            if (restoring && --restoring === 0) clearTimeout(restoreTimer);
             if (widget) {
                 platform.add(widget, 0, position, true);
                 let ann = api.widgets.annotate(widgetid);
