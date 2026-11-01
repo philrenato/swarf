@@ -39,11 +39,9 @@
     parse: t => (window.SwarfLength ? window.SwarfLength.parse(t) : parseFloat(t)),
     say: v => (window.SwarfLength ? window.SwarfLength.say(v) : `${+(+v).toFixed(2)} mm`)
   };
-  const api = () => window.kiri && window.kiri.api;
-  const V = () => window.SwarfVector;
-  const $ = id => document.getElementById(id);
-  // a typed length is held to a thousandth of a mm; a field refuses one that rounds under its floor (torture test 10-29: 0.0004 became 0)
-  const r3 = v => +(+v).toFixed(3);
+  // the board both modes share (swarf-board.js): the view, the ground, the wiring, small helpers
+  const Board = window.SwarfBoard;
+  const { api, V, $, r3, clone, esc, isClosed, hush } = Board;
   const THICK = 'swarf-draw-thick', DEPTH = 'swarf-draw-engrave';
   // what a closed outline drawn inside or over a part makes
   const MODES = {
@@ -74,16 +72,9 @@
       } else delete g.meta.t;                    // from before r37: line it up by its box instead
     }
   }
-  function onRotate({ widget, x, y, z }) {
-    if (typeof x !== 'number') {                 // a quaternion (lay flat, face tool): about Z only if x, y are nil
-      const q = x || {};
-      if (Math.abs(q.x || 0) > 1e-9 || Math.abs(q.y || 0) > 1e-9) return tilt(widget);
-      const t = 2 * Math.atan2(q.z || 0, q.w ?? 1);
-      return track(widget, [Math.cos(t), -Math.sin(t), Math.sin(t), Math.cos(t)]);
-    }
-    if (Math.abs(x || 0) > 1e-9 || Math.abs(y || 0) > 1e-9) return tilt(widget);
-    const t = z || 0;
-    track(widget, [Math.cos(t), -Math.sin(t), Math.sin(t), Math.cos(t)]);
+  function onRotate(ev) {
+    const M = Board.rotationOf(ev);
+    if (M) track(ev.widget, M); else tilt(ev.widget);
   }
   function tilt(w) { for (const g of (w.group && w.group.length ? w.group : [w])) if (g.meta) g.meta.tilted = true; }
   // a part from before r37: its transform from what cam tracked (mirror, then scale, then turn)
@@ -93,7 +84,6 @@
   }
 
   // ── curves ──
-  const clone = o => JSON.parse(JSON.stringify(o));
   function boxOf(curves) {
     const b = [Infinity, Infinity, -Infinity, -Infinity];
     for (const c of curves) for (const C of V().cubics(c.crv)) for (const p of C) {
@@ -101,7 +91,6 @@
     }
     return b;
   }
-  const isClosed = crv => { const P = crv.ctrlPts, a = P[0], b = P[P.length - 1]; return Math.hypot(a[0] - b[0], a[1] - b[1]) < 1e-6; };
   // every interior knot at full multiplicity: the curve is Bézier pieces end to end
   function isChain(crv) {
     const p = crv.degree, U = crv.knots, n = crv.ctrlPts.length;
@@ -241,7 +230,6 @@
     ui.svg.focus();
   }
 
-  const hush = e => { if (!/^(INPUT|SELECT|TEXTAREA)$/.test(e.target && e.target.tagName)) e.stopPropagation(); };   // a prompt's Enter still lands (review r093 A3)
   function close(apply) {
     if (!S) return;
     if (apply && S.tool === 'regions') applyRegions();
@@ -268,10 +256,7 @@
   // ── view: mm on the bed to px on the board ──
   // to the parts (with room around them), or to the whole bed (whole = true)
   function fit(whole) {
-    const r = ui.svg.getBoundingClientRect();
-    const W = r.width || window.innerWidth, H = r.height || window.innerHeight;
-    const [bw, bd] = S.bed;
-    let b = [-bw / 2, -bd / 2, bw / 2, bd / 2];
+    let b = null;
     const live = S.parts.filter(p => !p.gone);
     if (!whole && (live.length || S.others.length)) {
       b = [Infinity, Infinity, -Infinity, -Infinity];
@@ -282,14 +267,10 @@
       const cx = (b[0] + b[2]) / 2, cy = (b[1] + b[3]) / 2, h = Math.max(150, (b[2] - b[0]) * 0.7, (b[3] - b[1]) * 0.7);
       b = [cx - h, cy - h, cx + h, cy + h];
     }
-    const left = 16, right = W > 900 ? 260 : 16, top = 76, bottom = 50;
-    S.k = Math.max(0.02, Math.min((W - left - right) / (b[2] - b[0]), (H - top - bottom) / (b[3] - b[1])));
-    S.ox = left + (W - left - right) / 2 - (b[0] + b[2]) / 2 * S.k;
-    S.oy = top + (H - top - bottom) / 2 + (b[1] + b[3]) / 2 * S.k;
-    S.whole = !!whole;
+    Board.view(S, ui.svg, b, 260, whole);
   }
   const sx = x => S.ox + x * S.k, sy = y => S.oy - y * S.k;
-  function toMM(e) { const r = ui.svg.getBoundingClientRect(); return [(e.clientX - r.left - S.ox) / S.k, -(e.clientY - r.top - S.oy) / S.k]; }
+  const toMM = e => Board.toMM(S, ui.svg, e);
 
   // the points a person moves: anchors (and handles) of a chain, control points otherwise
   function handles(part) {
@@ -324,33 +305,9 @@
 
   function render() {
     if (!S) return;
-    const k = S.k, [bw, bd] = S.bed, out = [];
-    // the bed and a 10 mm / 100 mm grid
-    out.push(`<rect class="sd-bed" x="${sx(-bw / 2)}" y="${sy(bd / 2)}" width="${bw * k}" height="${bd * k}"/>`);
-    const step = k * 10 > 6 ? 10 : 100;
-    let g = '';
-    for (let x = Math.ceil(-bw / 2 / step) * step; x <= bw / 2; x += step) g += `M${sx(x)},${sy(-bd / 2)}V${sy(bd / 2)}`;
-    for (let y = Math.ceil(-bd / 2 / step) * step; y <= bd / 2; y += step) g += `M${sx(-bw / 2)},${sy(y)}H${sx(bw / 2)}`;
-    out.push(`<path class="sd-grid${step === 100 ? ' big' : ''}" d="${g}"/>`);
-    if (step === 10) {
-      let G = '';
-      for (let x = Math.ceil(-bw / 200) * 100; x <= bw / 2; x += 100) G += `M${sx(x)},${sy(-bd / 2)}V${sy(bd / 2)}`;
-      for (let y = Math.ceil(-bd / 200) * 100; y <= bd / 2; y += 100) G += `M${sx(-bw / 2)},${sy(y)}H${sx(bw / 2)}`;
-      out.push(`<path class="sd-grid big" d="${G}"/>`);
-    }
-    // the ground (review 10-28: "no bed, origin, scale or units"): the bed's size in its
-    // corner, the origin, and a scale bar of a round length about 100 px long
-    out.push(`<text class="sd-lab" x="${sx(-bw / 2) + 6}" y="${sy(bd / 2) + 14}">bed ${LEN.unit() === 'in' ? `${+(bw / 25.4).toFixed(1)} × ${+(bd / 25.4).toFixed(1)} in` : `${Math.round(bw)} × ${Math.round(bd)} mm`}</text>`);
-    out.push(`<path class="sd-origin" d="M${sx(0) - 8},${sy(0)}H${sx(0) + 8}M${sx(0)},${sy(0) - 8}V${sy(0) + 8}"/><text class="sd-lab" x="${sx(0) + 6}" y="${sy(0) + 14}">0, 0</text>`);
-    {
-      const r = ui.svg.getBoundingClientRect(), want = 100 / k;
-      // the scale bar in the units the switch says: round inches (1/8 in to 4 ft) or round mm
-      const inch = LEN.unit() === 'in';
-      const len = inch ? 25.4 * ([0.125, 0.25, 0.5, 1, 2, 3, 6, 12, 24, 48].find(v => v * 25.4 >= want * 0.6) || 48)
-        : [1, 2, 5, 10, 20, 50, 100, 200, 500, 1000, 2000].find(v => v >= want * 0.6) || 2000;
-      const x = 20, y = (r.height || window.innerHeight) - 46;
-      out.push(`<path class="sd-scale" d="M${x},${y - 4}V${y}H${x + len * k}V${y - 4}"/><text class="sd-lab" x="${x}" y="${y - 8}">${inch ? LEN.say(len) : len >= 1000 ? len / 1000 + ' m' : len + ' mm'}</text>`);
-    }
+    const k = S.k, out = [];
+    // the ground: the bed, a 10 mm / 100 mm grid (the 100 mm lines over the 10 mm ones), its size, the origin, a scale bar
+    out.push(...Board.ground(S, ui.svg, true));
     for (const o of S.others) out.push(`<rect class="sd-other" x="${sx(o[0])}" y="${sy(o[3])}" width="${(o[2] - o[0]) * k}" height="${(o[3] - o[1]) * k}"><title>${esc(o[4])}: no drawing to edit</title></rect>`);
     // wider places to press (review 10-28 #12), under the parts so a press on a part wins:
     // near any outline picks its part, and so does anywhere in a word's box (inside an o, between letters)
@@ -461,7 +418,7 @@
     const s = ((q[0] - a[0]) * (r[1] - q[1]) - (q[1] - a[1]) * (r[0] - q[0])) / d, t = ((q[0] - a[0]) * (b[1] - a[1]) - (q[1] - a[1]) * (b[0] - a[0])) / d;
     return s >= 0 && s <= 1 && t >= 0 && t <= 1;
   };
-  const inside = (p, L) => { let n = false; for (let i = 0, j = L.length - 1; i < L.length; j = i++) if ((L[i][1] > p[1]) !== (L[j][1] > p[1]) && p[0] < (L[j][0] - L[i][0]) * (p[1] - L[i][1]) / (L[j][1] - L[i][1]) + L[i][0]) n = !n; return n; };
+  const inside = Board.inLoop;
   // the first other part this one overlaps (outlines cross, or one sits inside the other), or null
   // (review 10-28b #5: a rectangle drawn over a part became a solid inside it, and both were cut)
   function overlapOf(part) {
@@ -650,7 +607,6 @@
     const why = a.platform.edge_problem(V().svgOf(closed), { depth: part.thick, resolution: 2, segmin: 48, soup: true, dpi: 0, edge: part.edge });
     say(why || `A ${LEN.say(part.edge.size)} ${part.edge.kind} fits. Press done to shape it.`);
   }
-  const esc = t => String(t).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
   function say(t) { const el = $('sd-say'); if (el) el.textContent = t || ''; }
 
   // ── edits ──
@@ -1054,19 +1010,7 @@
   }
   // ── holes, add, cut, regions ──
   // a curve as a fine polyline: about every half millimeter, so a region's edge keeps its curve
-  function flat(crv, step = 0.5) {
-    const L = [];
-    for (const b of V().cubics(crv)) {
-      const est = Math.hypot(b[1][0] - b[0][0], b[1][1] - b[0][1]) + Math.hypot(b[2][0] - b[1][0], b[2][1] - b[1][1]) + Math.hypot(b[3][0] - b[2][0], b[3][1] - b[2][1]);
-      const n = Math.max(4, Math.min(256, Math.ceil(est / step)));
-      for (let i = L.length ? 1 : 0; i <= n; i++) {
-        const t = i / n, u = 1 - t;
-        L.push([u * u * u * b[0][0] + 3 * u * u * t * b[1][0] + 3 * u * t * t * b[2][0] + t * t * t * b[3][0],
-                u * u * u * b[0][1] + 3 * u * u * t * b[1][1] + 3 * u * t * t * b[2][1] + t * t * t * b[3][1]]);
-      }
-    }
-    return L;
-  }
+  const flat = (crv, step = 0.5) => Board.flat(crv, step, 256);
   const loopsOf = part => part.curves.filter(c => isClosed(c.crv)).map(c => flat(c.crv));
   // inside a part's material: inside an odd number of its outlines (a hole's inside is not)
   const inPart = (q, loops) => loops.filter(L => inside(q, L)).length % 2 === 1;
@@ -1316,15 +1260,7 @@
     if (!(lu > 1e-9 && lv > 1e-9) || (ux * vx + uy * vy) / (lu * lv) < Math.cos(2 * Math.PI / 180)) return null;
     return { ci, o, a, len: lv };
   }
-  function wheel(e) {
-    e.preventDefault();
-    if (e.ctrlKey || e.metaKey) {                 // pinch or ⌘-wheel: zoom about the cursor
-      const r = ui.svg.getBoundingClientRect(), px = e.clientX - r.left, py = e.clientY - r.top;
-      const f = Math.exp(-e.deltaY * 0.01), k = Math.max(0.05, Math.min(200, S.k * f));
-      S.ox = px - (px - S.ox) * k / S.k; S.oy = py - (py - S.oy) * k / S.k; S.k = k;
-    } else { S.ox -= e.deltaX; S.oy -= e.deltaY; }   // two fingers: slide
-    render();
-  }
+  function wheel(e) { Board.wheel(S, ui.svg, e); render(); }   // pinch or ⌘-wheel: zoom about the cursor; two fingers: slide
   function key(e) {
     if (!S) return;
     const typing = e.target && /INPUT|SELECT|TEXTAREA/.test(e.target.tagName);
@@ -1521,19 +1457,13 @@
   }
 
   // ── wiring ──
-  let tries = 0;
-  const t = setInterval(() => {
-    const a = api(), step = $('swarf-step-draw');
-    if ((a && a.event && step) || ++tries > 200) {
-      clearInterval(t);
-      if (!a || !a.event) return;
-      a.event.on('widget.scale', ({ widget, x, y }) => track(widget, [x || 1, 0, 0, y || 1]));
-      a.event.on('widget.rotate', onRotate);
-      a.event.on('widget.mirror', ({ widget }) => track(widget, [-1, 0, 0, 1]));
-      a.event.on('slice.begin', () => { try { engraveAreas(); } catch (e) { console.warn('swarf engrave', e); } });
-      if (step && !step.dataset.wired) { step.dataset.wired = '1'; step.addEventListener('click', open); }
-    }
-  }, 150);
+  Board.wire('swarf-step-draw', (a, step) => {
+    a.event.on('widget.scale', ({ widget, x, y }) => track(widget, [x || 1, 0, 0, y || 1]));
+    a.event.on('widget.rotate', onRotate);
+    a.event.on('widget.mirror', ({ widget }) => track(widget, [-1, 0, 0, 1]));
+    a.event.on('slice.begin', () => { try { engraveAreas(); } catch (e) { console.warn('swarf engrave', e); } });
+    if (step && !step.dataset.wired) { step.dataset.wired = '1'; step.addEventListener('click', open); }
+  });
 
   window.__swarfDraw = { open, close, setTool, render, bedCurves, state: () => S, isChain, text: TEXT, fonts: FONTS, engraveAreas, adopt, say };
 })();
