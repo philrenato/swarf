@@ -646,9 +646,10 @@ function field(f) {
         let v = NaN;
         if (t) v = f.kind === 'len' ? (SL() ? SL().parse(t) : parseFloat(t)) : Math.round(parseFloat(t));
         if (!t) delete cur.pin[f.key];
-        else if (Number.isFinite(v) && v > 0) cur.pin[f.key] = f.kind === 'len' ? Math.round(v * 1000) / 1000 : v;
+        // (Phil 11-01) a count goes 1 to 100 a part: more is no tab plan, and slow to place
+        else if (Number.isFinite(v) && v > 0 && (f.kind === 'len' || v <= 100)) cur.pin[f.key] = f.kind === 'len' ? Math.round(v * 1000) / 1000 : v;
         else {
-            sayLine(`${f.label}: type a number above zero${f.kind === 'len' ? ', like 1/2 or 12 mm' : ''}, or leave it empty for automatic.`);
+            sayLine(`${f.label}: type ${f.kind === 'len' ? 'a length above zero, like 1/2 or 12 mm' : 'a whole number from 1 to 100'}, or leave it empty for automatic.`);
             input.blur();
             showFields();
             return;

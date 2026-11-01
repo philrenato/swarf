@@ -150,9 +150,14 @@
       field.title = 'how fast simulate runs: 1 is the machine\'s own speed, up to 100 times';
       const commit = () => {
         let v = parseFloat(field.value);
+        const typed = v;
         if (!Number.isFinite(v) || v <= 0) v = 1;
         if (v < 0.5) v = 0.5;
         if (v > 100) v = 100;
+        // (Phil 11-01) a number held to the ends is said, with the range
+        if (Number.isFinite(typed) && typed !== v) {
+          try { window.kiri.api.show.alert(`Simulate runs from 0.5 to 100 times the machine's speed: it is set to ${v}.`, 5); } catch (e) { /* no alerts */ }
+        }
         field.value = String(v);
         window.__swarfCustomSpeed = v;
         try { window.dispatchEvent(new CustomEvent('swarf.speed.custom', { detail: v })); } catch (e) {}
