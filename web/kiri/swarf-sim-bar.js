@@ -1,18 +1,8 @@
 /**
- * swarf simulate-bar extensions — renders visualization toggles in both the
- * SIMULATE sim-bar (#layer-animate) and a small floating TOOLPATHS bar that
- * appears whenever the sim-bar isn't populated. Both surfaces share state
- * via the same __swarfPaths / __swarfLightstream / __swarfChipsVisible
- * window flags and CustomEvents, so flipping a toggle in one place updates
- * all mirrors instantly.
- *
- * Buttons:
- *   chips        — physics layer (simulate only)
- *   paths        — Kiri default wire (default OFF — button stays visible)
- *   lightstreams — Tron-red ribbon (default ON)
- *
- * Visual rule (markup Apr 15 r10-c): ON = mill-red, OFF = solid black.
- * Both states are fully visible; OFF is never hidden.
+ * swarf simulate-bar extensions: names the bar, labels its numbers, adds the chips and
+ * lightstreams toggles (window.__swarfChipsVisible / __swarfLightstream, saved in
+ * localStorage, announced by CustomEvent) and an editable speed field.
+ * Both toggle states stay visible; the skin draws .swarf-toggle-on / -off.
  */
 (function () {
   'use strict';
@@ -27,18 +17,13 @@
   } catch (e) { window.__swarfChipsVisible = false; }
   window.__swarfCustomSpeed = null; // null = use built-in cycle
 
-  // swarf v010 r7: two independent toolpath toggles (can both be on)
-  //   __swarfLightstream — Tron red ribbons (default ON)
-  //   __swarfPaths       — Kiri default yellow-wire path (default OFF)
+  // __swarfLightstream: the bit's red ribbon trail (default on)
   const LS_KEY = 'swarf.lightstream';
-  const PT_KEY = 'swarf.paths';
   const CH_KEY = 'swarf.chips';
   try {
     const lsSaved = localStorage.getItem(LS_KEY);
     window.__swarfLightstream = lsSaved === null ? true  : lsSaved === '1';
-    const ptSaved = localStorage.getItem(PT_KEY);
-    window.__swarfPaths       = ptSaved === null ? false : ptSaved === '1';
-  } catch (e) { window.__swarfLightstream = true; window.__swarfPaths = false; }
+  } catch (e) { window.__swarfLightstream = true; }
 
   // ─── button factory ─────────────────────────────────────────────────────
   const CFG = {
@@ -47,12 +32,6 @@
       offLabel: 'chips', onLabel: 'chips',
       offTitle: 'flying chips: off',
       onTitle:  'flying chips: on',
-    },
-    paths: {
-      flag: '__swarfPaths', key: PT_KEY, event: 'swarf.paths.toggle',
-      offLabel: 'paths off', onLabel: 'paths on',
-      offTitle: 'Kiri default toolpath wire is hidden — click to show',
-      onTitle:  'Kiri default toolpath wire is visible — click to hide',
     },
     lightstream: {
       flag: '__swarfLightstream', key: LS_KEY, event: 'swarf.lightstream.toggle',
@@ -63,7 +42,7 @@
   };
 
   // every rendered mirror so we can keep them in lockstep when one flips.
-  const mirrors = { chips: [], paths: [], lightstream: [] };
+  const mirrors = { chips: [], lightstream: [] };
 
   function paint(b, kind) {
     const cfg = CFG[kind];
@@ -93,11 +72,9 @@
     return b;
   }
 
-  // When any flag flips (via any mirror, or via swarf-viz-menu / external),
-  // repaint every mirror so all bars stay visually in sync.
+  // when a flag flips (any mirror, or code), repaint every mirror
   function syncAll(kind) { mirrors[kind].forEach(b => paint(b, kind)); }
   window.addEventListener('swarf.chips.toggle',       () => syncAll('chips'));
-  window.addEventListener('swarf.paths.toggle',       () => syncAll('paths'));
   window.addEventListener('swarf.lightstream.toggle', () => syncAll('lightstream'));
 
   // ─── SIMULATE sim-bar injection ─────────────────────────────────────────
@@ -131,10 +108,7 @@
     bar.appendChild(makeToggle('lightstream'));
 
     // ── editable speed field (Phil markup Apr 15 item 4) ──
-    // Find the speed label: readonly <input size="3"> that follows the
-    // fast-forward (toggle speed) button. Previous regex approach failed
-    // because updateSpeed() hasn't set the value yet when injectSimBar
-    // fires from the MutationObserver.
+    // the speed label: the readonly <input size="3"> after the "toggle speed" button
     const speedBtn = bar.querySelector('button[title="toggle speed"]');
     const speedLabelEl = speedBtn
       ? speedBtn.nextElementSibling

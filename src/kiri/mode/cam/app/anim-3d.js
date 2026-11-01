@@ -212,21 +212,13 @@ function initPathMesh() {
             lines.visible = bool;
         }
     }
-    // swarf v010 r9 (Apr 15 rewrite): this built-in path tracer IS the
-    // lightstream. Gate on __swarfLightstream (default on) — the separate
-    // swarf-lightstream.js overlay was reinventing the same data path and
-    // was the root cause of regressions. Kiri grows `lines` as each segment
-    // is reported; with the red additive material (set above when the flag
-    // is true) this is a translucent glowing ribbon traced behind the tool.
+    // anim's own tracer is the thin red line behind the tool, shown with __swarfLightstream
+    // (default on); swarf-lightstream.js draws the ribbons over it.
     lines.visible = window.__swarfLightstream !== false;
     space.world.add(lines);
 
     try {
       window.addEventListener('swarf.lightstream.toggle', () => {
-        lines.visible = window.__swarfLightstream !== false;
-      });
-      // legacy event alias
-      window.addEventListener('swarf.paths.toggle', () => {
         lines.visible = window.__swarfLightstream !== false;
       });
     } catch (e) {}
