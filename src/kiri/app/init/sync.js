@@ -391,6 +391,10 @@ function setup_keybd_nav() {
     // swarf: Help menu — Search / Concordance / About
     const helpSearch = $('swarf-help-search');
     if (helpSearch) helpSearch.onclick = (ev) => { ev.stopPropagation(); api.modal.show('swarf-search'); setTimeout(() => { const i = $('swarf-search-input'); if (i) i.focus(); }, 50); };
+    // the videos about swarf (Phil 11-01), one place for the link: the about card and help › swarf videos
+    const VIDEOS = 'https://www.youtube.com/watch?v=PLagAIp6MCY&list=PLNPXIo7F2Cm0';
+    const helpVid = $('swarf-videos');
+    if (helpVid) helpVid.onclick = (ev) => { ev.stopPropagation(); window.open(VIDEOS, '_blank', 'noopener'); };
     const helpConc = $('swarf-concordance');
     if (helpConc) helpConc.onclick = (ev) => { ev.stopPropagation(); api.modal.show('swarf-concordance'); };
     const helpReset = $('swarf-reset-profile');
@@ -928,6 +932,7 @@ function setup_keybd_nav() {
         const results = document.getElementById('swarf-search-results');
         if (!input || !results) return;
         const INDEX = [
+            { kind:'app', name:'videos', body:'help › swarf videos opens the videos about swarf on YouTube in a new tab; the about card (help › about swarf) links them too.', tags:'videos video youtube watch tutorial how to learn demo' },
             { kind:'shop', name:'ShopBot quick start', body:'help › ShopBot quick start walks from a drawing to a cut part in ten steps, as on the shop poster, with a show me on the steps swarf can open for you.', tags:'quick start tutorial first time poster steps shopbot how to' },
             { kind:'shop', name:'permission', body:"the ShopBot runs with a faculty member or the technician's say-so. ask before you start.", tags:'permission faculty technician rules kcad shop' },
             { kind:'shop', name:'your board', body:'bring your own board, flat and labeled with your name, with extra for a test cut. 1/4 to 2 1/2 in thick, up to 4 × 8 ft; thinner sheet goes to the laser.', tags:'board material thickness size laser kcad' },

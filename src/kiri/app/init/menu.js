@@ -260,6 +260,8 @@ function content(actions) {
                     // swarf (Phil 10-28): the shop poster as a walk-through (web/kiri/swarf-tutorial.js)
                     menuItem(actions, { id: 'swarf-quickstart', text: 'ShopBot quick start', title: 'from a drawing to a cut part, ten steps, as on the shop poster', iconClass: 'fas fa-person-chalkboard' }),
                     menuItem(actions, { id: 'swarf-help-search', text: 'search help…', title: 'search help', iconClass: 'fas fa-magnifying-glass' }),
+                    // swarf (Phil 11-01): the videos about swarf, on YouTube, in a new tab
+                    menuItem(actions, { id: 'swarf-videos', text: 'swarf videos', title: 'videos about swarf, on YouTube (opens a new tab)', iconClass: 'fas fa-circle-play' }),
                     menuItem(actions, { id: 'swarf-concordance', text: 'every word in swarf', title: 'every named thing in swarf, one line each', iconClass: 'fas fa-book-open' }),
                     hr(),
                     menuItem(actions, { id: 'swarf-reset-profile', text: 'reset profile', title: 'clear all settings and reload swarf', iconClass: 'fas fa-rotate-left' }),
