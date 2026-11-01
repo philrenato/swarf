@@ -6,8 +6,8 @@
  *   SwarfLength.unit()           'mm' or 'in', cam's setting
  *   SwarfLength.parse(text)      mm, or NaN: "3/4", "1 1/2", "1-1/2\"", "0.75 in", "19.05 mm", "2 cm";
  *                                a bare number is in unit()
- *   SwarfLength.show(mm)         the number for a field in unit(): 19.05 or 0.75 (never a fraction,
- *                                so a field read back is the same length)
+ *   SwarfLength.show(mm)         the number for a field in unit(): 19.05 or 0.75 (never a fraction;
+ *                                in: 3 places, 4 for a 64th; mm: 2 places, 3 under 1 mm or for an inch size)
  *   SwarfLength.field(mm)        a design field's text: "3/16" or "0.079" in inches (TEX, tabs)
  *   SwarfLength.say(mm)          words: "19.05 mm", or "3/4 in" when it is an exact 64th, else "0.7874 in"
  *   SwarfLength.prose(mm, u, dp) a length in a sentence: in inches the nearest 16th ("2 9/16 in", what a
@@ -53,10 +53,15 @@
     return sign * v * k;
   }
 
-  // a field's number: inches to 4 places hold a 64th exactly enough to read back within 0.0013 mm
+  // a field's number in the scene's precision (Phil 11-01: no 12.700000001): inches to 3 places,
+  // or 4 when it is a 64th that needs them (1/64 = 0.0156), so a 64th reads back within 0.0013 mm;
+  // mm to 2 places, 3 under 1 mm (a stepover, a tolerance) or for an inch size (3.175, a 1/8 in bit)
   function show(mm, u) {
     if (!Number.isFinite(+mm)) return '';
-    return (u || unit()) === 'in' ? String(+(mm / IN).toFixed(4)) : String(+(+mm).toFixed(3));
+    mm = +mm;
+    const in64 = Math.abs(mm / IN * 64 - Math.round(mm / IN * 64)) < 1e-6;
+    if ((u || unit()) === 'in') return String(+(mm / IN).toFixed(in64 ? 4 : 3));
+    return String(+mm.toFixed(Math.abs(mm) < 1 || in64 ? 3 : 2));
   }
 
   // a design field's text (TEX, the tab card, auto tabs; review 10-30 B8): in inches the nearest
