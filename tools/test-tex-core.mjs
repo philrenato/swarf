@@ -608,5 +608,24 @@ for (const [id, P] of Object.entries(T.PATTERNS)) {
   ok(same && diff, 'the same seed draws the same blobs; another seed others');
 }
 
+// 45. a mesh of a drawn part (Phil 11-01: "I don't think this STL is right"): a curve's outline has a corner
+//     every fraction of a millimetre, each a row of the mesh; those rows had only their two ends, so the top
+//     zipped into slivers edge to edge and the texture was never sampled. The top's triangles stay short,
+//     the texture is in it, and the solid is closed
+{
+  const N = 1100, L = []; for (let k = 0; k < N; k++) { const a = k / N * 2 * Math.PI; L.push([150 * Math.cos(a) + 12 * Math.cos(5 * a), 70 * Math.sin(a) + 9 * Math.sin(3 * a)]); }
+  const g = T.newGrid(-170, -90, 170, 90, 0.5); T.paintWhere(g, (x, y) => Math.abs(x) < 90, 1);
+  const mark = { id: 'm', region: T.storeRegion(g), xf: T.IDENTITY.slice(), fill: T.newFill('blob', { relief: 'up', depth: 6, params: { ...T.defaults('blob'), depth: 6 } }) };
+  const M = T.partMesh({ loops: [L], thickness: 12, marks: [mark] });
+  const P = M.positions, I = M.indices; let top = 0, long = 0, low = 0;
+  for (let t = 0; t < I.length; t += 3) { if (M.kinds[t / 3] !== 0) continue; top++;
+    const a = I[t] * 3, b = I[t + 1] * 3, c = I[t + 2] * 3;
+    if (Math.max(Math.hypot(P[a] - P[b], P[a + 1] - P[b + 1]), Math.hypot(P[b] - P[c], P[b + 1] - P[c + 1]), Math.hypot(P[a] - P[c], P[a + 1] - P[c + 1])) > 20) long++; }
+  for (let v = 2; v < P.length; v += 3) if (P[v] < 11) low++;
+  const chk = T.meshCheck(M), est = T.partMeshSize([L], T.autoMeshRes([L])).triangles;
+  ok(long < top * 0.01 && low > 1000 && chk.watertight, `a drawn part's mesh: ${long} of ${top} top triangles over 20 mm, ${low} points of texture below the top, ${chk.watertight ? 'closed' : 'NOT closed'}`);
+  ok(Math.abs(est - I.length / 3) < I.length / 3 * 0.6, `the card's size estimate is near: ${est} said, ${I.length / 3} made`);
+}
+
 console.log(`\n${pass} passed, ${fail} failed  (${((Date.now() - t0) / 1000).toFixed(1)} s)`);
 process.exit(fail ? 1 : 0);

@@ -2542,7 +2542,10 @@ ${circles}
 // either side of their edge. Each point is one vertex, so every edge belongs to two triangles.
 export function partMeshSize(loops, res) {
   const b = loopsBox(loops), area = Math.max(1, (b[2] - b[0]) * (b[3] - b[1]));
-  return { cells: Math.ceil(area / (res * res)), triangles: Math.ceil(area / (res * res)) * 4 + Math.ceil(2 * ((b[2] - b[0]) + (b[3] - b[1])) / res) * 2 };
+  // each outline corner adds a row of the grid's columns (about a third survive the thinning, measured)
+  const corners = loops.reduce((n, L) => n + L.length, 0) / 3, rows = (b[3] - b[1]) / res + corners;
+  const cells = Math.ceil(rows * (b[2] - b[0]) / res * 0.4);
+  return { cells, triangles: cells * 4 + Math.ceil(2 * ((b[2] - b[0]) + (b[3] - b[1])) / res) * 2 };
 }
 const loopsBox = (loops) => { const b = [Infinity, Infinity, -Infinity, -Infinity]; for (const L of loops) for (const q of L) { b[0] = Math.min(b[0], q[0]); b[1] = Math.min(b[1], q[1]); b[2] = Math.max(b[2], q[0]); b[3] = Math.max(b[3], q[1]); } return b; };
 // 48 000 cells: a 6 x 10 in cutting board comes out near 0.9 mm, about 200 thousand triangles and
@@ -2560,7 +2563,23 @@ export function partMesh(o) {
   const area2 = (L) => { let a = 0; for (let i = 0, j = L.length - 1; i < L.length; j = i++) a += (L[j][0] + L[i][0]) * (L[j][1] - L[i][1]); return -a / 2; };
   const pip = (p, L) => { let n = false; for (let i = 0, j = L.length - 1; i < L.length; j = i++) if ((L[i][1] > p[1]) !== (L[j][1] > p[1]) && p[0] < (L[j][0] - L[i][0]) * (p[1] - L[i][1]) / (L[j][1] - L[i][1]) + L[i][0]) n = !n; return n; };
   const clean = (L) => { const out = []; for (const q of L) { const l = out[out.length - 1]; if (!l || Math.hypot(q[0] - l[0], q[1] - l[1]) > 1e-6) out.push([q[0], q[1]]); } if (out.length > 1 && Math.hypot(out[0][0] - out[out.length - 1][0], out[0][1] - out[out.length - 1][1]) < 1e-6) out.pop(); return out; };
-  const partLoops = o.loops.map(clean).filter((L) => L.length >= 3).map((L, i, all) => {
+  // a drawn curve's outline comes with a corner every fraction of a millimetre; each corner is a row of
+  // the mesh below, so the corners that change little (under a sixteenth of the grid off the line) go first
+  const thin = Math.min(0.1, res / 16);
+  const simplify = (L) => {
+    if (L.length < 8) return L;
+    const keep = new Uint8Array(L.length); keep[0] = 1; keep[L.length - 1] = 1;
+    const stack = [[0, L.length - 1]];
+    while (stack.length) {
+      const [a, b] = stack.pop();
+      let far = -1, fd = thin;
+      for (let i = a + 1; i < b; i++) { const d = segDist(L[i][0], L[i][1], [L[a][0], L[a][1], L[b][0], L[b][1]]); if (d > fd) { fd = d; far = i; } }
+      if (far >= 0) { keep[far] = 1; stack.push([a, far], [far, b]); }
+    }
+    const out = L.filter((_, i) => keep[i]);
+    return out.length >= 3 ? out : L;
+  };
+  const partLoops = o.loops.map(clean).map(simplify).filter((L) => L.length >= 3).map((L, i, all) => {
     const depth = all.reduce((n, M, k) => n + (k !== i && pip(L[0], M) ? 1 : 0), 0);
     const ccw = area2(L) > 0, want = depth % 2 === 0;
     return ccw === want ? L : L.slice().reverse();
@@ -2665,8 +2684,11 @@ export function partMesh(o) {
   const lineX = Y.map(() => []);
   strips.forEach((s, k) => { for (const t of s.traps) { lineX[k].push(t.xla, t.xra); lineX[k + 1].push(t.xlb, t.xrb); } });
   const covered = (k) => { const iv = []; if (k > 0) for (const t of strips[k - 1].traps) iv.push([t.xlb, t.xrb]); if (k < strips.length) for (const t of strips[k].traps) iv.push([t.xla, t.xra]); return iv; };
+  // every line gets the grid's columns, not only the grid rows: a line through an outline corner with
+  // its two ends alone zipped into long slivers edge to edge, and the top was sampled only at the outline
+  // (an STL of a drawn part came out flat, its texture missing)
   for (let k = 0; k < Y.length; k++) {
-    if (isGrid(Y[k])) for (const [a, b] of covered(k)) for (let x = Math.ceil((a - gx0) / res) * res + gx0; x < b; x += res) if (x > a) lineX[k].push(x);
+    for (const [a, b] of covered(k)) for (let x = Math.ceil((a - gx0) / res) * res + gx0; x < b; x += res) if (x > a) lineX[k].push(x);
     lineX[k] = lineX[k].sort((p, q) => p - q).filter((x, i, a) => i === 0 || x - a[i - 1] > 1e-7);
   }
   // ── vertices: one top and one bottom per point ──
