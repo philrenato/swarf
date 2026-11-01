@@ -75,7 +75,7 @@ try {
   await page.click('#swarf-run .sr-actions .trace'); await wait(300);
   t = await sheet();
   const moved0 = await page.evaluate(() => window.__swarfRun.state.machine.state.running);
-  check(/Trace the border/.test(t) && /about to move/.test(t) && /router stays off/.test(t) && !moved0, `trace asks first, nothing moves yet ("${t.slice(0, 80)}…")`);
+  check(/Trace the border/.test(t) && /about to move/.test(t) && /router off/.test(t) && !moved0, `trace asks first, nothing moves yet ("${t.slice(0, 80)}…")`);
   await shut();
   await page.click('#swarf-run .sr-actions .air'); await wait(300);
   t = await sheet();
@@ -96,8 +96,8 @@ try {
   for (const b of ['trace', 'air']) { await page.click(`#swarf-run .sr-actions .${b}`); await wait(300); mmIn.push([b, await sheet()]); await shut(); }
   await press('go to x y 0'); await wait(300); mmIn.push(['go to', await sheet()]); await shut();
   const mmLeft = mmIn.filter(([, x]) => /\d mm\b/.test(x));
-  check(/1 in up/.test(sayNow) && /up to 1 in over Z 0/.test(mmIn[1][1]) && /3\/16 in above its highest point/.test(mmIn[2][1]) && /The way in: up to \d/.test(mmIn[2][1]) && !mmLeft.length,
-    `in inches control's sentences say in (${mmLeft.length ? mmLeft.map(([k, x]) => `${k}: "${x.match(/[^.]*\d mm\b[^.]*/)[0].trim()}"`).join('; ') : `"${sayNow.slice(0, 70)}…", "${(mmIn[2][1].match(/The way in:[^.]*/) || [''])[0]}"`})`);
+  check(/1 in up/.test(sayNow) && /up to 1 in over Z 0/.test(mmIn[1][1]) && /3\/16 in above its highest point/.test(mmIn[2][1]) && /First: up to \d/.test(mmIn[2][1]) && !mmLeft.length,
+    `in inches control's sentences say in (${mmLeft.length ? mmLeft.map(([k, x]) => `${k}: "${x.match(/[^.]*\d mm\b[^.]*/)[0].trim()}"`).join('; ') : `"${sayNow.slice(0, 70)}…", "${(mmIn[2][1].match(/First:[^.]*/) || [''])[0]}"`})`);
   await switchTo('mm'); await wait(400);
   // the table's corners: learn front-left here, then front right becomes X 0: here reads -table length
   await press('table corners'); await wait(300);

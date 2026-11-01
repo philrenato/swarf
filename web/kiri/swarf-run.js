@@ -207,11 +207,11 @@
 .sr-file .name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--swarf-text-2, #8a857c); }
 .sr-file button { background: var(--swarf-bg-3, #1c1817); border: 1px solid var(--swarf-line-2, #3a1e18); border-radius: 999px; padding: 6px 12px; }
 .sr-actions { display: grid; grid-template-columns: 1fr 1fr 1.4fr 1fr 1fr; gap: 8px; padding: 10px 12px 0; }
-.sr-actions button { border-radius: 10px; padding: 14px 0; font-size: 14px; font-weight: 600; letter-spacing: .06em;
+.sr-actions button { border-radius: 10px; padding: 11px 0; /* 40 px: one-word labels (r093 UX V7) */ font-size: 14px; font-weight: 600; letter-spacing: .06em;
   background: var(--swarf-bg-3, #1c1817); border: 1px solid var(--swarf-line-2, #3a1e18); }
 .sr-actions .cut { background: var(--swarf-accent, #d02020); border-color: var(--swarf-accent, #d02020); color: #fff; }
 .sr-actions .cut:not(:disabled):hover { background: var(--swarf-accent-hi, #ff3a2a); box-shadow: 0 0 18px var(--swarf-glow, rgba(224,40,30,.32)); }
-.sr-actions .stop { background: #3a0c0a; border-color: var(--swarf-accent-hi, #ff3a2a); color: #fff; }
+.sr-actions .stop { background: #3a0c0a; border-color: var(--swarf-accent-hi, #ff3a2a); color: #fff; padding: 14px 0; /* stop keeps its full height */ }
 .sr-actions .trace.next, .sr-actions .air.next { border-color: var(--swarf-accent, #d02020); box-shadow: 0 0 12px var(--swarf-glow, rgba(224,40,30,.32)); }
 .sr-plan { flex: 1; min-height: 0; overflow-y: auto; padding: 10px 12px; color: var(--swarf-text-2, #8a857c); font-size: 12px; line-height: 1.6; }
 .sr-plan .w { color: var(--swarf-amber, #c08a3a); }
@@ -454,9 +454,10 @@ body.swarf-run-open { filter: none !important; }
    it won't let me go to trace or in the air") */
 #swarf-run .sr-actions .cut.quiet { background: var(--swarf-bg-3, #1c1817) !important; color: inherit !important; border-color: var(--swarf-line-2, #3a1e18) !important; box-shadow: none !important; }
 #swarf-run .sr-actions button.wait { opacity: .78; cursor: help; box-shadow: none !important; }
-#swarf-run .sr-need { padding: 8px 12px 0; display: flex; flex-wrap: wrap; gap: 4px 12px; font-size: 12px; color: var(--c-dim, #8a857c); }
+#swarf-run .sr-need { padding: 8px 12px 0; display: flex; flex-wrap: wrap; align-items: center; gap: 4px; font-size: 11px; line-height: 16px; color: var(--c-dim, #8a857c); }
+#swarf-run .sr-need span { /* (r093 UX V7) each need a small pill, so the line reads as a row of checks */ padding: 0 7px; border: 1px solid var(--swarf-line-2, #3a1e18); border-radius: 999px; white-space: nowrap; }
 #swarf-run .sr-need:empty { display: none; }
-#swarf-run .sr-need b { font-weight: 500; color: var(--c-text, #d8d2c6); }
+#swarf-run .sr-need b { font-weight: 500; color: var(--c-text, #d8d2c6); margin-right: 2px; }
 #swarf-run .sr-need .ok { color: var(--c-dim, #8a857c); }
 #swarf-run .sr-need .no { color: var(--c-text, #d8d2c6); text-decoration: underline; cursor: pointer; }
 #swarf-run .sr-start { display: flex; gap: 8px; padding: 10px 12px 0; flex-wrap: wrap; }
@@ -1472,7 +1473,8 @@ html[data-skin] #swarf-run .sr-jog .sr-zrow button.next, html[data-skin] #swarf-
       case 'load': return say(S.camBusy ? 'Making the toolpaths…' : S.camError || 'No toolpaths yet. Add a step to your part (rough, contour, outline, pocket), then press control.');
       case 'check': return say(problems().block[0], 'bad');
       case 'zero':
-        if (S.toolChange) return say(`${S.toolChange} The bit is ${len(CHANGE_Z, 0)} up and the router is off. Change the bit, then press z plate to zero Z on ${o.z} (or lower it onto a sheet of paper and press zero z), then continue from line ${S.stoppedAt}.`, 'warn');
+        // two lines at 1280 in every skin (r093 UX W4): the status never pushes the page down
+        if (S.toolChange) return say(`${S.toolChange} The router is off (leave its own switch on), the bit ${len(CHANGE_Z, 0)} up. Once it has stopped turning, change it, zero Z, then continue from line ${S.stoppedAt}.`, 'warn');
         if (S.zeroLost) return say('The box lost its position while it was unplugged. Zero X Y and Z again before you go on.', 'warn');
         if (!S.zeroXY) return say(`Jog the bit over ${o.xy}, then press zero x y. Step 10 to get close, then 1.`);
         if (/top/.test(o.z)) return say(`Now Z, on ${o.z}: press z plate and the bit finds the board itself with the touch plate. Or lower it with step 0.1 onto a sheet of paper until it just drags, then press zero z.`);
@@ -1850,12 +1852,11 @@ html[data-skin] #swarf-run .sr-jog .sr-zrow button.next, html[data-skin] #swarf-
   }
 
 
-  // the test runs' own checklist: the router stays off, so no bit or speed check; the rest as for a cut
+  // the test runs' own checklist: the router stays off (the card says so), so no bit or speed check; the rest as for a cut
   function testChecklist() {
     const o = originText();
     return [
       'your board lies flat, screwed or clamped down, and the bit clears every screw and clamp',
-      'the router stays off: swarf does not switch it on for this',
       inchItem(),
       /^the /.test(o.z) ? `Z zero is on ${o.z}` : `Z zero is ${o.z}`,
       'hands clear of the gantry, a foot near the floor e-stop'
@@ -1877,7 +1878,7 @@ html[data-skin] #swarf-run .sr-jog .sr-zrow button.next, html[data-skin] #swarf-
     const b = P.cutBounds(S.prog.parsed);
     const size = b ? lens([b.max.x - b.min.x, b.max.y - b.min.y], 0) : '';
     const words = {
-      trace: { h: 'Trace the border', go: 'trace', p: `The machine is about to move. The bit goes up to ${up(1)} over Z 0, then runs the rectangle the cut fills (${size}), router off. It checks the outside of the cut only, not clamps inside it. Watch that it stays over your board and clears every clamp. Check each one:` },
+      trace: { h: 'Trace the border', go: 'trace', p: `The machine is about to move: up to ${up(1)} over Z 0, then around the ${size} box the cut fills, router off. Watch that it stays over your board and clears every screw and clamp; clamps inside the cut are not checked. Check each one:` },
       air: { h: `Run ${S.prog.name} as an air cut`, go: 'air cut', p: `The machine is about to move. The whole file runs ${prose(AIR_CLEAR)} above its highest point, router off, about ${mins(S.prog.parsed.seconds)}. It is not a clamp check: watch the path before you cut. Check each one:` },
       from: { h: `Continue from line ${line}`, go: `continue from line ${line}`, p: `The machine is about to move and the router to start. The bit goes up to ${up(1)}, over to where that line starts, starts the router, then cuts the rest of the file. Check each one:` },
       cut: { h: `Cut ${S.prog.name}`, go: 'cut', p: `The machine is about to move and the router to start. The file runs to the end, about ${mins(S.prog.parsed.seconds)}. Check each one:` }
@@ -1891,7 +1892,7 @@ html[data-skin] #swarf-run .sr-jog .sr-zrow button.next, html[data-skin] #swarf-
     const way = plan && window.SwarfRunPlan ? wayWords(plan) : '';
     const back = () => { el.sheet.classList.remove('on'); showPlan(null); };
     el.card.append(h('h2', { text: words.h }), h('p', { text: words.p }),
-      ...(way ? [h('p', { class: 'sr-way', text: `The way in: ${way}.` })] : []),
+      ...(way ? [h('p', { class: 'sr-way', text: `First: ${way}.` })] : []),
       ...(bad ? [h('p', { class: 'sr-way bad', text: bad })] : []),
       ...items.map((t, i) => h('label', {}, checks[i], h('span', { text: t }))),
       h('div', { class: 'row' }, h('button', { text: 'not yet', onclick: back }), go));
@@ -2286,7 +2287,7 @@ html[data-skin] #swarf-run .sr-jog .sr-zrow button.next, html[data-skin] #swarf-
     if (veiled && !el.veil.classList.contains('on') && document.activeElement && document.activeElement.blur) document.activeElement.blur();
     if (veiled && !el.veil.classList.contains('on') && el.veilWay) {
       const rp = resumePlan(), way = rp && window.SwarfRunPlan ? wayWords(rp) : '';
-      el.veilWay.textContent = rp && rp.problems.length ? `It can't resume: ${rp.problems[0]}.` : way ? `The way back in: ${way}.` : '';
+      el.veilWay.textContent = rp && rp.problems.length ? `It can't resume: ${rp.problems[0]}.` : way ? `On resume: ${way}.` : '';
       el.veilWay.classList.toggle('bad', !!(rp && rp.problems.length));
       if (el.resumeBtn) {
         el.resumeBtn.disabled = !!(rp && rp.problems.length);
@@ -2346,7 +2347,7 @@ html[data-skin] #swarf-run .sr-jog .sr-zrow button.next, html[data-skin] #swarf-
         const t = fileTools();
         // the bit this change loads: the last name given at or before the change line
         const next = S.prog.parsed.events.filter(e => e.kind === 'tool-name' && e.line <= st.resumeLine - 1).pop();
-        S.toolChange = `Tool change at line ${st.resumeLine - 1}${next ? `: put in the ${next.value}.` : '.'} swarf has switched the router off: wait until the bit has stopped turning, then change it. Leave the router's own switch on; swarf turns it back on.`;
+        S.toolChange = `Tool change at line ${st.resumeLine - 1}${next ? `: put in the ${next.value}.` : '.'}`;
         S.zeroZ = false; S.zStale = true;
       } else if (finished) {
         if (S.job === 'trace') S.traced = true;

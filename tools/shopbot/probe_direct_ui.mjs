@@ -285,7 +285,7 @@ try {
     const pv = await page.evaluate(() => ({ veil: document.querySelector('#swarf-run .sr-veil').classList.contains('on'),  outs: window.__stub.state.outs & 1, paused: window.__swarfRun.state.machine.state.paused, way: (document.querySelector('#swarf-run .sr-veil .sr-way') || {}).textContent || '', btn: [...document.querySelectorAll('#swarf-run .sr-veil button')].map(b => b.textContent).join('|') }));
     if (process.env.SHOTS) await page.screenshot({ path: `${process.env.SHOTS}/veil-resume.png` });
     // the resume is a plan of its own, shown before it runs (third review #5)
-    check(/^The way back in: up to 25 mm, (the router on, )?(slowly down to Z|over to)/.test(pv.way), `the veil shows the way back in: "${pv.way}"`);
+    check(/^On resume: up to 25 mm, (the router on, )?(slowly down to Z|over to)/.test(pv.way), `the veil shows the way back in: "${pv.way}"`);
     check(/router on/.test(pv.way) === /start the router/.test(pv.btn), `the resume button says what it does: ${pv.btn}`);
     await page.keyboard.press('Enter');   // no key resumes
     await new Promise(r => setTimeout(r, 200));
