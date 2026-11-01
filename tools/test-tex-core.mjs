@@ -229,7 +229,7 @@ ok(T.morseEncode('hi there') === '.... .. / - .... . .-. .', 'morse words split 
 for (const [id, P] of Object.entries(T.PATTERNS)) {
   ok(P.label === P.label.toLowerCase(), `${id}: its name is lowercase ("${P.label}")`);
   const basic = P.params.filter((q) => q.basic).map((q) => q.k);
-  ok(basic.length >= 1 && basic.length <= 2 && !basic.includes('depth') && !basic.includes('seed'), `${id}: ${basic.join(', ')} first`);
+  ok(basic.length >= 1 && basic.length <= 3 && !basic.includes('depth') && !basic.includes('seed'), `${id}: ${basic.join(', ')} first`);
   ok(P.params.filter((q) => q.k === 'seed').every((q) => q.shuffle && !q.basic), `${id}: a seed is a shuffle`);
 }
 {
@@ -506,6 +506,22 @@ for (const [id, P] of Object.entries(T.PATTERNS)) {
   const glb = new DataView(T.meshGLB(M));
   const jl = glb.getUint32(12, true), json = JSON.parse(new TextDecoder().decode(new Uint8Array(glb.buffer, 20, jl)));
   ok(glb.getUint32(0, true) === 0x46546c67 && glb.getUint32(8, true) === glb.byteLength && json.accessors[2].count === M.indices.length && json.meshes[0].primitives[0].attributes.NORMAL === 1, `GLB: ${glb.byteLength} bytes, ${json.accessors[0].count} vertices, ${json.accessors[2].count / 3} triangles, in meters, y up`);
+}
+
+// 40. defaults that make the pattern (Phil 11-01): line patterns default to a 90° V on their centerlines,
+//     solid/pocket fills and surfaces to the 1/4 in ball; the finish moves the raster's stepover both ways;
+//     memphis density thins the glyphs
+{
+  ok(T.suggestBit('memphis') === 'v90' && T.suggestBit('memphis', { fill: 'solid' }) === 'ball14' && T.suggestBit('knurl') === 'v90'
+    && T.suggestBit('motif', { fill: 'pocket' }) === 'ball14' && T.suggestBit('quilt') === 'ball14' && T.newFill('memphis').tool === 'v90', 'each pattern\'s own default bit');
+  const g = T.newGrid(0, 0, 40, 40, 0.5); T.paintWhere(g, () => true, 1);
+  const so = fin => T.markToolpath({ id: 'f', region: g, xf: T.IDENTITY.slice(), fill: T.newFill('waves', { finish: fin }) }, { res: 0.5 }).stepover;
+  const [a, b, c] = ['fine', 'standard', 'bold'].map(so);
+  ok(a < b && b < c && c < 6.35 * 0.6, `finish: fine ${a.toFixed(2)} < standard ${b.toFixed(2)} < bold ${c.toFixed(2)} mm stepover, bold still under 60% of the ball`);
+  const solid = T.markToolpath({ id: 's', region: g, xf: T.IDENTITY.slice(), fill: T.newFill('memphis', { tool: 'v90', params: { ...T.defaults('memphis'), fill: 'solid' } }) }, { res: 0.5 });
+  ok(solid.strategy !== 'centerline', `solid memphis with a V rasters (${solid.strategy}): a centerline never clears the shapes`);
+  const n = den => T.markToolpath({ id: 'd', region: g, xf: T.IDENTITY.slice(), fill: T.newFill('memphis', { params: { ...T.defaults('memphis'), density: den } }) }, { res: 0.5 }).moves.length;
+  ok(n(30) < n(100) * 0.6, `memphis density 30% cuts fewer moves (${n(30)} vs ${n(100)})`);
 }
 
 console.log(`\n${pass} passed, ${fail} failed  (${((Date.now() - t0) / 1000).toFixed(1)} s)`);

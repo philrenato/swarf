@@ -579,13 +579,16 @@ export const PATTERNS = {
   memphis: {
     label: 'memphis', blurb: 'Squiggles, zigzags, triangles and rings tossed across the top, like an 80s print.',
     params: [S('mix', 'Mix', ['everything', 'squiggles', 'shapes', 'confetti'], 'everything'), P('size', 'Glyph size', 6, 60, 0.5, 16),
-      P('spacing', 'Spacing', 8, 80, 0.5, 22), P('width', 'Line width', 0.8, 8, 0.1, 2.4), P('depth', 'Depth', 0.2, 5, 0.1, 1.4),
+      P('density', 'Density', 10, 100, 5, 100, '%'), P('spacing', 'Spacing', 8, 80, 0.5, 22), P('width', 'Line width', 0.8, 8, 0.1, 2.4), P('depth', 'Depth', 0.2, 5, 0.1, 1.4),
       S('fill', 'Shapes', ['outline', 'solid'], 'outline'), P('turn', 'Tumble', 0, 1, 0.05, 1, ''), P('scatter', 'Scatter', 0, 0.45, 0.01, 0.3, ''), S('profile', 'Profile', PROFILES, 'cone'), P('seed', 'Seed', 1, 99, 1, 8, '')],
     build(p) {
       const sz = p.size, sp = p.spacing, hw = p.width / 2, seed = p.seed | 0;
       const kinds = MEMPHIS_MIX[p.mix] || MEMPHIS_MIX.everything, solid = p.fill === 'solid';
       // each cell of a square lattice holds one glyph: its kind, turn and offset from the cell's hash
+      // density: the share of cells that hold a glyph (Phil 11-01: "80s should get density"); the rest stay plain
+      const dens = Math.min(1, Math.max(0, (p.density ?? 100) / 100));
       const glyph = (i, j) => {
+        if (dens < 1 && hash3(i, j, 5, seed) >= dens) return null;
         const k = kinds[Math.floor(hash3(i, j, 1, seed) * kinds.length) % kinds.length];
         const a = p.turn * TAU * hash3(i, j, 2, seed), sc = k === 'dash' || k === 'dot' ? 0.6 : 1;
         const cu = (i + 0.5 + p.scatter * (2 * hash3(i, j, 3, seed) - 1)) * sp, cv = (j + 0.5 + p.scatter * (2 * hash3(i, j, 4, seed) - 1)) * sp;
@@ -597,7 +600,8 @@ export const PATTERNS = {
           const i0 = Math.floor(u / sp), j0 = Math.floor(v / sp);
           let d = Infinity;
           for (let j = j0 - reach; j <= j0 + reach; j++) for (let i = i0 - reach; i <= i0 + reach; i++) {
-            const g = glyph(i, j), du = u - g.cu, dv = v - g.cv;
+            const g = glyph(i, j); if (!g) continue;
+            const du = u - g.cu, dv = v - g.cv;
             if (Math.abs(du) > g.sc * 0.6 + hw || Math.abs(dv) > g.sc * 0.6 + hw) continue;
             // into the glyph's own frame (unit size)
             const x = (du * g.c + dv * g.s) / g.sc, y = (-du * g.s + dv * g.c) / g.sc;
@@ -611,7 +615,8 @@ export const PATTERNS = {
         strokes: (b) => {
           const out = [];
           for (let j = Math.floor(b.v0 / sp) - reach; j <= Math.ceil(b.v1 / sp) + reach; j++) for (let i = Math.floor(b.u0 / sp) - reach; i <= Math.ceil(b.u1 / sp) + reach; i++) {
-            const g = glyph(i, j), at = (x, y) => [g.cu + (x * g.c - y * g.s) * g.sc, g.cv + (x * g.s + y * g.c) * g.sc];
+            const g = glyph(i, j); if (!g) continue;
+            const at = (x, y) => [g.cu + (x * g.c - y * g.s) * g.sc, g.cv + (x * g.s + y * g.c) * g.sc];
             // the segments joined back into the polylines they came from
             let line = null;
             for (const q of g.segs) {
@@ -706,12 +711,12 @@ function seamNear(style, L, angleDeg) {
   };
 }
 
-// The one or two numbers that size each pattern: what a card shows first. The rest (and every
+// The one to three numbers that size each pattern: what a card shows first. The rest (and every
 // seed, which a card can offer as a shuffle) are the pattern's finer points.
 export const BASIC = {
   dots: ['pitch', 'diameter'], dashdot: ['sequence', 'width'], morse: ['text'], ribs: ['pitch', 'width'], knurl: ['pitch'],
   noise: ['scale'], waves: ['wavelength'], stone: ['size', 'mortar'], weave: ['thread'], motif: ['shape', 'size'],
-  memphis: ['mix', 'size'], quilt: ['style', 'size'],
+  memphis: ['mix', 'size', 'density'], quilt: ['style', 'size'],
 };
 // one word each, for a swatch's caption
 const SHORT = { dots: 'dots', dashdot: 'dash', morse: 'morse', ribs: 'flutes', knurl: 'knurl', noise: 'noise', waves: 'waves', stone: 'stone', weave: 'weave', motif: 'repeat', memphis: '80s', quilt: 'quilt' };
@@ -1472,8 +1477,25 @@ export function placeTexture(tex, A) {
 // a new texture fill, its pattern's own numbers (depth from the pattern's default)
 export function newFill(pattern = 'waves', over = {}) {
   const params = defaults(pattern);
-  return { fill: 'texture', pattern, params, scale: 1, angle: 0, origin: [0, 0], fade: 3, depth: params.depth, tool: 'ball14', path: 'auto', grit: 0, ...over };
+  return { fill: 'texture', pattern, params, scale: 1, angle: 0, origin: [0, 0], fade: 3, depth: params.depth, tool: suggestBit(pattern, params), path: 'auto', finish: 'standard', grit: 0, ...over };
 }
+
+// The bit each pattern cuts best by default (Phil 11-01: the default bit and stepover should make the
+// pattern recognizable). Measured against the design on a 60 mm square (cut vs designed surface):
+// the 1/4 in ball holds every surface and dot pattern at a correlation of 0.92 or more in a few
+// minutes; line patterns (knurl, step & repeat, memphis as lines) come out exact and faster with a
+// 90° V along their centerlines. A pocketed or solid fill needs the ball's raster.
+export function suggestBit(pattern, params = {}) {
+  if (pattern === 'knurl') return 'v90';
+  if ((pattern === 'motif' && params.fill !== 'pocket') || (pattern === 'memphis' && params.fill !== 'solid')) return 'v90';
+  return 'ball14';
+}
+
+// How finely a raster goes over the texture: the scallop (the ridge left between passes) the
+// stepover is worked out from. Standard leaves 0.05 mm ridges (a ball) that sanding takes off;
+// smoother costs time for little you can see; ridged and bold leave the passes showing, on purpose.
+export const FINISHES = { smooth: 0.2, fine: 0.5, standard: 1, ridged: 4, bold: 10 };
+export const FINISH_WORDS = { smooth: 'smooth (slow)', fine: 'fine', standard: 'standard', ridged: 'ridged: the passes show', bold: 'bold ridges' };
 
 // The mark's texture in the part's frame (null for an empty region or a fill that is not a texture).
 // o.part: the part's outline loops (its frame): the paint counts only on its top and runs full to
@@ -1504,7 +1526,8 @@ export function pathFor(tex, toolIn, style = 'auto') {
   const ok = { raster: true, crosshatch: true, plunge: tex.kind === 'dots', centerline: tex.kind === 'strokes' };
   if (style !== 'auto' && ok[style]) return style;
   if (tex.kind === 'dots' && tool.type !== 'flat' && tool.widthAt(tex.params.depth) <= tex.dotDiameter * 1.03) return 'plunge';
-  if (tex.kind === 'strokes' && tool.type === 'v') return 'centerline';
+  // a pocketed or solid fill has areas to clear, which a centerline never reaches
+  if (tex.kind === 'strokes' && tool.type === 'v' && tex.params.fill !== 'pocket' && tex.params.fill !== 'solid') return 'centerline';
   return 'raster';
 }
 
@@ -1519,7 +1542,7 @@ export function markToolpath(mark, o = {}) {
   const b = tex.bbox, area = Math.max(1, (b.x1 - b.x0) * (b.y1 - b.y0));
   // a finer grid for small marks; a big one stays under a few million samples
   const res = o.res || Math.max(0.2, Math.min(0.6, Math.sqrt(area / 1.5e6)));
-  const scallop = tool.type === 'v' ? 0.15 : 0.05;
+  const scallop = (tool.type === 'v' ? 0.15 : 0.05) * (FINISHES[mark.fill.finish] || 1);
   // never below the mark's own depth (a V following a groove's center would go as deep as the
   // groove is wide), nor the board's
   const maxDepth = Math.min(tex.depth, o.maxDepth > 0 ? o.maxDepth : Infinity);
@@ -2475,7 +2498,7 @@ const API = {
   rectMask, ellipseMask, polygonMask, paintMask, unionMask, makeMask, maskWeight, texture, TOOLS, makeTool, toolOffsets, dropCutter,
   heightGrid, stepoverForScallop, rasterPath, plungeDots, centerlinePath, toolpath, estimateTime, formatTime, analyze, createSim,
   simulate, compare, FILLS, PATHS, IDENTITY, encodeRuns, decodeRuns, newGrid, paintWhere, stampDisc, stampStroke, gridCount,
-  regionSpec, storeRegion, xfApply, xfInvert, xfThen, xfScale, placeTexture, newFill, markTexture, pathFor, markToolpath, feedRuns,
+  regionSpec, storeRegion, xfApply, xfInvert, xfThen, xfScale, placeTexture, newFill, suggestBit, FINISHES, FINISH_WORDS, markTexture, pathFor, markToolpath, feedRuns,
   markChecks, BASIC, shadeHeight, SWATCH_SPAN, swatch,
   clipToPart, edgeDistance, insideReach, controlsFor, splineAt, sampleCurve, paintLoops, fitCurves, curvesCross, rewriteFromCurves, nearestOnCurves,
   partMesh, partMeshSize, autoMeshRes, meshCheck, meshNormals, meshSTL, meshOBJ, meshGLB,

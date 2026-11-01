@@ -24,7 +24,7 @@
   // Three overlaid flat quads (core / halo / bloom). All additive-blended so
   // the falloff is additive: centerline is brightest, edges soften smoothly.
   let core = null, halo = null, bloom = null;
-  let polylines = [[]];
+  let polylines = [[]], lastPos = null;
   let space = null;
   let usingFat = false;
 
@@ -171,7 +171,7 @@
   window.addEventListener('swarf.skin', reskin);
 
   function clearTrail() {
-    polylines = [[]];
+    polylines = [[]]; lastPos = null;
     window.__swarfLSMoves = 0;
     window.__swarfLSPoints = 0;
     if (!core) return;
@@ -244,6 +244,7 @@
     const stack = api && api.stacks && api.stacks.getStack && api.stacks.getStack('print');
     if (!stack || !stack.obj) { clearTrail(); return; }
     polylines = [[]];
+    const top = boardTop();
     const meshes = stack.obj.meshes || [];
     let kept = 0;
     for (const m of meshes) {
@@ -252,12 +253,35 @@
         const a = seg[0], b = seg[1];
         const d = Math.hypot(b.x - a.x, b.y - a.y, b.z - a.z);
         if (d < 1e-4 || d > BREAK_3D_MM) continue;
-        polylines.push(seg);
+        const c = clip(a, b, top);
+        if (!c) continue;
+        polylines.push(c);
         kept++;
       }
     }
     window.__swarfLSPrePop = kept;
     rebuild();
+  }
+
+  // The trail is where the bit cuts, not where it travels: above the board's top it is in the air
+  // (lifts to clearance, hops between dots), and drawn there, a texture's thousands of lifts stood
+  // as a gray fence over the part that read as material puffed out of it (Phil 11-01). Every
+  // segment is clipped to just under the top (riding the top cuts nothing); what is wholly above it
+  // is not drawn.
+  function boardTop() {
+    try {
+      const st = window.kiri.api.conf.get().stock;
+      if (st && st.z > 0) return (st.center && st.center.z != null ? st.center.z + st.z / 2 : st.z) - 0.02;
+    } catch (e) { /* no stock yet */ }
+    return Infinity;
+  }
+  const at = (a, b, z) => { const t = (z - a.z) / (b.z - a.z); return { x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t, z }; };
+  // a segment a→b clipped to z <= top, or null when it is all in the air
+  function clip(a, b, top) {
+    const ai = a.z <= top, bi = b.z <= top;
+    if (ai && bi) return [a, b];
+    if (!ai && !bi) return null;
+    return ai ? [a, at(a, b, top)] : [at(a, b, top), b];
   }
 
   function onMove(evt) {
@@ -266,13 +290,19 @@
     const pos = (evt && evt.detail) ? evt.detail.pos : (evt && evt.pos);
     if (!pos) return;
     if (!polylines.length) polylines.push([]);
+    const p = { x: pos.x, y: pos.y, z: pos.z }, top = boardTop(), prev = lastPos;
+    lastPos = p;
     const active = polylines[polylines.length - 1];
-    const last = active.length ? active[active.length - 1] : null;
-    if (last) {
-      const d3 = Math.hypot(pos.x - last.x, pos.y - last.y, pos.z - last.z);
-      if (d3 > BREAK_3D_MM) polylines.push([]);
-    }
-    polylines[polylines.length - 1].push({ x: pos.x, y: pos.y, z: pos.z });
+    if (prev) {
+      const d3 = Math.hypot(p.x - prev.x, p.y - prev.y, p.z - prev.z);
+      const c = d3 > BREAK_3D_MM ? null : clip(prev, p, top);
+      if (!c) { if (active.length) polylines.push([]); return; }
+      // into the board from the air: a new line from where it entered
+      if (prev.z > top) { polylines.push([c[0]]); }
+      polylines[polylines.length - 1].push(c[1]);
+      // out of the board: the line ends at the top
+      if (p.z > top) polylines.push([]);
+    } else if (p.z <= top) active.push(p);
     rebuild();
   }
 

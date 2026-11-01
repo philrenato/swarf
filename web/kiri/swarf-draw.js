@@ -202,13 +202,13 @@
     el.innerHTML = `
       <svg id="sd-svg" tabindex="0"></svg>
       <div class="sd-bar">
-        <button data-tool="select" title="pick parts and points (V)">select <kbd>V</kbd></button>
-        <button data-tool="pen" title="draw an outline: click for a corner, drag for a smooth point, click the first to close (P); click the last point again to end it as a line to engrave">pen <kbd>P</kbd></button>
-        <button data-tool="pencil" title="draw freehand: it becomes a few smooth points; end near the start to close it, or anywhere else for a line to engrave (N)">pencil <kbd>N</kbd></button>
-        <button data-tool="rect" title="drag a rectangle from corner to corner; shift for a square (R)">rectangle <kbd>R</kbd></button>
-        <button data-tool="ellipse" title="drag an ellipse from corner to corner; shift for a circle (E)">ellipse <kbd>E</kbd></button>
-        <button data-tool="text" title="type the words in the card, then click where they start (T)">text <kbd>T</kbd></button>
-        <button data-tool="regions" title="split overlapping outlines into regions, then click a region to fill or empty it (G)">regions <kbd>G</kbd></button>
+        <button data-tool="select" title="pick parts and points (V)">select</button>
+        <button data-tool="pen" title="draw an outline: click for a corner, drag for a smooth point, click the first to close (P); click the last point again to end it as a line to engrave">pen</button>
+        <button data-tool="pencil" title="draw freehand: it becomes a few smooth points; end near the start to close it, or anywhere else for a line to engrave (N)">pencil</button>
+        <button data-tool="rect" title="drag a rectangle from corner to corner; shift for a square (R)">rectangle</button>
+        <button data-tool="ellipse" title="drag an ellipse from corner to corner; shift for a circle (E)">ellipse</button>
+        <button data-tool="text" title="type the words in the card, then click where they start (T)">text</button>
+        <button data-tool="regions" title="split overlapping outlines into regions, then click a region to fill or empty it (G)">regions</button>
         <span class="sd-sep"></span>
         <button id="sd-undo" title="undo (⌘Z)">undo</button>
         <button id="sd-fit" title="show the parts, or the whole bed (F) · pinch or ⌘-scroll to zoom, two fingers to slide">fit</button>

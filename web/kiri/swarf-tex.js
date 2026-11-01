@@ -93,6 +93,7 @@
     region: 'click inside a part: its whole top, less its holes, joins the mark (G)',
     points: 'the mark\'s edge as points: drag one, click the edge to add one, Delete removes the picked (H)'
   };
+  const BR0 = 0.5, BR1 = 100;                    // the brush slider's ends, mm
   const KEYS = { v: 'select', b: 'brush', u: 'erase', r: 'rect', e: 'ellipse', g: 'region', h: 'points' };
   const WORD = { select: 'select', brush: 'brush', erase: 'erase', rect: 'rectangle', ellipse: 'ellipse', region: 'region', points: 'points' };
   const clone = o => JSON.parse(JSON.stringify(o));
@@ -205,7 +206,7 @@
     if (i >= 0) { S.sel = i; S.mark = parts[i].marks.length ? 0 : -1; }
     fit();
     say(!parts.length ? 'No parts yet: import one, make a shape or draw one, then come back to mark it.'
-      : S.sel >= 0 ? `${parts[S.sel].name} is picked: paint on it with the brush (B), or drag a rectangle (R) or an ellipse (E).`
+      : S.sel >= 0 ? `${parts[S.sel].name} is picked: paint on it with the brush, or drag a rectangle or an ellipse.`
         : 'Pick a part, then mark it: the brush paints, the rectangle and ellipse drag out, a region fills its top.');
     if (unknownFills) say(`${unknownFills === 1 ? 'A mark has' : unknownFills + ' marks have'} a pattern from a newer swarf: shown as the plain one of its kind. Done keeps the change; cancel leaves the file's as it was.`);
     render();
@@ -217,14 +218,15 @@
     const el = document.createElement('div');
     el.id = 'swarf-draw';                         // DRAW's board, its look in every skin
     el.className = 'sd-tex';
-    const btn = t => `<button data-tool="${t}" title="${esc(TOOLS[t])}">${WORD[t]} <kbd>${Object.keys(KEYS).find(k => KEYS[k] === t).toUpperCase()}</kbd></button>`;
+    const btn = t => `<button data-tool="${t}" title="${esc(TOOLS[t])}">${WORD[t]}</button>`;
     el.innerHTML = `
       <svg id="tx-svg" tabindex="0"></svg>
       <div class="sd-bar">
         ${['select', 'brush', 'erase', 'rect', 'ellipse', 'region', 'points'].map(btn).join('')}
-        <span class="tx-bsize" id="tx-bsize-wrap" title="across the brush ([ and ] change it)"><input id="tx-bsize" inputmode="text"><span class="u"></span></span>
+        <span class="tx-bsize" id="tx-bsize-wrap" title="across the brush ([ and ] change it)"><input type="range" id="tx-bslide" class="sd-slide" min="0" max="1" step="0.001" aria-label="brush size"><input id="tx-bsize" inputmode="text"><span class="u"></span></span>
         <span class="sd-sep"></span>
         <button id="tx-undo" title="undo (⌘Z)">undo</button>
+        <button id="tx-clear" title="remove every mark on the picked part, or on every part when none is picked (undo brings them back)">clear</button>
         <button id="tx-fit" title="show the parts, or the whole bed (F) · pinch or ⌘-scroll to zoom, two fingers to slide">fit</button>
         <span class="sd-grow"></span>
         <button id="tx-cancel" title="close without changing the marks (press twice, or Esc twice)">cancel</button>
@@ -238,10 +240,16 @@
     ui.el = el; ui.svg = $('tx-svg'); ui.card = $('tx-card');
     for (const b of el.querySelectorAll('[data-tool]')) b.onclick = () => setTool(b.dataset.tool);
     $('tx-undo').onclick = undo;
+    $('tx-clear').onclick = () => { clearMarks(); ui.svg.focus(); };
     const bs = $('tx-bsize');
     const takeBrush = () => { const v = LEN.parse(bs.value); if (!(v >= 0.5)) { say('Give the brush at least 0.5 mm across.'); return; } S.brush = r3(v); try { localStorage.setItem(BRUSH, String(S.brush)); } catch (e) { /* private */ } render(); };
     bs.onkeydown = e => { e.stopPropagation(); if (e.key === 'Enter') { bs.dataset.took = bs.value; takeBrush(); bs.blur(); ui.svg.focus(); } if (e.key === 'Escape') { bs.dataset.took = bs.value; render(); ui.svg.focus(); } };
     bs.onchange = () => { if (bs.dataset.took !== bs.value) takeBrush(); };
+    // the brush slider: 0.5 mm to 100 mm on a log scale, live while it moves
+    const bsl = $('tx-bslide');
+    bsl.oninput = () => { S.brush = r3(BR0 * Math.pow(BR1 / BR0, +bsl.value)); bs.value = LEN.fld(S.brush); render(); };
+    bsl.onchange = () => { try { localStorage.setItem(BRUSH, String(S.brush)); } catch (e) { /* private */ } ui.svg.focus(); };
+    bsl.onkeydown = e => e.stopPropagation();
     // a unit changed in cam: the card and the bar say it, and no stale line stays
     S.onUnits = () => setTimeout(() => { if (S) { say(''); render(); } }, 0);
     // (api(), not a: build has no a, and the ReferenceError hid in this catch since r2 N5)
@@ -623,9 +631,12 @@
     ui.svg.innerHTML = out.join('');
     for (const b of ui.el.querySelectorAll('[data-tool]')) b.classList.toggle('on', b.dataset.tool === S.tool);
     $('tx-undo').disabled = !S.undo.length;
+    $('tx-clear').disabled = !clearable().length;
     const bwrap = $('tx-bsize-wrap'), bin = $('tx-bsize');
     bwrap.style.display = S.tool === 'brush' || S.tool === 'erase' ? '' : 'none';
     if (document.activeElement !== bin) { bin.value = LEN.fld(r3(S.brush)); bwrap.querySelector('.u').textContent = LEN.unit(); }
+    const bsl = $('tx-bslide');
+    if (document.activeElement !== bsl) bsl.value = String(Math.log(Math.min(BR1, Math.max(BR0, S.brush)) / BR0) / Math.log(BR1 / BR0));
     if (!S.drag) card();
   }
 
@@ -671,16 +682,18 @@
   function card() {
     const part = curPart(), m = curMark(), C = T();
     const keepTop = ui.card.scrollTop;
-    const lenRow = (word, id, v, tip) => `<div class="sd-row"${tip ? ` title="${esc(tip)}"` : ''}><span>${word}</span><input id="${id}" value="${LEN.fld(r3(v))}" inputmode="text" data-len="1"><span class="u">${LEN.unit()}</span></div>`;
-    const numRow = (word, id, v, unit, tip) => `<div class="sd-row"${tip ? ` title="${esc(tip)}"` : ''}><span>${word}</span><input id="${id}" value="${v}" inputmode="decimal"><span class="u">${unit}</span></div>`;
+    const lenRow = (word, id, v, tip, slide = '') => `<div class="sd-row${slide ? ' sd-slid' : ''}"${tip ? ` title="${esc(tip)}"` : ''}><span>${word}</span>${slide}<input id="${id}" value="${LEN.fld(r3(v))}" inputmode="text" data-len="1"><span class="u">${LEN.unit()}</span></div>`;
+    const numRow = (word, id, v, unit, tip, slide = '') => `<div class="sd-row${slide ? ' sd-slid' : ''}"${tip ? ` title="${esc(tip)}"` : ''}><span>${word}</span>${slide}<input id="${id}" value="${v}" inputmode="decimal"><span class="u">${unit}</span></div>`;
     const selRow = (word, id, opts, v, tip) => `<div class="sd-row"${tip ? ` title="${esc(tip)}"` : ''}><span>${word}</span><select id="${id}">${opts.map(([k, t]) => `<option value="${esc(k)}"${k === v ? ' selected' : ''}>${esc(t)}</option>`).join('')}</select><span class="u"></span></div>`;
     const paramRow = (q, v) => {
       const id = `tx-p-${q.k}`, word = q.label.toLowerCase();
       if (q.shuffle) return `<div class="sd-row" title="another arrangement of the same pattern"><span>${word === 'seed' ? 'arrangement' : word}</span><button id="${id}" class="tx-shuffle">shuffle</button></div>`;
       if (q.type === 'select') return selRow(word, id, q.options.map(o => [o, o]), v);
       if (q.type === 'text') return `<div class="sd-row"><span>${word}</span><input id="${id}" class="wide" value="${esc(v)}"></div>`;
-      if (q.unit === 'mm') return lenRow(word, id, v, q.tip);
-      return numRow(word, id, v, q.unit === '°' ? '°' : '', q.tip);
+      // a slider beside each ranged number, as MASQ's (Phil 11-01): it fills the field and takes it on release
+      const slide = q.type === 'range' && q.max > q.min ? `<input type="range" class="sd-slide" data-for="${id}" min="${q.min}" max="${q.max}" step="${q.step || 'any'}" value="${Math.min(q.max, Math.max(q.min, +v || 0))}" aria-label="${esc(word)}">` : '';
+      if (q.unit === 'mm') return lenRow(word, id, v, q.tip, slide);
+      return numRow(word, id, v, q.unit === '°' || q.unit === '%' ? q.unit : '', q.tip, slide);
     };
     let h = '';
     if (!part) {
@@ -758,11 +771,14 @@
       const kind = P.build(C.defaults(f.pattern)).kind;
       const ok = { auto: true, raster: true, crosshatch: true, plunge: kind === 'dots', centerline: kind === 'strokes' };
       const pathRow = selRow('path', 'tx-path', Object.entries(PATHS).filter(([k]) => ok[k]).map(([k, t]) => [k, k === 'auto' && tex ? `${t}: ${PATHS[tex.strategy]}` : t]), ok[f.path] ? f.path : 'auto', 'how the bit goes over it: best picks one plunge per dot when the bit can make the dots, a V-bit along each groove, else raster');
-      if (!compact) h += pathRow;
+      // how finely the raster goes: smooth to bold ridges (Phil 11-01: finer and coarser, the passes showing on purpose)
+      const rasters = !tex || tex.strategy === 'raster' || tex.strategy === 'crosshatch';
+      const finRow = rasters ? selRow('finish', 'tx-finish', Object.entries(C.FINISH_WORDS), f.finish || 'standard', 'how close the passes run: smoother takes longer; ridged and bold leave the passes showing as part of the look') : '';
+      if (!compact) h += pathRow + finRow;
       // the pattern's finer points: folded, open in advanced mode
       const more = S.more ?? document.body.classList.contains('swarf-expert');
       h += `<details class="tx-more"${more ? ' open' : ''}><summary>more</summary>`;
-      if (compact) h += pathRow;
+      if (compact) h += pathRow + finRow;
       for (const q of P.params) if (!q.basic && q.k !== 'depth') h += paramRow(q, pr[q.k]);
       h += numRow('scale', 'tx-scale', r3((f.scale || 1) * 100), '%', 'the pattern larger or smaller');
       h += numRow('turn', 'tx-angle', r3(f.angle || 0), '°', 'the pattern turned');
@@ -791,6 +807,13 @@
       el.onkeydown = e => { e.stopPropagation(); if (e.key === 'Enter') { el.dataset.took = el.value; fn(value(), el); el.blur(); } if (e.key === 'Escape') { el.dataset.took = el.value; render(); ui.svg.focus(); } };
       el.onchange = () => { if (el.dataset.took === el.value) return; fn(value(), el); };
     };
+    for (const r of ui.card.querySelectorAll('.sd-slide')) {
+      const f = $(r.dataset.for); if (!f) continue;
+      const show = () => { f.value = f.dataset.len ? LEN.fld(r3(+r.value)) : String(+r.value); };
+      r.oninput = show;
+      r.onchange = () => { show(); f.dispatchEvent(new Event('change')); };
+      r.onkeydown = e => e.stopPropagation();
+    }
     for (const b of ui.card.querySelectorAll('.tx-pick')) b.onclick = () => { S.mark = +b.dataset.mi; render(); checkSoon(); ui.svg.focus(); };
     const md = ui.card.querySelector('.tx-mesh');
     if (md) md.ontoggle = () => { if (S) { S.meshOpen = md.open; scrollCue(); } };
@@ -821,7 +844,12 @@
     // every change to the fill: undoable, remembered for the next mark, the picture and checks again
     const set = (fn) => { snap(); fn(f); m.ver++; part.dirty = true; try { localStorage.setItem(FILL, JSON.stringify({ ...f, origin: [0, 0] })); } catch (e) { /* private */ } render(); imagesSoon(); checkSoon(); };
     const pierce = f.fill === 'pierce';
-    const pick = v => set(f => { if (pierce) { f.pattern = v; f.params = C.pierceDefaults(v, part.thick); return; } f.pattern = v; f.params = C.defaults(v); f.depth = f.params.depth; if (!PATHS[f.path]) f.path = 'auto'; });
+    const pick = v => set(f => {
+      if (pierce) { f.pattern = v; f.params = C.pierceDefaults(v, part.thick); return; }
+      f.pattern = v; f.params = C.defaults(v); f.depth = f.params.depth; if (!PATHS[f.path]) f.path = 'auto';
+      // the pattern's own bit (a V for line patterns, the ball for the rest), unless one was picked by hand
+      if (!f.bitChosen) { f.tool = C.suggestBit(v, f.params); delete f.bit; normBit(f); }
+    });
     for (const b of ui.card.querySelectorAll('.tx-fill')) b.onclick = () => {
       const to = b.dataset.fill;
       if (to !== f.fill) {
@@ -865,7 +893,11 @@
           if (!isFinite(v)) return say(`Give ${q.label.toLowerCase()} a number.`);
           if (v < q.min || v > q.max) return say(`${q.label} goes from ${q.unit === 'mm' ? LEN.say(q.min) : q.min} to ${q.unit === 'mm' ? LEN.say(q.max) : q.max}${q.unit && q.unit !== 'mm' ? q.unit : ''}.`);
         }
-        set(f => { f.params = { ...(pierce ? C.pierceDefaults(f.pattern, part.thick) : C.defaults(f.pattern)), ...(f.params || {}), [q.k]: q.type === 'range' ? r3(v) : v }; });
+        set(f => {
+          f.params = { ...(pierce ? C.pierceDefaults(f.pattern, part.thick) : C.defaults(f.pattern)), ...(f.params || {}), [q.k]: q.type === 'range' ? r3(v) : v };
+          // outline ↔ solid or pocket changes which bit suits it
+          if (!pierce && q.k === 'fill' && !f.bitChosen) { f.tool = C.suggestBit(f.pattern, f.params); delete f.bit; normBit(f); }
+        });
       });
     }
     bind('tx-scale', v => { if (!(v >= 5 && v <= 2000)) return say('Scale is a percentage from 5 to 2000.'); set(f => { f.scale = r3(v / 100); }); });
@@ -882,8 +914,11 @@
     bind('tx-bit', v => set(f => {
       const t = ((api().conf.get().tools) || []).find(t => String(t.id) === String(v));
       if (t && bitOf(t)) { f.tool = t.id; f.bit = bitOf(t); } else { f.tool = v; delete f.bit; }
+      // a bit picked by hand stays when the pattern changes
+      f.bitChosen = true;
     }));
     bind('tx-path', v => set(f => { f.path = v; }));
+    bind('tx-finish', v => set(f => { f.finish = v; }));
   }
   // a card taller than its room fades at the bottom while there is more below
   function scrollCue() {
@@ -963,6 +998,18 @@
     S.mark = p.marks.length ? Math.min(S.mark, p.marks.length - 1) : -1;
     say('The mark is gone (⌘Z brings it back). Done removes its step.');
     render();
+  }
+  // clear (Phil 11-01: "TEX needs a clear function"): the picked part's marks, else every part's; one undo step
+  const clearable = () => (S.sel >= 0 ? [S.parts[S.sel]] : S.parts).filter(p => p && p.marks.length);
+  function clearMarks() {
+    const ps = clearable();
+    if (!ps.length) return;
+    snap();
+    const n = ps.reduce((a, p) => a + p.marks.length, 0);
+    for (const p of ps) { p.marks = []; p.dirty = true; }
+    S.mark = -1; S.pts = new Set(); S.box = null;
+    say(`${n === 1 ? 'The mark is' : `All ${n} marks are`} gone${S.sel >= 0 ? ` from ${S.parts[S.sel].name}` : ''} (undo brings ${n === 1 ? 'it' : 'them'} back). Done removes ${n === 1 ? 'its step' : 'their steps'}.`);
+    render(); imagesSoon(); checkSoon();
   }
   function setTool(t) {
     S.tool = t; S.box = null; S.drag = null;
