@@ -519,18 +519,18 @@
     ui.card.innerHTML = h;
     const rd = el => (el.dataset.len ? LEN.parse(el.value) : parseFloat(el.value));
     const num = (id, fn) => { const el = $(id); if (!el) return; el.onkeydown = e => { e.stopPropagation(); if (e.key === 'Enter') { fn(rd(el), el); el.blur(); } if (e.key === 'Escape') { render(); ui.svg.focus(); } }; el.onchange = () => fn(rd(el), el); };
-    num('sd-t', v => { if (!(r3(v) >= 0.1)) return say('Give the thickness at least 0.1 mm.'); if (v === part.thick) return; snap(); part.thick = r3(v); part.dirty = true; render(); });
+    num('sd-t', v => { const no = thickNo(v); if (no) return say(no); if (v === part.thick) return; snap(); part.thick = r3(v); part.dirty = true; render(); });
     // the top edge: the pen's next outline, or the picked part
     const E = S.tool !== 'select' ? S.edge : part && part.edge;
     const sel = $('sd-edge');
     if (sel && E) sel.onchange = () => { if (S.tool === 'select') { snap(); part.dirty = true; } E.kind = sel.value; render(); edgeSay(); };
-    num('sd-es', v => { if (!(r3(v) >= 0.1)) return say('Give the edge size at least 0.1 mm.'); if (!E || v === E.size) return; if (S.tool === 'select') { snap(); part.dirty = true; } E.size = r3(v); render(); edgeSay(); });
-    num('sd-pen-t', v => { if (r3(v) >= 0.1) { S.thick = r3(v); try { localStorage.setItem(THICK, String(S.thick)); } catch (e) { /* private */ } } });
+    num('sd-es', v => { if (!(r3(v) >= 0.1)) return say(`Give the edge size at least ${LEN.say(0.1)}.`); if (!E || v === E.size) return; if (S.tool === 'select') { snap(); part.dirty = true; } E.size = r3(v); render(); edgeSay(); });
+    num('sd-pen-t', (v, el) => { const no = thickNo(v); if (no) { el.value = LEN.fld(S.thick); return say(no); } { S.thick = r3(v); try { localStorage.setItem(THICK, String(S.thick)); } catch (e) { /* private */ } } });
     const md = $('sd-mode');
     if (md) md.onchange = () => { S.mode = md.value; say(modeSay()); ui.svg.focus(); };
-    num('sd-dep', v => { if (!(r3(v) >= 0.05)) return say('Give the engrave depth at least 0.05 mm.'); S.depth = r3(v); try { localStorage.setItem(DEPTH, String(S.depth)); } catch (e) { /* private */ } });
+    num('sd-dep', v => { if (!(r3(v) >= 0.05 && v <= 150)) return say(`An engrave depth goes from ${LEN.say(0.05)} to ${LEN.say(150)}.`); S.depth = r3(v); try { localStorage.setItem(DEPTH, String(S.depth)); } catch (e) { /* private */ } });
     num('sd-ldep', v => {
-      if (!(r3(v) >= 0.05)) return say('Give the engrave depth at least 0.05 mm.');
+      if (!(r3(v) >= 0.05 && v <= 150)) return say(`An engrave depth goes from ${LEN.say(0.05)} to ${LEN.say(150)}.`);
       if (r3(v) === part.depth) return;
       snap(); part.depth = r3(v); part.dirty = true;
       const host = hostOf(part);
@@ -558,6 +558,8 @@
     // width / depth: the whole part stretched about its center to that size
     const size = (axis, v) => {
       if (!(v > 0)) return say('Give the size a length above 0.');
+      // no bigger than the bed either way round (deep review 10-31 M1: 99999 froze the page)
+      if (v > bedMax()) return say(`That is bigger than the bed (${LEN.say(bedMax())} at most): it stays as it was.`);
       const b = boxOf(part.curves), was = axis ? b[3] - b[1] : b[2] - b[0];
       if (!(was > 0) || Math.abs(v - was) < 1e-6) return;
       const f = v / was;
@@ -581,7 +583,7 @@
       strEl.onkeydown = e => { e.stopPropagation(); if (e.key === 'Enter') { strEl.blur(); } };
       strEl.oninput = () => { if (S.tool === 'text') TEXT.str = strEl.value; };
       strEl.onchange = () => setText(strEl.value, S.tool === 'text' ? TEXT.h : part.text.h);
-      num('sd-th', v => { if (!(r3(v) >= 1)) return say('Give the letters at least 1 mm of height.'); setText(S.tool === 'text' ? TEXT.str : part.text.str, r3(v)); });
+      num('sd-th', v => { if (!(r3(v) >= 1)) return say(`Give the letters at least ${LEN.say(1)} of height.`); if (v > bedMax()) return say(`Letters that tall do not fit on the bed (${LEN.say(bedMax())} at most).`); setText(S.tool === 'text' ? TEXT.str : part.text.str, r3(v)); });
       const fs = $('sd-fontsel');
       if (fs) fs.onchange = () => pickFont(fs.value, name => {
         if (S.tool === 'text') return;
@@ -595,7 +597,7 @@
     if (del) del.onclick = () => { S.pts.clear(); deletePts(); ui.svg.focus(); };
     num('sd-w', v => size(0, v));
     num('sd-d', v => size(1, v));
-    num('sd-scale', v => { if (!(v > 0)) return say('Scale is a percentage more than 0.'); if (v !== 100) { snap(); transform(part, M => [M[0] * v / 100, M[1] * v / 100]); render(); } });
+    num('sd-scale', v => { if (!(v > 0)) return say('Scale is a percentage more than 0.'); { const b = boxOf(part.curves); if (Math.max(b[2] - b[0], b[3] - b[1]) * v / 100 > bedMax()) return say(`At ${v} % it is bigger than the bed (${LEN.say(bedMax())} at most): it stays as it was.`); } if (v !== 100) { snap(); transform(part, M => [M[0] * v / 100, M[1] * v / 100]); render(); } });
     num('sd-turn', v => { if (!isFinite(v) || !v) return; const t = v * Math.PI / 180, c = Math.cos(t), s = Math.sin(t); snap(); transform(part, ([x, y]) => [c * x - s * y, s * x + c * y]); render(); });
   }
   // whether the picked part's edge fits its outline, said at once rather than at done
@@ -607,6 +609,10 @@
     const why = a.platform.edge_problem(V().svgOf(closed), { depth: part.thick, resolution: 2, segmin: 48, soup: true, dpi: 0, edge: part.edge });
     say(why || `A ${LEN.say(part.edge.size)} ${part.edge.kind} fits. Press done to shape it.`);
   }
+  // a thickness the machine can cut (as SHAPE and the size card: 0.1 mm to 150 mm), said in the cam units
+  function thickNo(v) { return r3(v) >= 0.1 && v <= 150 ? null : `A thickness goes from ${LEN.say(0.1)} to ${LEN.say(150)} (what the machine can cut).`; }
+  // the bed's long side: no outline can be bigger than that either way round
+  function bedMax() { const a = api(), dev = (a && a.conf.get().device) || {}; return Math.max(dev.bedWidth || 0, dev.bedDepth || 0) || Infinity; }
   function say(t) { const el = $('sd-say'); if (el) el.textContent = t || ''; }
 
   // ── edits ──
