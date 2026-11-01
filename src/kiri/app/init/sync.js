@@ -702,17 +702,25 @@ function setup_keybd_nav() {
         new MutationObserver(dock).observe(document.body, { attributes: true, attributeFilter: ['class'] });
         setTimeout(dock, 0);
         // (r086 check S1) a rail cut at the window's foot says there is more below it: at 720
-        // the auto tabs panel ran past the fold with nothing to show it scrolled
-        if (rail) {
+        // the auto tabs panel ran past the fold with nothing to show it scrolled. (r093 UX B3/V5)
+        // advanced's panel column and the tex card scroll too, and say so the same way.
+        const watched = new WeakSet();
+        const moreBelow = box => {
+            if (!box || watched.has(box)) return;
+            watched.add(box);
             let rq = 0;
-            const more = () => { rq = 0; rail.classList.toggle('swarf-more', rail.scrollHeight - rail.clientHeight - rail.scrollTop > 6); };
+            const more = () => { rq = 0; box.classList.toggle('swarf-more', box.scrollHeight - box.clientHeight - box.scrollTop > 6); };
             const soon = () => { if (!rq) rq = requestAnimationFrame(more); };
-            rail.addEventListener('scroll', soon, { passive: true });
+            box.addEventListener('scroll', soon, { passive: true });
             window.addEventListener('resize', soon);
-            if (window.ResizeObserver) new ResizeObserver(soon).observe(rail);
-            new MutationObserver(soon).observe(rail, { childList: true, subtree: true, attributes: true, attributeFilter: ['class', 'style', 'open'] });
+            if (window.ResizeObserver) new ResizeObserver(soon).observe(box);
+            new MutationObserver(soon).observe(box, { childList: true, subtree: true, attributes: true, attributeFilter: ['class', 'style', 'open'] });
             setTimeout(soon, 0);
-        }
+        };
+        moreBelow(rail);
+        moreBelow(document.getElementById('panel-left'));
+        // the tex card is built when tex opens
+        new MutationObserver(() => moreBelow(document.getElementById('tx-card'))).observe(document.body, { attributes: true, attributeFilter: ['class'] });
 
         // rule engine: pull current settings + ops, evaluate each rule, render warnings
         const tabsOpened = new Set();

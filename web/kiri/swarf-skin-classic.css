@@ -366,3 +366,7 @@ html[data-skin="classic"] .swarf-op-params, html[data-skin="classic"] .swarf-op-
   font-family: var(--c-font) !important;
 }
 html[data-skin="classic"] #mod-x-any textarea { font-family: var(--c-mono) !important; }
+/* the "more below" band (r093 UX V1): opaque, the color of the plates it sits on */
+html[data-skin="classic"] { --swarf-more-bg: #d4d0c8; }
+html[data-skin="classic"] #swarf-run { --swarf-more-bg: #c0c0c0; }
+html[data-skin="classic"] #tx-card { --swarf-more-bg: #d4d0c8; }

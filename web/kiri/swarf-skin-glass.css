@@ -365,3 +365,7 @@ html[data-skin="glass"] .swarf-op-params, html[data-skin="glass"] .swarf-op-para
 html[data-skin="glass"] #mod-x-any textarea { font-family: var(--g-mono) !important; }
 /* the simulate bar's words read at 4.5:1 (legibility pass) */
 html[data-skin="glass"] #layer-animate .swarf-sim-word, html[data-skin="glass"] #layer-animate .swarf-sim-name { color: #3d4045 !important; }
+/* the "more below" band (r093 UX V1): opaque, the color of the plates it sits on */
+html[data-skin="glass"] { --swarf-more-bg: #f7f7f7; }
+html[data-skin="glass"] #swarf-run { --swarf-more-bg: #f4f4f4; }
+html[data-skin="glass"] #tx-card { --swarf-more-bg: #fcfcfc; }

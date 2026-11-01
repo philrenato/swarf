@@ -307,12 +307,14 @@ body.swarf-run-open { filter: none !important; }
 /* (whole-app review r086 F8) on a short screen (1280×720, 1366×768) the right column scrolls:
    the simulated speed pills and the sounds chip stay reachable, never under the window's edge */
 .sr-grid > .sr-col:last-child { overflow-y: auto; overscroll-behavior: contain; }
+/* (r093 UX V1) an opaque band across the foot, faded at its top, as the rail's: never see-through words over words */
 .sr-col.swarf-more::after, .sr-plan.swarf-more::after {
-  content: 'more below \\25BE'; text-transform: none; position: sticky; bottom: 4px; display: block; width: max-content; flex-shrink: 0; align-self: center;
-  margin: -26px auto 0; padding: 2px 12px; border-radius: 999px; pointer-events: none; z-index: 3;
-  font-size: 11px; line-height: 16px; color: var(--swarf-text-2); background: var(--swarf-bg-2);
-  box-shadow: 0 0 0 1px var(--swarf-line), 0 -6px 16px 8px color-mix(in srgb, var(--swarf-bg-2) 70%, transparent);
+  content: 'more below \\25BE'; text-transform: none; position: sticky; bottom: 0; display: block; flex-shrink: 0; align-self: stretch;
+  box-sizing: border-box; height: 30px; margin-top: -30px; padding: 12px 0 0; text-align: center; pointer-events: none; z-index: 3;
+  font-size: 11px; line-height: 16px; color: var(--swarf-text-2);
+  background: linear-gradient(to bottom, transparent, var(--swarf-more-bg, var(--swarf-bg-2)) 12px);
 }
+.sr-plan.swarf-more::after { bottom: -10px; margin: -30px -12px 0; }
 .sr-grid > .sr-col:last-child > .sr-box { flex-shrink: 0; }
 .sr-jog .sr-dro { margin: 0 12px; gap: 4px; }
 .sr-jog .sr-axis { grid-template-columns: 30px 1fr; padding: 4px 14px 4px 12px; }
