@@ -189,8 +189,9 @@ try {
   // a reload: the mark, the step and the cut are all still there
   await page.reload({ waitUntil: 'domcontentloaded' });
   await ready(page);
-  await page.waitForFunction(() => window.kiri.api.widgets.all().length === 1, { timeout: 30000 }).catch(() => {});
-  await wait(1500);
+  // the part, its mark and its step all back (a busy Mac restores slowly: wait for them, not a clock)
+  await page.waitForFunction(() => { const a = window.kiri.api, w = a.widgets.all(); return w.length === 1 && (w[0].meta.tex || []).length && a.conf.get().process.ops.some(o => o.type === 'texture') && !window.__swarfRestoring; }, { timeout: 90000, polling: 250 }).catch(() => {});
+  await wait(500);
   k = await tex(page);
   check(k.ws[0] && k.ws[0].marks.length === 1 && k.ws[0].marks[0].cells === mk.cells && k.ops.join() === `texture:${mk.id},outline`, `after a reload: the mark on its part, its step first (${JSON.stringify(k.ws[0] && k.ws[0].marks)}; ${k.ops})`);
   ({ pv, gc } = await paths(page));

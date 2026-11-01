@@ -111,7 +111,7 @@ try {
   await page.reload({ waitUntil: 'domcontentloaded' });
   await ready(page);
   // the saved parts, and their lines, come back one by one: on a busy machine that takes a while
-  await page.waitForFunction(() => window.kiri.api.widgets.all().length === 2 && window.kiri.api.widgets.all().every(w => w.meta && (w.meta.engrave || []).length && w.mesh), { timeout: 30000, polling: 200 }).catch(() => {});
+  await page.waitForFunction(() => window.kiri.api.widgets.all().length === 2 && window.kiri.api.widgets.all().every(w => w.meta && (w.meta.engrave || []).length && w.mesh) && window.kiri.api.conf.get().process.ops.some(o => o.engrave) && !window.__swarfRestoring, { timeout: 90000, polling: 200 }).catch(() => {});
   await wait(2500);
   const back = await page.evaluate(() => ({ ws: window.kiri.api.widgets.all().map(w => (w.meta.engrave || []).map(l => l.depth).join()), ops: window.kiri.api.conf.get().process.ops.map(o => (o.engrave ? 'engrave' : o.type)) }));
   check(back.ws.sort().join('|') === '1.5|2.5' && back.ops.includes('engrave'), `after a reload: the lines are on their parts, the step is there (${JSON.stringify(back)})`);

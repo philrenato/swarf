@@ -85,7 +85,18 @@
         if (!('serviceWorker' in navigator)) return;
         const need = window.crossOriginIsolated === false;
         const r = await navigator.serviceWorker.register('swarf-sw.js');
-        if (need && r.active && !navigator.serviceWorker.controller) {
+        // a hard reload (⌘⇧R) loads the page past the worker while the worker still answers as
+        // its controller: no shared memory, no restore, until one more plain reload. Reload then
+        // too, but not twice in 10 s, so a browser that can never share memory isn't looped.
+        const again = () => {
+            try {
+                const t = +sessionStorage.getItem('swarf-coi-reload') || 0;
+                if (Date.now() - t < 10000) return false;
+                sessionStorage.setItem('swarf-coi-reload', String(Date.now()));
+                return true;
+            } catch (e) { return !navigator.serviceWorker.controller; }
+        };
+        if (need && r.active && again()) {
             window.location.reload();
         } else if (need && !r.active) {
             await new Promise(resolve => {
