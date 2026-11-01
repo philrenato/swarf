@@ -1021,14 +1021,28 @@ function setup_keybd_nav() {
                 if (t.includes(q)) return 20;
                 return e.body.toLowerCase().includes(q) ? 1 : 0;
             };
-            const matches = !q ? INDEX : INDEX.map((e, i) => ({ e, i, s: score(e) })).filter(x => x.s > 0)
+            // a student's own words (deep review S15: "my part moved", "stuck", "mm to inches" found
+            // nothing): when the phrase is in no entry, each word counts, read as the app says it
+            const SAY = { moved: 'move', moving: 'move', drag: 'move', dragged: 'move', stuck: 'pause', frozen: 'pause', jammed: 'reset',
+                inches: 'units', inch: 'units', millimeters: 'units', convert: 'units', metric: 'units', imperial: 'units',
+                undo: 'undo', back: 'undo', clamp: 'tabs', hold: 'tabs', loose: 'tabs', fly: 'tabs', speed: 'feed', fast: 'feed', slow: 'feed',
+                deep: 'depth', depth: 'step-down', zero: 'zero', origin: 'zero', start: 'zero', save: 'save', bend: 'pierce', kerf: 'pierce',
+                pattern: 'texture', carve: 'texture', engrave: 'engrave', text: 'text', letters: 'text', bit: 'bit', router: 'router', estop: 'e-stop' };
+            const STOP = new Set(['my', 'the', 'a', 'an', 'to', 'is', 'it', 'of', 'in', 'on', 'how', 'do', 'i', 'why', 'what', 'and', 'or', 'mm', 'for', 'with', 'can', 'cant', "can't", 'wont', "won't"]);
+            const words = q.split(/[^a-z0-9-]+/).filter(w => w.length > 1 && !STOP.has(w)).map(w => SAY[w] || w);
+            const scoreAll = e => score(e) || (words.length > 1 || words[0] !== q ? words.reduce((t, w) => t + (q === w ? 0 : scoreWord(e, w)), 0) : 0);
+            const scoreWord = (e, w) => {
+                const n = e.name.toLowerCase(), t = ` ${e.tags.toLowerCase()} `;
+                return n.includes(w) ? 30 : t.includes(` ${w} `) ? 20 : t.includes(w) ? 8 : e.body.toLowerCase().includes(w) ? 1 : 0;
+            };
+            const matches = !q ? INDEX : INDEX.map((e, i) => ({ e, i, s: scoreAll(e) })).filter(x => x.s > 0)
                 .sort((a, b) => b.s - a.s || a.i - b.i).map(x => x.e);
             if (matches.length === 0) {
                 results.innerHTML = '<div class="swarf-help-empty"><p>no matches.</p><p>try a control name, a parameter, or a phrase like &ldquo;why rough&rdquo;.</p></div>';
                 return;
             }
             results.innerHTML = matches.map(e =>
-                `<div class="swarf-result"><span class="swarf-result-kind ${e.kind}">${e.kind === 'run' ? 'control' : e.kind}</span><strong>${e.name}</strong><p>${e.body}</p></div>`
+                `<div class="swarf-result"><span class="swarf-result-kind ${e.kind}">${({ run: 'control', op: 'step', param: 'setting', coach: 'how to', tool: 'bit' })[e.kind] || e.kind}</span><strong>${e.name}</strong><p>${e.body}</p></div>`
             ).join('');
         }
         input.addEventListener('keyup', () => render(input.value));

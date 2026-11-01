@@ -3,7 +3,7 @@
 // part's own top edges (both ways, within 0.15 mm). Then, with the mouse: a
 // point is dragged, a point added on an edge and removed again, and the pen
 // draws a triangle. "done" rebuilds the L where it was drawn with the point
-// moved, makes the triangle a part, keeps both 6 mm thick, and the drawings
+// moved, makes the triangle a part, keeps both 3/4 in thick, and the drawings
 // still line up after a reload. Then toolpaths and control.
 //   node tools/probe_draw.mjs [url]
 import puppeteer from 'puppeteer-core';
@@ -135,7 +135,7 @@ try {
 
   const ws = await page.evaluate(() => window.kiri.api.widgets.all().map(w => { const g = w.mesh.geometry; g.computeBoundingBox(); const b = g.boundingBox; return { name: w.meta.file, t: +(b.max.z - b.min.z).toFixed(3), x0: +(b.min.x + w.track.pos.x).toFixed(1), x1: +(b.max.x + w.track.pos.x).toFixed(1), y0: +(b.min.y + w.track.pos.y).toFixed(1), y1: +(b.max.y + w.track.pos.y).toFixed(1) }; }));
   const t = ws.find(w => /drawing/.test(w.name));
-  check(ws.length === 2 && ws.every(w => Math.abs(w.t - 6) < 0.01), `done: two parts, both 6 mm thick ${JSON.stringify(ws)}`);
+  check(ws.length === 2 && ws.every(w => Math.abs(w.t - 19.05) < 0.01), `done: two parts, both 19.05 mm (3/4 in) thick ${JSON.stringify(ws)}`);
   check(t && Math.abs(t.x0 + 60) < 0.3 && Math.abs(t.x1 - 20) < 0.3 && Math.abs(t.y0 - 60) < 0.3 && Math.abs(t.y1 - 120) < 0.3, `the triangle sits where it was drawn ${JSON.stringify(t)}`);
   // the rebuilt L has its corners where they were left on the board
   const corners = await page.evaluate(L => {

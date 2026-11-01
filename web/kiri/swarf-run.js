@@ -308,7 +308,7 @@ body.swarf-run-open { filter: none !important; }
    the simulated speed pills and the sounds chip stay reachable, never under the window's edge */
 .sr-grid > .sr-col:last-child { overflow-y: auto; overscroll-behavior: contain; }
 .sr-col.swarf-more::after, .sr-plan.swarf-more::after {
-  content: 'more below \\25BE'; position: sticky; bottom: 4px; display: block; width: max-content; flex-shrink: 0; align-self: center;
+  content: 'more below \\25BE'; text-transform: none; position: sticky; bottom: 4px; display: block; width: max-content; flex-shrink: 0; align-self: center;
   margin: -26px auto 0; padding: 2px 12px; border-radius: 999px; pointer-events: none; z-index: 3;
   font-size: 11px; line-height: 16px; color: var(--swarf-text-2); background: var(--swarf-bg-2);
   box-shadow: 0 0 0 1px var(--swarf-line), 0 -6px 16px 8px color-mix(in srgb, var(--swarf-bg-2) 70%, transparent);

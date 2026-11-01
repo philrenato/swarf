@@ -725,7 +725,7 @@ body.swarf-run-open #gdpr, body.swarf-run-open #install-swarf, body.swarf-run-op
 /* r086 check S1: a rail that runs past the window's foot says so — a pill held at its bottom edge
    (it also covers the sliver of a half-cut header); gone once scrolled to the end */
 #swarf-right-rail.swarf-more::after {
-  content: 'more below \25BE'; position: sticky; bottom: 4px; flex-shrink: 0; align-self: center;
+  content: 'more below \25BE'; text-transform: none !important; position: sticky; bottom: 4px; flex-shrink: 0; align-self: center;
   margin-top: -34px; padding: 3px 12px; border-radius: 999px; pointer-events: none; z-index: 3;
   font-size: 11px; line-height: 16px; color: var(--swarf-text-2); background: var(--swarf-bg-2);
   box-shadow: 0 0 0 1px var(--swarf-line), 0 -6px 16px 8px color-mix(in srgb, var(--swarf-bg-2) 70%, transparent);
@@ -2209,7 +2209,8 @@ h1, h2, h3, h4, .sr-card h2, .sr-veilcard h2, #swarf-start h2, .menu-title, #swa
 /* focus is always visible, in every skin (Fable review 3 #24 / Interfacing 1C) */
 :focus-visible { outline: 2px solid var(--swarf-accent-hi, #3a6aa8) !important; outline-offset: 2px !important; }
 html[data-skin="glass"] :focus-visible { outline-color: #303236 !important; }
-html[data-skin="classic"] :focus-visible { outline: 1px dotted #000 !important; outline-offset: -4px !important; }
+/* deep review S16: a 1 px dotted ring was lost on the dark selected pills */
+html[data-skin="classic"] :focus-visible { outline: 2px dotted #000 !important; outline-offset: -4px !important; box-shadow: 0 0 0 2px #fff inset !important; }
 .swarf-search .swarf-result-kind.shop { color: var(--swarf-text); }
 .swarf-search .swarf-result-kind.tex, .swarf-search .swarf-result-kind.draw { color: var(--swarf-text); }
 

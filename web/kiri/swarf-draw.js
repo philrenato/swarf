@@ -177,10 +177,12 @@
       }
     }
     // every visit starts with an outline inside a part making a hole (Phil 10-29); the card changes it for this visit
-    // the defaults a shop would pick in its own units (r086 check P8: 6 mm read "0.2362 in"):
-    // 6 mm or 1/4 in thick, engraved 1 mm or 1/32 in deep
+    // one board for a drawn part and a made shape (deep review P14: draw said 6 mm, shape 3/4 in): the
+    // last thickness typed here, else shape's last, else 3/4 in; engraved 1 mm or 1/32 in deep
     const inch = LEN.unit() === 'in';
-    let t0 = inch ? 6.35 : 6, d0 = inch ? 0.79375 : 1;
+    let shapeT = 0;
+    try { shapeT = +(JSON.parse(localStorage.getItem('swarf-shape-last') || '{}').t) || 0; } catch (e) { /* none */ }
+    let t0 = shapeT > 0 ? shapeT : 19.05, d0 = inch ? 0.79375 : 1;
     const m0 = 'auto';
     try { t0 = parseFloat(localStorage.getItem(THICK)) || t0; d0 = parseFloat(localStorage.getItem(DEPTH)) || d0; } catch (e) { /* private */ }
     S = { parts, others, bed: [bw, bd], sel: -1, pts: new Set(), tool: 'select', pen: [], drag: null, undo: [], thick: t0, depth: d0, mode: m0, edge: { kind: 'straight', size: 2 }, removed: [], hover: null };
