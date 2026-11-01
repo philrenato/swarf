@@ -1592,19 +1592,21 @@ html[data-skin] #swarf-run .sr-jog .sr-zrow button.next, html[data-skin] #swarf-
     if (!sim && !known) { base = m.state.inputs ? { ...m.state.inputs } : null; S.plateWatch = watch; }
     thick.addEventListener('keydown', e => e.stopPropagation());
     // how far the bit searches down for the plate (Phil 10-29: 60 mm by default, raise it by hand)
-    const reachShow = () => inch() ? String(+(((m.plateCfg && m.plateCfg.travel) || 60) / 25.4).toFixed(2)) : String(Math.round((m.plateCfg && m.plateCfg.travel) || 60));
+    // (Phil 11-01) shown as every length field is (SwarfLength.show), so the number read back is the
+    // one stored: 10 mm showed as 0.39 in, which read back as 9.9 mm and was refused
+    const reachShow = () => plateShow((m.plateCfg && m.plateCfg.travel) || 60);
     const reach = h('input', { type: 'text', inputmode: 'decimal', value: reachShow(), title: 'How far the bit comes down looking for the plate before it gives up' });
     reach.addEventListener('keydown', e => e.stopPropagation());
     reach.addEventListener('change', () => {
       const t = mmOf(reach.value);
-      if (!(t >= 10 && t <= 150) || !m.setPlateTravel || !m.setPlateTravel(t)) { reach.value = reachShow(); say(inch() ? 'Search down is 1/2 to 6 in (10 to 150 mm).' : 'Search down is 10 to 150 mm.', 'warn'); return; }
-      reach.value = inch() ? String(+(t / 25.4).toFixed(2)) : String(+t.toFixed(1));
+      if (!(t >= 10 && t <= 150) || !m.setPlateTravel || !m.setPlateTravel(t)) { reach.value = reachShow(); say(inch() ? `Search down is ${plateShow(10)} to ${plateShow(150)} in (10 to 150 mm).` : 'Search down is 10 to 150 mm.', 'warn'); return; }
+      reach.value = plateShow(t);
       const over = boxes.over && boxes.over.nextElementSibling;
       if (over) over.textContent = `The bit is over your board, less than ${len(t, 0)} above the plate (its search distance).`;
     });
     thick.addEventListener('change', () => {
       const t = mmOf(thick.value);
-      if (!(t > 0 && t < 50) || !m.setPlateThickness || !m.setPlateThickness(t)) { thick.value = plateShow(m.plateCfg.thickness); say(inch() ? 'A plate is under 2 in (50 mm) thick: measure yours with calipers.' : 'A plate is between 0 and 50 mm thick: measure yours with calipers.', 'warn'); }
+      if (!(t > 0 && t < 50) || !m.setPlateThickness || !m.setPlateThickness(t)) { thick.value = plateShow(m.plateCfg.thickness); say(inch() ? `A plate is under ${plateShow(50)} in (50 mm) thick: measure yours with calipers.` : 'A plate is between 0 and 50 mm thick: measure yours with calipers.', 'warn'); }
       else thick.value = plateShow(t);
     });
     put.addEventListener('change', show);
@@ -1709,7 +1711,7 @@ html[data-skin] #swarf-run .sr-jog .sr-zrow button.next, html[data-skin] #swarf-
     try { localStorage.setItem(ZERO_KEY, JSON.stringify({ had: S.zeroHad || null, at: S.zeroSetAt || 0, steps: S.lastSteps || null })); } catch (e) { /* private window */ }
   }
   // a typed length in control: mm unless it says otherwise (Phil 10-29: "I type 6in and it makes it mm")
-  // a bare number is in cam's units; the plate's fields name millimeters, so they pass 'mm'
+  // a bare number is in cam's units (the plate's fields too: their numbers are shown in them)
   function mmOf(t, def) { return window.SwarfLength ? SwarfLength.parse(t, def) : parseFloat(t); }
   function progKey() { return S.prog ? `${S.prog.source}|${S.prog.name}|${originText().xy}` : ''; }
   function keepZero() {

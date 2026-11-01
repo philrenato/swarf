@@ -139,6 +139,9 @@
       // mm | in: the fields in the new units at once (review r093-ux B2: they kept the old numbers
       // under the new suffix until the part was picked again)
       if (a.ui && a.ui.units) a.ui.units.addEventListener('change', () => setTimeout(show, 50));
+      // (Phil 11-01) and cam's own size fields with them, which the card reads: a part picked in mm
+      // kept 150 in its field after the switch, and typing 200 mm then read the board as 19 in thick
+      a.event.on('units.set', () => { try { a.selection.update_info(); } catch (e) { /* nothing picked */ } setTimeout(show, 0); });
       show();
     }
   }, 150);

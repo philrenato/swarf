@@ -13,6 +13,12 @@ for (const t of ['', 'abc', '1/0', '3/', '1..2', '1 2', 'mm']) assert.ok(Number.
 // a field read back is the same length: every 64th of an inch to 4 ft, within 0.0013 mm
 for (let n = 1; n <= 64 * 48; n++) { const mm = n * 25.4 / 64; assert.ok(Math.abs(L.parse(L.show(mm, 'in'), 'in') - mm) < 0.0013, `${n}/64`); }
 assert.equal(L.show(19.05, 'in'), '0.75'); assert.equal(L.show(19.05, 'mm'), '19.05');
+// the scene's precision (Phil 11-01): no float noise, mm to 2 places (3 under 1 mm or for an inch size),
+// inches to 3 (4 for a 64th)
+assert.equal(L.show(12.700000001, 'mm'), '12.7'); assert.equal(L.show(0.1 + 0.2, 'mm'), '0.3'); assert.equal(L.show(12.345, 'mm'), '12.35');
+assert.equal(L.show(3.175, 'mm'), '3.175'); assert.equal(L.show(0.254, 'mm'), '0.254'); assert.equal(L.show(2438.4, 'mm'), '2438.4');
+assert.equal(L.show(20, 'in'), '0.787'); assert.equal(L.show(25.4 / 64, 'in'), '0.0156'); assert.equal(L.show(2438.4, 'in'), '96');
+assert.equal(L.show(0.1 * 3 * 25.4, 'in'), '0.3');
 assert.equal(L.say(19.05, 'in'), '3/4 in'); assert.equal(L.say(38.1, 'in'), '1 1/2 in'); assert.equal(L.say(50.8, 'in'), '2 in');
 assert.equal(L.say(20, 'in'), '0.7874 in'); assert.equal(L.say(19.05, 'mm'), '19.05 mm');
 // a design field (TEX, tabs; review 10-30 B8): a 32nd as a fraction, else three decimals; read back within 0.013 mm

@@ -325,8 +325,15 @@ function opParse(f, text) {
     const L = window.SwarfLength, inch = opInch();
     const n = parseFloat(String(text).replace(',', '.'));
     // a feed is a number per minute, not a length: read its fractions (1 1/2) as a plain number
-    if (f === 'rate') { const k = L ? L.parse(text, 'in') / 25.4 : n, v = k * (inch ? 25.4 : 1); return /[a-z"]/i.test(text) ? NaN : v > 0 ? v : NaN; }
-    if (f === 'step') return n > 0 ? Math.min(100, n) / 100 : NaN;
+    // (Phil 11-01) a feed may name its unit: 1500 mm/min or 60 in/min (ipm) whatever the setting
+    if (f === 'rate') {
+        const m = String(text).trim().match(/^(.*?)\s*(mm\/min|mm|in\/min|ipm|in|")?$/i);
+        const u = m && m[2] ? (/^mm/i.test(m[2]) ? 1 : 25.4) : (inch ? 25.4 : 1), num = m ? m[1] : '';
+        const k = L ? L.parse(num, 'in') / 25.4 : parseFloat(num), v = k * u;
+        return /[a-z"]/i.test(num) ? NaN : v > 0 ? v : NaN;
+    }
+    // a share of the bit: 40 or 40 %; past 100 % the passes leave ridges between them (refused)
+    if (f === 'step') { const p = parseFloat(String(text).replace(',', '.').replace('%', '')); return p > 0 && p <= 100 ? p / 100 : p > 100 ? Infinity : NaN; }
     if (f === 'down') {
         const mm = L ? L.parse(text) : n * (inch ? 25.4 : 1);
         return mm >= 0 ? mm : NaN;
@@ -518,7 +525,10 @@ export function opRender() {
                             const top = dev.feedMax > 0 ? dev.feedMax : (set.process && set.process.camFastFeed) || 0;
                             const rateWords = mm => `${Math.round(mm / (opInch() ? 25.4 : 1))} ${opInch() ? 'in' : 'mm'}/min`;
                             let no = null;
-                            if (!Number.isFinite(v)) no = typed ? `swarf could not read "${typed}" there: it stays as it was.` : null;
+                            const lenWords = mm => window.SwarfLength ? window.SwarfLength.say(mm) : `${mm} mm`;
+                            if (f === 'step' && v === Infinity) no = 'Stepover goes up to 100 % of the bit: past that the passes leave ridges between them. It stays as it was.';
+                            else if (!Number.isFinite(v)) no = typed ? `swarf could not read "${typed}" there: it stays as it was.` : null;
+                            else if (f === 'down' && v > 150) no = `A step-down goes up to ${lenWords(150)}, the most this machine cuts: it stays as it was.`;
                             else if (f === 'down' && v === 0 && rec.type !== 'drill') no = 'A step-down of 0 cuts nothing, or the whole depth at once: give it a depth above 0. It stays as it was.';
                             else if (f === 'rate' && top > 0 && v > top) no = `That is faster than this machine moves (${rateWords(top)} at most): the feed stays as it was.`;
                             if (no) api.show.alert(no, 6);

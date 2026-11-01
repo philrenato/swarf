@@ -257,6 +257,11 @@ function updateFieldsFromSettings(setrec, uirec = api.ui, opt = {}) {
         if (typ === 'text') {
             if (uie.setv) {
                 uie.setv(val);
+            } else if (uie.showv) {
+                uie.showv(val);
+            } else if (typeof val === 'number' && !Number.isInteger(val)) {
+                // swarf (Phil 11-01): a stepover of 0.30000000000000004 shows as 0.3
+                uie.value = +val.toFixed(6);
             } else {
                 uie.value = val;
             }
