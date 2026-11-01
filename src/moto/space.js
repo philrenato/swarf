@@ -1051,6 +1051,16 @@ function keyHandler(evt) {
     updateLastAction();
     if (!defaultKeys || inputHasFocus()) return false;
     if (evt.metaKey) return false;
+    // swarf (Phil 11-01): F fits everything in view from where you are looking, in perspective, in cam;
+    // DRAW, TEX and control keep their own F (their own boards)
+    if ((evt.charCode === cca('f') || evt.charCode === cca('F')) && typeof document !== 'undefined' && document.body
+        && !/\bswarf-(draw|tex|run)-open\b/.test(document.body.className)) {
+        // the app's own framing fits the parts (Space's counts every object, simulate's hidden 4 x 8 ft bed too)
+        const app = typeof window !== 'undefined' && window.kiri && window.kiri.api;
+        if (app && app.frame) app.frame(); else Space.view.fit();
+        evt.preventDefault();
+        return false;
+    }
     let handled = true;
     switch (evt.charCode) {
         case cca('z'):

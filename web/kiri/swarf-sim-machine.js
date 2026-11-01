@@ -112,7 +112,8 @@
     requestAnimationFrame(keepGrid);
   }
   function stop() {
-    active = false; x0 = null;
+    active = false; x0 = null; last = null;
+    if (bedChip) bedChip.style.display = 'none';
     slide(0);
     if (gantry) gantry.visible = bed.visible = false;
     if (mr1) mr1.root.visible = false;
@@ -125,6 +126,7 @@
     if (on) near();
     if (!on || kind !== 'bed') slide(0);
     if (on && kind === 'bed' && gantry) { const b = placeBed(); rail.position.set(0, b.y, 0); }
+    showBedChip();
     if (chip) { chip.classList.toggle('on', wanted()); chip.classList.toggle('swarf-toggle-on', wanted()); chip.classList.toggle('swarf-toggle-off', !wanted()); chip.title = TITLE[kind] || 'Show the machine'; }
     try { space().refresh(); } catch (e) { /* gone */ }
   }
@@ -139,8 +141,10 @@
     } catch (e) { /* no camera */ }
   }
   // each step of the simulation: the world slides back by the bit's X travel
+  let last = null;
   function onTool({ pos }) {
     if (!active || !pos) return;
+    last = pos;
     // the MR-1: the table and the stock hold still; the axes go to the bit
     if (kind === 'gantry') {
       if (!mr1) return;
@@ -151,12 +155,41 @@
     }
     if (!gantry) return;
     if (x0 === null) x0 = pos.x;
-    const on = wanted();
-    slide(on ? -(pos.x - x0) : 0);
+    const on = wanted(), still = bedStill();
+    slide(on && !still ? -(pos.x - x0) : 0);
     if (!on) return;
-    gantry.position.x = x0 + model.OFFSET;        // the beam stands OFFSET mm behind the bit
+    // the beam stands OFFSET mm behind the bit: still where the bed slides, with the bit where it holds
+    gantry.position.x = (still ? pos.x : x0) + model.OFFSET;
     model.set(pos.y - rail.position.y, pos.z);
     near();
+  }
+
+  // the bed can hold still (Phil 11-01: "a toggle ... to stop bedslinger motion"): the gantry moves
+  // over it instead, as on a gantry machine, which is easier to watch than the whole board sliding
+  const STILL = 'swarf-sim-bed-still';
+  const bedStill = () => { try { return localStorage.getItem(STILL) === '1'; } catch (e) { return false; } };
+  let bedChip = null;
+  function showBedChip() {
+    if (!bedChip) {
+      const host = document.getElementById('layer-animate');
+      if (!host) return;
+      bedChip = document.createElement('button');
+      bedChip.id = 'swarf-sim-bed';
+      bedChip.className = 'swarf-sim-extra swarf-toggle';
+      bedChip.textContent = 'bed slides';
+      bedChip.title = 'On: the bed slides under the gantry, as the ShopBot does. Off: the bed holds still and the gantry moves over it';
+      bedChip.onclick = () => {
+        try { localStorage.setItem(STILL, bedStill() ? '0' : '1'); } catch (e) { /* private window */ }
+        showBedChip();
+        // put the gantry and the bed where the bit is now
+        if (gantry && last) onTool({ pos: last }); else apply();
+        try { space().refresh(); } catch (e) { /* gone */ }
+      };
+      (chip && chip.nextSibling ? host.insertBefore(bedChip, chip.nextSibling) : host.append(bedChip));
+    }
+    const on = !bedStill();
+    bedChip.style.display = active && kind === 'bed' && wanted() ? '' : 'none';
+    bedChip.classList.toggle('on', on); bedChip.classList.toggle('swarf-toggle-on', on); bedChip.classList.toggle('swarf-toggle-off', !on);
   }
 
   function showChip() {
@@ -196,6 +229,6 @@
     }
   }, 150);
 
-  window.__swarfSimMachine = { state: () => ({ active, x0, kind, worldX: WORLD ? WORLD.position.x : null, gridX: (WORLD && gridView() || { position: {} }).position.x ?? null, on: wanted(), gantryX: gantry ? gantry.position.x : null,
+  window.__swarfSimMachine = { state: () => ({ active, x0, kind, still: bedStill(), worldX: WORLD ? WORLD.position.x : null, gridX: (WORLD && gridView() || { position: {} }).position.x ?? null, on: wanted(), gantryX: gantry ? gantry.position.x : null,
     mr1: mr1 ? { shown: mr1.root.visible, y: mr1.gantry.position.y, x: mr1.carriage.position.x, z: mr1.head.position.z } : null }), stop };
 })();

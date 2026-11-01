@@ -1172,7 +1172,7 @@ html[data-skin] #swarf-size .act {
 html[data-skin] #swarf-size .act:hover {
     border-color: rgb(var(--sk-n7) / calc(1 * var(--sk-a-n7, 1)))
 }
-html[data-skin] #layer-animate #swarf-sim-machine.on {
+html[data-skin] #layer-animate #swarf-sim-machine.on, html[data-skin] #layer-animate #swarf-sim-bed.on {
     border-color: rgb(var(--sk-n7) / calc(1 * var(--sk-a-n7, 1))) !important;
     color: rgb(var(--sk-n9) / calc(1 * var(--sk-a-n9, 1))) !important
 }

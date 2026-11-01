@@ -1989,9 +1989,14 @@ body.swarf-phone > *:not(#swarf-phone-wall) { display: none !important; }
 }
 /* the simulate bar shown: the two pills step aside, as in draw and control (1366 look 10-31: install
    swarf sat on advanced's "machine" button; lifted, the version then sat under the concerns pill) */
-body:has(#layer-animate:not(.hide)) :is(#ver, #install-swarf) {
+body:has(#layer-animate:not(.hide)) #install-swarf {
   visibility: hidden !important;
 }
+/* the version stays in the bottom-right corner everywhere (Phil 11-01: "make sure version number/
+   update always shows up in bottom right corner"): above simulate's bar, over every card */
+#ver { z-index: 10050; visibility: visible !important; }
+/* in simulate it sits in the bar's empty right end (above the bar it met the concerns pill) */
+body:has(#layer-animate:not(.hide)) #ver { bottom: calc(8px + (var(--swarf-simbar-h, 56px) - 20px) / 2); right: 22px; }
 #install-swarf:hover {
   background: var(--swarf-accent);
   color: #fff;
@@ -2104,8 +2109,8 @@ body.swarf-draw-open #swarf-concerns, body.swarf-draw-open #swarf-size { display
 #swarf-size .n { color: var(--swarf-text-2); font-size: 12px; }
 @media (max-width: 760px) { #swarf-size { flex-wrap: wrap; left: 16px; right: 16px; transform: none; justify-content: center; } }
 /* r41: the ShopBot in simulate (swarf-sim-machine.js) */
-#layer-animate #swarf-sim-machine { margin-left: 10px; text-transform: none !important; letter-spacing: 0 !important; }
-#layer-animate #swarf-sim-machine.on { border-color: #a39a90 !important; color: #fff !important; }
+#layer-animate :is(#swarf-sim-machine, #swarf-sim-bed) { margin-left: 10px; text-transform: none !important; letter-spacing: 0 !important; }
+#layer-animate #swarf-sim-machine.on, #layer-animate #swarf-sim-bed.on { border-color: #a39a90 !important; color: #fff !important; }
 #swarf-draw .sd-lab { fill: #7d736b; font: 11px "JetBrains Mono", ui-monospace, monospace; pointer-events: none; }
 #swarf-draw .sd-origin { stroke: #a39a90; stroke-width: 1.2; fill: none; pointer-events: none; }
 #swarf-draw .sd-scale { stroke: #a39a90; stroke-width: 1.2; fill: none; pointer-events: none; }
@@ -2388,7 +2393,7 @@ body.swarf-run-open #panel-slide, body.swarf-run-open #panel-left { display: non
 body.swarf-focus #speeds, body.swarf-run-open #speeds { display: none !important; }
 /* review 10-30 B4: TEX's card ran under the install / version chips at 1440×900; DRAW and TEX
    step them aside as control does */
-body.swarf-draw-open #install-swarf, body.swarf-draw-open #ver, body.swarf-draw-open #gdpr,
+body.swarf-draw-open #install-swarf, body.swarf-draw-open #gdpr,
 body.swarf-draw-open #swarf-watermark { visibility: hidden !important; }
 /* DRAW: engraved lines, regions (swarf-draw.js) */
 #swarf-draw svg .sd-part.sd-line, html[data-skin] #swarf-draw svg .sd-part.sd-line, html[data-skin] #swarf-draw svg .sd-part.sd-line:hover { fill: none !important; stroke-width: 2.4; stroke-linecap: round; stroke-dasharray: 7 3 !important; }

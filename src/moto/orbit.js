@@ -37,6 +37,7 @@ class Orbit extends EventDispatcher {
         this.noZoom = false;
         this.zoomSpeed = 1.0;
         this.reverseZoom = false;
+        this.zoomToCursor = true; // swarf: the wheel zooms toward what the cursor points at
 
         // Limits to how far you can dolly in and out
         this.minDistance = 0;
@@ -401,7 +402,8 @@ class Orbit extends EventDispatcher {
             } else {
             switch (event.button) {
                 case scope.mouseButtons.ORBIT:
-                    state = event.metaKey ? STATE.PAN : STATE.ROTATE;
+                    // swarf (Phil 11-01): shift-drag pans, as in Unreason (and ⌘-drag, as before)
+                    state = event.metaKey || event.shiftKey ? STATE.PAN : STATE.ROTATE;
                     break;
                 case scope.mouseButtons.ZOOM:
                     state = STATE.DOLLY;
@@ -486,6 +488,27 @@ class Orbit extends EventDispatcher {
             state = STATE.NONE;
         }
 
+        // how big the view is: the eye's distance in perspective, the visible height in orthographic
+        function zoomSize() {
+            if (mode === MODE.ORTHOGRAPHIC) return (scope.object.top - scope.object.bottom) / (scope.object.zoom || 1);
+            return scope.object.position.distanceTo(scope.target);
+        }
+
+        // the world point under the cursor on the plane through the target, square to the view
+        const zoomRay = new THREE.Raycaster(), zoomPlane = new THREE.Plane(), zoomHit = new THREE.Vector3();
+        function cursorPoint(event) {
+            const element = scope.domElement === document ? scope.domElement.body : scope.domElement;
+            const r = element.getBoundingClientRect();
+            if (!r.width || !r.height) return null;
+            const ndc = new THREE.Vector2(((event.clientX - r.left) / r.width) * 2 - 1, -((event.clientY - r.top) / r.height) * 2 + 1);
+            scope.object.updateMatrixWorld();
+            zoomRay.setFromCamera(ndc, scope.object);
+            const n = new THREE.Vector3();
+            scope.object.getWorldDirection(n);
+            zoomPlane.setFromNormalAndCoplanarPoint(n, scope.target);
+            return zoomRay.ray.intersectPlane(zoomPlane, zoomHit) ? zoomHit.clone() : null;
+        }
+
         function onMouseWheel(event) {
             if (scope.enabled === false || scope.noZoom === true) return;
 
@@ -546,6 +569,12 @@ class Orbit extends EventDispatcher {
                 factor = 1 + Math.log(absDelta / 20);
             }
 
+            // swarf (Phil 11-01): the zoom goes toward what the cursor points at. The point under it on the
+            // plane through the target, square to the view, stays under it: target and eye slide toward
+            // it by as much as the zoom closed in (measured after update, so a clamped zoom slides none)
+            const pick = scope.zoomToCursor ? cursorPoint(event) : null;
+            const was = pick && zoomSize();
+
             if (delta > 0) {
                 scope.dollyOut(factor);
             } else if (delta < 0) {
@@ -553,6 +582,15 @@ class Orbit extends EventDispatcher {
             }
 
             scope.update();
+            if (pick && was > 0) {
+                const k = zoomSize() / was;
+                if (isFinite(k) && Math.abs(1 - k) > 1e-9) {
+                    const slide = pick.clone().sub(scope.target).multiplyScalar(1 - k);
+                    scope.target.add(slide);
+                    scope.object.position.add(slide);
+                    scope.update();
+                }
+            }
             scope.dispatchEvent(startEvent);
             scope.dispatchEvent(endEvent);
         }
