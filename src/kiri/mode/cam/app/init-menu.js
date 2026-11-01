@@ -56,6 +56,36 @@ function selector(type, { input, event, opt }) {
 }
 
 
+// swarf (Phil 11-01): a bit's sizes are in the bit's own unit (its "sizes in mm" box), and each
+// takes what a woodshop types in either unit: 1/4, 0.25 in, 6 mm, 6.35. Shown to 4 places (no
+// 0.23622047244094488); a size of 0 or less, or past a foot, is refused out loud and the old one stays.
+const TOOL_MAX_MM = 300;
+function toolField(ip, word) {
+    ip.showv = v => {
+        ip.real = +v;
+        ip.value = Number.isFinite(+v) ? String(+(+v).toFixed(4)) : '';
+        ip.shown = ip.value;
+    };
+    ip.convert = function() {
+        if (typeof ip.real === 'number' && ip.value === ip.shown) return ip.real;
+        const metric = !!(ui.toolMetric && ui.toolMetric.checked), k = metric ? 1 : 25.4, L = self.SwarfLength;
+        const text = String(ip.value).trim();
+        const mm = L ? L.parse(text, metric ? 'mm' : 'in') : parseFloat(text) * k;
+        const ok = word === 'tip' ? mm >= 0 && mm <= TOOL_MAX_MM : mm > 0 && mm <= TOOL_MAX_MM;
+        if (!ok) {
+            const u = metric ? 'mm' : 'in', top = L ? L.say(TOOL_MAX_MM, u) : `${TOOL_MAX_MM} mm`;
+            const range = word === 'tip' ? `0 to ${top}` : `above 0, up to ${top}`;
+            api.show.alert(`A bit's ${word} is ${range}${Number.isFinite(mm) ? '' : ` (swarf could not read "${text}")`}: it stays as it was.`, 6);
+            ip.showv(ip.real);
+            return ip.real;
+        }
+        const v = Math.round(mm / k * 1e9) / 1e9;
+        ip.showv(v);
+        return v;
+    };
+    return ip;
+}
+
 export function menu() {
     let anim = ui.anim = {};
 
@@ -71,14 +101,14 @@ export function menu() {
     toolNum:             newInput('tool #', { title:'tool number', id: 'tool-num', convert: toInt }),
     toolMetric:          newBoolean('metric', updateTool, { title: 'metric', id: 'tool-metric' }),
     _____:               newGroup(LANG.td_shft),
-    toolShaftDiam:       newInput('diameter', { convert: toFloat }),
-    toolShaftLen:        newInput('length', { convert: toFloat }),
+    toolShaftDiam:       toolField(newInput('diameter', { text: true }), 'width'),
+    toolShaftLen:        toolField(newInput('length', { text: true }), 'length'),
     _____:               newGroup(LANG.td_flut),
-    toolFluteDiam:       newInput('diameter', { convert: toFloat }),
-    toolFluteLen:        newInput('length', { convert: toFloat }),
+    toolFluteDiam:       toolField(newInput('diameter', { text: true }), 'width'),
+    toolFluteLen:        toolField(newInput('length', { text: true }), 'length'),
     _____:               newGroup(LANG.td_tapr),
     toolTaperAngle:      newInput('angle', { convert: toFloat }),
-    toolTaperTip:        newInput('tip', { convert: toFloat }),
+    toolTaperTip:        toolField(newInput('tip', { text: true }), 'tip'),
     // toolTaperAngle:     $('tool-tangle'),
 
     toolsSave:          $('tools-save'),
