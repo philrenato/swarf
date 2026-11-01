@@ -273,7 +273,7 @@ function meshAdd(id, ind, pos, sab) {
             try { geo.computeBoundingBox(); } catch (e) {}
             mesh = new THREE.Mesh(geo, toolMat);
             mesh.renderOrder = 1;
-            // expose so swarf-spin.js can rotate it during sim
+            // swarf-chips.js spins it during simulate
             window.__swarfToolMeshes = window.__swarfToolMeshes || [];
             window.__swarfToolMeshes.push(mesh);
         } else {
