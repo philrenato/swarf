@@ -224,7 +224,8 @@ export function createPopOps() {
                 let rec = env.poppedRec;
                 let { field } = opt;
                 api.event.emit('cam.zplane.select', { which, onselect(value) {
-                    rec[field] = value;
+                    // swarf: the plane comes in the units on screen; the step keeps mm
+                    rec[field] = value * api.view.unit_scale();
                     input.focus();
                     input.value = value;
                     input.blur();
@@ -423,7 +424,7 @@ export function createPopOps() {
         rate: UC.newInput(LANG.cc_feed_s, { title: LANG.cc_feed_l, convert: toInt, units }),
         sep: UC.newBlank({ class: "pop-sep" }),
         step: UC.newInput(LANG.cc_sovr_s, { title: LANG.cc_sovr_l, convert: toFloat, bound: UC.bound(0.01, 10.0) }),
-        leave: UC.newInput(LANG.cf_leav_s, { title: LANG.cf_leav_l, convert: toFloat, bound: UC.bound(0, 100) }),
+        leave: UC.newInput(LANG.cf_leav_s, { title: LANG.cf_leav_l, convert: toFloat, bound: UC.bound(0, 100), units }),
         sep: UC.newBlank({ class: "pop-sep" }),
         angle: UC.newInput(LANG.cf_angl_s, { title: LANG.cf_angl_l, convert: toFloat, bound: UC.bound(45, 90), show: (op) => op.inputs.curves.checked }),
         flatness: UC.newInput(LANG.ou_flat_s, { title: LANG.ou_flat_l, convert: toFloat, bound: UC.bound(0, 1.0), units: false, round: 4 }),
@@ -468,7 +469,7 @@ export function createPopOps() {
         offEnd: UC.newInput(LANG.ci_laeo_s, { title: LANG.ci_laeo_l, convert: toFloat}),
         sep: UC.newBlank({ class: "pop-sep" }),
         tolerance: UC.newInput(LANG.ou_toll_s, { title: LANG.ou_toll_l, convert: toFloat, bound: UC.bound(0, 10.0), units, round: 4 }),
-        leave: UC.newInput(LANG.cf_leav_s, { title: LANG.cf_leav_l, convert: toFloat, bound: UC.bound(0, 100) }),
+        leave: UC.newInput(LANG.cf_leav_s, { title: LANG.cf_leav_l, convert: toFloat, bound: UC.bound(0, 100), units }),
         sep: UC.newBlank({ class: "pop-sep" }),
         linear: UC.newBoolean(LANG.ci_line_s, undefined, { title: LANG.ci_line_l }),
     };

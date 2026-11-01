@@ -400,6 +400,10 @@ function bound(low,high) {
  */
 function toInt() {
     if (unchanged(this)) return this.real;
+    if (this.setv && this.value !== '') {
+        const mm = unitsValue(this);
+        return typeof mm === 'number' ? this.setv(Math.round(mm)) : mm;
+    }
     let nv = this.value !== '' ? parseInt(this.value) : null;
     if (isNaN(nv)) nv = 0;
     if (nv !== null && this.bound) nv = this.bound(nv);
@@ -417,6 +421,10 @@ function toInt() {
  */
 function toFloat() {
     if (unchanged(this)) return this.real;
+    if (this.setv && this.value !== '') {
+        const mm = unitsValue(this);
+        return typeof mm === 'number' ? this.setv(mm) : mm;
+    }
     let nv = this.value !== '' ? parseFloat(this.value) : null;
     if (nv !== null && this.bound) nv = this.bound(nv);
     this.value = nv;
@@ -461,6 +469,44 @@ function toDegsFloat(){
 // 5999.988 and the arc tolerance 0, and its ShopBot file differed.
 function unchanged(input) {
     return !!input.setv && typeof input.real === 'number' && input.shown !== undefined && input.value === input.shown;
+}
+
+// swarf (Phil 11-01: "everything should accept mm or in when units are typed in"): a field with
+// units reads what a woodshop types, whatever the setting: 19, 19 mm, 3/4, 3/4 in, 0.75", 1 1/2 in,
+// 2 cm (swarf-length.js; a bare number is in the current units, a fraction is inches). Its bound
+// is in mm, as Kiri wrote it (a clearance of 0.01 to 100 mm, never 100 in); a number outside it is
+// set to the end and said, with the range in the current units; one swarf cannot read keeps the
+// old value and says so. Gives back mm (or the old value).
+function unitsValue(input) {
+    const L = self.SwarfLength, text = String(input.value).trim();
+    const old = typeof input.real === 'number' ? input.real : undefined;
+    let mm = L ? L.parse(text, units === 25.4 ? 'in' : 'mm') : parseFloat(text) * units;
+    if (!Number.isFinite(mm)) {
+        fieldSay(`${fieldName(input)}: swarf could not read "${text}" (type 3/4, 19 mm or 0.75 in): it stays as it was.`);
+        if (old !== undefined) input.setv(old); else input.value = '';
+        return old;
+    }
+    if (input.bound) {
+        const held = input.bound(mm);
+        if (held !== mm) {
+            const lo = input.bound(-Infinity), hi = input.bound(Infinity), u = units === 25.4 ? 'in' : 'mm';
+            const num = v => { const t = L ? L.show(v, u) : String(+(v / units).toFixed(3)); return +t === 0 && v > 0 ? String(+(v / units).toPrecision(2)) : t; };
+            const range = hi === Infinity ? `at least ${num(lo)}` : `from ${num(lo)} to ${num(hi)}`;
+            fieldSay(`${fieldName(input)} goes ${range} ${u}: it is set to ${num(held)}.`);
+            mm = held;
+        }
+    }
+    return mm;
+}
+
+function fieldName(input) {
+    const row = input.closest && input.closest('.var-row');
+    const l = row && row.querySelector('label');
+    return (l && l.textContent.trim()) || 'That field';
+}
+
+function fieldSay(text) {
+    try { api.show.alert(text, 6); } catch (e) { console.log(text); }
 }
 
 function raw() {
@@ -799,6 +845,8 @@ function newInput(label, opt = {}) {
             let key = event.key;
             if (
                 opt.text ||
+                // swarf: a length or a rate takes its unit and fractions (3/4 in, 19 mm, 1 1/2")
+                (opt.units && key.length === 1 && /[\/ a-z"″,]/i.test(key)) ||
                 (key >= '0' && key <= '9') ||
                 key === '.' ||
                 key === '-' ||
