@@ -714,7 +714,7 @@ export const BASIC = {
   memphis: ['mix', 'size'], quilt: ['style', 'size'],
 };
 // one word each, for a swatch's caption
-const SHORT = { dots: 'dots', dashdot: 'dashes', morse: 'morse', ribs: 'flutes', knurl: 'knurl', noise: 'noise', waves: 'waves', stone: 'stone', weave: 'weave', motif: 'repeat', memphis: 'memphis', quilt: 'quilted' };
+const SHORT = { dots: 'dots', dashdot: 'dash', morse: 'morse', ribs: 'flutes', knurl: 'knurl', noise: 'noise', waves: 'waves', stone: 'stone', weave: 'weave', motif: 'repeat', memphis: '80s', quilt: 'quilt' };
 for (const id in PATTERNS) PATTERNS[id].short = SHORT[id] || PATTERNS[id].label;
 for (const [id, ks] of Object.entries(BASIC)) for (const q of PATTERNS[id].params) {
   if (ks.includes(q.k)) q.basic = true;

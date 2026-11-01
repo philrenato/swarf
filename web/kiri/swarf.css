@@ -2428,9 +2428,12 @@ html[data-skin] #swarf-draw svg .sd-part.sd-regsrc, #swarf-draw svg .sd-part.sd-
 #swarf-draw.sd-tex .tx-bsize { display: inline-flex; align-items: center; gap: 4px; font-size: 12px; }
 #swarf-draw.sd-tex .tx-bsize input { font: inherit; width: 52px; text-align: right; padding: 4px 6px; border-radius: 6px; border: 1px solid currentColor; background: transparent; color: inherit; }
 /* 720p: two rows of five with their one-word captions (review 10-30 B3), a 22 px picture each */
-#swarf-draw.sd-tex .tx-sws.tx-compact { grid-template-columns: repeat(5, 1fr); gap: 3px; margin: 2px 0 4px; }
-#swarf-draw.sd-tex .tx-sws.tx-compact .tx-sw { padding: 3px 2px 3px !important; gap: 1px; font-size: 10px !important; }
+#swarf-draw.sd-tex .tx-sws.tx-compact { grid-template-columns: repeat(6, 1fr); gap: 3px; margin: 2px 0 4px; }
+#swarf-draw.sd-tex .tx-sws.tx-compact .tx-sw { padding: 3px 2px 3px !important; gap: 1px; font-size: 9.5px !important; }
 #swarf-draw.sd-tex .tx-sws.tx-compact .tx-sw img { width: 22px; height: 22px; border-radius: 3px; }
+/* six to a row in a short window: a caption in the system's sans in every skin (the swarf skin's mono ran
+   six letters past a 31 px swatch) */
+#swarf-draw.sd-tex .tx-sws.tx-compact .tx-sw span { font-family: system-ui, -apple-system, 'Segoe UI', sans-serif !important; letter-spacing: 0 !important; }
 #swarf-draw.sd-tex .sd-card .tx-ptsrow { flex-wrap: nowrap; }
 #swarf-draw.sd-tex .sd-card .tx-ptsrow input { width: 44px; }
 /* the kerfed board from the side, in the skin's own text color */

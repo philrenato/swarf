@@ -134,7 +134,7 @@ try {
     return { sws: c.querySelectorAll('.tx-sw').length, on: [...c.querySelectorAll('.tx-sw.on')].map(b => b.dataset.pat), more: !!c.querySelector('details.tx-more:not([open])'),
       seen: !!note && note.getBoundingClientRect().bottom <= cr.bottom, edge: !!document.querySelector('#tx-svg path.tx-edge'), pick: pick && pick.textContent, lit: !!pick && bg(pick) !== bg(other) };
   });
-  check(look.sws === 10 && look.on.join() === 'waves' && look.more, `the card: ten swatches, waves lit, the finer points folded (${JSON.stringify({ sws: look.sws, on: look.on, more: look.more })})`);
+  check(look.sws === 12 && look.on.join() === 'waves' && look.more, `the card: twelve swatches, waves lit, the finer points folded (${JSON.stringify({ sws: look.sws, on: look.on, more: look.more })})`);
   check(look.seen, 'the cut time is in view, up by the pattern');
   check(look.edge && look.lit && /^1 · brush \d+ × \d+ mm$/.test(look.pick), `the picked mark: its edge dashed on the board, its button lit and named ("${look.pick}")`);
   // Escape steps back (tool, mark, part) and does not leave while there is something to undo
