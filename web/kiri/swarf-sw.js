@@ -59,6 +59,7 @@ const EAGER_URLS = [
     'swarf-length.js',
     'swarf-a11y.js',
     'swarf-draw-geom.mjs',
+    'swarf-board.js',
     'swarf-tex.js',
     'swarf-file.js',
     'swarf-tex-core.mjs',

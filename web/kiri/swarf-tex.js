@@ -25,11 +25,10 @@
     say: v => (window.SwarfLength ? window.SwarfLength.say(v) : `${+(+v).toFixed(2)} mm`),
     prose: v => (window.SwarfLength && window.SwarfLength.prose ? window.SwarfLength.prose(v, undefined, 2) : `${+(+v).toFixed(2)} mm`)
   };
-  const api = () => window.kiri && window.kiri.api;
+  // DRAW's board (swarf-board.js): the view, the ground, the wiring, small helpers
+  const Board = window.SwarfBoard;
+  const { api, V, $, r3, clone, esc, isClosed, inLoop, hush } = Board;
   const T = () => window.SwarfTexCore;
-  const V = () => window.SwarfVector;
-  const $ = id => document.getElementById(id);
-  const r3 = v => +(+v).toFixed(3);
   const BRUSH = 'swarf-tex-brush', FILL = 'swarf-tex-fill';
   // the core's bits, and the tool library's own for each (src/kiri/app/conf/defaults.js)
   const BITS = {
@@ -96,27 +95,11 @@
   const BR0 = 0.5, BR1 = 100;                    // the brush slider's ends, mm
   const KEYS = { v: 'select', b: 'brush', u: 'erase', r: 'rect', e: 'ellipse', g: 'region', h: 'points' };
   const WORD = { select: 'select', brush: 'brush', erase: 'erase', rect: 'rectangle', ellipse: 'ellipse', region: 'region', points: 'points' };
-  const clone = o => JSON.parse(JSON.stringify(o));
-  const esc = t => String(t).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
   const nameOf = w => String((w.meta && w.meta.file) || 'part').replace(/\.(svg|dxf|ai|pdf|stl|obj|3mf)$/i, '');
   const newId = () => 'tx' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
 
   // ── a part from above: its outline loops on the bed (a drawing's, or its box) ──
-  function flat(crv, step = 1) {
-    const L = [];
-    for (const b of V().cubics(crv)) {
-      const est = Math.hypot(b[1][0] - b[0][0], b[1][1] - b[0][1]) + Math.hypot(b[2][0] - b[1][0], b[2][1] - b[1][1]) + Math.hypot(b[3][0] - b[2][0], b[3][1] - b[2][1]);
-      const n = Math.max(4, Math.min(128, Math.ceil(est / step)));
-      for (let i = L.length ? 1 : 0; i <= n; i++) {
-        const t = i / n, u = 1 - t;
-        L.push([u * u * u * b[0][0] + 3 * u * u * t * b[1][0] + 3 * u * t * t * b[2][0] + t * t * t * b[3][0],
-                u * u * u * b[0][1] + 3 * u * u * t * b[1][1] + 3 * u * t * t * b[2][1] + t * t * t * b[3][1]]);
-      }
-    }
-    return L;
-  }
-  const isClosed = crv => { const P = crv.ctrlPts, a = P[0], b = P[P.length - 1]; return Math.hypot(a[0] - b[0], a[1] - b[1]) < 1e-6; };
-  const inLoop = (p, L) => { let n = false; for (let i = 0, j = L.length - 1; i < L.length; j = i++) if ((L[i][1] > p[1]) !== (L[j][1] > p[1]) && p[0] < (L[j][0] - L[i][0]) * (p[1] - L[i][1]) / (L[j][1] - L[i][1]) + L[i][0]) n = !n; return n; };
+  const flat = (crv, step = 1) => Board.flat(crv, step, 128);
   const loopArea = L => { let a = 0; for (let i = 0, j = L.length - 1; i < L.length; j = i++) a += (L[j][0] + L[i][0]) * (L[j][1] - L[i][1]); return Math.abs(a / 2); };
   // a part's outline loops in its own frame (bed − its place): even-odd, outline and holes
   function localLoops(w) {
@@ -276,7 +259,6 @@
     window.addEventListener('resize', render);
     ui.svg.focus();
   }
-  const hush = e => { if (!/^(INPUT|SELECT|TEXTAREA)$/.test(e.target && e.target.tagName)) e.stopPropagation(); };   // a prompt's Enter still lands (review r093 A3)
 
   // done (apply) or cancel: either way TEX closes. Done never keeps you in TEX (Phil: a mode may
   // adapt, never trap): what it could not do, it says after.
@@ -301,24 +283,17 @@
 
   // ── view (as DRAW's): mm on the bed to px on the board ──
   function fit(whole) {
-    const r = ui.svg.getBoundingClientRect();
-    const W = r.width || window.innerWidth, H = r.height || window.innerHeight;
-    const [bw, bd] = S.bed;
-    let b = [-bw / 2, -bd / 2, bw / 2, bd / 2];
+    let b = null;
     if (!whole && S.parts.length) {
       b = [Infinity, Infinity, -Infinity, -Infinity];
       for (const p of S.parts) { b[0] = Math.min(b[0], p.box[0] + p.pos[0]); b[1] = Math.min(b[1], p.box[1] + p.pos[1]); b[2] = Math.max(b[2], p.box[2] + p.pos[0]); b[3] = Math.max(b[3], p.box[3] + p.pos[1]); }
       const cx = (b[0] + b[2]) / 2, cy = (b[1] + b[3]) / 2, h = Math.max(100, (b[2] - b[0]) * 0.62, (b[3] - b[1]) * 0.62);
       b = [cx - h, cy - h, cx + h, cy + h];
     }
-    const left = 16, right = W > 900 ? 306 : 16, top = 76, bottom = 50;
-    S.k = Math.max(0.02, Math.min((W - left - right) / (b[2] - b[0]), (H - top - bottom) / (b[3] - b[1])));
-    S.ox = left + (W - left - right) / 2 - (b[0] + b[2]) / 2 * S.k;
-    S.oy = top + (H - top - bottom) / 2 + (b[1] + b[3]) / 2 * S.k;
-    S.whole = !!whole;
+    Board.view(S, ui.svg, b, 306, whole);
   }
   const sx = x => S.ox + x * S.k, sy = y => S.oy - y * S.k;
-  function toMM(e) { const r = ui.svg.getBoundingClientRect(); return [(e.clientX - r.left - S.ox) / S.k, -(e.clientY - r.top - S.oy) / S.k]; }
+  const toMM = e => Board.toMM(S, ui.svg, e);
 
   // ── the marks as pictures: the texture carved into the part's own surface, in every skin ──
   // The part's fill over the bed is the surface; a bounded range around it (never near-black, never
@@ -578,24 +553,9 @@
 
   function render() {
     if (!S) return;
-    const k = S.k, [bw, bd] = S.bed, out = [];
-    out.push(`<rect class="sd-bed" x="${sx(-bw / 2)}" y="${sy(bd / 2)}" width="${bw * k}" height="${bd * k}"/>`);
-    const step = k * 10 > 6 ? 10 : 100;
-    let gr = '';
-    for (let x = Math.ceil(-bw / 2 / step) * step; x <= bw / 2; x += step) gr += `M${sx(x)},${sy(-bd / 2)}V${sy(bd / 2)}`;
-    for (let y = Math.ceil(-bd / 2 / step) * step; y <= bd / 2; y += step) gr += `M${sx(-bw / 2)},${sy(y)}H${sx(bw / 2)}`;
-    out.push(`<path class="sd-grid${step === 100 ? ' big' : ''}" d="${gr}"/>`);
-    out.push(`<text class="sd-lab" x="${sx(-bw / 2) + 6}" y="${sy(bd / 2) + 14}">bed ${LEN.unit() === 'in' ? `${+(bw / 25.4).toFixed(1)} × ${+(bd / 25.4).toFixed(1)} in` : `${Math.round(bw)} × ${Math.round(bd)} mm`}</text>`);
-    out.push(`<path class="sd-origin" d="M${sx(0) - 8},${sy(0)}H${sx(0) + 8}M${sx(0)},${sy(0) - 8}V${sy(0) + 8}"/><text class="sd-lab" x="${sx(0) + 6}" y="${sy(0) + 14}">0, 0</text>`);
-    {
-      const r = ui.svg.getBoundingClientRect(), want = 100 / k;
-      // the scale bar in the units the switch says: round inches (1/8 in to 4 ft) or round mm
-      const inch = LEN.unit() === 'in';
-      const len = inch ? 25.4 * ([0.125, 0.25, 0.5, 1, 2, 3, 6, 12, 24, 48].find(v => v * 25.4 >= want * 0.6) || 48)
-        : [1, 2, 5, 10, 20, 50, 100, 200, 500, 1000, 2000].find(v => v >= want * 0.6) || 2000;
-      const x = 20, y = (r.height || window.innerHeight) - 46;
-      out.push(`<path class="sd-scale" d="M${x},${y - 4}V${y}H${x + len * k}V${y - 4}"/><text class="sd-lab" x="${x}" y="${y - 8}">${inch ? LEN.say(len) : len >= 1000 ? len / 1000 + ' m' : len + ' mm'}</text>`);
-    }
+    const k = S.k, out = [];
+    // the ground as DRAW's: the bed, a 10 mm / 100 mm grid, its size, the origin, a scale bar
+    out.push(...Board.ground(S, ui.svg, false));
     S.parts.forEach((p, pi) => {
       const d = p.loops.map(L => 'M' + L.map(q => `${sx(q[0] + p.pos[0])},${sy(q[1] + p.pos[1])}`).join('L') + 'Z').join('');
       out.push(`<path class="sd-part${pi === S.sel ? ' on' : ''}" data-part="${pi}" d="${d}"><title>${esc(p.name)}${p.drawn ? '' : ' (its box: it has no drawing)'}</title></path>`);
@@ -1216,15 +1176,7 @@
     }
     render(); imagesSoon(); checkSoon();
   }
-  function wheel(e) {
-    e.preventDefault();
-    if (e.ctrlKey || e.metaKey) {
-      const r = ui.svg.getBoundingClientRect(), px = e.clientX - r.left, py = e.clientY - r.top;
-      const f = Math.exp(-e.deltaY * 0.01), k = Math.max(0.05, Math.min(200, S.k * f));
-      S.ox = px - (px - S.ox) * k / S.k; S.oy = py - (py - S.oy) * k / S.k; S.k = k;
-    } else { S.ox -= e.deltaX; S.oy -= e.deltaY; }
-    render();
-  }
+  function wheel(e) { Board.wheel(S, ui.svg, e); render(); }
   function key(e) {
     if (!S) return;
     const typing = e.target && /INPUT|SELECT|TEXTAREA/.test(e.target.tagName);
@@ -1491,50 +1443,38 @@
       for (const m of g.meta.tex) m.xf = T().xfThen(m.xf || T().IDENTITY, [M[0], M[1], M[2], M[3], -(d.dx || 0), -(d.dy || 0)]);
     }
   }
-  function onRotate({ widget, x, y, z }) {
-    if (typeof x !== 'number') {
-      const q = x || {};
-      if (Math.abs(q.x || 0) > 1e-9 || Math.abs(q.y || 0) > 1e-9) return;
-      const t = 2 * Math.atan2(q.z || 0, q.w ?? 1);
-      return track(widget, [Math.cos(t), -Math.sin(t), Math.sin(t), Math.cos(t)]);
-    }
-    if (Math.abs(x || 0) > 1e-9 || Math.abs(y || 0) > 1e-9) return;
-    const t = z || 0;
-    track(widget, [Math.cos(t), -Math.sin(t), Math.sin(t), Math.cos(t)]);
+  // a tilt (lay flat off the bed's plane): the marks stay as they are
+  function onRotate(ev) {
+    const M = Board.rotationOf(ev);
+    if (M) track(ev.widget, M);
   }
 
   // ── wiring ──
-  let tries = 0;
-  const t = setInterval(() => {
-    const a = api(), step = $('swarf-step-tex');
-    if ((a && a.event && step) || ++tries > 200) {
-      clearInterval(t);
-      if (!a || !a.event) return;
-      const later = fn => (...args) => { try { fn(...args); } catch (e) { console.warn('swarf tex', e); } };
-      a.event.on('widget.scale', later(({ widget, x, y }) => track(widget, [x || 1, 0, 0, y || 1])));
-      a.event.on('widget.rotate', later(onRotate));
-      a.event.on('widget.mirror', later(({ widget }) => track(widget, [-1, 0, 0, 1])));
-      a.event.on('slice.begin', later(() => texAreas()));
-      // a part deleted or copied: its marks' steps follow (a copy shares its marks' steps)
-      for (const ev of ['widget.delete', 'widget.duplicate']) a.event.on(ev, later(() => setTimeout(later(() => { if (T()) syncSteps(a); }), 0)));
-      a.event.on('cam.op.deleted', later(rec => {
-        if (!STEP(rec)) return;
-        const names = [];
-        for (const w of a.widgets.all()) {
-          if (!(w.meta && Array.isArray(w.meta.tex))) continue;
-          const left = w.meta.tex.filter(m => m.id !== rec.texmark);
-          if (left.length === w.meta.tex.length) continue;
-          if (left.length) w.meta.tex = left; else delete w.meta.tex;
-          names.push(nameOf(w));
-          if (w.saveState) w.saveState(() => {});
-        }
-        if (names.length) a.show.alert(`The mark on ${names.join(', ')} is gone with its step: open tex to mark it again.`, 8);
-        syncSteps(a);
-      }));
-      a.event.on('widget.add', later(w => setTimeout(later(() => { if (T() && [].concat(w).some(x => x && x.meta && Array.isArray(x.meta.tex))) syncSteps(a, true); }), 0)));
-      if (step && !step.dataset.wired) { step.dataset.wired = '1'; step.addEventListener('click', open); }
-    }
-  }, 150);
+  Board.wire('swarf-step-tex', (a, step) => {
+    const later = fn => (...args) => { try { fn(...args); } catch (e) { console.warn('swarf tex', e); } };
+    a.event.on('widget.scale', later(({ widget, x, y }) => track(widget, [x || 1, 0, 0, y || 1])));
+    a.event.on('widget.rotate', later(onRotate));
+    a.event.on('widget.mirror', later(({ widget }) => track(widget, [-1, 0, 0, 1])));
+    a.event.on('slice.begin', later(() => texAreas()));
+    // a part deleted or copied: its marks' steps follow (a copy shares its marks' steps)
+    for (const ev of ['widget.delete', 'widget.duplicate']) a.event.on(ev, later(() => setTimeout(later(() => { if (T()) syncSteps(a); }), 0)));
+    a.event.on('cam.op.deleted', later(rec => {
+      if (!STEP(rec)) return;
+      const names = [];
+      for (const w of a.widgets.all()) {
+        if (!(w.meta && Array.isArray(w.meta.tex))) continue;
+        const left = w.meta.tex.filter(m => m.id !== rec.texmark);
+        if (left.length === w.meta.tex.length) continue;
+        if (left.length) w.meta.tex = left; else delete w.meta.tex;
+        names.push(nameOf(w));
+        if (w.saveState) w.saveState(() => {});
+      }
+      if (names.length) a.show.alert(`The mark on ${names.join(', ')} is gone with its step: open tex to mark it again.`, 8);
+      syncSteps(a);
+    }));
+    a.event.on('widget.add', later(w => setTimeout(later(() => { if (T() && [].concat(w).some(x => x && x.meta && Array.isArray(x.meta.tex))) syncSteps(a, true); }), 0)));
+    if (step && !step.dataset.wired) { step.dataset.wired = '1'; step.addEventListener('click', open); }
+  });
 
   function pierceAvoid(w) {
     const list = (w && w.meta && Array.isArray(w.meta.tex) ? w.meta.tex : []).filter(m => stepType(m) === 'pierce');
