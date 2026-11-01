@@ -9,8 +9,8 @@
  *    Pages, a lab's `python3 -m http.server`) that can't set real HTTP
  *    headers. Without this, Contour and other minion-backed CAM ops fall
  *    back to a slower non-SAB path.
- * 2. A cache-first offline app shell: once loaded, swarf's own UI layer
- *    and the CAM engine keep working with no network at all.
+ * 2. An offline fallback: once loaded, swarf's own UI layer and the CAM
+ *    engine keep working with no network at all.
  *
  * CACHE_STAMP is rewritten by tools/deploy.sh on every deploy. Bumping it
  * is what invalidates the previous cache — a browser tab left open for
@@ -64,8 +64,22 @@ const EAGER_URLS = [
     'swarf-file.js',
     'swarf-tex-core.mjs',
     'swarf-tex-worker.mjs',
+    'swarf-draw.js',
+    'swarf-shape.js',
+    'swarf-size.js',
+    'swarf-start.js',
+    'swarf-version.js',
+    'swarf-install.js',
+    'swarf-bedname.js',
+    'swarf-place.js',
+    'swarf-vector.mjs',
+    'swarf-sim-machine.js',
+    'swarf-shopbot-model.js',
+    'swarf-mr1-model.js',
     'vendor/unreason/arrangement.mjs',
     'vendor/unreason/trim.mjs',
+    'vendor/unreason/exchange-2d.mjs',
+    'vendor/unreason/exchange-2d-read.mjs',
     'swarf-icon-64.png',
     'swarf-icon-128.png',
     'swarf-icon-144.png',
@@ -104,16 +118,11 @@ self.addEventListener('activate', (e) => {
     );
 });
 
-// the page itself, and the small swarf-owned UI shell files (including
-// the version stamp's own script — the thing whose entire JOB is to
-// show what's actually live), are network-first, not cache-first: a
-// stale cache serving instantly means a real fix can take TWO reloads
-// to show up — reload 1 shows the old cached content while quietly
-// refreshing the cache in the background, reload 2 finally shows the
-// fix. Same lesson Rendre already learned the hard way (see its own
-// sw.js). Only the heavy, slow-changing CAM engine bundle/wasm/samples
-// stay cache-first below — that's what keeps swarf usable offline
-// without also meaning "usable but stuck on an old UI build."
+// every same-origin file is network-first; the cache is only the offline fallback. A stale
+// cache served first made a fix take two reloads to show, and (10-28) mixed the old build's
+// scripts with the new build's CSS on the first launch after a deploy. The page and the shell
+// files skip the HTTP cache ('no-store'); the rest revalidate ('no-cache': an unchanged file
+// is a cheap 304). Only other origins are cache-first, below.
 const EAGER_URL_SET = new Set(EAGER_URLS.map((u) => new URL(u, self.registration.scope).href));
 
 function isNavigation(req) {
@@ -133,39 +142,13 @@ self.addEventListener('fetch', (e) => {
     const sameOrigin = url.origin === self.location.origin;
     const isShell = isNavigation(req) || EAGER_URL_SET.has(req.url);
 
-    if (sameOrigin && isShell) {
-        e.respondWith((async () => {
-            try {
-                const resp = await fetch(req, { cache: 'no-store' });
-                if (resp && resp.ok) {
-                    const patched = withCOI(resp);
-                    const forCache = patched.clone();
-                    e.waitUntil(caches.open(CACHE_NAME).then((c) => c.put(req, forCache)));
-                    return patched;
-                }
-                return withCOI(resp);
-            } catch (err) {
-                const cached = await caches.match(req);
-                if (cached) return cached;
-                return new Response('swarf is offline and this was never cached', {
-                    status: 503, statusText: 'offline'
-                });
-            }
-        })());
-        return;
-    }
-
-    // every other same-origin file is network-first too (10-28): serving the old build's
-    // scripts from the cache beside the new build's network-first CSS gave Phil 047's glass
-    // skin over 046's code on the first launch after a deploy (the stamp said 046, the grid
-    // was the old black, the step row broke). 'no-cache' revalidates against the server, so
-    // an unchanged file is a cheap 304; the cache is only the offline fallback.
     if (sameOrigin) {
         e.respondWith((async () => {
             try {
-                const resp = await fetch(req, { cache: 'no-cache' });
+                const resp = await fetch(req, { cache: isShell ? 'no-store' : 'no-cache' });
                 if (resp && resp.ok) {
                     const patched = withCOI(resp);
+                    // clone in the same tick: once the body streams to the page a deferred clone throws
                     const forCache = patched.clone();
                     e.waitUntil(caches.open(CACHE_NAME).then((c) => c.put(req, forCache)));
                     return patched;
@@ -182,39 +165,12 @@ self.addEventListener('fetch', (e) => {
         return;
     }
 
+    // other origins: cache-first (nothing here writes them to the cache)
     e.respondWith((async () => {
         const cached = await caches.match(req);
-        if (cached) {
-            // stale-while-revalidate: serve the cached shell instantly,
-            // refresh the cache in the background for the next load. The
-            // write is wrapped in waitUntil() so the browser doesn't tear
-            // the worker down mid-write once respondWith()'s promise
-            // resolves — without this, cache.put() here silently never
-            // completes and nothing beyond the install-time shell ever
-            // gets cached.
-            if (sameOrigin) {
-                e.waitUntil(
-                    fetch(req)
-                        .then((r) => r && r.ok && caches.open(CACHE_NAME).then((c) => c.put(req, withCOI(r))))
-                        .catch(() => {})
-                );
-            }
-            return cached;
-        }
+        if (cached) return cached;
         try {
-            const resp = await fetch(req);
-            if (sameOrigin && resp && resp.ok) {
-                const patched = withCOI(resp);
-                // clone synchronously, in the same tick as creating the
-                // response — by the time an async .then() callback runs,
-                // the browser may already be streaming the returned
-                // response's body to the page, which locks it and makes
-                // a deferred .clone() throw "body is already used"
-                const forCache = patched.clone();
-                e.waitUntil(caches.open(CACHE_NAME).then((c) => c.put(req, forCache)));
-                return patched;
-            }
-            return withCOI(resp);
+            return withCOI(await fetch(req));
         } catch (err) {
             return new Response('swarf is offline and this was never cached', {
                 status: 503, statusText: 'offline'
