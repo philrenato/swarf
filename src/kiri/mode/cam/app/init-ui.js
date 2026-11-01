@@ -314,7 +314,7 @@ function opShow(f, v) {
     const L = window.SwarfLength, inch = opInch();
     if (f === 'rate') return String(inch ? +(v / 25.4).toFixed(1) : Math.round(v));
     if (f === 'step') return String(+(v * 100).toFixed(1));
-    if (f === 'down') return L ? L.show(v) : String(+(v / (inch ? 25.4 : 1)).toFixed(inch ? 4 : 3));
+    if (f === 'down') return L ? (L.field || L.show)(v) : String(+(v / (inch ? 25.4 : 1)).toFixed(inch ? 4 : 3));
     return String(v);
 }
 function opParse(f, text) {

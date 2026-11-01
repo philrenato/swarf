@@ -289,9 +289,24 @@
         if (M.say) M.say('Finish the outline first (click its first point to close it, or press Esc to drop it), then save.');
         return false;
       }
+      // a stroke still under the mouse is not cut short by a save (deep review S3)
+      if (apply && st.drag) {
+        if (M.say) M.say('Let go of the mouse, then save.');
+        return false;
+      }
+      // back on the same tool, part and mark once the save has the marks (S3: it came back on select)
+      const was = { tool: st.tool, sel: st.sel, mark: st.mark };
       M.close(apply);
       if (M.state()) return false;
-      if (apply) setTimeout(() => { if (!M.state()) M.open(); }, 0);
+      if (apply) setTimeout(() => {
+        if (M.state()) return;
+        M.open();
+        const now = M.state();
+        if (!now) return;
+        if (was.sel >= 0 && now.parts && was.sel < now.parts.length) { now.sel = was.sel; now.mark = was.mark; }
+        if (was.tool && M.setTool) M.setTool(was.tool);
+        if (M.render) M.render();
+      }, 0);
     }
     return true;
   }

@@ -272,7 +272,8 @@
 
   // done (apply) or cancel: either way TEX closes. Done never keeps you in TEX (Phil: a mode may
   // adapt, never trap): what it could not do, it says after.
-  function close(apply) {
+  // quiet: the next mode speaks instead (make it a part / a hole: DRAW says what happens to the mark)
+  function close(apply, quiet) {
     if (!S) return;
     let said = '';
     if (apply) { try { said = commit(); } catch (e) { console.warn('swarf tex', e); said = `The marks could not all be kept: ${e.message || e}.`; } }
@@ -287,7 +288,7 @@
     const a = api();
     // back in cam with the parts in view (r086 check M1: a camera left inside a part stays there)
     try { if (a && a.reveal) a.reveal(); } catch (e) { /* no view */ }
-    if (said && a) a.show.alert(said, 10);
+    if (said && a && !quiet) a.show.alert(said, 10);
   }
 
   // ── view (as DRAW's): mm on the bed to px on the board ──
@@ -519,7 +520,8 @@
     if (reach * 2 < bit * 1.05) return say(`The mark is too narrow for the ${tool ? tool.name : '1/4 in'} bit (${LEN.prose(bit)}) that cuts the outline: make it wider first.`);
     const loops = c.loops.map(L => C.sampleCurve(L.handles, 12).pts.map(q => bedOf(part, m, q)));
     const w = part.w, name = `${m.made || 'mark'} from ${part.name}`;
-    close(true);
+    // DRAW says what becomes of the mark; TEX's count would include the one leaving (deep review P3)
+    close(true, true);
     const D = window.__swarfDraw;
     if (!D) return;
     D.open();
@@ -684,7 +686,7 @@
     if (!part) {
       h += `<div class="sd-note">${S.parts.length ? 'Click a part to mark it.' : 'No parts on the bed yet.'}</div>`;
     } else {
-      h += `<div class="sd-row tx-parthead"><span class="sd-h">${esc(part.name)}</span><button id="tx-new" title="start another mark on this part (the brush paints it)">new mark</button>${m ? '<button id="tx-del" title="remove this mark (Delete, with select)">delete</button>' : ''}</div>`;
+      h += `<div class="sd-row tx-parthead"><span class="sd-h">${esc(part.name)}</span><button id="tx-new" title="start another mark on this part (the brush paints it)">new mark</button>${m ? '<button id="tx-del" title="remove this mark (Delete)">delete</button>' : ''}</div>`;
       if (part.tilted) h += '<div class="sd-note">This part is tipped over: TEX marks the top of a part lying flat.</div>';
       if (S.tool === 'points' && m && markHas(m)) {
         const c = curveOf(m), n = c.loops.reduce((a, L) => a + L.handles.length, 0);
@@ -707,18 +709,25 @@
       const f = m.fill, P = C.PIERCES[f.pattern], pr = { ...C.pierceDefaults(f.pattern, part.thick), ...(f.params || {}) };
       h += fillRow(f);
       h += selRow('pattern', 'tx-pat', Object.entries(C.PIERCES).map(([k, q]) => [k, q.label]), f.pattern, P.blurb);
-      if (f.pattern === 'kerf') h += kerfPicture(part, f, pr);
-      const tex = m.info && m.info.ver === m.ver ? m.info : null;
-      if (!tex) h += '<div class="sd-note">Working out the cut…</div>';
-      else {
-        h += `<div class="sd-note">${tex.seconds > 0 ? `About ${C.formatTime(tex.seconds)} to cut.` : 'Nothing to cut yet: no cut fits in the mark (below says why).'}</div>`;
-        for (const n of tex.notes) h += `<div class="sd-note">${esc(n)}</div>`;
-        for (const w of tex.warnings) h += `<div class="sd-note tx-warn">${esc(w)}</div>`;
-      }
+      // the fields first, then what they make (deep review S6: at 720 the card was the picture and five
+      // paragraphs, every field below the fold); short windows fold the longer notes and put the picture after
+      const compact = window.innerHeight < 820;
+      if (f.pattern === 'kerf' && !compact) h += kerfPicture(part, f, pr);
       for (const q of P.params) if (q.basic) h += paramRow(q, pr[q.k]);
       h += lenRow('soft edge', 'tx-fade', f.fade || 0, 'how far in from the mark\'s edge the pattern thins out: shorter slots, smaller holes');
       h += numRow(f.pattern === 'kerf' ? 'bend line' : 'turn', 'tx-angle', r3(f.angle || 0), '°', f.pattern === 'kerf' ? 'which way the kerfs run: the part bends across them' : 'the lattice turned');
       h += bitRow(f);
+      const tex = m.info && m.info.ver === m.ver ? m.info : null;
+      if (!tex) h += '<div class="sd-note">Working out the cut…</div>';
+      else {
+        h += `<div class="sd-note">${tex.seconds > 0 ? `About ${C.formatTime(tex.seconds)} to cut.` : 'Nothing to cut yet: no cut fits in the mark (below says why).'}</div>`;
+        for (const w of tex.warnings) h += `<div class="sd-note tx-warn">${esc(w)}</div>`;
+        const [first, ...rest] = tex.notes;
+        if (first) h += `<div class="sd-note">${esc(first)}</div>`;
+        if (rest.length && compact) h += `<details class="tx-more tx-why"${S.whyOpen ? ' open' : ''}><summary>about these numbers</summary>${rest.map(n => `<div class="sd-note">${esc(n)}</div>`).join('')}</details>`;
+        else for (const n of rest) h += `<div class="sd-note">${esc(n)}</div>`;
+      }
+      if (f.pattern === 'kerf' && compact) h += kerfPicture(part, f, pr);
       h += '<div class="sd-row"><button id="tx-svg-save" title="the cuts as an SVG in mm for the laser: cuts on the red layer, holes on the blue">save for the laser (svg)</button></div>';
       // bridges and slots are second-order: folded, also in advanced mode
       const more = S.morePierce ?? false;
@@ -790,9 +799,13 @@
     bind('tx-mesh-res', v => { if (!(v >= 0.1)) return say('Give the detail at least 0.1 mm.'); S.meshRes = r3(v); render(); });
     const ms = $('tx-mesh-save');
     if (ms) ms.onclick = () => saveMesh(part);
-    const det = ui.card.querySelector('.tx-more');
     // the toggle event lands after the card is drawn, so TEX may have closed by then
-    if (det) det.ontoggle = () => { if (!S) return; if (det.classList.contains('tx-more-p')) S.morePierce = det.open; else S.more = det.open; scrollCue(); };
+    for (const det of ui.card.querySelectorAll('.tx-more')) det.ontoggle = () => {
+      if (!S) return;
+      if (det.classList.contains('tx-why')) S.whyOpen = det.open;
+      else if (det.classList.contains('tx-more-p')) S.morePierce = det.open; else S.more = det.open;
+      scrollCue();
+    };
     const nb = $('tx-new');
     if (nb) nb.onclick = () => { snap(); part.marks.push(newMark(part)); S.mark = part.marks.length - 1; part.dirty = true; if (S.tool === 'select') S.tool = 'brush'; say('A new mark: paint it on the part.'); render(); ui.svg.focus(); };
     for (const [id, as] of [['tx-as-part', 'part'], ['tx-as-hole', 'hole']]) { const b = $(id); if (b) b.onclick = () => { makeOutline(part, m, as); }; }
@@ -860,8 +873,10 @@
     bind('tx-fade', v => { if (!(v >= 0)) return say('The soft edge is 0 or more.'); set(f => { f.fade = r3(v); }); });
     bind('tx-depth', v => {
       if (!(v >= 0.1)) return say('Give the texture at least 0.1 mm of depth.');
-      set(f => { f.depth = r3(v); f.params = { ...(f.params || {}), depth: r3(v) }; });
-      if (part.thick && v >= part.thick) say(`${LEN.prose(v)} is as deep as ${part.name} is thick: the texture would cut through. It stops at the board's bottom.`);
+      // as deep as the board or more: held 1 mm short, said, and the field shows it (deep review P8)
+      const top = part.thick > 1.5 ? part.thick - 1 : v, d = Math.min(v, top);
+      set(f => { f.depth = r3(d); f.params = { ...(f.params || {}), depth: r3(d) }; });
+      if (d < v) say(`${LEN.prose(v)} is as deep as ${part.name} is thick or more: the texture would cut through, so it goes ${LEN.prose(d)} deep.`);
     });
     bind('tx-grit', v => { if (!(v >= 0 && v <= 3)) return say('Grit goes from 0 to 3 mm.'); set(f => { f.grit = r3(v); }); });
     bind('tx-bit', v => set(f => {
@@ -1150,7 +1165,7 @@
       say(`Brush ${LEN.prose(S.brush)} across.`); render(); return;
     }
     if ((k === 'Delete' || k === 'Backspace') && S.tool === 'points') { e.preventDefault(); pointsDelete(); return; }
-    if ((k === 'Delete' || k === 'Backspace') && curMark() && S.tool === 'select') { e.preventDefault(); delMark(); return; }
+    if ((k === 'Delete' || k === 'Backspace') && curMark() && S.tool !== 'points') { e.preventDefault(); delMark(); return; }
     // arrows slide the picked points (points), else the picked mark on its part (shift: 10 mm)
     const ar = { ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, 1], ArrowDown: [0, -1] }[k];
     const m = curMark();
@@ -1176,7 +1191,36 @@
   }
 
   // ── done: each changed part keeps its marks; the steps follow ──
+  // the marks and the steps, as they are on the parts and in cam: one undo step either side of done
+  function texSnap(parts) {
+    const a = api();
+    return { parts: parts.map(w => ({ w, tex: w.meta && w.meta.tex ? clone(w.meta.tex) : undefined })), ops: clone(a.conf.get().process.ops || []) };
+  }
+  function texPut(snap) {
+    const a = api();
+    for (const { w, tex } of snap.parts) {
+      if (!w.meta) continue;
+      if (tex) w.meta.tex = clone(tex); else delete w.meta.tex;
+      if (w.saveState) w.saveState(() => {});
+    }
+    a.conf.get().process.ops = clone(snap.ops);
+    a.conf.save();
+    a.event.emit('cam.op.render');
+  }
   function commit() {
+    const a = api();
+    // TEX's done is undoable in cam like a tab or a move (deep review S2: ⌘Z said "nothing to undo")
+    const before = a.doit ? texSnap(S.parts.filter(p => p.dirty).map(p => p.w)) : null;
+    const done = commit1();
+    if (before && before.parts.length) {
+      const after = texSnap(before.parts.map(s => s.w));
+      if (JSON.stringify([after.parts.map(s => s.tex), after.ops]) !== JSON.stringify([before.parts.map(s => s.tex), before.ops])) {
+        a.doit.push(() => texPut(before), () => texPut(after), { undo: 'tex marks: undone', redo: 'tex marks: back' });
+      }
+    }
+    return done;
+  }
+  function commit1() {
     const a = api();
     let kept = 0, changed = 0;
     for (const p of S.parts) {
@@ -1401,5 +1445,5 @@
     return (x, y, r) => marks.some(q => { if (at(q, x, y)) return true; for (let k = 0; k < 16; k++) { const a = k / 16 * 2 * Math.PI; for (const f of [0.5, 1]) if (at(q, x + r * f * Math.cos(a), y + r * f * Math.sin(a))) return true; } return false; });
   }
 
-  window.__swarfTex = { open, close, state: () => S, lastMesh: () => S && S.lastMesh, concerns, syncSteps, texAreas, pierceAvoid, BITS };
+  window.__swarfTex = { open, close, say, setTool, render, state: () => S, lastMesh: () => S && S.lastMesh, concerns, syncSteps, texAreas, pierceAvoid, BITS };
 })();

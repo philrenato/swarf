@@ -1947,7 +1947,8 @@ export function pierceChecks(mark, o = {}) {
     // kerfs counted as lines across the bend (bridges break one kerf into slots)
     const nk = kerfCount(cuts);
     notes.unshift(`Kerfs every ${L(cuts.pitch)}, ${cuts.through ? 'right through' : `${L(T - skin)} deep, leaving ${L(skin)}`}, ${nk} kerf${nk === 1 ? '' : 's'}.`,
-      `Every ${L(cuts.pitch)} = bit ${L(w)} × radius ${L(p.radius)} ÷ (board ${L(T)} − skin ${L(skin)}): where the kerfs just close when it bends.`);
+      // the rule in words: rounded numbers in a sum never multiply out on a calculator (deep review S12)
+      'The spacing is the bit\'s width × the bend radius ÷ (the board − the skin): where the kerfs just close when it bends.');
     // too few kerfs: the reason is the mark, not the bend (review 10-30 F2: "a bend this gentle
     // needs few kerfs" sent students to the radius, which on a thin board cracks the skin first)
     if (nk < 3 && cuts.across > 0) {

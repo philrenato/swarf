@@ -2407,7 +2407,7 @@ html[data-skin] #swarf-draw svg .sd-part.sd-regsrc, #swarf-draw svg .sd-part.sd-
 /* the patterns as swatches; the picked one, and the picked mark, lit as the bar's picked tool */
 #swarf-draw.sd-tex .tx-sws { display: grid; grid-template-columns: repeat(5, 1fr); gap: 4px; margin: 4px 0 6px; }
 /* a swatch: its picture and its name inside the tile with room round them, in every skin's button shape */
-#swarf-draw.sd-tex .sd-card .tx-sw { display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 4px 2px 5px !important; min-width: 0; height: auto !important; min-height: 0 !important; border-radius: 7px !important; font-size: 9.5px !important; line-height: 1.2 !important; letter-spacing: 0 !important; }
+#swarf-draw.sd-tex .sd-card .tx-sw { display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 4px 2px 5px !important; min-width: 0; height: auto !important; min-height: 0 !important; border-radius: 7px !important; font-size: 10.5px !important; line-height: 1.2 !important; letter-spacing: 0 !important; }
 #swarf-draw.sd-tex .tx-sw img { width: 40px; height: 40px; border-radius: 4px; display: block; }
 #swarf-draw.sd-tex .tx-sw span { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 #swarf-draw.sd-tex .tx-picks { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; margin: 4px 0; }
@@ -2428,7 +2428,7 @@ html[data-skin] #swarf-draw svg .sd-part.sd-regsrc, #swarf-draw svg .sd-part.sd-
 #swarf-draw.sd-tex .tx-bsize input { font: inherit; width: 52px; text-align: right; padding: 4px 6px; border-radius: 6px; border: 1px solid currentColor; background: transparent; color: inherit; }
 /* 720p: two rows of five with their one-word captions (review 10-30 B3), a 22 px picture each */
 #swarf-draw.sd-tex .tx-sws.tx-compact { grid-template-columns: repeat(5, 1fr); gap: 3px; margin: 2px 0 4px; }
-#swarf-draw.sd-tex .tx-sws.tx-compact .tx-sw { padding: 3px 2px 3px !important; gap: 1px; font-size: 9px !important; }
+#swarf-draw.sd-tex .tx-sws.tx-compact .tx-sw { padding: 3px 2px 3px !important; gap: 1px; font-size: 10px !important; }
 #swarf-draw.sd-tex .tx-sws.tx-compact .tx-sw img { width: 22px; height: 22px; border-radius: 3px; }
 #swarf-draw.sd-tex .sd-card .tx-ptsrow { flex-wrap: nowrap; }
 #swarf-draw.sd-tex .sd-card .tx-ptsrow input { width: 44px; }
@@ -2438,7 +2438,7 @@ html[data-skin] #swarf-draw svg .sd-part.sd-regsrc, #swarf-draw svg .sd-part.sd-
 #swarf-draw.sd-tex .tx-kp-board { fill: currentColor; fill-opacity: .18; stroke: currentColor; stroke-opacity: .6; }
 #swarf-draw.sd-tex .tx-kp-kerf rect { fill: currentColor; fill-opacity: .7; }
 #swarf-draw.sd-tex .tx-kp-arc { fill: none; stroke: currentColor; stroke-dasharray: 3 2; stroke-opacity: .7; }
-#swarf-draw.sd-tex .tx-kp-t { fill: currentColor; font-size: 9px; }
+#swarf-draw.sd-tex .tx-kp-t { fill: currentColor; font-size: 10.5px; }
 #swarf-draw.sd-tex .tx-edge { fill: none !important; vector-effect: non-scaling-stroke; pointer-events: none; }
 #swarf-draw.sd-tex .sd-card select { width: 136px; text-overflow: ellipsis; }
 #swarf-draw.sd-tex .sd-card .tx-warn { border-left: 2px solid var(--swarf-amber); padding-left: 7px; }

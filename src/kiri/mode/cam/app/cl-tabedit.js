@@ -89,7 +89,28 @@ function tabAt(e) {
     const ray = new THREE.Raycaster();
     ray.setFromCamera(ndc(e, el), I.camera);
     const hit = ray.intersectObjects(boxes, false)[0];
-    return hit && hit.object.tab ? { widget: hit.object.tab.widget, id: hit.object.tab.id } : null;
+    if (hit && hit.object.tab) return { widget: hit.object.tab.widget, id: hit.object.tab.id };
+    // a near miss still picks the tab (deep review S9: a tab is ~18 × 8 px, students aim at the red
+    // mark, and a few pixels off grabbed the part): the nearest box on screen within NEAR px
+    const NEAR = 12, r = el.getBoundingClientRect(), x = e.clientX - r.left, y = e.clientY - r.top;
+    let best = null, bd = NEAR;
+    const p = new THREE.Vector3(), bb = new THREE.Box3();
+    for (const b of boxes) {
+        if (!b.tab) continue;
+        bb.setFromObject(b);
+        // the box's corners on screen, then the pointer's distance to that rectangle
+        let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity, front = true;
+        for (let i = 0; i < 8; i++) {
+            p.set(i & 1 ? bb.max.x : bb.min.x, i & 2 ? bb.max.y : bb.min.y, i & 4 ? bb.max.z : bb.min.z).project(I.camera);
+            if (p.z > 1) front = false;
+            const sx = (p.x + 1) / 2 * r.width, sy = (1 - p.y) / 2 * r.height;
+            x0 = Math.min(x0, sx); x1 = Math.max(x1, sx); y0 = Math.min(y0, sy); y1 = Math.max(y1, sy);
+        }
+        if (!front) continue;
+        const d = Math.hypot(Math.max(x0 - x, 0, x - x1), Math.max(y0 - y, 0, y - y1));
+        if (d < bd) { bd = d; best = b; }
+    }
+    return best ? { widget: best.tab.widget, id: best.tab.id } : null;
 }
 
 // where the pointer meets the plane of the tab, in the part's frame

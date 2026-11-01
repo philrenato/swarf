@@ -313,7 +313,7 @@ for (const [id, P] of Object.entries(T.PATTERNS)) {
     const inch = T.pierceChecks({ region: T.storeRegion(gn), xf: T.IDENTITY.slice(), fill: T.newPierce('kerf', { origin: [100, 30] }, 6) }, { thickness: 6, len: (v) => LEN.prose(v, 'in') });
     const all = inch.notes.concat(inch.warnings).join(' ');
     const pitches = [...all.matchAll(/(?:Kerfs every|kerfs fall every|Every) ([\d /]+ in)/g)].map((m) => m[1]);
-    ok(pitches.length === 3 && new Set(pitches).size === 1 && !/\/(32|64) in/.test(all) && !/\d\.\d+ in/.test(all) && /This mark is 1 9\/16 in across the bend; kerfs fall every 2 3\/4 in/.test(all),
+    ok(pitches.length === 2 && new Set(pitches).size === 1 && !/\/(32|64) in/.test(all) && !/\d\.\d+ in/.test(all) && /This mark is 1 9\/16 in across the bend; kerfs fall every 2 3\/4 in/.test(all),
       `inch prose: one pitch said one way (${pitches.join(', ')}), no 64ths or decimals: "${all.slice(0, 200)}"`);
   }
   const n19 = T.pierceChecks({ region: T.storeRegion(gn), xf: T.IDENTITY.slice(), fill: T.newPierce('kerf', { origin: [100, 30], params: { radius: 400, skin: 1.5 } }, 19) }, { thickness: 19 });

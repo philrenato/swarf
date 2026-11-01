@@ -576,6 +576,18 @@ function setup_keybd_nav() {
             if (plat && space.view.fit) setTimeout(() => { try { if (!meshes().length) space.view.fit(undefined, { padding: 0.75, objects: [plat] }); } catch (e) {} }, 380);
         };
         api.frame_bed = bed;
+        // simulate frames the board it carves, not the part: the stock is wider and ran under the
+        // toolpaths panel, the view on its corner (deep review S5 / r086-whole B7)
+        api.event.on('function.animate', () => {
+            window.__swarfSimStock = null;
+            let n = 0;
+            const t = setInterval(() => {
+                const st = window.__swarfSimStock;
+                if (!st && ++n < 40) return;
+                clearInterval(t);
+                if (st && space.view.fit) try { st.updateMatrixWorld && st.updateMatrixWorld(); space.view.fit(undefined, { padding: FILL, objects: [st], visibleOnly: false }); } catch (e) { /* no view */ }
+            }, 50);
+        });
         const always = () => { requestAnimationFrame(frame); setTimeout(frame, 250); };
         let wasEmpty = true;
         const added = payload => {
