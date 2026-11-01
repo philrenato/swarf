@@ -1,19 +1,13 @@
 /**
- * swarf lightstream — event-driven ribbon for the 2D CAM animator.
+ * swarf lightstream — the simulate trail: three overlaid flat ribbons (core / halo / bloom) along
+ * the path the bit has cut, driven from the swarf.tool.move events the animators emit (non-indexed
+ * CAM, swarf's mill mode, runs anim-2d.js, which has no path tracer of its own; Kiri's lineTracker
+ * lives only in anim-3d.js, for indexed lathe ops).
  *
- * Root cause established 2026-04-15 evening: non-indexed CAM (mill mode,
- * the default for swarf) runs anim-2d.js, which has NO built-in path
- * tracer. Kiri's lineTracker lives only in anim-3d.js and only runs for
- * indexed lathe ops. So the ribbon HAS to be driven from the swarf.tool.move
- * event stream that both animators emit.
- *
- * Design:
- *   - Listen to swarf.tool.move for every tool-tip position
- *   - Append to a growing polyline; break on rapid/retract jumps
- *   - Render as a bright additive red LineSegments (one mesh, one material)
- *   - Clear on 'animate' / 'function.animate' / 'swarf.clear'
- *
- * Kept simple: no fat lines, no halo, no scene walking. Just a line.
+ *   - every tool-tip position appends to a growing polyline; a rapid or a lift breaks it
+ *   - the trail is clipped to the board's top: above it the bit is in the air
+ *   - each step's polylines can be hidden by its box in the toolpaths view's row
+ *   - cleared on 'animate' / 'function.animate' / 'swarf.clear'; toolpaths fill it from the print stack
  */
 (function () {
   'use strict';
@@ -26,7 +20,6 @@
   let core = null, halo = null, bloom = null;
   let polylines = [[]], lastPos = null;
   let space = null;
-  let usingFat = false;
 
   const CORE_COLOR  = 0xff2a1a;
   const HALO_COLOR  = 0xff8060;
@@ -46,41 +39,23 @@
   // don't get split — only true rapid repositioning breaks the line.
   const BREAK_3D_MM = 50;
 
-  function haveFat() {
-    return !!(window.__swarfLine
-      && window.__swarfLine.LineSegments2
-      && window.__swarfLine.LineSegmentsGeometry
-      && window.__swarfLine.LineMaterial);
-  }
-
-  function buildFat(color, widthPX, opacity, renderOrder) {
-    const { LineSegments2, LineSegmentsGeometry, LineMaterial } = window.__swarfLine;
-    const geo = new LineSegmentsGeometry();
-    const mat = new LineMaterial({
-      color,
-      linewidth: widthPX,
-      transparent: true,
-      opacity,
-      worldUnits: false,
-      blending: window.THREE.AdditiveBlending,
-      depthWrite: false,
-      depthTest: false,
-      fog: false,
-    });
-    mat.resolution.set(window.innerWidth, window.innerHeight);
-    const obj = new LineSegments2(geo, mat);
-    obj.renderOrder = renderOrder;
-    obj.frustumCulled = false;
-    return obj;
-  }
+  // The ribbons are drawn incrementally (review r093-code A13: every tool move rebuilt all three from
+  // every polyline, three new arrays and buffers a move, never disposed — O(N²) over a run, slow on a
+  // texture's tens of thousands of moves). Each ribbon keeps one Float32Array, doubled when full; a
+  // move appends its new segments (18 floats a ribbon), uploads only that range and moves the draw
+  // range to the end. The whole trail is drawn again only where what is drawn changes behind the
+  // end: a step's box, the print stack's fill at toolpaths.
+  const CAP0 = 18 * 1024;       // floats a ribbon starts with (1024 segments)
+  let ribbons = [];             // [{ obj, hw }] bloom, halo, core
+  let cap = 0;                  // floats each ribbon's array holds
+  let drawn = 0;                // floats of it drawn
+  let synced = true;            // what is drawn is the polylines' segments (a rebuild with none to draw keeps the last drawing)
 
   // Flat horizontal ribbon mesh: builds a quad strip per segment. Each quad
   // is widened along the in-plane normal (tangent × Z-up) so the ribbon
   // always lays flat on the XY plane, thin in Z — like tape along the path.
   function buildRibbon(color, opacity, renderOrder) {
     const THREE = window.THREE;
-    const geo = new THREE.BufferGeometry();
-    geo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(0), 3));
     const mat = new THREE.MeshBasicMaterial({
       color, transparent: true, opacity,
       blending: THREE.AdditiveBlending,
@@ -89,65 +64,89 @@
       side: THREE.DoubleSide,
       fog: false,
     });
-    const obj = new THREE.Mesh(geo, mat);
+    const obj = new THREE.Mesh(newGeometry(new Float32Array(cap)), mat);
     obj.renderOrder = renderOrder;
     obj.frustumCulled = false;
     return obj;
   }
-
-  // Generate flat-ribbon quad vertices for every segment in polylines.
-  // For each A→B segment: compute a lateral normal perpendicular to the
-  // full 3D tangent. For XY-dominant moves the ribbon lies flat; for
-  // vertical (Z-dominant) moves the ribbon stands upright so plunges
-  // and contour side-passes are visible.
-  function buildQuads(width) {
-    const verts = [];
-    const hw = width / 2;
-    for (const pl of polylines) {
-      if (pl.length < 2 || hidden.has(pl.step)) continue;
-      for (let i = 0; i < pl.length - 1; i++) {
-        const a = pl[i], b = pl[i + 1];
-        const tx = b.x - a.x, ty = b.y - a.y, tz = b.z - a.z;
-        const len3 = Math.hypot(tx, ty, tz);
-        if (len3 < 1e-4) continue;
-        const lenXY = Math.hypot(tx, ty);
-        let nx, ny, nz;
-        if (lenXY > 1e-4) {
-          // XY component exists: lateral = tangent × Z_up → (ty, -tx, 0)
-          nx = ty / lenXY;
-          ny = -tx / lenXY;
-          nz = 0;
-        } else {
-          // pure vertical move: lateral = tangent × X_axis → (0, -tz, ty)
-          // simplified for vertical: ribbon faces camera (use X lateral)
-          nx = 1;
-          ny = 0;
-          nz = 0;
-        }
-        const dx = nx * hw, dy = ny * hw, dz = nz * hw;
-        const aL = [a.x - dx, a.y - dy, a.z - dz];
-        const aR = [a.x + dx, a.y + dy, a.z + dz];
-        const bL = [b.x - dx, b.y - dy, b.z - dz];
-        const bR = [b.x + dx, b.y + dy, b.z + dz];
-        // tri 1: aL, aR, bR
-        verts.push(aL[0], aL[1], aL[2],
-                   aR[0], aR[1], aR[2],
-                   bR[0], bR[1], bR[2]);
-        // tri 2: aL, bR, bL
-        verts.push(aL[0], aL[1], aL[2],
-                   bR[0], bR[1], bR[2],
-                   bL[0], bL[1], bL[2]);
-      }
+  function newGeometry(arr) {
+    const THREE = window.THREE, geo = new THREE.BufferGeometry();
+    geo.setAttribute('position', new THREE.BufferAttribute(arr, 3).setUsage(THREE.DynamicDrawUsage));
+    geo.setDrawRange(0, drawn / 3);
+    return geo;
+  }
+  // every ribbon's array at size floats, what is drawn carried over; the old geometry is disposed
+  function resize(size) {
+    for (const r of ribbons) {
+      const arr = new Float32Array(size), old = r.obj.geometry;
+      arr.set(old.attributes.position.array.subarray(0, drawn));
+      r.obj.geometry = newGeometry(arr);
+      old.dispose();
     }
-    return verts;
+    cap = size;
+  }
+
+  // One A→B segment's flat-ribbon quads, appended to every ribbon.
+  // The lateral normal is perpendicular to the full 3D tangent: for
+  // XY-dominant moves the ribbon lies flat; for vertical (Z-dominant)
+  // moves the ribbon stands upright so plunges and contour side-passes
+  // are visible.
+  function putSeg(a, b) {
+    const tx = b.x - a.x, ty = b.y - a.y, tz = b.z - a.z;
+    const len3 = Math.hypot(tx, ty, tz);
+    if (len3 < 1e-4) return;
+    const lenXY = Math.hypot(tx, ty);
+    let nx, ny, nz;
+    if (lenXY > 1e-4) {
+      // XY component exists: lateral = tangent × Z_up → (ty, -tx, 0)
+      nx = ty / lenXY;
+      ny = -tx / lenXY;
+      nz = 0;
+    } else {
+      // pure vertical move: lateral = tangent × X_axis → (0, -tz, ty)
+      // simplified for vertical: ribbon faces camera (use X lateral)
+      nx = 1;
+      ny = 0;
+      nz = 0;
+    }
+    if (drawn + 18 > cap) resize(Math.max(cap * 2, drawn + 18));
+    for (const r of ribbons) {
+      const v = r.obj.geometry.attributes.position.array, hw = r.hw, o = drawn;
+      const dx = nx * hw, dy = ny * hw, dz = nz * hw;
+      const aLx = a.x - dx, aLy = a.y - dy, aLz = a.z - dz;
+      const aRx = a.x + dx, aRy = a.y + dy, aRz = a.z + dz;
+      const bLx = b.x - dx, bLy = b.y - dy, bLz = b.z - dz;
+      const bRx = b.x + dx, bRy = b.y + dy, bRz = b.z + dz;
+      // tri 1: aL, aR, bR
+      v[o]      = aLx; v[o + 1]  = aLy; v[o + 2]  = aLz;
+      v[o + 3]  = aRx; v[o + 4]  = aRy; v[o + 5]  = aRz;
+      v[o + 6]  = bRx; v[o + 7]  = bRy; v[o + 8]  = bRz;
+      // tri 2: aL, bR, bL
+      v[o + 9]  = aLx; v[o + 10] = aLy; v[o + 11] = aLz;
+      v[o + 12] = bRx; v[o + 13] = bRy; v[o + 14] = bRz;
+      v[o + 15] = bLx; v[o + 16] = bLy; v[o + 17] = bLz;
+    }
+    drawn += 18;
+  }
+  // floats [from, drawn) are new: upload them, draw to the end
+  function show(from) {
+    for (const r of ribbons) {
+      const geo = r.obj.geometry, attr = geo.attributes.position;
+      if (drawn > from && attr.addUpdateRange) attr.addUpdateRange(from, drawn - from);
+      attr.needsUpdate = true;
+      geo.setDrawRange(0, drawn / 3);
+      geo.boundingSphere = null;
+    }
   }
 
   function ensure() {
     if (core) return true;
     if (!window.THREE || !space || !space.world) return false;
+    cap = CAP0; drawn = 0; synced = true;
     bloom = buildRibbon(BLOOM_COLOR, BLOOM_OPAC, 997);
     halo  = buildRibbon(HALO_COLOR,  HALO_OPAC,  998);
     core  = buildRibbon(CORE_COLOR,  CORE_OPAC,  999);
+    ribbons = [{ obj: bloom, hw: BLOOM_WIDTH_MM / 2 }, { obj: halo, hw: HALO_WIDTH_MM / 2 }, { obj: core, hw: CORE_WIDTH_MM / 2 }];
     space.world.add(bloom);
     space.world.add(halo);
     space.world.add(core);
@@ -175,35 +174,44 @@
     window.__swarfLSMoves = 0;
     window.__swarfLSPoints = 0;
     if (!core) return;
-    const empty = new Float32Array(0);
-    core.geometry.setAttribute('position',  new window.THREE.BufferAttribute(empty, 3));
-    halo.geometry.setAttribute('position',  new window.THREE.BufferAttribute(empty, 3));
-    bloom.geometry.setAttribute('position', new window.THREE.BufferAttribute(empty, 3));
+    drawn = 0; synced = true;
+    // a long run's arrays go back to the start size
+    if (cap > CAP0) resize(CAP0);
+    show(0);
   }
 
+  // The whole trail again, from every polyline whose step's box is ticked.
   function rebuild() {
     if (!core) return;
-    const coreVerts  = buildQuads(CORE_WIDTH_MM);
-    // every step's box unticked: the trail empties (it kept the last drawing before)
-    if (coreVerts.length === 0) {
-      if (hidden.size) { window.__swarfLSPoints = 0; for (const o of [core, halo, bloom]) o.geometry.setAttribute('position', new window.THREE.BufferAttribute(new Float32Array(0), 3)); }
+    const was = drawn;
+    drawn = 0;
+    for (const pl of polylines) {
+      if (pl.length < 2 || hidden.has(pl.step)) continue;
+      for (let i = 0; i < pl.length - 1; i++) putSeg(pl[i], pl[i + 1]);
+    }
+    if (drawn === 0) {
+      // every step's box unticked: the trail empties (it kept the last drawing before)
+      if (hidden.size) { window.__swarfLSPoints = 0; synced = true; show(0); }
+      else { drawn = was; synced = was === 0; }
       return;
     }
-    const haloVerts  = buildQuads(HALO_WIDTH_MM);
-    const bloomVerts = buildQuads(BLOOM_WIDTH_MM);
-    const corePos  = Float32Array.from(coreVerts);
-    const haloPos  = Float32Array.from(haloVerts);
-    const bloomPos = Float32Array.from(bloomVerts);
-    window.__swarfLSPoints = corePos.length / 3;
-    core.geometry.setAttribute('position',  new window.THREE.BufferAttribute(corePos,  3));
-    halo.geometry.setAttribute('position',  new window.THREE.BufferAttribute(haloPos,  3));
-    bloom.geometry.setAttribute('position', new window.THREE.BufferAttribute(bloomPos, 3));
-    core.geometry.attributes.position.needsUpdate  = true;
-    halo.geometry.attributes.position.needsUpdate  = true;
-    bloom.geometry.attributes.position.needsUpdate = true;
-    core.geometry.computeBoundingSphere();
-    halo.geometry.computeBoundingSphere();
-    bloom.geometry.computeBoundingSphere();
+    synced = true;
+    window.__swarfLSPoints = drawn / 3;
+    show(0);
+  }
+  // after a move: the segments it added (polylines[from] had `had` points before it, the ones after
+  // it are new), appended to what is drawn
+  function extend(from, had) {
+    if (!synced) { rebuild(); return; }
+    const was = drawn;
+    for (let k = from; k < polylines.length; k++) {
+      const pl = polylines[k];
+      if (hidden.has(pl.step)) continue;
+      for (let i = k === from ? Math.max(0, had - 1) : 0; i < pl.length - 1; i++) putSeg(pl[i], pl[i + 1]);
+    }
+    if (drawn === was) return;
+    window.__swarfLSPoints = drawn / 3;
+    show(was);
   }
 
   // Extract segment pairs from a Three.js BufferGeometry. Handles both
@@ -240,7 +248,7 @@
   // Pre-populate the ribbon from the rendered print stack at preview.end.
   // Without this the ribbon stayed empty in TOOLPATHS view and only filled
   // in once the user ran Simulate. Now the cut path shows the moment paths
-  // are generated; Simulate still clearTrail+rebuilds from swarf.tool.move
+  // are generated; Simulate still clears the trail and draws it from swarf.tool.move
   // events as before. Long segments are dropped as rapids.
   function populateFromPrintStack() {
     if (!ensure()) return;
@@ -294,6 +302,7 @@
     const pos = (evt && evt.detail) ? evt.detail.pos : (evt && evt.pos);
     if (!pos) return;
     if (!polylines.length) polylines.push([]);
+    const from = polylines.length - 1, had = polylines[from].length;
     const p = { x: pos.x, y: pos.y, z: pos.z }, top = boardTop(), prev = lastPos;
     lastPos = p;
     // a new step starts its own line (from where the last one ended), so its box hides only its own cut
@@ -310,7 +319,7 @@
       // out of the board: the line ends at the top
       if (p.z > top) newLine(step);
     } else if (p.z <= top) active.push(p);
-    rebuild();
+    extend(from, had);
   }
   // for the probes: each step's drawn segments, and whether its box hides them
   window.__swarfLSSteps = () => { const o = {}; for (const pl of polylines) { const k = String(pl.step); o[k] = o[k] || { segs: 0, hidden: hidden.has(pl.step) }; o[k].segs += Math.max(0, pl.length - 1); } return o; };
