@@ -11,8 +11,8 @@
 // Units: mm. Part coordinates: x right, y away from you, z = 0 at the board's top, negative into it.
 //
 // A MARK (the bottom of this file) is what an app keeps on a part: a region (painted, or a shape)
-// and a fill. Step 1 fills with a texture; the fill's kind leaves room for 'pierce' (cuts through:
-// bendy-ply kerfs, lattices) later, from the same region.
+// and a fill. Two fills: 'texture' carves the top, 'pierce' cuts through (bendy-ply kerfs, holes;
+// see Pierce).
 //
 // Borrowed from Pgon (a sculpting app, ported to 2D):
 //   hash3, the smootherstep fade, the octave sum   <- Pgon noise (hash3, fbm)
@@ -1640,16 +1640,15 @@ export function compare(Z, grid, tex, tol = 0.1) {
 //           | { type: 'rect' | 'ellipse' | 'polygon' | 'union', ... }  (makeMask's shapes)
 //     xf: [a, b, c, d, e, f]   the mark's frame to the part's: x' = a x + b y + e, y' = c x + d y + f
 //                              (the part's turns, scales and mirrors after it was marked)
-//     fill: { fill: 'texture', pattern, params, scale, angle, origin: [x, y], fade, depth, tool,
-//             path: 'auto' | 'raster' | 'crosshatch' | 'plunge' | 'centerline', grit }
-//           | { fill: 'pierce', ... }   (later: through cuts from the same region)
+//     fill: { fill: 'texture', pattern, params, scale, angle, origin: [x, y], fade, depth, tool, bit,
+//             path: 'auto' | 'raster' | 'crosshatch' | 'plunge' | 'centerline', finish, grit,
+//             relief: 'in' | 'up', floor, curve, border }   (newFill, fillShape)
+//           | { fill: 'pierce', ... }   (see Pierce)
 //   }
 //
 // The region and the pattern both live in the mark's frame, so a mark scales, turns and mirrors
 // with its part as a picture would; its depth stays the depth.
 
-export const FILLS = { texture: 'texture', pierce: 'pierce' };
-export const PATHS = ['auto', 'raster', 'crosshatch', 'plunge', 'centerline'];
 export const IDENTITY = [1, 0, 0, 1, 0, 0];
 
 // run-length coding of a 0/1 grid: run lengths, alternating, starting with a run of 0s
@@ -2225,8 +2224,8 @@ export function nearestOnCurves(curves, x, y) {
 
 // ---------------------------------------------------------------------------------------------
 // Pierce: cuts that go through (or nearly through) the board from a mark, so the part bends or
-// lets light and air through. Ported from the bendy-ply generator (prototypes/bendply/bendgen.mjs),
-// router first. Every number here is a RULE OF THUMB until test strips are cut and measured.
+// lets light and air through. Ported from the bendy-ply generator, router first. Every number
+// here is a RULE OF THUMB until test strips are cut and measured.
 //
 //   fill = { fill: 'pierce', pattern: 'kerf' | 'holes', params, angle, origin, fade, tool, bit }
 //
@@ -2879,7 +2878,7 @@ const API = {
   hash3, perlin2, fbm2, worley2, cap, stepRepeat, blend, RD_STYLES, MORSE, morseEncode, strokeField, WEAVE_DRAFTS, MOTIFS, PATTERNS, defaults,
   rectMask, ellipseMask, polygonMask, paintMask, unionMask, makeMask, maskWeight, texture, TOOLS, makeTool, toolOffsets, dropCutter,
   heightGrid, stepoverForScallop, rasterPath, plungeDots, centerlinePath, toolpath, estimateTime, formatTime, analyze, createSim,
-  simulate, compare, FILLS, PATHS, IDENTITY, encodeRuns, decodeRuns, newGrid, paintWhere, stampDisc, stampStroke, gridCount,
+  simulate, compare, IDENTITY, encodeRuns, decodeRuns, newGrid, paintWhere, stampDisc, stampStroke, gridCount,
   regionSpec, storeRegion, xfApply, xfInvert, xfThen, xfScale, placeTexture, newFill, suggestBit, FINISHES, FINISH_WORDS, markTexture, pathFor, markToolpath, feedRuns,
   markChecks, BASIC, shadeHeight, SWATCH_SPAN, swatch,
   clipToPart, edgeDistance, insideReach, controlsFor, splineAt, sampleCurve, paintLoops, fitCurves, curvesCross, rewriteFromCurves, nearestOnCurves,

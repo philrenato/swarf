@@ -13,8 +13,7 @@
  * ocean waves on Seat"), before the steps that cut the parts free; the step's moves come from the
  * core's drop cutter (swarf-tex-core.mjs) in the slice worker (op-texture.js).
  *
- * The data leaves room for a second fill: a mark's fill is { fill: 'texture', … } now, and a
- * later step can make it { fill: 'pierce', … } from the same region.
+ * A mark's fill is { fill: 'texture', … } (carves the top) or { fill: 'pierce', … } (cuts through).
  */
 (function () {
   'use strict';
