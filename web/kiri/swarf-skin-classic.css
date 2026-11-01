@@ -69,7 +69,7 @@ html[data-skin="classic"] #swarf-run, html[data-skin="classic"] #swarf-draw, htm
 }
 html[data-skin="classic"] .set-header, html[data-skin="classic"] #menubar, html[data-skin="classic"] label[class*="set-"],
 html[data-skin="classic"] .swarf-step, html[data-skin="classic"] #mode-tools > span, html[data-skin="classic"] #menubar.content > div,
-html[data-skin="classic"] .swarf-plate-head, html[data-skin="classic"] #swarf-run .sr-box h3 {
+html[data-skin="classic"] #swarf-run .sr-box h3 {
   text-transform: none !important; letter-spacing: 0 !important;
 }
 html[data-skin="classic"] button { text-transform: none !important; letter-spacing: 0 !important; }
@@ -122,11 +122,11 @@ html[data-skin="classic"] body.swarf-run-open #mode-tools > span.selected:not(.s
 
 /* ---- the panels: Platinum windows, Windows 95 bevels, a BeOS yellow tab for the title ---- */
 html[data-skin="classic"] #panel-right .set2-group, html[data-skin="classic"] #swarf-right-rail .set2-group,
-html[data-skin="classic"] #panel-left .set2-group, html[data-skin="classic"] .swarf-plate {
+html[data-skin="classic"] #panel-left .set2-group {
   background: #d4d0c8 !important; border: 0 !important; border-left: 0 !important; border-radius: 0 !important; clip-path: none !important;
   box-shadow: var(--c-out), 3px 3px 0 rgba(0,0,0,.28) !important; padding: 3px !important;
 }
-html[data-skin="classic"] #panel-right .set2-group::before, html[data-skin="classic"] #swarf-right-rail .set2-group::before, html[data-skin="classic"] .swarf-plate::before,
+html[data-skin="classic"] #panel-right .set2-group::before, html[data-skin="classic"] #swarf-right-rail .set2-group::before,
 html[data-skin="classic"] #panel-right .set2-group > *:first-child::before, html[data-skin="classic"] #panel-right .set2-group > *:first-child::after { display: none !important; }
 html[data-skin="classic"] #panel-right .set2-group summary.set-header, html[data-skin="classic"] #swarf-right-rail .set2-group summary.set-header,
 html[data-skin="classic"] #panel-right .set2-group > .set-header, html[data-skin="classic"] #swarf-right-rail .set2-group > .set-header,
@@ -366,3 +366,11 @@ html[data-skin="classic"] .swarf-op-params, html[data-skin="classic"] .swarf-op-
   font-family: var(--c-font) !important;
 }
 html[data-skin="classic"] #mod-x-any textarea { font-family: var(--c-mono) !important; }
+/* the "more below" band (r093 UX V1): opaque, the color of the plates it sits on */
+html[data-skin="classic"] { --swarf-more-bg: #d4d0c8; }
+html[data-skin="classic"] #swarf-run { --swarf-more-bg: #c0c0c0; }
+html[data-skin="classic"] #tx-card { --swarf-more-bg: #d4d0c8; }
+/* (r093 UX V8) the about card in the body face, as every other card; the license stays monospace */
+html[data-skin="classic"] .swarf-about { font-family: var(--c-font) !important; }
+html[data-skin="classic"] .swarf-about .swarf-license { font-family: var(--c-mono) !important; }
+html[data-skin="classic"] #swarf-watermark:hover { color: #000080 !important; }  /* review r093 F3: the hover the legibility rule overrode */

@@ -44,7 +44,7 @@
   const CFG = {
     chips: {
       flag: '__swarfChipsVisible', key: CH_KEY, event: 'swarf.chips.toggle',
-      offLabel: 'chips off', onLabel: 'chips on',
+      offLabel: 'chips', onLabel: 'chips',
       offTitle: 'flying chips: off',
       onTitle:  'flying chips: on',
     },
@@ -56,7 +56,7 @@
     },
     lightstream: {
       flag: '__swarfLightstream', key: LS_KEY, event: 'swarf.lightstream.toggle',
-      offLabel: 'lightstreams off', onLabel: 'lightstreams on',
+      offLabel: 'lightstreams', onLabel: 'lightstreams',
       offTitle: 'the bit\'s trail: off',
       onTitle:  'the bit\'s trail: on',
     },
@@ -74,6 +74,8 @@
     b.title              = on ? cfg.onTitle : cfg.offTitle;
     b.classList.toggle('swarf-toggle-on',  on);
     b.classList.toggle('swarf-toggle-off', !on);
+    // (r093 UX V2) the state is the pill's fill, as machine's; the word stays the same
+    b.setAttribute('aria-pressed', on ? 'true' : 'false');
   }
 
   function makeToggle(kind) {

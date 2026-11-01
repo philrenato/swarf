@@ -37,7 +37,9 @@ body.swarf-expert .swarf-expert-only { display: initial !important; }
   --swarf-glow:      rgba(224, 40, 30, 0.32); /* diffuse red bloom (box-shadow) */
   --swarf-amber:     #c08a3a;   /* Concerns warnings only */
   --swarf-green:     #3a7a5a;   /* LLM-active dot, reserved for v002 Journeyman */
+  --swarf-more-bg:   #13100f;   /* the "more below" band: the opaque color of the plates it sits on */
 }
+#tx-card, #swarf-run { --swarf-more-bg: #1a1615; }
 
 /* swarf viewport: warm black with "red sky at night" sailor's gradient (markup Apr 15) */
 html, body { background: var(--swarf-bg) !important; color: var(--swarf-text); }
@@ -127,30 +129,12 @@ body::before {
       calc(var(--swarf-sky-parallax-x, 0px)       + 128px) calc(var(--swarf-sky-parallax-y, 0px)       - 1024px);
   }
 }
-/* sky animation only runs during simulate — feTurbulence is CPU-expensive
-   and the 240s drift was burning fans even when idle. */
+/* sky animation only runs while swarf works (body.swarf-sky-working, swarf-sky.js; advanced
+   mode only) — feTurbulence is CPU-expensive and the 240s drift was burning fans even when idle. */
 body.swarf-sky-working::before {
   animation: swarf-sky-rise 40s linear infinite;
 }
 
-/* swarf sky drift: always-on slow procedural churn. We animate the cloud
-   layer's background-position via the CSS var so the parallax from JS and
-   the keyframe drift compose cleanly. Using a long keyframe duration
-   (120s) so the motion reads as atmospheric, not a loop. */
-/* swarf r6: rising-steam fog. Moved off CSS-var @property (was silently
-   failing to animate in some Chrome states) and onto direct background-
-   position keyframes. Two layers rise at different rates so the fog reads
-   as depth. Camera-orbit parallax still composes via JS writing
-   --swarf-sky-parallax-x/y as a TRANSLATE on the body rather than a
-   background-position term (see body.swarf-sky-drift below). */
-/* body.swarf-sky-drift animation now lives on the ::before pseudo-element
-   via `swarf-sky-rise-xform` above — transforms are GPU-composited so the
-   fog actually moves (background-position + fixed attachment was getting
-   frozen by Chrome's compositor path). */
-/* Working state: speed up dramatically while slice/prepare/simulate is running */
-body.swarf-sky-working {
-  animation-duration: 14s;
-}
 /* 3D viewport container keeps its fixed flex size; its black clear color will show over the
    body gradient inside the canvas, but the edges/margins pick up the sailor sky. */
 #container {
@@ -195,9 +179,11 @@ html[data-skin] { border: 0 !important; }
   color: var(--swarf-text-3); text-decoration: none; opacity: 0.55;
   pointer-events: auto; padding: 2px 6px;
   border-left: 1px solid var(--swarf-line);
-  transition: opacity 200ms linear, color 200ms linear;
+  transition: opacity 200ms linear, color 200ms linear, bottom 220ms ease-out;
 }
 #swarf-watermark:hover { opacity: 1; color: var(--swarf-accent-hi); }
+/* (review r093 F3) each skin forces the watermark's color for legibility, so the hover says it again */
+html:not([data-skin]) #swarf-watermark:hover { color: var(--swarf-accent-hi) !important; }
 
 /* swarf: panel headers — slight gradient + 1px grid texture so they read as
    structural plates rather than flat bars (markup Apr 15, annotation #2). */
@@ -300,7 +286,6 @@ a:hover { color: var(--swarf-text); }
 }
 
 /* viewport chrome */
-#container { background: transparent !important; }
 
 /* the old "Kiri:Moto is Loading" text */
 #curtain {
@@ -310,9 +295,6 @@ a:hover { color: var(--swarf-text); }
   letter-spacing: 0.08em;
 }
 #curtain img, #loading { display: none !important; } /* kill Kiri gear spinner — swarf mark later */
-.swarf-loading {
-  font-size: 12px; color: var(--swarf-text-2); letter-spacing: 0.02em; text-transform: none;
-}
 
 /* form controls */
 select, input[type="text"], input[type="number"] {
@@ -443,21 +425,13 @@ input[type="range"] { accent-color: var(--swarf-accent-hi); }
 
 /* ---- Right panel: Objects / Ranges / Operation List ---- */
 #oplist, #op-add-list,
-.rt-group, #layer-toggle,
 [id^="range"] {
   background: var(--swarf-bg-2) !important;
   color: var(--swarf-text) !important;
 }
 
-/* ---- Language / setup icon (top right) ---- */
-#app-lang, #app-lang * {
-  color: var(--swarf-text-2) !important;
-  background: transparent !important;
-}
-
 /* ---- kill remaining #fff fill-ins from Kiri's baseline index.css ---- */
 .set2-group,
-.set-group,
 .var-row,
 .var-row input,
 .mdialog,
@@ -514,7 +488,7 @@ body.swarf-menu-open #swarf-concerns  { z-index: -1 !important; pointer-events: 
 body.swarf-run-open #mode-tools { z-index: 80 !important; }
 body.swarf-run-open #mode-tools > span.selected:not(.swarf-step-run) { background: var(--swarf-bg-2) !important; box-shadow: none !important; }
 body.swarf-run-open #panel-right, body.swarf-run-open #swarf-right-rail, body.swarf-run-open #swarf-concerns,
-body.swarf-run-open #gdpr, body.swarf-run-open #install-swarf, body.swarf-run-open #swarf-watermark { visibility: hidden !important; }
+body.swarf-run-open #install-swarf, body.swarf-run-open #swarf-watermark { visibility: hidden !important; }
 #mode-tools > span.swarf-step-run.swarf-step-on { opacity: 1 !important; }
 .swarf-step-run.swarf-step-off label, .swarf-step-run.swarf-step-off i { color: var(--swarf-text-2); }
 
@@ -617,6 +591,7 @@ body.swarf-run-open #gdpr, body.swarf-run-open #install-swarf, body.swarf-run-op
   font-size: 11px; color: var(--swarf-text-3); letter-spacing: 0.08em;
 }
 #swarf-search-input {
+  width: 100%; box-sizing: border-box;
   background: var(--swarf-bg-3) !important;
   border: 1px solid var(--swarf-line-2) !important;
   color: var(--swarf-text) !important;
@@ -640,50 +615,6 @@ body.swarf-run-open #gdpr, body.swarf-run-open #install-swarf, body.swarf-run-op
    Lower-right = parameter detail (Tabs, Output) — the stuff you tune, floating, auxiliary
    Center      = viewport, dominant                                                    */
 
-/* ---- Bespoke swarf plate — refs-tuned (Apr 15) ---- */
-/* Industrial-mill panel: chamfered top-left, saturated red accent stripe with a faint
-   bloom, thin hairline frame, tiny register marks in the far corners.                  */
-.swarf-plate {
-  background:
-    linear-gradient(180deg, rgba(42,16,14,0.22), rgba(0,0,0,0) 60%),
-    var(--swarf-bg-2);
-  border: 1px solid var(--swarf-line-2);
-  border-left: 3px solid var(--swarf-accent);
-  box-shadow:
-    0 6px 24px rgba(0,0,0,0.6),
-    inset 0 1px 0 rgba(216,210,198,0.04),
-    -1px 0 0 0 var(--swarf-glow);   /* faint red light-leak on the accent edge */
-  position: relative;
-  clip-path: polygon(10px 0, 100% 0, 100% 100%, 0 100%, 0 10px);
-}
-.swarf-plate::before {
-  /* subtle scanline texture — Downward Spiral "degraded signal" */
-  content: "";
-  position: absolute; inset: 0;
-  background-image: repeating-linear-gradient(
-    0deg,
-    rgba(212,207,196,0.015) 0px,
-    rgba(212,207,196,0.015) 1px,
-    transparent 1px,
-    transparent 3px
-  );
-  pointer-events: none;
-}
-.swarf-plate-head {
-  display: flex; align-items: center; gap: 8px;
-  padding: 8px 10px 7px 12px;
-  border-bottom: 1px solid var(--swarf-line);
-  text-transform: none;
-  letter-spacing: 0.02em;
-  font-size: 10px;
-  color: var(--swarf-text);
-  font-weight: 600;
-}
-.swarf-plate-head::before {
-  content: ""; display: block;
-  width: 6px; height: 6px; background: var(--swarf-accent);
-}
-.swarf-plate-body { padding: 6px 8px 10px 8px; }
 
 /* ---- #panel-right — TOOLPATHS pinned upper-left, solo ---- */
 /* swarf v010 r10 (markup Apr 15 #6): OBJECTS / TABS / STRATEGY moved to the
@@ -724,12 +655,15 @@ body.swarf-run-open #gdpr, body.swarf-run-open #install-swarf, body.swarf-run-op
 #swarf-right-rail > .set2-group, #panel-left .set2-group { flex-shrink: 0 !important; }
 /* r086 check S1: a rail that runs past the window's foot says so — a pill held at its bottom edge
    (it also covers the sliver of a half-cut header); gone once scrolled to the end */
-#swarf-right-rail.swarf-more::after {
-  content: 'more below \25BE'; text-transform: none !important; position: sticky; bottom: 4px; flex-shrink: 0; align-self: center;
-  margin-top: -34px; padding: 3px 12px; border-radius: 999px; pointer-events: none; z-index: 3;
-  font-size: 11px; line-height: 16px; color: var(--swarf-text-2); background: var(--swarf-bg-2);
-  box-shadow: 0 0 0 1px var(--swarf-line), 0 -6px 16px 8px color-mix(in srgb, var(--swarf-bg-2) 70%, transparent);
+/* (r093 UX V1) the cue is an opaque band across the foot, faded at its top: rows slide under it,
+   never under see-through words. Advanced's panel column and the tex card use it too (B3, V5). */
+#swarf-right-rail.swarf-more::after, #panel-left.swarf-more::after, #tx-card.swarf-more::after {
+  content: 'more below \25BE'; text-transform: none !important; position: sticky; bottom: 0; flex-shrink: 0; align-self: stretch;
+  display: block; box-sizing: border-box; height: 30px; margin-top: -30px; padding: 12px 0 0; text-align: center;
+  pointer-events: none; z-index: 3; font-size: 11px; line-height: 16px; letter-spacing: 0; font-weight: 400; color: var(--swarf-text-2);
+  background: linear-gradient(to bottom, transparent, var(--swarf-more-bg, var(--swarf-bg-2)) 12px);
 }
+#tx-card.swarf-more::after { bottom: -10px; margin: -30px -14px 0; }  /* the card's own padding */
 #swarf-right-rail .set2-group {
   background: var(--swarf-bg-2) !important;
   border: 1px solid var(--swarf-line-2) !important;
@@ -797,7 +731,7 @@ body.swarf-run-open #gdpr, body.swarf-run-open #install-swarf, body.swarf-run-op
 #menubar {
   position: fixed !important;
   top: 0; left: 0; right: 0;
-  z-index: 100 !important;
+  z-index: 95 !important;   /* the menus open over control and draw, never under them (Phil 10-28) */
 }
 #panel-right, #swarf-right-rail { z-index: 2 !important; }
 
@@ -831,19 +765,6 @@ body.swarf-run-open #gdpr, body.swarf-run-open #install-swarf, body.swarf-run-op
   margin-bottom: 12px;
   overflow: hidden;
   position: relative;
-}
-/* scanlines over the whole plate */
-#panel-right .set2-group::before {
-  content: "";
-  position: absolute; inset: 0;
-  background-image: repeating-linear-gradient(
-    0deg,
-    rgba(216,210,198,0.022) 0,
-    rgba(216,210,198,0.022) 1px,
-    transparent 1px, transparent 3px
-  );
-  pointer-events: none;
-  z-index: 0;
 }
 /* corner brackets — Tron terminal HUD reference */
 #panel-right .set2-group > *:first-child::before,
@@ -971,21 +892,12 @@ body.swarf-run-open #gdpr, body.swarf-run-open #install-swarf, body.swarf-run-op
 /* legacy #mid > .f-col positioning is no longer used — superseded by #panel-left / #panel-right fixed */
 #mid > .f-col:first-child { position: static !important; }
 
-/* ---- Upper-right status readout: compact row, not chrome-heavy ---- */
-#right-top-panel,
-.rt-group {
-  background: transparent !important;
-  border: none !important;
-  box-shadow: none !important;
-}
-
 /* kill the extra decorative lines around the parameter rail ("these extra lines are weird").
    NOTE: the earlier version swept in `.set2-group.bottom` with opacity:0 which nuked the
    whole toolpaths panel (it carries class="bottom" in HTML). Now only the decorative
    border/hr rules are muted — the panel itself stays visible (markup Apr 15). */
 .set-sep,
-.set2-group:not(:last-child)::after,
-hr:not(.swarf-keep) {
+hr {
   border-color: transparent !important;
   background: transparent !important;
   opacity: 0;
@@ -1043,11 +955,12 @@ hr:not(.swarf-keep) {
   );
 }
 
-/* four corner brackets per panel */
-#panel-right .set2-group::before,
-#panel-right .set2-group::after,
-#panel-left  .set2-group::before,
-#panel-left  .set2-group::after {
+/* four corner brackets per panel: the swarf skin's (review r093 F1: the plate's ::before / ::after
+   carry the brackets alone, in this skin alone; the skins drew 10 px squares from them) */
+html:not([data-skin]) #panel-right .set2-group::before,
+html:not([data-skin]) #panel-right .set2-group::after,
+html:not([data-skin]) #panel-left  .set2-group::before,
+html:not([data-skin]) #panel-left  .set2-group::after {
   content: "";
   position: absolute;
   width: 10px; height: 10px;
@@ -1055,14 +968,14 @@ hr:not(.swarf-keep) {
   pointer-events: none;
   z-index: 2;
 }
-#panel-right .set2-group::before,
-#panel-left  .set2-group::before {
+html:not([data-skin]) #panel-right .set2-group::before,
+html:not([data-skin]) #panel-left  .set2-group::before {
   top: 2px; left: 2px;
   border-top: 1px solid var(--swarf-accent);
   border-left: 1px solid var(--swarf-accent);
 }
-#panel-right .set2-group::after,
-#panel-left  .set2-group::after {
+html:not([data-skin]) #panel-right .set2-group::after,
+html:not([data-skin]) #panel-left  .set2-group::after {
   bottom: 2px; right: 2px;
   border-bottom: 1px solid var(--swarf-accent);
   border-right: 1px solid var(--swarf-accent);
@@ -1162,14 +1075,6 @@ hr:not(.swarf-keep) {
 .swarf-search .swarf-result-kind.param { color: var(--swarf-amber); border-color: rgba(192,138,58,0.4); }
 .swarf-search .swarf-result-kind.tool  { color: var(--swarf-text-2); }
 .swarf-search .swarf-result-kind.coach { color: #6ea3c8; border-color: rgba(110,163,200,0.35); }
-#swarf-search-input {
-  width: 100%; box-sizing: border-box;
-  background: var(--swarf-bg-3); color: var(--swarf-text);
-  border: 1px solid var(--swarf-line);
-  padding: 8px 12px; font-size: 12px;
-  font-family: "JetBrains Mono", "IBM Plex Mono", ui-monospace, monospace;
-}
-#swarf-search-input:focus { outline: none; border-color: var(--swarf-accent); }
 
 /* swarf: Concerns drawer — bottom-bar count badge + drawer body (Apr 15).
    Empty drawer = clean setup. Content = list of warnings with explanations. */
@@ -1318,10 +1223,12 @@ body:not(.swarf-expert) .swarf-add-op-grid > .swarf-expert-only {
   display: inline-flex; align-items: center; gap: 5px;
   letter-spacing: 0.02em; text-transform: none; font-weight: 600;
 }
+/* (r093 UX T6) the pill's word in the row's own face and size, not a bold mono: edit outlined, editing filled */
 #oplist .draggable .swarf-op-chevron::before {
   content: "edit";
-  font-size: 9px;
-  font-family: "JetBrains Mono", "IBM Plex Mono", ui-monospace, monospace;
+  font-size: 11px;
+  font-family: inherit;
+  font-weight: 500;
   color: inherit;
 }
 #oplist .draggable .swarf-op-chevron:hover {
@@ -1339,6 +1246,11 @@ body:not(.swarf-expert) .swarf-add-op-grid > .swarf-expert-only {
 /* whole row label becomes a pointer target too — click anywhere on the op name
    to toggle the parameter drawer (r5 affordance). */
 #oplist .draggable.has-params > .label { cursor: pointer; }
+/* (r093 UX T5) an open step's × stays in its header row, after edit ▾, not halfway down the card */
+#oplist .draggable.has-params > .label { order: 0; }
+#oplist .draggable.has-params > .swarf-op-chevron { order: 1; }
+#oplist .draggable.has-params > .del { order: 2; position: static; margin-right: -2px; }
+#oplist .draggable.has-params > .swarf-op-params { order: 3; }
 /* a TEX step's label stays on one line (its whole name in the row's tooltip), so edit stays beside it */
 #oplist .draggable.tex-step > .label { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; flex: 1 1 0; }
 /* review r093-ux T2: the tiny chevron read as a stray dot ("rough ·"); the edit ▾ pill says it folds */
@@ -1505,9 +1417,7 @@ body:not(.swarf-expert) .swarf-add-op-grid > .swarf-expert-only {
 }
 body.swarf-phase-simulating #swarf-watermark {
   bottom: 70px !important;
-  transition: bottom 220ms ease-out;
 }
-#swarf-watermark { transition: bottom 220ms ease-out; }
 /* keep the bar from running edge-to-edge across the watermark column */
 #layer-animate {
   padding-left: 24px !important;
@@ -1942,7 +1852,8 @@ body.swarf-phone > *:not(#swarf-phone-wall) { display: none !important; }
   position: fixed;
   bottom: 8px;
   right: 8px;
-  z-index: 65;
+  z-index: 10050;   /* over simulate's bar and every card (Phil 11-01, below) */
+  visibility: visible !important;
   font-size: 11px;
   letter-spacing: 0.08em;
   font-family: ui-monospace, Menlo, monospace;
@@ -1995,7 +1906,6 @@ body:has(#layer-animate:not(.hide)) #install-swarf {
 }
 /* the version stays in the bottom-right corner everywhere (Phil 11-01: "make sure version number/
    update always shows up in bottom right corner"): above simulate's bar, over every card */
-#ver { z-index: 10050; visibility: visible !important; }
 /* in simulate it sits in the bar's empty right end (above the bar it met the concerns pill) */
 body:has(#layer-animate:not(.hide)) #ver { bottom: calc(8px + (var(--swarf-simbar-h, 56px) - 20px) / 2); right: 22px; }
 #install-swarf:hover {
@@ -2044,6 +1954,16 @@ body:has(#layer-animate:not(.hide)) #ver { bottom: calc(8px + (var(--swarf-simba
   padding: 8px 14px; background: rgba(27,23,21,.95); border: 1px solid #3a3230; border-radius: 8px; box-shadow: 0 8px 28px rgba(0,0,0,.45);
   color: var(--swarf-text); font: 13px "JetBrains Mono", "IBM Plex Mono", ui-monospace, monospace; }
 #swarf-size.on { display: flex; }
+/* (r093 UX B4) with the size card up, the steps panel ends above it: the step list gives up
+   height (it scrolls) so add a step stays in reach; a panel still too tall scrolls whole */
+#panel-right .set2-group { flex-shrink: 0; }
+#panel-right > .set2-group:last-child { margin-bottom: 0; }
+body:has(#swarf-size.on) #panel-right { max-height: calc(100vh - 196px); }
+body:has(#swarf-size.on) #panel-right #oplist { max-height: min(calc(70vh - 200px), calc(100vh - 490px)); min-height: 120px; }
+@media (max-width: 1100px) {
+  body:has(#swarf-size.on) #panel-right { max-height: calc(100vh - 240px); }
+  body:has(#swarf-size.on) #panel-right #oplist { max-height: min(calc(70vh - 200px), calc(100vh - 534px)); }
+}
 #swarf-size .lbl, #swarf-size .mm, #swarf-size .x { color: var(--swarf-text-2); font-size: 12px; }
 #swarf-size .ax { display: flex; flex-direction: column; align-items: center; gap: 1px; }
 #swarf-size .ax input { width: 78px; text-align: right; background: #322c29; border: 1px solid #4f4642; border-radius: 6px; color: #fff; padding: 5px 8px; font: inherit; font-size: 15px; }
@@ -2102,13 +2022,11 @@ body:has(#layer-animate:not(.hide)) #ver { bottom: calc(8px + (var(--swarf-simba
 body.swarf-draw-open #swarf-concerns, body.swarf-draw-open #swarf-size { display: none !important; }
 #swarf-draw .sd-card select { width: 98px; flex: none; background: #322c29; border: 1px solid #4f4642; border-radius: 6px; color: #fff; padding: 3px 5px; font: inherit; margin: 0; }
 #swarf-draw .sd-card input.wide { width: 140px; text-align: left; }
-#swarf-draw .sd-card .sd-font { flex: 1; color: var(--swarf-text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 #swarf-draw .sd-card .sd-row button { padding: 3px 8px; font-size: 12px; }
 #swarf-size .sep { width: 1px; height: 26px; background: #3a3230; margin: 0 4px; }
 #swarf-size .act { font: inherit; font-size: 12px; color: var(--swarf-text); background: #2a2523; border: 1px solid #4f4642; border-radius: 6px; padding: 5px 10px; cursor: pointer; text-transform: none; letter-spacing: 0; }
 #swarf-size .act:hover { border-color: #a39a90; }
 #swarf-size .n { color: var(--swarf-text-2); font-size: 12px; }
-@media (max-width: 760px) { #swarf-size { flex-wrap: wrap; left: 16px; right: 16px; transform: none; justify-content: center; } }
 /* r41: the ShopBot in simulate (swarf-sim-machine.js) */
 #layer-animate :is(#swarf-sim-machine, #swarf-sim-bed) { margin-left: 10px; text-transform: none !important; letter-spacing: 0 !important; }
 #layer-animate #swarf-sim-machine.on, #layer-animate #swarf-sim-bed.on { border-color: #a39a90 !important; color: #fff !important; }
@@ -2203,7 +2121,7 @@ body.swarf-focus #swarf-step-cam { border-right: 1px solid var(--swarf-line-2); 
 
 /* no orphans, anywhere (Phil 10-28: "be maniacal culling orphans"): body text wraps so its last
    line is never one word; headings and one-line notices balance their lines */
-html, body, #swarf-run, #swarf-draw, .mdialog, #dialog, #alert-text, #swarf-start, #swarf-size, .swarf-help, #mod-help { text-wrap: pretty; }
+html, body, #swarf-run, #swarf-draw, .mdialog, #dialog, #alert-text, #swarf-start, #swarf-size, #mod-help { text-wrap: pretty; }
 h1, h2, h3, h4, .sr-card h2, .sr-veilcard h2, #swarf-start h2, .menu-title, #swarf-run .sr-say, #alert-text { text-wrap: balance; }
 #mode-tools span, .sr-step, kbd { text-wrap: nowrap; }
 
@@ -2247,8 +2165,8 @@ html:not([data-skin]) .set-header a, html:not([data-skin]) summary.set-header a 
 .swarf-concern { display: block !important; }
 .swarf-concern strong, .swarf-concern em { display: block !important; }
 .swarf-concern em { margin-top: 3px; }
-/* the menus open over control and draw, never under them (Phil 10-28: setup's list was cut off in control) */
-#menubar { position: relative; z-index: 95 !important; }
+/* the menus open over control and draw, never under them (Phil 10-28: setup's list was cut off in control);
+   #menubar's own z-index is with its position, above */
 #menubar .top-menu-drop { z-index: 96 !important; }
 
 /* ---- help › ShopBot quick start (swarf-tutorial.js): the shop poster, a page at a time ---- */
@@ -2394,7 +2312,7 @@ body.swarf-run-open #panel-slide, body.swarf-run-open #panel-left { display: non
 body.swarf-focus #speeds, body.swarf-run-open #speeds { display: none !important; }
 /* review 10-30 B4: TEX's card ran under the install / version chips at 1440×900; DRAW and TEX
    step them aside as control does */
-body.swarf-draw-open #install-swarf, body.swarf-draw-open #gdpr,
+body.swarf-draw-open #install-swarf,
 body.swarf-draw-open #swarf-watermark { visibility: hidden !important; }
 /* DRAW: engraved lines, regions (swarf-draw.js) */
 #swarf-draw svg .sd-part.sd-line, html[data-skin] #swarf-draw svg .sd-part.sd-line, html[data-skin] #swarf-draw svg .sd-part.sd-line:hover { fill: none !important; stroke-width: 2.4; stroke-linecap: round; stroke-dasharray: 7 3 !important; }
@@ -2461,7 +2379,6 @@ html[data-skin] #swarf-draw svg .sd-part.sd-regsrc, #swarf-draw svg .sd-part.sd-
 #swarf-units button { font-size: 12px; padding: 4px 10px; min-width: 38px; margin: 0; }
 #swarf-units button:first-child { border-top-right-radius: 0; border-bottom-right-radius: 0; }
 #swarf-units button:last-child { border-top-left-radius: 0; border-bottom-left-radius: 0; margin-left: -1px; }
-body.swarf-modal-open #swarf-units { display: none; }
 /* r086 check P12: under a modal (the export card, preferences, which has its own units row) the
    mm | in switch steps aside: it sat crisp above the blur and read as pressable. P11: the start
    card steps aside for a modal or a dialog (the SVG import's make parts showed it through). Both
@@ -2549,6 +2466,11 @@ body:not(.swarf-expert) #layer-slider #slider { display: none !important; }
 /* (Phil 11-01) simulate's per-step path boxes (swarf-lightstream.js): the toolpaths view's toggle row,
    raised just above the sim bar (its height measured, as it wraps on a narrow window) */
 body.swarf-sim-paths #layer-slider { bottom: calc(var(--swarf-simbar-h, 52px) + 6px); }
+/* (r093 UX T10) the toolpaths view's toggles (bit · direction · moves · cuts) sit where simulate's
+   step boxes do, just above the sim bar's line, as one pill strip in both views */
+body:not(.swarf-expert) #layer-slider { bottom: calc(var(--swarf-simbar-h, 72px) + 6px); }
+body:not(.swarf-expert) #layers:has(.var-row) { align-self: center; width: max-content; max-width: 100%; flex-wrap: wrap; padding: 3px 12px 0;
+  border-radius: 999px; background: var(--swarf-more-bg, var(--swarf-bg-2)); box-shadow: 0 0 0 1px var(--swarf-line), 0 4px 14px rgba(0,0,0,.18); }
 /* (whole-app review r086 B3) the step list's "end of ops chain" bar is advanced's too */
 body:not(.swarf-expert) #oplist > .clock { display: none !important; }
 /* (whole-app review r086 F8) preferences fit a 720 px window: the card scrolls */

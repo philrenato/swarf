@@ -89,7 +89,7 @@ html[data-skin="glass"] #swarf-run, html[data-skin="glass"] #swarf-draw, html[da
 }
 html[data-skin="glass"] .set-header, html[data-skin="glass"] #menubar, html[data-skin="glass"] label[class*="set-"],
 html[data-skin="glass"] button, html[data-skin="glass"] .swarf-step, html[data-skin="glass"] #mode-tools > span,
-html[data-skin="glass"] #menubar.content > div, html[data-skin="glass"] .swarf-plate-head, html[data-skin="glass"] #swarf-run .sr-box h3 {
+html[data-skin="glass"] #menubar.content > div, html[data-skin="glass"] #swarf-run .sr-box h3 {
   text-transform: none !important; letter-spacing: 0 !important;
 }
 html[data-skin="glass"] .sr-axis .v, html[data-skin="glass"] #swarf-size .ax input, html[data-skin="glass"] #ver, html[data-skin="glass"] .sr-mpos { font-family: var(--g-mono) !important; }
@@ -148,12 +148,13 @@ html[data-skin="glass"] body.swarf-run-open #mode-tools > span.selected:not(.swa
 
 /* ---- the panes: TOOLPATHS, OBJECTS, TABS, STRATEGY and the parameter rail ---- */
 html[data-skin="glass"] #panel-right .set2-group, html[data-skin="glass"] #swarf-right-rail .set2-group,
-html[data-skin="glass"] #panel-left .set2-group, html[data-skin="glass"] .swarf-plate {
+html[data-skin="glass"] #panel-left .set2-group {
   background: var(--g-pane) !important; backdrop-filter: var(--g-blur); -webkit-backdrop-filter: var(--g-blur);
   border: 1px solid rgba(255, 255, 255, .8) !important; border-left: 1px solid rgba(255, 255, 255, .8) !important;
   border-radius: 20px !important; clip-path: none !important; box-shadow: var(--g-drop), var(--g-rim) !important;
 }
-html[data-skin="glass"] #panel-right .set2-group::before, html[data-skin="glass"] #swarf-right-rail .set2-group::before, html[data-skin="glass"] .swarf-plate::before {
+html[data-skin="glass"] #panel-right .set2-group::before { content: ""; position: absolute; inset: 0; pointer-events: none; z-index: 0; }  /* review r093 F1: a pane, not a 10 px corner */
+html[data-skin="glass"] #panel-right .set2-group::before, html[data-skin="glass"] #swarf-right-rail .set2-group::before {
   /* the specular sweep across the top of a pane */
   background: linear-gradient(170deg, rgba(255, 255, 255,.7) 0%, rgba(255, 255, 255,.12) 38%, rgba(255, 255, 255,0) 60%) !important;
   border-radius: 20px; opacity: .8;
@@ -365,3 +366,14 @@ html[data-skin="glass"] .swarf-op-params, html[data-skin="glass"] .swarf-op-para
 html[data-skin="glass"] #mod-x-any textarea { font-family: var(--g-mono) !important; }
 /* the simulate bar's words read at 4.5:1 (legibility pass) */
 html[data-skin="glass"] #layer-animate .swarf-sim-word, html[data-skin="glass"] #layer-animate .swarf-sim-name { color: #3d4045 !important; }
+/* the "more below" band (r093 UX V1): opaque, the color of the plates it sits on */
+html[data-skin="glass"] { --swarf-more-bg: #f7f7f7; }
+html[data-skin="glass"] #swarf-run { --swarf-more-bg: #f4f4f4; }
+html[data-skin="glass"] #tx-card { --swarf-more-bg: #fcfcfc; }
+/* (r093 UX V6) in simulate the stock's red chip-glow bled through the steps pane as a pink smear:
+   the pane is near opaque while the bit cuts */
+html[data-skin="glass"] body.swarf-phase-simulating #panel-right .set2-group { background: rgba(247, 247, 247, .94) !important; }
+/* (r093 UX V8) the about card in the body face, as every other card; the license stays monospace */
+html[data-skin="glass"] .swarf-about { font-family: var(--g-font) !important; }
+html[data-skin="glass"] .swarf-about .swarf-license { font-family: var(--g-mono) !important; }
+html[data-skin="glass"] #swarf-watermark:hover { color: #212223 !important; }  /* review r093 F3: the hover the legibility rule overrode */
