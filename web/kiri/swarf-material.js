@@ -379,14 +379,9 @@
       } else {
         window.__swarfEnvMap = tex;
       }
-      // swarf v010 r2: RESTRAINED lighting. Previous pass flooded the scene
-      // with rim+fill+hemi, washing out face contrast so a cube read as a
-      // silhouette blob. Now a single strong key from above-front-right, a
-      // gentle warm hemisphere fill, and nothing else — form reads first,
-      // env reflections read second.
+      // restrained lighting (v010 r2/r8b): one key from above-front-right, a warm hemisphere and a
+      // faint fill, so form reads first and the floor keeps its matte finish
       try {
-        // swarf v010 r8 b: tone down the shop lights — grid was reading
-        // too bright; Phil wants floor back to prior scumble/matte finish.
         const hemi = new window.THREE.HemisphereLight(0xcfc0a0, 0x1a1a1a, 0.32);
         scene.add(hemi);
         const key = new window.THREE.DirectionalLight(0xfff4e0, 0.85);
@@ -396,9 +391,7 @@
         fill.position.set(-180, 120, -140);
         scene.add(fill);
       } catch (e) {}
-      // swarf v010 r8 b: no tonemapping / colorspace override. Earlier
-      // ACES + SRGB reinterpretation made the mill-red grid read as hot
-      // orange. Keep Kiri's defaults so the floor scumble returns.
+      // no tonemapping or colorspace override: ACES + sRGB made the mill-red grid read orange (r8b)
       _envInstalled = true;
     } catch (e) { console.warn('swarf-material: env install failed', e); }
   }
@@ -632,12 +625,8 @@
       const a = current.appearance;
       if (!a) return;
       const THREE = window.THREE;
-      // swarf v010 r3: do NOT swap material class. Kiri tracks its own
-      // material instances (color cache in platform.js, etc.) — replacing
-      // the material leaves stale references that repaint the widget black
-      // on the next selection change. Just set properties on whatever
-      // material Kiri gave us. Fields the material doesn't support (e.g.
-      // transmission on MeshPhong) are silently ignored.
+      // set properties on Kiri's own material, never swap it: Kiri caches its instances, and a
+      // replaced one repainted the part black on the next selection change (v010 r3)
       // the picked parts glow warm (review 10-28: "a picked part looks exactly like an
       // unpicked one": the appearance wrote over cam's selection color)
       let picked = new Set();
@@ -691,7 +680,6 @@
     const select = document.getElementById('swarf-material-select');
     if (select) fillOptions(select);
   }
-  window.__swarfMaterialsOffered = () => offered().map(m => m.id);
   // a .swarf's material (swarf-file.js): the one it names when this machine offers it; returns the one picked
   window.__swarfSetMaterial = id => { setCurrent(id); const sel = document.getElementById('swarf-material-select'); if (sel && current) sel.value = current.id; return current && current.id; };
   window.__swarfApplyFeeds = () => applyFeedsToOps();
@@ -757,15 +745,8 @@
 
   // ---- bootstrap -------------------------------------------------------
   function bootstrap() {
-    // relative, not "/kiri/swarf-materials.json" — that absolute path only
-    // resolves in local dev serving (page at /kiri/). The deployed site
-    // flattens everything to one root (/swarf-app/), where the absolute
-    // form 404s and silently kills the entire material system: materials
-    // stays empty, so the `if (!materials.length) return` guard below exits
-    // before setCurrent/injectDropdown/any of the feed-application event
-    // wiring ever runs. No MATERIAL dropdown, no feeds/speeds ever applied —
-    // this had been broken on the live site since whenever this path was
-    // written, not just hard to find.
+    // relative: the deployed site flattens to one root (/swarf-app/), where an absolute
+    // /kiri/ path 404s and leaves no materials at all
     fetch('swarf-materials.json')
       .then(r => r.json())
       .then(data => {
@@ -793,7 +774,7 @@
             // numbers before act-paths reads the process
             try { window.kiri.api.event.on('settings.saved', applyFeedsToOps); } catch (e) {}
             try { window.kiri.api.event.on('settings', applyFeedsToOps); } catch (e) {}
-            // swarf v010 debt: re-apply after slice/view rebuilds the mesh
+            // re-apply after slice/view rebuilds the mesh
             try { window.kiri.api.event.on('slice.end', () => setTimeout(applyToStock, 30)); } catch (e) {}
             try { window.kiri.api.event.on('view.set',  () => setTimeout(applyToStock, 30)); } catch (e) {}
             try { window.kiri.api.event.on('animate',   () => setTimeout(applyToStock, 30)); } catch (e) {}
@@ -820,8 +801,7 @@
     document.addEventListener('DOMContentLoaded', bootstrap);
   } else bootstrap();
 
-  // expose for chips + tool tinting
-  window.__swarfGetTexture = getTexture;
+  // for the animators' tool and flute tinting
   window.__swarfGetFluteTexture = getFluteTexture;
   window.__swarfApplyAppearance = applyAppearance;
 })();
