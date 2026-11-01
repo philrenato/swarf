@@ -576,16 +576,145 @@ export const PATTERNS = {
       };
     },
   },
+  memphis: {
+    label: 'memphis', blurb: 'Squiggles, zigzags, triangles and rings tossed across the top, like an 80s print.',
+    params: [S('mix', 'Mix', ['everything', 'squiggles', 'shapes', 'confetti'], 'everything'), P('size', 'Glyph size', 6, 60, 0.5, 16),
+      P('spacing', 'Spacing', 8, 80, 0.5, 22), P('width', 'Line width', 0.8, 8, 0.1, 2.4), P('depth', 'Depth', 0.2, 5, 0.1, 1.4),
+      S('fill', 'Shapes', ['outline', 'solid'], 'outline'), P('turn', 'Tumble', 0, 1, 0.05, 1, ''), P('scatter', 'Scatter', 0, 0.45, 0.01, 0.3, ''), S('profile', 'Profile', PROFILES, 'cone'), P('seed', 'Seed', 1, 99, 1, 8, '')],
+    build(p) {
+      const sz = p.size, sp = p.spacing, hw = p.width / 2, seed = p.seed | 0;
+      const kinds = MEMPHIS_MIX[p.mix] || MEMPHIS_MIX.everything, solid = p.fill === 'solid';
+      // each cell of a square lattice holds one glyph: its kind, turn and offset from the cell's hash
+      const glyph = (i, j) => {
+        const k = kinds[Math.floor(hash3(i, j, 1, seed) * kinds.length) % kinds.length];
+        const a = p.turn * TAU * hash3(i, j, 2, seed), sc = k === 'dash' || k === 'dot' ? 0.6 : 1;
+        const cu = (i + 0.5 + p.scatter * (2 * hash3(i, j, 3, seed) - 1)) * sp, cv = (j + 0.5 + p.scatter * (2 * hash3(i, j, 4, seed) - 1)) * sp;
+        return { segs: MEMPHIS[k], solid: solid && MEMPHIS_SOLID[k], c: Math.cos(a), s: Math.sin(a), cu, cv, sc: sz * sc };
+      };
+      const reach = Math.max(1, Math.ceil((sz * 0.6 + hw) / sp + p.scatter));
+      return {
+        h: (u, v) => {
+          const i0 = Math.floor(u / sp), j0 = Math.floor(v / sp);
+          let d = Infinity;
+          for (let j = j0 - reach; j <= j0 + reach; j++) for (let i = i0 - reach; i <= i0 + reach; i++) {
+            const g = glyph(i, j), du = u - g.cu, dv = v - g.cv;
+            if (Math.abs(du) > g.sc * 0.6 + hw || Math.abs(dv) > g.sc * 0.6 + hw) continue;
+            // into the glyph's own frame (unit size)
+            const x = (du * g.c + dv * g.s) / g.sc, y = (-du * g.s + dv * g.c) / g.sc;
+            // a solid shape is a flat pocket to its outline's middle, its rim the line's own slope
+            if (g.solid && insidePoly(x, y, g.solid)) return p.depth;
+            for (const q of g.segs) { const e = segDist(x, y, q) * g.sc; if (e < d) d = e; }
+          }
+          return cap(d, hw, p.depth, p.profile);
+        },
+        depth: p.depth, feature: p.width, featureLabel: `${fmt(p.width)} mm lines`, kind: 'strokes', strokeWidth: p.width,
+        strokes: (b) => {
+          const out = [];
+          for (let j = Math.floor(b.v0 / sp) - reach; j <= Math.ceil(b.v1 / sp) + reach; j++) for (let i = Math.floor(b.u0 / sp) - reach; i <= Math.ceil(b.u1 / sp) + reach; i++) {
+            const g = glyph(i, j), at = (x, y) => [g.cu + (x * g.c - y * g.s) * g.sc, g.cv + (x * g.s + y * g.c) * g.sc];
+            // the segments joined back into the polylines they came from
+            let line = null;
+            for (const q of g.segs) {
+              const a = at(q[0], q[1]), e = at(q[2], q[3]);
+              if (line && Math.hypot(line[line.length - 1][0] - a[0], line[line.length - 1][1] - a[1]) < 1e-6) line.push(e);
+              else { if (line) out.push(line); line = [a, e]; }
+            }
+            if (line) out.push(line);
+          }
+          return out;
+        },
+      };
+    },
+  },
+  quilt: {
+    label: 'quilted', blurb: 'Puffed cells between stitched seams: diamond, square, honeycomb or channel.',
+    params: [S('style', 'Quilting', ['diamond', 'square', 'honeycomb', 'channel'], 'diamond'), P('size', 'Cell size', 8, 120, 0.5, 32),
+      P('depth', 'Depth', 0.3, 6, 0.1, 2.4), P('puff', 'Puff', 0, 1, 0.05, 0.7, ''), P('seam', 'Seam width', 0.8, 8, 0.1, 2),
+      S('stitch', 'Stitches', ['line', 'dashes'], 'line'), P('stitchLen', 'Stitch length', 2, 20, 0.5, 6), P('angle', 'Diamond angle', 30, 90, 1, 60, '°')],
+    build(p) {
+      const L = p.size, hw = p.seam / 2, puff = clamp01(p.puff), dashes = p.stitch === 'dashes';
+      // the cells puff up to the top; where they meet the seam they have come down to 70% of the depth,
+      // and the stitched seam itself runs the full depth
+      const low = 0.7 * p.depth;
+      const near = seamNear(p.style, L, p.angle);
+      return {
+        h: (u, v) => {
+          const { d, along, f } = near(u, v);
+          // f: 1 in the cell's middle, 0 on its seams, smooth between (sines across each family of
+          // seams); puff lifts its shoulders, so a plump cell is flat on top and steep at the seam
+          const pillow = low * (1 - Math.pow(clamp01(f), 1 - 0.7 * puff));
+          const sewn = !dashes || ((along / p.stitchLen) % 1 + 1) % 1 < 0.62;
+          return Math.max(pillow, sewn ? cap(d, hw, p.depth, 'ball') : 0);
+        },
+        depth: p.depth, feature: p.seam, featureLabel: `${fmt(p.seam)} mm seams`, kind: 'surface',
+      };
+    },
+  },
 };
+
+// the glyphs of the memphis pattern, unit size, as segments [x0, y0, x1, y1] (polylines in order)
+const poly = (pts, closed) => { const o = []; const n = closed ? pts.length : pts.length - 1; for (let i = 0; i < n; i++) { const a = pts[i], b = pts[(i + 1) % pts.length]; o.push([a[0], a[1], b[0], b[1]]); } return o; };
+const arcPts = (r, a0, a1, n) => Array.from({ length: n + 1 }, (_, i) => { const a = a0 + (a1 - a0) * i / n; return [r * Math.cos(a), r * Math.sin(a)]; });
+const MEMPHIS = {
+  squiggle: poly(Array.from({ length: 25 }, (_, i) => { const x = -0.5 + i / 24; return [x, 0.16 * Math.sin(x * TAU * 1.5)]; })),
+  zigzag: poly([[-0.5, -0.12], [-0.3, 0.12], [-0.1, -0.12], [0.1, 0.12], [0.3, -0.12], [0.5, 0.12]]),
+  arc: poly(arcPts(0.36, Math.PI * 0.1, Math.PI * 0.9, 16)),
+  triangle: poly([[0, 0.38], [0.36, -0.24], [-0.36, -0.24]], true),
+  ring: poly(arcPts(0.3, 0, TAU, 28).slice(0, 28), true),
+  plus: [[-0.3, 0, 0.3, 0], [0, -0.3, 0, 0.3]],
+  dot: poly(arcPts(0.08, 0, TAU, 10).slice(0, 10), true),
+  dash: [[-0.35, 0, 0.35, 0]],
+  stripes: [[-0.36, -0.2, 0.36, -0.2], [-0.36, 0, 0.36, 0], [-0.36, 0.2, 0.36, 0.2]],
+};
+// the closed glyphs, as polygons, for solid shapes
+const MEMPHIS_SOLID = { triangle: [[0, 0.38], [0.36, -0.24], [-0.36, -0.24]], ring: arcPts(0.3, 0, TAU, 28).slice(0, 28), dot: arcPts(0.08, 0, TAU, 10).slice(0, 10) };
+const MEMPHIS_MIX = {
+  everything: ['squiggle', 'zigzag', 'arc', 'triangle', 'ring', 'plus', 'dot', 'dash', 'stripes'],
+  squiggles: ['squiggle', 'zigzag', 'arc'],
+  shapes: ['triangle', 'ring', 'plus', 'stripes'],
+  confetti: ['dash', 'dot', 'dash', 'plus'],
+};
+// the nearest seam of a quilting: d its distance, along a coordinate down it (for stitches), f the
+// cell's pillow (1 in its middle, 0 on every seam)
+function seamNear(style, L, angleDeg) {
+  const line = (w, a) => { const k = Math.round(w / a); return { d: Math.abs(w - k * a) }; };
+  const sn = (w) => Math.abs(Math.sin(Math.PI * w / L));
+  if (style === 'square') return (u, v) => { const a = line(u, L), b = line(v, L), f = sn(u) * sn(v); return a.d < b.d ? { d: a.d, along: v, f } : { d: b.d, along: u, f }; };
+  if (style === 'channel') return (u, v) => ({ d: line(v, L).d, along: u, f: sn(v) });
+  if (style === 'honeycomb') {
+    // flat-to-flat L: centers on a triangular lattice L apart; a cell's edge normals at 0°, 60°, 120°
+    const N = [[1, 0], [0.5, Math.sqrt(3) / 2], [-0.5, Math.sqrt(3) / 2]], bx = [L, 0], by = [L / 2, L * Math.sqrt(3) / 2];
+    return (u, v) => {
+      const jf = v / by[1], ifl = (u - jf * by[0]) / bx[0];
+      let best = null;
+      for (let dj = -1; dj <= 1; dj++) for (let di = -1; di <= 1; di++) {
+        const j = Math.round(jf) + dj, i = Math.round(ifl) + di, cx = i * bx[0] + j * by[0], cy = j * by[1];
+        const qx = u - cx, qy = v - cy;
+        let hd = 0, k = 0;
+        for (let n = 0; n < 3; n++) { const t = Math.abs(qx * N[n][0] + qy * N[n][1]); if (t > hd) { hd = t; k = n; } }
+        if (!best || hd < best.hd) best = { hd, along: -qx * N[k][1] + qy * N[k][0], f: N.reduce((m, n) => m * Math.cos(Math.PI * (qx * n[0] + qy * n[1]) / L), 1) };
+      }
+      return { d: Math.max(0, L / 2 - best.hd), along: best.along, f: best.f };
+    };
+  }
+  // diamond: two families of seams at ±angle/2 from the row direction, each L apart
+  const h = (angleDeg / 2) * Math.PI / 180, n1 = [-Math.sin(h), Math.cos(h)], n2 = [Math.sin(h), Math.cos(h)];
+  return (u, v) => {
+    const w1 = u * n1[0] + v * n1[1], w2 = u * n2[0] + v * n2[1];
+    const a = line(w1, L), b = line(w2, L), f = sn(w1) * sn(w2);
+    return a.d < b.d ? { d: a.d, along: u * n1[1] - v * n1[0], f } : { d: b.d, along: u * n2[1] - v * n2[0], f };
+  };
+}
 
 // The one or two numbers that size each pattern: what a card shows first. The rest (and every
 // seed, which a card can offer as a shuffle) are the pattern's finer points.
 export const BASIC = {
   dots: ['pitch', 'diameter'], dashdot: ['sequence', 'width'], morse: ['text'], ribs: ['pitch', 'width'], knurl: ['pitch'],
   noise: ['scale'], waves: ['wavelength'], stone: ['size', 'mortar'], weave: ['thread'], motif: ['shape', 'size'],
+  memphis: ['mix', 'size'], quilt: ['style', 'size'],
 };
 // one word each, for a swatch's caption
-const SHORT = { dots: 'dots', dashdot: 'dashes', morse: 'morse', ribs: 'flutes', knurl: 'knurl', noise: 'noise', waves: 'waves', stone: 'stone', weave: 'weave', motif: 'repeat' };
+const SHORT = { dots: 'dots', dashdot: 'dashes', morse: 'morse', ribs: 'flutes', knurl: 'knurl', noise: 'noise', waves: 'waves', stone: 'stone', weave: 'weave', motif: 'repeat', memphis: 'memphis', quilt: 'quilted' };
 for (const id in PATTERNS) PATTERNS[id].short = SHORT[id] || PATTERNS[id].label;
 for (const [id, ks] of Object.entries(BASIC)) for (const q of PATTERNS[id].params) {
   if (ks.includes(q.k)) q.basic = true;
@@ -2332,7 +2461,7 @@ export function shadeHeight(H, W, Hn, res, colors, inside, depth) {
 }
 
 // A pattern's swatch: an N x N picture of a patch sized to show a few repeats, at its own numbers
-export const SWATCH_SPAN = { dots: 40, dashdot: 52, morse: 60, ribs: 44, knurl: 30, noise: 90, waves: 90, stone: 70, weave: 44, motif: 50 };
+export const SWATCH_SPAN = { dots: 40, dashdot: 52, morse: 60, ribs: 44, knurl: 30, noise: 90, waves: 90, stone: 70, weave: 44, motif: 50, memphis: 70, quilt: 80 };
 export function swatch(id, N, colors, params) {
   const span = SWATCH_SPAN[id] || 50, res = span / N;
   const tex = texture({ pattern: id, params, transform: { ox: 0, oy: 0 } });
