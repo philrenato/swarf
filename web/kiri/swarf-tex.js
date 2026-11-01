@@ -530,10 +530,7 @@
     };
     const ask = { kind: 'mesh', loops: part.loops, thickness: part.thick, marks, res, cut, format: fmt, name };
     if (w) { const id = ++asked; pending.set(id, done); w.postMessage({ id, ...ask }); return; }
-    try {
-      const M = T().partMesh(ask), check = T().meshCheck(M);
-      done(fmt === 'obj' ? { text: T().meshOBJ(M, name), triangles: M.triangles, check } : fmt === 'glb' ? { buf: T().meshGLB(M, name), glb: true, triangles: M.triangles, check } : { buf: T().meshSTL(M, name), triangles: M.triangles, check });
-    } catch (e) { done({ error: e.message || String(e) }); }
+    try { done(T().meshFile(ask)); } catch (e) { done({ error: e.message || String(e) }); }
   }
   // fewer or more points: fitted again from the paint
   function pointsCount(n) {
@@ -971,13 +968,8 @@
     const w = texWorker();
     if (w) return new Promise(res => { const id = ++asked; pending.set(id, r => { if (!r.error) return res(done(r)); try { res(here()); } catch (e) { res(failed(r.error === 'no worker' ? e : r.error)); } }); w.postMessage({ id, ...ask }); });
     try { return Promise.resolve(here()); } catch (e) { return Promise.resolve(failed(e)); }
-    // no worker (an old browser): the same work here
-    function here() {
-      const C = T(), chk = C.markChecks(ask.mark, { thickness: part.thick, len: v => `⟦${v}⟧`, part: part.loops });
-      let seconds = 0, strategy = 'raster';
-      if (chk.tex || chk.cuts) { const p = C.markToolpath(ask.mark, { maxDepth: part.thick, stepDown: ask.down, res: 0.6, part: part.loops }); seconds = C.estimateTime(p.moves, { feed: ask.rate / 60, plunge: ask.plunge / 60 }).seconds; strategy = p.strategy; }
-      return done({ warnings: chk.warnings, notes: chk.notes, strategy, seconds });
-    }
+    // no worker (an old browser): the worker's work, here
+    function here() { return done(T().markReport(ask.mark, { ...ask, len: v => `⟦${+v}⟧` })); }
   }
   function checkSoon() {
     if (!S) return;

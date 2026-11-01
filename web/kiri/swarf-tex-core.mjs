@@ -1929,6 +1929,18 @@ export function markChecks(mark, o = {}) {
   if (o.outside > 0.02) warnings.push(`${Math.round(o.outside * 100)}% of the mark is off the part: that much of the texture cuts air, or the board around the part.`);
   return { warnings, notes: a.notes, tex, tool, strategy };
 }
+// what a mark will cut: the checks, the path the core picks and the cut time (TEX's card, in its
+// worker or on the page)   o = { thickness (mm), part, len, down (step down), rate, plunge (mm/min) }
+export function markReport(mark, o = {}) {
+  const chk = markChecks(mark, { thickness: o.thickness, len: o.len, part: o.part });
+  let seconds = 0, strategy = 'raster';
+  if (chk.tex || chk.cuts) {
+    const p = markToolpath(mark, { maxDepth: o.thickness, stepDown: o.down > 0 ? o.down : 0, res: 0.6, part: o.part });
+    seconds = estimateTime(p.moves, { feed: o.rate / 60, plunge: o.plunge / 60 }).seconds;
+    strategy = p.strategy;
+  }
+  return { warnings: chk.warnings, notes: chk.notes, strategy, seconds };
+}
 
 // ---------------------------------------------------------------------------------------------
 // The mark on its part (Phil 10-30: "paint goes to, can't go past, the top edge, ever; everything
@@ -2821,6 +2833,13 @@ export function meshGLB(mesh, name = 'swarf') {
   dv.setUint32(b0, bin.length + bpad, true); dv.setUint32(b0 + 4, 0x004e4942, true); u8.set(bin, b0 + 8);
   return buf;
 }
+// the part as a mesh with its marks (as designed or as cut), written as STL, OBJ or GLB
+export function meshFile({ loops, thickness, marks, res, cut, format, name }) {
+  const M = partMesh({ loops, thickness, marks, res, cut }), check = meshCheck(M);
+  if (format === 'obj') return { text: meshOBJ(M, name), triangles: M.triangles, check };
+  if (format === 'glb') return { buf: meshGLB(M, name), glb: true, triangles: M.triangles, check };
+  return { buf: meshSTL(M, name), triangles: M.triangles, check };
+}
 
 // ---------------------------------------------------------------------------------------------
 // Pictures: a height field shaded as a carved surface, for any host to draw (marks, swatches).
@@ -2865,9 +2884,9 @@ const API = {
   heightGrid, stepoverForScallop, rasterPath, plungeDots, centerlinePath, toolpath, estimateTime, formatTime, analyze, createSim,
   simulate, compare, IDENTITY, encodeRuns, decodeRuns, newGrid, paintWhere, stampDisc, stampStroke, gridCount,
   regionSpec, storeRegion, xfApply, xfInvert, xfThen, xfScale, placeTexture, newFill, suggestBit, FINISHES, FINISH_WORDS, markTexture, pathFor, markToolpath, feedRuns,
-  markChecks, BASIC, shadeHeight, SWATCH_SPAN, swatch,
+  markChecks, markReport, BASIC, shadeHeight, SWATCH_SPAN, swatch,
   clipToPart, edgeDistance, insideReach, controlsFor, splineAt, sampleCurve, paintLoops, fitCurves, curvesCross, rewriteFromCurves, nearestOnCurves,
-  partMesh, partMeshSize, autoMeshRes, meshCheck, meshNormals, meshSTL, meshOBJ, meshGLB,
+  partMesh, partMeshSize, autoMeshRes, meshCheck, meshNormals, meshSTL, meshOBJ, meshGLB, meshFile,
   RECIPE_FORMAT, RECIPE_VERSION, RECIPE_CORE, PATTERN_VERSIONS, recipeOf, fillOfRecipe, textureOfRecipe, recipeRefusal, checkOf, verifyRecipe,
   typedRange, CURVES, CURVE_WORDS, BORDERS, BORDER_WORDS, borderDefaults, isoLines, alongLines, fillShape,
   roundProse, PIERCES, SKIN_STRAIN, defaultSkin, kerfCount, pierceDefaults, newPierce, fillTool, kerfPitch, pierceCuts, pierceToolpath, pierceChecks, pierceSVG,
