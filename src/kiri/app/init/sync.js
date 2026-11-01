@@ -1166,10 +1166,33 @@ function setup_keybd_nav() {
         $('context-move-panel').onclick = () => toggleSelectionPanel('panel-move');
         $('panel-move-close').onmousedown = (ev) => { ev.stopPropagation(); };
         $('panel-move-close').onclick = (ev) => { ev.stopPropagation(); hideSelectionPanel('panel-move'); };
-        $('mov_x_lt').onclick = () => { selection.move(-parseFloat($('mov_x').value || 0), 0, 0); };
-        $('mov_x_gt').onclick = () => { selection.move( parseFloat($('mov_x').value || 0), 0, 0); };
-        $('mov_y_lt').onclick = () => { selection.move(0, -parseFloat($('mov_y').value || 0), 0); };
-        $('mov_y_gt').onclick = () => { selection.move(0,  parseFloat($('mov_y').value || 0), 0); };
+        // (Phil 11-01) the step is a length in the cam units (3/4, 1/2 in, 10 mm); it keeps its length
+        // when the units change; one swarf cannot read, or past the bed, moves nothing
+        const movL = self.SwarfLength;
+        const movMm = id => {
+            const el = $(id), mm = movL ? movL.parse(el.value) : parseFloat(el.value);
+            const dev = api.conf.get().device || {}, top = Math.max(dev.bedWidth || 0, dev.bedDepth || 0) || Infinity;
+            if (!(mm > 0 && mm <= top)) {
+                api.show.alert(`A move step is a length above 0${top < Infinity ? `, up to ${movL ? movL.say(top) : top + ' mm'}` : ''}, like 1/2 in or 10 mm.`, 5);
+                if (el.dataset.mm) el.value = movL ? movL.show(+el.dataset.mm) : el.dataset.mm;
+                return 0;
+            }
+            el.dataset.mm = mm;
+            return mm;
+        };
+        for (const id of ['mov_x', 'mov_y']) {
+            const el = $(id);
+            el.dataset.mm = 10;
+            el.title = `${id === 'mov_x' ? 'X' : 'Y'} step: a length like 1/2 in or 10 mm`;
+            el.addEventListener('keydown', ev => ev.stopPropagation());
+            el.addEventListener('change', () => movMm(id));
+        }
+        api.event.on('units.set', () => { for (const id of ['mov_x', 'mov_y']) { const el = $(id); if (el && movL) el.value = movL.show(+el.dataset.mm || 10); } });
+        if (movL && movL.unit() === 'in') for (const id of ['mov_x', 'mov_y']) $(id).value = movL.show(10);
+        $('mov_x_lt').onclick = () => { selection.move(-movMm('mov_x'), 0, 0); };
+        $('mov_x_gt').onclick = () => { selection.move( movMm('mov_x'), 0, 0); };
+        $('mov_y_lt').onclick = () => { selection.move(0, -movMm('mov_y'), 0); };
+        $('mov_y_gt').onclick = () => { selection.move(0,  movMm('mov_y'), 0); };
         $('mov_center').onclick = () => {
             // absolute move to platform origin (0,0,0). widget.move with abs=true
             // places the widget AT that world position rather than adding.
