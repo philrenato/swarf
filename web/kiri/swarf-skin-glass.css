@@ -369,3 +369,9 @@ html[data-skin="glass"] #layer-animate .swarf-sim-word, html[data-skin="glass"] 
 html[data-skin="glass"] { --swarf-more-bg: #f7f7f7; }
 html[data-skin="glass"] #swarf-run { --swarf-more-bg: #f4f4f4; }
 html[data-skin="glass"] #tx-card { --swarf-more-bg: #fcfcfc; }
+/* (r093 UX V6) in simulate the stock's red chip-glow bled through the steps pane as a pink smear:
+   the pane is near opaque while the bit cuts */
+html[data-skin="glass"] body.swarf-phase-simulating #panel-right .set2-group { background: rgba(247, 247, 247, .94) !important; }
+/* (r093 UX V8) the about card in the body face, as every other card; the license stays monospace */
+html[data-skin="glass"] .swarf-about { font-family: var(--g-font) !important; }
+html[data-skin="glass"] .swarf-about .swarf-license { font-family: var(--g-mono) !important; }
