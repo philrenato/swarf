@@ -553,6 +553,50 @@ export const PATTERNS = {
       return { h: (u, v) => p.depth * t(at(u, v)), depth: p.depth, feature: p.size, featureLabel: `${fmt(p.size)} mm stripes and spots`, kind: 'surface' };
     },
   },
+  blob: {
+    label: 'blobtex', blurb: 'Circles of every size that melt into each other, puffed in or out by how wide they are.',
+    params: [P('size', 'Blob size', 3, 40, 0.5, 10), P('variety', 'Size variety', 0, 1, 0.05, 0.6, ''), P('density', 'Density', 10, 100, 5, 60, '%'),
+      P('merge', 'Merge', 0, 1, 0.05, 0.5, ''), S('puff', 'Puff', ['dish', 'pillow'], 'dish'), P('span', 'Puff span', 1, 30, 0.5, 8),
+      S('shape', 'Puff shape', ['round', 'dome', 'soft'], 'round'), P('depth', 'Depth', 0.2, 6, 0.1, 2), P('seed', 'Seed', 1, 99, 1, 3, '')],
+    build(p) {
+      // Metaballs: one circle (or none, by density) jittered in each cell of a grid, radius about Size.
+      // Each adds (1 - (d/R)^2)^3 inside R = 1.6 r; the outline is where the sum reaches a level that
+      // Merge lowers (lower level: fatter blobs that fuse sooner). Inside, the distance to that outline
+      // is (sum - level) / |gradient|; the puff rises over Puff span, so a wide area puffs fully and a
+      // narrow neck or a small blob only part way, as a stuffed shape does.
+      const r0 = p.size, cell = r0 * 2.2, seed = p.seed | 0, keep = Math.max(0.05, p.density / 100);
+      const level = 0.55 - 0.4 * p.merge, reach = 1.6, span = Math.max(0.1, p.span);
+      const ball = (ci, cj) => {
+        if (hash3(ci, cj, 1, seed) > keep) return null;
+        const r = r0 * Math.max(0.25, 1 + p.variety * (hash3(ci, cj, 2, seed) * 2 - 1) * 0.85);
+        return [(ci + 0.15 + 0.7 * hash3(ci, cj, 3, seed)) * cell, (cj + 0.15 + 0.7 * hash3(ci, cj, 4, seed)) * cell, r * reach];
+      };
+      const n = Math.ceil(r0 * 1.85 * reach / cell) + 1, R0 = r0 * reach, q0 = 1 - Math.cbrt(level);
+      const gFloor = 0.5 * 6 * Math.pow(level, 2 / 3) * Math.sqrt(q0) / R0;
+      const shape = p.shape === 'dome' ? (t) => t * (2 - t) : p.shape === 'soft' ? smoothstep : (t) => Math.sqrt(Math.max(0, 1 - (1 - t) * (1 - t)));
+      const h = (u, v) => {
+        const ci = Math.floor(u / cell), cj = Math.floor(v / cell);
+        let f = 0, gx = 0, gy = 0;
+        for (let a = -n; a <= n; a++) for (let b = -n; b <= n; b++) {
+          const c = ball(ci + a, cj + b);
+          if (!c) continue;
+          const dx = u - c[0], dy = v - c[1], q = (dx * dx + dy * dy) / (c[2] * c[2]);
+          if (q >= 1) continue;
+          const w = 1 - q;
+          f += w * w * w;
+          const k = -6 * w * w / (c[2] * c[2]);      // d/dx of (1 - q)^3 is -3 (1-q)^2 * 2dx/R^2
+          gx += k * dx; gy += k * dy;
+        }
+        if (f <= level) return p.puff === 'pillow' ? p.depth : 0;
+        // the gradient is flat at a saddle between two centers, where (sum - level) / |gradient| would run
+        // off to a seam of full depth; a floor of half one circle's slope at its own outline keeps a neck shallow
+        const d = (f - level) / Math.max(gFloor, Math.hypot(gx, gy));
+        const t = shape(Math.min(1, d / span));
+        return p.puff === 'pillow' ? p.depth * (1 - t) : p.depth * t;
+      };
+      return { h, depth: p.depth, feature: Math.min(r0 * 0.5, span), featureLabel: `${fmt(r0)} mm blobs`, kind: 'surface' };
+    },
+  },
   waves: {
     label: 'ocean waves', blurb: 'A sum of wave trains with sharp crests.',
     params: [P('wavelength', 'Wavelength', 8, 80, 1, 30), P('count', 'Waves', 1, 10, 1, 6, ''), P('spread', 'Spread', 0, 90, 1, 40, '°'),
@@ -791,11 +835,11 @@ function seamNear(style, L, angleDeg) {
 // seed, which a card can offer as a shuffle) are the pattern's finer points.
 export const BASIC = {
   dots: ['pitch', 'diameter'], dashdot: ['sequence', 'width'], morse: ['text'], ribs: ['pitch', 'width'], knurl: ['pitch'],
-  noise: ['scale'], reaction: ['style', 'growth', 'size'], waves: ['wavelength'], stone: ['size', 'mortar'], weave: ['thread'], motif: ['shape', 'size'],
+  noise: ['scale'], reaction: ['style', 'growth', 'size'], blob: ['size', 'puff', 'span'], waves: ['wavelength'], stone: ['size', 'mortar'], weave: ['thread'], motif: ['shape', 'size'],
   memphis: ['mix', 'size', 'density'], quilt: ['style', 'size'],
 };
 // one word each, for a swatch's caption
-const SHORT = { dots: 'dots', dashdot: 'dash', morse: 'morse', ribs: 'flutes', knurl: 'knurl', noise: 'noise', reaction: 'react', waves: 'waves', stone: 'stone', weave: 'weave', motif: 'repeat', memphis: '80s', quilt: 'quilt' };
+const SHORT = { dots: 'dots', dashdot: 'dash', morse: 'morse', ribs: 'flutes', knurl: 'knurl', noise: 'noise', reaction: 'react', blob: 'blob', waves: 'waves', stone: 'stone', weave: 'weave', motif: 'repeat', memphis: '80s', quilt: 'quilt' };
 for (const id in PATTERNS) PATTERNS[id].short = SHORT[id] || PATTERNS[id].label;
 for (const [id, ks] of Object.entries(BASIC)) for (const q of PATTERNS[id].params) {
   if (ks.includes(q.k)) q.basic = true;
@@ -2800,7 +2844,7 @@ export function shadeHeight(H, W, Hn, res, colors, inside, depth) {
 }
 
 // A pattern's swatch: an N x N picture of a patch sized to show a few repeats, at its own numbers
-export const SWATCH_SPAN = { dots: 40, dashdot: 52, morse: 60, ribs: 44, knurl: 30, noise: 90, reaction: 60, waves: 90, stone: 70, weave: 44, motif: 50, memphis: 70, quilt: 80 };
+export const SWATCH_SPAN = { dots: 40, dashdot: 52, morse: 60, ribs: 44, knurl: 30, noise: 90, reaction: 60, blob: 60, waves: 90, stone: 70, weave: 44, motif: 50, memphis: 70, quilt: 80 };
 export function swatch(id, N, colors, params) {
   const span = SWATCH_SPAN[id] || 50, res = span / N;
   const tex = texture({ pattern: id, params, transform: { ox: 0, oy: 0 } });

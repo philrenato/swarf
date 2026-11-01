@@ -589,5 +589,24 @@ for (const [id, P] of Object.entries(T.PATTERNS)) {
   ok(T.suggestBit('reaction', { size: 7 }) === 'ball18' && T.suggestBit('reaction', { size: 14 }) === 'ball14', 'reaction suggests the 1/8 in ball for fine detail');
 }
 
+// 44. blobtex (Phil 11-01: "random size and place circles that iso merge into each other ... a positive or
+//     negative puff ... based on the span of the area"): dish carves blobs, pillow raises them, merge fattens
+//     and fuses them, density thins them, a wide blob puffs deeper than a small one, and the same seed is
+//     the same blobs
+{
+  const B = (p) => T.texture({ pattern: 'blob', params: { ...T.defaults('blob'), ...p } });
+  const scan = (t) => { let inside = 0, deep = 0; for (let j = 0; j < 90; j++) for (let i = 0; i < 90; i++) { const h = t.h(i * 1.1, j * 1.1) / t.depth; if (h > 0.01) inside++; if (h > 0.95) deep++; } return { inside: inside / 8100, deep: deep / 8100 }; };
+  const dish = scan(B({})), pillow = B({ puff: 'pillow' }), d0 = B({});
+  let mirror = true; for (let k = 0; k < 60; k++) { const u = k * 1.7, v = k * 0.9; if (Math.abs(d0.h(u, v) + pillow.h(u, v) - d0.depth) > 1e-9) mirror = false; }
+  ok(dish.inside > 0.15 && dish.inside < 0.85 && mirror, `dish carves ${(dish.inside * 100).toFixed(0)}% of the area; pillow is the same blobs raised`);
+  const m0 = scan(B({ merge: 0 })).inside, m1 = scan(B({ merge: 1 })).inside, sparse = scan(B({ density: 25 })).inside;
+  ok(m1 > m0 * 1.3 && sparse < dish.inside * 0.7, `merge fattens (${(m0 * 100).toFixed(0)}% → ${(m1 * 100).toFixed(0)}%), density thins (${(sparse * 100).toFixed(0)}%)`);
+  const wide = scan(B({ span: 4 })).deep, narrow = scan(B({ span: 20 })).deep;
+  ok(wide > narrow * 2, `the puff follows the span: ${(wide * 100).toFixed(0)}% at full depth with a 4 mm span, ${(narrow * 100).toFixed(0)}% with 20 mm (only the widest areas)`);
+  const a = B({ seed: 9 }), b = B({ seed: 9 }), c = B({ seed: 10 });
+  let same = true, diff = false; for (let k = 0; k < 80; k++) { const u = k * 1.3, v = k * 2.1; if (a.h(u, v) !== b.h(u, v)) same = false; if (a.h(u, v) !== c.h(u, v)) diff = true; }
+  ok(same && diff, 'the same seed draws the same blobs; another seed others');
+}
+
 console.log(`\n${pass} passed, ${fail} failed  (${((Date.now() - t0) / 1000).toFixed(1)} s)`);
 process.exit(fail ? 1 : 0);
