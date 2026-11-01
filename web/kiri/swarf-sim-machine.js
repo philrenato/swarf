@@ -101,6 +101,15 @@
     active = true; x0 = null;
     showChip();
     apply();
+    keepGrid();
+  }
+  // cam rebuilds its grid when the view changes (a zoom, simulate's framing): a new one starts at
+  // x 0 while the bed has slid, so while simulate runs the grid is put back with the bed each frame
+  function keepGrid() {
+    if (!active) return;
+    const g = gridView();
+    if (g && WORLD && g.position.x !== WORLD.position.x) g.position.x = WORLD.position.x;
+    requestAnimationFrame(keepGrid);
   }
   function stop() {
     active = false; x0 = null;
