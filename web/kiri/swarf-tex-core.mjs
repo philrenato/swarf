@@ -892,23 +892,9 @@ export function polygonMask(pts) {
 // A painted mask: a 0/1 grid (nx * ny, cell `res` mm, origin x0, y0). A two-pass chamfer distance
 // transform turns it into a signed distance, so a soft edge works on paint exactly as on a shape.
 export function paintMask({ nx, ny, res, x0 = 0, y0 = 0, data }) {
-  const N = nx * ny, inD = new Float32Array(N), outD = new Float32Array(N);
-  const BIG = 1e9, a = 1, b = Math.SQRT2;
-  for (let i = 0; i < N; i++) { inD[i] = data[i] ? BIG : 0; outD[i] = data[i] ? 0 : BIG; }
-  for (const D of [inD, outD]) {
-    for (let j = 0; j < ny; j++) for (let i = 0; i < nx; i++) {
-      const k = j * nx + i; let v = D[k]; if (v === 0) continue;
-      if (i > 0) v = Math.min(v, D[k - 1] + a);
-      if (j > 0) { v = Math.min(v, D[k - nx] + a); if (i > 0) v = Math.min(v, D[k - nx - 1] + b); if (i < nx - 1) v = Math.min(v, D[k - nx + 1] + b); }
-      D[k] = v;
-    }
-    for (let j = ny - 1; j >= 0; j--) for (let i = nx - 1; i >= 0; i--) {
-      const k = j * nx + i; let v = D[k]; if (v === 0) continue;
-      if (i < nx - 1) v = Math.min(v, D[k + 1] + a);
-      if (j < ny - 1) { v = Math.min(v, D[k + nx] + a); if (i < nx - 1) v = Math.min(v, D[k + nx + 1] + b); if (i > 0) v = Math.min(v, D[k + nx - 1] + b); }
-      D[k] = v;
-    }
-  }
+  const N = nx * ny, outside = new Uint8Array(N);
+  for (let i = 0; i < N; i++) outside[i] = data[i] ? 0 : 1;
+  const inD = chamfer(outside, nx, ny), outD = chamfer(data, nx, ny);
   const sdg = new Float32Array(N);
   let bx0 = Infinity, by0 = Infinity, bx1 = -Infinity, by1 = -Infinity;
   for (let j = 0; j < ny; j++) for (let i = 0; i < nx; i++) {
@@ -2560,8 +2546,6 @@ export function partMesh(o) {
   // ── the outline: the part's loops (outer counterclockwise, holes clockwise) and every through-cut
   //    (clockwise), so material is where the winding is positive: cuts that cross the edge or each
   //    other need no boolean ──
-  const area2 = (L) => { let a = 0; for (let i = 0, j = L.length - 1; i < L.length; j = i++) a += (L[j][0] + L[i][0]) * (L[j][1] - L[i][1]); return -a / 2; };
-  const pip = (p, L) => { let n = false; for (let i = 0, j = L.length - 1; i < L.length; j = i++) if ((L[i][1] > p[1]) !== (L[j][1] > p[1]) && p[0] < (L[j][0] - L[i][0]) * (p[1] - L[i][1]) / (L[j][1] - L[i][1]) + L[i][0]) n = !n; return n; };
   const clean = (L) => { const out = []; for (const q of L) { const l = out[out.length - 1]; if (!l || Math.hypot(q[0] - l[0], q[1] - l[1]) > 1e-6) out.push([q[0], q[1]]); } if (out.length > 1 && Math.hypot(out[0][0] - out[out.length - 1][0], out[0][1] - out[out.length - 1][1]) < 1e-6) out.pop(); return out; };
   // a drawn curve's outline comes with a corner every fraction of a millimetre; each corner is a row of
   // the mesh below, so the corners that change little (under a sixteenth of the grid off the line) go first
@@ -2580,8 +2564,8 @@ export function partMesh(o) {
     return out.length >= 3 ? out : L;
   };
   const partLoops = o.loops.map(clean).map(simplify).filter((L) => L.length >= 3).map((L, i, all) => {
-    const depth = all.reduce((n, M, k) => n + (k !== i && pip(L[0], M) ? 1 : 0), 0);
-    const ccw = area2(L) > 0, want = depth % 2 === 0;
+    const depth = all.reduce((n, M, k) => n + (k !== i && insidePoly(L[0][0], L[0][1], M) ? 1 : 0), 0);
+    const ccw = loopArea2(L) > 0, want = depth % 2 === 0;
     return ccw === want ? L : L.slice().reverse();
   });
   const circle = (cx, cy, r, cw) => { const n = Math.max(24, Math.ceil(2 * Math.PI * r / Math.min(0.6, res))); const L = []; for (let k = 0; k < n; k++) { const a = (cw ? -1 : 1) * k / n * 2 * Math.PI; L.push([cx + r * Math.cos(a), cy + r * Math.sin(a)]); } return L; };
