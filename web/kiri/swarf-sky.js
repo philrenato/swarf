@@ -1,19 +1,8 @@
 /**
- * swarf sky animator.
- * Procedural cloud drift + working-state fog speedup + camera parallax.
- *
- * What this does (all driven off the body background defined in swarf.css):
- *   - Always-on slow drift (CSS keyframe via .swarf-sky-drift on body).
- *   - Speeds up (.swarf-sky-working) during slice / prepare / animate so the
- *     fog visibly churns while swarf is computing toolpaths or simulating.
- *   - Camera rotation parallax: hooks mouse-drag in the 3D viewport and
- *     nudges --swarf-sky-parallax-x on body; CSS uses that to shift the
- *     cloud layer's background-position, giving the sky a subtle lag
- *     relative to the scene.
- *
- * The cloud layer is already procedural (SVG feTurbulence is computed by the
- * browser, not a raster). We leave the turbulence as-is and animate the
- * background-position so the clumps appear to drift over time.
+ * swarf sky animator. The sky itself is CSS (body::before in swarf.css); this file
+ * speeds it up while swarf works (expert mode only) and, during slice/simulate, follows the
+ * camera orbit through --swarf-sky-parallax-x/y on body. Also home to a few one-time
+ * profile migrations and Help's reset-profile.
  */
 (function () {
   'use strict';
@@ -21,29 +10,6 @@
   window.__swarfSkyLoaded = true;
 
   const body = document.body;
-  // swarf-sky-drift class removed in r12 — sky animation now only runs
-  // during swarf-sky-working (simulate/slice). No always-on drift.
-
-  // ---- parallax on viewport drag ----------------------------------------
-  // We don't have a clean camera-rotate event, so we track mouse drag deltas
-  // over #container and accumulate into two CSS custom properties. CSS
-  // consumes them as a background-position offset.
-  let parX = 0, parY = 0;
-  let dragging = false;
-  let lastX = 0, lastY = 0;
-  const container = document.getElementById('container') || document.body;
-  const setParallax = () => {
-    body.style.setProperty('--swarf-sky-parallax-x', parX.toFixed(1) + 'px');
-    body.style.setProperty('--swarf-sky-parallax-y', parY.toFixed(1) + 'px');
-  };
-  setParallax();
-  // swarf r5: mouse-drag parallax retired in favor of camera-orbit polling
-  // below (works with trackpad pinch, keyboard orbit, programmatic moves).
-  // Kept here as a commented fallback for reference only.
-  // container.addEventListener('mousedown', ...);
-  // window.addEventListener('mousemove', ...);
-  // window.addEventListener('mouseup', ...);
-  void dragging; void lastX; void lastY; void parX; void parY; void setParallax; void container;
 
   // ---- working-state fog speedup ----------------------------------------
   // Hook via api.event when available (Kiri exposes it on window.kiri after boot).
@@ -59,49 +25,6 @@
       if (on && expert) body.classList.add('swarf-sky-working');
       else body.classList.remove('swarf-sky-working');
     };
-    // swarf r6: force the default seed cube to read "Kiri_Cube" in the
-    // OBJECTS panel — checkSeed's rename only runs for fresh empty profiles;
-    // catalog-loaded widgets or reloads need this hook to catch up.
-    const renameSeed = (added) => {
-      try {
-        const list = Array.isArray(added) ? added : [added];
-        for (const w of list) {
-          if (!w) continue;
-          // swarf v010: tightened — ONLY rename to Kiri_Cube if the widget is
-          // explicitly flagged as the seed (via meta.swarfSeed or
-          // mesh.userData.swarfSeed). An imported STL with no name is NOT the
-          // seed and must not be clobbered.
-          const isSeed = (w.meta && w.meta.swarfSeed) ||
-                         (w.mesh && w.mesh.userData && w.mesh.userData.swarfSeed);
-          if (isSeed) {
-            w.meta = w.meta || {};
-            w.meta.file = 'Kiri_Cube';
-            w.meta.swarfSeed = true;
-          }
-        }
-        // patch the already-rendered OBJECTS panel directly — platform.js
-        // calls changed() BEFORE widget.add emits, so the panel shows the
-        // old name by the time our hook runs. Rewrite matching DOM text.
-        // swarf v010: DOM patch only runs when we actually renamed a seed
-        // widget this call — not on every widget.add, or a fresh unnamed
-        // STL import gets relabeled Kiri_Cube.
-        const renamedAny = list.some(w => w && w.meta && w.meta.swarfSeed);
-        if (renamedAny) try {
-          const nameBtns = document.querySelectorAll('#ws-widgets button.name');
-          for (const btn of nameBtns) {
-            const t = btn.textContent.trim();
-            if (t === 'no name' || !t) btn.textContent = 'Kiri_Cube';
-          }
-        } catch (e) {}
-        try { api.event.emit('widget.rename'); } catch (e) {}
-      } catch (e) { console.warn('swarf: renameSeed failed', e); }
-    };
-    try {
-      const all = api.widgets && api.widgets.all && api.widgets.all();
-      if (all && all.length) renameSeed(all);
-    } catch (e) {}
-    api.event.on('widget.add', renameSeed);
-
     api.event.on('slice.begin',   () => setWorking(true));
     api.event.on('slice.end',     () => setTimeout(() => setWorking(false), 400));
     api.event.on('slice.error',   () => setWorking(false));
@@ -110,9 +33,6 @@
     try { api.event.on('animate', () => setWorking(true)); } catch (e) {}
     try { api.event.on('animate.end', () => setWorking(false)); } catch (e) {}
 
-    // swarf r5: one-shot migration — force TAGS (cam-tabs) and STRATEGY
-    // (cam-output) drawers to start closed for existing profiles that had
-    // them open from earlier builds.
     // swarf r6: force TAGS (cam-tabs) + STRATEGY (cam-output) drawers closed, once per profile
     // (settings.hidden is top-level). Gated (review r093 C3): run on every load it closed a drawer
     // the student had opened and saved the settings at every boot; new profiles start closed anyway.
@@ -271,10 +191,7 @@
     return true;
   };
 
-  // swarf r6: camera-aware fog — run independently of api.event so we retry
-  // until window.moto.space is populated. Earlier we gated this inside hook()
-  // and returned true unconditionally, meaning if moto.space came online late
-  // the camera poll never started. Now it has its own poller and sets up once.
+  // camera-aware sky: its own poll, since moto.space can arrive after kiri.api.
   let cameraAttached = false;
   let cameraTries = 0;
   const TAU = Math.PI * 2;
@@ -291,16 +208,12 @@
     cameraAttached = true;
     let lastL = null, lastU = null, lastScale = null;
     let cx = 0, cy = 0;
-    let logged = false;
     let parallaxRunning = false;
     const tick = () => {
       if (!parallaxRunning) return;
       try {
         const p = space.view.save();
         if (p && typeof p.left === 'number' && typeof p.up === 'number') {
-          if (!logged) {
-            logged = true;
-          }
           if (lastL !== null) {
             const dL = shortestDelta(p.left, lastL);
             const dU = p.up - lastU;
