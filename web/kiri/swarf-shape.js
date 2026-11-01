@@ -165,7 +165,10 @@
       const made = a.platform.load_svg(svgFor(kind, v), nameFor(kind), { depth: t, resolution: 2, segmin: 48, soup: true, dpi: 0, edge: { kind: edge, size: es } });
       if (!made.length) { a.show.alert(made.error || 'swarf could not make that shape.', 6); return; }
       const shaped = edge === 'straight' ? '' : ` with a ${len(es)} ${EDGES[edge]} top edge`;
-      a.show.alert(`Made a ${SHAPES[kind].label}, ${len(t)} thick${shaped}. Next: add a step (${edge === 'straight' ? 'outline cuts it out' : 'contour shapes the edge, outline cuts it out'}), then toolpaths.`, 8);
+      // the hint goes as soon as it is followed: a step added, or toolpaths (review r093-ux B8)
+      ((rec) => { const drop = () => { try { a.hide.alert(rec); } catch (e) { /* gone */ } document.getElementById('op-add-list')?.removeEventListener('click', drop, true); };
+        document.getElementById('op-add-list')?.addEventListener('click', drop, true); a.event.on('preview.begin', drop); })(
+      a.show.alert(`Made a ${SHAPES[kind].label}, ${len(t)} thick${shaped}. Next: add a step (${edge === 'straight' ? 'outline cuts it out' : 'contour shapes the edge, outline cuts it out'}), then toolpaths.`, 8));
     });
     setTimeout(() => {
       if (!$('shape-kind')) return;

@@ -671,7 +671,7 @@ function setup_keybd_nav() {
         const wrap = document.createElement('div');
         wrap.id = 'swarf-concerns';
         wrap.innerHTML = `
-            <div id="swarf-concerns-tab" title="rule-based setup warnings — click to expand">
+            <div id="swarf-concerns-tab" title="what could go wrong with this setup: click to open">
                 <span>concerns</span>
                 <span id="swarf-concerns-count">0</span>
             </div>

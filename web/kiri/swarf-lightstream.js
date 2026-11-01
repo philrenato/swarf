@@ -330,7 +330,7 @@
     if (!rec || Array.isArray(rec)) return `step ${i + 1}`;
     // as init-ui.js opRender names the step: DRAW's engrave, TEX's mark, else its type (and #note)
     if (rec.engrave) return 'engrave';
-    if (rec.type === 'texture' || rec.type === 'pierce') return rec.texlabel || rec.type;
+    if (rec.type === 'texture' || rec.type === 'pierce') return String(rec.texlabel || rec.type).replace(/^(\w+): (.+?) on .*$/, '$1 · $2');
     const tag = rec.note ? rec.note.split(' ').find(v => v.charAt(0) === '#') : null;
     return (rec.mode ? rec.type + ' ' + rec.mode : rec.type) + (tag ? ` (${tag.slice(1)})` : '');
   }
@@ -383,7 +383,10 @@
     if (!space || !space.world || !api || !api.event) return false;
     api.event.on('swarf.tool.move', ({ pos, step }) => onMove({ pos, step }));
     api.event.on('animate',          () => { ensure(); clearTrail(); applyVisibility(); });
-    api.event.on('function.animate', () => { ensure(); clearTrail(); applyVisibility(); dropBoxes(); });
+    // every step has its box from the start, so a step can be hidden before it runs (review r093-ux B7)
+    const allBoxes = () => { let ops = []; try { ops = window.kiri.api.conf.get().process.ops || []; } catch (e) { /* no settings */ }
+      ops.forEach((o, i) => { if (o && !Array.isArray(o) && o.type !== '|' && !o.disabled) addStepBox(i); }); };
+    api.event.on('function.animate', () => { ensure(); clearTrail(); applyVisibility(); dropBoxes(); setTimeout(allBoxes, 0); });
     api.event.on('view.set', () => { if (!(api.view.is_animate && api.view.is_animate())) dropBoxes(); });
     window.addEventListener('swarf.lightstream.toggle', showBoxes);
     window.addEventListener('resize', showBoxes);

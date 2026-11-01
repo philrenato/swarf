@@ -399,12 +399,12 @@
                 <div class="set2-group f-col mode-cam bottom">
                     <!-- swarf: operation list — opens when TOOLPATHS step is clicked (markup Apr 15) -->
                     <details id="swarf-toolpaths-details" open>
-                    <summary class="set-header mode-cam" title="machining operations — each step removes material in a different way"><a>toolpaths</a></summary>
+                    <summary class="set-header mode-cam" title="the steps the machine cuts, in order"><a>steps</a></summary>
                     <div id="camops" class="f-col a-stretch grow">
                         <!-- swarf: tool library opener (markup Apr 15) — endmills / drills / bits -->
                         <div id="swarf-tools-row" class="f-row" style="gap:6px; padding:4px 0; align-items:center">
-                            <span style="font-size:10px; letter-spacing:0.02em; text-transform:none; color:var(--swarf-text-3); flex:1">tool library</span>
-                            <button id="swarf-open-tools" title="manage endmills, drills, and bits" style="font-size:11px; padding:3px 10px">endmills &amp; bits</button>
+                            <span style="flex:1"></span>
+                            <button id="swarf-open-tools" title="the bits this machine has: add, change or remove one" style="font-size:11px; padding:3px 10px">bits</button>
                         </div>
 
                         <!-- swarf: live operations list (rough/contour/outline/pocket added here) -->
@@ -415,10 +415,10 @@
                              Pulled out of the +-popover so the primary action is obvious. -->
                         <div class="swarf-add-op-label">add a step</div>
                         <div id="op-add-list" class="opdiv op-grid swarf-add-op-grid">
-                            <div title="clear stock material layer by layer above selected surfaces — the first pass that clears the bulk">rough</div>
-                            <div title="smooth 2.5D pass along the X or Y axis, used for curved faces after roughing">contour</div>
-                            <div title="cut parts out using their outline — the pass that frees the part from the stock">outline</div>
-                            <div title="clear areas above selected surfaces — pockets, trays, countersinks">pocket</div>
+                            <div title="clears most of the wood above the part in flat layers: the first step">rough</div>
+                            <div title="smooths a curved top line by line, after rough">contour</div>
+                            <div title="cuts the part free along its edge: usually last">outline</div>
+                            <div title="clears a flat hollow down to a face you pick">pocket</div>
                             <!-- expert-only ops, hidden in student mode -->
                             <div class="swarf-expert-only" title="clear the top of the stock to a flat reference surface">level</div>
                             <div class="swarf-expert-only" title="drill selected holes">drill</div>
@@ -455,7 +455,7 @@
     <div id="swarf-right-rail" class="f-col j-start settings">
         <div class="set2-group f-col">
             <details open>
-                <summary class="set-header" title="imported meshes in the scene — click a name to select"><a>objects</a></summary>
+                <summary class="set-header" title="the parts on the bed: click one to pick it"><a>objects</a></summary>
                 <div id="ws-widgets" class="f-col"></div>
             </details>
         </div>

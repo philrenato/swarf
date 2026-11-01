@@ -229,7 +229,7 @@
         <button id="tx-clear" title="remove every mark on the picked part, or on every part when none is picked (undo brings them back)">clear</button>
         <button id="tx-fit" title="show the parts, or the whole bed (F) · pinch or ⌘-scroll to zoom, two fingers to slide">fit</button>
         <span class="sd-grow"></span>
-        <button id="tx-cancel" title="close without changing the marks (press twice, or Esc twice)">cancel</button>
+        <button id="tx-cancel" title="close without changing the marks (press twice; Esc steps back one thing at a time, then asks)">cancel</button>
         <button id="tx-done" class="sd-go" title="keep the marks and close">done</button>
       </div>
       <div class="sd-card" id="tx-card"></div>
@@ -666,6 +666,8 @@
       <path class="tx-kp-arc" d="M${x0},${by + 6} Q${x0 + span / 2},${by + 6 + Math.min(10, 600 / pr.radius)} ${x0 + span},${by + 6}"/>
       <text class="tx-kp-t" x="${x0 + span + 4}" y="${y0 + Tb * k - 1}">skin</text><text class="tx-kp-t" x="${x0 + span / 2 - 14}" y="${H - 2}">bends this way</text></svg></div>`;
   }
+  // a pattern said in a sentence: "Ocean waves: a sum of wave trains…" (review r093-ux V4: a capital mid-line)
+  const patSaid = p => `${p.label.charAt(0).toUpperCase()}${p.label.slice(1)}: ${p.blurb.charAt(0).toLowerCase()}${p.blurb.slice(1)}`;
   // the patterns as swatches, in the skin's colors, made once a visit
   function swatchHref(id) {
     S.sw = S.sw || {};
@@ -752,10 +754,10 @@
     } else if (m) {
       const f = m.fill, P = C.PATTERNS[f.pattern], pr = { ...C.defaults(f.pattern), ...(f.params || {}) };
       const compact = window.innerHeight < 820;
-      h += `${fillRow(f)}<div class="tx-sws${compact ? ' tx-compact' : ''}">${Object.entries(C.PATTERNS).map(([k, p]) => `<button class="tx-sw${k === f.pattern ? ' on' : ''}" data-pat="${k}" aria-label="${esc(p.label)}: ${esc(p.blurb)}" data-hint="${esc(compact ? p.label : `${p.label}: ${p.blurb}`)}"><img alt="" src="${swatchHref(k)}"><span>${esc(p.short)}</span></button>`).join('')}</div>`;
+      h += `${fillRow(f)}<div class="tx-sws${compact ? ' tx-compact' : ''}">${Object.entries(C.PATTERNS).map(([k, p]) => `<button class="tx-sw${k === f.pattern ? ' on' : ''}" data-pat="${k}" aria-label="${esc(p.label)}: ${esc(p.blurb)}" data-hint="${esc(compact ? p.label : patSaid(p))}"><img alt="" src="${swatchHref(k)}"><span>${esc(p.short)}</span></button>`).join('')}</div>`;
       // at 720p the swatches keep their captions on two rows of five (review 10-30 B3: ten unlabeled
       // 16 px squares); the hint line goes (the captions and the pattern select name it) and path folds into more
-      if (!compact) h += `<div class="sd-note tx-swhint" id="tx-swhint">${esc(`${P.label}: ${P.blurb}`)}</div>`;
+      if (!compact) h += `<div class="sd-note tx-swhint" id="tx-swhint">${esc(patSaid(P))}</div>`;
       // a short window keeps the captioned swatches only (the select repeats them), so the shape row fits
       if (!compact) h += selRow('pattern', 'tx-pat', Object.entries(C.PATTERNS).map(([k, p]) => [k, p.label]), f.pattern, P.blurb);
       // what it costs and what to watch for, up by the pattern where it is seen

@@ -28,7 +28,7 @@
     return /shopbot/i.test(n) ? 'bed' : /mr-1|langmuir/i.test(n) ? 'gantry' : null;
   }
   const TITLE = {
-    bed: 'Show the ShopBot: its 4 × 8 ft bed slides in X under the gantry, as it does in the shop',
+    bed: 'the ShopBot around the cut',
     gantry: 'Show the MR-1: its table stays still; the gantry moves in Y, the carriage in X and the spindle in Z'
   };
 
@@ -112,6 +112,9 @@
     if (!active) return;
     const g = gridView();
     if (g && WORLD && g.position.x !== WORLD.position.x) g.position.x = WORLD.position.x;
+    // the gantry shows once the camera is far enough out, however it got there (review r093-ux B1:
+    // only the wheel re-checked, so a zoom by fit or a pinch left the chip lit and no machine)
+    if (wanted()) near();
     gridRaf = requestAnimationFrame(keepGrid);
   }
   function stop() {

@@ -134,7 +134,7 @@ export function menu() {
     camTabsManual: newRow([
         // swarf (whole-app review r086 B8): the by-hand tools say what they do, as auto tabs does
         (ui.tabAdd = newButton('add by hand', onButtonClick, {title:"place tabs by hand: click the part's edge to add one, click a tab to remove it"})),
-        (ui.tabDun = newButton('done', onButtonClick, {title:"done placing tabs"})),
+        (ui.tabDun = newButton('stop adding', onButtonClick, {title:"stop placing tabs by hand (or press Esc)"})),
         (ui.tabClr = newButton('remove all', onButtonClick, {title:"remove every tab"}))
     ], {class:"ext-buttons f-row"}),
     separator:           newBlank({ class:"set-sep", driven }),

@@ -136,6 +136,9 @@
       a.event.on('preview.begin', () => said(''));
       for (const ev of ['widget.select', 'widget.deselect', 'selection.scale', 'selection.move', 'selection.rotate', 'platform.layout', 'widget.add', 'widget.delete']) a.event.on(ev, () => setTimeout(show, 0));
       new MutationObserver(show).observe(document.body, { attributes: true, attributeFilter: ['class'] });
+      // mm | in: the fields in the new units at once (review r093-ux B2: they kept the old numbers
+      // under the new suffix until the part was picked again)
+      if (a.ui && a.ui.units) a.ui.units.addEventListener('change', () => setTimeout(show, 50));
       show();
     }
   }, 150);

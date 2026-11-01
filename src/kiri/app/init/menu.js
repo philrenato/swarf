@@ -317,11 +317,11 @@ function modeTools(actions) {
         // also switches to arrange view so the left drawer for op editing
         // stays reachable. The old 'view-arrange' button is gone because the
         // left TOOLPATHS drawer handles op setup directly.
-        span({ id: 'act-paths', ...on(actions, 'act-paths'), class: 'swarf-step', title: 'generate and preview toolpaths — rough, contour, outline, pocket' }, [
+        span({ id: 'act-paths', ...on(actions, 'act-paths'), class: 'swarf-step', title: 'make the toolpaths for the steps and show them' }, [
             span([icon('fas fa-route')]),
             label({ id: 'label-paths', _: 'toolpaths' })
         ]),
-        span({ id: 'act-animate', ...on(actions, 'act-animate'), class: 'swarf-step', title: 'simulate — watch the tool cut, throw chips, and leave chips on the bed' }, [
+        span({ id: 'act-animate', ...on(actions, 'act-animate'), class: 'swarf-step', title: 'watch the bit cut the board' }, [
             span([icon('fas fa-play')]),
             label({ id: 'label-animate', _: 'simulate' })
         ]),

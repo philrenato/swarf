@@ -62,6 +62,10 @@ class Client {
 
 export const env = new Client();
 
+// a TEX step's row: "texture · ocean waves", the parts it is on in its tooltip (review r093-ux T3:
+// "texture: ocean waves on circle 2" ran out of the panel)
+const texShort = t => String(t).replace(/^(\w+): (.+?) on .*$/, '$1 · $2');
+
 export function isDark() {
     return api.space.is_dark()
 }
@@ -391,15 +395,15 @@ export function opRender() {
         }
         // swarf: a mark made in TEX, textured into its part's top (web/kiri/swarf-tex.js)
         if (rec.type === 'pierce') {
-            label = rec.texlabel || 'pierce';
+            const full = esc(rec.texlabel || 'pierce');
+            label = texShort(rec.texlabel || 'pierce');
             const est = rec.texest > 0 && window.SwarfTexCore ? `, about ${window.SwarfTexCore.formatTime(rec.texest)}` : '';
-            const full = esc(label);
             title = ` title="${full}: the mark made in TEX, cut through the part (or to its skin) by its straight bit${est}. A starting point: cut a test strip. Open tex to change it."`;
             clazz.push('tex-step');
         } else if (rec.type === 'texture') {
-            label = rec.texlabel || 'texture';
+            const full = esc(rec.texlabel || 'texture');
+            label = texShort(rec.texlabel || 'texture');
             const est = rec.texest > 0 && window.SwarfTexCore ? `, about ${window.SwarfTexCore.formatTime(rec.texest)}` : '';
-            const full = esc(label);
             title = ` title="${full}: the mark made in TEX, cut into the part's top by its bit and path${est}. Open tex to change it."`;
             clazz.push('tex-step');
         }
@@ -1068,9 +1072,10 @@ export function init() {
             case api.ui.tabDun:
                 return tabDone();
             case api.ui.tabClr:
-                api.uc.confirm("clear tabs?").then(ok => {
-                    if (ok) { const before = tabSnap(); tabClear(); autoForget(); tabUndo(before, 'clear tabs'); }
-                });
+                // no yes/no box: undo brings them back, and that is said (review r093-ux B5: Kiri's
+                // "clear tabs?" ignored Esc and stayed up across modes)
+                { const before = tabSnap(); tabClear(); autoForget(); tabUndo(before, 'clear tabs');
+                  api.show.alert('Removed every tab. ⌘Z brings them back.', 5); }
                 break;
         }
     });

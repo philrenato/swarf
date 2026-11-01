@@ -192,6 +192,7 @@ export function autoPlace(opt) {
     const plans = autoPlan(ws, cur);
     const { placed } = place(plans);
     tabUndo(before, 'auto tabs');
+    lastPlans = plans;
     sayLine(describe(plans, placed));
     showFields(plans[0]);
     try { window.dispatchEvent(new CustomEvent('swarf.autotabs.placed', { detail: summary(plans) })); } catch (e) {}
@@ -505,14 +506,15 @@ function summary(plans) {
     }));
 }
 
+// the plans the line was said from, so a units switch says it again in the new units (review r093-ux B2)
+let lastPlans = null;
 function describe(plans) {
     if (!plans.length) return 'Add a part first.';
     const n = plans.reduce((a, p) => a + p.records.length, 0);
     const p = plans[0], r = p.rule, i = p.inputs;
     const parts = plans.length > 1 ? ` on ${plans.length} parts` : '';
     const holes = plans.reduce((a, p) => a + p.kept.filter(t => t.hole).length, 0);
-    let line = `${n} tab${n === 1 ? '' : 's'}${parts}, ${say(r.width)} long and ${say(r.height)} tall`
-        + ` (${i.materialName}, ${say(r.thickness)} thick, ${say(r.bit)} bit).`;
+    let line = `${n} tab${n === 1 ? '' : 's'}${parts}, ${say(r.width)} × ${say(r.height)} for ${i.materialName} and a ${say(r.bit)} bit.`;
     if (holes) line += ` ${holes} of them hold the piece inside a big hole.`;
     if (plans.some(p => p.hand)) line += ' Your own tabs stay.';
     const pinned = plans.reduce((a, p) => a + p.pinned, 0), spots = plans.reduce((a, p) => a + p.spots, 0);
@@ -525,7 +527,7 @@ function describe(plans) {
     if (skipped) line += ` ${skipped} tab${skipped === 1 ? '' : 's'} did not fit: add ${skipped === 1 ? 'it' : 'them'} by hand with + where the part needs holding.`;
     if (plans.some(p => !p.rule.pinned.height && p.rule.height < p.rule.heightFloor - 0.01)) line += ` The board is thin, so the tabs are only ${say(r.height)} tall (under the usual ${say(r.heightFloor)}): check they hold.`;
     if (!n && !pinned) line = 'No straight enough edge for a tab here: place them by hand with +.';
-    else line += ' A starting layout: look at every part and every cutout before you cut. Click a tab to move, resize or delete it; undo takes them all back.';
+    else line += ' Check every part and cutout before you cut. Click a tab to move, resize or delete it; undo takes them back.';
     return line;
 }
 
@@ -679,7 +681,7 @@ function button(id, text, title, fn) {
 export function autoTabRow() {
     const what = document.createElement('div');
     what.className = 'swarf-autotabs-what';
-    what.textContent = 'Tabs are small bridges the outline leaves uncut, so the part stays held to the board until the cut ends. Cut them off after.';
+    what.textContent = 'Tabs hold the part to the board until the cut ends; cut them off after.';
     const go = button('swarf-autotabs-go', 'auto tabs', 'put a starting set of tabs on the selected part, sized for its material, bit, thickness and machine; then click a tab to move, resize or delete it (undo takes them back)', () => autoPlace());
     const density = slider('swarf-autotabs-density', 'how many', 'fewer', 'more', 'fewer or more tabs around each part');
     const scale = slider('swarf-autotabs-scale', 'size', 'smaller', 'larger', 'smaller or larger tabs: longer and taller');
@@ -744,7 +746,11 @@ export function autoTabRow() {
             }, 0));
             api.event.on(['widget.select', 'widget.deselect'], () => setTimeout(follow, 0));
             api.event.on('settings.load', () => setTimeout(showFields, 0));
-            if (api.ui.units) api.ui.units.addEventListener('change', () => setTimeout(showFields, 0));
+            // student mode: midline is for double-sided work (advanced only), and stop adding shows
+            // only while tabs are being placed by hand (review r093-ux T7)
+            try { const row = api.ui.camTabsMidline && api.ui.camTabsMidline.closest('.var-row'); if (row) row.classList.add('swarf-expert-only'); } catch (e) { /* no row */ }
+            if (api.ui.tabDun) api.ui.tabDun.style.display = 'none';
+            if (api.ui.units) api.ui.units.addEventListener('change', () => setTimeout(() => { showFields(); if (lastPlans) sayLine(describe(lastPlans)); }, 0));
         } catch (e) {}
         showFields();
     }, 0);

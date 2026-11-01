@@ -35,7 +35,8 @@ function show(message, time) {
         api.event.emit('alert', rec);
     } else {
         alerts.push(rec);
-        setTimeout( update, time+0.02);
+        // time is in seconds (swarf: it was taken as ms, so expiry waited on the 1 s sweep)
+        setTimeout( update, ((time || 5) * 1000) + 20);
         update();
     }
     return rec;

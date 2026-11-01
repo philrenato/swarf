@@ -221,13 +221,16 @@ function tabAddAt(iw) {
 
 export function tabAdd() {
     traceDone();
-    alert = api.show.alert("click the part's edge to add a tab, a tab to remove it; esc or ✓ when done");
+    alert = api.show.alert("click the part's edge to add a tab, a tab to remove it; Esc or stop adding when done");
+    // stop adding shows only while adding (review r093-ux T7: a "done" with nothing to finish)
+    if (api.ui.tabDun) api.ui.tabDun.style.display = '';
     api.feature.hover = true;
     env.hover = tabHover;
     env.hoverUp = tabHoverUp;
 }
 
 export function tabDone() {
+    if (api.ui.tabDun) api.ui.tabDun.style.display = 'none';
     delbox('tabb');
     clearboxes();
     api.hide.alert(alert);

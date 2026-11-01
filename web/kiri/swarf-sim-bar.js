@@ -45,8 +45,8 @@
     chips: {
       flag: '__swarfChipsVisible', key: CH_KEY, event: 'swarf.chips.toggle',
       offLabel: 'chips off', onLabel: 'chips on',
-      offTitle: 'chips are hidden — click to show',
-      onTitle:  'chips are spawning — click to hide',
+      offTitle: 'flying chips: off',
+      onTitle:  'flying chips: on',
     },
     paths: {
       flag: '__swarfPaths', key: PT_KEY, event: 'swarf.paths.toggle',
@@ -57,8 +57,8 @@
     lightstream: {
       flag: '__swarfLightstream', key: LS_KEY, event: 'swarf.lightstream.toggle',
       offLabel: 'lightstreams off', onLabel: 'lightstreams on',
-      offTitle: 'Tron-red ribbon paths hidden — click to show',
-      onTitle:  'Tron-red ribbon paths visible — click to hide',
+      offTitle: 'the bit\'s trail: off',
+      onTitle:  'the bit\'s trail: on',
     },
   };
 

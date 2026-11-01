@@ -53,7 +53,8 @@ const tex = page => page.evaluate(() => {
   return {
     ws: a.widgets.all().map(w => ({ id: w.id, name: w.meta.file, marks: (w.meta.tex || []).map(m => ({ id: m.id, pattern: m.fill.pattern, depth: m.fill.depth, cells: m.region.runs.filter((n, i) => i % 2).reduce((s, n) => s + n, 0) })) })),
     ops: ops.filter(o => o.type !== '|').map(o => (o.type === 'texture' ? `texture:${o.texmark}` : o.type)),
-    labels: [...document.querySelectorAll('#oplist .label')].map(l => l.textContent)
+    // a TEX step's row shows a short name; its full one (pattern on parts) leads its tooltip
+    labels: [...document.querySelectorAll('#oplist .label')].map(l => (l.closest('.tex-step') && l.closest('[title]') ? l.closest('[title]').title : l.textContent))
   };
 });
 try {

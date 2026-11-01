@@ -113,13 +113,12 @@
     // swarf r5: one-shot migration — force TAGS (cam-tabs) and STRATEGY
     // (cam-output) drawers to start closed for existing profiles that had
     // them open from earlier builds.
-    // swarf r6: force TAGS (cam-tabs) + STRATEGY (cam-output) drawers closed.
-    // settings.hidden is top-level, NOT under controller — earlier r5 migration
-    // wrote to the wrong path. Run every load (cheap) until we know profiles
-    // are consistent, then gate via localStorage.
+    // swarf r6: force TAGS (cam-tabs) + STRATEGY (cam-output) drawers closed, once per profile
+    // (settings.hidden is top-level). Gated (review r093 C3): run on every load it closed a drawer
+    // the student had opened and saved the settings at every boot; new profiles start closed anyway.
     try {
       const MIG = 'swarf.r6.drawers-closed';
-      if (api.conf && api.conf.get) {
+      if (api.conf && api.conf.get && !localStorage.getItem(MIG)) {
         const s = api.conf.get();
         if (s) {
           s.hidden = s.hidden || {};

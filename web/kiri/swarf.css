@@ -1341,8 +1341,9 @@ body:not(.swarf-expert) .swarf-add-op-grid > .swarf-expert-only {
 #oplist .draggable.has-params > .label { cursor: pointer; }
 /* a TEX step's label stays on one line (its whole name in the row's tooltip), so edit stays beside it */
 #oplist .draggable.tex-step > .label { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; flex: 1 1 0; }
+/* review r093-ux T2: the tiny chevron read as a stray dot ("rough ·"); the edit ▾ pill says it folds */
 #oplist .draggable.has-params > .label::after {
-  content: "▸"; margin-left: 6px;
+  content: none; margin-left: 6px;
   color: var(--swarf-text-3, #58534a);
   font-size: 9px; transition: transform 140ms, color 140ms;
   display: inline-block;
