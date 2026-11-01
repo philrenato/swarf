@@ -730,8 +730,8 @@
         for (const w of tex.warnings) h += `<div class="sd-note tx-warn">${esc(w)}</div>`;
       }
       for (const q of P.params) if (q.basic) h += paramRow(q, pr[q.k]);
-      h += lenRow('depth', 'tx-depth', f.depth, 'the deepest the texture goes below the part\'s top', sl('tx-depth', 0.2, 12, 0.1, f.depth));
-      h += lenRow('soft edge', 'tx-fade', f.fade || 0, 'how far in from the mark\'s edge the texture takes to reach its full depth', sl('tx-fade', 0, 30, 0.5, f.fade || 0));
+      h += lenRow('depth', 'tx-depth', f.depth, 'the deepest the texture goes below the part\'s top', sl('tx-depth', 0.2, 6, 0.1, f.depth));
+      h += lenRow('soft edge', 'tx-fade', f.fade || 0, 'how far in from the mark\'s edge the texture takes to reach its full depth', sl('tx-fade', 0, 20, 0.5, f.fade || 0));
       // which way it runs, and which way up (Phil 11-01: direction control; "the ability to invert,
       // where background lowers and tex raises"), on the front: they change the look most
       const turnRows = numRow('direction', 'tx-angle', r3(f.angle || 0), '°', 'which way the pattern runs: 0 as drawn, 90 a quarter turn', sl('tx-angle', 0, 180, 1, f.angle || 0, 'direction'))
@@ -747,10 +747,10 @@
       h += selRow('falloff', 'tx-curve', Object.entries(C.CURVE_WORDS), f.curve || 'smooth', 'the shape of the soft edge, from the mark\'s edge in to full depth (with a soft edge above 0)');
       h += selRow('border', 'tx-border', Object.entries(C.BORDER_WORDS), bo.style, 'a band along the mark\'s edge, cut its own way: a groove, a bead or a row of beads, a step, a chamfer, a roundover, a cove, or a plain rim the texture stops short of');
       if (hasB) {
-        h += lenRow('width', 'tx-b-width', bo.width, 'how wide the band is', sl('tx-b-width', 1, 40, 0.5, bo.width));
-        if (bo.style !== 'rim') h += lenRow('depth', 'tx-b-depth', bo.depth, 'how deep the band goes below the top', sl('tx-b-depth', 0.2, 10, 0.1, bo.depth));
-        if (bo.style === 'beads') h += lenRow('bead spacing', 'tx-b-pitch', bo.pitch, 'from one bead\'s middle to the next: the band\'s width makes them touch', sl('tx-b-pitch', 2, 60, 0.5, bo.pitch));
-        h += lenRow('in from edge', 'tx-b-inset', bo.inset, 'how far in from the mark\'s edge the band starts; the top is left between', sl('tx-b-inset', 0, 30, 0.5, bo.inset));
+        h += lenRow('width', 'tx-b-width', bo.width, 'how wide the band is', sl('tx-b-width', 1, 30, 0.5, bo.width));
+        if (bo.style !== 'rim') h += lenRow('depth', 'tx-b-depth', bo.depth, 'how deep the band goes below the top', sl('tx-b-depth', 0.2, 6, 0.1, bo.depth));
+        if (bo.style === 'beads') h += lenRow('bead spacing', 'tx-b-pitch', bo.pitch, 'from one bead\'s middle to the next: the band\'s width makes them touch', sl('tx-b-pitch', 2, 40, 0.5, bo.pitch));
+        h += lenRow('in from edge', 'tx-b-inset', bo.inset, 'how far in from the mark\'s edge the band starts; the top is left between', sl('tx-b-inset', 0, 20, 0.5, bo.inset));
         if (m.region && m.region.type === 'paint') h += selRow('along', 'tx-b-along', [['all', 'every edge, the part\'s too'], ['paint', 'only where the paint stops']], bo.along === 'paint' ? 'paint' : 'all', 'where the paint runs to the part\'s edge, the band can follow that edge too');
       }
       h += '</details>';
@@ -769,7 +769,7 @@
       if (compact) h += pathRow + finRow;
       for (const q of P.params) if (!q.basic && q.k !== 'depth') h += paramRow(q, pr[q.k]);
       h += numRow('scale', 'tx-scale', r3((f.scale || 1) * 100), '%', 'the pattern larger or smaller', sl('tx-scale', 25, 400, 5, r3((f.scale || 1) * 100), 'scale'));
-      h += lenRow('floor', 'tx-floor', f.floor || 0, 'the whole mark sunk this deep first, the texture on its floor (0 for none)', sl('tx-floor', 0, 12, 0.1, f.floor || 0));
+      h += lenRow('floor', 'tx-floor', f.floor || 0, 'the whole mark sunk this deep first, the texture on its floor (0 for none)', sl('tx-floor', 0, 8, 0.1, f.floor || 0));
       h += lenRow('grit', 'tx-grit', f.grit || 0, 'a fine, rough noise added on top (0 for none)');
       h += '</details>';
     }
@@ -880,7 +880,9 @@
         }
         if (q.type === 'range') {
           if (!isFinite(v)) return say(`Give ${q.label.toLowerCase()} a number.`);
-          if (v < q.min || v > q.max) return say(`${q.label} goes from ${q.unit === 'mm' ? LEN.say(q.min) : q.min} to ${q.unit === 'mm' ? LEN.say(q.max) : q.max}${q.unit && q.unit !== 'mm' ? q.unit : ''}.`);
+          // the slider is the usual range; a typed value may go past it, to the plausible ends (core typedRange)
+          const [lo, hi] = C.typedRange(q);
+          if (v < lo || v > hi) return say(`${q.label} can be from ${q.unit === 'mm' ? LEN.say(lo) : lo} to ${q.unit === 'mm' ? LEN.say(hi) : hi}${q.unit && q.unit !== 'mm' ? q.unit : ''}.`);
         }
         set(f => {
           f.params = { ...(pierce ? C.pierceDefaults(f.pattern, part.thick) : C.defaults(f.pattern)), ...(f.params || {}), [q.k]: q.type === 'range' ? r3(v) : v };
@@ -890,7 +892,8 @@
       });
     }
     bind('tx-scale', v => { if (!(v >= 5 && v <= 2000)) return say('Scale is a percentage from 5 to 2000.'); set(f => { f.scale = r3(v / 100); }); });
-    bind('tx-angle', v => { if (!isFinite(v)) return; set(f => { f.angle = r3(v); }); });
+    // any angle can be typed; it is kept within one turn (400 is 40)
+    bind('tx-angle', v => { if (!isFinite(v)) return say('Give the direction in degrees.'); set(f => { f.angle = r3(((v % 360) + 360) % 360); }); });
     bind('tx-fade', v => { if (!(v >= 0)) return say('The soft edge is 0 or more.'); set(f => { f.fade = r3(v); }); });
     bind('tx-depth', v => {
       if (!(v >= 0.1)) return say('Give the texture at least 0.1 mm of depth.');

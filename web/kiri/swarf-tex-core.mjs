@@ -372,10 +372,70 @@ function insidePoly(x, y, p) {
 //   concave detail, mm — what the cutter must fit into), kind ('dots' | 'strokes' | 'surface'),
 //   and optionally dots(box) -> [[u, v, depth]] and strokes(box) -> polylines with strokeWidth.
 
-const P = (k, label, min, max, step, def, unit = 'mm') => ({ k, label, type: 'range', min, max, step, def, unit });
+const P = (k, label, min, max, step, def, unit = 'mm', typed) => ({ k, label, type: 'range', min, max, step, def, unit, ...(typed ? { lo: typed[0], hi: typed[1] } : {}) });
+// What a box takes when typed (Phil 11-01: "give the slider the normal range of values that people might
+// use ... and allow plausible values to be typed into a number box"): the slider spans the usual range;
+// a length can be typed from a quarter of its low end to four times its high end, an angle anywhere in a
+// turn either way, a seed any whole number; a percentage or a count keeps the slider's ends.
+export function typedRange(q) {
+  if (q.lo != null && q.hi != null) return [q.lo, q.hi];
+  if (q.k === 'seed') return [1, 9999];
+  if (q.unit === 'mm') return [q.min > 0 ? Math.max(0.05, q.min / 4) : q.min, q.max * 4];
+  if (q.unit === '°') return [-360, 360];
+  return [q.min, q.max];
+}
 const S = (k, label, options, def) => ({ k, label, type: 'select', options, def });
 const T = (k, label, def) => ({ k, label, type: 'text', def });
 const PROFILES = ['ball', 'cone', 'flat'];
+
+// Reaction-diffusion (Gray-Scott): two chemicals on a small grid that wraps at its edges, seeded at a
+// few places and run to a steady pattern. Each style is a (feed, kill) pair. The run is made once per
+// style and seed, kept as snapshots along the way, so growth (from the first blobs to the whole area)
+// only picks between them. The grid repeats every RD_N cells; a stripe or spot is about RD_WIDTH cells.
+export const RD_STYLES = { spots: [0.0367, 0.0649], maze: [0.029, 0.057], worms: [0.046, 0.063], coral: [0.0545, 0.062], cells: [0.039, 0.058] };
+const RD_N = 96, RD_WIDTH = 6.5, RD_STEPS = [30, 120, 300, 600, 1000, 1400, 1900, 2600, 3400, 4300, 5200];
+const rdCache = new Map();
+function rdRun(style, seed) {
+  const key = style + '|' + seed;
+  if (rdCache.has(key)) return rdCache.get(key);
+  const [F, K] = RD_STYLES[style] || RD_STYLES.maze, N = RD_N, NN = N * N;
+  let u = new Float32Array(NN).fill(1), v = new Float32Array(NN), u2 = new Float32Array(NN), v2 = new Float32Array(NN);
+  for (let q = 0; q < 8; q++) {
+    const cx = Math.floor(hash3(q, 1, 91, seed) * N), cy = Math.floor(hash3(q, 2, 91, seed) * N);
+    for (let dy = -2; dy <= 2; dy++) for (let dx = -2; dx <= 2; dx++) { const k = ((cy + dy + N) % N) * N + ((cx + dx + N) % N); u[k] = 0.5; v[k] = 0.25 + 0.05 * hash3(dx, dy, q, seed); }
+  }
+  const snaps = [];
+  for (let it = 1, si = 0; si < RD_STEPS.length; it++) {
+    for (let y = 0; y < N; y++) {
+      const ym = ((y + N - 1) % N) * N, y0 = y * N, yp = ((y + 1) % N) * N;
+      for (let x = 0; x < N; x++) {
+        const xm = (x + N - 1) % N, xp = (x + 1) % N, k = y0 + x;
+        const lu = 0.2 * (u[y0 + xm] + u[y0 + xp] + u[ym + x] + u[yp + x]) + 0.05 * (u[ym + xm] + u[ym + xp] + u[yp + xm] + u[yp + xp]) - u[k];
+        const lv = 0.2 * (v[y0 + xm] + v[y0 + xp] + v[ym + x] + v[yp + x]) + 0.05 * (v[ym + xm] + v[ym + xp] + v[yp + xm] + v[yp + xp]) - v[k];
+        const uvv = u[k] * v[k] * v[k];
+        u2[k] = u[k] + lu - uvv + F * (1 - u[k]);
+        v2[k] = v[k] + 0.5 * lv + uvv - (F + K) * v[k];
+      }
+    }
+    [u, u2] = [u2, u]; [v, v2] = [v2, v];
+    if (it === RD_STEPS[si]) { snaps.push(v.slice()); si++; }
+  }
+  // one scale for every snapshot (the grown pattern's top), so early blobs stay as deep as late ones
+  let top = 0; for (const x of snaps[snaps.length - 1]) top = Math.max(top, x);
+  top = top || 1;
+  for (const a of snaps) for (let i = 0; i < a.length; i++) a[i] = Math.min(1, a[i] / top);
+  if (rdCache.size > 12) rdCache.delete(rdCache.keys().next().value);
+  rdCache.set(key, snaps);
+  return snaps;
+}
+// the pattern at a growth from 0 (first blobs) to 1 (the whole area), between two snapshots
+function rdGrowth(style, seed, g) {
+  const snaps = rdRun(style, seed), f = g * (snaps.length - 1), i = Math.min(snaps.length - 2, Math.floor(f)), t = f - i;
+  if (t <= 0) return snaps[i];
+  const a = snaps[i], b = snaps[i + 1], out = new Float32Array(a.length);
+  for (let k = 0; k < a.length; k++) out[k] = a[k] + (b[k] - a[k]) * t;
+  return out;
+}
 
 export const PATTERNS = {
   dots: {
@@ -425,7 +485,7 @@ export const PATTERNS = {
   ribs: {
     label: 'flutes', blurb: 'Parallel grooves, straight or wavy.',
     params: [P('pitch', 'Spacing', 2, 40, 0.5, 8), P('width', 'Groove width', 1, 30, 0.25, 6.35), P('depth', 'Depth', 0.2, 6, 0.1, 2),
-      P('wiggle', 'Wiggle', 0, 15, 0.5, 0), P('wavelength', 'Wiggle length', 10, 200, 1, 60), S('profile', 'Profile', PROFILES, 'ball')],
+      P('wiggle', 'Wiggle', 0, 15, 0.5, 0), P('wavelength', 'Wiggle length', 10, 150, 1, 60), S('profile', 'Profile', PROFILES, 'ball')],
     build(p) {
       const hw = Math.min(p.width, p.pitch) / 2, A = p.wiggle, k = TAU / p.wavelength;
       const off = (v) => A * Math.sin(k * v);
@@ -466,7 +526,7 @@ export const PATTERNS = {
   },
   noise: {
     label: 'noise', blurb: 'Fractal lumps: hammered, cast, cratered.',
-    params: [P('scale', 'Lump size', 4, 120, 1, 28), P('octaves', 'Detail', 1, 6, 1, 3, ''), P('roughness', 'Roughness', 0.2, 0.8, 0.05, 0.5, ''),
+    params: [P('scale', 'Lump size', 5, 80, 1, 28), P('octaves', 'Detail', 1, 6, 1, 3, ''), P('roughness', 'Roughness', 0.2, 0.8, 0.05, 0.5, ''),
       P('depth', 'Depth', 0.2, 6, 0.1, 2), S('style', 'Style', ['smooth', 'billow', 'ridged'], 'smooth'), P('seed', 'Seed', 1, 99, 1, 7, '')],
     build(p) {
       const o = { octaves: p.octaves | 0, roughness: p.roughness, seed: p.seed | 0 };
@@ -477,9 +537,25 @@ export const PATTERNS = {
       return { h: (u, v) => p.depth * (1 - t(fbm2(u / p.scale, v / p.scale, o))), depth: p.depth, feature: finest * 0.5, featureLabel: `~${fmt(finest * 0.5)} mm finest lumps`, kind: 'surface' };
     },
   },
+  reaction: {
+    label: 'reaction', blurb: 'Grown from a few seeds: spots, mazes, worms, coral, cells.',
+    params: [S('style', 'Style', Object.keys(RD_STYLES), 'maze'), P('growth', 'Growth', 0, 100, 1, 100, '%'), P('size', 'Detail', 3, 30, 0.5, 7),
+      P('depth', 'Depth', 0.2, 6, 0.1, 1.6), P('crisp', 'Crisp edges', 0, 1, 0.05, 0.6, ''), P('seed', 'Seed', 1, 99, 1, 5, '')],
+    build(p) {
+      const g = rdGrowth(p.style, p.seed | 0, Math.max(0, Math.min(100, p.growth)) / 100), N = RD_N, cell = p.size / RD_WIDTH;
+      // a strong pattern: the grown chemical's level, sharpened about its middle (crisp 0: as grown; 1: nearly a step)
+      const gain = 1 + 9 * p.crisp, at = (x, y) => {
+        const fx = ((x / cell) % N + N) % N, fy = ((y / cell) % N + N) % N, i = Math.floor(fx), j = Math.floor(fy), tx = fx - i, ty = fy - j;
+        const i1 = (i + 1) % N, j1 = (j + 1) % N;
+        return lerp(lerp(g[j * N + i], g[j * N + i1], tx), lerp(g[j1 * N + i], g[j1 * N + i1], tx), ty);
+      };
+      const t = (v) => 0.5 + 0.5 * Math.tanh(gain * (v - 0.5) * 2) / Math.tanh(gain);
+      return { h: (u, v) => p.depth * t(at(u, v)), depth: p.depth, feature: p.size, featureLabel: `${fmt(p.size)} mm stripes and spots`, kind: 'surface' };
+    },
+  },
   waves: {
     label: 'ocean waves', blurb: 'A sum of wave trains with sharp crests.',
-    params: [P('wavelength', 'Wavelength', 6, 120, 1, 30), P('count', 'Waves', 1, 10, 1, 6, ''), P('spread', 'Spread', 0, 90, 1, 40, '°'),
+    params: [P('wavelength', 'Wavelength', 8, 80, 1, 30), P('count', 'Waves', 1, 10, 1, 6, ''), P('spread', 'Spread', 0, 90, 1, 40, '°'),
       P('chop', 'Sharp crests', 1, 4, 0.1, 2.2, ''), P('warp', 'Wander', 0, 1, 0.05, 0.35, ''), P('depth', 'Depth', 0.2, 6, 0.1, 2.2), P('seed', 'Seed', 1, 99, 1, 3, '')],
     build(p) {
       const seed = p.seed | 0, N = Math.max(1, p.count | 0), sp = p.spread * Math.PI / 180;
@@ -538,7 +614,7 @@ export const PATTERNS = {
   },
   motif: {
     label: 'step & repeat', blurb: 'Any motif, stepped across the region.',
-    params: [S('shape', 'Motif', Object.keys(MOTIFS), 'x'), P('size', 'Size', 4, 80, 0.5, 14), P('px', 'Step X', 4, 100, 0.5, 18), P('py', 'Step Y', 4, 100, 0.5, 18),
+    params: [S('shape', 'Motif', Object.keys(MOTIFS), 'x'), P('size', 'Size', 4, 80, 0.5, 14), P('px', 'Step X', 6, 60, 0.5, 18), P('py', 'Step Y', 6, 60, 0.5, 18),
       S('stagger', 'Stagger', ['yes', 'no'], 'yes'), S('flip', 'Flip alternate rows', ['no', 'yes'], 'no'), P('width', 'Line width', 0.6, 10, 0.1, 2.4),
       P('depth', 'Depth', 0.2, 5, 0.1, 1.2), S('fill', 'Fill', ['outline', 'pocket'], 'outline'), S('profile', 'Profile', PROFILES, 'cone')],
     build(p) {
@@ -633,7 +709,7 @@ export const PATTERNS = {
   },
   quilt: {
     label: 'quilted', blurb: 'Puffed cells between stitched seams: diamond, square, honeycomb or channel.',
-    params: [S('style', 'Quilting', ['diamond', 'square', 'honeycomb', 'channel'], 'diamond'), P('size', 'Cell size', 8, 120, 0.5, 32),
+    params: [S('style', 'Quilting', ['diamond', 'square', 'honeycomb', 'channel'], 'diamond'), P('size', 'Cell size', 10, 80, 0.5, 32),
       P('depth', 'Depth', 0.3, 6, 0.1, 2.4), P('puff', 'Puff', 0, 1, 0.05, 0.7, ''), P('seam', 'Seam width', 0.8, 8, 0.1, 2),
       S('stitch', 'Stitches', ['line', 'dashes'], 'line'), P('stitchLen', 'Stitch length', 2, 20, 0.5, 6), P('angle', 'Diamond angle', 30, 90, 1, 60, '°')],
     build(p) {
@@ -715,11 +791,11 @@ function seamNear(style, L, angleDeg) {
 // seed, which a card can offer as a shuffle) are the pattern's finer points.
 export const BASIC = {
   dots: ['pitch', 'diameter'], dashdot: ['sequence', 'width'], morse: ['text'], ribs: ['pitch', 'width'], knurl: ['pitch'],
-  noise: ['scale'], waves: ['wavelength'], stone: ['size', 'mortar'], weave: ['thread'], motif: ['shape', 'size'],
+  noise: ['scale'], reaction: ['style', 'growth', 'size'], waves: ['wavelength'], stone: ['size', 'mortar'], weave: ['thread'], motif: ['shape', 'size'],
   memphis: ['mix', 'size', 'density'], quilt: ['style', 'size'],
 };
 // one word each, for a swatch's caption
-const SHORT = { dots: 'dots', dashdot: 'dash', morse: 'morse', ribs: 'flutes', knurl: 'knurl', noise: 'noise', waves: 'waves', stone: 'stone', weave: 'weave', motif: 'repeat', memphis: '80s', quilt: 'quilt' };
+const SHORT = { dots: 'dots', dashdot: 'dash', morse: 'morse', ribs: 'flutes', knurl: 'knurl', noise: 'noise', reaction: 'react', waves: 'waves', stone: 'stone', weave: 'weave', motif: 'repeat', memphis: '80s', quilt: 'quilt' };
 for (const id in PATTERNS) PATTERNS[id].short = SHORT[id] || PATTERNS[id].label;
 for (const [id, ks] of Object.entries(BASIC)) for (const q of PATTERNS[id].params) {
   if (ks.includes(q.k)) q.basic = true;
@@ -1643,6 +1719,8 @@ export function newFill(pattern = 'waves', over = {}) {
 export function suggestBit(pattern, params = {}) {
   if (pattern === 'knurl') return 'v90';
   if ((pattern === 'motif' && params.fill !== 'pocket') || (pattern === 'memphis' && params.fill !== 'solid')) return 'v90';
+  // reaction's stripes and spots are about Detail wide: under 9 mm the 1/8 in ball keeps them crisp
+  if (pattern === 'reaction' && (params.size ?? 7) < 9) return 'ball18';
   return 'ball14';
 }
 
@@ -2117,19 +2195,19 @@ export function nearestOnCurves(curves, x, y) {
 // The soft edge thins the pattern toward the mark's edge: slots break into shorter dashes,
 // holes get smaller (and drop out under the bit's own size).
 
-const PIERCE_P = (k, label, min, max, step, def, unit = 'mm', basic = false, tip = '') => ({ k, label, type: 'range', min, max, step, def, unit, basic, tip });
+const PIERCE_P = (k, label, min, max, step, def, unit = 'mm', basic = false, tip = '', typed) => ({ k, label, type: 'range', min, max, step, def, unit, basic, tip, ...(typed ? { lo: typed[0], hi: typed[1] } : {}) });
 export const PIERCES = {
   kerf: {
     label: 'kerfs', short: 'kerfs', blurb: 'Parallel cuts along a bend line: the part bends across them.',
-    params: [PIERCE_P('radius', 'Bend radius', 20, 3000, 1, 100, 'mm', true, 'the inside of the curve you want: a coffee can is about 50 mm, a bucket about 150. Smaller bends tighter and needs kerfs closer together'),
-      PIERCE_P('skin', 'Skin left', 0, 20, 0.1, 2.5, 'mm', true, 'wood left under every kerf, on the face that stays smooth (the outside of the bend). 0 cuts right through; then bridges hold the strips together'),
-      PIERCE_P('bridge', 'Bridge', 0, 60, 0.5, 0, 'mm', false, 'uncut wood between the slots along each kerf; 0 for kerfs that run unbroken'),
-      PIERCE_P('slot', 'Slot length', 10, 600, 1, 80, 'mm', false, 'how long each cut is between bridges (with bridges)')],
+    params: [PIERCE_P('radius', 'Bend radius', 25, 600, 1, 100, 'mm', true, 'the inside of the curve you want: a coffee can is about 50 mm, a bucket about 150. Smaller bends tighter and needs kerfs closer together', [10, 5000]),
+      PIERCE_P('skin', 'Skin left', 0, 6, 0.1, 2.5, 'mm', true, 'wood left under every kerf, on the face that stays smooth (the outside of the bend). 0 cuts right through; then bridges hold the strips together', [0, 50]),
+      PIERCE_P('bridge', 'Bridge', 0, 60, 0.5, 0, 'mm', false, 'uncut wood between the slots along each kerf; 0 for kerfs that run unbroken', [0, 300]),
+      PIERCE_P('slot', 'Slot length', 20, 300, 1, 80, 'mm', false, 'how long each cut is between bridges (with bridges)', [5, 2000])],
   },
   holes: {
     label: 'holes', short: 'holes', blurb: 'Round holes right through, on a grid or a hex lattice.',
-    params: [PIERCE_P('size', 'Hole size', 2, 80, 0.5, 10, 'mm', true, 'across each hole; no smaller than the bit'),
-      PIERCE_P('spacing', 'Spacing', 3, 160, 0.5, 18, 'mm', true, 'from one hole\'s middle to the next; the wood between is spacing less size'),
+    params: [PIERCE_P('size', 'Hole size', 3, 40, 0.5, 10, 'mm', true, 'across each hole; no smaller than the bit'),
+      PIERCE_P('spacing', 'Spacing', 6, 80, 0.5, 18, 'mm', true, 'from one hole\'s middle to the next; the wood between is spacing less size'),
       { k: 'layout', label: 'Layout', type: 'select', options: ['hex', 'grid'], def: 'hex' }],
   },
 };
@@ -2722,7 +2800,7 @@ export function shadeHeight(H, W, Hn, res, colors, inside, depth) {
 }
 
 // A pattern's swatch: an N x N picture of a patch sized to show a few repeats, at its own numbers
-export const SWATCH_SPAN = { dots: 40, dashdot: 52, morse: 60, ribs: 44, knurl: 30, noise: 90, waves: 90, stone: 70, weave: 44, motif: 50, memphis: 70, quilt: 80 };
+export const SWATCH_SPAN = { dots: 40, dashdot: 52, morse: 60, ribs: 44, knurl: 30, noise: 90, reaction: 60, waves: 90, stone: 70, weave: 44, motif: 50, memphis: 70, quilt: 80 };
 export function swatch(id, N, colors, params) {
   const span = SWATCH_SPAN[id] || 50, res = span / N;
   const tex = texture({ pattern: id, params, transform: { ox: 0, oy: 0 } });
@@ -2732,7 +2810,7 @@ export function swatch(id, N, colors, params) {
 }
 
 const API = {
-  hash3, perlin2, fbm2, worley2, cap, stepRepeat, blend, MORSE, morseEncode, strokeField, WEAVE_DRAFTS, MOTIFS, PATTERNS, defaults,
+  hash3, perlin2, fbm2, worley2, cap, stepRepeat, blend, RD_STYLES, MORSE, morseEncode, strokeField, WEAVE_DRAFTS, MOTIFS, PATTERNS, defaults,
   rectMask, ellipseMask, polygonMask, paintMask, unionMask, makeMask, maskWeight, texture, TOOLS, makeTool, toolOffsets, dropCutter,
   heightGrid, stepoverForScallop, rasterPath, plungeDots, centerlinePath, toolpath, estimateTime, formatTime, analyze, createSim,
   simulate, compare, FILLS, PATHS, IDENTITY, encodeRuns, decodeRuns, newGrid, paintWhere, stampDisc, stampStroke, gridCount,
@@ -2741,7 +2819,7 @@ const API = {
   clipToPart, edgeDistance, insideReach, controlsFor, splineAt, sampleCurve, paintLoops, fitCurves, curvesCross, rewriteFromCurves, nearestOnCurves,
   partMesh, partMeshSize, autoMeshRes, meshCheck, meshNormals, meshSTL, meshOBJ, meshGLB,
   RECIPE_FORMAT, RECIPE_VERSION, RECIPE_CORE, PATTERN_VERSIONS, recipeOf, fillOfRecipe, textureOfRecipe, recipeRefusal, checkOf, verifyRecipe,
-  CURVES, CURVE_WORDS, BORDERS, BORDER_WORDS, borderDefaults, isoLines, alongLines, fillShape,
+  typedRange, CURVES, CURVE_WORDS, BORDERS, BORDER_WORDS, borderDefaults, isoLines, alongLines, fillShape,
   roundProse, PIERCES, SKIN_STRAIN, defaultSkin, kerfCount, pierceDefaults, newPierce, fillTool, kerfPitch, pierceCuts, pierceToolpath, pierceChecks, pierceSVG,
 };
 if (typeof window !== 'undefined') window.SwarfTexCore = API;

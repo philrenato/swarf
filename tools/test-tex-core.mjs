@@ -567,5 +567,27 @@ for (const [id, P] of Object.entries(T.PATTERNS)) {
   ok(/version 7/.test(T.recipeRefusal({ ...r, patternVersion: 7 })) && /not one this core draws/.test(T.recipeRefusal({ ...r, pattern: 'plaid' })), 'an unknown pattern version or pattern is refused by name');
 }
 
+// 43. reaction-diffusion (Phil 11-01: "strong reaction|diffusion patterns", one slider from starting to full,
+//     the other detail): every style grows a strong two-level pattern, growth spreads it from the seeds over
+//     the area, detail scales it, a re-ask is cached; and typed values may pass the slider to plausible ends
+{
+  const cover = (p) => { const t = T.texture({ pattern: 'reaction', params: { ...T.defaults('reaction'), ...p } }); let n = 0, lo = 0, hi = 0;
+    for (let j = 0; j < 80; j++) for (let i = 0; i < 80; i++) { const h = t.h(i * 1.3, j * 1.3) / t.depth; if (h > 0.5) n++; if (h < 0.1) lo++; if (h > 0.9) hi++; }
+    return { cut: n / 6400, two: (lo + hi) / 6400 }; };
+  const styles = Object.keys(T.RD_STYLES), full = styles.map((style) => cover({ style }));
+  ok(full.every((c) => c.cut > 0.15 && c.cut < 0.9 && c.two > 0.6), `every style a strong pattern: cut ${full.map((c) => c.cut.toFixed(2))}, at top or floor ${full.map((c) => c.two.toFixed(2))}`);
+  const g0 = cover({ style: 'maze', growth: 0 }).cut, g1 = cover({ style: 'maze', growth: 100 }).cut;
+  ok(g0 < g1 * 0.4, `growth spreads it: ${(g0 * 100).toFixed(0)}% cut at 0, ${(g1 * 100).toFixed(0)}% at 100`);
+  const t0 = Date.now(); T.texture({ pattern: 'reaction', params: { ...T.defaults('reaction'), growth: 37 } }).h(1, 1);
+  ok(Date.now() - t0 < 50, `a growth change after the first run is quick (${Date.now() - t0} ms)`);
+  const a = T.texture({ pattern: 'reaction', params: { ...T.defaults('reaction'), size: 5 } }), b = T.texture({ pattern: 'reaction', params: { ...T.defaults('reaction'), size: 10 } });
+  let same = true; for (let k = 0; k < 40; k++) if (Math.abs(a.h(k * 0.7, k * 0.3) - b.h(k * 1.4, k * 0.6)) > 1e-9) same = false;
+  ok(same, 'detail scales the same pattern (twice the detail, twice the size)');
+  const q = (pat, k) => T.PATTERNS[pat].params.find((x) => x.k === k);
+  const [lo, hi] = T.typedRange(q('ribs', 'pitch')), [plo, phi] = T.typedRange(q('reaction', 'growth')), [alo, ahi] = T.typedRange(q('quilt', 'angle'));
+  ok(lo < q('ribs', 'pitch').min && hi > q('ribs', 'pitch').max && plo === 0 && phi === 100 && alo === -360 && ahi === 360, `typed past the slider: flute spacing ${lo}–${hi} mm (slider ${q('ribs', 'pitch').min}–${q('ribs', 'pitch').max}), growth 0–100%, angles a turn either way`);
+  ok(T.suggestBit('reaction', { size: 7 }) === 'ball18' && T.suggestBit('reaction', { size: 14 }) === 'ball14', 'reaction suggests the 1/8 in ball for fine detail');
+}
+
 console.log(`\n${pass} passed, ${fail} failed  (${((Date.now() - t0) / 1000).toFixed(1)} s)`);
 process.exit(fail ? 1 : 0);
