@@ -1,23 +1,13 @@
 /**
- * swarf grid fade — adds a soft distance-based fog to the 3D scene so the
- * grid (and the floor numbers) gently fade as they get further from the
- * loaded part. Tied to the part's bounding-box size: small parts get a
- * tight fade radius (Phil's note: a 25mm cube should look crisp near the
- * part, ~50% more translucent at the edges of the bed); large parts get
- * a wider radius so the workspace doesn't disappear.
- *
- * Implementation: Three.js Fog (linear) on space.world.scene. Most of
- * Kiri's grid + label materials honor fog by default. The fog near/far
- * is recomputed whenever a widget is added or simulation fires, so fade
- * scales with the part actually on the bed.
+ * swarf grid fade: a linear THREE.Fog on the scene so the grid and floor numbers fade with
+ * distance from what the camera looks at, its band sized by the parts on the bed. Re-applied
+ * on widget.add / widget.delete and when the skin changes.
  */
 (function () {
   'use strict';
   if (window.__swarfGridFadeLoaded) return;
   window.__swarfGridFadeLoaded = true;
 
-  const FAR_MULT  = 6;   // fade ends at FAR_MULT × max-bbox-dim away
-  const NEAR_MULT = 1.5; // fade starts at NEAR_MULT × max-bbox-dim away
   // the color the grid fades into: the skin's background (swarf-skin.js), the red sky's warm black by default
   const fogColor = () => window.SwarfSkin ? window.SwarfSkin.color('fog', 0x0a0808) : 0x0a0808;
 
@@ -40,12 +30,7 @@
     } catch (e) { return 0; }
   }
 
-  // v010-r10: Phil — "the floor must be IDENTICAL across modes." Kiri's
-  // Space.scene.updateFog() resets fog.near to camera-distance-to-target on
-  // every camera move (space.js onCameraMove). Switching to SIMULATE shifts
-  // the camera, which shifts the fog band, which paints the grid brighter
-  // or darker. Pin fog to fixed world-space distances anchored on the part
-  // size, and neutralise updateFog so camera motion can't repaint the floor.
+  // the band past the camera's target distance (see updateFog below)
   const FOG = { near: 120, far: 480 };
   // space keeps its THREE.Scene private: the platform's root is it
   const scenes = space => {
@@ -58,17 +43,11 @@
     const THREE = window.THREE;
     if (!THREE) return;
     const size = widgetSize(api) || 25.4;
-    // Near = generous "always crisp" radius around the part. Far = where the
-    // grid fully fades to background. Both fixed in world units so the fade
-    // pattern is the same regardless of camera position.
+    // near: a generous crisp radius around the part; far: where the grid is gone
     const near = Math.max(size * 4, 120);
     const far  = Math.max(size * 18, near * 4);
-    const sceneObj = space.scene.scene || space.scene._scene || null;
     // setFog works through space's API; then we pin near/far ourselves.
     try { space.scene.setFog && space.scene.setFog(3, fogColor()); } catch (e) {}
-    // Reach into the actual THREE.Scene and overwrite. setFog stores fog on
-    // the underlying SCENE; we patch through space.world.scene if exposed,
-    // else via the well-known global path moto.Space internals.
     try {
       const all = scenes(space);
       for (const s of all) {
@@ -113,8 +92,7 @@
       api.event.on('widget.add',    () => setTimeout(() => applyFog(api, space), 50));
       api.event.on('widget.delete', () => setTimeout(() => applyFog(api, space), 50));
       window.addEventListener('swarf.skin', () => applyFog(api, space));
-      // v010-r10: do NOT re-apply on animate/function.animate. Fog is now
-      // world-anchored to part size; mode transitions must not change it.
+      // not on animate: Phil (v010-r10), "the floor must be IDENTICAL across modes"
     }
     if (++tries > 200) clearInterval(poll);
   }, 150);
