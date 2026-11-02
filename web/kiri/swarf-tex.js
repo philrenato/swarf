@@ -169,6 +169,8 @@
     // one mode at a time: DRAW keeps its changes (as its done does) before TEX opens
     const D = window.__swarfDraw;
     if (D && D.state()) { D.close(true); if (D.state()) return; }
+    // a part marked tipped over that lies flat after all is lined up again (Phil 11-02)
+    try { if (D && D.settleTilted) D.settleTilted(); } catch (e) { console.warn('swarf tex: settle', e); }
     const dev = a.conf.get().device || {};
     const parts = [];
     unknownFills = 0;
@@ -663,7 +665,8 @@
       h += `<div class="sd-note">${S.parts.length ? 'Click a part to mark it.' : 'No parts on the bed yet.'}</div>`;
     } else {
       h += `<div class="sd-row tx-parthead"><span class="sd-h">${esc(part.name)}</span><button id="tx-new" title="start another mark on this part (the brush paints it)">new mark</button>${m ? '<button id="tx-del" title="remove this mark (Delete)">delete</button>' : ''}</div>`;
-      if (part.tilted) h += '<div class="sd-note">This part is tipped over: TEX marks the top of a part lying flat.</div>';
+      // on its side: one press lays it back the way it last lay flat (swarf-board turnOf keeps that)
+      if (part.tilted) h += '<div class="sd-note">This part is on its side: TEX marks the top of a part lying flat.</div><div class="sd-row"><button id="tx-layflat" title="turn it back the way it last lay flat">lay it flat</button></div>';
       if (S.tool === 'points' && m && markHas(m)) {
         const c = curveOf(m), n = c.loops.reduce((a, L) => a + L.handles.length, 0);
         h += `<div class="sd-row tx-ptsrow" title="how many points the edge is fitted to: fewer is smoother, more follows the paint closer"><span>points</span><input id="tx-npts" value="${n}" inputmode="numeric"><button id="tx-fewer" title="fewer points: smoother">fewer</button><button id="tx-more" title="more points: closer to the paint">more</button></div>`;
@@ -845,6 +848,8 @@
       else if (det.classList.contains('tx-more-p')) S.morePierce = det.open; else S.more = det.open;
       scrollCue();
     };
+    const lf = $('tx-layflat');
+    if (lf && part) lf.onclick = () => { layFlat(part); };
     const nb = $('tx-new');
     if (nb) nb.onclick = () => { snap(); part.marks.push(newMark(part)); S.mark = part.marks.length - 1; part.dirty = true; if (S.tool === 'select') S.tool = 'brush'; say('A new mark: paint it on the part.'); render(); ui.svg.focus(); };
     for (const [id, as] of [['tx-as-part', 'part'], ['tx-as-hole', 'hole']]) { const b = $(id); if (b) b.onclick = () => { makeOutline(part, m, as); }; }
@@ -1075,8 +1080,13 @@
     const at = partAt(p);
     if (at >= 0 && at !== S.sel) { S.sel = at; S.mark = S.parts[at].marks.length ? 0 : -1; }
     const part = curPart();
-    if (!part) { say('Press on a part: a mark lives on a part.'); return null; }
-    if (part.tilted) { say(`${part.name} is tipped over: TEX marks the top of a part lying flat.`); return null; }
+    if (!part) {
+      // a press on a part tipped on its side says so (it was "press on a part", on one)
+      const on = S.parts.find(q => q.tilted && onPart([p[0] - q.pos[0], p[1] - q.pos[1]], q.loops));
+      say(on ? `${on.name} is tipped on its side: TEX marks the top of a part lying flat. Lay it flat in cam (rotate it back).` : 'Press on a part: a mark lives on a part.');
+      return null;
+    }
+    if (part.tilted) { say(`${part.name} is tipped on its side: TEX marks the top of a part lying flat. Lay it flat in cam (rotate it back).`); return null; }
     if (!curMark() && make) { part.marks.push(newMark(part, WORD[S.tool])); S.mark = part.marks.length - 1; }
     return curMark() ? { part, m: curMark() } : null;
   }
@@ -1331,6 +1341,21 @@
     return (kept ? `${kept === 1 ? '1 mark is' : `${kept} marks are`} kept: ${steps}. Next: toolpaths.` : `No marks left${r.removed ? `: ${steps}` : ''}.`) + plugSaid;
   }
 
+  // a part on its side turned back the way it last lay flat; TEX opens again on it, flat
+  function layFlat(part) {
+    const w = part.w, THREE = window.THREE, m = w.meta || {};
+    const now = new THREE.Quaternion(...(m.rq || [0, 0, 0, 1])), flat = new THREE.Quaternion(...(m.rflat || [0, 0, 0, 1]));
+    const q = flat.clone().multiply(now.clone().invert());
+    close(true, true);
+    w.rotate(q);
+    const a = api();
+    try { a.platform.update_bounds(); a.space.auto_save(); } catch (e) { /* no workspace */ }
+    if (w.meta.tilted) { if (a) a.show.alert(`${nameOf(w)} could not be laid flat here: turn it in cam.`, 8); return; }
+    try { a.platform.select(w); } catch (e) { /* none */ }
+    open();
+    say(`${nameOf(w)} lies flat again: paint on it.`);
+  }
+
   // ── an inlay's plug: a part of its own on the bed (Phil 11-02: "automatically get a matching part
   // in the scene that I could machine in another material"), made on done and kept in step with its
   // mark: changed with it, gone with it. It arrives left out of this run (unticked in objects), beside
@@ -1552,17 +1577,18 @@
   }
 
   // ── the part's turns, scales and mirrors after it was marked: each mark follows it ──
-  function track(w, M) {
-    const d = (w.track && w.track.center) || { dx: 0, dy: 0 };
+  function track(w, M, still) {
+    const d = (!still && w.track && w.track.center) || { dx: 0, dy: 0 };
     for (const g of (w.group && w.group.length ? w.group : [w])) {
       if (!(g.meta && Array.isArray(g.meta.tex) && g.meta.tex.length)) continue;
       for (const m of g.meta.tex) m.xf = T().xfThen(m.xf || T().IDENTITY, [M[0], M[1], M[2], M[3], -(d.dx || 0), -(d.dy || 0)]);
     }
   }
-  // a tilt (lay flat off the bed's plane): the marks stay as they are
+  // a tilt (lay flat off the bed's plane): the marks stay as they are; flat again (flipped over and
+  // back, or upside down), they follow the turn since it last lay flat, about its middle
   function onRotate(ev) {
-    const M = Board.rotationOf(ev);
-    if (M) track(ev.widget, M);
+    const r = Board.turnOf(ev);
+    if (r.M) track(ev.widget, r.M, r.back);
   }
 
   // ── wiring ──

@@ -224,8 +224,10 @@
       return n;
     }
 
+    // flying chips are the swarf skin's alone (Phil 11-02)
+    const swarfSkin = () => !document.documentElement.hasAttribute('data-skin');
     function spawnChip(pos) {
-      if (window.__swarfChipsVisible === false) return;
+      if (window.__swarfChipsVisible === false || !swarfSkin()) return;
       if (totalAirborne() >= AIRBORNE_MAX) return;
       const flavor = pickFlavor();
       const pool = airborne[flavor];
@@ -473,11 +475,12 @@
         }
       });
 
-      const updateVisible = () => setPoolVisible(simulating && window.__swarfChipsVisible !== false);
+      const updateVisible = () => setPoolVisible(simulating && window.__swarfChipsVisible !== false && swarfSkin());
       api.event.on('animate', () => { simulating = true; updateVisible(); ensureTickRunning(); });
       api.event.on('animate.end', () => { simulating = false; });
       api.event.on('function.animate', () => { simulating = true; updateVisible(); ensureTickRunning(); });
       window.addEventListener('swarf.chips.toggle', updateVisible);
+      window.addEventListener('swarf.skin', updateVisible);
 
       // IMPORT a new part or CLEAR → wipe the workshop floor
       function clearAllChips() {

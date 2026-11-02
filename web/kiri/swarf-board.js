@@ -115,6 +115,41 @@
     return [Math.cos(t), -Math.sin(t), Math.sin(t), Math.cos(t)];
   }
 
+  // ── a turn in 3D, followed (Phil 11-02: a board flipped over X and then Y lies flat again, and TEX
+  // still called it tipped over): each part keeps its whole rotation (meta.rq, a quaternion) and the one
+  // it had when it last lay flat (meta.rflat). A turn that leaves it flat, top up or upside down, is a
+  // 2D change since then, M (a turn, or a mirror when it is upside down); one that leaves it on its side
+  // is { M: null }. Read once per event: DRAW and TEX both ask. ──
+  const turns = new WeakMap();
+  function turnOf(ev) {
+    if (turns.has(ev)) return turns.get(ev);
+    const THREE = window.THREE, w = ev.widget;
+    const q = typeof ev.x === 'number' || ev.x == null
+      ? new THREE.Quaternion().setFromEuler(new THREE.Euler(ev.x || 0, ev.y || 0, ev.z || 0))
+      : new THREE.Quaternion(ev.x.x || 0, ev.x.y || 0, ev.x.z || 0, ev.x.w ?? 1);
+    const lead = (w.group && w.group[0]) || w, m0 = lead.meta || {};
+    const R = new THREE.Quaternion(...(m0.rq || [0, 0, 0, 1])).premultiply(q).normalize();
+    const was = new THREE.Quaternion(...(m0.rflat || [0, 0, 0, 1]));
+    const up = new THREE.Vector3(0, 0, 1).applyQuaternion(R), flat = Math.abs(up.z) > 1 - 1e-6;
+    const tidy = v => (Math.abs(v) < 1e-9 ? 0 : Math.abs(Math.abs(v) - 1) < 1e-9 ? Math.sign(v) : v);
+    const two = Q => { const ex = new THREE.Vector3(1, 0, 0).applyQuaternion(Q), ey = new THREE.Vector3(0, 1, 0).applyQuaternion(Q); return [ex.x, ey.x, ex.y, ey.y]; };
+    let M = null;
+    if (flat) {
+      // since it last lay flat: A·Bᵀ (B is orthogonal)
+      const A = two(R), B = two(was);
+      M = [A[0] * B[0] + A[1] * B[1], A[0] * B[2] + A[1] * B[3], A[2] * B[0] + A[3] * B[1], A[2] * B[2] + A[3] * B[3]].map(tidy);
+    }
+    const back = flat && !!m0.tilted;
+    for (const g of (w.group && w.group.length ? w.group : [w])) {
+      if (!g.meta) continue;
+      g.meta.rq = R.toArray();
+      if (flat) { g.meta.rflat = R.toArray(); delete g.meta.tilted; } else g.meta.tilted = true;
+    }
+    const out = { M, flat, back };
+    turns.set(ev, out);
+    return out;
+  }
+
   // ── wiring: once cam's api and the mode's step button are there (30 s at most), fn(api, step) ──
   function wire(stepId, fn) {
     let tries = 0;
@@ -132,5 +167,5 @@
   // them reach cam while a board is open; a prompt's Enter still lands (review r093 A3)
   const hush = e => { if (!/^(INPUT|SELECT|TEXTAREA)$/.test(e.target && e.target.tagName)) e.stopPropagation(); };
 
-  window.SwarfBoard = { api, V, $, r3, clone, esc, isClosed, inLoop, flat, view, toMM, wheel, ground, rotationOf, wire, hush };
+  window.SwarfBoard = { api, V, $, r3, clone, esc, isClosed, inLoop, flat, view, toMM, wheel, ground, rotationOf, turnOf, wire, hush };
 })();

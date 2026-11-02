@@ -43,7 +43,12 @@
   // whole trail is drawn again only where what is drawn changes behind the end: a step's box, the
   // print stack's fill at toolpaths.
   const CAP0 = 18 * 1024;       // floats a ribbon starts with (1024 segments)
-  let ribbons = [];             // [{ obj, hw }] bloom, halo, core
+  let ribbons = [];             // [{ obj, hw, uv }] bloom, halo, core, look
+  // the skin's own look (Phil 11-02: "lightstreams in wet plastic should look like glass … in classic
+  // a little like barber poles"): one more ribbon, drawn by a shader from where it is along the path
+  // (s, mm) and across it (t, -1..1); swarf keeps its glowing light
+  let look = null, sAcc = 0;
+  const LOOK_WIDTH_MM = 1.8;
   let cap = 0;                  // floats each ribbon's array holds
   let drawn = 0;                // floats of it drawn
   let synced = true;            // what is drawn is the polylines' segments (a rebuild with none to draw keeps the last drawing)
@@ -64,9 +69,42 @@
     obj.frustumCulled = false;
     return obj;
   }
-  function newGeometry(arr) {
+  // GLASS: a clear tube, its rims darker (seen edge-on), a white streak where the light catches it.
+  // POLE: red, white and blue bands turning round it, shaded as a round rod
+  function buildLook() {
+    const THREE = window.THREE;
+    const mat = new THREE.ShaderMaterial({
+      uniforms: { mode: { value: 0 }, pitch: { value: 4.5 }, tint: { value: new THREE.Color(0xcfe3ea) }, rim: { value: new THREE.Color(0x4f5f68) } },
+      vertexShader: 'attribute vec2 st; varying vec2 vSt; void main() { vSt = st; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }',
+      fragmentShader: [
+        'uniform float mode; uniform float pitch; uniform vec3 tint; uniform vec3 rim; varying vec2 vSt;',
+        'void main() {',
+        '  float t = clamp(vSt.y, -1.0, 1.0), n = sqrt(max(0.0, 1.0 - t * t));',
+        '  if (mode < 0.5) {',
+        '    float edge = pow(1.0 - n, 2.0), streak = smoothstep(0.16, 0.0, abs(t + 0.42)) * 0.9 + smoothstep(0.1, 0.0, abs(t - 0.55)) * 0.35;',
+        '    vec3 c = mix(mix(tint, rim, edge), vec3(1.0), streak);',
+        // nearly opaque: the joins of a translucent ribbon double up into speckle; the glass is in the rims and streak
+        '    gl_FragColor = vec4(c, min(1.0, 0.82 + 0.18 * edge + 0.3 * streak));',
+        '  } else {',
+        '    float band = fract(vSt.x / pitch + t * 0.9 / pitch);',
+        '    vec3 c = band < 0.34 ? vec3(0.80, 0.10, 0.12) : band < 0.5 ? vec3(0.97) : band < 0.84 ? vec3(0.13, 0.27, 0.62) : vec3(0.97);',
+        '    c *= 0.55 + 0.45 * n; c += vec3(0.35) * smoothstep(0.18, 0.0, abs(t + 0.4));',
+        '    gl_FragColor = vec4(c, 1.0);',
+        '  }',
+        '}'
+      ].join('\n'),
+      transparent: true, depthWrite: false, depthTest: false, side: THREE.DoubleSide,
+    });
+    const obj = new THREE.Mesh(newGeometry(new Float32Array(cap), true), mat);
+    obj.renderOrder = 1000;
+    obj.frustumCulled = false;
+    obj.visible = false;
+    return obj;
+  }
+  function newGeometry(arr, uv, st) {
     const THREE = window.THREE, geo = new THREE.BufferGeometry();
     geo.setAttribute('position', new THREE.BufferAttribute(arr, 3).setUsage(THREE.DynamicDrawUsage));
+    if (uv) geo.setAttribute('st', new THREE.BufferAttribute(st || new Float32Array(arr.length / 3 * 2), 2).setUsage(THREE.DynamicDrawUsage));
     geo.setDrawRange(0, drawn / 3);
     return geo;
   }
@@ -75,7 +113,9 @@
     for (const r of ribbons) {
       const arr = new Float32Array(size), old = r.obj.geometry;
       arr.set(old.attributes.position.array.subarray(0, drawn));
-      r.obj.geometry = newGeometry(arr);
+      let st = null;
+      if (r.uv) { st = new Float32Array(size / 3 * 2); st.set(old.attributes.st.array.subarray(0, drawn / 3 * 2)); }
+      r.obj.geometry = newGeometry(arr, r.uv, st);
       old.dispose();
     }
     cap = size;
@@ -119,7 +159,14 @@
       v[o + 9]  = aLx; v[o + 10] = aLy; v[o + 11] = aLz;
       v[o + 12] = bRx; v[o + 13] = bRy; v[o + 14] = bRz;
       v[o + 15] = bLx; v[o + 16] = bLy; v[o + 17] = bLz;
+      if (r.uv) {
+        const w = r.obj.geometry.attributes.st.array, q = o / 3 * 2, sa = sAcc, sb = sAcc + len3;
+        // aL aR bR · aL bR bL: along, across
+        w[q] = sa; w[q + 1] = -1; w[q + 2] = sa; w[q + 3] = 1; w[q + 4] = sb; w[q + 5] = 1;
+        w[q + 6] = sa; w[q + 7] = -1; w[q + 8] = sb; w[q + 9] = 1; w[q + 10] = sb; w[q + 11] = -1;
+      }
     }
+    sAcc += len3;
     drawn += 18;
   }
   // floats [from, drawn) are new: upload them, draw to the end
@@ -128,6 +175,8 @@
       const geo = r.obj.geometry, attr = geo.attributes.position;
       if (drawn > from && attr.addUpdateRange) attr.addUpdateRange(from, drawn - from);
       attr.needsUpdate = true;
+      const st = geo.attributes.st;
+      if (st) { if (drawn > from && st.addUpdateRange) st.addUpdateRange(from / 3 * 2, (drawn - from) / 3 * 2); st.needsUpdate = true; }
       geo.setDrawRange(0, drawn / 3);
       geo.boundingSphere = null;
     }
@@ -140,10 +189,12 @@
     bloom = buildRibbon(BLOOM_COLOR, BLOOM_OPAC, 997);
     halo  = buildRibbon(HALO_COLOR,  HALO_OPAC,  998);
     core  = buildRibbon(CORE_COLOR,  CORE_OPAC,  999);
-    ribbons = [{ obj: bloom, hw: BLOOM_WIDTH_MM / 2 }, { obj: halo, hw: HALO_WIDTH_MM / 2 }, { obj: core, hw: CORE_WIDTH_MM / 2 }];
+    look  = buildLook();
+    ribbons = [{ obj: bloom, hw: BLOOM_WIDTH_MM / 2 }, { obj: halo, hw: HALO_WIDTH_MM / 2 }, { obj: core, hw: CORE_WIDTH_MM / 2 }, { obj: look, hw: LOOK_WIDTH_MM / 2, uv: true }];
     space.world.add(bloom);
     space.world.add(halo);
     space.world.add(core);
+    space.world.add(look);
     reskin();
     return true;
   }
@@ -160,6 +211,9 @@
       o.material.needsUpdate = true;
     };
     set(bloom, 'trail-bloom', BLOOM_COLOR); set(halo, 'trail-halo', HALO_COLOR); set(core, 'trail-core', CORE_COLOR);
+    // wet plastic: glass; classic: a barber pole; swarf: the light alone
+    look.material.uniforms.mode.value = skinNow() === 'classic' ? 1 : 0;
+    applyVisibility();
   }
   window.addEventListener('swarf.skin', reskin);
 
@@ -168,7 +222,7 @@
     window.__swarfLSMoves = 0;
     window.__swarfLSPoints = 0;
     if (!core) return;
-    drawn = 0; synced = true;
+    drawn = 0; sAcc = 0; synced = true;
     // a long run's arrays go back to the start size
     if (cap > CAP0) resize(CAP0);
     show(0);
@@ -178,7 +232,7 @@
   function rebuild() {
     if (!core) return;
     const was = drawn;
-    drawn = 0;
+    drawn = 0; sAcc = 0;
     for (const pl of polylines) {
       if (pl.length < 2 || hidden.has(pl.step)) continue;
       for (let i = 0; i < pl.length - 1; i++) putSeg(pl[i], pl[i + 1]);
@@ -314,6 +368,8 @@
     extend(from, had);
   }
   // for the probes: each step's drawn segments, and whether its box hides them
+  // which look draws the trail now (probe_skin_trail.mjs)
+  window.__swarfLSLook = () => ({ light: !!(core && core.visible), look: !!(look && look.visible), mode: look ? look.material.uniforms.mode.value : null });
   window.__swarfLSSteps = () => { const o = {}; for (const pl of polylines) { const k = String(pl.step); o[k] = o[k] || { segs: 0, hidden: hidden.has(pl.step) }; o[k].segs += Math.max(0, pl.length - 1); } return o; };
   function newLine(step) { const l = []; l.step = step; polylines.push(l); return l; }
 
@@ -371,11 +427,13 @@
     showBoxes();
   }
 
+  const skinNow = () => document.documentElement.getAttribute('data-skin') || 'swarf';
   function applyVisibility() {
-    const on = window.__swarfLightstream !== false;
-    if (core)  core.visible  = on;
-    if (halo)  halo.visible  = on;
-    if (bloom) bloom.visible = on;
+    const on = window.__swarfLightstream !== false, styled = skinNow() === 'glass' || skinNow() === 'classic';
+    if (core)  core.visible  = on && !styled;
+    if (halo)  halo.visible  = on && !styled;
+    if (bloom) bloom.visible = on && !styled;
+    if (look)  look.visible  = on && styled;
   }
 
   function attach() {

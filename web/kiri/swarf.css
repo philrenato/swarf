@@ -749,6 +749,8 @@ body.swarf-run-open #install-swarf, body.swarf-run-open #swarf-watermark { visib
   text-align: left;
 }
 #ws-widgets .widpop { padding: 2px 0; }
+/* flying chips are the swarf skin's alone (Phil 11-02): the other skins have no chips toggle */
+html[data-skin] .swarf-toggle-chips { display: none !important; }
 /* the tick: cut this part in this run (Phil 11-02); an unticked part's name fades */
 #ws-widgets > div { display: flex; align-items: center; }
 #ws-widgets .swarf-cut-tick { flex: 0 0 auto; width: 15px; height: 15px; margin: 0 6px 0 2px; accent-color: var(--swarf-accent, #c33); cursor: pointer; }

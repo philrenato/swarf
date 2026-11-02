@@ -72,11 +72,73 @@
       } else delete g.meta.t;                    // from before r37: line it up by its box instead
     }
   }
+  // a turn that leaves the part flat (about Z, or flipped over and back, or upside down) carries its
+  // drawing; one on its side tips it (swarf-board turnOf keeps meta.tilted). Flat again after a tip, the
+  // drawing is lined up with the part's top once more (settle)
   function onRotate(ev) {
-    const M = Board.rotationOf(ev);
-    if (M) track(ev.widget, M); else tilt(ev.widget);
+    const r = Board.turnOf(ev);
+    if (!r.M) return;
+    if (!r.back) { track(ev.widget, r.M); return; }
+    for (const g of (ev.widget.group && ev.widget.group.length ? ev.widget.group : [ev.widget])) {
+      if (!g.meta || !g.meta.svg) continue;
+      const xf = mul(r.M, g.meta.xf || guessXf(g));
+      if (!settle(g, [xf])) g.meta.tilted = true;
+    }
   }
-  function tilt(w) { for (const g of (w.group && w.group.length ? w.group : [w])) if (g.meta) g.meta.tilted = true; }
+  // THE DRAWING ON THE PART'S TOP: the first of these 2D transforms (and its turns by half a circle and
+  // mirrors, for a part from before swarf kept its rotation) whose outline the top's corners lie on,
+  // within half a millimetre, lined up by the boxes' middles. Kept as the part's xf and t. False when
+  // none fits (the part is on its side).
+  function settle(w, tries) {
+    if (typeof w.meta.svg !== 'string' || !V()) return false;
+    let list;
+    try { list = V().curves(w.meta.svg); } catch (e) { return false; }
+    const g = w.mesh && w.mesh.geometry, P = g && g.attributes.position;
+    if (!list.length || !P) return false;
+    g.computeBoundingBox();
+    const bb = g.boundingBox, top = [];
+    for (let i = 0; i < P.count; i++) if (P.getZ(i) > bb.max.z - 1e-3) top.push([P.getX(i), P.getY(i)]);
+    if (!top.length) return false;
+    const c0 = w.meta.c0 || (b => [(b[0] + b[2]) / 2, (b[1] + b[3]) / 2])(boxOf(list));
+    const raw = list.filter(c => isClosed(c.crv)).map(c => Board.flat(c.crv, 1, 128));
+    const more = [];
+    for (const X of tries) for (const F of [[1, 0, 0, 1], [-1, 0, 0, -1], [-1, 0, 0, 1], [1, 0, 0, -1]]) more.push(mul(F, X));
+    for (const M of more) {
+      const L = raw.map(P2 => P2.map(([x, y]) => { const u = x - c0[0], v = y - c0[1]; return [M[0] * u + M[1] * v, M[2] * u + M[3] * v]; }));
+      const lb = [Infinity, Infinity, -Infinity, -Infinity];
+      for (const Q of L) for (const q of Q) { lb[0] = Math.min(lb[0], q[0]); lb[1] = Math.min(lb[1], q[1]); lb[2] = Math.max(lb[2], q[0]); lb[3] = Math.max(lb[3], q[1]); }
+      const t = [(bb.min.x + bb.max.x) / 2 - (lb[0] + lb[2]) / 2, (bb.min.y + bb.max.y) / 2 - (lb[1] + lb[3]) / 2];
+      let worst = 0;
+      for (const p of top) {
+        let d = Infinity;
+        for (const Q of L) for (let i = 0; i < Q.length; i++) {
+          const a = Q[i], b = Q[(i + 1) % Q.length], ax = a[0] + t[0], ay = a[1] + t[1], dx = b[0] - a[0], dy = b[1] - a[1], l2 = dx * dx + dy * dy;
+          const k = l2 ? Math.max(0, Math.min(1, ((p[0] - ax) * dx + (p[1] - ay) * dy) / l2)) : 0;
+          d = Math.min(d, Math.hypot(p[0] - ax - k * dx, p[1] - ay - k * dy));
+        }
+        worst = Math.max(worst, d);
+        if (worst > 0.5) break;
+      }
+      if (worst <= 0.5) { w.meta.xf = M; w.meta.t = t; delete w.meta.tilted; return true; }
+    }
+    return false;
+  }
+  // parts marked tipped over that lie flat after all (from before swarf followed a flip): lined up again
+  function settleTilted() {
+    const a = api();
+    if (!a) return 0;
+    let n = 0;
+    for (const w of a.widgets.all()) {
+      if (!(w.meta && w.meta.tilted && w.meta.svg)) continue;
+      if (settle(w, [w.meta.xf || guessXf(w)])) {
+        n++;
+        // its rotation from here: flat as it lies
+        delete w.meta.rq; delete w.meta.rflat;
+        if (w.saveState) w.saveState(() => {});
+      }
+    }
+    return n;
+  }
   // a part from before r37: its transform from what cam tracked (mirror, then scale, then turn)
   function guessXf(w) {
     const t = w.track || {}, s = t.scale || {}, rz = (t.rot || {}).z || 0, m = t.mirror ? -1 : 1;
@@ -140,6 +202,7 @@
   const ui = {};
 
   function open() {
+    try { settleTilted(); } catch (e) { console.warn('swarf draw: settle', e); }
     const a = api();
     if (!a || !V() || S) return;
     const dev = a.conf.get().device || {};
@@ -1471,5 +1534,5 @@
     if (step && !step.dataset.wired) { step.dataset.wired = '1'; step.addEventListener('click', open); }
   });
 
-  window.__swarfDraw = { open, close, setTool, render, bedCurves, state: () => S, isChain, text: TEXT, fonts: FONTS, engraveAreas, adopt, say };
+  window.__swarfDraw = { open, close, setTool, render, bedCurves, settleTilted, state: () => S, isChain, text: TEXT, fonts: FONTS, engraveAreas, adopt, say };
 })();
