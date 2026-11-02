@@ -7,8 +7,12 @@
       switches: [], acked: 0, pos: [0, 0, 0, 0, 0, 0], dirs: 0, line: 0, size: 340, buf: [], need: 0, item: [],  outs: 5, blocks: 0, ticks: 0 };
     const stub = { onData: null, state: s };
     const send = (b, ms = 2) => setTimeout(() => stub.onData && stub.onData(Uint8Array.from(b)), ms);
-    // realtime: a block's ack waits for its ticks to play (a 7.3728 MHz tick clock), one block after another
-    let busyUntil = 0, blockSec = 0;
+    // realtime: blocks play one after another at their ticks' own length (a 7.3728 MHz tick clock); the
+    // card holds `window` of them (F9), and a block past that is acked only when one has played. A
+    // block that arrives after the last one has finished playing, mid-stream, is a stall: the bit
+    // stopped and started (s.starves, ms each) — what Phil saw on the trace 11-02
+    let blockSec = 0, ends = [], lastEnd = null;
+    s.window = 2; s.starves = [];
     const tickSec = () => (0x10000 - (s.reload || 0xFF00)) / 7372800;
     // switches: { port 0 = inputs 1-8 / 1 = inputs 9-12, bit, axis, at, hit } — reads `hit` at or below `at`
     const inputs = () => {
@@ -48,7 +52,7 @@
         if (!need && pending[0] >= 0x80) {
           if (pending.length < 6) break;
           const c = pending.splice(0, 6);
-          if (c[0] === 0xF9) s.size = c[2] << 8 | c[3];
+          if (c[0] === 0xF9) { s.size = c[2] << 8 | c[3]; s.window = c[1] || 1; }
           if (c[0] === 0xF0) s.outs = c[1];
           if (c[0] === 0x80) { send(new Array(c[1]).fill(0)); continue; }
           send(report());
@@ -67,12 +71,21 @@
           if (!need) item(s.item);
         }
         const iv = inputs(), d = s.ticks - s.acked; s.acked = s.ticks;
-        let wait = 2;
-        if (s.realtime) { const now = Date.now(); busyUntil = Math.max(now, busyUntil) + blockSec * 1000; wait = Math.max(2, busyUntil - now); }
+        let wait = 2, done = 3;
+        if (s.realtime) {
+          const now = (typeof performance !== 'undefined' ? performance : Date).now();
+          ends = ends.filter(e => e > now);
+          if (lastEnd !== null && !ends.length && now - lastEnd > 1) { s.starves.push(now - lastEnd); (s.starveAt = s.starveAt || []).push(s.blocks); }
+          const end = Math.max(now, ends.length ? ends[ends.length - 1] : now) + blockSec * 1000;
+          ends.push(end);
+          lastEnd = ended ? null : end;
+          wait = Math.max(2, (ends.length <= s.window ? now : ends[ends.length - 1 - s.window]) - now);
+          done = Math.max(3, end - now + 1);
+        }
         // noAckOnEnd: like the card with its window full, END stops the
         // stack before the held ack goes out — only the report arrives
         if (!(ended && s.noAckOnEnd)) send([3, s.blocks & 0xFF, iv[0], iv[1], d & 0xFF, d >> 8 & 0xFF], wait);
-        if (ended) { need = 0; send(report(), wait + 1); }
+        if (ended) { need = 0; send(report(), Math.max(wait + 1, done)); }
       }
       return Promise.resolve(bytes.length);
     };

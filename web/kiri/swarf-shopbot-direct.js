@@ -37,6 +37,10 @@
   // Y on input 3, reading 0 when covered; offset -0.5 in; fast seek <= 88.9 mm/s, back off 25.4 mm, slow seek <= 25.4 mm/s.
   const HOME = { x: { input: 2, hit: 0 }, y: { input: 3, hit: 0 }, offset: { x: -12.7, y: -12.7 },
     fast: 88.9, slow: 25.4, backOff: 25.4, travel: { x: 2600, y: 1400 }, block: 15, confirmed: false };
+  // blocks the card holds ahead of the one it plays: three, about 80 ms at a trace's 50 mm/s, so a
+  // moment's work on the page never lets it run dry (two stopped and started the bit, Phil 11-02); a
+  // stop ramps down from the last block sent, about 2 mm later than with two. Homing keeps two.
+  const WINDOW = 3;
   const PLATE_KEY = 'swarf-shopbot-plate';
   const UNKNOWN = 'not now: swarf can\'t tell whether the router is on. Press the red e-stop on the floor, then all clear';
   // a pressed e-stop and an e-stop swarf could not read are two different things (third review #1)
@@ -280,7 +284,7 @@
       link.onData = b => { this.record('<', b); recv(b); };
       try {
         const st = await this.card.status();
-        await this.card.setBlocks(2);
+        await this.card.setBlocks(WINDOW);
         await this.card.cmd([0xF0, 0, 0, 0xFF, 0xFF, 0xFF]);
         await this.card.motors(true);
         // Real box 10-27: the first move straight after motors-on was counted but never moved (X, then Z); the drives need a moment.
@@ -444,6 +448,7 @@
         a = o;
       }
       this.set({ moving: true });
+      this.streamAt = performance.now();
       const p = this.planner;
       let end;
       try {
@@ -456,17 +461,40 @@
             if (hook) hook(inputs, ack);
             // the override held at a move's limits: said beside the percentage
             if (p.limited && !this.state.overrideHeld) this.set({ overrideHeld: true });
-            if (p.st) this.set({ pos: this.work(p.st.cur), line: p.st.line > 0 ? p.st.line : this.state.line, inputs });
+            // the readout follows at most ten times a second, after the next block is on its way: done
+            // here on every ack, the page's redraw held the next block back long enough for the card to
+            // run dry at a trace's speed, and the bit stopped and started (Phil 11-02: "trace is
+            // unacceptably jerky")
+            if (p.st) this.soon({ pos: this.work(p.st.cur), line: p.st.line > 0 ? p.st.line : this.state.line, inputs });
           }
         });
       } catch (e) {
+        this.flushSoon();
         if (e.report) this.read(e.report);
         this.set({ moving: false });
         throw e;
       }
+      this.flushSoon();
       this.read(end);
       this.set({ moving: false });
       return end;
+    }
+
+    // a state change for the page, gathered and passed on at most every 100 ms, never inside the stream's own turn
+    soon(patch) {
+      this.soonPatch = Object.assign(this.soonPatch || {}, patch);
+      if (this.soonTimer) return;
+      // the stream's first half second carries the page's own start of the job (its panel, its sheet
+      // closing): the readout waits it out, so the first blocks are not held back by both
+      const fresh = this.streamAt ? 500 - (performance.now() - this.streamAt) : 0;
+      const wait = Math.max(0, fresh, 100 - (performance.now() - (this.soonAt || 0)));
+      this.soonTimer = setTimeout(() => this.flushSoon(), wait);
+    }
+    flushSoon() {
+      clearTimeout(this.soonTimer); this.soonTimer = null;
+      const p = this.soonPatch; this.soonPatch = null;
+      this.soonAt = performance.now();
+      if (p) this.set(p);
     }
 
     move(targets, speed, wanted) {
@@ -579,7 +607,7 @@
           // slow pass in short blocks: an ack every few steps places the contact
           await this.card.setBlocks(2, H.block);
           const c = await this.seek(a, slow, H.backOff * 2);
-          await this.card.setBlocks(2, 149);
+          await this.card.setBlocks(WINDOW, 149);
           if (c === null) break;
           this.origin[a] = Math.round(c - H.offset[a] * u[a]);
         }
@@ -591,7 +619,7 @@
       } catch (e) {
         this.homeFail = e.message;
       } finally {
-        await this.card.setBlocks(2, 149).catch(() => {});
+        await this.card.setBlocks(WINDOW, 149).catch(() => {});
         const note = this.homeAbort ? 'homing stopped' : this.homeFail ? `homing failed: ${this.homeFail}` : 'homed: X 0, Y 0 is the table corner';
         this.homing = false;
         this.homeFail = null;
@@ -652,7 +680,7 @@
           if (c === null || this.homeAbort) break;
           this.origin.z = Math.round(c - P.thickness * u);
           this.set({ pos: this.work(this.steps) });
-          await this.card.setBlocks(2, 149);
+          await this.card.setBlocks(WINDOW, 149);
           await this.stack([Object.assign(this.machine({ ...this.state.pos, z: P.lift }), { feed: this.cfg.jog.z, line: 0 })]);
           if (this.homeAbort) break;
           this.read(await this.card.status());
@@ -665,7 +693,7 @@
       } catch (e) {
         this.homeFail = e.message;
       } finally {
-        await this.card.setBlocks(2, 149).catch(() => {});
+        await this.card.setBlocks(WINDOW, 149).catch(() => {});
         done = done && !this.homeAbort && !this.homeFail;
         const far = /^no Z plate contact within/.test(this.homeFail || '') ? ': bring the bit closer to the plate, or raise "search down" on the plate card' : '';
         const note = this.homeAbort ? 'Z zero stopped' : this.homeFail ? `Z zero failed: ${this.homeFail}${far}` : 'Z zeroed on the plate: put the plate away';
@@ -790,6 +818,27 @@
       this.remoteStop = false;
       this.quiet();
       this.cue('move');
+      // the page's own start of a job (its panel, the sheet closing, the cue) runs first, then the
+      // stream: started together, the first blocks waited on the page and the bit stuttered as it
+      // set off (stub card in real time, CPU slowed 6x: ten stalls in the first second)
+      // (the sheet's fade over the frosted panes costs the page most: 0.7 s, then a quiet moment)
+      this.starting = true;
+      await new Promise(r => setTimeout(r, 700));
+      await new Promise(r => (typeof requestIdleCallback === 'function' ? requestIdleCallback(() => r(), { timeout: 300 }) : setTimeout(r, 60)));
+      this.starting = false;
+      // a stop or a pause pressed in that moment holds before anything is sent
+      if (this.halted && this.job) {
+        const how = this.halted;
+        this.halted = null;
+        if (how === 'pause') {
+          this.job.rest = ops; this.job.restStep = ops.length && ops[0].si !== undefined ? ops[0].si : 0; this.job.haltAt = { ...this.state.pos };
+          this.set({ paused: true, spindle: false, note: 'paused' });
+        } else {
+          this.job = null;
+          this.set({ running: false, paused: false, moving: false, spindle: false, stopHit: true, note: 'stopped before it moved' });
+        }
+        return;
+      }
       try {
         await this.stack(ops);
       } catch (e) {
@@ -848,6 +897,7 @@
 
     pause() {
       if (!this.state.running || this.state.paused) return;
+      if (this.starting) { this.halted = 'pause'; return; }
       this.halted = 'pause';
       this.planner.stop();
     }
@@ -889,6 +939,8 @@
         return;
       }
       if (this.homing) this.homeAbort = true;
+      // pressed while the job waits to set off: it never sets off
+      if (this.starting) { this.halted = 'stop'; return; }
       if (this.card && this.card.streaming) { if (!this.homing) this.halted = 'stop'; this.planner.stop(); }
     }
 

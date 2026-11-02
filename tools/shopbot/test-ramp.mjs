@@ -55,4 +55,15 @@ assert.ok(Math.abs(rapv.find(s => s.mm >= 100).v - 20) < 0.2, 'no override, no c
 const pt = new Planner({ unit, rampSpeed: 10.16, rampRate: 5.08, maxFeed: 254 }); pt.override = 1.5;
 const top = speeds(pt, [{ x: 600, y: 0, z: 0, feed: 240, line: 1, cut: true }]);
 assert.ok(Math.max(...top.map(s => s.v)) <= 254.5, 'never past the machine top speed');
+// a curve in short segments (Phil 11-02: cuts as smooth as the jogs): a 100 mm circle in 6° chords at
+// 25 mm/s holds its feed once ramped in, never dipping vertex by vertex; a right-angle corner still slows
+const circ = [];
+for (let i = 1; i <= 240; i++) { const a = i / 60 * 2 * Math.PI; circ.push({ x: 50 - 50 * Math.cos(a), y: 50 * Math.sin(a), z: 0, feed: 25, line: i, cut: true }); }
+const segs = new Planner({ unit, rampSpeed: 10.16, rampRate: 5.08 }).profile(circ, { x: 0, y: 0, z: 0 });
+const lo = Math.min(...segs.slice(10, -10).map(q => Math.min(q.vStart, q.vEnd)));
+console.log('a 6° chord circle at 25 mm/s: slowest junction after ramping in', lo.toFixed(2), 'mm/s');
+assert.ok(lo > 25 * 0.95, `a curve in 6° chords keeps near its feed (${lo.toFixed(2)})`);
+const corner = speeds(new Planner({ unit, rampSpeed: 10.16, rampRate: 5.08 }), [{ x: 100, y: 0, z: 0, feed: 50, line: 1 }, { x: 100, y: 100, z: 0, feed: 50, line: 2 }]);
+const atCorner = corner.reduce((m, s) => (Math.abs(s.mm - 100) < 0.2 ? Math.min(m, s.v) : m), Infinity);
+assert.ok(atCorner < 12, `a right angle still comes down to the ramp speed (${atCorner.toFixed(2)})`);
 console.log('ramp: ok');

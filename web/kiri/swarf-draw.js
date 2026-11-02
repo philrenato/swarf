@@ -66,6 +66,7 @@
       g.meta.xf = mul(M, g.meta.xf || guessXf(g));
       // engraved lines sit in the part's own frame: local' = M·local − (cam's re-centering)
       if (g.meta.engrave) for (const L of g.meta.engrave) L.crv.ctrlPts = L.crv.ctrlPts.map(([x, y, z, wt]) => [M[0] * x + M[1] * y - (d.dx || 0), M[2] * x + M[3] * y - (d.dy || 0), 0, wt ?? 1]);
+      if (g.meta.orig) for (const L of g.meta.orig) L.crv.ctrlPts = L.crv.ctrlPts.map(([x, y, z, wt]) => [M[0] * x + M[1] * y - (d.dx || 0), M[2] * x + M[3] * y - (d.dy || 0), 0, wt ?? 1]);
       if (known && g.meta.t) {
         const [tx, ty] = g.meta.t;
         g.meta.t = [M[0] * tx + M[1] * ty - (d.dx || 0), M[2] * tx + M[3] * ty - (d.dy || 0)];
@@ -211,7 +212,10 @@
     for (const w of a.widgets.all()) {
       if (w.meta && w.meta.svg && !w.meta.tilted) {
         const curves = bedCurves(w);
-        if (curves.length) { parts.push({ w, name: w.meta.file || 'part', thick: thicknessOf(w), edge: w.meta.edge ? { ...w.meta.edge } : { kind: 'straight', size: 2 }, curves, dirty: false }); continue; }
+        // made here (meta.drawn) or elsewhere: a part made elsewhere keeps its own outline (meta.orig,
+        // in its own frame) once DRAW has changed it, so clear can give it back (Phil 11-02)
+        const orig = Array.isArray(w.meta.orig) ? w.meta.orig.map(c => { const crv = clone(c.crv); crv.ctrlPts = crv.ctrlPts.map(([x, y, z, wt]) => [x + w.track.pos.x, y + w.track.pos.y, 0, wt ?? 1]); return { crv }; }) : null;
+        if (curves.length) { parts.push({ w, name: w.meta.file || 'part', thick: thicknessOf(w), edge: w.meta.edge ? { ...w.meta.edge } : { kind: 'straight', size: 2 }, curves, dirty: false, drawn: !!w.meta.drawn, orig }); continue; }
       }
       const g = w.mesh.geometry; g.computeBoundingBox();
       const b = g.boundingBox, p = w.track.pos;
@@ -263,6 +267,7 @@
         <button data-tool="regions" title="split overlapping outlines into regions, then click a region to fill or empty it (G)">regions</button>
         <span class="sd-sep"></span>
         <button id="sd-undo" title="undo (⌘Z)">undo</button>
+        <button id="sd-clear" title="remove what was drawn here, on the picked part or on every part when none is picked: parts drawn here go, a part made elsewhere goes back to its own outline (undo brings it back)">clear</button>
         <button id="sd-fit" title="show the parts, or the whole bed (F) · pinch or ⌘-scroll to zoom, two fingers to slide">fit</button>
         <span class="sd-grow"></span>
         <button id="sd-cancel" title="close without changing the parts (Esc twice)">cancel</button>
@@ -275,6 +280,7 @@
     ui.el = el; ui.svg = $('sd-svg'); ui.card = $('sd-card');
     for (const b of el.querySelectorAll('[data-tool]')) b.onclick = () => setTool(b.dataset.tool);
     $('sd-undo').onclick = undo;
+    $('sd-clear').onclick = () => { clearDrawn(); ui.svg.focus(); };
     $('sd-fit').onclick = () => { fit(!S.whole); render(); ui.svg.focus(); };
     $('sd-cancel').onclick = () => close(false);
     $('sd-done').onclick = () => close(true);
@@ -454,6 +460,7 @@
     ui.svg.innerHTML = out.join('');
     for (const b of ui.el.querySelectorAll('[data-tool]')) b.classList.toggle('on', b.dataset.tool === S.tool);
     $('sd-undo').disabled = !S.undo.length;
+    $('sd-clear').disabled = !clearable().length;
     card();
   }
   function pathOf(crv) {
@@ -575,7 +582,9 @@
       } else if (S.pts.size) h += `<div class="sd-h">${S.pts.size} points</div>`;
       h += `<div class="sd-h">${S.pts.size ? (S.pts.size === 1 ? 'around it' : 'the points') : 'the part'}</div>${row('scale', 'sd-scale', 100, '%')}${row('turn', 'sd-turn', 0, '°')}
         <div class="sd-note">${S.pts.size ? 'Drag a point, or type where it goes. Delete removes it. Double-click an edge to add one.' : 'Drag the part to move it. Click a point to pick it; drag across points to pick several.'}</div>
-        ${S.pts.size ? '' : '<div class="sd-row"><button id="sd-del" title="remove this part (when you press done)">delete this part</button></div>'}`;
+        ${S.pts.size ? '' : part.drawn || !part.w ? '<div class="sd-row"><button id="sd-del" title="remove this part (when you press done)">delete this part</button></div>'
+          : changedHere(part) || linesOn(part).length ? '<div class="sd-row"><button id="sd-del" title="take away what was drawn on this part; the part stays (delete it in cam)">clear what was drawn</button></div>'
+          : '<div class="sd-note">Made outside draw: delete it in cam.</div>'}`;
     } else if (S.parts.some(p => !p.gone)) {
       h = '<div class="sd-note">Click a part to edit it.</div>';
     }
@@ -709,11 +718,55 @@
     for (const P of list) { const [x, y] = f([P[0] - cx, P[1] - cy]); P[0] = x + cx; P[1] = y + cy; }
     part.dirty = true;
   }
+  // ── clear (as TEX's): what was drawn here goes, on the picked part or everywhere. Parts drawn here and
+  // lines engraved here go; a part made elsewhere goes back to its own outline. Undoable ──
+  const linesOn = part => { const loops = part.curves.filter(c => isClosed(c.crv)).map(c => flat(c.crv, 1)); return S.parts.filter(L => L.line && !L.gone && inPart(flat(L.curves[0].crv, 1)[0], loops)); };
+  const changedHere = p => p.orig && JSON.stringify(p.orig) !== JSON.stringify(p.curves);
+  function clearable() {
+    if (!S) return [];
+    const pick = S.parts[S.sel];
+    const scope = pick && !pick.gone ? [pick, ...(pick.line ? [] : linesOn(pick))] : S.parts.filter(p => !p.gone);
+    return scope.filter(p => !p.gone && (p.line || p.drawn || !p.w || changedHere(p)));
+  }
+  // one part: drawn here → gone; made elsewhere → its own outline again. True when anything changed
+  function clearOne(part, withSnap) {
+    const list = [part, ...(part.line ? [] : linesOn(part))].filter(p => !p.gone && (p.line || p.drawn || !p.w || changedHere(p)));
+    if (!list.length) return false;
+    if (withSnap) snap();
+    for (const p of list) {
+      if (p.line || p.drawn || !p.w) { p.gone = true; p.dirty = true; continue; }
+      p.curves = clone(p.orig); p.dirty = true; p.restored = true;
+    }
+    S.pts.clear();
+    return true;
+  }
+  function clearDrawn() {
+    const list = clearable();
+    if (!list.length) return;
+    snap();
+    let gone = 0, back = 0;
+    for (const p of list) {
+      if (p.line || p.drawn || !p.w) { p.gone = true; p.dirty = true; gone++; }
+      else { p.curves = clone(p.orig); p.dirty = true; p.restored = true; back++; }
+    }
+    if (S.parts[S.sel] && S.parts[S.sel].gone) S.sel = -1;
+    S.pts.clear();
+    say(`${gone ? `${gone === 1 ? 'One drawn thing goes' : `${gone} drawn things go`}` : ''}${gone && back ? '; ' : ''}${back ? `${back === 1 ? 'one part goes' : `${back} parts go`} back to ${back === 1 ? 'its' : 'their'} own outline` : ''} when you press done (undo brings ${gone + back === 1 ? 'it' : 'them'} back).`);
+    render();
+  }
   function deletePts() {
     const part = S.parts[S.sel];
     if (!part) return;
     if (S.pts.size) { delete part.text; delete part.pencil; }
-    if (!S.pts.size) { snap(); part.gone = true; S.sel = -1; say(`${part.name} will be removed when you press done.`); render(); return; }
+    if (!S.pts.size) {
+      // a part made elsewhere (a shape, an import) is not DRAW's to remove: what was drawn on it goes
+      if (part.w && !part.drawn && !part.line) {
+        if (clearOne(part, true)) { say(`What was drawn on ${part.name} is gone; the part stays (delete it in cam). Undo brings it back.`); render(); }
+        else say(`${part.name} was not made in draw: delete it in cam. Draw removes what was drawn here.`);
+        return;
+      }
+      snap(); part.gone = true; S.sel = -1; say(`${part.name} will be removed when you press done.`); render(); return;
+    }
     const byCurve = new Map();
     for (const id of S.pts) { const [ci, i] = id.split(':').map(Number); if (!byCurve.has(ci)) byCurve.set(ci, []); byCurve.get(ci).push(i); }
     const before = JSON.stringify(part.curves);
@@ -1404,6 +1457,13 @@
       }
       if (!ws.length) { failed.push(`${p.name} not made: ${(ws.error || 'swarf could not make it from its drawing. Is the outline crossing itself?').replace(/\.$/, '')}${p.w ? '; the part stays as it was' : ''}.`); continue; }
       if (!p.w) fresh = true;
+      // what was made here, and the outline a part made elsewhere had before DRAW changed it
+      const drawn = !p.w || !!p.drawn;
+      const before = p.w && !drawn && !p.restored ? (p.orig ? clone(p.orig) : bedCurves(p.w).filter(c => isClosed(c.crv)).map(c => ({ crv: c.crv }))) : null;
+      ws.forEach((w, i) => {
+        if (drawn || i > 0) w.meta.drawn = true;
+        if (before && i === 0) { const q = w.track.pos; w.meta.orig = before.map(c => { const crv = clone(c.crv); crv.ctrlPts = crv.ctrlPts.map(([x, y, z, wt]) => [x - q.x, y - q.y, 0, wt ?? 1]); return { crv }; }); }
+      });
       if (p.w) carryMarks(p.w, ws);
       if (p.w) a.platform.delete(p.w);
       made.push(...ws);

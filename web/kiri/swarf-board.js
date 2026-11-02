@@ -145,10 +145,17 @@
       g.meta.rq = R.toArray();
       if (flat) { g.meta.rflat = R.toArray(); delete g.meta.tilted; } else g.meta.tilted = true;
     }
-    const out = { M, flat, back };
+    const out = { M, flat, back, prev: m0.rq || [0, 0, 0, 1], rq: R.toArray() };
     turns.set(ev, out);
     return out;
   }
+
+  // the part's own direction now on top (its body frame), for a rotation rq: Rᵀ·ẑ
+  function bodyUp(rq) { const THREE = window.THREE; return new THREE.Vector3(0, 0, 1).applyQuaternion(new THREE.Quaternion(...(rq || [0, 0, 0, 1])).invert()); }
+  // a 3D turn seen from above: where it sends x and y, as [a, b, c, d]
+  function twoOf(rq) { const THREE = window.THREE, Q = new THREE.Quaternion(...(rq || [0, 0, 0, 1])), ex = new THREE.Vector3(1, 0, 0).applyQuaternion(Q), ey = new THREE.Vector3(0, 1, 0).applyQuaternion(Q); return [ex.x, ey.x, ex.y, ey.y]; }
+  // the turn from rotation `from` to rotation `to` (to·from⁻¹)
+  function between(from, to) { const THREE = window.THREE; return new THREE.Quaternion(...(to || [0, 0, 0, 1])).multiply(new THREE.Quaternion(...(from || [0, 0, 0, 1])).invert()).toArray(); }
 
   // ── wiring: once cam's api and the mode's step button are there (30 s at most), fn(api, step) ──
   function wire(stepId, fn) {
@@ -167,5 +174,5 @@
   // them reach cam while a board is open; a prompt's Enter still lands (review r093 A3)
   const hush = e => { if (!/^(INPUT|SELECT|TEXTAREA)$/.test(e.target && e.target.tagName)) e.stopPropagation(); };
 
-  window.SwarfBoard = { api, V, $, r3, clone, esc, isClosed, inLoop, flat, view, toMM, wheel, ground, rotationOf, turnOf, wire, hush };
+  window.SwarfBoard = { api, V, $, r3, clone, esc, isClosed, inLoop, flat, view, toMM, wheel, ground, rotationOf, turnOf, bodyUp, twoOf, between, wire, hush };
 })();

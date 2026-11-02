@@ -59,12 +59,12 @@ try {
   // #12
   await page.evaluate(() => { const a = window.kiri.api; a.platform.deselect(); a.platform.select(a.widgets.all()[1]); });
   await page.click('#swarf-step-draw');
-  await page.waitForFunction(() => document.getElementById('sd-del'), { timeout: 5000 });
-  await page.click('#sd-del');
-  await page.click('#sd-done');
-  await wait(1200);
+  // (Phil 11-02) DRAW deletes only what it made: this copy of a shape is cam's to delete
+  await page.waitForFunction(() => window.__swarfDraw.state(), { timeout: 5000 });
+  const delBtn = await page.evaluate(() => { const b = document.getElementById('sd-del'); return b ? b.textContent : (document.querySelector('#sd-card .sd-note:last-child') || {}).textContent; });
+  await page.evaluate(() => window.__swarfDraw.close(false)); await wait(300);
   const n = await page.evaluate(() => window.kiri.api.widgets.all().length);
-  check(n === 1, `DRAW "delete this part" removes it on done (${n} left)`);
+  check(n === 2 && /delete it in cam/.test(delBtn || ''), `DRAW leaves a shape's copy to cam (${n} parts, "${delBtn}")`);
   // #2
   await page.evaluate(() => window.kiri.api.devices.select('Langmuir.MR-1'));
   await wait(1000);

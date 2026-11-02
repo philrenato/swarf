@@ -58,17 +58,35 @@ try {
   await rot(Math.PI / 2, 0, 0); await wait(300);
   f = await fit();
   check(f.tilted, 'a quarter turn over X: on its side, tipped');
-  p = await paint();
-  check(p.marks === 0 && /on its side/.test(p.said), `TEX says a part on its side is tipped where it is pressed (${p.said})`);
-  // lay it flat, from TEX's card
+  // on its side, TEX marks the face now on top (Phil 11-02: "wherever I am trying to paint is the new top")
+  const strip = await page.evaluate(() => { const w = window.kiri.api.widgets.all()[0], g = w.mesh.geometry; g.computeBoundingBox(); const b = g.boundingBox; return [+(b.max.x - b.min.x).toFixed(2), +(b.max.y - b.min.y).toFixed(2)]; });
   await page.evaluate(() => { const a = window.kiri.api; a.platform.select(a.widgets.all()[0]); });
+  await page.click('#swarf-step-tex'); await page.waitForFunction(() => window.__swarfTex.state(), { timeout: 15000 });
+  const face = await page.evaluate(() => { const p = window.__swarfTex.state().parts[0]; return { loops: p.loops.length, box: p.box.map(v => +v.toFixed(2)) }; });
+  await page.evaluate(() => { const S = window.__swarfTex.state(), C = window.SwarfTexCore, p = S.parts[0]; const g = C.newGrid(p.box[0] - 2, p.box[1] - 2, p.box[2] + 2, p.box[3] + 2, 0.5); C.paintWhere(g, () => true, 1); const m = { id: 'side', made: 'region', region: g, xf: C.IDENTITY.slice(), fill: C.newFill('waves'), face: null, at: null, ver: 1 }; p.marks.push(m); S.sel = 0; S.mark = p.marks.length - 1; p.dirty = true; });
+  // the face and rotation a fresh mark gets come from newMark; this one is claimed on done as the face on top
+  await page.click('#tx-done'); await wait(1500);
+  const sideMark = await page.evaluate(() => { const m = window.kiri.api.widgets.all()[0].meta.tex[0]; return { face: m.face, xf: m.xf }; });
+  // the L on its side: its highest face is the 50 mm run beside the notch, the board's 12.7 thick; the
+  // rest of its silhouette (80 mm) is lower and is not the top
+  check(face.loops === 1 && Math.abs((face.box[2] - face.box[0]) - 50) < 0.6 && Math.abs((face.box[3] - face.box[1]) - 12.7) < 0.6 && strip[0] > 79, `on its side, TEX's part is the face on top: 50 x 12.7 of an 80 mm silhouette (${JSON.stringify(face)}, ${strip.join(' x ')})`);
+  check(Array.isArray(sideMark.face) && Math.abs(Math.abs(sideMark.face[1]) - 1) < 1e-6, `the mark is on that face: the board's ${JSON.stringify(sideMark.face)}`);
+  const cuts = async () => { await page.evaluate(() => window.kiri.api.function.prepare()); await wait(4000); return page.evaluate(() => { const op = window.kiri.api.conf.get().process.ops.find(o => o.type === 'texture'); return op && op.marks ? Object.values(op.marks).reduce((n, l) => n + l.length, 0) : -1; }); };
+  check(await cuts() === 1, 'its texture step cuts it while that face is on top');
+  // lay it flat: the mark waits; on its side again: back where it was
+  await page.evaluate(() => { const a = window.kiri.api; a.view.set_arrange && a.view.set_arrange(); a.platform.select(a.widgets.all()[0]); });
   await page.click('#swarf-step-tex'); await page.waitForFunction(() => window.__swarfTex.state(), { timeout: 15000 });
   const hasBtn = await page.evaluate(() => !!document.getElementById('tx-layflat'));
   await page.click('#tx-layflat'); await wait(800);
-  const open2 = await page.evaluate(() => !!window.__swarfTex.state());
+  const flatNow = await page.evaluate(() => { const p = window.__swarfTex.state().parts[0]; return { marks: p.marks.length, dormant: p.dormant.length, note: document.getElementById('tx-card').textContent }; });
   await page.evaluate(() => window.__swarfTex.close(false)); await wait(300);
   f = await fit();
-  check(hasBtn && open2 && !f.tilted && f.worst < 0.05, `"lay it flat" turns it back, flat, its outline on its top, TEX open on it (${JSON.stringify(f)})`);
+  check(hasBtn && !f.tilted && f.worst < 0.05 && flatNow.marks === 0 && flatNow.dormant === 1 && /waits/.test(flatNow.note), `"lay it flat": flat, its outline on its top, the side's mark waiting (${JSON.stringify({ f, marks: flatNow.marks, dormant: flatNow.dormant })})`);
+  check(await cuts() === 0, 'flat, the side\'s texture cuts nothing');
+  await page.evaluate(() => { const a = window.kiri.api; a.view.set_arrange && a.view.set_arrange(); });
+  await rot(Math.PI / 2, 0, 0); await wait(300);
+  const back = await page.evaluate(() => window.kiri.api.widgets.all()[0].meta.tex[0].xf);
+  check(back.every((v, i) => Math.abs(v - sideMark.xf[i]) < 1e-6) && await cuts() === 1, `on its side again: the mark where it was (${back.map(v => +v.toFixed(3))}), cut again`);
   // saved tipped by an older swarf, lying flat after all (rectangle.swarf): lined up when TEX opens
   await fresh(L); await wait(1500);
   await rot(0, 0, Math.PI); await wait(300);

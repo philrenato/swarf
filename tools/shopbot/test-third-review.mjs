@@ -40,7 +40,7 @@ function bare(card) {
 }
 const armed = (m, prog) => R.arm(m.plan(prog));
 const wait = ms => new Promise(r => setTimeout(r, ms));
-const until = (f, ms = 5000) => new Promise((res, rej) => { const t0 = Date.now(), t = setInterval(() => { if (f()) { clearInterval(t); res(); } else if (Date.now() - t0 > ms) { clearInterval(t); rej(new Error('timed out')); } }, 5); });
+const until = (f, ms = +(process.env.UNTIL || 5000)) => new Promise((res, rej) => { const t0 = Date.now(), t = setInterval(() => { if (f()) { clearInterval(t); res(); } else if (Date.now() - t0 > ms) { clearInterval(t); rej(new Error('timed out')); } }, 5); });
 
 // 1 ---------------------------------------------------------------------------------------
 { // a released reading in the cache, the fresh read fails: nothing is sent, and it says why
@@ -202,13 +202,23 @@ const until = (f, ms = 5000) => new Promise((res, rej) => { const t0 = Date.now(
   card.state.realtime = true;
   const long = "'UNITS:MM\nSA\nJ3,0,0,5\nM3,0,0,-1\nM3,300,0,-1\nJ3,300,0,5\nEND";
   m.run(win.SwarfRunPlan.arm(m.plan({ name: 'l', moves: win.SwarfRunParse.parse(long).moves, sbp: long, spindle: true })));
-  await until(() => m.state.pos.x > 5 && m.state.running, 20000);
+  await until(() => m.card.streaming && m.state.running && m.state.pos.x > 5, 20000);
   const streaming = m.card.streaming;
   m.stop();
   await until(() => !m.state.running);
   console.log('   stop while streaming:', streaming, '| note:', m.state.note, '| x', m.state.pos.x.toFixed(1));
   await wait(450);
   assert.ok(!cues.some(c => c[0] === 'done'), `a stop: no done (${cues.map(c => c[0])})`);
+  assert.ok(streaming, 'that stop came mid-stream');
+  // a stop in the moment before it sets off (Phil 11-02: the page's start runs first): nothing is sent
+  cues.length = 0;
+  const x0 = card.state.pos[0];
+  m.run(win.SwarfRunPlan.arm(m.plan({ name: 'l2', moves: win.SwarfRunParse.parse(long).moves, sbp: long, spindle: true })));
+  await wait(100);
+  m.stop();
+  await until(() => !m.state.running);
+  assert.equal(card.state.pos[0], x0, 'a stop before it set off: the card never moved');
+  assert.match(m.state.note, /stopped before it moved/);
   console.log('6 cues: move, router before the switch, done after the coast; none after a stop');
 }
 console.log('third review: ok');

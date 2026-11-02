@@ -302,8 +302,14 @@
       for (let i = 0; i < segs.length; i++) {
         const s = segs[i], n = segs[i + 1];
         if (!n) { s.vEnd = v0; continue; }
-        const cos = s.dir.x * n.dir.x + s.dir.y * n.dir.y + s.dir.z * n.dir.z;
-        const f = cos >= 0.999 ? 1 : cos <= 0 ? 0 : cos * 0.65;   // VR slow-corner 65%
+        // the speed through a bend, by its angle: full through a gentle one (under 3°), down to the ramp
+        // speed at a right angle or sharper, in a straight line between. It was 65 % of the feed at any
+        // bend past 2.6°, so a curve or a texture's raster drawn in short segments ran at two speeds,
+        // vertex by vertex, and shook (Phil 11-02: "make sure air cut and cut are all tuned to work well,
+        // like the jog work")
+        const cos = Math.max(-1, Math.min(1, s.dir.x * n.dir.x + s.dir.y * n.dir.y + s.dir.z * n.dir.z));
+        const deg = Math.acos(cos) * 180 / Math.PI;
+        const f = deg <= 3 ? 1 : deg >= 90 ? 0 : 1 - (deg - 3) / 87;
         s.vEnd = Math.max(v0, Math.min(s.feed, n.feed) * f);
       }
       let vIn = v0;

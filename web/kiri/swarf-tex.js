@@ -115,8 +115,49 @@
     const g = w.mesh.geometry;
     g.computeBoundingBox();
     const b = g.boundingBox;
+    // on its side: the face now on top, from the mesh (Phil 11-02: "wherever I am trying to paint is
+    // the new top of that object")
+    if (w.meta && w.meta.tilted) { const loops = topFace(w); if (loops.length) return { loops, drawn: false, face: true }; }
     return { loops: [[[b.min.x, b.min.y], [b.max.x, b.min.y], [b.max.x, b.max.y], [b.min.x, b.max.y]]], drawn: false };
   }
+  // the mesh's highest flat face, as outline loops in the part's frame: the facing-up triangles at the
+  // top, their edges used once, joined end to end
+  function topFace(w) {
+    const g = w.mesh.geometry, P = g.attributes.position, I = g.index;
+    g.computeBoundingBox();
+    const zt = g.boundingBox.max.z, n = I ? I.count : P.count, at = k => (I ? I.getX(k) : k);
+    const key = i => `${P.getX(i).toFixed(3)},${P.getY(i).toFixed(3)}`, xy = new Map(), edges = new Map();
+    for (let t = 0; t + 2 < n; t += 3) {
+      const v = [at(t), at(t + 1), at(t + 2)];
+      if (!v.every(i => P.getZ(i) > zt - 1e-3)) continue;
+      for (const i of v) xy.set(key(i), [P.getX(i), P.getY(i)]);
+      for (const [a, c] of [[v[0], v[1]], [v[1], v[2]], [v[2], v[0]]]) {
+        const ka = key(a), kc = key(c), k = ka < kc ? `${ka}|${kc}` : `${kc}|${ka}`;
+        edges.set(k, (edges.get(k) || 0) + 1);
+      }
+    }
+    const next = new Map();
+    for (const [k, c] of edges) { if (c !== 1) continue; const [a, d] = k.split('|'); (next.get(a) || next.set(a, []).get(a)).push(d); (next.get(d) || next.set(d, []).get(d)).push(a); }
+    const loops = [], seen = new Set();
+    for (const s0 of next.keys()) {
+      if (seen.has(s0)) continue;
+      const L = []; let cur = s0, prev = null;
+      for (let guard = 0; guard < 1e5; guard++) {
+        seen.add(cur); L.push(xy.get(cur));
+        const nx = (next.get(cur) || []).find(q => q !== prev && !seen.has(q));
+        if (!nx) break;
+        prev = cur; cur = nx;
+      }
+      if (L.length >= 3) loops.push(L);
+    }
+    return loops;
+  }
+  // ── a mark lives on one face of its part (its body's direction up when it was painted, m.face) and was
+  // last placed for the rotation m.at; it is cut and shown only while that face is on top ──
+  const rqOf = w => { const lead = (w.group && w.group[0]) || w; return (lead.meta && lead.meta.rq) || [0, 0, 0, 1]; };
+  const faceNow = w => { const u = Board.bodyUp(rqOf(w)); return [u.x, u.y, u.z].map(v => Math.round(v * 1e6) / 1e6); };
+  function claim(w, m, rq) { if (!m.face) { const u = Board.bodyUp(rq || rqOf(w)); m.face = [u.x, u.y, u.z].map(v => Math.round(v * 1e6) / 1e6); m.at = (rq || rqOf(w)).slice(); } return m; }
+  const faceUp = (w, m, rq) => { claim(w, m, rq); const u = Board.bodyUp(rq || rqOf(w)); return u.x * m.face[0] + u.y * m.face[1] + u.z * m.face[2] > 0.999; };
   const onPart = (p, loops) => loops.reduce((n, L) => n + (inLoop(p, L) ? 1 : 0), 0) % 2 === 1;
   function sizeOf(w) {
     const g = w.mesh.geometry;
@@ -139,10 +180,10 @@
   }
   function loadMark(m) {
     const region = T().regionSpec(m.region);
-    return { id: m.id, made: m.made, region: { ...region, data: region.data ? region.data.slice() : region.data }, xf: (m.xf || T().IDENTITY).slice(), fill: normBit(knownFill(clone(m.fill))), est: m.est, ver: 1 };
+    return { id: m.id, made: m.made, region: { ...region, data: region.data ? region.data.slice() : region.data }, xf: (m.xf || T().IDENTITY).slice(), fill: normBit(knownFill(clone(m.fill))), est: m.est, face: m.face, at: m.at, ver: 1 };
   }
   function storeMark(m) {
-    return { id: m.id, made: m.made, region: T().storeRegion(m.region), xf: m.xf.slice(), fill: clone(m.fill), est: m.est };
+    return { id: m.id, made: m.made, region: T().storeRegion(m.region), xf: m.xf.slice(), fill: clone(m.fill), est: m.est, face: m.face, at: m.at };
   }
   const markHas = m => m.region && m.region.data && m.region.data.some(v => v);
   function lastFill() {
@@ -154,7 +195,7 @@
     const region = T().newGrid(b[0] - pad, b[1] - pad, b[2] + pad, b[3] + pad, 0.5);
     const f = lastFill() || T().newFill('waves', { tool: 'ball14' });
     f.origin = [(b[0] + b[2]) / 2, (b[1] + b[3]) / 2];
-    return { id: newId(), made: made || 'brush', region, xf: T().IDENTITY.slice(), fill: normBit(f), ver: 1 };
+    return { id: newId(), made: made || 'brush', region, xf: T().IDENTITY.slice(), fill: normBit(f), face: faceNow(part.w), at: rqOf(part.w).slice(), ver: 1 };
   }
   // the bed point p to the mark's frame
   function toMark(part, m, p) { return T().xfApply(T().xfInvert(m.xf), p[0] - part.pos[0], p[1] - part.pos[1]); }
@@ -180,7 +221,7 @@
       const pos = [w.track.pos.x, w.track.pos.y];
       const b = [Infinity, Infinity, -Infinity, -Infinity];
       for (const L of loops) for (const q of L) { b[0] = Math.min(b[0], q[0]); b[1] = Math.min(b[1], q[1]); b[2] = Math.max(b[2], q[0]); b[3] = Math.max(b[3], q[1]); }
-      parts.push({ w, name: nameOf(w), pos, loops, drawn, box: b, ...sizeOf(w), tilted: !!(w.meta && w.meta.tilted), marks: (w.meta && Array.isArray(w.meta.tex) ? w.meta.tex : []).map(loadMark), dirty: false });
+      parts.push({ w, name: nameOf(w), pos, loops, drawn, box: b, ...sizeOf(w), tilted: !!(w.meta && w.meta.tilted), marks: (w.meta && Array.isArray(w.meta.tex) ? w.meta.tex : []).filter(m => faceUp(w, m)).map(loadMark), dormant: (w.meta && Array.isArray(w.meta.tex) ? w.meta.tex : []).filter(m => !faceUp(w, m)), dirty: false });
     }
     // 12 mm, or 1/2 in when the units are inches (deep review P6: 0.472 in)
     const brush0 = LEN.unit() === 'in' ? 12.7 : 12;
@@ -666,7 +707,8 @@
     } else {
       h += `<div class="sd-row tx-parthead"><span class="sd-h">${esc(part.name)}</span><button id="tx-new" title="start another mark on this part (the brush paints it)">new mark</button>${m ? '<button id="tx-del" title="remove this mark (Delete)">delete</button>' : ''}</div>`;
       // on its side: one press lays it back the way it last lay flat (swarf-board turnOf keeps that)
-      if (part.tilted) h += '<div class="sd-note">This part is on its side: TEX marks the top of a part lying flat.</div><div class="sd-row"><button id="tx-layflat" title="turn it back the way it last lay flat">lay it flat</button></div>';
+      if (part.tilted) h += `<div class="sd-note">On its side: marks go on the face now on top, and stay with that face.${part.dormant && part.dormant.length ? ` ${part.dormant.length === 1 ? 'A mark' : `${part.dormant.length} marks`} on another face ${part.dormant.length === 1 ? 'waits' : 'wait'} until it is on top again.` : ''}</div><div class="sd-row"><button id="tx-layflat" title="turn it back the way it last lay flat">lay it flat</button></div>`;
+      else if (part.dormant && part.dormant.length) h += `<div class="sd-note">${part.dormant.length === 1 ? 'A mark' : `${part.dormant.length} marks`} on another face of this part ${part.dormant.length === 1 ? 'waits' : 'wait'} until that face is on top again.</div>`;
       if (S.tool === 'points' && m && markHas(m)) {
         const c = curveOf(m), n = c.loops.reduce((a, L) => a + L.handles.length, 0);
         h += `<div class="sd-row tx-ptsrow" title="how many points the edge is fitted to: fewer is smoother, more follows the paint closer"><span>points</span><input id="tx-npts" value="${n}" inputmode="numeric"><button id="tx-fewer" title="fewer points: smoother">fewer</button><button id="tx-more" title="more points: closer to the paint">more</button></div>`;
@@ -1066,7 +1108,6 @@
   function partAt(p) {
     let best = -1, area = Infinity;
     S.parts.forEach((q, i) => {
-      if (q.tilted) return;
       const l = [p[0] - q.pos[0], p[1] - q.pos[1]];
       if (!onPart(l, q.loops)) return;
       const a = (q.box[2] - q.box[0]) * (q.box[3] - q.box[1]);
@@ -1082,11 +1123,9 @@
     const part = curPart();
     if (!part) {
       // a press on a part tipped on its side says so (it was "press on a part", on one)
-      const on = S.parts.find(q => q.tilted && onPart([p[0] - q.pos[0], p[1] - q.pos[1]], q.loops));
-      say(on ? `${on.name} is tipped on its side: TEX marks the top of a part lying flat. Lay it flat in cam (rotate it back).` : 'Press on a part: a mark lives on a part.');
+      say('Press on a part: a mark lives on a part.');
       return null;
     }
-    if (part.tilted) { say(`${part.name} is tipped on its side: TEX marks the top of a part lying flat. Lay it flat in cam (rotate it back).`); return null; }
     if (!curMark() && make) { part.marks.push(newMark(part, WORD[S.tool])); S.mark = part.marks.length - 1; }
     return curMark() ? { part, m: curMark() } : null;
   }
@@ -1322,7 +1361,8 @@
       changed++;
       const list = p.marks.filter(markHas);
       for (const m of list) if (!(m.info && m.info.ver === m.ver)) delete m.est;
-      if (list.length) p.w.meta.tex = list.map(storeMark); else delete p.w.meta.tex;
+      const all = [...list.map(storeMark), ...(p.dormant || [])];
+      if (all.length) p.w.meta.tex = all; else delete p.w.meta.tex;
       kept += list.length;
       // saved now, not on the usual delay: a reload right after done keeps the marks
       if (p.w.saveState) p.w.saveState(() => {});
@@ -1523,10 +1563,9 @@
       if (!e) continue;
       op.tool = kiriTool(e.mark.fill.tool, s.tools || []);
       for (const w of e.ws) {
-        if (w.meta.tilted) continue;
         const { top, thick } = sizeOf(w);
         const part = localLoops(w).loops;
-        op.marks[w.id] = w.meta.tex.filter(m => m.id === op.texmark).map(mark => ({ mark, top, thick, part }));
+        op.marks[w.id] = w.meta.tex.filter(m => m.id === op.texmark && faceUp(w, m)).map(mark => ({ mark, top, thick, part }));
       }
     }
   }
@@ -1556,6 +1595,7 @@
       const { thick } = sizeOf(w), name = nameOf(w);
       let loops = null;
       for (const m of w.meta.tex) {
+        if (!faceUp(w, m)) continue;   // a face not on top cuts nothing
         const key = JSON.stringify([m.id, m.fill, m.xf, thick, m.region.nx, (m.region.runs || []).length, LEN.unit(), w.meta.svg ? w.meta.svg.length : 0]);
         if (!said.has(key)) {
           loops = loops || localLoops(w).loops;
@@ -1586,9 +1626,24 @@
   }
   // a tilt (lay flat off the bed's plane): the marks stay as they are; flat again (flipped over and
   // back, or upside down), they follow the turn since it last lay flat, about its middle
+  // each mark whose face is on top after the turn is placed for it: turned with it since it was last
+  // placed (about the part's middle; a turn about Z alone also carries cam's re-centering); a mark whose
+  // face went down keeps its place and waits for its face to come back up
   function onRotate(ev) {
-    const r = Board.turnOf(ev);
-    if (r.M) track(ev.widget, r.M, r.back);
+    const r = Board.turnOf(ev), zonly = !!Board.rotationOf(ev), w = ev.widget;
+    const d = (w.track && w.track.center) || { dx: 0, dy: 0 };
+    for (const g of (w.group && w.group.length ? w.group : [w])) {
+      if (!(g.meta && Array.isArray(g.meta.tex))) continue;
+      for (const m of g.meta.tex) {
+        claim(g, m, r.prev);
+        if (!faceUp(g, m, r.rq)) continue;
+        const was = JSON.stringify(m.at) === JSON.stringify(r.prev);
+        const M = Board.twoOf(Board.between(m.at, r.rq)).map(v => (Math.abs(v) < 1e-9 ? 0 : v));
+        const off = zonly && was ? d : { dx: 0, dy: 0 };
+        m.xf = T().xfThen(m.xf || T().IDENTITY, [M[0], M[1], M[2], M[3], -(off.dx || 0), -(off.dy || 0)]);
+        m.at = r.rq.slice();
+      }
+    }
   }
 
   // ── wiring ──

@@ -219,7 +219,7 @@ function duplicate() {
         nw.meta.vertices = ow.meta.vertices;
         // swarf: the copy keeps its drawing (DRAW, save drawing) and its marks (TEX: the same
         // mark ids, so the same texture steps cut it) and sits beside the original
-        for (const k of ['svg', 'c0', 'xf', 't', 'edge', 'tilted', 'engrave', 'tex']) {
+        for (const k of ['svg', 'c0', 'xf', 't', 'edge', 'tilted', 'engrave', 'tex', 'drawn', 'orig', 'rq', 'rflat', 'disabled']) {
             if (ow.meta[k] !== undefined) nw.meta[k] = JSON.parse(JSON.stringify(ow.meta[k]));
         }
         nw.anno = ow.annotations();
