@@ -523,13 +523,13 @@
   // Ops keep the student's edits. An op is re-derived only when its stamp
   // no longer matches — the material, the op's tool or the device changed —
   // or when it has no stamp yet (a new op, or the auto-added rough).
-  const OP_TYPES = ['rough', 'outline', 'contour', 'pocket', 'drill', 'texture', 'pierce'];
+  const OP_TYPES = ['rough', 'outline', 'contour', 'pocket', 'drill', 'texture', 'pierce', 'inlay'];
   function opValues(type, p) {
     // a drill's `rate` is its plunge (cl-ops.js maps it to camDrillDownSpeed)
     if (type === 'drill') return { spindle: p.spindle, rate: p.plunge, down: p.stepdown };
     if (type === 'contour') return { spindle: p.spindle, rate: p.feed, step: p.stepover };
     // a texture's stepover comes from its scallop (TEX), not the material
-    if (type === 'texture' || type === 'pierce') return { spindle: p.spindle, rate: p.feed, plunge: p.plunge, down: p.stepdown };
+    if (type === 'texture' || type === 'pierce' || type === 'inlay') return { spindle: p.spindle, rate: p.feed, plunge: p.plunge, down: p.stepdown };
     return { spindle: p.spindle, rate: p.feed, plunge: p.plunge, down: p.stepdown, step: p.stepover };
   }
   let applying = false;
@@ -631,12 +631,23 @@
       // unpicked one": the appearance wrote over cam's selection color)
       let picked = new Set();
       try { picked = new Set(window.kiri.api.selection.widgets()); } catch (e) { /* none */ }
+      let arranging = true;
+      try { arranging = window.kiri.api.view.is_arrange(); } catch (e) { /* no view yet */ }
       for (const w of widgets) {
         const mesh = w.mesh;
         if (!mesh) continue;
         const mats = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
         for (const mat of mats) {
           if (mat && mat.color) applyAppearance(mat, a);
+          // a part left out of this run (unticked in objects) shows through (Phil 11-02), while the
+          // parts are arranged: toolpaths and simulate show the parts their own way
+          const out = !!(w.meta && w.meta.disabled) && arranging;
+          if (mat && (out || mat.userData.swarfOut)) {
+            if (out) { if (!mat.userData.swarfOut) mat.userData.swarfOut = { opacity: mat.opacity, transparent: mat.transparent }; mat.transparent = true; mat.opacity = 0.28; mat.depthWrite = false; }
+            // out of arranging, the view has set its own opacity already: only the note goes
+            else { if (arranging) Object.assign(mat, mat.userData.swarfOut); mat.depthWrite = true; delete mat.userData.swarfOut; }
+            mat.needsUpdate = true;
+          }
           // and only the picked: a part let go loses its glow
           if (mat && mat.emissive) { mat.emissive.set(picked.has(w) ? '#6a5638' : (a.emissive || '#000000')); mat.needsUpdate = true; }
           // the part is never fogged: the fade is for the floor (swarf-grid-fade.js)
@@ -768,6 +779,7 @@
             clearInterval(apiPoll);
             window.kiri.api.event.on('widget.add', () => { setTimeout(applyToStock, 50); setTimeout(applyToStock, 400); });
             try { window.kiri.api.event.on('widget.duplicate', () => setTimeout(applyToStock, 50)); } catch (e) {}
+            try { window.kiri.api.event.on('widget.cut', () => setTimeout(applyToStock, 10)); } catch (e) {}
             // every op add/edit and device change lands in conf.save
             // ('settings.saved') or the device dialog ('settings'); run
             // synchronously so an auto-added rough carries the material's

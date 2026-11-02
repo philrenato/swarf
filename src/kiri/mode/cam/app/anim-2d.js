@@ -54,7 +54,8 @@ export function animate(api, delay) {
     // Toolpaths themselves assume zero padding (cutout mode).
     try {
         const proc = settings.process;
-        const w = api.widgets.all()[0];
+        // the first part this run cuts (a left-out one sits on the bed, out of the stock)
+        const w = api.widgets.all().find(w => !w.meta.disabled) || api.widgets.all()[0];
         const bb = w && w.getBoundingBox();
         if (bb && settings.stock) {
             // find the active tool diameter

@@ -636,5 +636,75 @@ for (const [id, P] of Object.entries(T.PATTERNS)) {
   ok(Math.abs(a.stepover - T.fillStepover(T.newFill('waves'))) < 1e-9 && b.stepover === 2.5 && T.fillStepover({ ...T.newFill('waves'), stepover: 2.5 }) === 2.5, `the raster at the finish's ${a.stepover.toFixed(3)} mm, or at a typed 2.5 mm (${b.stepover})`);
 }
 
+// 47. inlay (Phil 11-02): a star's pocket cut flat to its depth inside the rounded shape and nowhere
+//     else; the plug the same shape a gap smaller, depth + proud thick, going in when cut by the same
+//     bit (and not by a wider one); a ring's plug keeps its hole; a mark too narrow for the bit is said
+{
+  const g = T.newGrid(0, 0, 120, 80, 0.5), star = [];
+  for (let k = 0; k < 10; k++) { const a = k / 10 * 2 * Math.PI, R = k % 2 ? 12 : 30; star.push([60 + R * Math.cos(a), 40 + R * Math.sin(a)]); }
+  const inP = (x, y, p) => { let c = false; for (let i = 0, j = p.length - 1; i < p.length; j = i++) if ((p[i][1] > y) !== (p[j][1] > y) && x < (p[j][0] - p[i][0]) * (y - p[i][1]) / (p[j][1] - p[i][1]) + p[i][0]) c = !c; return c; };
+  T.paintWhere(g, (x, y) => inP(x, y, star), 1);
+  const part = [[[0, 0], [120, 0], [120, 80], [0, 80]]];
+  const mark = { id: 'i', region: g, xf: T.IDENTITY.slice(), fill: T.newInlay({ depth: 3, gap: 0.1, proud: 1 }) };
+  const tp = T.markToolpath(mark, { part, stepDown: 1.5 }), sh = tp.inlay;
+  const zs = [...new Set(tp.moves.filter(m => !m.rapid && m.z < 0).map(m => +m.z.toFixed(3)))].sort((a, b) => a - b);
+  ok(tp.strategy === 'pocket' && zs[0] === -3 && zs.includes(-1.5), `the pocket in two passes, 1.5 and 3 deep (${zs})`);
+  const sim = T.createSim({ x0: 20, y0: 0, nx: 400, ny: 400, res: 0.2 }, T.fillTool(mark.fill));
+  sim.run(tp.moves);
+  // the sim stamps the bit at its sample points, so a cell it leaves shallow is checked against the
+  // floor's moves exactly: farther than the bit's radius from all of them is a miss
+  const floor = []; for (let i = 1; i < tp.moves.length; i++) if (!tp.moves[i].rapid && tp.moves[i].z <= -2.999 && tp.moves[i - 1].z <= -2.999) floor.push([tp.moves[i - 1], tp.moves[i]]);
+  const segD = (px, py, a, b) => { const dx = b.x - a.x, dy = b.y - a.y, L = dx * dx + dy * dy; const t = L ? Math.max(0, Math.min(1, ((px - a.x) * dx + (py - a.y) * dy) / L)) : 0; return Math.hypot(px - a.x - t * dx, py - a.y - t * dy); };
+  const missed = (x, y) => floor.every(([a, b]) => segD(x, y, a, b) > sh.r);
+  let shallow = 0, stray = 0, inside = 0;
+  for (let j = 0; j < 400; j++) for (let i = 0; i < 400; i++) {
+    const x = 20 + (i + 0.5) * 0.2, y = (j + 0.5) * 0.2, z = sim.Z[j * 400 + i], d = sh.sd(x, y);
+    if (d < -0.2) { inside++; if (z > -2.99 && missed(x, y)) shallow++; }
+    if (d > 0.2 && z < -0.01) stray++;
+    if (z < -3.001) stray++;
+  }
+  ok(inside > 20000 && shallow === 0 && stray === 0, `the floor is flat at 3 mm inside the shape and the board untouched outside (${inside} in, ${shallow} shallow, ${stray} stray)`);
+  const plug = T.inlayPlug(mark, { part });
+  const w = plug.box[2] - plug.box[0], h = plug.box[3] - plug.box[1];
+  // the star is 30 + 30 cos 36° = 54.27 wide and 2 x 30 sin 72° = 57.06 tall; its tips rounded to the bit
+  ok(plug.loops.length === 1 && plug.thickness === 4 && w < 54.27 && w > 45 && h < 57.06 && h > 48, `the plug: one loop, 4 thick, ${w.toFixed(2)} x ${h.toFixed(2)}`);
+  let off = 0; for (const q of plug.loops[0]) off = Math.max(off, Math.abs(sh.sd(q[0], q[1]) + 0.1));
+  ok(off < 0.01, `the plug's edge is 0.1 mm in from the pocket's all round (worst ${off.toFixed(4)})`);
+  const same = T.inlayFit(mark, { part }), wide = T.inlayFit(mark, { part, rPlug: 3.175 });
+  ok(same.interference <= same.h + 1e-9 && wide.interference > 0.2, `cut by the same bit the plug goes in (${same.interference.toFixed(3)} mm, the grid ${same.h}); by a 1/4 in it stands ${wide.interference.toFixed(2)} mm proud`);
+  ok(T.inlayPlugSVG(plug).includes('fill-rule="evenodd"') && new RegExp(`width="${+w.toFixed(4)}mm"`).test(T.inlayPlugSVG(plug)), 'the plug as an SVG in mm');
+  // a ring: its plug is a ring too
+  const r = T.newGrid(0, 0, 120, 80, 0.5); T.paintWhere(r, (x, y) => { const d = Math.hypot(x - 60, y - 40); return d < 30 && d > 15; }, 1);
+  const ring = T.inlayPlug({ id: 'r', region: r, xf: T.IDENTITY.slice(), fill: T.newInlay() }, { part });
+  const areas = ring.loops.map(L => { let a = 0; for (let i = 0, j = L.length - 1; i < L.length; j = i++) a += (L[j][0] + L[i][0]) * (L[j][1] - L[i][1]); return -a / 2; });
+  ok(ring.loops.length === 2 && areas.some(a => a > 0) && areas.some(a => a < 0), `a ring's plug keeps its hole (areas ${areas.map(a => a.toFixed(0))})`);
+  // too narrow: a 2 mm stripe for a 1/4 in flat
+  const n = T.newGrid(0, 0, 120, 80, 0.5); T.paintWhere(n, (x, y) => Math.abs(y - 40) < 1, 1);
+  const thin = T.markChecks({ id: 'n', region: n, xf: T.IDENTITY.slice(), fill: T.newInlay({ tool: 'flat14' }) }, { part, thickness: 19 });
+  ok(thin.warnings.some(w => /too wide/.test(w)) && !thin.tex, `a stripe narrower than the bit is said (${thin.warnings[0]})`);
+  const deep = T.markChecks({ ...mark, fill: T.newInlay({ depth: 20 }) }, { part, thickness: 19 });
+  ok(deep.warnings.some(w => /cut through/.test(w)), 'a pocket as deep as the board is said');
+  // (review 11-02) two dots 1 mm apart: two plugs, each cut on its own, and both go in; 0.3 mm apart
+  // (closer than the bit can pass) the card says where the plug would not go in
+  const dots = (apart) => { const dd = T.newGrid(0, 0, 120, 80, 0.25); T.paintWhere(dd, (x, y) => Math.hypot(x - 58 + apart / 2, y - 40) < 2 || Math.hypot(x - 62 - apart / 2, y - 40) < 2, 1); return { id: 'd' + apart, region: dd, xf: T.IDENTITY.slice(), fill: T.newInlay() }; };
+  const d1 = dots(1), dp = T.inlayPlug(d1, { part }), dfit = T.inlayFit(d1, { part });
+  ok(dp.pieces.length === 2 && dfit.interference <= 2 * dfit.h + 1e-9, `two dots 1 mm apart: ${dp.pieces.length} plugs, ${dfit.interference.toFixed(3)} mm past the pocket`);
+  const d03 = dots(0.3), f03 = T.inlayFit(d03, { part }), c03 = T.markChecks(d03, { part, thickness: 19 });
+  ok(f03.interference <= 2 * f03.h + 1e-9 || c03.warnings.some(w => /will not go in/.test(w)), `two dots 0.3 mm apart: they fit (${f03.interference.toFixed(3)} mm) or the card says where they do not`);
+  ok(star && T.inlayPlug(mark, { part }).pieces.length === 1 && ring.pieces.length === 1 && ring.pieces[0].loops.length === 2, 'a star is one piece; a ring one piece with its hole');
+  // a stepover wider than the bit's radius is held to it: no post left standing
+  const disc = T.newGrid(0, 0, 120, 80, 0.5); T.paintWhere(disc, (x, y) => Math.hypot(x - 60, y - 40) < 9.7, 1);
+  const wideStep = T.markToolpath({ id: 'w', region: disc, xf: T.IDENTITY.slice(), fill: T.newInlay({ stepover: 3 }) }, { part });
+  const ws = T.createSim({ x0: 45, y0: 25, nx: 150, ny: 150, res: 0.2 }, T.makeTool('flat18')); ws.run(wideStep.moves);
+  let post = 0; for (let j = 0; j < 150; j++) for (let i = 0; i < 150; i++) { const x = 45 + (i + 0.5) * 0.2, y = 25 + (j + 0.5) * 0.2; if (wideStep.inlay.sd(x, y) < -0.5 && ws.Z[j * 150 + i] > -2.99) post++; }
+  ok(post === 0, `a 3 mm stepover in a 1/8 in pocket leaves no post (${post} cells)`);
+  // the cache knows the part: a hole moved into the paint makes a new plug
+  const sq = T.newGrid(0, 0, 120, 80, 0.5); T.paintWhere(sq, (x, y) => Math.abs(x - 60) < 20 && Math.abs(y - 40) < 20, 1);
+  const sm = { id: 'h', region: sq, xf: T.IDENTITY.slice(), fill: T.newInlay() };
+  const away = [[[0, 0], [120, 0], [120, 80], [0, 80]], [[5, 5], [10, 5], [10, 10], [5, 10]]];
+  const holeIn = [[[0, 0], [120, 0], [120, 80], [0, 80]], [[55, 35], [65, 35], [65, 45], [55, 45]]];
+  ok(T.inlayPlug(sm, { part: away }).loops.length === 1 && T.inlayPlug(sm, { part: holeIn }).loops.length === 2, 'a hole moved into the paint: the plug gets the hole');
+}
+
 console.log(`\n${pass} passed, ${fail} failed  (${((Date.now() - t0) / 1000).toFixed(1)} s)`);
 process.exit(fail ? 1 : 0);

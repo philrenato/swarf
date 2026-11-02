@@ -25,7 +25,7 @@
     d:  { label: 'diameter', unit: 'mm', value: 100, inch: 101.6 },
     di: { label: 'hole diameter', unit: 'mm', value: 50, inch: 50.8 },
     w:  { label: 'width', unit: 'mm', value: 150, inch: 152.4 },
-    h:  { label: 'depth', unit: 'mm', value: 100, inch: 101.6 },
+    h:  { label: 'length', unit: 'mm', value: 100, inch: 101.6 },
     r:  { label: 'corner radius', unit: 'mm', value: 10, inch: 9.525 },
     n:  { label: 'sides', unit: '', value: 6 },
     p:  { label: 'points', unit: '', value: 5 },

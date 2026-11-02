@@ -407,6 +407,12 @@ export function opRender() {
             const est = rec.texest > 0 && window.SwarfTexCore ? `, about ${window.SwarfTexCore.formatTime(rec.texest)}` : '';
             title = ` title="${full}: the mark made in TEX, cut through the part (or to its skin) by its straight bit${est}. A starting point: cut a test strip. Open tex to change it."`;
             clazz.push('tex-step');
+        } else if (rec.type === 'inlay') {
+            const full = esc(rec.texlabel || 'inlay');
+            label = texShort(rec.texlabel || 'inlay');
+            const est = rec.texest > 0 && window.SwarfTexCore ? `, about ${window.SwarfTexCore.formatTime(rec.texest)}` : '';
+            title = ` title="${full}: the mark made in TEX, sunk as a flat pocket by its straight bit${est}; its plug is a part of its own on the bed. Open tex to change it."`;
+            clazz.push('tex-step');
         } else if (rec.type === 'texture') {
             const full = esc(rec.texlabel || 'texture');
             label = texShort(rec.texlabel || 'texture');
@@ -427,6 +433,7 @@ export function opRender() {
             // step's own feed, plunge and step-down (Phil 11-01: "just like other toolpaths")
             texture: ['tool','path','finish','texstep','down','rate','plunge'],
             pierce:  ['tool','down','rate','plunge'],
+            inlay:   ['tool','texstep','down','rate','plunge'],
         };
         // boolean fields render as checkboxes
         const BOOL_FIELDS = { inside: true, outside: true, all: true, flats: true, curves: true };
@@ -448,7 +455,7 @@ export function opRender() {
                 plunge: `plunge: how fast the bit goes down into the wood, in ${inch ? 'inches' : 'mm'} per minute`,
                 path: 'how the bit goes over the texture: best picks one plunge per dot or a V along each groove where it can, else raster',
                 finish: 'how close the raster\'s passes run: smoother takes longer; ridged and bold leave them showing. Typing a stepover makes it custom',
-                texstep: `stepover: how far apart the raster's passes are, in ${inch ? 'inches' : 'mm'}; a finish sets it, or type your own`,
+                texstep: rec.type === 'inlay' ? `stepover: how far apart the pocket's rings are, in ${inch ? 'inches' : 'mm'}; 40% of the bit unless you type your own` : `stepover: how far apart the raster's passes are, in ${inch ? 'inches' : 'mm'}; a finish sets it, or type your own`,
                 inside: 'cut only inside the part outline',
                 outside: 'cut only outside the part outline',
             };
@@ -519,7 +526,7 @@ export function opRender() {
                                 const typed = inp.value.trim(), v = opParse('texstep', typed), most = card.bitWidth || 25.4;
                                 const say = mm => window.SwarfLength ? window.SwarfLength.say(mm) : `${+mm.toFixed(2)} mm`;
                                 if (!(v > 0)) { if (typed) api.show.alert(`swarf could not read "${typed}" as a stepover: it stays as it was.`, 6); inp.value = opShow('texstep', card.stepover); return; }
-                                if (v > most) { api.show.alert(`A stepover goes up to the bit's width (${say(most)}): past that the passes leave uncut ridges. It stays as it was.`, 6); inp.value = opShow('texstep', card.stepover); return; }
+                                if (v > most) { api.show.alert(card.inlay ? `A pocket's stepover goes up to half the bit's width (${say(most)}): past that a post is left standing in the middle. It stays as it was.` : `A stepover goes up to the bit's width (${say(most)}): past that the passes leave uncut ridges. It stays as it was.`, 6); inp.value = opShow('texstep', card.stepover); return; }
                                 T.setStepCard(rec.texmark, 'stepover', v);
                             } else T.setStepCard(rec.texmark, f, inp.value);
                             api.event.emit('cam.op.render');

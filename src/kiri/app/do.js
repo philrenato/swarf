@@ -159,6 +159,13 @@ api.doit.push = function(undo, redo, say = {}) {
 };
 
 let quiet = false;   // an undo or redo of a delete must not clear the stack it came from
+// swarf: parts made and removed as part of another step (an inlay's plug, kept in step with its
+// mark) are that step's undo, not their own, and never clear the stack
+api.doit.quietly = function(fn) {
+    const was = quiet;
+    quiet = true;
+    try { return fn(); } finally { quiet = was; }
+};
 event.on([
     'platform.layout',
     'widget.add'

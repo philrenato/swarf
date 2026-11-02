@@ -293,7 +293,7 @@ try {
   const P0 = await page.evaluate(() => { const S = window.__swarfTex.state(), p = S.parts[0]; return [p.pos[0] + p.box[0], p.pos[1] + p.box[1]]; });
   await page.keyboard.press('r');
   await drag(page, [P0[0] + 10, P0[1] + 10], [P0[0] + 45, P0[1] + 30]);
-  const basicFill = await page.evaluate(() => !!document.querySelector('#tx-card .tx-fill'));
+  const basicFill = await page.evaluate(() => !!document.querySelector('#tx-card .tx-fill[data-fill="pierce"]'));
   const first = await page.evaluate(() => { const S = window.__swarfTex.state(); return S.parts.map(p => p.marks.map(m => m.region.data.reduce((a, v) => a + v, 0))); });
   check(!basicFill && first[0].length === 1 && first[0][0] > 1000, `basic mode: a rectangle marks the part, and the card offers no pierce (${JSON.stringify(first)})`);
   await page.evaluate(() => { localStorage.setItem('swarf-expert', '1'); document.body.classList.add('swarf-expert'); });

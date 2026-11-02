@@ -1082,6 +1082,7 @@ html[data-skin] #swarf-run .sr-jog .sr-zrow button.next, html[data-skin] #swarf-
     if (S.machine && S.machine.state.running) return;
     if (S.camBusy) return;
     if (!api.widgets.all().length) { S.camError = 'Nothing to run yet. Make a part, open a file, or try a test cut. Jog and zero work without one.'; refresh(); return; }
+    if (!api.widgets.all().some(w => !w.meta.disabled)) { S.camError = 'Every part is left out of this run. Tick the parts to cut in objects.'; refresh(); return; }
     S.camError = ''; S.camBusy = true; refresh();
     const done = msg => { S.camBusy = false; S.camDone = null; if (msg) S.camError = msg; clearTimeout(S.camTimer); refresh(); };
     // cam's event bus has no off(): one listener for good, pointed at the current request
@@ -1094,7 +1095,7 @@ html[data-skin] #swarf-run .sr-jog .sr-zrow button.next, html[data-skin] #swarf-
         if (!S.camBusy) return;
         done('');
         if (!text || !/\S/.test(text)) { S.camError = 'No toolpaths were made. Check the steps, then press control.'; refresh(); return; }
-        const names = api.widgets.all().map(w => w.meta && w.meta.file).filter(Boolean);
+        const names = api.widgets.all().filter(w => !w.meta.disabled).map(w => w.meta && w.meta.file).filter(Boolean);
         const base = (names[0] || 'part').replace(/\.[^.]+$/, '').replace(/[^\w-]+/g, '-').slice(0, 40);
         loadProgram(base + '.sbp', text, 'cam');
       });
@@ -1210,7 +1211,7 @@ html[data-skin] #swarf-run .sr-jog .sr-zrow button.next, html[data-skin] #swarf-
       // a rough down to the part's bottom frees it as an outline does (Phil 10-29: a rough-only circle)
       const outer = outl.some(o => o.type === 'rough' || !o.inside), holes = outl.some(o => !o.omitthru && !o.omitvoid);
       for (const w of a.widgets.all()) {
-        if (w.track.synth) continue;
+        if (w.track.synth || w.meta.disabled) continue;
         const name = (w.meta && w.meta.file || 'a part').replace(/\.[^.]+$/, '');
         const r = audit(w);
         if (outer && r.outerTabs === 0) out.push(`${name} is cut free with no tabs: it comes loose on the last pass and the bit can throw it. Add tabs in cam (tabs › auto tabs), or screw it down where the bit does not go.`);

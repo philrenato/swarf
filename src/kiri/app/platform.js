@@ -308,8 +308,11 @@ function set_bounds(bounds) {
  */
 function update_bounds() {
     const bounds = setbounds || new THREE.Box3();
+    // swarf: a part left out of this run (unticked in objects) sits on the bed but is no part of the
+    // stock, its zero or its height, unless every part is left out
+    const cutting = api.widgets.all().filter(w => !w.meta.disabled);
     if (!setbounds)
-    api.widgets.each(widget => {
+    (cutting.length ? cutting : api.widgets.all()).forEach(widget => {
         let wp = widget.track.pos;
         let wb = widget.getBoundingBox().clone();
         wb.min.x += wp.x;
@@ -806,21 +809,6 @@ function changed() {
                         ),
                         h.button(
                             {
-                                id: `w-en-${w.id}`,
-                                title: "toggle disabled",
-                                class: w.meta.disabled ? "disabled" : "",
-                                onclick() {
-                                    let dis = w.meta.disabled = !w.meta.disabled;
-                                    let sel = api.selection.contains(w);
-                                    const scheme = getColorScheme();
-                                    api.uc.setClass($(`w-en-${w.id}`), "disabled", dis);
-                                    w.setColor(sel ? scheme.widget.selected : scheme.widget.deselected, null, false);
-                                }
-                            },
-                            [ h.i({ class:"fas fa-ban" }) ]
-                        ),
-                        h.button(
-                            {
                                 title: "delete",
                                 onclick() { platformDelete(many ? w.group.slice() : w) }
                             },
@@ -830,10 +818,23 @@ function changed() {
                     // swarf: removed vestigial caret-left toggle (markup #2, Apr 15) —
                     // .widopt already appears on hover via CSS, the button did nothing.
                 ]),
+                // swarf (Phil 11-02: "a toggle on each part that grays them; the current machining run
+                // ignores them"): ticked parts are cut; an unticked one stays on the bed, see-through
+                h.input({
+                    type: "checkbox",
+                    class: "swarf-cut-tick",
+                    id: `w-cut-${w.id}`,
+                    title: (w.meta.disabled ? `${file} is left out of this run: tick it to cut it` : `${file} is cut in this run: untick it to leave it out (it stays on the bed, grayed)`).replace(/"/g, '&quot;'),
+                    _checked: !w.meta.disabled,
+                    onclick(ev) {
+                        ev.stopPropagation();
+                        set_cut(many ? w.group.slice() : [w], !w.meta.disabled ? false : true);
+                    }
+                }),
                 h.button({
                     _: fsho,
                     id: `ws-${w.id}`,
-                    class: "grow name",
+                    class: w.meta.disabled ? "grow name leftout" : "grow name",
                     title: file,
                     // onmouseenter() {
                     //     color = w.getColor();
@@ -850,6 +851,28 @@ function changed() {
             ])
         ]
     }));
+}
+
+/**
+ * swarf: cut these parts in this run (true), or leave them on the bed out of it (false): grayed and
+ * see-through, out of the toolpaths, the stock and its zero. Kept with the part (meta.disabled).
+ */
+function set_cut(widgets, on) {
+    const scheme = getColorScheme();
+    // the toolpaths shown were for the parts as they were: back to the parts (not while a simulation plays)
+    const { view } = api;
+    if (view.get && view.get() === VIEWS.PREVIEW) view.set_arrange();
+    for (const w of widgets) {
+        if (!w || !w.meta) continue;
+        if (on) delete w.meta.disabled; else w.meta.disabled = true;
+        const sel = api.selection.contains(w);
+        w.setColor(sel ? scheme.widget.selected : scheme.widget.deselected, null, false);
+        if (w.saveState) w.saveState();
+    }
+    update_bounds();
+    api.event.emit('widget.cut', { widgets, on });
+    api.space.auto_save();
+    changed();
 }
 
 /**
@@ -1500,6 +1523,7 @@ export const platform = {
     select_all,
     selected_count,
     set_bounds,
+    set_cut,
     update_origin,
     update_bounds,
     update_size,

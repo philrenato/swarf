@@ -11,7 +11,7 @@
   'use strict';
   const $ = id => document.getElementById(id);
   const api = () => window.kiri && window.kiri.api;
-  const AX = [['x', 'width'], ['y', 'depth'], ['z', 'thickness']];
+  const AX = [['x', 'width'], ['y', 'length'], ['z', 'thickness']];
   const KEEP = 'swarf-size-keep';
   const L = () => window.SwarfLength;
   // cam's size fields are in its own units
@@ -45,7 +45,7 @@
     const box = document.createElement('input'); box.type = 'checkbox';
     try { box.checked = localStorage.getItem(KEEP) !== '0'; } catch (e) { box.checked = true; }
     box.addEventListener('change', () => { try { localStorage.setItem(KEEP, box.checked ? '1' : '0'); } catch (e) { /* private */ } });
-    keep.title = 'width and depth change together; the thickness stays as it is';
+    keep.title = 'width and length change together; the thickness stays as it is';
     keep.append(box, document.createTextNode('keep proportions'));
     keep.box = box;
     card.append(keep);
@@ -73,7 +73,7 @@
       show(); return;
     }
     if (Math.abs(v - parseFloat(src.was ?? src.value)) < 1e-6) return;
-    // width and depth move together when kept; height (the board's thickness) stays its own
+    // width and length move together when kept; height (the board's thickness) stays its own
     const together = keep.box.checked && a !== 'z';
     // the bed and the machine's reach first, as the shape dialog does (deep review 10-31 M1: 99999
     // went to cam's scale and froze the page)

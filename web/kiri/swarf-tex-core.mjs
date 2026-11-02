@@ -1765,6 +1765,7 @@ export const FINISH_WORDS = { smooth: 'smooth (slow)', fine: 'fine', standard: '
 // its edges, carried o.extend mm past them so a bit reaches the edge (clipToPart).
 export function markTexture(mark, o = {}) {
   const f = mark && mark.fill;
+  if (f && f.fill === 'inlay') return inlayTexture(mark, o);
   if (!f || f.fill !== 'texture' || !PATTERNS[f.pattern]) return null;
   let region = regionSpec(mark.region);
   if (!region) return null;
@@ -1886,6 +1887,7 @@ export function fillStepover(f) {
 // the mark's moves, part frame, z from the top (0) down; maxDepth caps them (the board's thickness)
 export function markToolpath(mark, o = {}) {
   if (mark && mark.fill && mark.fill.fill === 'pierce') return pierceToolpath(mark, { ...o, thickness: o.thickness || o.maxDepth });
+  if (mark && mark.fill && mark.fill.fill === 'inlay') return inlayToolpath(mark, o);
   const tool = fillTool(mark && mark.fill);
   // the bit's radius past the part's edge, and a little: it reaches the edge with its whole flank
   const tex = markTexture(mark, { part: o.part, extend: tool.R + 0.5 });
@@ -1923,6 +1925,7 @@ export function feedRuns(moves) {
 //   o = { thickness (mm), len (v mm -> text), outside (0..1 of the mark off the part) }
 export function markChecks(mark, o = {}) {
   if (mark && mark.fill && mark.fill.fill === 'pierce') return pierceChecks(mark, o);
+  if (mark && mark.fill && mark.fill.fill === 'inlay') return inlayChecks(mark, o);
   const tool = fillTool(mark && mark.fill);
   const tex = markTexture(mark, { part: o.part, extend: tool.R + 0.5 });
   if (!tex) return { warnings: [], notes: [], tex: null };
@@ -2285,7 +2288,7 @@ export function fillTool(f) {
   // a V's angle inside (0, 180): a saved file's 0 would make every depth NaN
   if (f && f.bit && f.bit.type && f.bit.diameter > 0 && (f.bit.type !== 'v' || (f.bit.angle > 0 && f.bit.angle < 180))) return makeTool(f.bit);
   if (f && typeof f.tool === 'string' && TOOLS[f.tool]) return makeTool(f.tool);
-  return makeTool(f && f.fill === 'pierce' ? 'flat18' : 'ball14');
+  return makeTool(f && (f.fill === 'pierce' || f.fill === 'inlay') ? 'flat18' : 'ball14');
 }
 // the kerf pitch for a bit width w, board T, skin s and bend radius R (closure: the kerfs just touch)
 export function roundProse(v) { const a = Math.abs(v); return a < 20 ? Math.round(v * 2) / 2 : Math.round(v); }
@@ -2886,6 +2889,305 @@ export function swatch(id, N, colors, params) {
   return shadeHeight(H, N, N, res, colors, null, tex.depth);
 }
 
+// ---------------------------------------------------------------------------------------------
+// Inlay (Phil 11-02: "instead of tex I get the ability to drop down the part by X depth and
+// automatically get a matching part in the scene that I could machine in another material"): the
+// paint cut as a flat pocket `depth` deep by a flat bit, and the plug that fills it.
+//
+//   fill = { fill: 'inlay', depth, gap, proud, tool | bit, stepover? }
+//
+// A flat bit leaves a round corner inside a pocket, and a plug cut round its outside cannot have a
+// sharp inside corner either, so the paint is first rounded both ways by the bit's radius (opened,
+// then closed). The pocket is what the bit leaves of that shape; the plug is the same shape `gap`
+// smaller all round, `depth + proud` thick (it stands proud, to sand flush once it is glued in).
+// Both come from one signed distance on a fine grid, so they fit by construction; inlayFit measures
+// what the two bits leave against each other.
+export const INLAY = { depth: 3, gap: 0.1, proud: 1 };
+export function newInlay(over = {}) { return { fill: 'inlay', ...INLAY, tool: 'flat18', ...over }; }
+// squared distances along one line (Felzenszwalb and Huttenlocher), f: 0 on the set, BIG off it
+function edt1(f, n, d, v, z) {
+  let k = 0; v[0] = 0; z[0] = -1e30; z[1] = 1e30;
+  for (let q = 1; q < n; q++) {
+    let s = ((f[q] + q * q) - (f[v[k]] + v[k] * v[k])) / (2 * q - 2 * v[k]);
+    while (s <= z[k]) { k--; s = ((f[q] + q * q) - (f[v[k]] + v[k] * v[k])) / (2 * q - 2 * v[k]); }
+    k++; v[k] = q; z[k] = s; z[k + 1] = 1e30;
+  }
+  k = 0;
+  for (let q = 0; q < n; q++) { while (z[k + 1] < q) k++; d[q] = (q - v[k]) * (q - v[k]) + f[v[k]]; }
+}
+// the exact distance (in cells) from every cell's center to the nearest cell where test(k) holds
+function edt(nx, ny, test) {
+  const BIG = 1e20, N = nx * ny, D = new Float64Array(N), m = Math.max(nx, ny);
+  const f = new Float64Array(m), d = new Float64Array(m), v = new Int32Array(m), z = new Float64Array(m + 1);
+  for (let k = 0; k < N; k++) D[k] = test(k) ? 0 : BIG;
+  for (let i = 0; i < nx; i++) {
+    for (let j = 0; j < ny; j++) f[j] = D[j * nx + i];
+    edt1(f, ny, d, v, z);
+    for (let j = 0; j < ny; j++) D[j * nx + i] = d[j];
+  }
+  for (let j = 0; j < ny; j++) {
+    const row = j * nx;
+    for (let i = 0; i < nx; i++) f[i] = D[row + i];
+    edt1(f, nx, d, v, z);
+    for (let i = 0; i < nx; i++) D[row + i] = Math.sqrt(d[i]);
+  }
+  return D;
+}
+// signed distance in cells: negative inside the set, the zero half way between a cell in and one out
+function signedOf(nx, ny, inside) {
+  const dOut = edt(nx, ny, (k) => inside[k]), dIn = edt(nx, ny, (k) => !inside[k]), N = nx * ny, sd = new Float32Array(N);
+  for (let k = 0; k < N; k++) sd[k] = inside[k] ? -(dIn[k] - 0.5) : dOut[k] - 0.5;
+  return sd;
+}
+// even-odd fill of closed loops on the cells' centers
+function rasterLoops(loops, x0, y0, h, nx, ny) {
+  const on = new Uint8Array(nx * ny), segs = [];
+  for (const L of loops) for (let i = 0; i < L.length; i++) {
+    const a = L[i], b = L[(i + 1) % L.length];
+    if (a[1] !== b[1]) segs.push(a[1] < b[1] ? [a[0], a[1], b[0], b[1]] : [b[0], b[1], a[0], a[1]]);
+  }
+  for (let j = 0; j < ny; j++) {
+    const y = y0 + (j + 0.5) * h, xs = [];
+    for (const q of segs) if (y >= q[1] && y < q[3]) xs.push(q[0] + (y - q[1]) * (q[2] - q[0]) / (q[3] - q[1]));
+    xs.sort((p, q) => p - q);
+    for (let k = 0; k + 1 < xs.length; k += 2) {
+      const i0 = Math.max(0, Math.ceil((xs[k] - x0) / h - 0.5)), i1 = Math.min(nx - 1, Math.floor((xs[k + 1] - x0) / h - 0.5));
+      for (let i = i0; i <= i1; i++) on[j * nx + i] = 1;
+    }
+  }
+  return on;
+}
+// Douglas-Peucker on a closed loop (tol mm)
+function thinLoop(L, tol) {
+  if (L.length < 8) return L;
+  const keep = new Uint8Array(L.length); keep[0] = 1; keep[L.length - 1] = 1;
+  const stack = [[0, L.length - 1]];
+  while (stack.length) {
+    const [a, b] = stack.pop();
+    let far = -1, fd = tol;
+    for (let i = a + 1; i < b; i++) { const d = segDist(L[i][0], L[i][1], [L[a][0], L[a][1], L[b][0], L[b][1]]); if (d > fd) { fd = d; far = i; } }
+    if (far >= 0) { keep[far] = 1; stack.push([a, far], [far, b]); }
+  }
+  return L.filter((_, i) => keep[i]);
+}
+const inlayCache = new Map();
+function regionHash(g) {
+  let h = 2166136261 >>> 0;
+  const d = g.data;
+  for (let k = 0; k < d.length; k++) if (d[k]) h = Math.imul(h ^ k, 16777619) >>> 0;
+  return `${g.nx}x${g.ny}@${g.x0},${g.y0},${g.res}:${h}`;
+}
+// THE SHAPE, in the part's frame: { sd(x, y) mm (negative inside the rounded shape), level lines,
+// r (the bit's radius), h (the grid), box, lost (0..1 of the paint the bit cannot round into) }.
+//   o = { part: the part's loops, res: the finest grid (mm), cells: at most this many (3 million) }
+export function inlayShape(mark, o = {}) {
+  const f = mark && mark.fill;
+  if (!f || f.fill !== 'inlay') return null;
+  let region = regionSpec(mark.region);
+  if (!region || region.type !== 'paint') return null;
+  const tool = fillTool(f), r = tool.R, gap = Math.max(0, f.gap ?? INLAY.gap);
+  const A = mark.xf || IDENTITY;
+  // every point of the part's outline counts: a hole moved into the paint is a new shape (review 11-02)
+  const partKey = o.part ? o.part.map((L) => L.map((q) => `${+q[0].toFixed(4)},${+q[1].toFixed(4)}`).join(';')).join('|') : '';
+  const key = JSON.stringify([regionHash(region), A, r, gap, o.res || 0, o.cells || 0, partKey.length > 4000 ? `${partKey.length}:${regionHash({ nx: 0, ny: 0, x0: 0, y0: 0, res: 0, data: Array.from(partKey, (c) => c.charCodeAt(0)) })}` : partKey]);
+  if (inlayCache.has(key)) return inlayCache.get(key);
+  // the paint on the part's top only (an inlay never runs off the edge), its staircase faired
+  const paint = o.part ? clipToPart(region, A, o.part, 0).paint : region;
+  if (!paint.data.some((v) => v)) return null;
+  const loops = paintLoops(paint).filter((P) => loopLen(P) > 4 * paint.res)
+    .map((P) => fair(resampleLoop(P, Math.max(24, Math.round(loopLen(P) / (paint.res * 0.5)))), 6).map((q) => xfApply(A, q[0], q[1])));
+  if (!loops.length) return null;
+  const b = loopsBox(loops), pad = 2 * r + gap + 2;
+  const bx = [b[0] - pad, b[1] - pad, b[2] + pad, b[3] + pad], area = (bx[2] - bx[0]) * (bx[3] - bx[1]);
+  const h = Math.max(o.res > 0 ? o.res : 0.04, Math.sqrt(area / (o.cells > 0 ? o.cells : 3e6)));
+  const nx = Math.ceil((bx[2] - bx[0]) / h), ny = Math.ceil((bx[3] - bx[1]) / h), N = nx * ny, rc = r / h;
+  const S = rasterLoops(loops, bx[0], bx[1], h, nx, ny);
+  // opened (what a bit of radius r can reach), then closed (no inside corner tighter than r), then
+  // opened again: a closing that bridges a neck narrower than the bit leaves wood the bit cannot clear
+  // under the plug (review 11-02: two dots 0.5 mm apart, 0.34 mm too big)
+  const sdS = signedOf(nx, ny, S);
+  // opening: the union of the bit's discs that fit; closing: what is left when they roll round outside
+  const open = (X) => { const a = edt(nx, ny, (k) => !X[k]), c = edt(nx, ny, (k) => a[k] > rc), Y = new Uint8Array(N); for (let k = 0; k < N; k++) Y[k] = c[k] <= rc ? 1 : 0; return Y; };
+  const close = (X) => { const a = edt(nx, ny, (k) => X[k]), c = edt(nx, ny, (k) => a[k] > rc), Y = new Uint8Array(N); for (let k = 0; k < N; k++) Y[k] = c[k] > rc ? 1 : 0; return Y; };
+  // closed then opened again until it holds: a closing that bridges a neck narrower than the bit leaves
+  // wood under the plug, and an opening can cut an inside corner tighter than the bit (review 11-02)
+  const toC = edt(nx, ny, (k) => sdS[k] <= -rc);
+  let F = new Uint8Array(N); for (let k = 0; k < N; k++) F[k] = toC[k] <= rc ? 1 : 0;
+  for (let it = 0; it < 6; it++) {
+    const G = open(close(F));
+    let same = true; for (let k = 0; k < N; k++) if (G[k] !== F[k]) { same = false; break; }
+    F = G;
+    if (same) break;
+  }
+  const sdc = signedOf(nx, ny, F), sdF = new Float32Array(N);
+  let painted = 0, kept = 0;
+  for (let k = 0; k < N; k++) { sdF[k] = sdc[k] * h; if (S[k]) { painted++; if (F[k]) kept++; } }
+  // bilinear between cell centers
+  const X0 = bx[0] + h / 2, Y0 = bx[1] + h / 2;
+  const sd = (x, y) => {
+    const u = (x - X0) / h, v = (y - Y0) / h;
+    if (!(u >= 0 && v >= 0 && u <= nx - 1 && v <= ny - 1)) return pad;
+    const i = Math.min(nx - 2, Math.floor(u)), j = Math.min(ny - 2, Math.floor(v)), s1 = u - i, t1 = v - j, k = j * nx + i;
+    return (sdF[k] * (1 - s1) + sdF[k + 1] * s1) * (1 - t1) + (sdF[k + nx] * (1 - s1) + sdF[k + nx + 1] * s1) * t1;
+  };
+  // the closed lines where sd = level, thinned to `tol`
+  const lines = (level, tol = 0.01) => {
+    const bb = { x0: X0, y0: Y0, x1: X0 + (nx - 1) * h, y1: Y0 + (ny - 1) * h };
+    return isoLines((x, y) => -sd(x, y), bb, h, -level).filter((L) => L.closed && L.pts.length > 3).map((L) => thinLoop(L.pts, tol));
+  };
+  let minSd = 0; for (let k = 0; k < N; k++) if (sdF[k] < minSd) minSd = sdF[k];
+  const out = { sd, lines, r, gap, h, tool, box: bx, grid: { x0: bx[0], y0: bx[1], nx, ny, sdF }, deepest: -minSd, lost: painted ? 1 - kept / painted : 0, empty: !kept };
+  if (inlayCache.size > 6) inlayCache.delete(inlayCache.keys().next().value);
+  inlayCache.set(key, out);
+  return out;
+}
+// the pocket as a texture (TEX's picture, the as-designed mesh): `depth` deep where the bit clears
+export function inlayTexture(mark, o = {}) {
+  // a picture: a coarser grid than the cut's (TEX redraws it under the brush)
+  const sh = inlayShape(mark, { part: o.part, res: o.res, cells: o.cells || 4e5 });
+  if (!sh || sh.empty) return null;
+  const depth = Math.max(0.01, mark.fill.depth ?? INLAY.depth), [x0, y0, x1, y1] = sh.box;
+  const inside = (x, y) => sh.sd(x, y) <= 0;
+  return {
+    h: (x, y) => (inside(x, y) ? depth : 0), w: (x, y) => (inside(x, y) ? 1 : 0),
+    depth, bbox: { x0, y0, x1, y1 }, kind: 'surface', feature: 2 * sh.r, featureLabel: `${fmt(2 * sh.r)} mm round inside corners`,
+    scale: 1, strokeWidth: 0, dotDiameter: 0, dots: () => [], strokes: () => [],
+    mask: { bbox: { x0, y0, x1, y1 }, sd: (x, y) => -sh.sd(x, y) }, inlay: sh,
+  };
+}
+// The pocket's moves, part frame, z from the top (0) down: at each depth, rings from the middle out
+// `stepover` apart (40% of the bit by default), the wall last, each ring with the wall on its right
+// (conventional); a short hop between rings feeds at depth, a longer one lifts.
+export function inlayToolpath(mark, o = {}) {
+  const sh = inlayShape(mark, { part: o.part, res: o.res });
+  if (!sh || sh.empty) return { moves: [], inlay: sh, strategy: 'pocket' };
+  const f = mark.fill, tool = sh.tool, r = sh.r, E = emitter(o);
+  const want = Math.max(0.01, f.depth ?? INLAY.depth), deep = o.maxDepth > 0 ? Math.min(want, o.maxDepth) : want;
+  // rings at most the bit's radius apart: wider leaves a post standing in the middle (review 11-02)
+  const step = Math.min(r, f.stepover > 0 ? f.stepover : 0.4 * 2 * r);
+  const sd = o.stepDown > 0 ? o.stepDown : deep, zs = [];
+  for (let z = -sd; z > -deep + 1e-6; z -= sd) zs.push(z);
+  zs.push(-deep);
+  // the rings, innermost first; a ring keeps the wall (sd rising) on its right
+  const rings = [];
+  for (let level = -r; level > -sh.deepest - 1e-6; level -= step) {
+    for (const L of sh.lines(level)) {
+      const a = L[0], b = L[1], mx = (a[0] + b[0]) / 2, my = (a[1] + b[1]) / 2, len = Math.hypot(b[0] - a[0], b[1] - a[1]) || 1;
+      const lx = mx - (b[1] - a[1]) / len * 0.05, ly = my + (b[0] - a[0]) / len * 0.05;
+      rings.push({ level, pts: sh.sd(lx, ly) < level ? L : L.slice().reverse() });
+    }
+  }
+  rings.sort((p, q) => p.level - q.level);
+  const hop = 2 * r;
+  for (const z of zs) {
+    let at = null;
+    for (const R of rings) {
+      // start each ring at its point nearest the bit
+      let P = R.pts, s0 = 0;
+      if (at) { let bd = Infinity; P.forEach((q, i) => { const d = Math.hypot(q[0] - at[0], q[1] - at[1]); if (d < bd) { bd = d; s0 = i; } }); }
+      P = P.slice(s0).concat(P.slice(0, s0));
+      const p0 = P[0];
+      if (at && Math.hypot(p0[0] - at[0], p0[1] - at[1]) <= hop) E.feed(p0[0], p0[1], z);
+      else { E.travelTo(p0[0], p0[1], o.clearZ ?? 1); E.feed(p0[0], p0[1], z); }
+      for (let i = 1; i < P.length; i++) E.feed(P[i][0], P[i][1], z);
+      E.feed(p0[0], p0[1], z);
+      at = p0;
+    }
+    E.retract();
+  }
+  E.retract();
+  return { moves: E.moves, inlay: sh, tool, strategy: 'pocket', rings: rings.length };
+}
+// THE PLUG: the pocket's shape `gap` smaller all round, part frame (outer loops counterclockwise,
+// holes clockwise), `depth + proud` thick
+export function inlayPlug(mark, o = {}) {
+  const sh = inlayShape(mark, { part: o.part, res: o.res });
+  if (!sh || sh.empty) return null;
+  const f = mark.fill, loops = sh.lines(-sh.gap, 0.005).filter((L) => L.length >= 3).map((L) => {
+    const a = L[0], b = L[1], mx = (a[0] + b[0]) / 2, my = (a[1] + b[1]) / 2, len = Math.hypot(b[0] - a[0], b[1] - a[1]) || 1;
+    // the plug on each loop's left
+    const lx = mx - (b[1] - a[1]) / len * 0.02, ly = my + (b[0] - a[0]) / len * 0.02;
+    return sh.sd(lx, ly) < -sh.gap ? L : L.slice().reverse();
+  });
+  if (!loops.length) return null;
+  const box = loopsBox(loops);
+  // one piece per island (an "HI" is three plugs), each outline with the holes inside it
+  const outers = loops.filter((L) => loopArea2(L) > 0), holes = loops.filter((L) => loopArea2(L) <= 0);
+  const pieces = outers.map((L) => ({ loops: [L], area: loopArea2(L) }));
+  for (const H of holes) {
+    const home = pieces.filter((pc) => insidePoly(H[0][0], H[0][1], pc.loops[0])).sort((p, q) => p.area - q.area)[0];
+    if (home) home.loops.push(H);
+  }
+  for (const pc of pieces) { pc.box = loopsBox(pc.loops); delete pc.area; }
+  return { loops, box, pieces, thickness: Math.max(0.01, f.depth ?? INLAY.depth) + Math.max(0, f.proud ?? INLAY.proud), gap: sh.gap, r: sh.r };
+}
+// the plug as an SVG in mm (y up in the part, so flipped for SVG's y down), even-odd
+export function inlayPlugSVG(plug) {
+  const [x0, y0, x1, y1] = plug.box, w = x1 - x0, hh = y1 - y0, n = (v) => +v.toFixed(4);
+  const d = plug.loops.map((L) => 'M' + L.map((q) => `${n(q[0] - x0)},${n(y1 - q[1])}`).join('L') + 'Z').join('');
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="${n(w)}mm" height="${n(hh)}mm" viewBox="0 0 ${n(w)} ${n(hh)}"><path fill-rule="evenodd" d="${d}"/></svg>`;
+}
+// How the two pieces meet when each is cut: the pocket as its bit leaves it (opened by r), the plug
+// as a bit of radius rPlug leaves it round its outside (closed by rPlug). { interference: the most
+// the plug stands past the pocket's wall (mm, 0 = it goes in), gapMax: the widest gap }
+export function inlayFit(mark, o = {}) {
+  const sh = inlayShape(mark, { part: o.part, res: o.res, cells: o.cells });
+  if (!sh || sh.empty) return null;
+  const { nx, ny, sdF } = sh.grid, h = sh.h, N = nx * ny, rc = sh.r / h, rp = (o.rPlug > 0 ? o.rPlug : sh.r) / h;
+  const toC = edt(nx, ny, (k) => sdF[k] <= -sh.r);
+  const pocket = new Uint8Array(N); for (let k = 0; k < N; k++) pocket[k] = toC[k] <= rc ? 1 : 0;
+  // each plug is cut on its own (its own part): closed alone, in a window round it
+  const P = new Uint8Array(N); for (let k = 0; k < N; k++) P[k] = sdF[k] <= -sh.gap ? 1 : 0;
+  const lab = new Int32Array(N).fill(-1), boxes = [];
+  for (let k0 = 0; k0 < N; k0++) {
+    if (!P[k0] || lab[k0] >= 0) continue;
+    const id = boxes.length, b = [nx, ny, -1, -1], stack = [k0]; lab[k0] = id;
+    while (stack.length) {
+      const k = stack.pop(), i = k % nx, j = (k - i) / nx;
+      if (i < b[0]) b[0] = i; if (j < b[1]) b[1] = j; if (i > b[2]) b[2] = i; if (j > b[3]) b[3] = j;
+      for (const q of [i > 0 ? k - 1 : -1, i < nx - 1 ? k + 1 : -1, j > 0 ? k - nx : -1, j < ny - 1 ? k + nx : -1]) if (q >= 0 && P[q] && lab[q] < 0) { lab[q] = id; stack.push(q); }
+    }
+    boxes.push(b);
+  }
+  const plug = new Uint8Array(N), pad = Math.ceil(rp) + 2;
+  boxes.forEach((b, id) => {
+    const i0 = Math.max(0, b[0] - pad), j0 = Math.max(0, b[1] - pad), i1 = Math.min(nx - 1, b[2] + pad), j1 = Math.min(ny - 1, b[3] + pad);
+    const wx = i1 - i0 + 1, wy = j1 - j0 + 1, at = (k) => (j0 + Math.floor(k / wx)) * nx + i0 + (k % wx);
+    const toX = edt(wx, wy, (k) => lab[at(k)] === id), far = edt(wx, wy, (k) => toX[k] > rp);
+    for (let k = 0; k < wx * wy; k++) if (far[k] > rp) plug[at(k)] = 1;
+  });
+  const toPocket = edt(nx, ny, (k) => pocket[k]), toWall = edt(nx, ny, (k) => !pocket[k]);
+  let interference = 0, gapMax = 0;
+  for (let k = 0; k < N; k++) {
+    if (plug[k] && !pocket[k]) interference = Math.max(interference, toPocket[k] * h);
+    if (pocket[k] && !plug[k] && toWall[k] * h <= sh.gap + 3 * h) gapMax = Math.max(gapMax, toWall[k] * h);
+  }
+  return { interference, gapMax, h };
+}
+// What to say about an inlay mark
+export function inlayChecks(mark, o = {}) {
+  const L = o.len || ((v) => `${fmt(v, 1)} mm`);
+  const sh = inlayShape(mark, { part: o.part, res: o.res || 0.1, cells: 1e6 });
+  const warnings = [], notes = [];
+  if (!sh || sh.empty) {
+    if (sh && sh.empty) warnings.push(`The ${sh.tool.name} is too wide for this paint: no part of it is wide enough for the bit to go in. Paint wider, or pick a thinner flat bit.`);
+    return { warnings, notes, tex: null, inlay: sh };
+  }
+  const f = mark.fill, depth = Math.max(0.01, f.depth ?? INLAY.depth), tool = sh.tool;
+  if (o.thickness > 0 && depth >= o.thickness - 1e-6) warnings.push(`The pocket goes ${L(depth)} deep and the board is ${L(o.thickness)} thick: it would cut through. Make it shallower.`);
+  if (tool.flute > 0 && depth > tool.flute + 0.1) warnings.push(`The ${tool.name} cuts ${L(tool.flute)} deep at most (its flutes); the pocket goes ${L(depth)}.`);
+  if (tool.type !== 'flat') warnings.push(`An inlay needs a flat bit for a flat floor and straight walls; the ${tool.name} is not one.`);
+  if (sh.lost > 0.02) notes.push(`${Math.round(sh.lost * 100)}% of the paint is narrower than the ${tool.name} can reach (tight corners and thin bits): both pieces are rounded there to the bit, so they still fit.`);
+  // the gap in its own fine words: a tenth of a millimetre is the whole point (o.fine, else mm)
+  const G = o.fine || ((v) => `${fmt(v, 2)} mm`);
+  notes.push(`Inside corners round to ${L(sh.r)}, the bit's radius. The plug is ${G(sh.gap)} smaller all round, to press in with glue.`);
+  if (sh.h > 0.1) notes.push(`A big inlay: its shape is worked out to ${L(sh.h / 2)}; cut a test of the fit first.`);
+  // the two pieces as their bits leave them: a plug that would stand past the pocket's wall is said
+  const fit = inlayFit(mark, { part: o.part, res: o.res || 0.1, cells: 1e6 });
+  if (fit && fit.interference > Math.max(0.03, 2 * fit.h)) warnings.push(`In places the plug would come out ${G(fit.interference)} bigger than the pocket (shapes closer together than the ${tool.name} is wide): it will not go in there. Paint them farther apart, or pick a thinner bit.`);
+  return { warnings, notes, tex: inlayTexture(mark, { part: o.part }), inlay: sh, tool, strategy: 'pocket' };
+}
+
 const API = {
   hash3, perlin2, fbm2, worley2, cap, stepRepeat, blend, RD_STYLES, MORSE, morseEncode, strokeField, WEAVE_DRAFTS, MOTIFS, PATTERNS, defaults,
   rectMask, ellipseMask, polygonMask, paintMask, unionMask, makeMask, maskWeight, texture, TOOLS, makeTool, toolOffsets, dropCutter,
@@ -2897,6 +3199,7 @@ const API = {
   partMesh, partMeshSize, autoMeshRes, meshCheck, meshNormals, meshSTL, meshOBJ, meshGLB, meshFile,
   RECIPE_FORMAT, RECIPE_VERSION, RECIPE_CORE, PATTERN_VERSIONS, recipeOf, fillOfRecipe, textureOfRecipe, recipeRefusal, checkOf, verifyRecipe,
   typedRange, CURVES, CURVE_WORDS, BORDERS, BORDER_WORDS, borderDefaults, isoLines, alongLines, fillShape,
+  INLAY, newInlay, inlayShape, inlayTexture, inlayToolpath, inlayPlug, inlayPlugSVG, inlayFit, inlayChecks,
   roundProse, PIERCES, SKIN_STRAIN, defaultSkin, kerfCount, pierceDefaults, newPierce, fillTool, kerfPitch, pierceCuts, pierceToolpath, pierceChecks, pierceSVG,
 };
 if (typeof window !== 'undefined') window.SwarfTexCore = API;

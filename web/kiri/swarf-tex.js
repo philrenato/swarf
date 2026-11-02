@@ -13,7 +13,8 @@
  * ocean waves on Seat"), before the steps that cut the parts free; the step's moves come from the
  * core's drop cutter (swarf-tex-core.mjs) in the slice worker (op-texture.js).
  *
- * A mark's fill is { fill: 'texture', … } (carves the top) or { fill: 'pierce', … } (cuts through).
+ * A mark's fill is { fill: 'texture', … } (carves the top), { fill: 'inlay', … } (a flat pocket, and
+ * the plug that fills it as its own part) or { fill: 'pierce', … } (cuts through).
  */
 (function () {
   'use strict';
@@ -65,12 +66,13 @@
     return out.sort((x, y) => (x[1].type > y[1].type ? 1 : x[1].type < y[1].type ? -1 : x[1].diameter - y[1].diameter));
   }
   // a fill's bit made the library's: its tool id and spec (a fill from before names a core id)
+  const straight = f => f && (f.fill === 'pierce' || f.fill === 'inlay');
   function normBit(f) {
-    const lib = libraryBits(f.fill === 'pierce');
+    const lib = libraryBits(straight(f));
     if (!lib.length) return f;
     const id = typeof f.tool === 'number' ? f.tool : (BITS[f.tool] || {}).tool;
     let hit = lib.find(([t]) => t.id === id);
-    if (!hit && f.fill === 'pierce') hit = lib.find(([, b]) => Math.abs(b.diameter - 3.175) < 0.01) || lib[0];
+    if (!hit && straight(f)) hit = lib.find(([, b]) => Math.abs(b.diameter - 3.175) < 0.01) || lib[0];
     if (!hit) hit = lib.find(([, b]) => b.type === 'ball' && Math.abs(b.diameter - 6.35) < 0.01) || lib[0];
     f.tool = hit[0].id; f.bit = hit[1];
     return f;
@@ -131,6 +133,7 @@
     const C = T();
     if (f && f.fill === 'pierce' && C.PIERCES[f.pattern]) return f;
     if (f && f.fill === 'texture' && C.PATTERNS[f.pattern]) return f;
+    if (f && f.fill === 'inlay') return f;
     unknownFills++;
     return f && f.fill === 'pierce' ? C.newPierce('kerf', { tool: f.tool }) : C.newFill('waves', { tool: f && f.tool || 'ball14' });
   }
@@ -143,7 +146,7 @@
   }
   const markHas = m => m.region && m.region.data && m.region.data.some(v => v);
   function lastFill() {
-    try { const f = JSON.parse(localStorage.getItem(FILL) || 'null'); if (f && ((f.fill === 'texture' && T().PATTERNS[f.pattern]) || (f.fill === 'pierce' && T().PIERCES[f.pattern] && document.body.classList.contains('swarf-expert')))) return f; } catch (e) { /* private */ }
+    try { const f = JSON.parse(localStorage.getItem(FILL) || 'null'); if (f && ((f.fill === 'texture' && T().PATTERNS[f.pattern]) || f.fill === 'inlay' || (f.fill === 'pierce' && T().PIERCES[f.pattern] && document.body.classList.contains('swarf-expert')))) return f; } catch (e) { /* private */ }
     return null;
   }
   function newMark(part, made) {
@@ -671,13 +674,14 @@
     }
     const expert = document.body.classList.contains('swarf-expert');
     const bitRow = f => {
-      const lib = libraryBits(f.fill === 'pierce');
-      const opts = lib.length ? lib.map(([t, b]) => [String(t.id), b.name]) : Object.entries(BITS).map(([k, b]) => [k, b.say]);
-      return selRow('bit', 'tx-bit', opts, String(f.tool), f.fill === 'pierce' ? 'the straight bit that cuts the kerfs or holes; its width is the kerf' : 'the bit that cuts it: ball for smooth hollows, V for sharp grooves');
+      const lib = libraryBits(straight(f));
+      const opts = lib.length ? lib.map(([t, b]) => [String(t.id), b.name]) : Object.entries(BITS).filter(([k]) => !straight(f) || k.startsWith('flat')).map(([k, b]) => [k, b.say]);
+      return selRow('bit', 'tx-bit', opts, String(f.tool), f.fill === 'pierce' ? 'the straight bit that cuts the kerfs or holes; its width is the kerf' : f.fill === 'inlay' ? 'the straight bit that cuts the pocket: its radius rounds the inside corners, of the pocket and the plug alike' : 'the bit that cuts it: ball for smooth hollows, V for sharp grooves');
     };
     // pierce lives in advanced mode; a pierce mark seen from basic mode can still go back to
     // texture (review 10-30 F11), and says where pierce lives
-    const fillRow = f => (expert || f.fill === 'pierce' ? `<div class="sd-row tx-fills" title="texture carves the top; pierce cuts through it"><span>fill</span><button class="tx-fill${f.fill === 'texture' ? ' on' : ''}" data-fill="texture">texture</button><button class="tx-fill${f.fill === 'pierce' ? ' on' : ''}" data-fill="pierce">pierce</button></div>${expert ? '' : '<div class="sd-note tx-adv">Pierce lives in advanced mode (view › advanced): here it can go back to texture.</div>'}` : `<div class="sd-h">${f.fill}</div>`);
+    // inlay (Phil 11-02) is for everyone: a pocket, and the part that fills it
+    const fillRow = f => `<div class="sd-row tx-fills" title="texture carves the top; inlay sinks a flat pocket and makes the part that fills it${expert || f.fill === 'pierce' ? '; pierce cuts through it' : ''}"><span>fill</span><button class="tx-fill${f.fill === 'texture' ? ' on' : ''}" data-fill="texture">texture</button><button class="tx-fill${f.fill === 'inlay' ? ' on' : ''}" data-fill="inlay">inlay</button>${expert || f.fill === 'pierce' ? `<button class="tx-fill${f.fill === 'pierce' ? ' on' : ''}" data-fill="pierce">pierce</button>` : ''}</div>${expert || f.fill !== 'pierce' ? '' : '<div class="sd-note tx-adv">Pierce lives in advanced mode (view › advanced): here it can go back to texture.</div>'}`;
     if (m && m.fill.fill === 'pierce') {
       const f = m.fill, P = C.PIERCES[f.pattern], pr = { ...C.pierceDefaults(f.pattern, part.thick), ...(f.params || {}) };
       h += fillRow(f);
@@ -707,6 +711,23 @@
       h += `<details class="tx-more tx-more-p"${more ? ' open' : ''}><summary>more</summary>`;
       for (const q of P.params) if (!q.basic) h += paramRow(q, pr[q.k]);
       h += '</details>';
+    } else if (m && m.fill.fill === 'inlay') {
+      // INLAY (Phil 11-02): the mark sunk as a flat pocket, and its plug a part of its own to cut from
+      // another wood. The fields, then what they make; what to watch for at the end
+      const f = m.fill, tex = m.info && m.info.ver === m.ver ? m.info : null, I = C.INLAY;
+      h += fillRow(f);
+      const nw = tex ? tex.warnings.length : 0;
+      h += `<div class="sd-note tx-status">${!tex ? 'Working out the cut…' : tex.seconds > 0.5 ? `About ${C.formatTime(tex.seconds)} to cut the pocket.` : 'Nothing to cut yet.'}${nw ? ` <span class="tx-warn">${nw === 1 ? 'A note' : `${nw} notes`} below.</span>` : ''}</div>`;
+      h += lenRow('depth', 'tx-depth', f.depth ?? I.depth, 'how deep the pocket goes, a flat floor; the plug is this thick and a little more', sl('tx-depth', 0.5, 10, 0.1, f.depth ?? I.depth));
+      h += lenRow('fit gap', 'tx-gap', f.gap ?? I.gap, 'how much smaller the plug is than the pocket, all round: 0.1 mm presses in with glue; more is looser', sl('tx-gap', 0, 0.5, 0.02, f.gap ?? I.gap));
+      h += lenRow('stands proud', 'tx-proud', f.proud ?? I.proud, 'the plug is this much thicker than the pocket is deep, to sand flush once it is glued in', sl('tx-proud', 0, 5, 0.1, f.proud ?? I.proud));
+      h += bitRow(f);
+      const plug = plugOf(part, m);
+      h += `<div class="sd-note tx-plugsay">${plug ? `The plug is <b>${esc(nameOf(plug))}</b> on the bed. To cut it: untick ${esc(part.name)} in objects, tick the plug, set the other wood's material.` : 'Press done: the plug comes onto the bed as its own part, left out of this run, to cut from another wood.'}</div>`;
+      if (tex) {
+        for (const w of tex.warnings) warns += `<div class="sd-note tx-warn">${esc(w)}</div>`;
+        for (const n of tex.notes) warns += `<div class="sd-note">${esc(n)}</div>`;
+      }
     } else if (m) {
       const f = m.fill, P = C.PATTERNS[f.pattern], pr = { ...C.defaults(f.pattern), ...(f.params || {}) };
       const compact = window.innerHeight < 820;
@@ -849,10 +870,12 @@
       const to = b.dataset.fill;
       if (to !== f.fill) {
         snap();
-        const keep = { angle: f.angle || 0, origin: f.origin, fade: to === 'pierce' ? 0 : 3 };
-        m.fill = normBit(to === 'pierce' ? C.newPierce('kerf', keep, part.thick) : { ...C.newFill('waves'), ...keep });
+        const keep = { angle: f.angle || 0, origin: f.origin, fade: to === 'texture' ? 3 : 0 };
+        // an inlay's depth stays short of the board's bottom
+        const inl = () => C.newInlay({ depth: Math.min(C.INLAY.depth, Math.max(0.5, r3(part.thick / 2))) });
+        m.fill = normBit(to === 'pierce' ? C.newPierce('kerf', keep, part.thick) : to === 'inlay' ? inl() : { ...C.newFill('waves'), ...keep });
         m.ver++; part.dirty = true;
-        say(to === 'pierce' ? 'Pierce: cuts through the part. A starting point: cut a test strip first.' : 'Texture: carved into the part\'s top.');
+        say(to === 'pierce' ? 'Pierce: cuts through the part. A starting point: cut a test strip first.' : to === 'inlay' ? 'Inlay: a flat pocket, and on done the plug that fills it, as its own part.' : 'Texture: carved into the part\'s top.');
         render(); imagesSoon(); checkSoon();
       }
       ui.svg.focus();
@@ -875,7 +898,7 @@
       b.onmouseenter = () => { if (hint) hint.textContent = b.dataset.hint; };
       b.onmouseleave = () => { if (hint) hint.textContent = hint0; };
     }
-    for (const q of (pierce ? C.PIERCES : C.PATTERNS)[f.pattern].params) {
+    for (const q of (f.fill === 'inlay' ? [] : (pierce ? C.PIERCES : C.PATTERNS)[f.pattern].params)) {
       if (q.k === 'depth') continue;
       bind(`tx-p-${q.k}`, v => {
         if (q.shuffle) {
@@ -902,12 +925,15 @@
     bind('tx-angle', v => { if (!isFinite(v)) return say('Give the direction in degrees.'); set(f => { f.angle = r3(((v % 360) + 360) % 360); }); });
     bind('tx-fade', v => { if (!(v >= 0)) return say('The soft edge is 0 or more.'); set(f => { f.fade = r3(v); }); });
     bind('tx-depth', v => {
-      if (!(v >= 0.1)) return say('Give the texture at least 0.1 mm of depth.');
+      const what = f.fill === 'inlay' ? 'pocket' : 'texture';
+      if (!(v >= 0.1)) return say(`Give the ${what} at least 0.1 mm of depth.`);
       // as deep as the board or more: held 1 mm short, said, and the field shows it (deep review P8)
       const top = part.thick > 1.5 ? Math.max(0.1, part.thick - 1 - (+f.floor || 0)) : v, d = Math.min(v, top);
-      set(f => { f.depth = r3(d); f.params = { ...(f.params || {}), depth: r3(d) }; });
-      if (d < v) say(`${LEN.prose(v)} is as deep as ${part.name} is thick or more: the texture would cut through, so it goes ${LEN.prose(d)} deep.`);
+      set(f => { f.depth = r3(d); if (f.fill !== 'inlay') f.params = { ...(f.params || {}), depth: r3(d) }; });
+      if (d < v) say(`${LEN.prose(v)} is as deep as ${part.name} is thick or more: the ${what} would cut through, so it goes ${LEN.prose(d)} deep.`);
     });
+    bind('tx-gap', v => { if (!(v >= 0 && v <= 2)) return say('The fit gap goes from 0 to 2 mm (0.1 mm presses in with glue).'); set(f => { f.gap = r3(v); }); });
+    bind('tx-proud', v => { if (!(v >= 0 && v <= 25)) return say('Stands proud goes from 0 to 25 mm.'); set(f => { f.proud = r3(v); }); });
     // the deepest the mark goes: its floor and texture, or its border
     const deepest = g => Math.max((+g.floor || 0) + (+g.depth || 0), g.border && g.border.style && g.border.style !== 'none' && g.border.style !== 'rim' ? +g.border.depth || 0 : 0);
     const room = part.thick > 1.5 ? part.thick - 1 : Infinity;
@@ -1262,6 +1288,8 @@
     a.conf.get().process.ops = clone(snap.ops);
     a.conf.save();
     a.event.emit('cam.op.render');
+    // an inlay's plug follows its mark back and forth (review 11-02)
+    try { syncPlugs(a); } catch (e) { console.warn('swarf tex: plug', e); }
   }
   function commit() {
     const a = api();
@@ -1291,18 +1319,86 @@
     }
     if (!changed) return '';
     const r = syncSteps(a);
+    let plugs = { made: [], redone: [], gone: 0 };
+    try { plugs = syncPlugs(a); } catch (e) { console.warn('swarf tex: plug', e); }
+    const plugSaid = plugs.made.length ? ` ${plugs.made.map(p => `"${p.meta.file}"`).join(', ')} ${plugs.made.length === 1 ? 'is its plug, on the bed' : 'are their plugs, on the bed'} and left out of this run: tick ${plugs.made.length === 1 ? 'it' : 'them'} in objects to cut from another wood.` : plugs.redone.length ? ' The plug changed with its pocket.' : plugs.gone ? ' Its plug went with it.' : '';
     const ops = a.conf.get().process.ops || [], free = ops.some(o => o && (o.type === 'outline' || o.type === 'rough'));
     // worded per fill (review 10-30 F5: a pierce mark's toast said "a texture step")
-    const by = r.addedBy || { texture: r.added, pierce: 0 };
-    const kinds = ['texture', 'pierce'].filter(k => by[k]).map(k => (by[k] === 1 ? `${r.added === 1 ? 'a' : '1'} ${k} step` : `${by[k]} ${k} steps`));
+    const by = r.addedBy || { texture: r.added, inlay: 0, pierce: 0 };
+    const kinds = ['texture', 'inlay', 'pierce'].filter(k => by[k]).map(k => (by[k] === 1 ? `${r.added === 1 ? (k === 'inlay' ? 'an' : 'a') : '1'} ${k} step` : `${by[k]} ${k} steps`));
     const added = `${kinds.join(' and ')} ${r.added === 1 ? 'was' : 'were'} added`;
     const steps = r.added ? (free ? `${added} before the cut-out` : `${added}; add an outline to cut the part free`) : r.removed ? `${r.removed === 1 ? 'its step was' : `${r.removed} steps were`} removed` : kept === 1 ? 'its step cuts it' : 'their steps cut them';
-    return kept ? `${kept === 1 ? '1 mark is' : `${kept} marks are`} kept: ${steps}. Next: toolpaths.` : `No marks left${r.removed ? `: ${steps}` : ''}.`;
+    return (kept ? `${kept === 1 ? '1 mark is' : `${kept} marks are`} kept: ${steps}. Next: toolpaths.` : `No marks left${r.removed ? `: ${steps}` : ''}.`) + plugSaid;
+  }
+
+  // ── an inlay's plug: a part of its own on the bed (Phil 11-02: "automatically get a matching part
+  // in the scene that I could machine in another material"), made on done and kept in step with its
+  // mark: changed with it, gone with it. It arrives left out of this run (unticked in objects), beside
+  // its part, lined up with where it goes ──
+  const plugOf = (part, m) => { const a = api(); return a ? a.widgets.all().find(w => w.meta && w.meta.inlay && w.meta.inlay.mark === m.id) || null : null; };
+  const hashOf = t => { let h = 2166136261 >>> 0; for (let i = 0; i < t.length; i++) h = Math.imul(h ^ t.charCodeAt(i), 16777619) >>> 0; return h.toString(36); };
+  function syncPlugs(a) {
+    return a.doit && a.doit.quietly ? a.doit.quietly(() => syncPlugs1(a)) : syncPlugs1(a);
+  }
+  function syncPlugs1(a) {
+    const C = T(), all = a.widgets.all(), want = new Map(), gone = [], made = [];
+    // a delete lays the bed out again in cam: every part goes back where it was
+    const was = new Map(all.map(w => [w, [w.track.pos.x, w.track.pos.y]]));
+    for (const w of all) for (const m of (w.meta && w.meta.tex) || []) if (m.fill && m.fill.fill === 'inlay' && !want.has(m.id)) want.set(m.id, { w, m });
+    // a mark gone from a part still here: its plugs go. A part deleted keeps its plugs (they may be
+    // being cut on their own)
+    for (const w of all) { const q = w.meta && w.meta.inlay; if (q && !want.has(q.mark) && all.some(x => x.id === q.src)) gone.push(w); }
+    let n = 0, dropped = gone.length;
+    for (const [id, { w, m }] of want) {
+      n++;
+      const loops = localLoops(w).loops, f = m.fill, bit = C.fillTool(f);
+      const sig = hashOf(JSON.stringify([m.region, m.xf, f.depth, f.gap, f.proud, bit.diameter, loops]));
+      const olds = all.filter(x => x.meta && x.meta.inlay && x.meta.inlay.mark === id);
+      if (olds.length && olds.every(o => o.meta.inlay.sig === sig)) continue;
+      const plug = C.inlayPlug({ ...m, region: C.regionSpec(m.region) }, { part: loops });
+      gone.push(...olds);
+      if (!plug) { dropped += olds.length; continue; }
+      // where: beside the part, each piece at its own height on the part and the pieces in a row 10 mm
+      // apart (cut side by side as they sit in the pocket, the bit could not pass between them); a plug
+      // made again goes where the old one sat, moved by hand or not
+      const pb = plug.box, o0 = olds.find(o => o.meta.inlay.row);
+      const lb = loops.reduce((b, L) => L.reduce((b, q) => [Math.min(b[0], q[0]), Math.min(b[1], q[1]), Math.max(b[2], q[0]), Math.max(b[3], q[1])], b), [Infinity, Infinity, -Infinity, -Infinity]);
+      const row = o0 ? [was.get(o0)[0] - o0.meta.inlay.row[0], was.get(o0)[1] - o0.meta.inlay.row[1]] : [w.track.pos.x + lb[2] + 15, w.track.pos.y];
+      const base = olds.length ? olds[0].meta.inlay.name : `${nameOf(w)} plug${want.size > 1 ? ` ${n}` : ''}`;
+      const off = olds.length ? olds.every(o => o.meta.disabled) : true;
+      const pieces = plug.pieces.slice().sort((p, q) => p.box[0] - q.box[0]);
+      let x = 0;
+      pieces.forEach((pc, i) => {
+        const name = pieces.length > 1 ? `${base} ${i + 1}` : base;
+        const ws = a.platform.load_svg(C.inlayPlugSVG(pc), name, { depth: r3(plug.thickness), soup: true, dpi: 0, place: true }) || [];
+        const wd = pc.box[2] - pc.box[0], at = [x + wd / 2, (pc.box[1] + pc.box[3]) / 2];
+        x += wd + 10;
+        for (const p of ws) {
+          was.set(p, [row[0] + at[0], row[1] + at[1]]);
+          p.meta.inlay = { mark: id, of: nameOf(w), src: w.id, sig, row: at, name: base };
+          if (off) p.meta.disabled = true;
+          made.push({ p, fresh: !olds.length });
+        }
+      });
+    }
+    if (gone.length) a.platform.delete(gone);
+    for (const [w, q] of was) if (!gone.includes(w) && a.widgets.all().includes(w) && (Math.abs(w.track.pos.x - q[0]) > 1e-6 || Math.abs(w.track.pos.y - q[1]) > 1e-6)) w.move(q[0], q[1], w.track.pos.z, true);
+    if (made.length) a.platform.set_cut(made.map(q => q.p).filter(p => !p.meta.disabled), true);
+    if (made.length) a.platform.set_cut(made.map(q => q.p).filter(p => p.meta.disabled), false);
+    for (const { p } of made) if (p.saveState) p.saveState(() => {});
+    return { made: made.filter(q => q.fresh).map(q => q.p), redone: made.filter(q => !q.fresh).map(q => q.p), gone: dropped };
   }
 
   // ── the steps: one texture step per mark, before the steps that cut the parts free ──
-  const STEP = o => o && (o.type === 'texture' || o.type === 'pierce');
-  const stepType = mark => (mark.fill && mark.fill.fill === 'pierce' ? 'pierce' : 'texture');
+  const STEP = o => o && (o.type === 'texture' || o.type === 'pierce' || o.type === 'inlay');
+  const stepType = mark => (mark.fill && (mark.fill.fill === 'pierce' || mark.fill.fill === 'inlay') ? mark.fill.fill : 'texture');
+  // a step's title in words: "texture: waves", "inlay: 3 mm pocket", "pierce: kerfs"
+  const fillWords = mark => {
+    const t = stepType(mark), f = mark.fill;
+    if (t === 'inlay') return `inlay: ${LEN.say(f.depth ?? T().INLAY.depth)} pocket`;
+    const P = (t === 'pierce' ? T().PIERCES : T().PATTERNS)[f.pattern];
+    return `${t}: ${P ? P.label.toLowerCase() : f.pattern}`;
+  };
   function stepOf(id) {
     const a = api(), ops = (a && a.conf.get().process.ops) || [];
     return ops.find(o => STEP(o) && o.texmark === id) || null;
@@ -1330,8 +1426,7 @@
   const stepLabel = e => {
     const names = e.ws.map(nameOf);
     const who = names.length > 2 ? `${names.slice(0, 2).join(', ')} +${names.length - 2}` : names.join(', ');
-    const pierce = stepType(e.mark) === 'pierce', P = (pierce ? T().PIERCES : T().PATTERNS)[e.mark.fill.pattern];
-    return `${pierce ? 'pierce' : 'texture'}: ${P ? P.label.toLowerCase() : e.mark.fill.pattern} on ${who}`;
+    return `${fillWords(e.mark)} on ${who}`;
   };
   // addOnly: a part come back (undo of a delete) gets its steps again, and nothing is taken away
   // (parts arrive one by one when a workspace loads)
@@ -1340,7 +1435,7 @@
     const s = a.conf.get(), proc = s.process, ops = proc.ops || (proc.ops = []);
     const marks = marksOnBed(a);
     let added = 0, removed = 0, changed = false;
-    const addedBy = { texture: 0, pierce: 0 };
+    const addedBy = { texture: 0, inlay: 0, pierce: 0 };
     for (let i = ops.length - 1; i >= 0 && !addOnly; i--) {
       const o = ops[i];
       if (STEP(o) && !marks.has(o.texmark)) { ops.splice(i, 1); removed++; }
@@ -1362,9 +1457,10 @@
           plunge: like.plunge || proc.camTracePlunge || 500, down: like.down || 2, marks: {}
         };
         delete op.moved;
-        // texture first, then pierce, then the steps that cut parts free (an outline, a rough), all
-        // before the end-of-steps marker
-        let at = ops.findIndex(o => o && (o.type === 'outline' || o.type === 'rough' || o.type === '|' || (type === 'texture' && o.type === 'pierce')));
+        // texture first, then inlay, then pierce, then the steps that cut parts free (an outline, a
+        // rough), all before the end-of-steps marker
+        const after = { texture: ['inlay', 'pierce'], inlay: ['pierce'], pierce: [] }[type];
+        let at = ops.findIndex(o => o && (o.type === 'outline' || o.type === 'rough' || o.type === '|' || after.includes(o.type)));
         if (at < 0) at = ops.length;
         ops.splice(at, 0, op);
         if (was) changed = true; else { added++; addedBy[type]++; }
@@ -1415,8 +1511,23 @@
   function concerns() {
     const a = api(), out = [];
     if (!a || !T()) return out;
+    // a plug cut by a wider bit than its pocket's rounds its inside corners past the pocket's: it will
+    // not go in (core inlayFit: a 1/4 in bit round a 1/8 in pocket's star stands 0.34 mm proud)
+    try {
+      const s = a.conf.get(), tools = s.tools || [], marks = marksOnBed(a);
+      const cut = (s.process.ops || []).filter(o => o && (o.type === 'outline' || o.type === 'rough') && !o.disabled);
+      for (const w of a.widgets.all()) {
+        const q = w.meta && w.meta.inlay, e = q && marks.get(q.mark);
+        if (!e || w.meta.disabled) continue;
+        const pocket = T().fillTool(e.mark.fill).diameter;
+        for (const o of cut) {
+          const t = tools.find(t => t.id === o.tool), d = t ? (t.metric ? 1 : 25.4) * (t.flute_diam || 0) : 0;
+          if (d > pocket + 0.01) out.push({ title: `the plug ${nameOf(w)}`, body: `The ${o.type} cuts ${nameOf(w)} with the ${t.name}, wider than the ${LEN.say(pocket)} bit that cuts its pocket: the plug's inside corners come out rounder than the pocket's and it will not go in. Cut the plug with the pocket's bit or a thinner one.`, hint: `steps: the ${o.type}'s bit` });
+        }
+      }
+    } catch (x) { /* cam not ready */ }
     for (const w of a.widgets.all()) {
-      if (!(w.meta && Array.isArray(w.meta.tex))) continue;
+      if (!(w.meta && Array.isArray(w.meta.tex)) || w.meta.disabled) continue;   // left out of this run
       const { thick } = sizeOf(w), name = nameOf(w);
       let loops = null;
       for (const m of w.meta.tex) {
@@ -1429,11 +1540,11 @@
           said.set(key, chk.warnings);
           if (said.size > 200) said.delete(said.keys().next().value);
         }
-        const pierce = stepType(m) === 'pierce', P = (pierce ? T().PIERCES : T().PATTERNS)[m.fill.pattern];
+        const type = stepType(m);
         for (const body of said.get(key)) out.push({
-          title: `${pierce ? 'pierce' : 'texture'}: ${P ? P.label.toLowerCase() : m.fill.pattern} on ${name}`,
+          title: `${fillWords(m)} on ${name}`,
           body,
-          hint: /cut through/.test(body) ? 'tex: less depth, or a thicker board' : pierce ? 'tex: a gentler bend, bigger spacing or a thinner bit; cut a test strip first' : 'tex: another bit, a bigger pattern, or less depth'
+          hint: /cut through/.test(body) ? 'tex: less depth, or a thicker board' : type === 'pierce' ? 'tex: a gentler bend, bigger spacing or a thinner bit; cut a test strip first' : type === 'inlay' ? 'tex: paint wider, or a thinner flat bit' : 'tex: another bit, a bigger pattern, or less depth'
         });
       }
     }
@@ -1496,11 +1607,13 @@
     const a = api(), e = a && marksOnBed(a).get(id);
     if (!e) return null;
     const f = e.mark.fill, C = T(), pierce = f.fill === 'pierce';
-    const lib = libraryBits(pierce);
+    const lib = libraryBits(straight(f));
     const bits = lib.length ? lib.map(([t, b]) => [String(t.id), b.name]) : Object.entries(BITS).map(([k, b]) => [k, b.say]);
     // the mark's bit as the library knows it (a fill from TEX may name a core bit, "ball14")
     const tool = lib.length ? String(normBit({ ...f }).tool) : String(f.tool);
     if (pierce) return { pierce, tool, bits };
+    // an inlay's pocket: its rings' stepover, 40% of the bit unless typed
+    if (f.fill === 'inlay') { const bit = C.fillTool(f); return { pierce, inlay: true, tool, bits, stepover: f.stepover > 0 ? Math.min(f.stepover, bit.diameter / 2) : 0.4 * bit.diameter, custom: f.stepover > 0, bitWidth: bit.diameter / 2 }; }
     const P = C.PATTERNS[f.pattern], border = f.border && f.border.style && f.border.style !== 'none';
     const kind = f.relief === 'up' || f.floor > 0 || border ? 'surface' : P ? P.build(C.defaults(f.pattern)).kind : 'surface';
     const ok = { auto: true, raster: true, crosshatch: true, plunge: kind === 'dots', centerline: kind === 'strokes' };
@@ -1536,6 +1649,8 @@
     if (S) { for (const p of S.parts) for (const m of p.marks) if (m.id === id) { m.ver++; delete m.info; } render(); checkSoon(); }
     try { a.space.auto_save(); } catch (x) { /* no workspace */ }
     syncSteps(a);
+    // a new bit rounds an inlay's corners its own way: the plug follows
+    if (k === 'tool' && e.mark.fill && e.mark.fill.fill === 'inlay') { try { syncPlugs(a); } catch (x) { console.warn('swarf tex: plug', x); } }
     return true;
   }
   window.__swarfTex = { open, close, say, setTool, render, state: () => S, lastMesh: () => S && S.lastMesh, concerns, syncSteps, pierceAvoid, stepCard, setStepCard };

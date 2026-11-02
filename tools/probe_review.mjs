@@ -39,7 +39,7 @@ try {
   const real = await page.evaluate(() => { const w = window.kiri.api.widgets.all()[0], g = w.mesh.geometry; g.computeBoundingBox(); const b = g.boundingBox; return [+(b.max.x - b.min.x).toFixed(1), +(b.max.y - b.min.y).toFixed(1)]; });
   check(c1.join() === '200,133.33,6' && c2.join() === '200,133.33,6' && real.join() === '200,133.3', `keep proportions with Tab: ${c1} then ${c2}, the part ${real.join(' x ')}`);
   const labels = await page.evaluate(() => [...document.querySelectorAll('#swarf-size .ax small')].map(s => s.textContent));
-  check(labels.join() === 'width,depth,thickness', `the size card says ${labels.join(' × ')}`);
+  check(labels.join() === 'width,length,thickness', `the size card says ${labels.join(' × ')}`);
   // #4
   const glow = () => page.evaluate(() => window.kiri.api.widgets.all().map(w => { const m = Array.isArray(w.mesh.material) ? w.mesh.material[0] : w.mesh.material; return m.emissive ? m.emissive.getHexString() : null; }));
   await wait(300);

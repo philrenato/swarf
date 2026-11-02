@@ -97,6 +97,8 @@ function prepareSlices(callback, scale = 1, offset = 0) {
         .filter(w => !w.track.ignore && !w.meta.disabled);
 
     if (slicing.length === 0) {
+        // swarf: every part unticked in objects (left out of this run)
+        if (api.widgets.all().some(w => w.meta.disabled)) return api.show.alert('Nothing to cut: every part is left out of this run. Tick one in objects.', 8);
         return api.show.alert('nothing to slice');
     }
 
@@ -527,7 +529,7 @@ function workSig() {
         const s = api.conf.get();
         const parts = api.widgets.all().filter(w => !w.track.synth).map(w => {
             const t = w.track, b = t.box || {};
-            return [w.id, t.pos && [t.pos.x, t.pos.y, t.pos.z], [b.w, b.h, b.d], w.anno && w.anno.tab];
+            return [w.id, t.pos && [t.pos.x, t.pos.y, t.pos.z], [b.w, b.h, b.d], w.anno && w.anno.tab, !!w.meta.disabled];
         });
         return JSON.stringify([s.process, s.tools, s.device && s.device.deviceName, s.stock, parts]);
     } catch (e) {

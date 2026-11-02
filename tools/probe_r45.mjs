@@ -39,7 +39,7 @@ try {
   const setv = (id, v) => page.evaluate((id, v) => { const el = document.getElementById(id); el.value = v; el.dispatchEvent(new Event(el.tagName === 'SELECT' ? 'change' : 'input', { bubbles: true })); }, id, v);
   await setv('shape-kind', 'rect'); await setv('shape-w', '100'); await setv('shape-h', '60'); await setv('shape-t', '12'); await setv('shape-edge', 'chamfer'); await setv('shape-es', '3'); await wait(150);
   const dlg = await page.evaluate(() => ({ h: document.querySelector('.swarf-shape tr[data-f="h"] th').textContent, band: !!document.querySelector('#shape-prev .band') }));
-  check(dlg.h === 'depth' && dlg.band, `SHAPE says depth and shows the edge band (${dlg.h}, band ${dlg.band})`);
+  check(dlg.h === 'length' && dlg.band, `SHAPE says length and shows the edge band (${dlg.h}, band ${dlg.band})`);
   await page.evaluate(() => [...document.querySelectorAll('#dialog button')].find(b => /^make$/i.test(b.textContent.trim())).click());
   await wait(1500);
   await page.evaluate(() => window.kiri.api.frame());

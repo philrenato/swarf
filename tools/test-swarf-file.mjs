@@ -121,11 +121,11 @@ ok(kclock.process.ops.map(o => o.type).join() === 'outline,|', 'Kiri\'s end-of-s
 const kt = { process: { ops: [] }, widget: { w1: { tab: [{ rot: [0, 0, 0.5, 0.866] }] } } };
 F.kmzSafe(kt);
 ok(Array.isArray(kt.widget.w1.tab[0].rot), 'a .kmz keeps each tab\'s rot as the array Kiri:Moto reads');
-ok(F.KIRI_OPS.length === 19 && !F.KIRI_OPS.includes('texture') && !F.KIRI_OPS.includes('pierce'), 'Kiri:Moto\'s step list');
+ok(F.KIRI_OPS.length === 19 && !F.KIRI_OPS.includes('texture') && !F.KIRI_OPS.includes('pierce') && !F.KIRI_OPS.includes('inlay'), 'Kiri:Moto\'s step list');
 // Kiri's own op list (src/kiri/mode/cam/core/ops.js) less swarf's: the list here matches it
 const ops = readFileSync(root + 'src/kiri/mode/cam/core/ops.js', 'utf8');
 const types = [...ops.slice(ops.indexOf('export const ops')).matchAll(/^\s+"([a-z ]+)":/gm)].map(x => x[1]);
-assert.deepEqual(types.filter(t => !['texture', 'pierce'].includes(t)).sort(), [...F.KIRI_OPS].sort()); n++;
+assert.deepEqual(types.filter(t => !['texture', 'pierce', 'inlay'].includes(t)).sort(), [...F.KIRI_OPS].sort()); n++;
 
 // ── fingerprint ──
 ok(F.fingerprint([{ id: 'a', pos: { x: 1 } }], { ops: [{ type: 'outline' }] }, 'mdf') === F.fingerprint([{ pos: { x: 1 }, id: 'a' }], { ops: [{ type: 'outline' }] }, 'mdf'), 'fingerprint ignores key order');

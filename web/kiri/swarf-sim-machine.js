@@ -75,7 +75,8 @@
   function placeBed() {
     const a = api();
     let x = Infinity, y = Infinity;
-    for (const w of a.widgets.all()) {
+    const all = a.widgets.all(), cut = all.filter(w => !(w.meta && w.meta.disabled));
+    for (const w of cut.length ? cut : all) {
       const g = w.mesh && w.mesh.geometry;
       if (!g) continue;
       g.computeBoundingBox();
