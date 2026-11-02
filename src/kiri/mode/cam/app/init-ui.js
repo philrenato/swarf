@@ -316,9 +316,9 @@ function opShow(f, v) {
     v = +v;
     if (!Number.isFinite(v)) return '';
     const L = window.SwarfLength, inch = opInch();
-    if (f === 'rate') return String(inch ? +(v / 25.4).toFixed(1) : Math.round(v));
+    if (f === 'rate' || f === 'plunge') return String(inch ? +(v / 25.4).toFixed(1) : Math.round(v));
     if (f === 'step') return String(+(v * 100).toFixed(1));
-    if (f === 'down') return L ? (L.field || L.show)(v) : String(+(v / (inch ? 25.4 : 1)).toFixed(inch ? 4 : 3));
+    if (f === 'down' || f === 'texstep') return L ? (L.field || L.show)(v) : String(+(v / (inch ? 25.4 : 1)).toFixed(inch ? 4 : 3));
     return String(v);
 }
 function opParse(f, text) {
@@ -326,7 +326,7 @@ function opParse(f, text) {
     const n = parseFloat(String(text).replace(',', '.'));
     // a feed is a number per minute, not a length: read its fractions (1 1/2) as a plain number
     // (Phil 11-01) a feed may name its unit: 1500 mm/min or 60 in/min (ipm) whatever the setting
-    if (f === 'rate') {
+    if (f === 'rate' || f === 'plunge') {
         const m = String(text).trim().match(/^(.*?)\s*(mm\/min|mm|in\/min|ipm|in|")?$/i);
         const u = m && m[2] ? (/^mm/i.test(m[2]) ? 1 : 25.4) : (inch ? 25.4 : 1), num = m ? m[1] : '';
         const k = L ? L.parse(num, 'in') / 25.4 : parseFloat(num), v = k * u;
@@ -334,7 +334,7 @@ function opParse(f, text) {
     }
     // a share of the bit: 40 or 40 %; past 100 % the passes leave ridges between them (refused)
     if (f === 'step') { const p = parseFloat(String(text).replace(',', '.').replace('%', '')); return p > 0 && p <= 100 ? p / 100 : p > 100 ? Infinity : NaN; }
-    if (f === 'down') {
+    if (f === 'down' || f === 'texstep') {
         const mm = L ? L.parse(text) : n * (inch ? 25.4 : 1);
         return mm >= 0 ? mm : NaN;
     }
@@ -423,16 +423,18 @@ export function opRender() {
             trace:   ['tool','rate','down'],
             drill:   ['tool','rate','down'],
             area:    ['tool','rate','down','step'],
-            // the bit and the path are the mark's, set in TEX; its passes' depth only in advanced
-            texture: document.body.classList.contains('swarf-expert') ? ['rate','down'] : ['rate'],
-            pierce:  ['rate','down'],
+            // the mark's bit, path, finish and stepover (set in TEX, tuned here too: one value), and the
+            // step's own feed, plunge and step-down (Phil 11-01: "just like other toolpaths")
+            texture: ['tool','path','finish','texstep','down','rate','plunge'],
+            pierce:  ['tool','down','rate','plunge'],
         };
         // boolean fields render as checkboxes
         const BOOL_FIELDS = { inside: true, outside: true, all: true, flats: true, curves: true };
         const swarfFields = (!clock && SWARF_OP_FIELDS[rec.type]) || null;
         let drawerHtml = '';
         if (swarfFields) {
-            const labels = { tool: 'tool', rate: 'feed', down: 'stepdown', step: 'stepover',
+            const tex = rec.texmark && window.__swarfTex && window.__swarfTex.stepCard ? window.__swarfTex.stepCard(rec.texmark) : null;
+            const labels = { tool: 'tool', rate: 'feed', down: 'stepdown', step: 'stepover', plunge: 'plunge', path: 'path', finish: 'finish', texstep: 'stepover',
                              inside: 'inside only', outside: 'outside only', all: 'clear all',
                              flats: 'flats', curves: 'curves' };
             // (review r086 F4) every number says its unit and follows mm | in: feed in mm/min or
@@ -443,15 +445,25 @@ export function opRender() {
                 rate: `feed: how fast the bit moves through the wood, in ${inch ? 'inches' : 'mm'} per minute`,
                 down: `step-down: how deep each pass cuts, in ${inch ? 'inches (3/4, 1/8 and 3 mm work too)' : 'mm (1/8 in works too)'}`,
                 step: 'stepover: how far apart the passes are, as a share of the bit\'s width (40 means 40 %)',
+                plunge: `plunge: how fast the bit goes down into the wood, in ${inch ? 'inches' : 'mm'} per minute`,
+                path: 'how the bit goes over the texture: best picks one plunge per dot or a V along each groove where it can, else raster',
+                finish: 'how close the raster\'s passes run: smoother takes longer; ridged and bold leave them showing. Typing a stepover makes it custom',
+                texstep: `stepover: how far apart the raster's passes are, in ${inch ? 'inches' : 'mm'}; a finish sets it, or type your own`,
                 inside: 'cut only inside the part outline',
                 outside: 'cut only outside the part outline',
             };
-            const units = { rate: inch ? 'in/min' : 'mm/min', down: inch ? 'in' : 'mm', step: '% of bit' };
+            const units = { rate: inch ? 'in/min' : 'mm/min', plunge: inch ? 'in/min' : 'mm/min', down: inch ? 'in' : 'mm', step: '% of bit', texstep: inch ? 'in' : 'mm' };
             const rows = swarfFields.map(f => {
                 const tip = tips[f] ? ` title="${tips[f]}"` : '';
                 if (f === 'tool') {
                     return `<label class="swarf-op-row"${tip}><span>${labels[f]}</span><select data-swarf-field="tool" data-op="${mark + i}"></select></label>`;
                 }
+                // a TEX step's path and finish: the mark's, as TEX lists them
+                if ((f === 'path' || f === 'finish') && tex) {
+                    const opts = f === 'path' ? tex.paths : tex.finishes, cur = f === 'path' ? tex.path : tex.finish;
+                    return `<label class="swarf-op-row"${tip}><span>${labels[f]}</span><select data-swarf-field="${f}" data-op="${mark + i}">${opts.map(([k, w]) => `<option value="${esc(k)}"${k === cur ? ' selected' : ''}>${esc(w)}</option>`).join('')}</select></label>`;
+                }
+                if ((f === 'path' || f === 'finish' || f === 'texstep') && !tex) return '';
                 if (BOOL_FIELDS[f]) {
                     return `<label class="swarf-op-row swarf-op-bool"${tip}><input type="checkbox" data-swarf-field="${f}" data-op="${mark + i}"${rec[f] ? ' checked' : ''}/><span>${labels[f]}</span></label>`;
                 }
@@ -494,8 +506,27 @@ export function opRender() {
             const chevEl = $(`${id}-c`);
             if (drawerEl && chevEl) {
                 const tools = (api.conf.get().tools || []).slice().sort(toolOrder);
+                const T = window.__swarfTex, card = rec.texmark && T && T.stepCard ? T.stepCard(rec.texmark) : null;
                 drawerEl.querySelectorAll('[data-swarf-field]').forEach(inp => {
                     const f = inp.dataset.swarfField;
+                    // a TEX step's mark fields: the mark's values, written back to the mark (every copy),
+                    // then the card again so a finish and its stepover say each other
+                    if (card && (f === 'tool' || f === 'path' || f === 'finish' || f === 'texstep')) {
+                        if (f === 'tool') for (const [v, w] of card.bits) { const o = document.createElement('option'); o.value = v; o.textContent = w; if (v === card.tool) o.selected = true; inp.appendChild(o); }
+                        if (f === 'texstep') { inp.value = opShow('texstep', card.stepover); inp.addEventListener('keydown', ev => { if (ev.key === 'Enter') inp.blur(); }); }
+                        inp.addEventListener('change', () => {
+                            if (f === 'texstep') {
+                                const typed = inp.value.trim(), v = opParse('texstep', typed), most = card.bitWidth || 25.4;
+                                const say = mm => window.SwarfLength ? window.SwarfLength.say(mm) : `${+mm.toFixed(2)} mm`;
+                                if (!(v > 0)) { if (typed) api.show.alert(`swarf could not read "${typed}" as a stepover: it stays as it was.`, 6); inp.value = opShow('texstep', card.stepover); return; }
+                                if (v > most) { api.show.alert(`A stepover goes up to the bit's width (${say(most)}): past that the passes leave uncut ridges. It stays as it was.`, 6); inp.value = opShow('texstep', card.stepover); return; }
+                                T.setStepCard(rec.texmark, 'stepover', v);
+                            } else T.setStepCard(rec.texmark, f, inp.value);
+                            api.event.emit('cam.op.render');
+                        });
+                        for (const ev of ['mousedown', 'click']) inp.addEventListener(ev, e => e.stopPropagation());
+                        return;
+                    }
                     if (f === 'tool') {
                         for (const t of tools) {
                             const o = document.createElement('option');

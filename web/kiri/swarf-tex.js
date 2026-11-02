@@ -763,7 +763,7 @@
       // while the cut is worked out, the last path known decides, so the finish row neither comes nor goes
       const strat = tex ? tex.strategy : m.lastStrategy;
       const rasters = !strat || strat === 'raster' || strat === 'crosshatch';
-      const finRow0 = selRow('finish', 'tx-finish', Object.entries(C.FINISH_WORDS), f.finish || 'standard', 'how close the passes run: smoother takes longer; ridged and bold leave the passes showing as part of the look');
+      const finRow0 = selRow('finish', 'tx-finish', [...Object.entries(C.FINISH_WORDS), ...(f.stepover > 0 ? [['custom', `custom: ${LEN.say(f.stepover)} apart`]] : [])], f.stepover > 0 ? 'custom' : (f.finish || 'standard'), 'how close the passes run: smoother takes longer; ridged and bold leave the passes showing as part of the look');
       // always there (a row that came with a raster path moved every row under it): idle off a raster
       const finRow = rasters ? finRow0 : finRow0.replace('<select id="tx-finish"', '<select id="tx-finish" disabled title="finish sets how close a raster\'s passes run; this path follows the lines"');
       if (!compact) h += pathRow + finRow;
@@ -931,7 +931,8 @@
       f.bitChosen = true;
     }));
     bind('tx-path', v => set(f => { f.path = v; }));
-    bind('tx-finish', v => set(f => { f.finish = v; }));
+    // a finish word sets the stepover again (a stepover typed in the step's card is custom until then)
+    bind('tx-finish', v => set(f => { if (v !== 'custom') { f.finish = v; delete f.stepover; } }));
   }
   // a card taller than its room fades at the bottom while there is more below
   function scrollCue() {
@@ -1488,5 +1489,54 @@
     return (x, y, r) => marks.some(q => { if (at(q, x, y)) return true; for (let k = 0; k < 16; k++) { const a = k / 16 * 2 * Math.PI; for (const f of [0.5, 1]) if (at(q, x + r * f * Math.cos(a), y + r * f * Math.sin(a))) return true; } return false; });
   }
 
-  window.__swarfTex = { open, close, say, setTool, render, state: () => S, lastMesh: () => S && S.lastMesh, concerns, syncSteps, pierceAvoid };
+  // a texture or pierce step's card in the steps panel (Phil 11-01: "we still give them the parameters
+  // in tex, but then we can also change or tune them here, just like other toolpaths"): the mark's own
+  // bit, path, finish and stepover, read and written from there; one value, every copy of the mark
+  function stepCard(id) {
+    const a = api(), e = a && marksOnBed(a).get(id);
+    if (!e) return null;
+    const f = e.mark.fill, C = T(), pierce = f.fill === 'pierce';
+    const lib = libraryBits(pierce);
+    const bits = lib.length ? lib.map(([t, b]) => [String(t.id), b.name]) : Object.entries(BITS).map(([k, b]) => [k, b.say]);
+    // the mark's bit as the library knows it (a fill from TEX may name a core bit, "ball14")
+    const tool = lib.length ? String(normBit({ ...f }).tool) : String(f.tool);
+    if (pierce) return { pierce, tool, bits };
+    const P = C.PATTERNS[f.pattern], border = f.border && f.border.style && f.border.style !== 'none';
+    const kind = f.relief === 'up' || f.floor > 0 || border ? 'surface' : P ? P.build(C.defaults(f.pattern)).kind : 'surface';
+    const ok = { auto: true, raster: true, crosshatch: true, plunge: kind === 'dots', centerline: kind === 'strokes' };
+    const custom = f.stepover > 0, bit = C.fillTool(f);
+    return {
+      pierce, tool, bits, path: ok[f.path] ? f.path : 'auto', paths: Object.entries(PATHS).filter(([k]) => ok[k]),
+      finish: custom ? 'custom' : (f.finish || 'standard'),
+      finishes: [...Object.entries(C.FINISH_WORDS), ...(custom ? [['custom', 'custom stepover']] : [])],
+      stepover: C.fillStepover(f), custom, bitWidth: bit.diameter,
+    };
+  }
+  function setStepCard(id, k, v) {
+    const a = api();
+    if (!a) return false;
+    const e = marksOnBed(a).get(id);
+    if (!e) return false;
+    const tools = (a.conf.get().tools) || [];
+    for (const w of e.ws) for (const m of w.meta.tex || []) {
+      if (m.id !== id) continue;
+      const f = m.fill;
+      if (k === 'tool') {
+        const t = tools.find(t => String(t.id) === String(v));
+        if (t && bitOf(t)) { f.tool = t.id; f.bit = bitOf(t); } else { f.tool = v; delete f.bit; }
+        f.bitChosen = true;
+      } else if (k === 'path') f.path = v;
+      // a finish word sets the stepover again; a stepover typed is the step's own until a finish is picked
+      else if (k === 'finish') { if (v !== 'custom') { f.finish = v; delete f.stepover; } }
+      else if (k === 'stepover') { if (v > 0) f.stepover = v; else delete f.stepover; }
+      m.ver = (m.ver || 0) + 1;
+      delete m.info;
+    }
+    // TEX open on this mark: its card shows the new value
+    if (S) { for (const p of S.parts) for (const m of p.marks) if (m.id === id) { m.ver++; delete m.info; } render(); checkSoon(); }
+    try { a.space.auto_save(); } catch (x) { /* no workspace */ }
+    syncSteps(a);
+    return true;
+  }
+  window.__swarfTex = { open, close, say, setTool, render, state: () => S, lastMesh: () => S && S.lastMesh, concerns, syncSteps, pierceAvoid, stepCard, setStepCard };
 })();

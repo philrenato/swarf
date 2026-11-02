@@ -627,5 +627,14 @@ for (const [id, P] of Object.entries(T.PATTERNS)) {
   ok(Math.abs(est - I.length / 3) < I.length / 3 * 0.6, `the card's size estimate is near: ${est} said, ${I.length / 3} made`);
 }
 
+// 46. a stepover typed in the step's card (Phil 11-01): the raster runs at it, whatever the finish says;
+//     without one, the finish's
+{
+  const g = T.newGrid(0, 0, 40, 30, 0.5); T.paintWhere(g, () => true, 1);
+  const tp = (over) => T.markToolpath({ id: 's', region: g, xf: T.IDENTITY.slice(), fill: T.newFill('waves', { finish: 'standard', ...over }) }, { res: 0.5 });
+  const a = tp({}), b = tp({ stepover: 2.5 });
+  ok(Math.abs(a.stepover - T.fillStepover(T.newFill('waves'))) < 1e-9 && b.stepover === 2.5 && T.fillStepover({ ...T.newFill('waves'), stepover: 2.5 }) === 2.5, `the raster at the finish's ${a.stepover.toFixed(3)} mm, or at a typed 2.5 mm (${b.stepover})`);
+}
+
 console.log(`\n${pass} passed, ${fail} failed  (${((Date.now() - t0) / 1000).toFixed(1)} s)`);
 process.exit(fail ? 1 : 0);

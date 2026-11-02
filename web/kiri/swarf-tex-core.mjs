@@ -1876,6 +1876,13 @@ export function pathFor(tex, toolIn, style = 'auto') {
   return 'raster';
 }
 
+// the stepover a fill's raster runs at: the one typed, else the finish's for its bit
+export function fillStepover(f) {
+  if (f && f.stepover > 0) return f.stepover;
+  const tool = fillTool(f);
+  return stepoverForScallop(tool, (tool.type === 'v' ? 0.15 : 0.05) * (FINISHES[f && f.finish] || 1));
+}
+
 // the mark's moves, part frame, z from the top (0) down; maxDepth caps them (the board's thickness)
 export function markToolpath(mark, o = {}) {
   if (mark && mark.fill && mark.fill.fill === 'pierce') return pierceToolpath(mark, { ...o, thickness: o.thickness || o.maxDepth });
@@ -1891,7 +1898,9 @@ export function markToolpath(mark, o = {}) {
   // never below the mark's own depth (a V following a groove's center would go as deep as the
   // groove is wide), nor the board's
   const maxDepth = Math.min(tex.depth, o.maxDepth > 0 ? o.maxDepth : Infinity);
-  const path = toolpath(tex, tool, { strategy, res, scallop, maxDepth, stepDown: o.stepDown, angle: o.angle || 0, safeZ: o.safeZ, clearZ: o.clearZ });
+  // a stepover typed in the step's card (Phil 11-01: tune it there as on any step) wins over the finish
+  const stepover = mark.fill.stepover > 0 ? mark.fill.stepover : undefined;
+  const path = toolpath(tex, tool, { strategy, res, scallop, stepover, maxDepth, stepDown: o.stepDown, angle: o.angle || 0, safeZ: o.safeZ, clearZ: o.clearZ });
   return { ...path, tex, tool, strategy, res };
 }
 
@@ -2880,7 +2889,7 @@ export function swatch(id, N, colors, params) {
 const API = {
   hash3, perlin2, fbm2, worley2, cap, stepRepeat, blend, RD_STYLES, MORSE, morseEncode, strokeField, WEAVE_DRAFTS, MOTIFS, PATTERNS, defaults,
   rectMask, ellipseMask, polygonMask, paintMask, unionMask, makeMask, maskWeight, texture, TOOLS, makeTool, toolOffsets, dropCutter,
-  heightGrid, stepoverForScallop, rasterPath, plungeDots, centerlinePath, toolpath, estimateTime, formatTime, analyze, createSim,
+  heightGrid, stepoverForScallop, fillStepover, rasterPath, plungeDots, centerlinePath, toolpath, estimateTime, formatTime, analyze, createSim,
   simulate, compare, IDENTITY, encodeRuns, decodeRuns, newGrid, paintWhere, stampDisc, stampStroke, gridCount,
   regionSpec, storeRegion, xfApply, xfInvert, xfThen, xfScale, placeTexture, newFill, suggestBit, FINISHES, FINISH_WORDS, markTexture, pathFor, markToolpath, feedRuns,
   markChecks, markReport, BASIC, shadeHeight, SWATCH_SPAN, swatch,
