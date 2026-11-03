@@ -3,7 +3,8 @@
  * appropriate for right click features ala Unreason. Maybe people could get to rotate etc that
  * way?"). Right-click a part on the bed: turn it, turn it over, stand it on its side or lay it flat,
  * mirror, duplicate, leave it out of this run, edit it in draw, texture it in tex, delete. Right-
- * click the empty bed: make a shape, draw, open a file, select all, and three ways to look.
+ * click the empty bed: make a shape, draw, open a file, select all, and three ways to look. In
+ * simulate: play or pause, start over, and the ways to look.
  *
  * As in Unreason (its context menus, 372):
  *   - a right-click opens the menu on release, and only if the mouse did not move: a right-drag
@@ -101,6 +102,22 @@
     return { title: null, items: items.filter((it, i, l) => !(it.sep && (i === 0 || i === l.length - 1))) };
   }
 
+  // in simulate the part is under the stock and the bed's rows make nothing there: the player and
+  // the ways to look (the bar's own buttons, pressed)
+  function simItems() {
+    const an = (api().ui || {}).anim || {}, V = window.moto && window.moto.space && window.moto.space.view;
+    const shown = b => b && b.style && b.style.display !== 'none' && b.isConnected;
+    const items = [];
+    if (shown(an.pause)) items.push({ label: 'pause', run: () => an.pause.click() });
+    else if (shown(an.play)) items.push({ label: 'play', run: () => an.play.click() });
+    if (an.replay) items.push({ label: 'start over', title: 'the board uncut, the bit at its first move', run: () => an.replay.click() });
+    if (V) items.push({ sep: true },
+      { label: 'look from above', run: () => V.top() },
+      { label: 'look from the front', run: () => V.front() },
+      { label: 'look around it', title: 'the view swarf starts with', run: () => V.home() });
+    return { title: null, items: items.filter((it, i, l) => !(it.sep && (i === 0 || i === l.length - 1))) };
+  }
+
   function close() {
     if (!menu) return;
     menu.remove(); menu = null;
@@ -110,8 +127,8 @@
     close();
     const a = api();
     if (!a || busy()) return false;
-    // parts are changed while arranging; in the toolpaths or simulate view the bed's rows still work
-    const spec = w && a.view.is_arrange() ? partItems(w) : bedItems();
+    // parts are changed while arranging; simulate has the player; else the bed's rows
+    const spec = a.view.get && a.view.get() === 4 ? simItems() : w && a.view.is_arrange() ? partItems(w) : bedItems();
     if (!spec.items.length) return false;
     menu = document.createElement('div');
     menu.className = 'swarf-ctx';

@@ -75,6 +75,18 @@ try {
   console.log('   left:', lefts.join(', '));
   check(lefts.length >= 3 && lefts[lefts.length - 1] < lefts[0], `while it plays the time left falls (${lefts[0]} s → ${lefts[lefts.length - 1]} s)`);
   await page.screenshot({ path: `${OUT}-sim.png` });
+  // start over keeps the time (simulate's restart grew the computed stock by the bit, and the time
+  // read the work as changed and went blank)
+  await page.evaluate(() => window.kiri.api.ui.anim.replay.click());
+  await wait(1500);
+  const after = await page.evaluate(() => ({ text: document.querySelector('#layer-animate .swarf-sim-time').textContent, current: window.SwarfEstimateUI.state().current }));
+  check(after.current && after.text.startsWith(words), `start over keeps the time ("${after.text}")`);
+  // a right-click in simulate: the player, not the bed's rows
+  const mid = await page.evaluate(() => { const r = window.moto.space.internals().renderer.domElement.getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2 }; });
+  await page.mouse.move(mid.x, mid.y); await page.mouse.down({ button: 'right' }); await page.mouse.up({ button: 'right' }); await wait(300);
+  const simRows = await page.evaluate(() => window.__swarfMenu.rows());
+  check((simRows.includes('pause') || simRows.includes('play')) && simRows.includes('start over') && !simRows.includes('make a shape'), `a right-click in simulate offers the player (${simRows.join(' · ')})`);
+  await page.keyboard.press('Escape');
 
   // export: the same number (the card is looked at, never saved: nothing is downloaded)
   await page.evaluate(() => window.kiri.api.modal.hide && window.kiri.api.modal.hide());

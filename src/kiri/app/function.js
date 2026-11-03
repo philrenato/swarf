@@ -531,7 +531,10 @@ function workSig() {
             const t = w.track, b = t.box || {};
             return [w.id, t.pos && [t.pos.x, t.pos.y, t.pos.z], [b.w, b.h, b.d], w.anno && w.anno.tab, !!w.meta.disabled];
         });
-        return JSON.stringify([s.process, s.tools, s.device && s.device.deviceName, s.stock, parts]);
+        // not s.stock: it is worked out from the process and the parts' bounds (both here), and the
+        // bounds take in the toolpaths, so simulate's restart grew it by the bit and every time and
+        // export read the work as changed
+        return JSON.stringify([s.process, s.tools, s.device && s.device.deviceName, parts]);
     } catch (e) {
         return String(Math.random());   // unknown: make them again
     }
