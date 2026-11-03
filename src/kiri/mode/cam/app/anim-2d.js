@@ -428,6 +428,8 @@ function handleGridUpdate(data) {
     if (data && data.progress) {
         label.progress.value = (data.progress * 100).toFixed(1);
     }
+    // swarf: how far through the job by time, for the sim bar's time left (swarf-estimate.js)
+    if (data && data.tfrac !== undefined && window.SwarfEstimateUI) window.SwarfEstimateUI.simAt(data.tfrac);
 }
 
 // swarf v010 r6: derive ms-pause from any speed multiplier (incl. user

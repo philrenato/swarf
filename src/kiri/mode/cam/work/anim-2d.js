@@ -38,6 +38,17 @@ export function init(worker) {
             o.arcPoints ? [ ...o.arcPoints.map(point => ({ ...o, point })), o ] : [ o ]
         ).flat();
 
+        // swarf: how far through the job each point is, by time at the steps' feeds (rapids at
+        // 6000 mm/min), so the sim bar's "time left" follows the clock, not the count of points
+        // (a raster has many more points per minute than an outline)
+        pathT = new Float64Array(path.length);
+        for (let i = 0, t = 0, lp = null; i < path.length; i++) {
+            const o = path[i], np = o.point;
+            if (np && lp) t += Math.hypot(np.x - lp.x, np.y - lp.y, np.z - lp.z) / (o.emit ? (o.speed || 1000) : 6000);
+            if (np) lp = np;
+            pathT[i] = t;
+        }
+
         const step = rez;
         const stepsX = Math.floor(stock.x / step);
         const stepsY = Math.floor(stock.y / step);
@@ -138,6 +149,7 @@ let renderDone = false;
 let renderPause = 10;
 let renderSteps = 0;
 let renderSpeed = 0;
+let pathT = null;
 let skipMove = null;
 let toolUpdate;
 let depth = 0;
@@ -147,7 +159,8 @@ function renderUpdate(send) {
     if (toolUpdate) {
         send.data(toolUpdate);
     }
-    send.data({ progress: pathIndex / path.length, id: 0, mesh_update: 1 });
+    const T = pathT && pathT.length ? pathT[pathT.length - 1] : 0;
+    send.data({ progress: pathIndex / path.length, tfrac: T > 0 ? pathT[Math.max(0, Math.min(pathT.length - 1, pathIndex - 1))] / T : 0, id: 0, mesh_update: 1 });
 }
 
 function renderPath(send) {

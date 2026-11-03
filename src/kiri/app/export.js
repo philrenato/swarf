@@ -70,17 +70,23 @@ function callExport(callback, mode, names) {
     let gcode = [];
     let section = [];
     let sections = { };
+    // swarf: where each step starts in the file (1-based lines), for the time estimate's shares.
+    // The worker sends its lines in chunks of up to a thousand, so the lines are counted.
+    let starts = [], count = 0;
     client.export(api.conf.get(), (line) => {
         if (typeof line !== 'string') {
             if (line.section) {
                 sections[line.section] = section = [];
+                starts.push({ step: line.step, line: count + 1 });
             }
             return;
         }
+        count += lineCount(line);
         gcode.push(line);
         section.push(line);
     }, (output, error) => {
         api.hide.alert(alert);
+        if (output) output.swarfStarts = starts;
         if (error) {
             api.show.alert(error, 5);
         } else if (callback) {
@@ -89,6 +95,30 @@ function callExport(callback, mode, names) {
             exportGCodeDialog(gcode, mode === 'CAM' ? sections : undefined, output, names);
         }
     });
+}
+
+// the lines in one chunk the worker sent (joined with \r\n)
+function lineCount(chunk) {
+    let n = 1;
+    for (let i = chunk.indexOf('\n'); i >= 0; i = chunk.indexOf('\n', i + 1)) n++;
+    return n;
+}
+
+/**
+ * swarf: the machine file made quietly for the time estimate (web/kiri/swarf-estimate.js): no
+ * notice, no export event (that event ends a simulate), the steps' starts with it.
+ * @param {function} callback - callback(text, starts) or callback(null) on an error
+ */
+export function exportQuiet(callback) {
+    let gcode = [], starts = [], count = 0;
+    client.export(api.conf.get(), (line) => {
+        if (typeof line !== 'string') {
+            if (line && line.section) starts.push({ step: line.step, line: count + 1 });
+            return;
+        }
+        count += lineCount(line);
+        gcode.push(line);
+    }, (output, error) => callback(error ? null : gcode.join('\r\n'), starts));
 }
 
 /**
@@ -210,7 +240,7 @@ function bindField(field, varname) {
  * the machine runs ("save circle.sbp"), a quiet "also save the project". Kiri's own rows (gcode
  * preview, one file per step) stay reachable in advanced. Outside cam the dialog is Kiri's.
  */
-function swarfExportCard(on, { filename, fileext, info, download, sections }) {
+function swarfExportCard(on, { filename, fileext, info, download, sections, gcodeText }) {
     const box = $('mod-x-any');
     if (!box) return;
     box.classList.toggle('swarf-x', !!on);
@@ -224,8 +254,16 @@ function swarfExportCard(on, { filename, fileext, info, download, sections }) {
     const machine = shopbot ? 'ShopBot' : (dev.replace(/^[^.]*\./, '').replace(/\./g, ' ') || 'machine');
     const esc = t => String(t).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
     // what the file is, in one line
-    const t = Math.round(info.time || 0);
-    const time = t < 60 ? 'under a minute' : t < 3600 ? `about ${Math.round(t / 60)} min` : `about ${Math.floor(t / 3600)} h ${Math.round((t % 3600) / 60)} min`;
+    // the time as the ShopBot takes it (swarf-estimate.js: its speed-ups, slow-downs at bends,
+    // the router's spin-up), the same number simulate and the step cards show; Kiri's own
+    // distance-over-feed time was a quarter short on a texture (Phil 11-02)
+    const E = window.SwarfEstimate;
+    const est = E && gcodeText ? E.of(gcodeText, { sections: info.swarfStarts || [] }) : null;
+    if (est) info.time = est.seconds;   // Kiri's time row in advanced says the same
+    if (est && window.SwarfEstimateUI) window.SwarfEstimateUI.fromExport(est);
+    const t = Math.round(est ? est.seconds : info.time || 0);
+    const time = (E ? E.words(t) : t < 60 ? 'under a minute' : `about ${Math.round(t / 60)} min`)
+        + (est && est.changes ? ` + ${est.changes} bit change${est.changes > 1 ? 's' : ''}` : '');
     const b = info.bytes || 0;
     const size = b < 1024 ? `${b} bytes` : b < 1048576 ? `${Math.round(b / 1024)} KB` : `${(b / 1048576).toFixed(1)} MB`;
     const ops = ((set.process && set.process.ops) || []).filter(op => op && op.type !== '|' && !op.disabled);
@@ -435,7 +473,7 @@ function exportGCodeDialog(gcode, sections, info, names) {
 
     api.modal.show('xany');
         // swarf (review r086 B1): in cam the dialog is one swarf card, the file the machine runs
-        swarfExportCard(MODE === MODES.CAM, { filename, fileext, info, download, sections });
+        swarfExportCard(MODE === MODES.CAM, { filename, fileext, info, download, sections, gcodeText: gcode });
         let set = api.conf.get();
         let fdm = MODE === MODES.FDM;
         let cam = MODE === MODES.CAM;

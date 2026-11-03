@@ -48,6 +48,8 @@ const EAGER_URLS = [
     'swarf-run-machine.js',
     'swarf-shopbot-usb.js',
     'swarf-shopbot-card.js',
+    'swarf-estimate.js',
+    'swarf-menu.js',
     'swarf-shopbot-direct.js',
     'swarf-run.js',
     'swarf-plate-model.js',

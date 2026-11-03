@@ -6,7 +6,7 @@ import { codec } from '../core/codec.js';
 import { space } from '../../moto/space.js';
 import { PMODES } from './consts.js';
 import { colorSchemeRegistry } from './color/schemes.js';
-import { exportFile } from './export.js';
+import { exportFile, exportQuiet } from './export.js';
 
 /**
  * Get current color scheme
@@ -603,6 +603,17 @@ function clear_progress() {
     complete = {};
 }
 
+/**
+ * swarf: the machine file for the time estimate (web/kiri/swarf-estimate.js), made quietly from
+ * the toolpaths already on screen. callback(text, starts, sig), or callback(null) when there are
+ * no current toolpaths (it never makes them: that is the person's toolpaths or simulate).
+ */
+function estimateFile(callback) {
+    if (!complete.preview || complete.sig !== workSig()) return callback(null);
+    const sig = complete.sig;
+    exportQuiet((text, starts) => callback(text, starts, sig));
+}
+
 // extend API (api.function)
 export const functions = {
     slice: prepareSlices,
@@ -614,6 +625,8 @@ export const functions = {
     parse: parseCode,
     clear: client.clear,
     clear_progress,
+    estimateFile,
+    workSig,
 };
 
 export {

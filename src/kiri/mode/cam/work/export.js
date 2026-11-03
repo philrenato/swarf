@@ -81,9 +81,11 @@ export function cam_export(print, online) {
 
     // console.log({ offset, origin, stock });
 
-    function section(section) {
+    // swarf: each section says which step it is (slice.js _swarfStep), so the time estimate can
+    // give each step its share (web/kiri/swarf-estimate.js)
+    function section(section, step) {
         append();
-        online({ section });
+        online({ section, step });
     }
 
     function safeFilename(value) {
@@ -199,7 +201,7 @@ export function cam_export(print, online) {
         // no point == dwell
         // out.speed = time to dwell in ms
         if (!newpos) {
-            time += out.speed / 60;
+            time += out.speed / 1000;   // swarf: ms to seconds (was / 60: a 2 s dwell counted 33 s)
             consts.time_sec = out.speed / 1000;
             consts.time_ms = out.speed;
             consts.time = consts.time_sec;
@@ -442,8 +444,17 @@ export function cam_export(print, online) {
     // collect tool info to add to header
     let toolz = {}, ctool;
     const isOffset = offset && (offset.x || offset.y || offset.z);
+    // swarf: the file is made from a copy of the toolpaths. The remap below moves each point into
+    // the machine's frame in place, so an export shifted what simulate was showing (103: the time
+    // estimate makes the file quietly while simulate plays; a stone-wall texture simulated 21 mm deep)
+    const levels = print.output.map(layer => {
+        if (!Array.isArray(layer)) return layer;
+        const copy = layer.map(out => out && out.point ? { ...out, point: { ...out.point } } : out);
+        for (const k of Object.keys(layer)) if (isNaN(k)) copy[k] = layer[k];
+        return copy;
+    });
     // remap points as necessary for origins, offsets, inversions
-    print.output.forEach(layer => {
+    levels.forEach(layer => {
         // console.log(layer);
         if (!Array.isArray(layer)) {
             return;
@@ -493,7 +504,7 @@ export function cam_export(print, online) {
     filterEmit(gcodePre, consts);
 
     // emit all points in layer/point order
-    for (let layerout of print.output) {
+    for (let layerout of levels) {
         const newmode = layerout.mode;
         if (newmode) {
             if (newmode.type === 'laser on') {
@@ -512,7 +523,7 @@ export function cam_export(print, online) {
             }
             mode = newmode;
             if (mode) {
-                section(sectionName(opnum++, mode, layerout));
+                section(sectionName(opnum++, mode, layerout), mode._swarfStep);
             }
             if (!stripComments && mode) {
                 append("; starting " + mode.type + " op");

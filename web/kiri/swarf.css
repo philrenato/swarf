@@ -2516,3 +2516,26 @@ html #swarf-draw .tx-bsize input.sd-slide, html[data-skin] #swarf-draw .tx-bsize
 #swarf-draw.sd-tex .sd-card .sd-row.sd-slid > input:not(.sd-slide) { width: 54px !important; min-width: 0; flex: none; }
 #swarf-draw.sd-tex .sd-card .sd-row.sd-slid > .u { flex: none; }
 html #swarf-draw.sd-tex .sd-card .sd-row.sd-slid input.sd-slide { min-width: 60px; }
+
+/* swarf 103: each step's share of the time on the ShopBot, beside its edit pill (swarf-estimate.js),
+   and the whole job's time at the end of the sim bar */
+#oplist .draggable > .swarf-op-time { order: 0; margin-left: auto; padding: 0 6px; font-style: normal; font-size: 11px; opacity: 0.7; white-space: nowrap; font-variant-numeric: tabular-nums; }
+#oplist .draggable > .swarf-op-time:empty { display: none; }
+#oplist .draggable > .swarf-op-time:not(:empty) + .del + .swarf-op-chevron,
+#oplist .draggable > .swarf-op-time:not(:empty) ~ .swarf-op-chevron { margin-left: 0; }
+#layer-animate .swarf-sim-time { display: flex; align-items: center; align-self: stretch; padding: 0 10px; font-size: 12px; white-space: nowrap; font-variant-numeric: tabular-nums; cursor: default; }
+#layer-animate .swarf-sim-time[hidden] { display: none; }
+
+/* swarf 103: the right-click menu (swarf-menu.js): a part's turns, mirror, copy, leave out, delete */
+.swarf-ctx { position: fixed; z-index: 10050; min-width: 190px; padding: 5px; display: flex; flex-direction: column; gap: 1px;
+  background: var(--swarf-bg-2, var(--swarf-bg, #faf9f6)); color: var(--swarf-text, #1e1c18); border: 1px solid var(--swarf-line, rgba(0, 0, 0, 0.14));
+  border-radius: 10px; box-shadow: 0 10px 30px rgba(0, 0, 0, 0.18); backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px); font-size: 13px; }
+.swarf-ctx-title { padding: 4px 10px 6px; font-size: 11px; opacity: 0.6; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 260px; }
+.swarf-ctx-sep { height: 1px; margin: 4px 6px; background: currentColor; opacity: 0.12; }
+/* plain rows in every skin (the skins' pill buttons are for the bars and cards) */
+html body .swarf-ctx button { all: unset; box-sizing: border-box; display: block; padding: 6px 10px; border-radius: 6px; cursor: pointer; white-space: nowrap;
+  background: none !important; border: 0 !important; box-shadow: none !important; outline: none !important; font: inherit; color: inherit; text-transform: none; letter-spacing: 0; }
+html body .swarf-ctx button:hover, html body .swarf-ctx button:focus { background: rgba(208, 32, 32, 0.11) !important; color: var(--swarf-accent, #c01d14); }
+html body .swarf-ctx button.danger { color: var(--swarf-accent, #c01d14); }
+html[data-skin="glass"] .swarf-ctx, html[data-skin="classic"] .swarf-ctx { background: rgba(251, 251, 250, 0.95); color: #1e1f20; }
+@media (pointer: coarse) { html body .swarf-ctx button { padding: 10px 12px; } }

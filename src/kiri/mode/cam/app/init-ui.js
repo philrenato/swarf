@@ -481,6 +481,8 @@ export function opRender() {
         html.appendAll([
             `<div id="${mark + i}" class="${clazz.join(' ')}${swarfFields ? ' has-params' : ''}"${title}>`,
             `<label class="label">${esc(label)}</label>`,
+            // swarf: this step's share of the time on the ShopBot (web/kiri/swarf-estimate.js)
+            clock ? '' : `<em class="swarf-op-time" data-step="${env.current.process.ops.indexOf(rec)}"></em>`,
             clock ? '' :
                 `<label id="${mark + i}-x" class="del"><i class="fa-solid fa-xmark"></i></label>`,
             swarfFields ? `<label id="${mark + i}-c" class="swarf-op-chevron" title="edit parameters"><i class="fa-solid fa-chevron-down"></i></label>` : '',
@@ -492,6 +494,7 @@ export function opRender() {
     });
     let listel = $('oplist');
     listel.innerHTML = html.join('');
+    if (window.SwarfEstimateUI) window.SwarfEstimateUI.paint();
     let bounds = [];
     let unpop = null;
     let index = 0;
