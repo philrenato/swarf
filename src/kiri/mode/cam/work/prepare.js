@@ -207,6 +207,13 @@ export async function prepare_one(widget, settings, print, firstPoint, update) {
         }
     }
 
+    // swarf: the ShopBot's motors run rough under ~25 mm/s (10-29). A cut set above that never slows
+    // into it for a ramp or full engagement (Phil 11-04); a cut set slower is left as it is.
+    function aboveRoughBand(rate) {
+        const band = /shopbot/i.test(settings.device?.deviceName || '') ? 1500 : 0;
+        return feedRate >= band ? Math.max(rate, band) : rate;
+    }
+
     function setContouring(bool, step, coast) {
         coastline = coast;
         contouring = bool;
@@ -888,7 +895,7 @@ export async function prepare_one(widget, settings, print, firstPoint, update) {
             if (startPoint.z > point0.z) {
                 let easeMax = feedRate * camFullEngage;
                 let easeLerp = plungeRate + ((feedRate - plungeRate) * easeThrottle);
-                let easeFeed = Math.min(easeLerp, easeMax);
+                let easeFeed = aboveRoughBand(Math.min(easeLerp, easeMax));
                 let zat = startPoint.z;
                 let len = points.length;
                 let lp, lz = Infinity;
@@ -922,7 +929,7 @@ export async function prepare_one(widget, settings, print, firstPoint, update) {
         }
 
         let lastOut;
-        let opts = engage ? { feed: feedRate * camFullEngage } : {};
+        let opts = engage ? { feed: aboveRoughBand(feedRate * camFullEngage) } : {};
 
         // arc output must handle shortened arcs from ease-down
         // future support for 3d helical arcs will fix this

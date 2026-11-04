@@ -38,11 +38,16 @@ try {
   }));
   const plunge = await page.evaluate(() => { const o = window.kiri.api.conf.get().process; return Math.min(o.ops[0].plunge, o.camFastFeedZ) / 60; });
   const ease = await page.evaluate(() => { const o = window.kiri.api.conf.get().process; o.ops[0].plunge = o.camFastFeedZ; o.camEaseDown = true; return o.ops[0].rate / 60; });
-  const a = downs(await file());
+  const rough = await file();
+  const a = downs(rough);
   const ramps = a.filter(d => d.xy > 20);
   console.log(`    ramps: ${ramps.length}, ${ramps[0]?.feed.toFixed(1)} mm/s; plunge ${plunge.toFixed(1)} mm/s; cut ${ease.toFixed(1)} mm/s`);
   check(ramps.length > 2 && ramps.every(d => d.feed > plunge * 1.5), 'a shallow ramp runs faster than the plunge speed');
   check(ramps.every(d => d.feed <= ease + 0.01), 'and no faster than the cut');
+  // the motors run rough under 25 mm/s: a cut set above that stays above it on its ramps and full-width passes
+  check(ease < 25 || ramps.every(d => d.feed >= 24.9), `ramps stay above the rough band (${Math.min(...ramps.map(d => d.feed)).toFixed(1)} mm/s)`);
+  const flats = Parse.parse(rough, { machineUnits: 'mm' }).moves.filter(m => !m.rapid && m.z === m.z0 && m.feed);
+  check(ease < 25 || flats.every(d => d.feed >= 24.9), `and so do the flat passes (${Math.min(...flats.map(d => d.feed)).toFixed(1)} mm/s)`);
   check(a.every(d => d.zs <= plunge * 1.01), `no move in it descends faster than the plunge speed (fastest ${Math.max(...a.map(d => d.zs)).toFixed(2)} mm/s)`);
 
   // no ramps: the bit goes straight down at the plunge speed

@@ -485,6 +485,15 @@
       const most = rpm * c.flutes * 0.02 * diamMm;
       const floor = Math.min(1500, most);
       if (feed < floor) { feed = Math.round(floor / 10) * 10; plunge = Math.round(Math.min(feed * 0.35, lim.feedMaxZ > 0 ? lim.feedMaxZ : feed) / 5) * 5; }
+      // on the ShopBot, what the shop's Vectric files cut wood at (Phil 11-04, its 1/4 in up-cut:
+      // 1.5 in/s at 14,000 rpm, the same bite a tooth as 1500 mm/min at 10,000). Plywood stays
+      // until a test cut says so.
+      if (lim.shopbot && m.id !== 'plywood') {
+        rpm = Math.max(lim.spindleMin || 0, Math.min(lim.spindleMax || 14000, 14000));
+        const fast = Math.min(2290, Math.max(rpm * c.flutes * 0.0128 * diamMm, Math.min(1500, rpm * c.flutes * 0.02 * diamMm)));
+        feed = Math.round(Math.min(fast, lim.feedMax > 0 ? lim.feedMax : fast) / 10) * 10;
+        plunge = Math.round(Math.min(feed * 0.35, lim.feedMaxZ > 0 ? lim.feedMaxZ : feed) / 5) * 5;
+      }
     }
     // a cap rounds down, never past itself
     down = capped ? Math.floor(down * 20 + 1e-9) / 20 : Math.round(down * 20) / 20;
@@ -517,6 +526,7 @@
       spindleMax: dev.spindleMax || 0,
       feedMax: dev.feedMax || 0,
       feedMaxZ: zcaps.length ? Math.min(...zcaps) : 0,
+      shopbot: /shopbot/i.test(dev.deviceName || ''),
     };
   }
 
