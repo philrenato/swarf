@@ -685,7 +685,8 @@ export async function prepare_one(widget, settings, print, firstPoint, update) {
         if (deltaZ < 0 && !contouring) {
             if (debug) console.log('plunge safety', deltaZ, rate, plungeRate);
             emit = 1;
-            rate = plungeRate;
+            // swarf: the plunge speed holds the Z motion: a shallow ramp keeps its feed (export.js)
+            rate = Math.min(rate, plungeRate * Math.hypot(deltaXY, deltaZ) / -deltaZ);
         }
 
         layerOut.mode = currentOp;
