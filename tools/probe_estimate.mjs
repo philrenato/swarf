@@ -66,11 +66,14 @@ try {
   check(b0 && b0.last, 'it sits after the bar\'s toggles');
   check(b0 && /cutting .* in the air/.test(b0.title), 'its tooltip splits cutting from moving in the air');
   const lefts = [];
-  for (let i = 0; i < 8; i++) {
+  // simulate plays by distance and the time reads in whole minutes: a short job can hold one reading
+  // for several seconds, so watch until it drops
+  for (let i = 0; i < 30; i++) {
     await wait(700);
     const t = await page.evaluate(() => document.querySelector('#layer-animate .swarf-sim-time').textContent);
     const m = t.match(/· (\d+) (min|s) left/);
     if (m) lefts.push(+m[1] * (m[2] === 'min' ? 60 : 1));
+    if (lefts.length >= 3 && lefts[lefts.length - 1] < lefts[0]) break;
   }
   console.log('   left:', lefts.join(', '));
   check(lefts.length >= 3 && lefts[lefts.length - 1] < lefts[0], `while it plays the time left falls (${lefts[0]} s → ${lefts[lefts.length - 1]} s)`);

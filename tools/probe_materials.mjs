@@ -73,6 +73,9 @@ try {
     }, stlB64);
     await wait(1500);
 
+    // the ShopBot has been the default machine since 10-29; these numbers are the MR-1's
+    await page.evaluate(() => window.kiri.api.devices.select('Langmuir.MR-1'));
+    await wait(800);
     await page.waitForFunction(() => !!document.getElementById('swarf-material-select'), { timeout: 20000 });
     out.dropdown = await page.evaluate(() =>
         Array.from(document.getElementById('swarf-material-select').options).map(o => o.value));
@@ -230,8 +233,8 @@ if (out.perMaterial.length > 1 && sig.size === 1) problems.push('every material 
 // the edit survives the preview and reaches the program
 if (!out.edit || out.edit.edited !== 333) problems.push('edit: the drawer feed input was not found');
 else {
-    if (out.edit.afterEdit?.rate !== 333) problems.push(`edit: rate ${out.edit.afterEdit?.rate} right after the edit — something overwrote it`);
-    if (out.edit.afterPreview?.rate !== 333) problems.push(`edit: rate ${out.edit.afterPreview?.rate} after preview — the preset overwrote the student's edit`);
+    if (!(Math.abs(out.edit.afterEdit?.rate - 333) < 1e-6)) problems.push(`edit: rate ${out.edit.afterEdit?.rate} right after the edit — something overwrote it`);
+    if (!(Math.abs(out.edit.afterPreview?.rate - 333) < 1e-6)) problems.push(`edit: rate ${out.edit.afterPreview?.rate} after preview — the preset overwrote the student's edit`);
     if (!out.edit.feeds.includes(333)) problems.push(`edit: F333 missing from the program (F words: ${out.edit.feeds})`);
 }
 // the retool re-derives
