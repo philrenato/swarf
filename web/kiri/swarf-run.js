@@ -163,6 +163,8 @@
 #swarf-run .sr-ovr .lbl { font-size: 12px; }
 #swarf-run .sr-ovr b { min-width: 48px; text-align: center; font-variant-numeric: tabular-nums; }
 #swarf-run .sr-ovr button { padding: 4px 12px; }
+#swarf-run .sr-airspeed { padding: 0 12px; }
+#swarf-run .sr-airspeed input { flex: 1; min-width: 120px; accent-color: var(--swarf-accent, #d02020); }
 #swarf-run .sr-bedmap { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px; pointer-events: auto; }
 #swarf-run .sr-bedmap svg { width: 64px; height: auto; display: block; }
 #swarf-run .sr-bedmap rect { fill: none; stroke: currentColor; stroke-width: 1.6; opacity: .75; }
@@ -742,6 +744,16 @@ html[data-skin] #swarf-run .sr-jog .sr-zrow button.next, html[data-skin] #swarf-
       el.ovrUp = h('button', { text: '+5%', title: 'cut 5 % faster (up to 150 %, never past the machine\'s top speed)', onclick: () => ovr(5) }),
       h('button', { text: '100%', title: 'back to the file\'s own feeds', onclick: () => { const m = S.machine; if (m && m.setOverride) { m.setOverride(100); refresh(); } } }));
     el.prog.append(el.ovr);
+    // an air cut's speed (Phil 11-04): nothing is cutting, so a slider and a wider range. Dragged, it
+    // sets the speed a few times a second: each change plans the rest of the job again
+    let rateT = 0;
+    const rateNow = () => { rateT = 0; const m = S.machine; if (m && m.setRate) { m.setRate(+el.rateIn.value); refresh(); } };
+    el.rate = h('div', { class: 'sr-ovr sr-airspeed' }, h('span', { class: 'lbl', text: 'speed' }),
+      el.rateIn = h('input', { type: 'range', min: '50', max: '400', step: '5', value: '100', title: 'how fast this air cut runs: 100 % is the speed it will cut at. Corners still slow down, and the machine\'s speed limits hold' }),
+      el.rateVal = h('b', { text: '100%' }),
+      h('button', { text: '100%', title: 'back to the speed it will cut at', onclick: () => { el.rateIn.value = 100; rateNow(); } }));
+    el.rateIn.addEventListener('input', () => { el.rateVal.textContent = `${el.rateIn.value}%`; if (!rateT) rateT = setTimeout(rateNow, 150); });
+    el.prog.append(el.rate);
     el.need = h('div', { class: 'sr-need' });
     el.prog.append(el.need);
     // a waiting button still takes the press, and says what it waits for
@@ -1307,7 +1319,7 @@ html[data-skin] #swarf-run .sr-jog .sr-zrow button.next, html[data-skin] #swarf-
       S.runTimes = mv;
     }
     const total = S.runCum[S.runCum.length - 1], done = S.runCum[Math.max(0, (S.runIdx || 0) - 1)] || 0;
-    return Math.max(0, total - done);
+    return Math.max(0, total - done) / (((S.machine.state && S.machine.state.rate) || 100) / 100);
   }
 
   function mins(s) {
@@ -2274,7 +2286,14 @@ html[data-skin] #swarf-run .sr-jog .sr-zrow button.next, html[data-skin] #swarf-
     el.conn.title = sim ? 'The simulator, not the real machine: plug the ShopBot in and press connect' : '';
     el.connBtn.style.display = st.connected && !sim ? 'none' : '';
     el.discBtn.style.display = st.connected && !sim ? '' : 'none';
-    el.ovr.style.display = isDirect() && st.running ? '' : 'none';
+    const airing = isDirect() && st.running && S.job === 'air';
+    el.ovr.style.display = isDirect() && st.running && !airing ? '' : 'none';
+    el.rate.style.display = airing ? '' : 'none';
+    if (airing) {
+      if (document.activeElement !== el.rateIn) el.rateIn.value = st.rate || 100;
+      el.rateVal.textContent = `${st.rate || 100}%${st.overrideHeld ? ' (held)' : ''}`;
+      el.rateVal.title = st.overrideHeld ? 'some moves run slower than this: the machine\'s speed limits for them hold' : '';
+    }
     el.ovrVal.textContent = `${st.override || 100}%${st.overrideHeld ? ' (held)' : ''}`;
     el.ovrVal.title = st.overrideHeld ? 'some moves run slower or faster than this: the machine\'s speed limits for them hold' : '';
     el.ovrDn.disabled = (st.override || 100) <= 50; el.ovrUp.disabled = (st.override || 100) >= 150;

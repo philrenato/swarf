@@ -144,6 +144,18 @@
       return v;
     }
 
+    // An air cut's speed (Phil 11-04: "real speed is fine. Maybe with an accelerator slider"): 50 to
+    // 400 % of the file's feeds, plunges and ramps too, since nothing is cutting; never past the
+    // machine's move speeds. Air cuts only: a real cut keeps the override above.
+    setRate(pct) {
+      if (!Number.isFinite(+pct) || !this.job || !this.job.plan || this.job.plan.kind !== 'air') return this.state.rate || 100;
+      const v = Math.max(50, Math.min(400, Math.round(pct / 5) * 5));
+      this.planner.limited = false;
+      this.planner.rate = v / 100;
+      this.set({ rate: v, overrideHeld: false });
+      return v;
+    }
+
     // The router on by hand, to test it (Phil 10-29, a button in the jog pad): on until the button,
     // any key, the e-stop or 60 s turns it off. Nothing moves while it runs (busy), and the e-stop
     // is read ten times a second (a momentary press is short).
@@ -774,10 +786,11 @@
           const a = was, b = s.move;
           was = b;
           const down = a !== null && b.z < a.z - 1e-6;
-          const op = Object.assign(this.machine(b), { feed: s.feed, line: s.line, si, cut: s.phase === 'program' && !(s.work && s.work.rapid) && !down, ...(s.work ? { work: s.work } : {}) });
+          const air = plan.kind === 'air', worked = s.phase === 'program' && !(s.work && s.work.rapid);
+          const op = Object.assign(this.machine(b), { feed: s.feed, line: s.line, si, cut: !air && worked && !down, rehearse: air && worked, ...(s.work ? { work: s.work } : {}) });
           // the override stays inside what the plan checked (codex review 10-29): at most the XY
           // speed and the Z speed along this move's slope, at least the card's slowest step for it
-          if (op.cut && a) {
+          if ((op.cut || op.rehearse) && a) {
             const L = Math.hypot(b.x - a.x, b.y - a.y, b.z - a.z), dz = Math.abs(b.z - a.z);
             const st = Math.max(...['x', 'y', 'z'].map(k => Math.abs(Math.round(b[k] * u[k]) - Math.round(a[k] * u[k]))));
             op.vmax = Math.min(mv.xy, dz > 1e-9 && L > 0 ? mv.z * L / dz : Infinity);
@@ -798,6 +811,8 @@
       const why = this.refuse(plan);
       if (why) { this.set({ note: why }); return; }
       const ops = this.opsOf(plan, this.outputs);
+      this.planner.rate = 1;   // each job starts at its own feeds
+      this.state.rate = 100;
       this.holdAt = plan.hold;
       this.job = { ops, spindle: plan.live, plan };
       this.halted = null;   // a stop pressed during an earlier jog must not end this job
