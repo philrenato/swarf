@@ -255,10 +255,24 @@ try {
     // 10-28: trace asks first, like cut
     await runCut('trace'); await page.evaluate(() => document.querySelector('#swarf-run .sr-sheet.on .go').click()); await idle();
     await new Promise(r => setTimeout(r, 300));
+    // 11-04 (Phil): an air cut runs at the real speed, with a slider to hurry it; a real cut keeps its ±5 %
+    await runCut('air cut'); await page.evaluate(() => document.querySelector('#swarf-run .sr-sheet.on .go').click());
+    await page.waitForFunction(() => window.__swarfRun.state.machine.state.running, { timeout: 5000 });
+    await new Promise(r => setTimeout(r, 300));
+    const ar0 = await page.evaluate(() => { const r = document.querySelector('#swarf-run .sr-airspeed'), o = document.querySelector('#swarf-run .sr-ovr:not(.sr-airspeed)'), m = window.__swarfRun.state.machine; return { slider: getComputedStyle(r).display !== 'none', ovr: getComputedStyle(o).display !== 'none', rate: m.planner.rate, val: r.querySelector('input').value }; });
+    check(ar0.slider && !ar0.ovr && ar0.rate === 1 && ar0.val === '100', `an air cut shows the speed slider at 100 %, not the ±5 % (${JSON.stringify(ar0)})`);
+    const ar1 = await page.evaluate(() => new Promise(res => { const i = document.querySelector('#swarf-run .sr-airspeed input'); i.value = 400; i.dispatchEvent(new Event('input', { bubbles: true })); setTimeout(() => { const m = window.__swarfRun.state.machine; res({ rate: m.planner.rate, st: m.state.rate, say: document.querySelector('#swarf-run .sr-airspeed b').textContent }); }, 400); }));
+    check(ar1.rate === 4 && ar1.st === 400 && /^400%/.test(ar1.say), `dragging it to 400 % reaches the planner (${JSON.stringify(ar1)})`);
+    await page.screenshot({ path: `${OUT}/air-speed.png` });
+    await idle();
+    await new Promise(r => setTimeout(r, 300));
     const items = await runCut('cut');
     check(items.some(t => /6 mm flat end mill/.test(t)) && items.some(t => /setting 2 \(13,000 rpm; the file asked 12,000\)/.test(t)), `checklist names the bit and the router speed [${items.join(' | ')}]`);
     const goSheet = () => page.evaluate(() => document.querySelector('#swarf-run .sr-sheet.on .go').click());
     await goSheet();
+    await page.waitForFunction(() => window.__swarfRun.state.machine.state.running, { timeout: 5000 }).catch(() => {});
+    const ar2 = await page.evaluate(() => { const m = window.__swarfRun.state.machine; return { rate: m.planner.rate, slider: getComputedStyle(document.querySelector('#swarf-run .sr-airspeed')).display !== 'none', tried: m.setRate(300), after: m.planner.rate }; });
+    check(ar2.rate === 1 && !ar2.slider && ar2.after === 1, `a real cut starts at its own feeds with no slider, and refuses a rate (${JSON.stringify(ar2)})`);
     await page.waitForFunction(() => !window.__swarfRun.state.machine.state.running && window.__swarfRun.state.machine.state.toolChange, { timeout: 20000 });
     await idle();
     u = await ui();

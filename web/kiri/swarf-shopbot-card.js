@@ -274,6 +274,7 @@
       this.k = 15.24 / this.m.rampRate;            // (mm/s) per mm: ramps up and down in a move
       this.kStop = 50.8 / this.m.rampRate;         // (mm/s) per mm: a stop
       this.override = 1;                            // the feed override on cuts (1 = 100 %)
+      this.rate = 1;                                // an air cut's speed (moves marked rehearse; nothing is cutting)
       this.halt = null;                             // 'stop' | null
       this.at = null;                               // { steps, line, v } as planned so far
     }
@@ -288,15 +289,24 @@
 
     // Junction speed limits between consecutive moves, then forward/backward
     // passes so no move needs more than k per mm of change.
-    profile(moves, from) {
+    // An air cut's rate is planned in, not multiplied on later (Phil 11-04: "an accelerator slider"):
+    // at 400 % the junction speeds would be 400 % too, and a square corner would take 40 mm/s.
+    // vIn: the speed the run starts at, when the rate changed partway through.
+    profile(moves, from, vIn0) {
       const v0 = this.m.rampSpeed, k = this.k;
+      const feedOf = mv => {
+        if (!mv.rehearse || !mv.feed) return mv.feed || v0;
+        const want = mv.feed * this.rate, f = Math.max(Math.min(want, mv.vmax ?? Infinity, this.m.maxFeed || Infinity), Math.min(mv.vmin ?? 0, mv.feed));
+        if (f !== want) this.limited = true;
+        return f;
+      };
       const segs = [];
       let prev = from;
       for (const mv of moves) {
         const d = { x: mv.x - prev.x, y: mv.y - prev.y, z: mv.z - prev.z };
         const len = Math.hypot(d.x, d.y, d.z);
         if (len < 1e-9) { prev = mv; continue; }
-        segs.push({ mv, from: prev, len, dir: { x: d.x / len, y: d.y / len, z: d.z / len }, feed: mv.feed || v0 });   // below the ramp speed a move runs at its own feed, unramped
+        segs.push({ mv, from: prev, len, dir: { x: d.x / len, y: d.y / len, z: d.z / len }, feed: feedOf(mv) });   // below the ramp speed a move runs at its own feed, unramped
         prev = mv;
       }
       for (let i = 0; i < segs.length; i++) {
@@ -312,7 +322,7 @@
         const f = deg <= 3 ? 1 : deg >= 90 ? 0 : 1 - (deg - 3) / 87;
         s.vEnd = Math.max(v0, Math.min(s.feed, n.feed) * f);
       }
-      let vIn = v0;
+      let vIn = vIn0 ?? v0;
       for (const s of segs) { s.vStart = Math.min(vIn, s.feed); s.vEnd = Math.min(s.vEnd, s.vStart + k * s.len); vIn = s.vEnd; }
       for (let i = segs.length - 1; i >= 0; i--) {
         const s = segs[i];
@@ -375,11 +385,15 @@
     // One run of moves with a shared ramp profile. Returns true when a stop
     // ended the stack.
     *moveRun(moves, start) {
-      const segs = this.profile(moves, start);
       const u = this.m.unit, v0 = this.m.rampSpeed, k = this.k;
       const st = this.st;
       let cur = st.cur;
       let dirs = st.dirs, line = st.line, reload = st.reload;
+      let todo = moves, from = start, vIn;
+      // once, unless an air cut's rate changes: then the rest is planned again from here
+      replan: for (;;) {
+      const rate = this.rate;
+      const segs = this.profile(todo, from, vIn);
       for (const s of segs) {
         const tgt = this.toSteps(s.mv);
         const d = { x: tgt.x - cur.x, y: tgt.y - cur.y, z: tgt.z - cur.z };
@@ -391,8 +405,16 @@
         const ad = { x: Math.abs(d.x), y: Math.abs(d.y), z: Math.abs(d.z) };
         const ln = (s.mv.line || 0) & 0xFFFF;
         for (let i = 0; i < n; i++) {
+          if (s.mv.rehearse && this.rate !== rate && !this.halt) {
+            todo = todo.slice(todo.indexOf(s.mv));
+            from = { x: cur.x / u.x, y: cur.y / u.y, z: cur.z / u.z };
+            vIn = this.vLast ?? v0;
+            continue replan;
+          }
           const sDone = i * mmPerTick;
           let v = Math.min(s.feed, s.vStart + k * sDone, s.vEnd + k * (s.len - sDone));
+          // a rate brought down comes down along the ramp, not at once (76 mm/s to 20 in one tick)
+          if (s.mv.rehearse && this.vLast != null) v = Math.max(v, Math.min(this.vLast - k * mmPerTick, s.vEnd + k * (s.len - sDone)));
           // the feed override scales a cut's speed, never past the machine's top; a raise ramps in
           if (s.mv.cut && this.override !== 1) {
             // the move's own bounds (vmax / vmin, set by the driver from the checked plan): an override
@@ -430,6 +452,8 @@
           yield bits << 1;
         }
         cur = st.cur = tgt;
+      }
+      break;
       }
       Object.assign(st, { cur, dirs, line, reload });
       return false;
