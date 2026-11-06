@@ -1001,6 +1001,8 @@ html:not([data-skin]) #panel-left  .set2-group::after {
   align-items: baseline;
 }
 .swarf-wordmark {
+  /* Helvetica (Phil 11-06); it is not ours to ship, so a PC without it shows Arial */
+  font-family: Helvetica, Arial, sans-serif !important;
   display: inline-flex;
   align-items: baseline;
   font-weight: 700;
