@@ -74,7 +74,7 @@ function floorUnder(pos, c, z) {
         const h = u * pos[i + 2] + v * pos[i + 5] + (1 - u - v) * pos[i + 8];
         if (h < z - 0.02 && (best === null || h > best)) best = h;
     }
-    return best;
+    return best === null ? null : Math.round(best * 1e4) / 1e4;
 }
 
 /**
