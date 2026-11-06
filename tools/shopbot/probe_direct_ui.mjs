@@ -237,7 +237,7 @@ try {
     // review 10-27: tool change reopens zero; a dropout is never "Finished"; a moved card drops the zero
     const sbp = ["'UNITS:MM", "&Tool =1             'Load 6 mm flat end mill", "C9", "TR,12000", "C6", "J3,0,0,5",
       "M3,0,0,-1", "M3,40,0,-1", "M3,40,40,-1", "M3,0,40,-1", "M3,0,0,-1",
-      "C7", "&Tool =2             'Load 3 mm ball end mill", "C9", "C6", "M3,0,0,-1", "M3,40,0,-1", "M3,40,40,-1", "J3,0,0,5", "C7", "END"].join('\n');
+      "C7", "&Tool =2             'Load 3 mm ball end mill", "C9", "C6", "M3,0,0,-1", "M3,40,0,-1", "M3,40,40,-1", "J3,40,40,5", "J3,0,0,5", "C7", "END"].join('\n');
     const btn = t => page.evaluate(t => { const b = [...document.querySelectorAll('#swarf-run button')].find(b => b.textContent.trim() === t && b.offsetParent); if (!b) throw new Error('no button ' + t); b.click(); }, t);
     const ui = () => page.evaluate(() => ({ say: document.querySelector('.sr-say').textContent, step: (document.querySelector('.sr-step.now') || {}).dataset?.step,
       from: document.querySelector('.sr-from').style.display !== 'none', go: [...document.querySelectorAll('.sr-goto button')].filter(b => b.offsetParent && !b.disabled).map(b => b.textContent),

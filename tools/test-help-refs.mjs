@@ -30,7 +30,7 @@ for (const q of ['save project', '.swarf', 'kmz', 'windows', 'zadig', 'e-stop', 
   'tex', 'brush', 'erase', 'mark', 'soft edge', 'patterns', 'ocean waves', 'texture step', 'v-bit', 'plunge', 'points', 'pierce', 'kerf', 'test strip', 'make it a part', 'make it a hole', 'save as a mesh'])
   assert.ok(find(q).length, `help search "${q}" finds nothing`);
 // what changed at the machine stays said (106/107): jog's default, new, the router-off refusal, carving
-for (const q of ['continuous', 'files › new', 'router off', 'carve', 'v-carve'])
+for (const q of ['continuous', 'file › new', 'router off', 'carve', 'v-carve'])
   assert.ok(find(q).length, `help search "${q}" finds nothing`);
 // every menu item says what it does when hovered (quit is hidden)
 const menu = readFileSync(root + 'src/kiri/app/init/menu.js', 'utf8');

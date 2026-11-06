@@ -234,7 +234,7 @@ try {
   await page.evaluate(() => document.getElementById('act-export').click());
   await page.waitForFunction(() => { const c = document.querySelector('#mod-x-any.swarf-x .swarf-x-card'); return c && c.offsetParent; }, { timeout: 30000 }).catch(() => {});
   const xname = await page.evaluate(() => { const c = document.querySelector('#mod-x-any .swarf-x-card'); return c ? { name: c.querySelector('input').value, go: c.querySelector('.swarf-x-go').textContent } : null; });
-  check(xname && xname.name === 'probe-chair' && xname.go === 'save probe-chair.sbp', `the export after saving probe-chair.swarf is named for the project, no sequence number (${JSON.stringify(xname)})`);
+  check(xname && xname.name === 'probe-chair' && /^save( anyway)? probe-chair\.sbp$/.test(xname.go), `the export after saving probe-chair.swarf is named for the project, no sequence number (${JSON.stringify(xname)})`);
   await page.evaluate(() => window.kiri.api.modal.hide()); await wait(400);
   // reopening in A itself: the same job, and control asks for zero again
   await page.evaluate(() => window.kiri.api.widgets.all()[0].move(5, 5, 0));

@@ -178,7 +178,7 @@ for (const [W, H] of SIZES) for (const skin of ['glass', 'classic', 'swarf']) {
     check(x && !x.kiri && !x.heads, `Kiri's gcode button and ( job ) heads are hidden (${x && x.kiri}, ${x && x.heads})`);
     await page.evaluate(() => { const c = document.querySelector('.swarf-x-card input'); c.value = 'my part'; c.dispatchEvent(new Event('input')); });
     const go2 = await page.evaluate(() => document.querySelector('.swarf-x-go').textContent);
-    check(go2 === 'save my part.sbp', `the button follows the name ("${go2}")`);
+    check(/^save( anyway)? my part\.sbp$/.test(go2), `the button follows the name ("${go2}")`);
     await page.evaluate(() => window.kiri.api.modal.hide()); await wait(400);
     // F4 control in inches
     await page.click('#swarf-step-run');

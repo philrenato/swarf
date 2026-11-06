@@ -1,7 +1,7 @@
 /*
  * swarf file — a .swarf project (Phil 10-30: "a superset filetype like .swarf that saved
  * everything and opened up with everything exactly the same, maybe on a different machine,
- * by drag and drop"). files › save project (.swarf), or ⌘S; open it with files › import, by
+ * by drag and drop"). file › save project (.swarf), or ⌘S; open it with file › import, by
  * dropping it on the bed, or by double-clicking it when swarf is installed.
  *
  * A .swarf is a zip of three files:
@@ -14,7 +14,7 @@
  *                   board (stock), bits (tool library), machine, units
  *   swarf.json      what swarf keeps outside Kiri's settings: the PROJECT keys below
  *
- * A .kmz stays Kiri's (files › save for Kiri:Moto): it opens in Kiri:Moto, less the steps Kiri
+ * A .kmz stays Kiri's (file › save for Kiri:Moto): it opens in Kiri:Moto, less the steps Kiri
  * does not have (TEX's texture and pierce). .swarf keeps everything.
  *
  * What goes in the file and what stays on this computer:
@@ -315,7 +315,7 @@
     return String(base).replace(/\.[a-z0-9]+$/i, '').replace(/[^\w.-]+/g, '-').replace(/^-+|-+$/g, '') || 'project';
   }
 
-  // files › save project (.swarf). opt.name skips the name card (the probe).
+  // file › save project (.swarf). opt.name skips the name card (the probe).
   function save(opt = {}) {
     const a = api();
     if (!a || !a.client || !a.client.zip) return Promise.resolve(false);
@@ -377,7 +377,7 @@
     });
   }
 
-  // open a .swarf (an ArrayBuffer), from files › import, a drop on the bed or the installed app
+  // open a .swarf (an ArrayBuffer), from file › import, a drop on the bed or the installed app
   let busy = false;
   function open(data, name, JSZip) {
     const a = api();
@@ -466,7 +466,7 @@
     });
   } catch (e) { /* no file handling here */ }
 
-  // files › save project, and ⌘S (Ctrl+S): swarf has no other use for it, and the browser's own
+  // file › save project, and ⌘S (Ctrl+S): swarf has no other use for it, and the browser's own
   // "save page" is never what a student means
   let tries = 0;
   const t = setInterval(() => {
