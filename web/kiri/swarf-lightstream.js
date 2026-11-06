@@ -344,6 +344,9 @@
 
   function onMove(evt) {
     window.__swarfLSMoves = (window.__swarfLSMoves || 0) + 1;
+    // a move still on its way when simulate was left does not start a new trail
+    const v = window.kiri?.api?.view;
+    if (v?.is_animate && !v.is_animate()) return;
     if (!ensure()) return;
     const pos = (evt && evt.detail) ? evt.detail.pos : (evt && evt.pos);
     if (!pos) return;

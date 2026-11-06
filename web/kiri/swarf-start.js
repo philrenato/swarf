@@ -90,7 +90,6 @@
       show();
       setTimeout(show, 600);
       // setup › machine: the two machines, plainly; Kiri's own editor behind "machine settings"
-      // (Fable review 3 #14: the student met gcode macros and firmware flags there)
       const dev = $('set-device');
       if (dev) dev.addEventListener('click', e => {
         e.stopImmediatePropagation(); e.preventDefault();

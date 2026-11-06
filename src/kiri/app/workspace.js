@@ -226,8 +226,9 @@ function restore(ondone, skip_widget_load) {
 function clear() {
     // free up worker cache/mem
     api.client.clear();
-    platform.select_all();
-    platform.delete(selection.meshes());
+    // swarf: every part by the list. Selecting them first let a picked part go (select_all toggles)
+    // and skipped a part the toolpaths view hides (Phil 11-05: new left the scene, tools/probe_new.mjs)
+    platform.delete(api.widgets.all().slice());
 }
 
 /**

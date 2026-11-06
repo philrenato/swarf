@@ -129,12 +129,6 @@
     if (!m) return preset;
     return `${m[1]}:${toolId}:${devName}:${m[4]}:${m[5]}`;
   }
-  function eachOp(set, fn) {
-    const procs = [set.process];
-    for (const p of Object.values((set.sproc && set.sproc[MODE]) || {})) procs.push(p);
-    for (const p of procs) for (const op of [...((p && p.ops) || []), ...((p && p.op2) || [])]) if (op) fn(op, p);
-  }
-
   // This computer's settings with a file's project laid over them. Its machine and bits are
   // added here when this computer has none like them (a different one with the same name or
   // id comes in under a new one, never swapped for this computer's). Everything else in the
@@ -488,5 +482,11 @@
     save();
   }, true);
 
-  window.SwarfFile = Object.assign({ save, open, unsaved, remember, readZip, projectName }, core);
+  // file › new: TEX and DRAW shut with nothing kept, control forgets its job, the next save asks for a name
+  function fresh() {
+    leaveModes(false);
+    try { if (window.__swarfRun && window.__swarfRun.forget) window.__swarfRun.forget(); } catch (e) { /* control not loaded */ }
+    project = null;
+  }
+  window.SwarfFile = Object.assign({ save, open, unsaved, remember, readZip, projectName, fresh }, core);
 })(typeof window !== 'undefined' ? window : globalThis);

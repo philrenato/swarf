@@ -63,13 +63,34 @@ function export_profile() {
 }
 
 function new_workspace() {
-    api.uc.confirm("Clear Workspace?", {ok:true, cancel: false}).then(value => {
-        if (value === true) {
-            let proc = set_ctrl.proc();
-            proc.ops && (proc.ops.length = 0);
-            proc.op2 && (proc.op2.length = 0);
-            api.platform.clear();
-        }
+    // swarf: a running job is never cleared out from under the machine
+    if (self.__swarfRun?.state?.machine?.state?.running) {
+        api.show.alert('The machine is running. End the job, then start a new one.', 6);
+        return;
+    }
+    // nor are toolpaths still being made: their worker carries on with the parts it was given
+    if (!api.ui.progressOverlay?.classList.contains('hide')) {
+        api.show.alert('swarf is still working. Start a new job when it finishes.', 6);
+        return;
+    }
+    const n = api.widgets.all().length;
+    const pre = ["<div class='f-col a-center swarf-shape'><h3>Start a new job?</h3>",
+        `<p class='swarf-shape-why' style='color:inherit;max-width:300px;margin:0 auto'>${n ? `${n === 1 ? 'The part' : `The ${n} parts`}, every step and the toolpaths come off the bed. ` : 'Every step comes off the bed. '}Your bits, material and machine stay.</p></div>`];
+    api.uc.confirm(undefined, { 'keep it': false, clear: true }, undefined, { pre }).then(value => {
+        if (value !== true) return;
+        // the same leaving as opening a .swarf: quiet deletes, TEX and DRAW shut, control forgets its job
+        self.__swarfRestoring = true;
+        setTimeout(() => { self.__swarfRestoring = false; }, 2000);
+        self.SwarfFile?.fresh?.();
+        api.animate?.clear?.();
+        api.view.set_arrange();
+        const proc = set_ctrl.proc();
+        proc.ops && (proc.ops.length = 0);
+        proc.op2 && (proc.op2.length = 0);
+        api.platform.clear();
+        api.platform.update_origin();
+        api.event.emit('cam.op.render');
+        self.dispatchEvent(new CustomEvent('swarf.clear'));
     });
 }
 

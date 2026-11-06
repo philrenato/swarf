@@ -397,6 +397,24 @@
     return { name: name + ' (air)', moves, dz, sbp: movesToSbp(parsed.moves, { name: name + ' air cut', dz, safeZ }), source: parsed, spindle: false };
   }
 
+  // The first feed move below the top of the board with the router off, by the file's own switches
+  // and in file order; a bit change leaves it off, as the plan does. A file that never switches the
+  // router is run by hand and says nothing here.
+  function routerOffCut(parsed) {
+    const switches = parsed.events.filter(e => e.kind === 'spindle-on' || e.kind === 'spindle-off' || e.kind === 'tool-change' || (e.kind === 'output' && e.value[0] === 1)).sort((a, b) => a.line - b.line);
+    if (!switches.some(e => e.kind === 'spindle-on' || (e.kind === 'output' && e.value[1] === 1))) return null;
+    let on = false, afterChange = false, i = 0;
+    for (const m of parsed.moves) {
+      for (; i < switches.length && switches[i].line < m.line; i++) {
+        const e = switches[i], kind = e.kind === 'output' ? (e.value[1] === 1 ? 'spindle-on' : 'spindle-off') : e.kind;
+        if (kind === 'spindle-on') { on = true; afterChange = false; }
+        else { on = false; afterChange = kind === 'tool-change'; }
+      }
+      if (!on && !m.rapid && Math.min(m.z, m.z0) < -0.05) return { line: m.line, afterChange };
+    }
+    return null;
+  }
+
   // Run from line: up to safe Z, over to where that line starts, down, then
   // the rest of the program; spindle started if the program had it on there (or never said).
   function fromLineProgram(parsed, line, safeZ, name) {
@@ -427,7 +445,7 @@
     return { name: `${name} (from line ${line})`, moves, sbp, events, source: parsed, spindle: spindleOn };
   }
 
-  const api = { parse, boundsOf, cutBounds, movesToSbp, traceProgram, airProgram, fromLineProgram, entryMoves };
+  const api = { parse, boundsOf, cutBounds, movesToSbp, traceProgram, airProgram, fromLineProgram, entryMoves, routerOffCut };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.SwarfRunParse = api;
 })(typeof window !== 'undefined' ? window : globalThis);

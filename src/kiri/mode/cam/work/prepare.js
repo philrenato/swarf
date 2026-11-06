@@ -1093,11 +1093,12 @@ export async function prepare_one(widget, settings, print, firstPoint, update) {
         isIndex = cop.type === 'index';
         isLathe = cop.type === 'lathe';
         let weight = op.weight();
+        // swarf: the speed before the layer, or an op's first layer carries the op before's
+        if (cop.spindle) setSpindle(cop.spindle);
         newLayer(cop);
         setTolerance(0);
         setNextIsMove();
         if (cop.tool) setTool(cop.tool, cop.rate || feedRate, cop.plunge || plungeRate);
-        if (cop.spindle) setSpindle(cop.spindle);
         // set printPoint in widget coordinate space
         ops.printPoint = printPoint.clone().move({ x: -wmx, y: -wmy, z: -wmz });
         await op.prepare(ops, (progress, message) => {

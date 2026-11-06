@@ -56,7 +56,7 @@ try {
   const dflt = await page.evaluate(() => ({ step: document.querySelectorAll('.sr-modes')[0].querySelector('button.on').textContent,
     speed: document.querySelectorAll('.sr-modes')[1].querySelector('button.on').textContent,
     go: [...document.querySelectorAll('.sr-goto button')].filter(b => b.offsetParent && !b.disabled).map(b => b.textContent) }));
-  check(dflt.step === '1' && dflt.speed === '2500' && !dflt.go.some(t => /go to/.test(t)), `defaults: step ${dflt.step}, speed ${dflt.speed}, shown [${dflt.go}]`);
+  check(dflt.step === 'continuous' && dflt.speed === '1000' && !dflt.go.some(t => /go to/.test(t)), `defaults: step ${dflt.step}, speed ${dflt.speed}, shown [${dflt.go}]`);
   // machine check card: opens from its button (10-27: no longer by itself)
   check(await page.evaluate(() => !document.querySelector('#swarf-run .sr-sheet.on')), 'check card stays shut on connect');
   // machine setup is press-and-hold (teacher only): a click does nothing, 1.5 s opens it

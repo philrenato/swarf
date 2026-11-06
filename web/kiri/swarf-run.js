@@ -85,7 +85,7 @@
     prog: null,          // { name, text, parsed, source }
     zeroXY: false, zeroZ: false, traced: false,
     job: null,           // what is running: 'trace' | 'air' | 'cut' | 'from' | 'preview'
-    lastRunning: false, jogStep: 1, jogSpeed: 2500, contHeld: null, simRate: 10   // 2500: above the motors' rough band, near ShopBot 3's jog (10-29)
+    lastRunning: false, jogStep: 'cont', jogSpeed: 1000, contHeld: null, simRate: 10   // Phil at the machine, 11-05: hold to move, at 1000
   };  // a zero from before a reload: offered back once connected, if the card's count has not jumped
   try { const z = JSON.parse(localStorage.getItem('swarf-run-zero')); if (z && z.had && z.at && z.steps) { S.zeroHad = z.had; S.zeroSetAt = z.at; S.lastSteps = z.steps; } } catch (e) { /* none */ }
 
@@ -158,7 +158,7 @@
 .sr-jog.locked > :not(.sr-lock):not(.sr-dro):not(.sr-jh) { opacity: .85; pointer-events: none; }   /* readable while locked (legibility pass 10-28); the lock line says why */   /* readable while locked (legibility pass 10-28) */
 .sr-jog.locked .sr-dro { pointer-events: none; }
 .sr-jog.offline > :not(.sr-lock):not(.sr-jh) { opacity: .4; pointer-events: none; filter: grayscale(1); }   /* not connected: nothing here can reach the machine */
-.sr-keyrow { display: flex; align-items: center; gap: 10px; }
+.sr-keyrow { display: flex; align-items: center; gap: 10px; margin: 8px 12px 0; }
 #swarf-run .sr-ovr { display: flex; align-items: center; gap: 8px; margin: 6px 0 2px; }
 #swarf-run .sr-ovr .lbl { font-size: 12px; }
 #swarf-run .sr-ovr b { min-width: 48px; text-align: center; font-variant-numeric: tabular-nums; }
@@ -341,11 +341,12 @@ body.swarf-run-open { filter: none !important; }
 .sr-jog .sr-pad { display: grid; grid-template-columns: repeat(3, 60px) 22px 60px; grid-template-rows: repeat(3, 50px); gap: 6px; justify-content: center; margin: 12px 12px 0; }
 .sr-jog .sr-pad button small { font-size: 9px; letter-spacing: .06em; }
 .sr-jog .sr-keys { margin: 8px 12px 0; white-space: normal; font-size: 11px; }
+.sr-jog .sr-keyrow .sr-keys { margin: 0; }
 .sr-faultbar { display: flex; align-items: center; gap: 10px; margin: 6px 0 8px; padding: 8px 10px; border-radius: 8px; background: #b3261e; color: #fff; font-size: 13px; font-weight: 600; }
 .sr-faultbar .sr-faulttext { flex: 1; }
 .sr-faultbar button { flex: none; font-size: 13px; padding: 6px 14px; }   /* never cut a safety line short (review 10-29) */
 .sr-jog .sr-goto { display: flex; gap: 6px; margin: 10px 12px 0; }
-.sr-jog .sr-goto > button { flex: 1; padding: 8px 0; }
+.sr-jog .sr-goto > button { flex: 1 1 0; min-width: 0; padding: 8px 6px; line-height: 1.15; }
 @media (max-width: 900px) { .sr-grid { grid-template-columns: 1fr; overflow-y: auto; } .sr-col > .sr-view { flex: none; height: 360px; } }
 /* ---- swarf skin (Phil 10-27: "more readable, too dark, fit with swarf") ----
    swarf's own panel language: the scene glows through, plates with a red edge
@@ -1265,6 +1266,9 @@ html[data-skin] #swarf-run .sr-jog .sr-zrow button.next, html[data-skin] #swarf-
       const dive = p.moves.find(m => m.rapid && Math.min(m.z, m.z0) < -0.05 && Math.hypot(m.x - m.x0, m.y - m.y0) > 0.05);
       if (dive) out.warn.push(`Line ${dive.line}: a rapid move goes across below the top of the board (Z ${Math.min(dive.z, dive.z0).toFixed(1)}): at rapid speed through the wood. Check the file.`);
     }
+    // a bit fed into the board with the router off breaks (review 105): the file's own switches, read in order
+    const dead = P.routerOffCut(p);
+    if (dead) out.block.push(`Line ${dead.line}: this file feeds the bit into the board with the router off${dead.afterChange ? ', after a bit change that never turns it back on' : ''}. Make the toolpaths again and export a new file.`);
     // the table's corner known (table corners card): the job must sit on the table from this zero
     const c = S.machine && S.machine.mabs && corner();
     if (b && c && S.zeroXY) {
@@ -1707,12 +1711,6 @@ html[data-skin] #swarf-run .sr-jog .sr-zrow button.next, html[data-skin] #swarf-
       if (p !== pose) { pose = p; t0 = performance.now(); }
       if (!raf && plateGL.owner === mine) raf = requestAnimationFrame(frame);
     } };
-  }
-
-  async function plateZero() {
-    if (!isDirect() || S.machine.state.running) return;
-    if (await S.machine.zZero()) { S.zeroZ = true; S.zeroSetAt = Date.now(); S.zeroFor = progKey(); if (S.toolChange) S.toolChange = null; else S.traced = false; }
-    refresh();
   }
 
   // which program a zero was set for: a new program with other origin words retires it (Fable 3 #2)

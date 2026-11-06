@@ -226,8 +226,11 @@ export function cam_export(print, online) {
         }
 
         // on spindle change (deferred from layer transition so it's post-toolchange)
-        if (spindleMax && newSpindle && (changeTool || newSpindle !== spindle || opt.newOp)) {
-            spindle = newSpindle;
+        // swarf: a bit change always turns the router back on. An op with no speed of its own (TEX, an
+        // inlay) wrote none, and the next bit went in stopped (review 105): the last speed, else the top
+        const wantSpindle = newSpindle || (changeTool ? spindle || spindleMax : 0);
+        if (spindleMax && wantSpindle && (changeTool || wantSpindle !== spindle || opt.newOp)) {
+            spindle = wantSpindle;
             if (!laserOp) {
                 if (spindle > 0) {
                     let speed = Math.abs(spindle);

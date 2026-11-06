@@ -31,7 +31,6 @@
   const ORIGIN_KEY = 'swarf-shopbot-origin';
   const FLIP_KEY = 'swarf-shopbot-flip';
   const LOG_MAX = 20000;
-  const BIT = { x: 1, y: 2, z: 4 };
   const HOME_KEY = 'swarf-shopbot-home';
   // homing on the shop machine: normally-closed proximity sensors, X on input 2,
   // Y on input 3, reading 0 when covered; offset -0.5 in; fast seek <= 88.9 mm/s, back off 25.4 mm, slow seek <= 25.4 mm/s.

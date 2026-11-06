@@ -2007,7 +2007,6 @@ body:has(#swarf-size.on) #panel-right #oplist { max-height: min(calc(70vh - 200p
 #swarf-draw .sd-grow { flex: 1; }
 #swarf-draw .sd-card { position: absolute; top: 70px; right: 16px; width: 220px; padding: 10px 14px; background: rgba(27,23,21,.95);
   border: 1px solid #3a3230; border-radius: 8px; }
-#swarf-draw .sd-card:empty { display: none; }
 #swarf-draw .sd-card .sd-h { margin: 12px 0 6px; font-size: 12px; font-weight: 600; color: #f2ede4; }
 #swarf-draw .sd-card .sd-h:first-child { margin-top: 0; overflow-wrap: anywhere; }
 #swarf-draw .sd-card .sd-row { display: flex; align-items: center; gap: 8px; margin: 5px 0; color: var(--swarf-text-2); font-size: 12px; }

@@ -324,7 +324,6 @@ html[data-skin="classic"] #swarf-run .sr-need, html[data-skin="classic"] #swarf-
 html[data-skin="classic"] #swarf-run .sr-jog .sr-modes .lbl, html[data-skin="classic"] #swarf-run .sr-jog .sr-modes .lbl small, html[data-skin="classic"] #swarf-run .sr-pad button small,
 html[data-skin="classic"] #swarf-run .sr-step { color: #262626 !important; opacity: 1 !important; }
 html[data-skin="classic"] #swarf-run .sr-step .n { background: #404040 !important; color: #fff !important; border-color: transparent !important; }
-html[data-skin="classic"] #swarf-run .sr-step.now .n { background: #000080 !important; }
 html[data-skin="classic"] #panel-right .set2-group summary.set-header a, html[data-skin="classic"] #swarf-right-rail .set2-group summary.set-header a,
 html[data-skin="classic"] .set-header a { color: #000080 !important; }
 html[data-skin="classic"] .swarf-concern strong { color: #7a4e00 !important; }
