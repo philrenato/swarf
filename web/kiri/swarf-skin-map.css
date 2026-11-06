@@ -650,7 +650,12 @@ html[data-skin] {
     --swarf-accent-dim: rgb(var(--sk-acc-dim) / calc(1 * var(--sk-a-acc-dim, 1)));
     --swarf-glow: rgb(var(--sk-acc) / calc(0.32 * var(--sk-a-acc, 1)));
     --swarf-amber: rgb(var(--sk-warn) / calc(1 * var(--sk-a-warn, 1)));
-    --swarf-green: rgb(var(--sk-ok) / calc(1 * var(--sk-a-ok, 1)))
+    --swarf-green: rgb(var(--sk-ok) / calc(1 * var(--sk-a-ok, 1)));
+    --swarf-more-bg: rgb(var(--sk-n0) / calc(1 * var(--sk-a-n0, 1)))
+}
+html[data-skin] #tx-card,
+html[data-skin] #swarf-run {
+    --swarf-more-bg: rgb(var(--sk-n1) / calc(1 * var(--sk-a-n1, 1)))
 }
 html[data-skin] body {
     background-image: radial-gradient(
@@ -746,22 +751,6 @@ html[data-skin] #mod-help.swarf-about {
 html[data-skin] #modal-box:has(> .swarf-help-modal) {
     box-shadow: 0 20px 60px rgb(var(--sk-shadow) / calc(0.75 * var(--sk-a-shadow, 1))), -1px 0 10px -2px var(--swarf-glow)
 }
-html[data-skin] .swarf-plate {
-    background: linear-gradient(180deg, rgb(var(--sk-n1) / calc(0.22 * var(--sk-a-n1, 1))), rgb(var(--sk-n0) / calc(0 * var(--sk-a-n0, 1))) 60%),
-    var(--swarf-bg-2);
-    box-shadow: 0 6px 24px rgb(var(--sk-shadow) / calc(0.6 * var(--sk-a-shadow, 1))),
-    inset 0 1px 0 rgb(var(--sk-glint) / calc(0.04 * var(--sk-a-glint, 1))),
-    -1px 0 0 0 var(--swarf-glow)
-}
-html[data-skin] .swarf-plate::before {
-    background-image: repeating-linear-gradient(
-    0deg,
-    rgb(var(--sk-n8) / calc(0.015 * var(--sk-a-n8, 1))) 0px,
-    rgb(var(--sk-n8) / calc(0.015 * var(--sk-a-n8, 1))) 1px,
-    transparent 1px,
-    transparent 3px
-  )
-}
 html[data-skin] #swarf-right-rail .set2-group {
     box-shadow: 0 6px 28px rgb(var(--sk-shadow) / calc(0.6 * var(--sk-a-shadow, 1))),
     inset 1px 0 0 var(--swarf-accent-dim),
@@ -776,19 +765,14 @@ html[data-skin] #swarf-right-rail .set2-group::before {
     transparent 1px, transparent 3px
   )
 }
+html[data-skin] #ws-widgets .swarf-cut-tick {
+    accent-color: var(--swarf-accent, rgb(var(--sk-acc) / calc(1 * var(--sk-a-acc, 1))))
+}
 html[data-skin] #panel-right .set2-group {
     box-shadow: 0 6px 28px rgb(var(--sk-shadow) / calc(0.6 * var(--sk-a-shadow, 1))),
     inset 1px 0 0 var(--swarf-accent-dim),  
     inset 0 1px 0 rgb(var(--sk-glint) / calc(0.06 * var(--sk-a-glint, 1))),   
     -1px 0 10px -2px var(--swarf-glow)
-}
-html[data-skin] #panel-right .set2-group::before {
-    background-image: repeating-linear-gradient(
-    0deg,
-    rgb(var(--sk-n8) / calc(0.022 * var(--sk-a-n8, 1))) 0,
-    rgb(var(--sk-n8) / calc(0.022 * var(--sk-a-n8, 1))) 1px,
-    transparent 1px, transparent 3px
-  )
 }
 html[data-skin] #panel-right #oplist > div.selected,
 html[data-skin] #panel-right #oplist > div:hover {
@@ -912,7 +896,7 @@ html[data-skin] #layer-animate button {
     border: 1px solid var(--swarf-line, rgb(var(--sk-n3) / calc(1 * var(--sk-a-n3, 1)))) !important;
     color: var(--swarf-text-1, rgb(var(--sk-n9) / calc(1 * var(--sk-a-n9, 1)))) !important
 }
-html[data-skin] #layer-animate button:nth-of-type(2) {
+html[data-skin] #layer-animate button:nth-of-type(2):not(.swarf-toggle) {
     background: var(--swarf-accent, rgb(var(--sk-acc-dim) / calc(1 * var(--sk-a-acc-dim, 1)))) !important;
     border-color: var(--swarf-accent-hi, rgb(var(--sk-acc) / calc(1 * var(--sk-a-acc, 1)))) !important;
     box-shadow: 0 0 10px rgb(var(--sk-acc) / calc(0.35 * var(--sk-a-acc, 1)))
@@ -1172,7 +1156,8 @@ html[data-skin] #swarf-size .act {
 html[data-skin] #swarf-size .act:hover {
     border-color: rgb(var(--sk-n7) / calc(1 * var(--sk-a-n7, 1)))
 }
-html[data-skin] #layer-animate #swarf-sim-machine.on, html[data-skin] #layer-animate #swarf-sim-bed.on {
+html[data-skin] #layer-animate #swarf-sim-machine.on,
+html[data-skin] #layer-animate #swarf-sim-bed.on {
     border-color: rgb(var(--sk-n7) / calc(1 * var(--sk-a-n7, 1))) !important;
     color: rgb(var(--sk-n9) / calc(1 * var(--sk-a-n9, 1))) !important
 }
@@ -1223,6 +1208,152 @@ html[data-skin] #swarf-draw [data-tool] kbd {
 }
 html[data-skin] #swarf-draw .sd-wordbox {
     stroke: rgb(var(--sk-n7) / calc(1 * var(--sk-a-n7, 1)))
+}
+html[data-skin] #mode-tools > span#swarf-step-draw.swarf-step-on label,
+html[data-skin] #mode-tools > span#swarf-step-draw.swarf-step-on i,
+html[data-skin] #mode-tools > span#swarf-step-draw.swarf-step-on svg,
+html[data-skin] #mode-tools > span#swarf-step-tex.swarf-step-on label,
+html[data-skin] #mode-tools > span#swarf-step-tex.swarf-step-on i,
+html[data-skin] #mode-tools > span#swarf-step-tex.swarf-step-on svg {
+    color: rgb(var(--sk-n9) / calc(1 * var(--sk-a-n9, 1))) !important;
+    fill: rgb(var(--sk-n9) / calc(1 * var(--sk-a-n9, 1))) !important
+}
+html[data-skin] :focus-visible {
+    outline: 2px solid var(--swarf-accent-hi, rgb(var(--sk-info) / calc(1 * var(--sk-a-info, 1)))) !important
+}
+html[data-skin] #swarf-tutorial {
+    background: rgb(var(--sk-n0) / calc(0.35 * var(--sk-a-n0, 1)))
+}
+html[data-skin] #swarf-tutorial .st-card {
+    background: rgb(var(--sk-n1) / calc(1 * var(--sk-a-n1, 1)));
+    color: rgb(var(--sk-n9) / calc(1 * var(--sk-a-n9, 1)));
+    border: 1px solid rgb(var(--sk-n3) / calc(1 * var(--sk-a-n3, 1)));
+    box-shadow: 0 24px 70px rgb(var(--sk-shadow) / calc(0.55 * var(--sk-a-shadow, 1)))
+}
+html[data-skin] #swarf-tutorial .st-top {
+    color: rgb(var(--sk-n8) / calc(1 * var(--sk-a-n8, 1)))
+}
+html[data-skin] #swarf-tutorial .st-title {
+    color: rgb(var(--sk-n9) / calc(1 * var(--sk-a-n9, 1)))
+}
+html[data-skin] #swarf-tutorial .st-n {
+    color: rgb(var(--sk-acc-hi) / calc(1 * var(--sk-a-acc-hi, 1)))
+}
+html[data-skin] #swarf-tutorial .st-n.warn {
+    color: rgb(var(--sk-warn) / calc(1 * var(--sk-a-warn, 1)))
+}
+html[data-skin] #swarf-tutorial h3 {
+    color: rgb(var(--sk-n9) / calc(1 * var(--sk-a-n9, 1)))
+}
+html[data-skin] #swarf-tutorial p,
+html[data-skin] #swarf-tutorial li {
+    color: rgb(var(--sk-n9) / calc(1 * var(--sk-a-n9, 1)))
+}
+html[data-skin] #swarf-tutorial b {
+    color: rgb(var(--sk-acc-hi) / calc(1 * var(--sk-a-acc-hi, 1)))
+}
+html[data-skin] #swarf-tutorial .st-dots i {
+    background: rgb(var(--sk-n4) / calc(1 * var(--sk-a-n4, 1)))
+}
+html[data-skin] #swarf-tutorial .st-dots i.on {
+    background: rgb(var(--sk-acc-hi) / calc(1 * var(--sk-a-acc-hi, 1)))
+}
+html[data-skin] #swarf-tutorial button {
+    background: rgb(var(--sk-n2) / calc(1 * var(--sk-a-n2, 1)));
+    color: rgb(var(--sk-n9) / calc(1 * var(--sk-a-n9, 1)));
+    border: 1px solid rgb(var(--sk-n4) / calc(1 * var(--sk-a-n4, 1)))
+}
+html[data-skin] #swarf-tutorial button.st-go {
+    background: rgb(var(--sk-acc) / calc(1 * var(--sk-a-acc, 1)));
+    border-color: rgb(var(--sk-acc) / calc(1 * var(--sk-a-acc, 1)));
+    color: rgb(var(--sk-n9) / calc(1 * var(--sk-a-n9, 1)))
+}
+html[data-skin] #oplist .draggable.swarf-params-open .swarf-op-chevron {
+    color: rgb(var(--sk-n9) / calc(1 * var(--sk-a-n9, 1))) !important;
+    background: var(--swarf-accent, rgb(var(--sk-acc) / calc(1 * var(--sk-a-acc, 1)))) !important
+}
+html[data-skin] #oplist .draggable:not(.swarf-params-open) .swarf-op-chevron:hover {
+    color: var(--swarf-text, rgb(var(--sk-n8) / calc(1 * var(--sk-a-n8, 1)))) !important
+}
+html[data-skin] #swarf-draw .sd-reg {
+    fill: rgb(var(--sk-n8) / calc(0.03 * var(--sk-a-n8, 1)));
+    stroke: rgb(var(--sk-n5) / calc(1 * var(--sk-a-n5, 1)))
+}
+html[data-skin] #swarf-draw .sd-reg:hover {
+    fill: rgb(var(--sk-n8) / calc(0.14 * var(--sk-a-n8, 1)))
+}
+html[data-skin] #swarf-draw .sd-reg.on {
+    fill: rgb(var(--sk-n8) / calc(0.38 * var(--sk-a-n8, 1)));
+    stroke: rgb(var(--sk-n9) / calc(1 * var(--sk-a-n9, 1)))
+}
+html[data-skin] #swarf-draw .sd-reg.on:hover {
+    fill: rgb(var(--sk-n8) / calc(0.3 * var(--sk-a-n8, 1)))
+}
+html[data-skin] #swarf-tabcard {
+    background: rgb(var(--sk-n1) / calc(0.95 * var(--sk-a-n1, 1)));
+    border: 1px solid rgb(var(--sk-n3) / calc(1 * var(--sk-a-n3, 1)));
+    box-shadow: 0 8px 28px rgb(var(--sk-shadow) / calc(0.45 * var(--sk-a-shadow, 1)))
+}
+html[data-skin] #swarf-tabcard .ax input {
+    background: rgb(var(--sk-n3) / calc(1 * var(--sk-a-n3, 1)));
+    border: 1px solid rgb(var(--sk-n4) / calc(1 * var(--sk-a-n4, 1)));
+    color: rgb(var(--sk-n9) / calc(1 * var(--sk-a-n9, 1)))
+}
+html[data-skin] #swarf-tabcard .ax input:focus {
+    border-color: rgb(var(--sk-n7) / calc(1 * var(--sk-a-n7, 1)))
+}
+html[data-skin] #swarf-tabcard .sep {
+    background: rgb(var(--sk-n3) / calc(1 * var(--sk-a-n3, 1)))
+}
+html[data-skin] #swarf-tabcard .act {
+    background: rgb(var(--sk-n2) / calc(1 * var(--sk-a-n2, 1)));
+    border: 1px solid rgb(var(--sk-n4) / calc(1 * var(--sk-a-n4, 1)))
+}
+html[data-skin] #swarf-tabcard .act:hover {
+    border-color: rgb(var(--sk-n7) / calc(1 * var(--sk-a-n7, 1)))
+}
+html[data-skin] #menubar .top-menu > span:focus-visible,
+html[data-skin] .top-menu-drop .content > div:focus-visible,
+html[data-skin] #mode-tools > .swarf-step:focus-visible {
+    outline: 2px solid var(--swarf-accent-hi, rgb(var(--sk-acc) / calc(1 * var(--sk-a-acc, 1)))) !important
+}
+html[data-skin] #layer-animate .swarf-sim-name {
+    border-right: 1px solid var(--swarf-line, rgb(var(--sk-n3) / calc(1 * var(--sk-a-n3, 1))));
+    color: var(--swarf-text, rgb(var(--sk-n8) / calc(1 * var(--sk-a-n8, 1))))
+}
+html[data-skin] body:not(.swarf-expert) #layers:has(.var-row) {
+    box-shadow: 0 0 0 1px var(--swarf-line), 0 4px 14px rgb(var(--sk-shadow) / calc(0.18 * var(--sk-a-shadow, 1)))
+}
+html[data-skin] #swarf-draw input.sd-slide::-webkit-slider-thumb {
+    border: 2px solid rgb(var(--sk-n9) / calc(1 * var(--sk-a-n9, 1)))
+}
+html[data-skin] #swarf-draw input.sd-slide::-moz-range-thumb {
+    border: 2px solid rgb(var(--sk-n9) / calc(1 * var(--sk-a-n9, 1)))
+}
+html[data-skin] .swarf-ctx {
+    background: var(--swarf-bg-2, var(--swarf-bg, rgb(var(--sk-n9) / calc(1 * var(--sk-a-n9, 1)))));
+    color: var(--swarf-text, rgb(var(--sk-n1) / calc(1 * var(--sk-a-n1, 1))));
+    border: 1px solid var(--swarf-line, rgb(var(--sk-n0) / calc(0.14 * var(--sk-a-n0, 1))));
+    box-shadow: 0 10px 30px rgb(var(--sk-shadow) / calc(0.18 * var(--sk-a-shadow, 1)))
+}
+html[data-skin] body .swarf-ctx button:hover,
+html[data-skin] body .swarf-ctx button:focus {
+    background: rgb(var(--sk-acc) / calc(0.11 * var(--sk-a-acc, 1))) !important;
+    color: var(--swarf-accent, rgb(var(--sk-acc) / calc(1 * var(--sk-a-acc, 1))))
+}
+html[data-skin] body .swarf-ctx button.danger {
+    color: var(--swarf-accent, rgb(var(--sk-acc) / calc(1 * var(--sk-a-acc, 1))))
+}
+html[data-skin] .swarf-x-concerns {
+    border-left: 3px solid var(--swarf-warn, rgb(var(--sk-warn) / calc(1 * var(--sk-a-warn, 1))));
+    background: rgb(var(--sk-warn) / calc(0.09 * var(--sk-a-warn, 1)))
+}
+html[data-skin] .swarf-x-nothing {
+    color: var(--swarf-accent-hi, rgb(var(--sk-acc) / calc(1 * var(--sk-a-acc, 1))))
+}
+html[data-skin] #swarf-paths-stale {
+    background: var(--swarf-warn, rgb(var(--sk-warn) / calc(1 * var(--sk-a-warn, 1))));
+    color: rgb(var(--sk-n9) / calc(1 * var(--sk-a-n9, 1)))
 }
 
 /* ---- from web/kiri/index.html ---- */
@@ -1395,6 +1526,9 @@ html[data-skin] #swarf-run .sr-scrub .sr-rate {
 }
 html[data-skin] #swarf-run .sr-scrub .sr-play.on {
     border-color: rgb(var(--sk-n7) / calc(1 * var(--sk-a-n7, 1)))
+}
+html[data-skin] #swarf-run .sr-airspeed input {
+    accent-color: var(--swarf-accent, rgb(var(--sk-acc) / calc(1 * var(--sk-a-acc, 1))))
 }
 html[data-skin] #swarf-run .sr-lock {
     color: var(--swarf-text-2, rgb(var(--sk-n6) / calc(1 * var(--sk-a-n6, 1))))
@@ -1682,6 +1816,10 @@ html[data-skin] #swarf-run .sr-mach .sr-row.note {
 html[data-skin] #swarf-run .sr-jog .sr-modes .lbl small {
     color: var(--swarf-text-2, rgb(var(--sk-n6) / calc(1 * var(--sk-a-n6, 1))))
 }
+html[data-skin] #swarf-run .sr-faultbar {
+    background: rgb(var(--sk-acc) / calc(1 * var(--sk-a-acc, 1)));
+    color: rgb(var(--sk-n9) / calc(1 * var(--sk-a-n9, 1)))
+}
 html[data-skin] #swarf-run {
     background: rgb(var(--sk-n0) / calc(0.62 * var(--sk-a-n0, 1)))
 }
@@ -1931,41 +2069,61 @@ html[data-skin] #swarf-run .sr-keepzero {
 html[data-skin] #swarf-run .sr-keepzero:hover {
     border-color: rgb(var(--sk-n7) / calc(1 * var(--sk-a-n7, 1)))
 }
-/* DRAW regions (swarf-draw.js), by hand beside the generated map */
-html[data-skin] #swarf-draw .sd-reg {
-    fill: rgb(var(--sk-n8) / calc(0.03 * var(--sk-a-n8, 1)));
-    stroke: rgb(var(--sk-n5) / calc(1 * var(--sk-a-n5, 1)))
+html[data-skin] #swarf-run .sr-actions .cut.quiet {
+    background: var(--swarf-bg-3, rgb(var(--sk-n1) / calc(1 * var(--sk-a-n1, 1)))) !important;
+    border-color: var(--swarf-line-2, rgb(var(--sk-n3) / calc(1 * var(--sk-a-n3, 1)))) !important
 }
-html[data-skin] #swarf-draw .sd-reg:hover {
-    fill: rgb(var(--sk-n8) / calc(0.14 * var(--sk-a-n8, 1)))
+html[data-skin] #swarf-run .sr-need {
+    color: var(--c-dim, rgb(var(--sk-n6) / calc(1 * var(--sk-a-n6, 1))))
 }
-html[data-skin] #swarf-draw .sd-reg.on {
-    fill: rgb(var(--sk-n8) / calc(0.38 * var(--sk-a-n8, 1)));
-    stroke: rgb(var(--sk-n9) / calc(1 * var(--sk-a-n9, 1)))
+html[data-skin] #swarf-run .sr-need span {
+    border: 1px solid var(--swarf-line-2, rgb(var(--sk-n3) / calc(1 * var(--sk-a-n3, 1))))
 }
-html[data-skin] #swarf-draw .sd-reg.on:hover {
-    fill: rgb(var(--sk-n8) / calc(0.3 * var(--sk-a-n8, 1)))
+html[data-skin] #swarf-run .sr-need b {
+    color: var(--c-text, rgb(var(--sk-n8) / calc(1 * var(--sk-a-n8, 1))))
 }
-html[data-skin] #swarf-tabcard {
-    background: rgb(var(--sk-n1) / calc(0.95 * var(--sk-a-n1, 1)));
-    border: 1px solid rgb(var(--sk-n3) / calc(1 * var(--sk-a-n3, 1)));
-    box-shadow: 0 8px 28px rgb(var(--sk-shadow) / calc(0.45 * var(--sk-a-shadow, 1)))
+html[data-skin] #swarf-run .sr-need .ok {
+    color: var(--c-dim, rgb(var(--sk-n6) / calc(1 * var(--sk-a-n6, 1))))
 }
-html[data-skin] #swarf-tabcard .ax input {
-    background: rgb(var(--sk-n3) / calc(1 * var(--sk-a-n3, 1)));
-    border: 1px solid rgb(var(--sk-n4) / calc(1 * var(--sk-a-n4, 1)));
-    color: rgb(var(--sk-n9) / calc(1 * var(--sk-a-n9, 1)))
+html[data-skin] #swarf-run .sr-need .no {
+    color: var(--c-text, rgb(var(--sk-n8) / calc(1 * var(--sk-a-n8, 1))))
 }
-html[data-skin] #swarf-tabcard .ax input:focus {
-    border-color: rgb(var(--sk-n7) / calc(1 * var(--sk-a-n7, 1)))
+html[data-skin] #swarf-run .sr-start button {
+    background: var(--swarf-bg-3, rgb(var(--sk-n1) / calc(1 * var(--sk-a-n1, 1))));
+    border: 1px solid var(--swarf-line-2, rgb(var(--sk-n3) / calc(1 * var(--sk-a-n3, 1))))
 }
-html[data-skin] #swarf-tabcard .sep {
-    background: rgb(var(--sk-n3) / calc(1 * var(--sk-a-n3, 1)))
+html[data-skin] #swarf-run .sr-card p.sr-way {
+    color: var(--c-dim, rgb(var(--sk-n6) / calc(1 * var(--sk-a-n6, 1))))
 }
-html[data-skin] #swarf-tabcard .act {
-    background: rgb(var(--sk-n2) / calc(1 * var(--sk-a-n2, 1)));
-    border: 1px solid rgb(var(--sk-n4) / calc(1 * var(--sk-a-n4, 1)))
+html[data-skin] #swarf-run .sr-card p.sr-way.bad {
+    color: var(--swarf-accent-hi, rgb(var(--sk-acc) / calc(1 * var(--sk-a-acc, 1))))
 }
-html[data-skin] #swarf-tabcard .act:hover {
-    border-color: rgb(var(--sk-n7) / calc(1 * var(--sk-a-n7, 1)))
+html[data-skin] #swarf-run .sr-board-size small {
+    color: var(--c-dim, rgb(var(--sk-n6) / calc(1 * var(--sk-a-n6, 1))))
+}
+html[data-skin] #swarf-run .sr-board-size > span {
+    color: var(--c-dim, rgb(var(--sk-n6) / calc(1 * var(--sk-a-n6, 1))))
+}
+html[data-skin] #swarf-run .sr-plate-view span {
+    color: var(--c-text, rgb(var(--sk-n8) / calc(1 * var(--sk-a-n8, 1))));
+    background: var(--swarf-bg-2, rgb(var(--sk-n0) / calc(0.8 * var(--sk-a-n0, 1))))
+}
+html[data-skin] #swarf-run .sr-plate-view .sr-plate-note {
+    color: var(--c-dim, rgb(var(--sk-n6) / calc(1 * var(--sk-a-n6, 1))))
+}
+html[data-skin] #swarf-run .sr-needrow {
+    border-bottom: 1px solid var(--c-line, rgb(var(--sk-n3) / calc(1 * var(--sk-a-n3, 1))))
+}
+html[data-skin] #swarf-run .sr-needrow small {
+    color: var(--c-dim, rgb(var(--sk-n6) / calc(1 * var(--sk-a-n6, 1))))
+}
+html[data-skin] #swarf-run .sr-needrow button {
+    background: var(--swarf-bg-3, rgb(var(--sk-n1) / calc(1 * var(--sk-a-n1, 1))));
+    border: 1px solid var(--swarf-line-2, rgb(var(--sk-n3) / calc(1 * var(--sk-a-n3, 1))))
+}
+html[data-skin] #swarf-run .sr-jog .sr-zrow button.next,
+html[data-skin] #swarf-run .sr-conn button.next {
+    border-color: rgb(var(--sk-n9) / calc(1 * var(--sk-a-n9, 1))) !important;
+    color: rgb(var(--sk-n9) / calc(1 * var(--sk-a-n9, 1)));
+    box-shadow: 0 0 0 2px rgb(var(--sk-glint) / calc(0.25 * var(--sk-a-glint, 1)))
 }
