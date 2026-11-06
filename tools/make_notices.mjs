@@ -73,6 +73,7 @@ const E = [
   ['md5 (src/ext/md5.js), from upstream Kiri:Moto', '', 'CC BY-SA (Stack Overflow)', 'Source: https://stackoverflow.com/questions/1655769/fastest-md5-implementation-in-javascript\nContributed to Stack Overflow under its Creative Commons Attribution-ShareAlike license.'],
   ['opentype.js (web/kiri/vendor/opentype)', '1.3.4', 'MIT', file('web/kiri/vendor/opentype/LICENSE.txt')],
   ['Font Awesome Free (icons, web/font)', ver('@fortawesome/fontawesome-free'), 'icons CC BY 4.0, fonts SIL OFL 1.1, code MIT', file('web/font/LICENSE.txt')],
+  ['IBM Plex Mono and Renato Symbols (web/kiri/vendor/font)', '', 'SIL OFL 1.1', file('web/kiri/vendor/font/PLEX_OFL.txt')],
   ['Russo One (web/moto/russo-one.ttf)', '', 'SIL OFL 1.1', 'Copyright (c) 2011-2012, Jovanny Lemonad (jovanny.ru), with Reserved Font Name "Russo".\n\n' + OFL],
   ['Unreason 2D exchange and planar arrangement (web/kiri/vendor/unreason), vendored with its author\'s OK', '', 'MIT', 'Copyright 2026 Phil Renato. Licensed under the MIT License (license.md) as part of swarf.']
 ];

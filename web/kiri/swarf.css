@@ -1,3 +1,9 @@
+/* numbers in a shipped mono, so readouts match on every machine; words stay in the system sans (Phil 11-06).
+   One face per weight, never a range. Renato Symbols covers the glyphs swarf draws itself. */
+@font-face { font-family: 'IBM Plex Mono'; font-weight: 400; font-style: normal; font-display: swap; src: url('vendor/font/ibm-plex-mono-400.woff2') format('woff2'); }
+@font-face { font-family: 'IBM Plex Mono'; font-weight: 400; font-style: normal; font-display: swap; src: url('vendor/font/renato-symbols-400.woff2') format('woff2'); unicode-range: U+2190-2199,U+21A9-21AA,U+21B0-21B3,U+21B6-21B7,U+21BA-21BB,U+21C4,U+21C6,U+21D2,U+21E7,U+2295,U+2298-2299,U+229E,U+22A1,U+22B6,U+22EF,U+2300,U+2303-2304,U+2307,U+2312,U+2316,U+2318,U+2331,U+2337,U+233E,U+2399,U+23ED-23EE,U+23F1,U+23F3,U+23F8-23FA,U+25A0-25A2,U+25A6,U+25AC-25AD,U+25B2,U+25B4,U+25B6,U+25B8,U+25BC,U+25BE,U+25C0,U+25C2,U+25C6-25C9,U+25CB-25D0,U+25D4,U+25D7,U+25E7,U+2600,U+2630,U+266A,U+2684,U+2699,U+26A0,U+26AC,U+26D4,U+270E,U+2713,U+2715,U+2725-2728,U+2736,U+275A,U+2764,U+27E8-27E9,U+27F2-27F3,U+27F7,U+2912-2913,U+2922,U+2982,U+29C9,U+2B06-2B08,U+2B0A,U+2B1B,U+2B22,U+2B50,U+1F5C0; }
+@font-face { font-family: 'IBM Plex Mono'; font-weight: 600; font-style: normal; font-display: swap; src: url('vendor/font/ibm-plex-mono-600.woff2') format('woff2'); }
+@font-face { font-family: 'IBM Plex Mono'; font-weight: 600; font-style: normal; font-display: swap; src: url('vendor/font/renato-symbols-600.woff2') format('woff2'); unicode-range: U+2190-2199,U+21A9-21AA,U+21B0-21B3,U+21B6-21B7,U+21BA-21BB,U+21C4,U+21C6,U+21D2,U+21E7,U+2295,U+2298-2299,U+229E,U+22A1,U+22B6,U+22EF,U+2300,U+2303-2304,U+2307,U+2312,U+2316,U+2318,U+2331,U+2337,U+233E,U+2399,U+23ED-23EE,U+23F1,U+23F3,U+23F8-23FA,U+25A0-25A2,U+25A6,U+25AC-25AD,U+25B2,U+25B4,U+25B6,U+25B8,U+25BC,U+25BE,U+25C0,U+25C2,U+25C6-25C9,U+25CB-25D0,U+25D4,U+25D7,U+25E7,U+2600,U+2630,U+266A,U+2684,U+2699,U+26A0,U+26AC,U+26D4,U+270E,U+2713,U+2715,U+2725-2728,U+2736,U+275A,U+2764,U+27E8-27E9,U+27F2-27F3,U+27F7,U+2912-2913,U+2922,U+2982,U+29C9,U+2B06-2B08,U+2B0A,U+2B1B,U+2B22,U+2B50,U+1F5C0; }
 /* swarf™ — the Downward Spiral skin layered over Kiri:Moto's UI.
    All tokens live here; Kiri's index.css remains untouched so upstream pulls stay easy.
    Student/Expert visibility is driven by body.swarf-expert / default student. */
@@ -174,7 +180,7 @@ html[data-skin] { border: 0 !important; }
    "renato.design mysteriously jumped to upper right rather than lower left"). */
 #swarf-watermark {
   position: fixed; left: 18px; bottom: 14px; z-index: 9999;
-  font-family: "JetBrains Mono", "IBM Plex Mono", ui-monospace, monospace;
+  font-family: "IBM Plex Mono", ui-monospace, monospace;
   font-size: 10px; letter-spacing: 0.02em; text-transform: none;
   color: var(--swarf-text-3); text-decoration: none; opacity: 0.55;
   pointer-events: auto; padding: 2px 6px;
@@ -209,7 +215,7 @@ html:not([data-skin]) #swarf-watermark:hover { color: var(--swarf-accent-hi) !im
 
 /* typography: stark mono for UI, tracked uppercase for labels */
 body, .set-header, label, button, select, input, .opdiv, #op-add-list > div {
-  font-family: "JetBrains Mono", "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace !important;
+  font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace !important;
 }
 .set-header, #menubar, label[class*="set-"] {
   text-transform: none;
@@ -291,7 +297,7 @@ a:hover { color: var(--swarf-text); }
 #curtain {
   background: var(--swarf-bg) !important;
   color: var(--swarf-text) !important;
-  font-family: "JetBrains Mono", "IBM Plex Mono", ui-monospace, monospace !important;
+  font-family: "IBM Plex Mono", ui-monospace, monospace !important;
   letter-spacing: 0.08em;
 }
 #curtain img, #loading { display: none !important; } /* kill Kiri gear spinner — swarf mark later */
@@ -512,7 +518,7 @@ body.swarf-run-open #install-swarf, body.swarf-run-open #swarf-watermark { visib
   background: transparent !important;
   border: none !important;
   color: var(--swarf-text) !important;
-  font-family: "JetBrains Mono", "IBM Plex Mono", monospace !important;
+  font-family: "IBM Plex Mono", monospace !important;
 }
 .swarf-about-head {
   display: flex; align-items: baseline; gap: 12px;
@@ -577,7 +583,7 @@ body.swarf-run-open #install-swarf, body.swarf-run-open #swarf-watermark { visib
   clip-path: polygon(12px 0, 100% 0, 100% 100%, 0 100%, 0 12px);
   box-shadow: 0 20px 60px rgba(0,0,0,0.75), -1px 0 10px -2px var(--swarf-glow);
 }
-.swarf-help-modal { padding: 0 !important; background: transparent !important; border: none !important; color: var(--swarf-text) !important; font-family: "JetBrains Mono", "IBM Plex Mono", monospace !important; }
+.swarf-help-modal { padding: 0 !important; background: transparent !important; border: none !important; color: var(--swarf-text) !important; font-family: "IBM Plex Mono", monospace !important; }
 .swarf-help-head {
   padding: 18px 22px 12px 22px;
   border-bottom: 1px solid var(--swarf-line);
@@ -1028,7 +1034,7 @@ html:not([data-skin]) #panel-left  .set2-group::after {
 }
 .swarf-concordance section { margin-bottom: 22px; display: block; }
 .swarf-concordance section h3 {
-  font-family: "JetBrains Mono", "IBM Plex Mono", ui-monospace, monospace;
+  font-family: "IBM Plex Mono", ui-monospace, monospace;
   font-size: 11px; letter-spacing: 0.02em; text-transform: none;
   color: var(--swarf-accent); margin: 0 0 10px 0;
   padding-bottom: 4px;
@@ -1036,14 +1042,14 @@ html:not([data-skin]) #panel-left  .set2-group::after {
 }
 .swarf-concordance dl { display: block; margin: 0; }
 .swarf-concordance dt {
-  font-family: "JetBrains Mono", "IBM Plex Mono", ui-monospace, monospace;
+  font-family: "IBM Plex Mono", ui-monospace, monospace;
   font-size: 12px; letter-spacing: 0.06em;
   color: var(--swarf-text); font-weight: 600;
   margin-top: 10px;
   text-transform: lowercase;
 }
 .swarf-concordance dd {
-  font-family: "JetBrains Mono", "IBM Plex Mono", ui-monospace, monospace;
+  font-family: "IBM Plex Mono", ui-monospace, monospace;
   font-size: 11px; line-height: 1.55;
   color: var(--swarf-text-2);
   margin: 3px 0 0 0;
@@ -1059,7 +1065,7 @@ html:not([data-skin]) #panel-left  .set2-group::after {
 .swarf-search .swarf-result {
   padding: 10px 0 12px 0;
   border-bottom: 1px dashed var(--swarf-line);
-  font-family: "JetBrains Mono", "IBM Plex Mono", ui-monospace, monospace;
+  font-family: "IBM Plex Mono", ui-monospace, monospace;
 }
 .swarf-search .swarf-result:last-child { border-bottom: none; }
 .swarf-search .swarf-result strong {
@@ -1086,7 +1092,7 @@ html:not([data-skin]) #panel-left  .set2-group::after {
    Empty drawer = clean setup. Content = list of warnings with explanations. */
 #swarf-concerns {
   position: fixed; right: 18px; bottom: 90px; z-index: 9000;
-  font-family: "JetBrains Mono", "IBM Plex Mono", ui-monospace, monospace;
+  font-family: "IBM Plex Mono", ui-monospace, monospace;
   pointer-events: auto;
 }
 #swarf-concerns-tab {
@@ -1171,7 +1177,7 @@ html:not([data-skin]) #panel-left  .set2-group::after {
   border: 1px solid var(--swarf-line-2);
   border-left: 2px solid var(--swarf-accent-dim);
   color: var(--swarf-text);
-  font-family: "JetBrains Mono", "IBM Plex Mono", ui-monospace, monospace;
+  font-family: "IBM Plex Mono", ui-monospace, monospace;
   font-size: 12px;
   letter-spacing: 0.02em;
   text-transform: lowercase;
@@ -1195,7 +1201,7 @@ body:not(.swarf-expert) .swarf-add-op-grid > .swarf-expert-only {
   background: rgba(0,0,0,0.25);
   border-radius: 2px;
   max-height: 180px; overflow-y: auto;
-  font-family: "JetBrains Mono", "IBM Plex Mono", ui-monospace, monospace;
+  font-family: "IBM Plex Mono", ui-monospace, monospace;
 }
 .swarf-license-title {
   font-size: 10px; letter-spacing: 0.02em; text-transform: none;
@@ -1300,7 +1306,7 @@ body:not(.swarf-expert) .swarf-add-op-grid > .swarf-expert-only {
   background: rgba(0,0,0,0.4);
   border: 1px solid var(--swarf-line, #2a2a2a);
   color: var(--swarf-text-1, #ddd);
-  font-family: "JetBrains Mono", "IBM Plex Mono", ui-monospace, monospace;
+  font-family: "IBM Plex Mono", ui-monospace, monospace;
   font-size: 10px;
   padding: 2px 4px;
   border-radius: 2px;
@@ -1337,7 +1343,7 @@ body:not(.swarf-expert) .swarf-add-op-grid > .swarf-expert-only {
   color: var(--swarf-text-1, #ddd) !important;
   padding: 10px 14px !important;
   backdrop-filter: blur(4px);
-  font-family: "JetBrains Mono", "IBM Plex Mono", ui-monospace, monospace;
+  font-family: "IBM Plex Mono", ui-monospace, monospace;
   font-size: 12px;
   letter-spacing: 0.06em;
   box-shadow: 0 -4px 16px rgba(0,0,0,0.6);
@@ -1406,7 +1412,7 @@ body:not(.swarf-expert) .swarf-add-op-grid > .swarf-expert-only {
   border: 1px solid var(--swarf-line, #2a2a2a) !important;
   color: var(--swarf-text-1, #ddd) !important;
   border-radius: 2px !important;
-  font-family: "JetBrains Mono", "IBM Plex Mono", ui-monospace, monospace !important;
+  font-family: "IBM Plex Mono", ui-monospace, monospace !important;
   font-size: 11px !important;
 }
 
@@ -1415,7 +1421,7 @@ body:not(.swarf-expert) .swarf-add-op-grid > .swarf-expert-only {
    when phase=simulating it lifts above the 52px bar so they don't overlap. */
 .swarf-sim-extra {
   margin-left: 8px !important;
-  font-family: "JetBrains Mono", "IBM Plex Mono", ui-monospace, monospace !important;
+  font-family: "IBM Plex Mono", ui-monospace, monospace !important;
   letter-spacing: 0.02em !important;
   text-transform: lowercase !important;
   font-size: 10px !important;
@@ -1468,7 +1474,7 @@ body.swarf-phase-exported   #swarf-watermark::after { background: #6a6a6a; }
   content: "( feed mm/min )";
   position: absolute;
   top: -18px; left: 50%; transform: translateX(-50%);
-  font-family: "JetBrains Mono", "IBM Plex Mono", monospace;
+  font-family: "IBM Plex Mono", monospace;
   font-size: 9px;
   letter-spacing: 0.02em;
   text-transform: none;
@@ -1488,7 +1494,7 @@ body:not(.swarf-expert) #speeds { display: none !important; }
 
 /* --- shared dialog shell --- */
 #mod-x-any, #mod-x-sla, #mod-x-laser, #mod-prefs, #mod-any {
-  font-family: "JetBrains Mono", "IBM Plex Mono", monospace !important;
+  font-family: "IBM Plex Mono", monospace !important;
   color: var(--swarf-text) !important;
   background: var(--swarf-bg-2) !important;
   border: 1px solid var(--swarf-line-2) !important;
@@ -1529,7 +1535,7 @@ body:not(.swarf-expert) #speeds { display: none !important; }
   border-right: none !important;
   border-radius: 0 !important;
   padding: 5px 12px !important;
-  font-family: "JetBrains Mono", "IBM Plex Mono", monospace !important;
+  font-family: "IBM Plex Mono", monospace !important;
   font-size: 10px !important;
   letter-spacing: 0.02em;
   text-transform: none;
@@ -1574,7 +1580,7 @@ body:not(.swarf-expert) #speeds { display: none !important; }
   color: var(--swarf-text) !important;
   border: 1px solid var(--swarf-line-2) !important;
   border-radius: 0 !important;
-  font-family: "JetBrains Mono", "IBM Plex Mono", monospace !important;
+  font-family: "IBM Plex Mono", monospace !important;
   font-size: 11px !important;
   padding: 3px 6px !important;
 }
@@ -1616,7 +1622,7 @@ body:not(.swarf-expert) #speeds { display: none !important; }
    and the plate chrome. The .menu-title already prints "Application
    Preferences" above — retheme that as the big bracketed title. */
 #mod-prefs .menu-title {
-  font-family: "JetBrains Mono", "IBM Plex Mono", monospace !important;
+  font-family: "IBM Plex Mono", monospace !important;
   font-size: 11px;
   letter-spacing: 0.02em;
   text-transform: none;
@@ -1661,7 +1667,7 @@ body:not(.swarf-expert) #speeds { display: none !important; }
 #mod-any .confirm > div { padding-top: 6px !important; }
 #mod-any .confirm h3 {
   margin: 0 0 6px 0;
-  font-family: "JetBrains Mono", "IBM Plex Mono", monospace;
+  font-family: "IBM Plex Mono", monospace;
   font-size: 11px;
   letter-spacing: 0.02em;
   text-transform: none;
@@ -1671,7 +1677,7 @@ body:not(.swarf-expert) #speeds { display: none !important; }
 #mod-any .confirm h3::before { content: "( "; color: var(--swarf-accent-hi); }
 #mod-any .confirm h3::after  { content: " )"; color: var(--swarf-accent-hi); }
 #mod-any .confirm label {
-  font-family: "JetBrains Mono", "IBM Plex Mono", monospace;
+  font-family: "IBM Plex Mono", monospace;
   font-size: 12px;
   line-height: 1.45;
   color: var(--swarf-text);
@@ -1684,7 +1690,7 @@ body:not(.swarf-expert) #speeds { display: none !important; }
   border: 1px solid var(--swarf-line-2) !important;
   border-left: 2px solid var(--swarf-accent) !important;
   border-radius: 0 !important;
-  font-family: "JetBrains Mono", "IBM Plex Mono", monospace !important;
+  font-family: "IBM Plex Mono", monospace !important;
   font-size: 12px !important;
   padding: 5px 8px !important;
   min-width: 220px;
@@ -1717,7 +1723,7 @@ body:not(.swarf-expert) #speeds { display: none !important; }
   background:
     radial-gradient(ellipse at 50% 30%, rgba(208,32,32,0.18) 0%, rgba(0,0,0,0.95) 60%, #000 100%);
   color: #e6e6e6;
-  font-family: "JetBrains Mono", "IBM Plex Mono", ui-monospace, monospace;
+  font-family: "IBM Plex Mono", ui-monospace, monospace;
   padding: 32px 22px;
   box-sizing: border-box;
   overflow-y: auto;
@@ -1749,7 +1755,7 @@ body.swarf-phone > *:not(#swarf-phone-wall) { display: none !important; }
 .swarf-phone-inner > * { flex: 0 0 auto; }
 
 .swarf-phone-mark {
-  font-family: "JetBrains Mono", monospace;
+  font-family: "IBM Plex Mono", monospace;
   font-size: 42px;
   font-weight: 700;
   letter-spacing: 0.02em;
@@ -1861,8 +1867,8 @@ body.swarf-phone > *:not(#swarf-phone-wall) { display: none !important; }
   z-index: 10050;   /* over simulate's bar and every card (Phil 11-01, below) */
   visibility: visible !important;
   font-size: 11px;
-  letter-spacing: 0.08em;
-  font-family: ui-monospace, Menlo, monospace;
+  letter-spacing: .04em;
+  font-family: "IBM Plex Mono", ui-monospace, Menlo, monospace;
   color: var(--swarf-text-2);
   opacity: 0.85;
   user-select: none;
@@ -1892,8 +1898,8 @@ body.swarf-phone > *:not(#swarf-phone-wall) { display: none !important; }
   right: 130px;
   z-index: 65;
   font-size: 11px;
-  letter-spacing: 0.08em;
-  font-family: ui-monospace, Menlo, monospace;
+  letter-spacing: .04em;
+  font-family: "IBM Plex Mono", ui-monospace, Menlo, monospace;
   color: var(--swarf-text);
   cursor: pointer;
   pointer-events: auto;
@@ -1958,7 +1964,7 @@ body:has(#layer-animate:not(.hide)) #ver { bottom: calc(8px + (var(--swarf-simba
 /* swarf size (r36): the selected part's size in mm, at the bottom of the workspace */
 #swarf-size { position: fixed; left: 50%; bottom: 22px; transform: translateX(-50%); z-index: 30; display: none; align-items: center; gap: 8px;
   padding: 8px 14px; background: rgba(27,23,21,.95); border: 1px solid #3a3230; border-radius: 8px; box-shadow: 0 8px 28px rgba(0,0,0,.45);
-  color: var(--swarf-text); font: 13px "JetBrains Mono", "IBM Plex Mono", ui-monospace, monospace; }
+  color: var(--swarf-text); font: 13px "IBM Plex Mono", ui-monospace, monospace; }
 #swarf-size.on { display: flex; }
 /* (r093 UX B4) with the size card up, the steps panel ends above it: the step list gives up
    height (it scrolls) so add a step stays in reach; a panel still too tall scrolls whole */
@@ -1979,7 +1985,7 @@ body:has(#swarf-size.on) #panel-right #oplist { max-height: min(calc(70vh - 200p
 
 /* swarf draw (r37): the bed from above as a drawing, over the workspace. Quiet: no red here */
 #swarf-draw { position: fixed; inset: 0; z-index: 60; background: #121010; color: var(--swarf-text);
-  font: 13px "JetBrains Mono", "IBM Plex Mono", ui-monospace, monospace; }
+  font: 13px "IBM Plex Mono", ui-monospace, monospace; }
 #swarf-draw svg { position: absolute; inset: 0; width: 100%; height: 100%; outline: none; cursor: default; touch-action: none; }
 #swarf-draw .sd-bed { fill: #1a1716; stroke: #3a3230; stroke-width: 1; }
 #swarf-draw .sd-grid { fill: none; stroke: #241f1d; stroke-width: 1; pointer-events: none; }
@@ -2035,13 +2041,13 @@ body.swarf-draw-open #swarf-concerns, body.swarf-draw-open #swarf-size { display
 /* r41: the ShopBot in simulate (swarf-sim-machine.js) */
 #layer-animate :is(#swarf-sim-machine, #swarf-sim-bed) { margin-left: 10px; text-transform: none !important; letter-spacing: 0 !important; }
 #layer-animate #swarf-sim-machine.on, #layer-animate #swarf-sim-bed.on { border-color: #a39a90 !important; color: #fff !important; }
-#swarf-draw .sd-lab { fill: #7d736b; font: 11px "JetBrains Mono", ui-monospace, monospace; pointer-events: none; }
+#swarf-draw .sd-lab { fill: #7d736b; font: 11px "IBM Plex Mono", ui-monospace, monospace; pointer-events: none; }
 #swarf-draw .sd-origin { stroke: #a39a90; stroke-width: 1.2; fill: none; pointer-events: none; }
 #swarf-draw .sd-scale { stroke: #a39a90; stroke-width: 1.2; fill: none; pointer-events: none; }
 /* r44: the empty bed's start card (swarf-start.js). Quiet: cream, no red */
 #swarf-start { position: fixed; left: 50%; top: 46%; transform: translate(-50%, -50%); z-index: 25; display: none; flex-direction: column; align-items: center; gap: 10px;
   padding: 22px 28px 16px; background: rgba(27,23,21,.92); border: 1px solid #3a3230; border-radius: 10px; box-shadow: 0 10px 34px rgba(0,0,0,.45);
-  color: var(--swarf-text); font: 13px "JetBrains Mono", "IBM Plex Mono", ui-monospace, monospace; text-align: center; max-width: calc(100vw - 32px); box-sizing: border-box; }
+  color: var(--swarf-text); font: 13px "IBM Plex Mono", ui-monospace, monospace; text-align: center; max-width: calc(100vw - 32px); box-sizing: border-box; }
 #swarf-start.on { display: flex; }
 #swarf-start h2 { margin: 0; font-size: 16px; font-weight: 500; color: #f2ede4; letter-spacing: 0; text-transform: none; }
 #swarf-start p { margin: 0; color: var(--swarf-text-2); }
@@ -2179,7 +2185,7 @@ html:not([data-skin]) .set-header a, html:not([data-skin]) summary.set-header a 
 #swarf-tutorial.on { display: grid; }
 /* kiri's index.css makes every div a flex row (#app,div {display:flex}); the card stacks */
 #swarf-tutorial .st-card, #swarf-tutorial .st-body, #swarf-tutorial .st-n { display: block; }
-#swarf-tutorial .st-card { width: min(560px, 92vw); background: #15110f; color: #ede6da; border: 1px solid #3a302c; border-radius: 14px; padding: 16px 20px 18px; box-shadow: 0 24px 70px rgba(0,0,0,.55); font-family: "JetBrains Mono", "IBM Plex Mono", ui-monospace, monospace; }
+#swarf-tutorial .st-card { width: min(560px, 92vw); background: #15110f; color: #ede6da; border: 1px solid #3a302c; border-radius: 14px; padding: 16px 20px 18px; box-shadow: 0 24px 70px rgba(0,0,0,.55); font-family: "IBM Plex Mono", ui-monospace, monospace; }
 #swarf-tutorial .st-top { display: flex; align-items: center; gap: 10px; font-size: 12px; color: #c9c0b3; }
 #swarf-tutorial .st-title { font-weight: 600; color: #ede6da; }
 #swarf-tutorial .st-count { margin-left: auto; }
@@ -2408,7 +2414,7 @@ body:has(#modal[style*="flex"]) #swarf-start, body:has(#dialog[open]) #swarf-sta
 /* the picked tab's card (cl-tabedit.js): the size card's look, in its place while a tab is picked */
 #swarf-tabcard { position: fixed; left: 50%; bottom: 22px; transform: translateX(-50%); z-index: 31; display: none; align-items: center; gap: 8px;
   padding: 8px 14px; background: rgba(27,23,21,.95); border: 1px solid #3a3230; border-radius: 8px; box-shadow: 0 8px 28px rgba(0,0,0,.45);
-  color: var(--swarf-text); font: 13px "JetBrains Mono", "IBM Plex Mono", ui-monospace, monospace; }
+  color: var(--swarf-text); font: 13px "IBM Plex Mono", ui-monospace, monospace; }
 #swarf-tabcard.on { display: flex; }
 body.swarf-tab-picked #swarf-size { display: none !important; }
 body.swarf-draw-open #swarf-tabcard { display: none !important; }
@@ -2557,3 +2563,5 @@ html[data-skin="glass"] .swarf-ctx, html[data-skin="classic"] .swarf-ctx { backg
 .swarf-concern-fix { display: block; margin-top: 5px; padding: 2px 10px; font-size: 11px; cursor: pointer; }
 #swarf-concerns-body { position: relative; }
 .swarf-concerns-x { position: absolute; top: 2px; right: 4px; padding: 0 5px; border: 0; background: none; color: inherit; font-size: 15px; line-height: 18px; cursor: pointer; }
+
+body { font-variant-numeric: tabular-nums; }

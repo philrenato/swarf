@@ -104,7 +104,7 @@
 #swarf-run button:hover, #swarf-run button:active { background: var(--swarf-bg-3, #1c1817); color: var(--swarf-text, #d8d2c6); }
 #swarf-run { position: fixed; inset: 0; z-index: 60; display: none; flex-direction: column;
   background: var(--swarf-bg, #0a0808); color: var(--swarf-text, #d8d2c6);
-  font-family: "JetBrains Mono", "IBM Plex Mono", ui-monospace, monospace; font-size: 13px; }
+  font-family: "IBM Plex Mono", ui-monospace, monospace; font-size: 13px; }
 #swarf-run.open { display: flex; }
 #swarf-run button { font: inherit; color: inherit; cursor: pointer; }
 #swarf-run button:disabled { cursor: not-allowed; opacity: .32; }
@@ -259,7 +259,7 @@
 .sr-chk button.ok { border-color: #2f9e5a; color: #6fd39a; }
 .sr-card h3 { margin: 14px 0 4px; font-size: 12px; letter-spacing: 0.02em; text-transform: none; color: var(--swarf-text-2, #8a857c); }
 .sr-dots { display: flex; gap: 6px; flex-wrap: wrap; margin: 4px 0 8px; }
-.sr-dots i { width: 26px; height: 26px; border-radius: 50%; display: grid; place-items: center; font: 600 11px "JetBrains Mono", ui-monospace, monospace; font-style: normal; border: 1px solid var(--swarf-line-2, #3a1e18); color: var(--swarf-text-2, #8a857c); }
+.sr-dots i { width: 26px; height: 26px; border-radius: 50%; display: grid; place-items: center; font: 600 11px "IBM Plex Mono", ui-monospace, monospace; font-style: normal; border: 1px solid var(--swarf-line-2, #3a1e18); color: var(--swarf-text-2, #8a857c); }
 .sr-dots i.on { background: var(--swarf-accent, #d02020); border-color: var(--swarf-accent, #d02020); color: #fff; }
 .sr-card .sr-out.armed { border-color: var(--swarf-accent, #d02020); color: #fff; }
 body.swarf-run-open { filter: none !important; }

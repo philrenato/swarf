@@ -30,7 +30,7 @@
 
     // the letters are a sixteenth of the bed's depth tall, inset by one letter
     const h = Math.max(8, d.bedDepth / 16), inset = h;
-    const px = 96, font = `600 ${px}px "JetBrains Mono", "IBM Plex Mono", ui-monospace, monospace`;
+    const px = 96, font = `600 ${px}px "IBM Plex Mono", ui-monospace, monospace`;
     const c = document.createElement('canvas'), g = c.getContext('2d');
     g.font = font;
     const tw = Math.ceil(g.measureText(text).width) + 8;

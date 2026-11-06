@@ -63,6 +63,16 @@ node tools/make_notices.mjs >/dev/null
 cp license.md THIRD_PARTY_NOTICES.txt "$WEB_APP/"
 # the site carries the notices without the author's email (the publish gate keeps addresses off the web)
 sed -i '' -E 's/ <[A-Za-z0-9._%+-]+@gmail\.com>//g' "$WEB_APP/license.md" "$WEB_APP/THIRD_PARTY_NOTICES.txt"
+# index.html is never copied whole (see the note below), but its body must follow the source: 107's help page
+# edits stopped here and never reached the site. Head and the analytics tail stay the site's own.
+node - "$WEB_APP/index.html" <<'SYNC'
+const fs = require('fs'), site = process.argv[2];
+const src = fs.readFileSync('web/kiri/index.html', 'utf8'), dst = fs.readFileSync(site, 'utf8');
+const END = '<script src="swarf-install.js"></script>';
+const body = t => { const a = t.indexOf('</head>'), b = t.indexOf(END); if (a < 0 || b < 0) throw new Error('deploy: index.html markers missing'); return [a + 7, b]; };
+const [sa, sb] = body(src), [da, db] = body(dst);
+fs.writeFileSync(site, dst.slice(0, da) + src.slice(sa, sb) + dst.slice(db));
+SYNC
 echo "[3/5] rewrite worker + wasm + asset paths to /swarf-app/ absolutes"
 # worker + wasm (fatal — toolpaths break without these)
 sed -i '' 's|"\.\./lib/kiri/run/worker\.js"|"/swarf-app/lib/kiri/run/worker.js"|g' "$WEB_APP/lib/main/kiri.js"

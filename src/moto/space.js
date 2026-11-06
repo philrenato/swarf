@@ -1033,6 +1033,7 @@ function onResize() {
         camera.bottom = -100;
     }
     camera.updateProjectionMatrix();
+    renderer.setPixelRatio(Math.min(WIN.devicePixelRatio || 1, 3));
     renderer.setSize(width(), height());
     container.style.width = width();
     container.style.height = height();
@@ -2103,6 +2104,8 @@ let Space = {
             new THREE.PerspectiveCamera(perspective, aspect(), 0.1, 100000);
 
         camera.position.set(0, 200, 340);
+        // swarf: the stage as sharp as the page around it (UnRest notes 11-06: a scene pixel was a 2×2 block)
+        renderer.setPixelRatio(Math.min(WIN.devicePixelRatio || 1, 3));
         renderer.setSize(width(), height());
         domelement.appendChild(renderer.domElement);
 

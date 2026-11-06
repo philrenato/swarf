@@ -717,7 +717,7 @@
     const select = document.createElement('select');
     select.id = 'swarf-material-select';
     select.title = 'what your board is made of: its look in simulate and its starting speeds';
-    select.style.cssText = 'flex:1; font-size:13px; padding:6px 8px; background:rgba(0,0,0,0.55); border:1px solid var(--swarf-accent, #7a2a1a); color:#fff; border-radius:2px; font-family:"JetBrains Mono","IBM Plex Mono",ui-monospace,monospace;';
+    select.style.cssText = 'flex:1; font-size:13px; padding:6px 8px; background:rgba(0,0,0,0.55); border:1px solid var(--swarf-accent, #7a2a1a); color:#fff; border-radius:2px; font-family:"IBM Plex Mono",ui-monospace,monospace;';
     fillOptions(select);
     select.addEventListener('change', () => setCurrent(select.value));
     row.appendChild(label);
