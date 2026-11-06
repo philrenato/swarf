@@ -786,7 +786,7 @@
       select.appendChild(opt);
     }
     const rule = softRule();
-    select.title = 'your board's material: its look and its starting speeds' + (rule ? `. ${rule.why}` : '');
+    select.title = 'what the board is made of: its look and starting speeds' + (rule ? `. ${rule.why}` : '');
   }
 
   // after a machine change: a metal on a soft-only machine falls back to the
@@ -820,7 +820,7 @@
     label.style.cssText = 'font-size:13px; letter-spacing:0.02em; text-transform:none; color:var(--swarf-accent-hi, #ff3a2a); font-weight:600; flex:0 0 auto;';
     const select = document.createElement('select');
     select.id = 'swarf-material-select';
-    select.title = 'your board's material: its look and its starting speeds';
+    select.title = 'what the board is made of: its look and starting speeds';
     select.style.cssText = 'flex:1; font-size:13px; padding:6px 8px; background:rgba(0,0,0,0.55); border:1px solid var(--swarf-accent, #7a2a1a); color:#fff; border-radius:2px; font-family:"IBM Plex Mono",ui-monospace,monospace;';
     fillOptions(select);
     select.addEventListener('change', () => setCurrent(select.value));
