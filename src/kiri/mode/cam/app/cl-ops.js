@@ -367,6 +367,8 @@ export function createPopOps() {
         outside: 'camOutlineOut',
         inside: 'camOutlineIn',
         wide: 'camOutlineWide',
+        leave: 'camOutlineLeave',
+        lastpass: 'camOutlineLastPass',
         ov_topz: 0,
         ov_botz: 0,
     }).inputs = {
@@ -385,6 +387,8 @@ export function createPopOps() {
         wide: UC.newBoolean(LANG.co_wide_s, undefined, { title: LANG.co_wide_l, show: () => env.poppedRec.outside }),
         dogbones: UC.newBoolean(LANG.co_dogb_s, undefined, { title: LANG.co_dogb_l, show: (op) => { return !op.inputs.wide.checked } }),
         revbones: UC.newBoolean(LANG.co_dogr_s, undefined, { title: LANG.co_dogr_l, show: () => env.poppedRec.dogbones }),
+        leave: UC.newInput('leave', { title: 'wood left on the part by the first passes', convert: toFloat, units }),
+        lastpass: UC.newBoolean('last pass', undefined, { title: 'one more time round at full depth, at the true size' }),
         sep: UC.newBlank({ class: "pop-sep" }),
         exp: UC.newExpand("feeds & speeds", { }),
         spindle: UC.newInput(LANG.cc_spnd_s, { title: LANG.cc_spnd_l, convert: toInt, show: hasSpindle }),

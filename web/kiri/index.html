@@ -419,9 +419,9 @@
                             <div title="smooths a curved top line by line, after rough">contour</div>
                             <div title="cuts the part free along its edge: usually last">outline</div>
                             <div title="clears a flat hollow down to a face you pick">pocket</div>
+                            <div title="drills the round holes in the part that are the size of its bit: peck by peck, down to the bottom of the board">drill</div>
                             <!-- expert-only ops, hidden in student mode -->
                             <div class="swarf-expert-only" title="clear the top of the stock to a flat reference surface">level</div>
-                            <div class="swarf-expert-only" title="drill selected holes">drill</div>
                             <div class="swarf-expert-only" title="follow selected features, often used for lettering and engraving">trace</div>
                             <div class="swarf-expert-only" title="perform operations on outlines or surfaces — a low-level wrapper">area</div>
                             <div class="swarf-expert-only" title="insert custom gcode">gcode</div>
@@ -558,7 +558,7 @@
                         <dt>rough</dt><dd>the first pass: it clears most of the wood in flat layers above the part, fast and deep, and leaves a little for contour to finish. its step-down stays under half the bit's width; its stepover is 40–60% of the bit.</dd>
                         <dt>contour</dt><dd>smooth surface pass after rough. the cutter crawls across the X or Y axis at a fine stepover, riding the part's curves. typical stepover: 5–15% of tool diameter on finishing.</dd>
                         <dt>outline</dt><dd>cuts the part free from the board along its outside edge. usually the last step. leave tabs so the part doesn't fly out.</dd>
-                        <dt>pocket</dt><dd>clears flat-bottomed hollows: trays, recesses, a sunk hole. pick the floor face and swarf clears down to it, inside its walls.</dd>
+                        <dt>pocket</dt><dd>clears flat-bottomed hollows: trays, recesses, a sunk hole. pick the floor face and swarf clears down to it, inside its walls. a flat part has no floor to pick: the card's pocket in tex button opens tex with inlay picked, where you drag the shape and type the depth.</dd>
                     </dl>
                 </section>
                 <section>
@@ -574,6 +574,8 @@
                         <dt>tab</dt><dd>a small uncut bridge of stock that holds the part in place during the outline cut, so it doesn't shift or fly out. break or sand off after.</dd>
                         <dt>auto tabs</dt><dd>tabs › auto tabs puts a starting set of tabs on the selected part at once, sized for its material, the outline's bit, the board's thickness and the machine (undo or remove all takes them back). how many: fewer to more. size: smaller to larger. each is an ordinary tab: click one to pick it, then drag it along the edge, press delete, or change its length, height and reach in its card. one you moved or resized stays as you set it when the tabs are placed again (back to automatic lets go), and where you deleted one stays empty; placing again never touches tabs you placed with tabs › +. every hole that leaves a loose piece (wider than two bits and 3 mm) gets tabs too, so nothing cut free can catch the bit and fly; hold inside pieces turns that off. with no tabs, concerns and control's cut checklist say what would come loose.</dd>
                         <dt>tab settings</dt><dd>every number in tabs is a field: length, height, reach (across the cut), how many, from corners, hold inside pieces on or off, holes from (how wide a hole is before it gets tabs), and how many in each hole. an empty field is automatic and shows its number in gray; type one (3/4, 12 mm) to pin it, empty it to go back. a part's tabs follow its settings: change a field and they move at once; scale the part, or change its material, bit or machine, and they are placed again. length, height and reach also resize the tabs you placed by hand. all automatic empties every field. remove all takes every tab away.</dd>
+                        <dt>leave</dt><dd>on an outline step: wood the first passes leave on the part. 0 leaves none. with a last pass it comes off at the end; without one the part stays that much oversize.</dd>
+                        <dt>last pass</dt><dd>on an outline step: one more time round at the whole depth, at the true size, for a clean edge. leave about 1/2 mm for it. tabs stay in both passes: a part with no tabs would be skimmed loose.</dd>
                         <dt>stock</dt><dd>the board on the machine's bed. swarf sizes it to the parts; advanced lets you size it yourself.</dd>
                         <dt>z top / z bottom</dt><dd>upper and lower Z bounds for the carving. defines the slab swarf will work inside.</dd>
                         <dt>z clearance</dt><dd>how high above stock the tool retracts during rapids. high enough to clear clamps; low enough not to waste time.</dd>
@@ -585,7 +587,7 @@
                         <dt>end-mill</dt><dd>flat-bottomed cutter, the workhorse. diameter and flute count vary; fewer flutes = better chip clearance for soft material.</dd>
                         <dt>ball-end</dt><dd>spherical tip. for 3D contour finishing on curved surfaces. leaves a cusp pattern proportional to stepover.</dd>
                         <dt>v-bit</dt><dd>conical cutter for engraving and chamfering. depth controls the line width.</dd>
-                        <dt>drill</dt><dd>plunges straight down to make holes. the drill step is in advanced.</dd>
+                        <dt>drill</dt><dd>plunges straight down to make holes: add a step › drill finds the round holes that are the bit's size, drawn or modeled, and pecks down to the bottom of the board. a hole bigger than the bit needs an outline or a pocket.</dd>
                     </dl>
                 </section>
                 <section>

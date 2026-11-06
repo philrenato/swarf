@@ -32,6 +32,9 @@ for (const q of ['save project', '.swarf', 'kmz', 'windows', 'zadig', 'e-stop', 
 // what changed at the machine stays said (106/107): jog's default, new, the router-off refusal, carving
 for (const q of ['continuous', 'files › new', 'router off', 'carve', 'v-carve'])
   assert.ok(find(q).length, `help search "${q}" finds nothing`);
+// the outline's allowance and last pass, the basic drill step, the pocket's way to tex (108)
+for (const q of ['last pass', 'allowance', 'drill step', 'bigger than the bit', 'pocket in tex'])
+  assert.ok(find(q).length, `help search "${q}" finds nothing`);
 // every menu item says what it does when hovered (quit is hidden)
 const menu = readFileSync(root + 'src/kiri/app/init/menu.js', 'utf8');
 const bare = [...menu.matchAll(/menuItem\(actions, \{ id: '([\w-]+)'[^\n]*/g)].filter(m => !/\btitle:/.test(m[0]) && m[1] !== 'app-quit').map(m => m[1]);

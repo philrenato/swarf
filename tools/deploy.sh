@@ -63,6 +63,8 @@ node tools/make_notices.mjs >/dev/null
 cp license.md THIRD_PARTY_NOTICES.txt "$WEB_APP/"
 # the site carries the notices without the author's email (the publish gate keeps addresses off the web)
 sed -i '' -E 's/ <[A-Za-z0-9._%+-]+@gmail\.com>//g' "$WEB_APP/license.md" "$WEB_APP/THIRD_PARTY_NOTICES.txt"
+# the site keeps its own index.html, so a help line that has gone false is patched there, that line only
+sed -i '' -E 's|<dt>drill</dt><dd>[^<]*</dd>|<dt>drill</dt><dd>plunges straight down to make holes: add a step › drill finds the round holes that are the bit'"'"'s size, drawn or modeled, and pecks down to the bottom of the board. a hole bigger than the bit needs an outline or a pocket.</dd>|' "$WEB_APP/index.html"
 echo "[3/5] rewrite worker + wasm + asset paths to /swarf-app/ absolutes"
 # worker + wasm (fatal — toolpaths break without these)
 sed -i '' 's|"\.\./lib/kiri/run/worker\.js"|"/swarf-app/lib/kiri/run/worker.js"|g' "$WEB_APP/lib/main/kiri.js"

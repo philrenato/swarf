@@ -318,7 +318,7 @@ function opShow(f, v) {
     const L = window.SwarfLength, inch = opInch();
     if (f === 'rate' || f === 'plunge') return String(inch ? +(v / 25.4).toFixed(1) : Math.round(v));
     if (f === 'step') return String(+(v * 100).toFixed(1));
-    if (f === 'down' || f === 'texstep') return L ? (L.field || L.show)(v) : String(+(v / (inch ? 25.4 : 1)).toFixed(inch ? 4 : 3));
+    if (f === 'down' || f === 'texstep' || f === 'leave') return L ? (L.field || L.show)(v) : String(+(v / (inch ? 25.4 : 1)).toFixed(inch ? 4 : 3));
     return String(v);
 }
 function opParse(f, text) {
@@ -334,7 +334,7 @@ function opParse(f, text) {
     }
     // a share of the bit: 40 or 40 %; past 100 % the passes leave ridges between them (refused)
     if (f === 'step') { const p = parseFloat(String(text).replace(',', '.').replace('%', '')); return p > 0 && p <= 100 ? p / 100 : p > 100 ? Infinity : NaN; }
-    if (f === 'down' || f === 'texstep') {
+    if (f === 'down' || f === 'texstep' || f === 'leave') {
         const mm = L ? L.parse(text) : n * (inch ? 25.4 : 1);
         return mm >= 0 ? mm : NaN;
     }
@@ -423,7 +423,7 @@ export function opRender() {
         }
         const SWARF_OP_FIELDS = {
             rough:   ['tool','rate','down','step','inside'],
-            outline: ['tool','rate','down','step','inside','outside'],
+            outline: ['tool','rate','down','step','inside','outside','leave','lastpass'],
             pocket:  ['tool','rate','down','step'],
             contour: ['tool','rate','step','inside'],
             lathe:   ['tool','rate','down','step'],
@@ -437,14 +437,16 @@ export function opRender() {
             inlay:   ['tool','texstep','down','rate','plunge'],
         };
         // boolean fields render as checkboxes
-        const BOOL_FIELDS = { inside: true, outside: true, all: true, flats: true, curves: true };
+        const BOOL_FIELDS = { inside: true, outside: true, all: true, flats: true, curves: true, lastpass: true };
         const swarfFields = (!clock && SWARF_OP_FIELDS[rec.type]) || null;
         let drawerHtml = '';
         if (swarfFields) {
             const tex = rec.texmark && window.__swarfTex && window.__swarfTex.stepCard ? window.__swarfTex.stepCard(rec.texmark) : null;
             const labels = { tool: 'tool', rate: 'feed', down: 'stepdown', step: 'stepover', plunge: 'plunge', path: 'path', finish: 'finish', texstep: 'stepover',
                              inside: 'inside only', outside: 'outside only', all: 'clear all',
-                             flats: 'flats', curves: 'curves' };
+                             flats: 'flats', curves: 'curves', leave: 'leave', lastpass: 'last pass' };
+            // a drill's feed is how fast it goes down, and its step-down a peck
+            if (rec.type === 'drill') { labels.rate = 'plunge'; labels.down = 'peck'; }
             // (review r086 F4) every number says its unit and follows mm | in: feed in mm/min or
             // in/min, step-down a length (fractions typed), stepover a share of the bit's width
             const inch = opInch();
@@ -459,8 +461,14 @@ export function opRender() {
                 texstep: rec.type === 'inlay' ? `stepover: how far apart the pocket's rings are, in ${inch ? 'inches' : 'mm'}; 40% of the bit unless you type your own` : `stepover: how far apart the raster's passes are, in ${inch ? 'inches' : 'mm'}; a finish sets it, or type your own`,
                 inside: 'cut only inside the part outline',
                 outside: 'cut only outside the part outline',
+                leave: `leave: wood the first passes leave on the part, in ${inch ? 'inches' : 'mm'}. 0 leaves none. Without a last pass the part stays that much oversize`,
+                lastpass: 'last pass: one more time round at the whole depth, at the true size, for a clean edge. Tabs stay. Give it a leave of about 1/2 mm',
             };
-            const units = { rate: inch ? 'in/min' : 'mm/min', plunge: inch ? 'in/min' : 'mm/min', down: inch ? 'in' : 'mm', step: '% of bit', texstep: inch ? 'in' : 'mm' };
+            if (rec.type === 'drill') {
+                tips.rate = `plunge: how fast the bit goes down into the wood, in ${inch ? 'inches' : 'mm'} per minute`;
+                tips.down = `peck: how deep the bit goes before it lifts to clear the chips, in ${inch ? 'inches' : 'mm'}. 0 goes down in one`;
+            }
+            const units = { rate: inch ? 'in/min' : 'mm/min', plunge: inch ? 'in/min' : 'mm/min', down: inch ? 'in' : 'mm', step: '% of bit', texstep: inch ? 'in' : 'mm', leave: inch ? 'in' : 'mm' };
             const rows = swarfFields.map(f => {
                 const tip = tips[f] ? ` title="${tips[f]}"` : '';
                 if (f === 'tool') {
@@ -550,6 +558,8 @@ export function opRender() {
                             inp.appendChild(o);
                         }
                     } else if (inp.type !== 'checkbox') {
+                        // a step saved before leave existed leaves none
+                        if (f === 'leave' && rec.leave == null) inp.value = opShow(f, 0);
                         if (rec[f] !== undefined && rec[f] !== null) inp.value = opShow(f, rec[f]);
                         inp.addEventListener('keydown', ev => { if (ev.key === 'Enter') inp.blur(); });
                     }
@@ -575,6 +585,7 @@ export function opRender() {
                             else if (!Number.isFinite(v)) no = typed ? `swarf could not read "${typed}" there: it stays as it was.` : null;
                             else if (f === 'down' && v > 150) no = `A step-down goes up to ${lenWords(150)}, the most this machine cuts: it stays as it was.`;
                             else if (f === 'down' && v === 0 && rec.type !== 'drill') no = 'A step-down of 0 cuts nothing, or the whole depth at once: give it a depth above 0. It stays as it was.';
+                            else if (f === 'leave' && v > toolWidth(rec)) no = `An allowance goes up to the bit's width (${lenWords(toolWidth(rec))}): it stays as it was.`;
                             else if (f === 'rate' && top > 0 && v > top) no = `That is faster than this machine moves (${rateWords(top)} at most): the feed stays as it was.`;
                             if (no) api.show.alert(no, 6);
                             else if (Number.isFinite(v)) rec[f] = v;
@@ -1059,6 +1070,18 @@ export function init() {
         if (env.func.unpop) env.func.unpop();
     };
 
+    // drill is a basic step (review 105 B4). Done here as well as in index.html: the site's page is its
+    // own copy of that file and deploy.sh does not overwrite it
+    {
+        const list = $('op-add-list'), kids = [...list.children], word = t => kids.find(c => c.textContent.trim() === t);
+        const drill = word('drill'), pocket = word('pocket');
+        if (drill && pocket) {
+            drill.classList.remove('swarf-expert-only');
+            drill.title = 'drills the round holes in the part that are the size of its bit: peck by peck, down to the bottom of the board';
+            pocket.after(drill);
+        }
+    }
+
     $('op-add-list').onclick = (ev) => {
         switch (ev.target.innerText.toLowerCase()) {
             case "index": return opAddIndex();
@@ -1310,6 +1333,24 @@ function animate() {
 
 // swarf: the line under a step: its bit, how deep it goes and in how many passes, and the speed its
 // full-width pass really runs at when that is not the number on the card (prepare.js polyEmit)
+function toolWidth(rec) {
+    const t = (api.conf.get().tools || []).find(t => t.id == rec.tool);
+    return t ? t.flute_diam * (t.metric ? 1 : 25.4) : Infinity;
+}
+// the round holes in the parts a drill step cuts: how many its bit drills, and the deepest
+function drillCount(rec) {
+    const H = self.__swarfHoles;
+    if (!H) return null;
+    const bit = toolWidth(rec), parts = api.widgets.all().filter(w => !w.track.synth && !w.meta.disabled);
+    let n = 0, deep = 0;
+    for (const w of parts) {
+        const picked = rec.drills?.[w.id];
+        if (picked) { n += picked.filter(d => d.selected).length; continue; }
+        const { holes, zmin, zmax } = H.of(w);
+        for (const h of holes) if (H.fit(h.d, bit) === 'fits') { n++; deep = Math.max(deep, zmax - (h.floor ?? zmin)); }
+    }
+    return { n, deep };
+}
 function stepLine(rec) {
     const { process, tools, device } = api.conf.get();
     const tool = (tools || []).find(t => t.id == rec.tool);
@@ -1323,6 +1364,12 @@ function stepLine(rec) {
         const passes = rec.down > 0 ? Math.ceil((thick + 0.01) / rec.down) : 1;
         bits.push(`${len(thick)} deep, ${passes} pass${passes === 1 ? '' : 'es'}`);
     }
+    if (rec.type === 'outline' && rec.leave > 0) bits.push(`leaves ${len(rec.leave)}${rec.lastpass ? '' : ', no last pass: stays oversize'}`);
+    if (rec.type === 'outline' && rec.lastpass) bits.push('last pass at the whole depth');
+    if (rec.type === 'drill') {
+        const c = drillCount(rec);
+        if (c) bits.push(c.n ? `${c.n} hole${c.n === 1 ? '' : 's'}${c.deep > 0 ? `, ${len(c.deep)} deep` : ''}` : 'no hole this bit fits');
+    }
     if (rec.type === 'pocket') bits.push('down to the floor you pick');
     if (rec.rate > 0 && rec.type === 'outline' && !(process.camFullEngage >= 1)) {
         const band = /shopbot/i.test(device?.deviceName || '') ? 1500 : 0;
@@ -1331,10 +1378,36 @@ function stepLine(rec) {
     }
     return bits.join(' · ');
 }
+// A pocket clears down to a floor in the part (op-pocket.js): a flat part has none, and a floor cannot
+// be typed. TEX's inlay cuts a flat pocket from a mark at a typed depth: the card sends the student there.
+function pocketRoute(rec) {
+    const H = self.__swarfHoles, parts = api.widgets.all().filter(w => !w.track.synth && !w.meta.disabled);
+    if (rec.type !== 'pocket' || !H || !self.__swarfTex?.openPocket || !parts.length) return false;
+    if (Object.values(rec.surfaces || {}).some(l => l && l.length)) return false;
+    return !parts.some(w => H.recess(w));
+}
 function paintStepLines() {
     const ops = env.current?.process?.ops || [];
     for (const el of document.querySelectorAll('#oplist .swarf-op-sum')) {
         const rec = ops[el.dataset.step], say = rec ? stepLine(rec) : '';
         if (el.textContent !== say) el.textContent = say;
+        const card = el.parentElement, was = card.querySelector('.swarf-op-route'), want = !!rec && pocketRoute(rec);
+        if (want && !was) {
+            const box = document.createElement('div');
+            box.className = 'swarf-op-route';
+            box.textContent = 'This part has no recess to clear. For a flat pocket at a depth you type, mark its shape in tex.';
+            const go = document.createElement('button');
+            go.type = 'button';
+            go.textContent = 'pocket in tex';
+            go.title = 'opens tex with inlay picked: drag a shape on the part and type its depth. Done adds an inlay step and a plug part left out of the run. This empty step goes.';
+            for (const ev of ['mousedown', 'click']) go.addEventListener(ev, e => e.stopPropagation());
+            go.addEventListener('click', () => {
+                const cur = (env.current?.process?.ops || [])[el.dataset.step];
+                if (cur && cur.type === 'pocket') opDel(cur);
+                self.__swarfTex.openPocket();
+            });
+            box.appendChild(go);
+            el.after(box);
+        } else if (!want && was) was.remove();
     }
 }

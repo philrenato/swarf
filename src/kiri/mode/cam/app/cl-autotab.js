@@ -30,6 +30,7 @@
 import { api } from '../../../app/api.js';
 import { env } from './init-ui.js';
 import { addWidgetTab, clearTabs, restoreTabs } from './cl-tab.js';
+import { roundHoles, flatsOf, holeFit } from './round-holes.js';
 import { tabRule, planTabs, sliceLoops, tabRecord, holeMinFor, inside, edgeOf, nearestOnLoops, recordAt, turnSpots, mirrorSpots, scaleSpots } from './autotab-rule.js';
 import { space as SPACE } from '../../../../moto/space.js';
 
@@ -757,6 +758,12 @@ export function autoTabRow() {
         } catch (e) {}
         showFields();
     }, 0);
+    // the round holes the drill step reads (round-holes.js), for the concerns and step lines
+    window.__swarfHoles = {
+        of: widget => roundHoles(widget.getGeoVertices({ unroll: true })),
+        recess: widget => flatsOf(widget.getGeoVertices({ unroll: true })).recess,
+        fit: holeFit,
+    };
     window.__swarfAutoTabs = {
         plan: autoPlan, place: autoPlace, inputs: autoInputs, rule: tabRule,
         refresh: autoRefresh, forget: autoForget, audit: autoAudit, fields: FIELDS,

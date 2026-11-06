@@ -574,6 +574,8 @@ export const conf = {
                 camOutlineSpindle: 1000,
                 camOutlineTool: 1000,
                 camOutlineWide: false,
+                camOutlineLeave: 0,
+                camOutlineLastPass: false,
                 camPocketContour: false,
                 camPocketDown: 1,
                 camPocketExpand: 0,
