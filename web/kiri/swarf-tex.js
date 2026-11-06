@@ -197,7 +197,8 @@
   function newMark(part, made) {
     const b = part.box, pad = 2;
     const region = T().newGrid(b[0] - pad, b[1] - pad, b[2] + pad, b[3] + pad, 0.5);
-    const f = lastFill() || T().newFill('waves', { tool: 'ball14' });
+    // a visit from a pocket step's card starts on a flat pocket, deep enough to show, short of the bottom
+    const f = (pocketVisit && T().newInlay({ depth: Math.min(T().INLAY.depth, Math.max(0.5, r3(part.thick / 2))) })) || lastFill() || T().newFill('waves', { tool: 'ball14' });
     f.origin = [(b[0] + b[2]) / 2, (b[1] + b[3]) / 2];
     return { id: newId(), made: made || 'brush', region, xf: T().IDENTITY.slice(), fill: normBit(f), face: faceNow(part.w), at: rqOf(part.w).slice(), ver: 1 };
   }
@@ -207,6 +208,7 @@
   // ── the board ──
   let S = null;
   const ui = {};
+  let pocketVisit = false;
 
   function open() {
     const a = api();
@@ -313,6 +315,7 @@
   // adapt, never trap): what it could not do, it says after.
   // quiet: the next mode speaks instead (make it a part / a hole: DRAW says what happens to the mark)
   function close(apply, quiet) {
+    pocketVisit = false;
     if (!S) return;
     let said = '';
     if (apply) { try { said = commit(); } catch (e) { console.warn('swarf tex', e); said = `The marks could not all be kept: ${e.message || e}.`; } }
@@ -1805,5 +1808,13 @@
     if (before) { const after = texSnap(ws); a.doit.push(() => texPut(before), () => texPut(after), { undo: 'carved words: undone', redo: 'carved words: back' }); }
     return r;
   }
-  window.__swarfTex = { open, close, say, setTool, render, state: () => S, lastMesh: () => S && S.lastMesh, concerns, syncSteps, pierceAvoid, stepCard, setStepCard, carve, uncarve, carving };
+  // from a pocket step's card: this visit's new marks are flat pockets (init-ui.js pocketRoute)
+  function openPocket() {
+    pocketVisit = true;
+    const a = api(), picked = a && a.selection.widgets ? a.selection.widgets() : [];
+    if (a && !picked.length) { const one = a.widgets.all().find(w => !(w.track && w.track.synth) && !(w.meta && w.meta.disabled)); if (one) a.platform.select(one); }
+    open();
+    if (S) { say('Pocket: drag a rectangle or an ellipse on the part, then type its depth on the card. Done adds an inlay step, and a plug that fills it, left out of this run.'); render(); }
+  }
+  window.__swarfTex = { open, openPocket, close, say, setTool, render, state: () => S, lastMesh: () => S && S.lastMesh, concerns, syncSteps, pierceAvoid, stepCard, setStepCard, carve, uncarve, carving };
 })();

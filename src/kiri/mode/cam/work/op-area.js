@@ -276,20 +276,21 @@ class OpArea extends CamOp {
                     let layers = slice.output();
                     let shadow = op.base ? state.shadow.base : await shadowAt(z);
                     let outs = [];
+                    let offit;
                     if (tr_type === 'none') {
                         // todo: move this out of the zs loop and only setZ when needed
                         area = area.clone(true);
                         outs = [ zs.length > 1 || op.thru ? area.setZ(z) : clampZ(area, zTop, zBottom) ];
                     } else {
                         // drape is legacy outline
-                        let offit = op.drape ? shadow : [ area ];
+                        offit = op.drape ? shadow : [ area ];
                         if (op.omitthru && op.drape) {
                             offit = omitMatching(offit, thruHoles);
                         }
                         // todo: move this out of the zs loop
                         let stepping = tr_type === 'inside' ?
                             ( tr_over ? -tr_over : [ -toolDiam / 2, -toolOver ] ) :
-                            ( tr_over ? tr_over : [ toolDiam / 2, toolOver ] );
+                            ( tr_over ? tr_over : [ toolDiam / 2 + (op.leave_xy ?? 0), toolOver ] );
                         POLY.offset(offit, stepping, {
                             count: op.steps ?? 1, outs, flat: true, z, minArea: 0, open: true
                         });
@@ -305,6 +306,11 @@ class OpArea extends CamOp {
                         outs = omitOuter(outs);
                     } else if (op.omitinner) {
                         outs = omitInner(outs);
+                    }
+                    // swarf: an outline's last pass goes round once at full depth, except where the
+                    // first passes never reached and it would be cutting a full slot
+                    if (op.skim !== undefined && z !== zs.peek()) {
+                        outs = unroughed(outs, offit, toolDiam, op.skim, z);
                     }
                     // cut tabs when present
                     if (tabs.length) outs = cutTabs(tabs, outs);
@@ -518,6 +524,36 @@ class OpArea extends CamOp {
             }
         }
     }
+}
+
+// A last pass's loops the first passes did not clear beside: a hole too narrow for the bit plus the
+// allowance, a notch the first passes could not enter. These step down like any cut. So does all of
+// it when the allowance is more than a quarter of the bit: too much to take at full depth.
+function unroughed(outs, offit, toolDiam, leave, z) {
+    if (leave > toolDiam / 4) return outs;
+    if (!(leave > 0)) return [];
+    const rough = [];
+    POLY.offset(offit, [ toolDiam / 2 + leave ], { count: 1, outs: rough, flat: true, z, minArea: 0, open: true });
+    // a sharp inside corner moves more than the allowance: 4x holds down to about 30 degrees
+    const reach = 4 * leave + 0.05;
+    const near = (p, poly) => {
+        const pts = poly.points;
+        for (let i = 0; i < pts.length; i++) {
+            const a = pts[i], b = pts[(i + 1) % pts.length];
+            const dx = b.x - a.x, dy = b.y - a.y, l2 = dx * dx + dy * dy || 1;
+            const t = Math.max(0, Math.min(1, ((p.x - a.x) * dx + (p.y - a.y) * dy) / l2));
+            if (Math.hypot(p.x - a.x - t * dx, p.y - a.y - t * dy) <= reach) return true;
+        }
+        return false;
+    };
+    const flat = POLY.flatten(rough);
+    return POLY.flatten(outs).filter(loop => {
+        const b = loop.bounds, by = flat.filter(r => {
+            const c = r.bounds;
+            return c.minx <= b.maxx + reach && c.maxx >= b.minx - reach && c.miny <= b.maxy + reach && c.maxy >= b.miny - reach;
+        });
+        return loop.points.some(p => !by.some(r => near(p, r)));
+    });
 }
 
 function omitOuter(polys) {

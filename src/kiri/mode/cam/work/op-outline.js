@@ -20,11 +20,14 @@ class OpOutline extends CamOp {
         }
 
         let ops_list = this.ops_list = [ ];
+        // swarf: an allowance left on these passes, and a last pass at the true size (VCarve's profile)
+        let leave = op.leave > 0 ? { leave_xy: op.leave } : {};
 
         if (outside) {
             let areas = shadow.base.clone(true);
             ops_list.push(new OpArea(state, {
                 areas: { [widget.id]: areas.map(p => p.toArray()) },
+                ...leave,
                 base: true,
                 direction,
                 dogbones,
@@ -53,6 +56,7 @@ class OpOutline extends CamOp {
         } else {
             let areas = shadow.base.clone(true);
             ops_list.push(new OpArea(state, {
+                ...leave,
                 areas: { [widget.id]: areas.map(p => p.toArray()) },
                 direction,
                 dogbones,
@@ -70,6 +74,36 @@ class OpOutline extends CamOp {
                 rename: rename ?? "outline",
                 revbones,
                 rotated: true,
+                smooth: 0,
+                spindle,
+                surfaces: {},
+                tool,
+                thru: true,
+                tr_type: 'outside',
+            }));
+        }
+
+        if (op.lastpass) {
+            ops_list.push(new OpArea(state, {
+                areas: { [widget.id]: shadow.base.clone(true).map(p => p.toArray()) },
+                base: outside ? true : undefined,
+                direction,
+                dogbones,
+                down,
+                drape: true,
+                expand: 0,
+                mode: 'trace',
+                omitinner: omitvoid,
+                omitouter: outside ? undefined : inside,
+                omitthru,
+                ov_botz,
+                ov_topz,
+                plunge,
+                rate,
+                rename: rename ?? "outline",
+                revbones,
+                rotated: true,
+                skim: op.leave > 0 ? op.leave : 0,
                 smooth: 0,
                 spindle,
                 surfaces: {},

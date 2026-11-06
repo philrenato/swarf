@@ -5,6 +5,7 @@ import { Tool } from '../core/tool.js';
 import { newPolygon } from '../../../../geo/polygon.js';
 import { newSlice } from '../../../core/slice.js';
 import { newPoint } from '../../../../geo/point.js';
+import { roundHoles, holeFit } from '../app/round-holes.js';
 
 class OpDrill extends CamOp {
     constructor(state, op) {
@@ -20,7 +21,9 @@ class OpDrill extends CamOp {
             drillToolDiam = drillTool.fluteDiameter(),
             sliceOut = this.sliceOut = [];
 
-        const allDrills = drills[widget.id] ?? []
+        // swarf: with no holes picked on this part, the step drills the round holes the bit fits
+        // (review 105 B0c: a student who drew circles got an empty step)
+        const allDrills = drills[widget.id] ?? this.found(drillToolDiam);
         if (allDrills.length === 0) return;
 
         updateToolDiams(drillToolDiam);
@@ -43,7 +46,7 @@ class OpDrill extends CamOp {
             if (zBottom) drill.zBottom = Math.max(zBottom, drill.zBottom);
 
             // for thru holes, follow z thru when set
-            if (op.thru > 0 && !op.mark) {
+            if (op.thru > 0 && !op.mark && !drill.found) {
                 drill.zBottom -= op.thru;
             }
 
@@ -60,6 +63,17 @@ class OpDrill extends CamOp {
 
             addSlices(slice);
             sliceOut.push(slice);
+        });
+    }
+
+    // the holes this bit drills, from the top of the board down to the board's bottom or a blind
+    // hole's floor, where an outline ends too (no spoilboard allowance)
+    found(bit) {
+        const { widget, workarea } = this.state;
+        const { holes, zmax } = roundHoles(widget.getGeoVertices({ unroll: true, translate: true }));
+        return holes.filter(h => holeFit(h.d, bit) === 'fits').map(h => {
+            const bottom = h.floor === null ? workarea.bottom_z : Math.max(workarea.bottom_z, workarea.top_part - (zmax - h.floor));
+            return { x: h.x, y: h.y, z: workarea.top_z, depth: workarea.top_z - bottom, selected: true, found: true };
         });
     }
 

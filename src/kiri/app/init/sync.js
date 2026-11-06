@@ -898,6 +898,13 @@ function setup_keybd_nav() {
                 if (least > 0 && audit) for (const w of api.widgets.all()) {
                     if (w.track.synth || w.meta.disabled) continue;
                     const small = (audit(w).holes || []).filter(h => h < least);
+                    // a hole a drill step drills is not left out of the file
+                    const H = window.__swarfHoles, bits = (proc.ops || []).filter(o => o && o.type === 'drill' && !o.disabled).map(dia);
+                    if (H && bits.length) for (const r of H.of(w).holes) {
+                        if (!bits.some(b => H.fit(r.d, b) === 'fits')) continue;
+                        const i = small.findIndex(h => Math.abs(h - r.d) < 0.3);
+                        if (i >= 0) small.splice(i, 1);
+                    }
                     if (!small.length) continue;
                     const name = (w.meta && w.meta.file || 'a part').replace(/\.[^.]+$/, ''), say = window.SwarfLength ? window.SwarfLength.say : (v => `${v} mm`);
                     warnings.push({
@@ -911,7 +918,7 @@ function setup_keybd_nav() {
                 const { process: proc, tools } = api.conf.get();
                 const thick = Math.max(0, ...api.widgets.all().filter(w => !w.track.synth && !w.meta.disabled).map(w => { const b = w.getBoundingBox(); return b.max.z - b.min.z; }));
                 for (const o of (proc.ops || [])) {
-                    if (!o || o.disabled || (o.type !== 'outline' && o.type !== 'rough')) continue;
+                    if (!o || o.disabled || (o.type !== 'outline' && o.type !== 'rough' && o.type !== 'drill')) continue;
                     const t = (tools || []).find(x => x.id == o.tool);
                     if (!t) continue;
                     const flute = (t.flute_len || 0) * (t.metric ? 1 : 25.4), reach = Math.max(25.4, flute), say = window.SwarfLength ? window.SwarfLength.say : (v => `${v} mm`);
@@ -928,6 +935,61 @@ function setup_keybd_nav() {
                     body: 'the file holds no stop for it, and both sides are cut as the part lies now.',
                     hint: 'for a second side, export this side, then right-click › turn it over and make a second file' });
             } catch (e) { /* no process yet */ }
+            // a drill step: what it finds, and what it leaves. Where it has no holes it cuts nothing (review 105 B0c)
+            try {
+                const { process: proc, tools } = api.conf.get(), H = window.__swarfHoles;
+                const say = window.SwarfLength ? window.SwarfLength.say : (v => `${v} mm`);
+                const parts = api.widgets.all().filter(w => !w.track.synth && !w.meta.disabled);
+                const drills = (proc.ops || []).filter(o => o && o.type === 'drill' && !o.disabled);
+                const width = t => t.flute_diam * (t.metric ? 1 : 25.4);
+                // an outline already cuts a bigger hole, if its bit fits
+                const outl = (proc.ops || []).filter(o => o && o.type === 'outline' && !o.disabled && !o.omitthru && !o.omitvoid);
+                const outlineBit = outl.length ? Math.min(...outl.map(o => { const t = (tools || []).find(x => x.id == o.tool); return t ? width(t) : Infinity; })) : Infinity;
+                if (H && parts.length) for (const o of drills) {
+                    const t = (tools || []).find(x => x.id == o.tool);
+                    if (!t) continue;
+                    const bit = width(t), bigger = new Map(), smaller = new Map();
+                    let some = false, any = false, hand = false;
+                    for (const w of parts) {
+                        const picked = o.drills && o.drills[w.id];
+                        if (picked) { hand = true; some = some || picked.some(d => d.selected); continue; }
+                        const name = (w.meta && w.meta.file || 'a part').replace(/\.[^.]+$/, '');
+                        for (const h of H.of(w).holes) {
+                            any = true;
+                            const fit = H.fit(h.d, bit);
+                            if (fit === 'fits') some = true;
+                            else if (fit === 'smaller') smaller.set(name, [...(smaller.get(name) || []), h.d]);
+                            else if (h.d <= outlineBit) bigger.set(name, [...(bigger.get(name) || []), h.d]);
+                        }
+                    }
+                    const across = l => { const a = Math.min(...l), b = Math.max(...l); return b - a < 0.05 ? say(a) : `${say(a)} to ${say(b)}`; };
+                    const bitNamed = l => { const d = l[0], y = (tools || []).filter(x => x !== t && H.fit(d, width(x)) === 'fits').sort((p, q) => (q.type === 'drill') - (p.type === 'drill'))[0]; return y ? `, or the ${y.name} bit` : ''; };
+                    for (const [name, l] of bigger) warnings.push({
+                        title: `${l.length} hole${l.length === 1 ? '' : 's'} in ${name} bigger than the ${t.name || 'bit'}`,
+                        body: `${l.length === 1 ? 'a hole' : `${l.length} holes`} ${across(l)} across: a drill plunges its own width, ${say(bit)}, so the file does not drill ${l.length === 1 ? 'it' : 'them'}.`,
+                        hint: `the hole needs an outline or a pocket${bitNamed(l)}` });
+                    for (const [name, l] of smaller) warnings.push({
+                        title: `${l.length} hole${l.length === 1 ? '' : 's'} in ${name} smaller than the ${t.name || 'bit'}`,
+                        body: `${l.length === 1 ? 'a hole' : `${l.length} holes`} ${across(l)} across: this ${say(bit)} bit would make ${l.length === 1 ? 'it' : 'them'} bigger than drawn, so the file does not drill ${l.length === 1 ? 'it' : 'them'}.`,
+                        hint: `use a smaller bit${bitNamed(l)}` });
+                    if (!some && !bigger.size && !smaller.size) warnings.push({
+                        title: 'a drill step has no holes to drill',
+                        body: hand ? 'none of the holes shown on the part is picked, so this step cuts nothing.' : any ? 'the holes in the parts are bigger than this bit and the outline cuts them, so this step cuts nothing.' : 'there are no round holes in the parts, so this step cuts nothing.',
+                        hint: hand ? 'pick a hole on the part, or remove the step' : any ? 'remove the step' : 'draw › ellipse inside the part, with shift for a circle, or remove the step' });
+                }
+            } catch (e) { /* no tools yet */ }
+            // a last pass skims the edge of what the first passes left: with no tabs that is a loose part
+            try {
+                const proc = api.conf.get().process || {}, audit = window.__swarfAutoTabs && window.__swarfAutoTabs.audit;
+                const skims = (proc.ops || []).some(o => o && o.type === 'outline' && !o.disabled && o.lastpass && !o.inside);
+                if (skims && audit && !(proc.camZBottom > 0)) for (const w of api.widgets.all()) {
+                    if (w.track.synth || w.meta.disabled || audit(w).outerTabs) continue;
+                    warnings.push({
+                        title: `a last pass would skim ${(w.meta && w.meta.file || 'a part').replace(/\.[^.]+$/, '')} loose`,
+                        body: 'the first passes cut it free, so with no tabs it can move before the last pass reaches it.',
+                        hint: 'tabs › auto tabs: tabs stay in both passes' });
+                }
+            } catch (e) { /* tabs not ready yet */ }
             // a pocket with no floor picked makes no moves, and looked done (review 105 F4)
             try {
                 for (const o of (api.conf.get().process.ops || [])) {
@@ -1071,12 +1133,12 @@ function setup_keybd_nav() {
             { kind:'app', name:'modes', body:'cam, draw, tex and control. cam makes the steps, draw makes shapes, tex marks and textures them, control runs the machine. in draw, tex or control the step row folds to those four.', tags:'modes mode cam draw tex control' },
             { kind:'app', name:'size card', body:'pick a part and the size card shows its width, length and thickness. if they do not match your drawing, type the right size in the card.', tags:'size card width length height thickness scale resize dimensions' },
             { kind:'app', name:'steps', body:'the steps panel on the left: the material, the bits, then each step in the order it cuts. click a step to change its numbers.', tags:'steps step list panel left operations ops toolpaths' },
-            { kind:'app', name:'add a step', body:'steps › add a step puts rough, contour, outline or pocket at the end of the list. advanced adds level, drill and trace.', tags:'add a step new step operation rough contour outline pocket' },
+            { kind:'app', name:'add a step', body:'steps › add a step puts rough, contour, outline, pocket or drill at the end of the list. advanced adds level and trace.', tags:'add a step new step operation rough contour outline pocket drill' },
             { kind:'app', name:'bits', body:'steps › bits opens the bit library: the shop\'s bits and their sizes, and any bit you add.', tags:'bits bit tool library tools endmills end mills cutters' },
             { kind:'app', name:'toolpaths', body:'toolpaths, in the step row, makes the paths the bit will follow for every step and draws them on the bed. with no step yet it adds a rough step and says so. check them, then simulate.', tags:'toolpaths toolpath paths make generate preview step row' },
             { kind:'app', name:'clear', body:'clear, in the step row, wipes the toolpaths and the simulation off the bed. the parts and steps stay; press toolpaths to make the paths again. file › new takes everything off.', tags:'clear wipe reset paths simulation step row' },
             { kind:'app', name:'concerns', body:'the concerns tab, with its count, flags setup problems before you cut, each with what to do about it. click it to open the list.', tags:'concerns warning warnings problems check setup' },
-            { kind:'app', name:'advanced', body:'view › advanced shows tools still in alpha: more steps (level, drill, trace), stock size, machine limits and more fields on each step. most jobs never need it.', tags:'advanced expert alpha more tools options' },
+            { kind:'app', name:'advanced', body:'view › advanced shows tools still in alpha: more steps (level, trace), stock size, machine limits and more fields on each step. most jobs never need it.', tags:'advanced expert alpha more tools options' },
             { kind:'app', name:'reset profile', body:'help › reset profile starts swarf over on this computer: every setting, bit and part goes, and it reloads as new. a project saved as a .swarf file is kept.', tags:'reset profile start over clear settings fresh reload' },
             { kind:'app', name:'version', body:'the build number sits at the bottom right, always. tap it to update to the latest build: swarf clears its cache and reloads.', tags:'version build number update latest reload badge' },
             { kind:'app', name:'zero at', body:'where X 0, Y 0 sits on the stock: its front-left corner (the default), or its center for something round. you put the bit on that spot before you cut.', tags:'zero origin corner center center round x0 y0' },
@@ -1112,7 +1174,7 @@ function setup_keybd_nav() {
             { kind:'op', name:'rough', body:'the first pass: it clears most of the wood in flat layers above the part, fast and deep, and leaves a little for contour to finish.', tags:'roughing clearing bulk first pass' },
             { kind:'op', name:'contour', body:'a smooth pass over a curved top after rough: the bit runs back and forth in one direction at a fine stepover, following the surface. 5–15 % of the bit\'s width is typical.', tags:'contouring finishing surface curved' },
             { kind:'op', name:'outline', body:"cuts the part free from the board along its outside edge. usually the last step. add tabs so the part doesn't fly out.", tags:'outline cutout silhouette' },
-            { kind:'op', name:'pocket', body:'clears flat-bottomed hollows: trays, recesses, a sunk hole. pick the floor face and swarf clears down to it, inside its walls.', tags:'pocket cavity tray' },
+            { kind:'op', name:'pocket', body:'clears flat-bottomed hollows: trays, recesses, a sunk hole. pick the floor face and swarf clears down to it, inside its walls. a flat part has no floor to pick: the card\'s pocket in tex button opens tex with inlay picked, where you drag the shape and type the depth.', tags:'pocket cavity tray depth recess flat inlay' },
             { kind:'param', name:'stepover', body:'how far the bit moves sideways between passes, as a share of its width: the step card says 40 % of bit. swarf starts wood, foam and plastic at 30–45 %. wider cuts faster and works the bit harder.', tags:'stepover sideways pass spacing percent of bit' },
             { kind:'param', name:'step-down', body:'how deep each pass cuts, in mm or inches as mm | in says (type 1/8 or 3 mm). swarf keeps every preset under half the bit\'s width, which is careful for wood. deeper than the bit is wide and its flutes cannot clear the chips.', tags:'depth of cut step down stepdown doc layer pass' },
             { kind:'param', name:'feed rate', body:'how fast the bit moves through the wood: mm/min, or in/min when mm | in says in. when in doubt: slower is safer.', tags:'feed feedrate mm/min in/min cutting speed' },
@@ -1128,7 +1190,10 @@ function setup_keybd_nav() {
             { kind:'tool', name:'end-mill', body:'a flat-bottomed bit, the workhorse (the step card calls it end, as in end 1/4). fewer flutes clear chips better in wood and plastic; the shop\'s ShopBot bits are 2-flute.', tags:'endmill flat cutter mill flutes' },
             { kind:'tool', name:'ball-end', body:'spherical tip. for 3D contour finishing on curved surfaces. leaves a cusp pattern proportional to stepover.', tags:'ballend spherical 3d finishing' },
             { kind:'tool', name:'v-bit', body:'conical cutter for engraving and chamfering. depth controls the line width.', tags:'vbit cone engraving chamfer' },
-            { kind:'tool', name:'drill', body:'plunges straight down to make holes. the drill step is in advanced.', tags:'drill hole plunge advanced' },
+            { kind:'tool', name:'drill', body:'plunges straight down to make holes.', tags:'drill bit hole plunge' },
+            { kind:'op', name:'drill step', body:"add a step › drill finds the round holes in the parts, drawn or modeled, that are the bit's size (up to 0.4 mm under it comes out the bit's size), and pecks down to the bottom of the board with the router on. a hole bigger than the bit is not drilled, and concerns says so: it needs an outline or a pocket. no round holes: concerns says that too. advanced can pick holes by hand.", tags:'drill peck holes circle round drawn bigger than the bit' },
+            { kind:'op', name:'leave', body:'on an outline step: wood the first passes leave on the part. 0 leaves none. with a last pass it comes off at the end; without one the part stays that much oversize.', tags:'leave allowance oversize outline finish' },
+            { kind:'op', name:'last pass', body:'on an outline step: one more time round at the whole depth, at the true size, for a clean edge. leave about 1/2 mm for it. tabs stay in both passes, so the part is still held: a part with no tabs would be skimmed loose.', tags:'last pass finish skim allowance outline tabs clean edge' },
             { kind:'coach', name:'why rough before contour', body:"rough clears the easy bulk first at a deep stepdown. then contour finishes the surface at a fine stepover. one operation can't do both jobs efficiently.", tags:'order strategy rough contour finishing' },
             { kind:'coach', name:'why stepover matters', body:'stepover sets surface finish. wide stepover = scallops between passes (rough texture). narrow stepover = smoother but slower.', tags:'stepover finish quality scallop' },
             { kind:'coach', name:'feeds and speeds', body:'rule of thumb: chip load × flutes × rpm = feed rate. use a chip load chart for your material/diameter or err slow.', tags:'feeds speeds chip load rpm' },
