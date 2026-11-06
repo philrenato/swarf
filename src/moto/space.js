@@ -1781,6 +1781,21 @@ let Space = {
                 if (typeof(then) === 'function') then();
             }
         },
+        // swarf: the camera at a place the caller worked out: these angles, this point at the
+        // middle of the view, this far from it (simulate's framing beside the steps panel)
+        place: (then, { left, up: upAngle, panX, panY, panZ, distance, tween, time }) => {
+            const target = new THREE.Vector3(panX, panY, panZ);
+            if (tween) {
+                const ratio = distance / Math.max(1e-6, camera.position.distanceTo(target));
+                tweenCam({ left, up: upAngle, panX, panY, panZ, scale: ratio, time: time ?? 350, then });
+                return;
+            }
+            viewControl.setPosition({ left, up: upAngle, panX, panY, panZ });
+            viewControl.setPosition({ scale: distance / Math.max(1e-6, camera.position.distanceTo(target)) });
+            viewControl.update();
+            refresh();
+            if (typeof(then) === 'function') then();
+        },
         setCtrl: (name) => {
             const nextMode = name || 'default';
             const wantsTrackball = nextMode === 'void';

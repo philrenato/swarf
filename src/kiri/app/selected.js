@@ -206,10 +206,26 @@ function duplicate() {
         return;
     }
     for_widgets(widget => {
-        const mesh = widget.mesh;
-        const bb = mesh.getBoundingBox();
-        const ow = widget;
-        const nw = api.widgets.new().loadGeometry(mesh.geometry.clone());
+        const bb = widget.mesh.getBoundingBox();
+        const op = widget.track.pos;
+        // swarf r45 (review 10-28b #4): 12 mm to the right, the layout's gap, and no re-pack,
+        // so the original stays where it was put
+        const nw = copyOf(widget);
+        nw.move(op.x + bb.max.x - bb.min.x + 12, op.y, op.z, true);
+        api.platform.add(nw, false, true);      // the copy is the one picked
+        api.event.emit("widget.duplicate", nw, widget);
+    });
+}
+
+/**
+ * swarf: a copy of a widget: its geometry, its name's next number, its drawing, marks and tabs.
+ * Not on the bed yet.
+ * @param {Widget} ow - the widget to copy
+ * @param {Array} [group] - the group it joins (a word's letters stay one word); else its own
+ */
+function copyOf(ow, group) {
+        const mesh = ow.mesh;
+        const nw = api.widgets.new(undefined, group).loadGeometry(mesh.geometry.clone());
         // swarf: a copy has its own name ("…-2", "…-3"), so the list tells them apart
         const base = String(ow.meta.file || 'part').replace(/-\d+$/, '');
         const taken = new Set(api.widgets.all().map(w => w.meta.file));
@@ -223,13 +239,55 @@ function duplicate() {
             if (ow.meta[k] !== undefined) nw.meta[k] = JSON.parse(JSON.stringify(ow.meta[k]));
         }
         nw.anno = ow.annotations();
-        const op = ow.track.pos;
-        // swarf r45 (review 10-28b #4): 12 mm to the right, the layout's gap, and no re-pack,
-        // so the original stays where it was put
-        nw.move(op.x + bb.max.x - bb.min.x + 12, op.y, op.z, true);
-        api.platform.add(nw, false, true);      // the copy is the one picked
-        api.event.emit("widget.duplicate", nw, ow);
-    });
+        return nw;
+}
+
+/**
+ * swarf: the picked parts again at each offset (edit › copies, web/kiri/swarf-size.js). All of it is
+ * one undo. Every part on the bed that was picked stays picked, with its copies, so they move together.
+ * @param {Array<{x:number,y:number}>} offsets - from where the picked parts sit, in mm
+ * @param {Object} say - { undo, redo } what each says when it runs
+ * @returns {Array} the new widgets
+ */
+function copies(offsets, say) {
+    const from = widgets();
+    if (!api.view.is_arrange() || !from.length || !offsets.length) {
+        return [];
+    }
+    const made = [];
+    const leads = [];
+    self.__swarfCopying = true;     // a copy keeps its place (swarf-place.js) and the sentence is said once
+    try {
+        api.doit.quietly(() => {
+            for (const off of offsets) {
+                const groups = new Map();
+                for (const ow of from) {
+                    let group;
+                    if (ow.group && ow.group.length > 1) {
+                        group = groups.get(ow.group);
+                        if (!group) groups.set(ow.group, group = []);
+                    }
+                    const nw = copyOf(ow, group);
+                    const op = ow.track.pos;
+                    nw._move(op.x + off.x, op.y + off.y, op.z, true);
+                    if (!group || group.length === 1) leads.push(nw);
+                    made.push(nw);
+                    api.platform.add(nw, true, true);
+                    api.event.emit("widget.duplicate", nw, ow);
+                }
+            }
+        });
+        // adding a piece of a group toggles the rest of it: the picks as they should end
+        const picked = from.concat();
+        api.platform.deselect();
+        for (const w of picked) if (!api.selection.contains(w)) api.platform.select(w, true);
+        for (const w of leads) if (!api.selection.contains(w)) api.platform.select(w, true);
+    } finally {
+        self.__swarfCopying = false;
+    }
+    api.doit.made(made, say);
+    api.space.auto_save();
+    return made;
 }
 
 /**
@@ -593,6 +651,7 @@ function input_binding(ui) {
 
 // extend API (api.selection)
 export const selection = {
+    copies,
     duplicate,
     for_groups,
     for_meshes,

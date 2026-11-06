@@ -197,6 +197,7 @@ function content(actions) {
                     menuItem(actions, { id: 'swarf-edit-redo', text: 'redo', title: 'put back what undo took (⇧⌘Z)', iconClass: 'fas fa-rotate-right', children: span({ class: 'swarf-key', _: '⇧⌘Z' }), onclick(ev) { ev && ev.stopPropagation && ev.stopPropagation(); document.body.click(); api.doit.redo(); } }),
                     hr(),
                     menuItem(actions, { id: 'context-duplicate', lk: 'rc_dupl', text: 'duplicate', title: 'a copy of the picked part, beside it', iconClass: 'fas fa-copy' }),
+                    menuItem(actions, { id: 'swarf-edit-copies', text: 'copies…', title: 'rows and columns of the picked part: how many across, how many back, and the gap', iconClass: 'fas fa-table-cells', onclick(ev) { ev && ev.stopPropagation && ev.stopPropagation(); document.body.click(); if (window.__swarfSize) window.__swarfSize.copies(); } }),
                     menuItem(actions, { id: 'swarf-edit-delete', text: 'delete', title: 'delete the picked parts (⌫); undo brings them back', iconClass: 'fas fa-trash-can', children: span({ class: 'swarf-key', _: '⌫' }), onclick(ev) {
                         ev && ev.stopPropagation && ev.stopPropagation(); document.body.click();
                         const picked = api.selection.widgets();

@@ -25,7 +25,7 @@
   function arrived(payload) {
     const a = api();
     // a project being restored keeps its layout; DRAW keeps what was drawn
-    if (Date.now() - born < 4000 || document.body.classList.contains('swarf-draw-open')) return;
+    if (Date.now() - born < 4000 || document.body.classList.contains('swarf-draw-open') || window.__swarfCopying) return;
     const list = (Array.isArray(payload) ? payload : [payload]).filter(Boolean);
     setTimeout(() => {
       const fresh = new Set();

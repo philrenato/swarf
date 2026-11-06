@@ -57,9 +57,10 @@ function prepareSlices(callback, scale = 1, offset = 0) {
         callback = preparePreview;
     }
 
-    order = api.selection.count() ?
-        Object.assign({}, ...api.selection.widgets().map((w,i) => ({[w.id]:i}))) :
-        undefined;
+    // swarf (review 105 m1): the parts' order is never what happens to be picked. Picked parts went
+    // first, so a remake from export (a part picked) and a press of toolpaths (nothing picked, the
+    // press before let it go) wrote different files for the same work.
+    order = undefined;
 
     const widgets = api.widgets.all();
     const settings = conf.get();

@@ -747,16 +747,33 @@ function platformDelete(widget, defer) {
 function delete_post() {
     api.view.update_slider_max();
     platform.update_bounds();
-    if (get_mode() !== MODES.FDM) {
+    // swarf: an undo of copies puts the bed back as it was, it does not pack it again
+    const keep = api.doit.telling && api.doit.telling();
+    if (get_mode() !== MODES.FDM && !keep) {
         platform.layout();
     }
     space.update();
     platform.update_selected();
-    if (api.feature.drop_layout) {
+    if (api.feature.drop_layout && !keep) {
         platform.layout();
     }
     api.space.auto_save();
     changed();
+}
+
+/**
+ * swarf (review 105 P3, P4): one name for a part wherever it is said. A group (a word, a drawing's
+ * pieces kept together) is "shapes (2 pieces)" as a whole, and "shapes piece 2" for one of them.
+ * @param {Widget} w
+ * @param {boolean} [whole] - name the whole group, not this piece
+ * @returns {string}
+ */
+function partName(w, whole) {
+    const file = String((w && w.meta && w.meta.file) || 'a part').replace(/\.[a-z0-9]{2,4}$/i, '');
+    const group = (w && w.group) || [];
+    if (group.length < 2) return file;
+    const base = String((group[0].meta && group[0].meta.file) || file).replace(/\.[a-z0-9]{2,4}$/i, '').replace(/-\d+$/, '');
+    return whole ? `${base} (${group.length} pieces)` : `${base} piece ${group.indexOf(w) + 1}`;
 }
 
 /**
@@ -770,10 +787,8 @@ function changed() {
     const lead = w => !w.group || w.group.length < 2 || w.group[0] === w;
     h.bind($('ws-widgets'), api.widgets.all().filter(lead).map(w => {
         let color;
-        const many = w.group && w.group.length > 1;
-        let file = w.meta.file || 'no name';
-        if (many) file = `${file.replace(/-\d+$/, '')} (${w.group.length} pieces)`;
-        let fsho = file;
+        let fsho = partName(w, true);
+        let file = fsho;
         return [
             h.div({
                 onmouseenter() {
@@ -881,7 +896,7 @@ function set_cut(widgets, on) {
  */
 function select_all() {
     api.widgets.each(widget => {
-        platform.select(widget, true, false)
+        if (!api.selection.contains(widget)) platform.select(widget, true, false);
     });
 }
 
@@ -1545,6 +1560,7 @@ function fit() {
 
 // extend API (api.platform)
 export const platform = {
+    part_name: partName,
     fit,
     add,
     changed,

@@ -1355,6 +1355,9 @@ html[data-skin] #swarf-paths-stale {
     background: var(--swarf-warn, rgb(var(--sk-warn) / calc(1 * var(--sk-a-warn, 1))));
     color: rgb(var(--sk-n9) / calc(1 * var(--sk-a-n9, 1)))
 }
+html[data-skin] #swarf-bits {
+    box-shadow: 0 8px 24px rgb(var(--sk-shadow) / calc(0.35 * var(--sk-a-shadow, 1)))
+}
 
 /* ---- from web/kiri/index.html ---- */
 html[data-skin] #curtain {
@@ -2033,6 +2036,9 @@ html[data-skin] #swarf-run .sr-vtools button.on {
 html[data-skin] #swarf-run .sr-pad button.held small,
 html[data-skin] #swarf-run .sr-pad button:active small {
     color: rgb(var(--sk-n9) / calc(1 * var(--sk-a-n9, 1))) !important
+}
+html[data-skin] #swarf-run .sr-board-say.warn {
+    color: var(--swarf-amber, rgb(var(--sk-warn) / calc(1 * var(--sk-a-warn, 1))))
 }
 html[data-skin] #swarf-run .sr-actions .cut:not(:disabled) {
     color: rgb(var(--sk-n9) / calc(1 * var(--sk-a-n9, 1))) !important

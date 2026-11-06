@@ -99,9 +99,14 @@
     card.classList.toggle('on', n > 0 && !inControl && !document.body.classList.contains('swarf-draw-open'));
     if (!n) return;
     // several picked: the size is the first one's; the buttons act on all of them
-    count.textContent = n > 1 ? `${n} parts ·` : '';
-    count.title = n > 1 ? 'shift-click a part to add it or leave it out' : '';
+    // the picked parts as the objects list names them: a word or a drawing kept together is one
+    // thing, "shapes (2 pieces)" (review 105 P3)
     const picked = a.selection.widgets ? a.selection.widgets() : [];
+    const groups = [...new Set(picked.map(w => w.group || w))];
+    const many = g => Array.isArray(g) && g.length > 1;
+    count.textContent = groups.length === 1 && many(groups[0]) ? `${a.platform.part_name(groups[0][0], true)} ·`
+      : groups.length > 1 ? `${groups.length} parts ·` : '';
+    count.title = n > 1 ? 'shift-click a part to add it or leave it out' : '';
     edit.style.display = picked.some(w => w.meta && w.meta.svg) ? '' : 'none';
     const e = picked[0] && picked[0].meta && picked[0].meta.edge;
     // scaled in width and depth, the edge stretched with it (its height did not): say so (review 10-28b #32)
@@ -130,9 +135,9 @@
       const nm = w => (w && w.meta && w.meta.file) || 'the part';
       let resizing = 0;
       a.event.on('selection.scale', () => { clearTimeout(resizing); resizing = setTimeout(() => { const v = AX.map(([b]) => parseFloat(($(`size_${b}`) || {}).value || 0) * scale()); said(`Resized to ${L() && L().unit() === 'in' ? v.map(x => L().say(x).replace(/ in$/, '')).join(' × ') + ' in' : v.map(x => +x.toFixed(2)).join(' × ') + ' mm'}.`); }, 120); });
-      a.event.on('widget.duplicate', nw => said(`Made a copy, ${nm(nw)}, beside it.`));
+      a.event.on('widget.duplicate', nw => { if (!window.__swarfCopying) said(`Made a copy, ${nm(nw)}, beside it.`); });
       // (not DRAW's done, which swaps parts and says so itself)
-      a.event.on('widget.delete', w => !(Array.isArray(w) && !w.length) && !document.body.classList.contains('swarf-draw-open') && !window.__swarfRestoring && setTimeout(() => { if (window.__swarfRestoring) return; const n = a.widgets.all().length; said(`Deleted ${nm(Array.isArray(w) ? w[0] : w)}.${n ? ` ${n} part${n === 1 ? '' : 's'} left.` : ''} ⌘Z brings it back.`); }, 0));
+      a.event.on('widget.delete', w => !(Array.isArray(w) && !w.length) && !document.body.classList.contains('swarf-draw-open') && !window.__swarfRestoring && !(a.doit.telling && a.doit.telling()) && setTimeout(() => { if (window.__swarfRestoring) return; const n = a.widgets.all().length; said(`Deleted ${nm(Array.isArray(w) ? w[0] : w)}.${n ? ` ${n} part${n === 1 ? '' : 's'} left.` : ''} ⌘Z brings it back.`); }, 0));
       a.event.on('preview.begin', () => said(''));
       for (const ev of ['widget.select', 'widget.deselect', 'selection.scale', 'selection.move', 'selection.rotate', 'platform.layout', 'widget.add', 'widget.delete']) a.event.on(ev, () => setTimeout(show, 0));
       new MutationObserver(show).observe(document.body, { attributes: true, attributeFilter: ['class'] });
@@ -146,5 +151,128 @@
     }
   }, 150);
 
-  window.__swarfSize = { show };
+  // ---- copies: rows and columns of the picked parts ----
+  const GAP = 12;                 // the arrival rule's gap (swarf-place.js)
+  const MAX_COPIES = 200;
+  const footprint = w => {
+    const g = w.mesh && w.mesh.geometry;
+    if (!g) return null;
+    g.computeBoundingBox();
+    const b = g.boundingBox, p = w.track.pos;
+    return [b.min.x + p.x, b.min.y + p.y, b.max.x + p.x, b.max.y + p.y];
+  };
+  const union = list => list.reduce((u, b) => b ? (u ? [Math.min(u[0], b[0]), Math.min(u[1], b[1]), Math.max(u[2], b[2]), Math.max(u[3], b[3])] : b) : u, null);
+  const hits = (a, b) => a[0] < b[2] - 0.01 && b[0] < a[2] - 0.01 && a[1] < b[3] - 0.01 && b[1] < a[3] - 0.01;
+  const say = mm => (L() ? L().say(mm) : `${+mm.toFixed(1)} mm`);
+
+  // where the rows and columns go. The picked part is one of the cells: they grow right and back from
+  // it, and start further left or forward when that is what keeps them on the bed and off other parts.
+  // { offsets, ... } or { why } in the student's words
+  function plan(across, back, gap, picked) {
+    const a = api(), d = a.conf.get().device || {}, W = (d.bedWidth || Infinity) / 2, D = (d.bedDepth || Infinity) / 2;
+    if (!(Number.isInteger(across) && across >= 1) || !(Number.isInteger(back) && back >= 1)) return { why: 'Across and back are whole numbers, 1 or more.' };
+    if (!(gap >= 0)) return { why: 'The gap is a length, 0 or more.' };
+    const box = union(picked.map(footprint));
+    if (!box) return { why: 'Pick a part first.' };
+    const cw = box[2] - box[0], cd = box[3] - box[1];
+    const fresh = (across * back - 1) * picked.length;
+    if (fresh > MAX_COPIES) return { why: `That is ${fresh} new parts: swarf makes ${MAX_COPIES} at a time.` };
+    const spanX = across * cw + (across - 1) * gap, spanY = back * cd + (back - 1) * gap;
+    const fitOf = (c, bed) => Math.max(1, Math.floor((bed + gap) / (c + gap) + 1e-6));
+    if (spanX > W * 2 + 0.01) return { why: `It runs off the bed: ${across} across needs ${say(spanX)}, and the bed is ${say(W * 2)} wide. ${fitOf(cw, W * 2)} across fit.`, box };
+    if (spanY > D * 2 + 0.01) return { why: `It runs off the bed: ${back} back needs ${say(spanY)}, and the bed is ${say(D * 2)} deep. ${fitOf(cd, D * 2)} back fit.`, box };
+    const others = a.widgets.all().filter(w => !picked.includes(w)).map(w => ({ w, b: footprint(w) })).filter(o => o.b);
+    const stepX = cw + gap, stepY = cd + gap;
+    let blocked = null;
+    for (let j0 = 0; j0 < back; j0++) for (let i0 = 0; i0 < across; i0++) {
+      const x0 = box[0] - i0 * stepX, y0 = box[1] - j0 * stepY;
+      if (x0 < -W - 0.01 || x0 + spanX > W + 0.01 || y0 < -D - 0.01 || y0 + spanY > D + 0.01) continue;
+      const offsets = [];
+      let on = null;
+      for (let j = 0; j < back && !on; j++) for (let i = 0; i < across && !on; i++) {
+        if (i === i0 && j === j0) continue;
+        const x = (i - i0) * stepX, y = (j - j0) * stepY;
+        const cell = [box[0] + x, box[1] + y, box[2] + x, box[3] + y];
+        const o = others.find(o => hits(cell, o.b));
+        if (o) on = o.w; else offsets.push({ x, y });
+      }
+      if (!on) return { offsets, box, cw, cd, others, W, D };
+      blocked = blocked || on;
+    }
+    if (blocked) return { why: `It lands on ${(blocked.meta && blocked.meta.file) || 'another part'}: move that part, or ask for fewer.`, box };
+    return { why: 'It runs off the bed from where the part sits: move the part, or ask for fewer.', box };
+  }
+
+  function copies() {
+    const a = api();
+    if (!a || !a.platform) return;
+    if (!a.view.is_arrange()) a.view.set_arrange();
+    let picked = a.selection.widgets();
+    const all = a.widgets.all();
+    // nothing picked and one thing on the bed: that one
+    if (!picked.length && all.length && all.every(w => w.group === all[0].group)) { a.platform.select(all[0], false); picked = a.selection.widgets(); }
+    if (!picked.length) { a.show.alert(all.length ? 'Pick a part first, then copies.' : 'Nothing to copy yet: make a part first.', 5); return; }
+    const inch = L() && L().unit() === 'in';
+    const pre = [
+      "<div class='f-col a-center swarf-shape swarf-copies'>",
+      '  <h3>Copies</h3>',
+      "  <div class='f-row t-right'><table>",
+      "  <tr><th>across</th><td><input id='copies-across' value='2' size='6' inputmode='numeric' title='how many in each row, side to side, counting the part you have'></td></tr>",
+      "  <tr><th>back</th><td><input id='copies-back' value='1' size='6' inputmode='numeric' title='how many rows, front to back, counting the row the part is in'></td></tr>",
+      `  <tr><th>gap</th><td><input id='copies-gap' value='${L() ? L().show(GAP) : GAP}' size='6' inputmode='text' title='the clear space between parts: leave room for the bit, plus a little'> ${inch ? 'in' : 'mm'}</td></tr>`,
+      '  </table></div>',
+      "  <div id='copies-prev' class='swarf-shape-prev' title='the bed from above: the new parts, and any that are already there'></div>",
+      "  <p id='copies-says' class='swarf-copies-says'></p>",
+      "  <p id='copies-why' class='swarf-shape-why'></p>",
+      '</div>'
+    ];
+    const $v = id => (document.getElementById(id) || {}).value;
+    const read = () => {
+      const g = L() ? L().parse($v('copies-gap')) : parseFloat($v('copies-gap'));
+      return { across: Number(String($v('copies-across')).trim()), back: Number(String($v('copies-back')).trim()), gap: g };
+    };
+    const button = word => [...document.querySelectorAll('#dialog button')].find(b => b.textContent.trim().toLowerCase() === word);
+    const refresh = () => {
+      const v = read(), p = plan(v.across, v.back, v.gap, picked);
+      const none = !p.why && !p.offsets.length;
+      document.getElementById('copies-why').textContent = p.why || (none ? 'One across and one back is the part you have: ask for more.' : '');
+      document.getElementById('copies-says').textContent = p.why || none ? '' : `${v.across * v.back} in all, ${p.offsets.length * picked.length} new.`;
+      const b = button('make');
+      if (b) { b.disabled = !!p.why || none; b.title = p.why || (none ? 'Ask for more than one' : 'Make them: one undo takes them all back'); }
+      const cancel = button('cancel');
+      if (cancel) cancel.title = 'Close this card and make nothing';
+      // the bed from above, with the cells on it
+      const box = document.getElementById('copies-prev');
+      if (!p.offsets || !isFinite(p.W)) { box.innerHTML = ''; return; }
+      const rect = (x, y, w, h, c) => `<rect x="${(x + p.W).toFixed(1)}" y="${(p.D - y - h).toFixed(1)}" width="${w.toFixed(1)}" height="${h.toFixed(1)}" class="${c}"/>`;
+      const cells = [];
+      for (const o of p.others) cells.push(rect(o.b[0], o.b[1], o.b[2] - o.b[0], o.b[3] - o.b[1], 'other'));
+      cells.push(rect(p.box[0], p.box[1], p.cw, p.cd, 'mine'));
+      for (const o of p.offsets) cells.push(rect(p.box[0] + o.x, p.box[1] + o.y, p.cw, p.cd, 'new'));
+      box.innerHTML = `<svg viewBox="0 0 ${(p.W * 2).toFixed(1)} ${(p.D * 2).toFixed(1)}" width="100%" height="100%" preserveAspectRatio="xMidYMid meet"><rect width="${(p.W * 2).toFixed(1)}" height="${(p.D * 2).toFixed(1)}" class="bed"/>${cells.join('')}</svg>`;
+    };
+    a.uc.confirm(undefined, { make: true, cancel: false }, undefined, { pre }).then(go => {
+      if (!go) return;
+      const v = read(), p = plan(v.across, v.back, v.gap, picked);
+      if (p.why || !p.offsets.length) { if (p.why) a.show.alert(p.why, 7); return; }
+      const name = picked[0].meta && picked[0].meta.file || 'the part';
+      const n = p.offsets.length * picked.length;
+      const made = a.selection.copies(p.offsets, { undo: `Took back the ${n === 1 ? 'copy' : `${n} copies`}.`, redo: `The ${n === 1 ? 'copy is' : `${n} copies are`} back.` });
+      if (!made.length) return;
+      a.event.alerts(true);
+      a.show.alert(`Made ${n === 1 ? 'a copy' : `${n} copies`} of ${name}: ${v.across} across, ${v.back} back, ${say(v.gap)} apart. ⌘Z takes ${n === 1 ? 'it' : 'them all'} back.`, 8);
+      if (a.reveal) a.reveal(a.widgets.all());
+    });
+    setTimeout(() => {
+      for (const id of ['copies-across', 'copies-back', 'copies-gap']) {
+        const el = document.getElementById(id);
+        if (!el) continue;
+        el.addEventListener('input', refresh);
+        el.addEventListener('keydown', e => e.stopPropagation());
+      }
+      if (document.getElementById('copies-why')) refresh();
+    }, 0);
+  }
+
+  window.__swarfSize = { show, copies, plan };
 })();

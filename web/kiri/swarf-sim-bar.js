@@ -121,7 +121,7 @@
       field.value = String(window.__swarfCustomSpeed || 1);
       field.className = 'swarf-sim-extra swarf-sim-speedfield';
       field.style.cssText = 'width:52px; height:26px; padding:0 6px; text-align:right; margin:0 2px;';
-      field.title = 'how fast simulate runs: 1 is the machine\'s own speed, up to 100 times';
+      field.title = 'how fast simulate plays, 0.5 to 100: higher is faster. The words beside it say how that compares with the real cut';
       const commit = () => {
         let v = parseFloat(field.value);
         const typed = v;
@@ -130,7 +130,7 @@
         if (v > 100) v = 100;
         // (Phil 11-01) a number held to the ends is said, with the range
         if (Number.isFinite(typed) && typed !== v) {
-          try { window.kiri.api.show.alert(`Simulate runs from 0.5 to 100 times the machine's speed: it is set to ${v}.`, 5); } catch (e) { /* no alerts */ }
+          try { window.kiri.api.show.alert(`Simulate's speed goes from 0.5 to 100: it is set to ${v}.`, 5); } catch (e) { /* no alerts */ }
         }
         field.value = String(v);
         window.__swarfCustomSpeed = v;
@@ -142,6 +142,12 @@
       speedLabelEl.parentNode.insertBefore(field, speedLabelEl.nextSibling);
       const sw = document.createElement('span'); sw.className = 'swarf-sim-word'; sw.textContent = 'speed ×';
       field.before(sw);
+      // (review 105 F7) what that number means against the clock, measured as it plays (swarf-estimate.js)
+      const real = document.createElement('span');
+      real.id = 'swarf-sim-real';
+      real.className = 'swarf-sim-word swarf-sim-real';
+      real.title = 'How this run compares with the real cut, measured while it plays: the machine takes the time shown at the end of this bar';
+      field.after(real);
     }
   }
 
