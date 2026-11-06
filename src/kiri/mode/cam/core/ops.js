@@ -42,6 +42,7 @@ export const ops = {
     "texture":   OpTexture,
     "pierce":    OpTexture,
     "inlay":     OpTexture,
+    "vcarve":    OpTexture,
     "trace":     OpTrace,
     "xray":      OpXRay
 };

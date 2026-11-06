@@ -13,8 +13,9 @@
  * ocean waves on Seat"), before the steps that cut the parts free; the step's moves come from the
  * core's drop cutter (swarf-tex-core.mjs) in the slice worker (op-texture.js).
  *
- * A mark's fill is { fill: 'texture', … } (carves the top), { fill: 'inlay', … } (a flat pocket, and
- * the plug that fills it as its own part) or { fill: 'pierce', … } (cuts through).
+ * A mark's fill is { fill: 'texture', … } (carves the top), { fill: 'vcarve', … } (cut in by a V-bit,
+ * as deep as the shape is wide), { fill: 'inlay', … } (a flat pocket, and the plug that fills it as its
+ * own part) or { fill: 'pierce', … } (cuts through).
  */
 (function () {
   'use strict';
@@ -62,16 +63,19 @@
   const bitName = f => (f && f.bit && f.bit.name) || ((BITS[f && f.tool] || {}).say) || 'bit';
   function libraryBits(pierce) {
     const a = api(), tools = (a && a.conf.get().tools) || [];
-    const out = tools.map(t => [t, bitOf(t)]).filter(([, b]) => b && (pierce ? b.type === 'flat' : true));
+    const out = tools.map(t => [t, bitOf(t)]).filter(([, b]) => b && (pierce === 'v' ? b.type === 'v' : pierce ? b.type === 'flat' : true));
     return out.sort((x, y) => (x[1].type > y[1].type ? 1 : x[1].type < y[1].type ? -1 : x[1].diameter - y[1].diameter));
   }
   // a fill's bit made the library's: its tool id and spec (a fill from before names a core id)
   const straight = f => f && (f.fill === 'pierce' || f.fill === 'inlay');
+  // the bits a fill can take: a V-carve only a V, a pierce or inlay only a straight one
+  const bitKind = f => (f && f.fill === 'vcarve' ? 'v' : straight(f));
   function normBit(f) {
-    const lib = libraryBits(straight(f));
+    const lib = libraryBits(bitKind(f));
     if (!lib.length) return f;
     const id = typeof f.tool === 'number' ? f.tool : (BITS[f.tool] || {}).tool;
     let hit = lib.find(([t]) => t.id === id);
+    if (!hit && f.fill === 'vcarve') hit = lib.find(([, b]) => Math.abs(b.angle - 90) < 1) || lib[0];
     if (!hit && straight(f)) hit = lib.find(([, b]) => Math.abs(b.diameter - 3.175) < 0.01) || lib[0];
     if (!hit) hit = lib.find(([, b]) => b.type === 'ball' && Math.abs(b.diameter - 6.35) < 0.01) || lib[0];
     f.tool = hit[0].id; f.bit = hit[1];
@@ -174,20 +178,20 @@
     const C = T();
     if (f && f.fill === 'pierce' && C.PIERCES[f.pattern]) return f;
     if (f && f.fill === 'texture' && C.PATTERNS[f.pattern]) return f;
-    if (f && f.fill === 'inlay') return f;
+    if (f && (f.fill === 'inlay' || f.fill === 'vcarve')) return f;
     unknownFills++;
     return f && f.fill === 'pierce' ? C.newPierce('kerf', { tool: f.tool }) : C.newFill('waves', { tool: f && f.tool || 'ball14' });
   }
   function loadMark(m) {
     const region = T().regionSpec(m.region);
-    return { id: m.id, made: m.made, region: { ...region, data: region.data ? region.data.slice() : region.data }, xf: (m.xf || T().IDENTITY).slice(), fill: normBit(knownFill(clone(m.fill))), est: m.est, face: m.face, at: m.at, ver: 1 };
+    return { id: m.id, made: m.made, region: { ...region, data: region.data ? region.data.slice() : region.data }, xf: (m.xf || T().IDENTITY).slice(), fill: normBit(knownFill(clone(m.fill))), est: m.est, face: m.face, at: m.at, drawn: m.drawn, ver: 1 };
   }
   function storeMark(m) {
-    return { id: m.id, made: m.made, region: T().storeRegion(m.region), xf: m.xf.slice(), fill: clone(m.fill), est: m.est, face: m.face, at: m.at };
+    return { id: m.id, made: m.made, region: T().storeRegion(m.region), xf: m.xf.slice(), fill: clone(m.fill), est: m.est, face: m.face, at: m.at, ...(m.drawn ? { drawn: m.drawn } : {}) };
   }
   const markHas = m => m.region && m.region.data && m.region.data.some(v => v);
   function lastFill() {
-    try { const f = JSON.parse(localStorage.getItem(FILL) || 'null'); if (f && ((f.fill === 'texture' && T().PATTERNS[f.pattern]) || f.fill === 'inlay' || (f.fill === 'pierce' && T().PIERCES[f.pattern] && document.body.classList.contains('swarf-expert')))) return f; } catch (e) { /* private */ }
+    try { const f = JSON.parse(localStorage.getItem(FILL) || 'null'); if (f && ((f.fill === 'texture' && T().PATTERNS[f.pattern]) || f.fill === 'inlay' || f.fill === 'vcarve' || (f.fill === 'pierce' && T().PIERCES[f.pattern] && document.body.classList.contains('swarf-expert')))) return f; } catch (e) { /* private */ }
     return null;
   }
   function newMark(part, made) {
@@ -375,7 +379,7 @@
     let hf = null, dmax = 1;
     if (mode !== 'mask') {
       const s = T().xfScale(m.xf);
-      const tex = T().markTexture({ region: g, xf: m.xf, fill: m.fill }, { part: part.loops });
+      const tex = T().markTexture({ region: g, xf: m.xf, fill: m.fill, drawn: m.drawn }, { part: part.loops, maxDepth: part.thick });
       if (tex) { const A = m.xf; hf = (u, v) => tex.h(A[0] * u + A[1] * v + A[4], A[2] * u + A[3] * v + A[5]); dmax = Math.max(0.5, tex.depth); }
     }
     const Hs = new Float32Array(W * H), In = new Uint8Array(W * H);
@@ -649,6 +653,7 @@
     const im = m.img && m.img.href ? m.img : null, s = T().xfScale(m.xf);
     const w = im ? im.w * s : 0, h = im ? im.h * s : 0, inch = LEN.unit() === 'in';
     const n = v => (inch ? +(v / 25.4).toFixed(1) : Math.round(v));
+    if (m.drawn && m.drawn.name && T().drawnIntact(m)) return `${i + 1} · ${m.drawn.name}`;
     return `${i + 1} · ${m.made || 'mark'}${im ? ` ${n(w)} × ${n(h)} ${inch ? 'in' : 'mm'}` : ''}`;
   }
 
@@ -719,14 +724,14 @@
     }
     const expert = document.body.classList.contains('swarf-expert');
     const bitRow = f => {
-      const lib = libraryBits(straight(f));
-      const opts = lib.length ? lib.map(([t, b]) => [String(t.id), b.name]) : Object.entries(BITS).filter(([k]) => !straight(f) || k.startsWith('flat')).map(([k, b]) => [k, b.say]);
-      return selRow('bit', 'tx-bit', opts, String(f.tool), f.fill === 'pierce' ? 'the straight bit that cuts the kerfs or holes; its width is the kerf' : f.fill === 'inlay' ? 'the straight bit that cuts the pocket: its radius rounds the inside corners, of the pocket and the plug alike' : 'the bit that cuts it: ball for smooth hollows, V for sharp grooves');
+      const lib = libraryBits(bitKind(f));
+      const opts = lib.length ? lib.map(([t, b]) => [String(t.id), b.name]) : Object.entries(BITS).filter(([k]) => (f.fill === 'vcarve' ? k.startsWith('v') : !straight(f) || k.startsWith('flat'))).map(([k, b]) => [k, b.say]);
+      return selRow('bit', 'tx-bit', opts, String(f.tool), f.fill === 'pierce' ? 'the straight bit that cuts the kerfs or holes; its width is the kerf' : f.fill === 'inlay' ? 'the straight bit that cuts the pocket: its radius rounds the inside corners, of the pocket and the plug alike' : f.fill === 'vcarve' ? 'the V-bit that carves it: 90° is wider and shallower, 60° narrower and deeper' : 'the bit that cuts it: ball for smooth hollows, V for sharp grooves');
     };
     // pierce lives in advanced mode; a pierce mark seen from basic mode can still go back to
     // texture (review 10-30 F11), and says where pierce lives
     // inlay (Phil 11-02) is for everyone: a pocket, and the part that fills it
-    const fillRow = f => `<div class="sd-row tx-fills" title="texture carves the top; inlay sinks a flat pocket and makes the part that fills it${expert || f.fill === 'pierce' ? '; pierce cuts through it' : ''}"><span>fill</span><button class="tx-fill${f.fill === 'texture' ? ' on' : ''}" data-fill="texture">texture</button><button class="tx-fill${f.fill === 'inlay' ? ' on' : ''}" data-fill="inlay">inlay</button>${expert || f.fill === 'pierce' ? `<button class="tx-fill${f.fill === 'pierce' ? ' on' : ''}" data-fill="pierce">pierce</button>` : ''}</div>${expert || f.fill !== 'pierce' ? '' : '<div class="sd-note tx-adv">Pierce lives in advanced mode (view › advanced): here it can go back to texture.</div>'}`;
+    const fillRow = f => `<div class="sd-row tx-fills" title="texture carves the top; v-carve cuts the shape in with a V-bit; inlay sinks a flat pocket and makes the part that fills it${expert || f.fill === 'pierce' ? '; pierce cuts through it' : ''}"><span>fill</span><button class="tx-fill${f.fill === 'texture' ? ' on' : ''}" data-fill="texture">texture</button><button class="tx-fill${f.fill === 'vcarve' ? ' on' : ''}" data-fill="vcarve">v-carve</button><button class="tx-fill${f.fill === 'inlay' ? ' on' : ''}" data-fill="inlay">inlay</button>${expert || f.fill === 'pierce' ? `<button class="tx-fill${f.fill === 'pierce' ? ' on' : ''}" data-fill="pierce">pierce</button>` : ''}</div>${expert || f.fill !== 'pierce' ? '' : '<div class="sd-note tx-adv">Pierce lives in advanced mode (view › advanced): here it can go back to texture.</div>'}`;
     if (m && m.fill.fill === 'pierce') {
       const f = m.fill, P = C.PIERCES[f.pattern], pr = { ...C.pierceDefaults(f.pattern, part.thick), ...(f.params || {}) };
       h += fillRow(f);
@@ -756,6 +761,19 @@
       h += `<details class="tx-more tx-more-p"${more ? ' open' : ''}><summary>more</summary>`;
       for (const q of P.params) if (!q.basic) h += paramRow(q, pr[q.k]);
       h += '</details>';
+    } else if (m && m.fill.fill === 'vcarve') {
+      // V-CARVE (review 105 F3): the shape cut in by a V-bit; the words of one drawn in DRAW change there
+      const f = m.fill, tex = m.info && m.info.ver === m.ver ? m.info : null;
+      h += fillRow(f);
+      const nw = tex ? tex.warnings.length : 0;
+      h += `<div class="sd-note tx-status">${!tex ? 'Working out the cut…' : tex.seconds > 0.5 ? `About ${C.formatTime(tex.seconds)} to carve.` : 'Nothing to cut yet.'}${nw ? ` <span class="tx-warn">${nw === 1 ? 'A note' : `${nw} notes`} below.</span>` : ''}</div>`;
+      h += bitRow(f);
+      h += lenRow('flat depth', 'tx-limit', f.limit || 0, 'the deepest it goes: wider than that, the floor is flat. 0: as deep as the shape and the bit allow', sl('tx-limit', 0, 10, 0.1, f.limit || 0));
+      if (m.drawn && C.drawnIntact(m)) h += `<div class="sd-note">Drawn in draw: open draw to change ${m.drawn.text ? 'its words' : 'its outline'}. Painting here makes it a painted mark, and its ${m.drawn.text ? 'words go' : 'outline goes'}.</div>`;
+      if (tex) {
+        for (const w of tex.warnings) warns += `<div class="sd-note tx-warn">${esc(w)}</div>`;
+        for (const n of tex.notes) warns += `<div class="sd-note">${esc(n)}</div>`;
+      }
     } else if (m && m.fill.fill === 'inlay') {
       // INLAY (Phil 11-02): the mark sunk as a flat pocket, and its plug a part of its own to cut from
       // another wood. The fields, then what they make; what to watch for at the end
@@ -920,9 +938,9 @@
         const keep = { angle: f.angle || 0, origin: f.origin, fade: to === 'texture' ? 3 : 0 };
         // an inlay's depth stays short of the board's bottom
         const inl = () => C.newInlay({ depth: Math.min(C.INLAY.depth, Math.max(0.5, r3(part.thick / 2))) });
-        m.fill = normBit(to === 'pierce' ? C.newPierce('kerf', keep, part.thick) : to === 'inlay' ? inl() : { ...C.newFill('waves'), ...keep });
+        m.fill = normBit(to === 'pierce' ? C.newPierce('kerf', keep, part.thick) : to === 'inlay' ? inl() : to === 'vcarve' ? C.newVcarve() : { ...C.newFill('waves'), ...keep });
         m.ver++; part.dirty = true;
-        say(to === 'pierce' ? 'Pierce: cuts through the part. A starting point: cut a test strip first.' : to === 'inlay' ? 'Inlay: a flat pocket, and on done the plug that fills it, as its own part.' : 'Texture: carved into the part\'s top.');
+        say(to === 'pierce' ? 'Pierce: cuts through the part. A starting point: cut a test strip first.' : to === 'inlay' ? 'Inlay: a flat pocket, and on done the plug that fills it, as its own part.' : to === 'vcarve' ? 'V-carve: cut in by a V-bit, as deep as the shape is wide, with sharp corners.' : 'Texture: carved into the part\'s top.');
         render(); imagesSoon(); checkSoon();
       }
       ui.svg.focus();
@@ -945,7 +963,7 @@
       b.onmouseenter = () => { if (hint) hint.textContent = b.dataset.hint; };
       b.onmouseleave = () => { if (hint) hint.textContent = hint0; };
     }
-    for (const q of (f.fill === 'inlay' ? [] : (pierce ? C.PIERCES : C.PATTERNS)[f.pattern].params)) {
+    for (const q of (f.fill === 'inlay' || f.fill === 'vcarve' ? [] : (pierce ? C.PIERCES : C.PATTERNS)[f.pattern].params)) {
       if (q.k === 'depth') continue;
       bind(`tx-p-${q.k}`, v => {
         if (q.shuffle) {
@@ -979,6 +997,7 @@
       set(f => { f.depth = r3(d); if (f.fill !== 'inlay') f.params = { ...(f.params || {}), depth: r3(d) }; });
       if (d < v) say(`${LEN.prose(v)} is as deep as ${part.name} is thick or more: the ${what} would cut through, so it goes ${LEN.prose(d)} deep.`);
     });
+    bind('tx-limit', v => { if (!(v >= 0)) return say('A flat depth is 0 or more (0: no flat floor but what the bit needs).'); set(f => { f.limit = r3(v); }); });
     bind('tx-gap', v => { if (!(v >= 0 && v <= 2)) return say('The fit gap goes from 0 to 2 mm (0.1 mm presses in with glue).'); set(f => { f.gap = r3(v); }); });
     bind('tx-proud', v => { if (!(v >= 0 && v <= 25)) return say('Stands proud goes from 0 to 25 mm.'); set(f => { f.proud = r3(v); }); });
     // the deepest the mark goes: its floor and texture, or its border
@@ -1374,8 +1393,8 @@
     const plugSaid = plugs.made.length ? ` ${plugs.made.map(p => `"${p.meta.file}"`).join(', ')} ${plugs.made.length === 1 ? 'is its plug, on the bed' : 'are their plugs, on the bed'} and left out of this run: tick ${plugs.made.length === 1 ? 'it' : 'them'} in objects to cut from another wood.` : plugs.redone.length ? ' The plug changed with its pocket.' : plugs.gone ? ' Its plug went with it.' : '';
     const ops = a.conf.get().process.ops || [], free = ops.some(o => o && (o.type === 'outline' || o.type === 'rough'));
     // worded per fill (review 10-30 F5: a pierce mark's toast said "a texture step")
-    const by = r.addedBy || { texture: r.added, inlay: 0, pierce: 0 };
-    const kinds = ['texture', 'inlay', 'pierce'].filter(k => by[k]).map(k => (by[k] === 1 ? `${r.added === 1 ? (k === 'inlay' ? 'an' : 'a') : '1'} ${k} step` : `${by[k]} ${k} steps`));
+    const by = r.addedBy || { texture: r.added, vcarve: 0, inlay: 0, pierce: 0 };
+    const kinds = ['texture', 'vcarve', 'inlay', 'pierce'].filter(k => by[k]).map(k => (by[k] === 1 ? `${r.added === 1 ? (k === 'inlay' ? 'an' : 'a') : '1'} ${k} step` : `${by[k]} ${k} steps`).replace('vcarve', 'v-carve'));
     const added = `${kinds.join(' and ')} ${r.added === 1 ? 'was' : 'were'} added`;
     const steps = r.added ? (free ? `${added} before the cut-out` : `${added}; add an outline to cut the part free`) : r.removed ? `${r.removed === 1 ? 'its step was' : `${r.removed} steps were`} removed` : kept === 1 ? 'its step cuts it' : 'their steps cut them';
     return (kept ? `${kept === 1 ? '1 mark is' : `${kept} marks are`} kept: ${steps}. Next: toolpaths.` : `No marks left${r.removed ? `: ${steps}` : ''}.`) + plugSaid;
@@ -1455,12 +1474,13 @@
   }
 
   // ── the steps: one texture step per mark, before the steps that cut the parts free ──
-  const STEP = o => o && (o.type === 'texture' || o.type === 'pierce' || o.type === 'inlay');
-  const stepType = mark => (mark.fill && (mark.fill.fill === 'pierce' || mark.fill.fill === 'inlay') ? mark.fill.fill : 'texture');
+  const STEP = o => o && (o.type === 'texture' || o.type === 'pierce' || o.type === 'inlay' || o.type === 'vcarve');
+  const stepType = mark => (mark.fill && (mark.fill.fill === 'pierce' || mark.fill.fill === 'inlay' || mark.fill.fill === 'vcarve') ? mark.fill.fill : 'texture');
   // a step's title in words: "texture: waves", "inlay: 3 mm pocket", "pierce: kerfs"
   const fillWords = mark => {
     const t = stepType(mark), f = mark.fill;
     if (t === 'inlay') return `inlay: ${LEN.say(f.depth ?? T().INLAY.depth)} pocket`;
+    if (t === 'vcarve') return `v-carve: ${mark.drawn && mark.drawn.name ? mark.drawn.name : 'painted'}`;
     const P = (t === 'pierce' ? T().PIERCES : T().PATTERNS)[f.pattern];
     return `${t}: ${P ? P.label.toLowerCase() : f.pattern}`;
   };
@@ -1500,7 +1520,7 @@
     const s = a.conf.get(), proc = s.process, ops = proc.ops || (proc.ops = []);
     const marks = marksOnBed(a);
     let added = 0, removed = 0, changed = false;
-    const addedBy = { texture: 0, inlay: 0, pierce: 0 };
+    const addedBy = { texture: 0, vcarve: 0, inlay: 0, pierce: 0 };
     for (let i = ops.length - 1; i >= 0 && !addOnly; i--) {
       const o = ops[i];
       if (STEP(o) && !marks.has(o.texmark)) { ops.splice(i, 1); removed++; }
@@ -1522,9 +1542,9 @@
           plunge: like.plunge || proc.camTracePlunge || 500, down: like.down || 2, marks: {}
         };
         delete op.moved;
-        // texture first, then inlay, then pierce, then the steps that cut parts free (an outline, a
+        // texture first, then v-carve, then inlay, then pierce, then the steps that cut parts free (an outline, a
         // rough), all before the end-of-steps marker
-        const after = { texture: ['inlay', 'pierce'], inlay: ['pierce'], pierce: [] }[type];
+        const after = { texture: ['vcarve', 'inlay', 'pierce'], vcarve: ['inlay', 'pierce'], inlay: ['pierce'], pierce: [] }[type];
         let at = ops.findIndex(o => o && (o.type === 'outline' || o.type === 'rough' || o.type === '|' || after.includes(o.type)));
         if (at < 0) at = ops.length;
         ops.splice(at, 0, op);
@@ -1590,6 +1610,11 @@
         }
       }
     } catch (x) { /* cam not ready */ }
+    // a V-carve with no V-bit to cut it: the library's first bit would stand in, the wrong shape
+    try {
+      const tools = a.conf.get().tools || [];
+      if (!tools.some(t => t.type === 'tapermill')) for (const [, e] of marksOnBed(a)) if (stepType(e.mark) === 'vcarve') out.push({ title: fillWords(e.mark), body: 'There is no V-bit in the tool library, and a V-carve needs one.', hint: 'bits: add a V-bit' });
+    } catch (x) { /* cam not ready */ }
     for (const w of a.widgets.all()) {
       if (!(w.meta && Array.isArray(w.meta.tex)) || w.meta.disabled) continue;   // left out of this run
       const { thick } = sizeOf(w), name = nameOf(w);
@@ -1609,7 +1634,7 @@
         for (const body of said.get(key)) out.push({
           title: `${fillWords(m)} on ${name}`,
           body,
-          hint: /cut through/.test(body) ? 'tex: less depth, or a thicker board' : type === 'pierce' ? 'tex: a gentler bend, bigger spacing or a thinner bit; cut a test strip first' : type === 'inlay' ? 'tex: paint wider, or a thinner flat bit' : 'tex: another bit, a bigger pattern, or less depth'
+          hint: /cut through/.test(body) ? 'tex: less depth, or a thicker board' : type === 'pierce' ? 'tex: a gentler bend, bigger spacing or a thinner bit; cut a test strip first' : type === 'inlay' ? 'tex: paint wider, or a thinner flat bit' : type === 'vcarve' ? 'draw or tex: a flat depth, or another V-bit' : 'tex: another bit, a bigger pattern, or less depth'
         });
       }
     }
@@ -1688,11 +1713,11 @@
     const a = api(), e = a && marksOnBed(a).get(id);
     if (!e) return null;
     const f = e.mark.fill, C = T(), pierce = f.fill === 'pierce';
-    const lib = libraryBits(straight(f));
+    const lib = libraryBits(bitKind(f));
     const bits = lib.length ? lib.map(([t, b]) => [String(t.id), b.name]) : Object.entries(BITS).map(([k, b]) => [k, b.say]);
     // the mark's bit as the library knows it (a fill from TEX may name a core bit, "ball14")
     const tool = lib.length ? String(normBit({ ...f }).tool) : String(f.tool);
-    if (pierce) return { pierce, tool, bits };
+    if (pierce || f.fill === 'vcarve') return { pierce, tool, bits };
     // an inlay's pocket: its rings' stepover, 40% of the bit unless typed
     if (f.fill === 'inlay') { const bit = C.fillTool(f); return { pierce, inlay: true, tool, bits, stepover: f.stepover > 0 ? Math.min(f.stepover, bit.diameter / 2) : 0.4 * bit.diameter, custom: f.stepover > 0, bitWidth: bit.diameter / 2 }; }
     const P = C.PATTERNS[f.pattern], border = f.border && f.border.style && f.border.style !== 'none';
@@ -1734,5 +1759,51 @@
     if (k === 'tool' && e.mark.fill && e.mark.fill.fill === 'inlay') { try { syncPlugs(a); } catch (x) { console.warn('swarf tex: plug', x); } }
     return true;
   }
-  window.__swarfTex = { open, close, say, setTool, render, state: () => S, lastMesh: () => S && S.lastMesh, concerns, syncSteps, pierceAvoid, stepCard, setStepCard };
+  // ── a drawing carved into a part, from DRAW (review 105 F3, M4): a mark like any other, that also
+  // keeps what was drawn, so DRAW can show its words again. Everything comes in the part's own frame.
+  // A mark already on that part keeps its frame, its turns and its copies; every copy takes the change.
+  function carve(w, { id, loops, curves, text, name, tool, limit }) {
+    const C = T(), holders = api().widgets.all().filter(g => g.meta && Array.isArray(g.meta.tex) && g.meta.tex.some(m => m.id === id));
+    const had = holders.includes(w) ? w.meta.tex.find(m => m.id === id) : null;
+    if (id && !had) uncarve(id);
+    const I = C.xfInvert(had ? had.xf || C.IDENTITY : C.IDENTITY), to = (x, y) => C.xfApply(I, x, y);
+    const mine = loops.map(L => C.thinLoop(L, 0.008).map(q => to(q[0], q[1]).map(v => +v.toFixed(3))));
+    const { region, sig } = C.drawnRegion(mine);
+    const drawn = { loops: mine, sig, name,
+      curves: curves.map(c => ({ crv: { ...c.crv, ctrlPts: c.crv.ctrlPts.map(([x, y, , wt]) => [...to(x, y), 0, wt ?? 1]) } })),
+      ...(text ? { text: { ...text, at: to(text.at[0], text.at[1]) } } : {}) };
+    const stored = C.storeRegion(region);
+    const fill = normBit(C.newVcarve({ tool, limit: limit || 0 }));
+    if (had) {
+      for (const g of holders) for (const m of g.meta.tex) if (m.id === id) {
+        m.region = stored; m.drawn = drawn; m.fill = { ...m.fill, tool: fill.tool, bit: fill.bit, limit: fill.limit };
+        delete m.est;
+        if (g.saveState) g.saveState(() => {});
+      }
+      return id;
+    }
+    const mark = { id: id || newId(), made: 'draw', region: stored, xf: C.IDENTITY.slice(), fill, face: faceNow(w), at: rqOf(w).slice(), drawn };
+    (w.meta.tex = w.meta.tex || []).push(mark);
+    if (w.saveState) w.saveState(() => {});
+    return mark.id;
+  }
+  function uncarve(id) {
+    for (const w of api().widgets.all()) {
+      if (!(w.meta && Array.isArray(w.meta.tex))) continue;
+      const left = w.meta.tex.filter(m => m.id !== id);
+      if (left.length === w.meta.tex.length) continue;
+      if (left.length) w.meta.tex = left; else delete w.meta.tex;
+      if (w.saveState) w.saveState(() => {});
+    }
+  }
+  // what fn carves, one undo in cam (as TEX's done), and the steps that follow
+  function carving(fn) {
+    const a = api(), ws = a.widgets.all();
+    const before = a.doit ? texSnap(ws) : null;
+    fn();
+    const r = syncSteps(a);
+    if (before) { const after = texSnap(ws); a.doit.push(() => texPut(before), () => texPut(after), { undo: 'carved words: undone', redo: 'carved words: back' }); }
+    return r;
+  }
+  window.__swarfTex = { open, close, say, setTool, render, state: () => S, lastMesh: () => S && S.lastMesh, concerns, syncSteps, pierceAvoid, stepCard, setStepCard, carve, uncarve, carving };
 })();

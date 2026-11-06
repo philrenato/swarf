@@ -184,7 +184,7 @@ function content(actions) {
                     menuItem(actions, { id: 'swarf-save-drawing', text: 'save the drawing (DXF, AI, SVG, PDF)', title: 'the outline behind a shape or a 2D import, true size', iconClass: 'fas fa-bezier-curve' }),
                     menuItem(actions, { id: 'mesh-export-stl', text: 'save the part as a model (STL)', title: 'the picked part as a mesh, for printing or rendering', iconClass: 'fas fa-dice-d20' }),
                     menuItem(actions, { id: 'mesh-export-obj', text: 'save the part as a model (OBJ)', title: 'the picked part as a mesh, for rendering or another modeler', iconClass: 'fas fa-dice-d20' }),
-                    menuItem(actions, { id: 'app-export', text: 'save for Kiri:Moto (.kmz)', title: 'a workspace Kiri:Moto opens (it has no TEX steps: texture, inlay, pierce); .swarf keeps everything', iconClass: 'fas fa-download' }),
+                    menuItem(actions, { id: 'app-export', text: 'save for Kiri:Moto (.kmz)', title: 'a workspace Kiri:Moto opens (it has no TEX steps: texture, v-carve, inlay, pierce); .swarf keeps everything', iconClass: 'fas fa-download' }),
                     hr({ class: "app-hide" }),
                     menuItem(actions, { id: 'app-quit', lk: 'quit', text: 'quit', className: 'hide', onclick() { window.close() } })
                 ]

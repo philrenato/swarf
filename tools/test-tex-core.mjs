@@ -706,5 +706,67 @@ for (const [id, P] of Object.entries(T.PATTERNS)) {
   ok(T.inlayPlug(sm, { part: away }).loops.length === 1 && T.inlayPlug(sm, { part: holeIn }).loops.length === 2, 'a hole moved into the paint: the plug gets the hole');
 }
 
+// V-carve (review 105 F3): depth = distance to the outline / tan(half angle), capped; sharp corners
+{
+  const mk = (loops, fill) => { const { region, sig } = T.drawnRegion(loops); return { id: 'v', region, xf: T.IDENTITY.slice(), fill, drawn: { loops, sig } }; };
+  const rect = (x, y, w, h) => [[x, y], [x + w, y], [x + w, y + h], [x, y + h]];
+  const big = { id: 'b', name: 'big', type: 'v', angle: 90, diameter: 50 }, v60 = { id: 'c', name: 'v60', type: 'v', angle: 60, diameter: 50 };
+  const low = p => Math.min(...p.moves.filter(m => !m.rapid).map(m => m.z));
+  const bar = [rect(0, 0, 60, 20)];
+  ok(Math.abs(low(T.vcarveToolpath(mk(bar, T.newVcarve({ bit: big })), { maxDepth: 19 })) + 10) < 0.01, '20 mm bar, 90°: 10 deep');
+  ok(Math.abs(low(T.vcarveToolpath(mk(bar, T.newVcarve({ bit: v60 })), { maxDepth: 30 })) + 10 / Math.tan(Math.PI / 6)) < 0.01, '20 mm bar, 60°: 17.32 deep');
+  ok(Math.abs(low(T.vcarveToolpath(mk(bar, T.newVcarve({ tool: 'v90' })), { maxDepth: 19 })) + 6.35) < 1e-6, "20 mm bar, 1/2 in 90°: held at the bit's cone");
+  ok(Math.abs(low(T.vcarveToolpath(mk(bar, T.newVcarve({ bit: big, limit: 3 })), { maxDepth: 19 })) + 3) < 1e-6, 'flat depth 3: 3 deep');
+  ok(Math.abs(low(T.vcarveToolpath(mk(bar, T.newVcarve({ bit: big })), { maxDepth: 6 })) + 5.75) < 1e-6, 'a 6 mm board: stops 0.25 mm short of its bottom');
+  ok(T.vcarveToolpath(mk(bar, { ...T.newVcarve(), bit: { id: 'f', name: 'flat', type: 'flat', diameter: 6 } }), { maxDepth: 19 }).moves.length === 0, 'a flat bit cuts no V-carve');
+  ok(T.markChecks(mk(bar, { ...T.newVcarve(), bit: { id: 'f', name: 'flat', type: 'flat', diameter: 6 } }), { thickness: 19 }).warnings.some(w => /needs a V-bit/.test(w)), 'and says so');
+  ok(T.markChecks(mk(bar, T.newVcarve({ bit: big })), { thickness: 6 }).warnings.some(w => /cut through/.test(w)), 'as deep as the board is a warning');
+  // an E: all outside corners and all inside ones. What the moves leave against what they should
+  const E = [[[0, 0], [40, 0], [40, 10], [12, 10], [12, 20], [34, 20], [34, 30], [12, 30], [12, 40], [40, 40], [40, 50], [0, 50]]];
+  const inE = (x, y) => { let c = false; const L = E[0]; for (let i = 0, j = L.length - 1; i < L.length; j = i++) if ((L[i][1] > y) !== (L[j][1] > y) && x < (L[j][0] - L[i][0]) * (y - L[i][1]) / (L[j][1] - L[i][1]) + L[i][0]) c = !c; return c; };
+  const dE = (x, y) => { let b = Infinity; const L = E[0]; for (let i = 0, j = L.length - 1; i < L.length; j = i++) { const ax = L[j][0], ay = L[j][1], ex = L[i][0] - ax, ey = L[i][1] - ay, t = Math.max(0, Math.min(1, ((x - ax) * ex + (y - ay) * ey) / (ex * ex + ey * ey))); b = Math.min(b, Math.hypot(x - ax - t * ex, y - ay - t * ey)); } return b; };
+  const pe = T.vcarveToolpath(mk(E, T.newVcarve({ bit: big })), { maxDepth: 19 });
+  // every point of every feed: inside, and the cone's rim no further out than the outline
+  const tips = [];
+  let prev = null;
+  for (const m of pe.moves) { if (!m.rapid && prev && m.z < 0) { const n = Math.ceil(Math.hypot(m.x - prev.x, m.y - prev.y) / 0.25) || 1; for (let k = 0; k <= n; k++) tips.push([prev.x + (m.x - prev.x) * k / n, prev.y + (m.y - prev.y) * k / n, -(prev.z + (m.z - prev.z) * k / n)]); } prev = m; }
+  let worstOver = 0, outside = 0;
+  for (const [x, y, d] of tips) { if (d < 0.05) continue; if (!inE(x, y)) outside++; worstOver = Math.max(worstOver, d - dE(x, y)); }
+  ok(tips.length > 100 && outside === 0, `E: ${tips.length} points of the moves, none outside (${outside})`);
+  ok(worstOver < 0.06, `E: the cone's rim stays inside the outline (over by at most ${worstOver.toFixed(3)} mm)`);
+  // nothing uncut: at each sample, the deepest cone over it reaches the true depth; and at a corner, near the point
+  const reach = (x, y) => { let b = 0; for (const [tx, ty, d] of tips) { const v = d - Math.hypot(x - tx, y - ty); if (v > b) b = v; } return b; };
+  let worstUnder = 0, n = 0;
+  for (let y = 0.5; y < 50; y += 1.5) for (let x = 0.5; x < 40; x += 1.5) { if (!inE(x, y)) continue; n++; worstUnder = Math.max(worstUnder, dE(x, y) - reach(x, y)); }
+  ok(n > 200 && worstUnder < 0.1, `E: every point cut to its depth (${n} samples, short by at most ${worstUnder.toFixed(3)} mm)`);
+  // sharp: 0.2 mm in along each outside corner's bisector, the cut is there
+  const corners = [[0.2, 0.2], [39.8, 0.2], [39.8, 9.8], [0.2, 49.8], [39.8, 49.8], [39.8, 40.2], [33.8, 20.2], [33.8, 29.8]];
+  ok(corners.every(([x, y]) => reach(x, y) > 0.1), `E: the cut reaches within 0.2 mm of ${corners.length} outside corners (${corners.map(([x, y]) => reach(x, y).toFixed(2))})`);
+  // step-down: same bottom, more passes, none going where the last pass already reached
+  const pd = T.vcarveToolpath(mk(E, T.newVcarve({ bit: big })), { maxDepth: 19, stepDown: 2 });
+  ok(Math.abs(low(pd) - low(pe)) < 1e-6 && new Set(pd.moves.filter(m => !m.rapid).map(m => m.z.toFixed(3))).has('-2.000'), `E, 2 mm a pass: same bottom (${low(pd).toFixed(2)})`);
+  // and passes leave what one pass leaves: a held pass that sloped from the shallow end left spikes at
+  // every corner (seen in the render, 11-06)
+  const tipsD = [];
+  prev = null;
+  for (const m of pd.moves) { if (!m.rapid && prev && m.z < 0) { const n = Math.ceil(Math.hypot(m.x - prev.x, m.y - prev.y) / 0.25) || 1; for (let k = 0; k <= n; k++) tipsD.push([prev.x + (m.x - prev.x) * k / n, prev.y + (m.y - prev.y) * k / n, -(prev.z + (m.z - prev.z) * k / n)]); } prev = m; }
+  const reachD = (x, y) => { let b = 0; for (const [tx, ty, d] of tipsD) { const v = d - Math.hypot(x - tx, y - ty); if (v > b) b = v; } return b; };
+  let underD = 0, overD = 0;
+  for (let y = 0.5; y < 50; y += 1.5) for (let x = 0.5; x < 40; x += 1.5) { if (!inE(x, y)) continue; underD = Math.max(underD, dE(x, y) - reachD(x, y)); }
+  for (const [x, y, d] of tipsD) if (d >= 0.05) overD = Math.max(overD, d - dE(x, y));
+  ok(underD < 0.1 && overD < 0.06, `E, 2 mm a pass: every point cut to its depth (short by ${underD.toFixed(3)}), none past it (${overD.toFixed(3)})`);
+  // a painted mark takes the same fill; painting over a drawn mark retires the drawing
+  const g = T.newGrid(0, 0, 80, 40, 0.5); T.paintWhere(g, (x, y) => x > 10 && x < 70 && y > 10 && y < 30, 1);
+  const painted = T.vcarveToolpath({ id: 'p', region: g, xf: T.IDENTITY.slice(), fill: T.newVcarve({ bit: big }) }, { maxDepth: 19 });
+  ok(Math.abs(low(painted) + 10) < 0.3, `a painted 20 mm bar: about 10 deep (${low(painted).toFixed(2)})`);
+  const dm = mk(bar, T.newVcarve({ bit: big }));
+  ok(T.drawnIntact(dm), 'a drawing is intact until painted');
+  const d2 = { ...dm, region: { ...dm.region, data: dm.region.data.slice() } }; d2.region.data[Math.floor(d2.region.data.length / 2)] ^= 1;
+  ok(!T.drawnIntact(d2), 'painted over: the drawing retires');
+  // a word off the part's edge stays on the part
+  const off = T.vcarveToolpath(mk([rect(-10, 0, 40, 20)], T.newVcarve({ bit: big })), { maxDepth: 19, part: [rect(0, -5, 60, 30)] });
+  ok(off.moves.filter(m => !m.rapid && m.z < -0.05).every(m => m.x >= -1e-6), 'run off the part: the moves stay on it');
+}
+
 console.log(`\n${pass} passed, ${fail} failed  (${((Date.now() - t0) / 1000).toFixed(1)} s)`);
 process.exit(fail ? 1 : 0);

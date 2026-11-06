@@ -447,10 +447,22 @@
   // in rpm and mm/min, 0 = no limit.
   // the woods the shop's ShopBot library was written for (10-29: its bits' numbers cap swarf's here)
   const SHOP_WOODS = new Set(['plywood', 'mdf', 'hardwood', 'osb', 'hardboard']);
+  // A V-bit is as wide as it is deep, not as wide as its shank: its tip does the cutting and its full
+  // 1/2 in is seldom in the wood. It takes the numbers of the width it has at one pass's depth, and that
+  // pass goes down until it is 1/4 in wide (90°: 3.2 mm, 60°: 5.5 mm), or as the material allows.
+  const V_WIDTH = 6.35;
+  function vBitPass(c, tool) {
+    const half = tool && tool.type === 'tapermill' && tool.taper_angle > 0 ? tool.taper_angle : 0;
+    if (!half) return 0;
+    const byWidth = V_WIDTH / 2 / Math.tan(half * Math.PI / 180);
+    return Math.min(byWidth, c.down * V_WIDTH * 2, c.downMax > 0 ? c.downMax : Infinity);
+  }
   function derive(m, diamMm, lim, tool) {
     const c = m && m.cut;
     if (!c || !(diamMm > 0)) return null;
     lim = lim || {};
+    const vPass = vBitPass(c, tool);
+    if (vPass) diamMm = Math.min(diamMm, V_WIDTH);
     let rpm = c.vc * 1000 / (Math.PI * diamMm);
     if (lim.spindleMax > 0) rpm = Math.min(rpm, lim.spindleMax);
     if (lim.spindleMin > 0) rpm = Math.max(rpm, lim.spindleMin);
@@ -463,6 +475,7 @@
     plunge = Math.round(plunge / 5) * 5;
     let down = c.down * diamMm;
     if (c.downMax > 0) down = Math.min(down, c.downMax);
+    if (vPass) down = vPass;
     // a down-cut packs its chips into the slot it cuts: no deeper than half its diameter a pass
     const sw = tool && tool.swarf;
     let capped = false;
@@ -533,13 +546,13 @@
   // Ops keep the student's edits. An op is re-derived only when its stamp
   // no longer matches — the material, the op's tool or the device changed —
   // or when it has no stamp yet (a new op, or the auto-added rough).
-  const OP_TYPES = ['rough', 'outline', 'contour', 'pocket', 'drill', 'texture', 'pierce', 'inlay'];
+  const OP_TYPES = ['rough', 'outline', 'contour', 'pocket', 'drill', 'texture', 'pierce', 'inlay', 'vcarve'];
   function opValues(type, p) {
     // a drill's `rate` is its plunge (cl-ops.js maps it to camDrillDownSpeed)
     if (type === 'drill') return { spindle: p.spindle, rate: p.plunge, down: p.stepdown };
     if (type === 'contour') return { spindle: p.spindle, rate: p.feed, step: p.stepover };
     // a texture's stepover comes from its scallop (TEX), not the material
-    if (type === 'texture' || type === 'pierce' || type === 'inlay') return { spindle: p.spindle, rate: p.feed, plunge: p.plunge, down: p.stepdown };
+    if (type === 'texture' || type === 'pierce' || type === 'inlay' || type === 'vcarve') return { spindle: p.spindle, rate: p.feed, plunge: p.plunge, down: p.stepdown };
     return { spindle: p.spindle, rate: p.feed, plunge: p.plunge, down: p.stepdown, step: p.stepover };
   }
   let applying = false;

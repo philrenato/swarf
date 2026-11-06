@@ -64,7 +64,7 @@ export const env = new Client();
 
 // a TEX step's row: "texture · ocean waves", the parts it is on in its tooltip (review r093-ux T3:
 // "texture: ocean waves on circle 2" ran out of the panel)
-const texShort = t => String(t).replace(/^(\w+): (.+?) on .*$/, '$1 · $2');
+const texShort = t => String(t).replace(/^([\w-]+): (.+?) on .*$/, '$1 · $2');
 
 export function isDark() {
     return api.space.is_dark()
@@ -414,6 +414,12 @@ export function opRender() {
             const est = rec.texest > 0 && window.SwarfTexCore ? `, about ${window.SwarfTexCore.formatTime(rec.texest)}` : '';
             title = ` title="${full}: the mark made in TEX, sunk as a flat pocket by its straight bit${est}; its plug is a part of its own on the bed. Open tex to change it."`;
             clazz.push('tex-step');
+        } else if (rec.type === 'vcarve') {
+            const full = esc(rec.texlabel || 'v-carve');
+            label = texShort(rec.texlabel || 'v-carve');
+            const est = rec.texest > 0 && window.SwarfTexCore ? `, about ${window.SwarfTexCore.formatTime(rec.texest)}` : '';
+            title = ` title="${full}: cut in by a V-bit along the middle of the shape, as deep as the shape is wide${est}. Change the words in draw, the bit and flat depth in draw or tex."`;
+            clazz.push('tex-step');
         } else if (rec.type === 'texture') {
             const full = esc(rec.texlabel || 'texture');
             label = texShort(rec.texlabel || 'texture');
@@ -435,6 +441,7 @@ export function opRender() {
             texture: ['tool','path','finish','texstep','down','rate','plunge'],
             pierce:  ['tool','down','rate','plunge'],
             inlay:   ['tool','texstep','down','rate','plunge'],
+            vcarve:  ['tool','down','rate','plunge'],
         };
         // boolean fields render as checkboxes
         const BOOL_FIELDS = { inside: true, outside: true, all: true, flats: true, curves: true };
