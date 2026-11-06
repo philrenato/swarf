@@ -203,6 +203,70 @@ try {
   await page.click('#sd-cancel');
   await wait(300);
 
+  // ── the other choices for words over a part ────────────────────
+  async function wordsAs(mode) {
+    await board(240, 100, 19);
+    await wait(1000);
+    await openDraw();
+    await page.keyboard.press('t');
+    await page.waitForFunction(() => window.__swarfDraw.text.font, { timeout: 15000 }).catch(() => {});
+    await page.evaluate(m => { const e = document.getElementById('sd-mode'); e.value = m; e.dispatchEvent(new Event('change', { bubbles: true })); }, mode);
+    await setField('sd-str', 'OH');
+    await setField('sd-th', '40');
+    await wait(100);
+    const [wx, wy] = await onBoard(40, 30), [qx, qy] = await px(wx, wy);
+    await page.mouse.move(qx + 10, qy + 10); await page.mouse.move(qx, qy); await page.mouse.click(qx, qy);
+    await wait(400);
+    const inDraw = await page.evaluate(() => { const S = window.__swarfDraw.state(); return { live: S.parts.filter(p => !p.gone).length, host: S.parts.find(p => p.w).curves.length, say: document.getElementById('sd-say').textContent }; });
+    await page.click('#sd-done');
+    await wait(1800);
+    const out = await page.evaluate(() => { const a = window.kiri.api, ws = a.widgets.all(); return { n: ws.length, names: ws.map(w => w.meta.file), marks: ws.flatMap(w => w.meta.tex || []).length, steps: a.conf.get().process.ops.filter(o => o.type === 'vcarve').length }; });
+    return { inDraw, out };
+  }
+  const hole = await wordsAs('auto');
+  check(hole.inDraw.live === 1 && hole.inDraw.host === 4 && hole.out.marks === 0 && hole.out.steps === 0, `a hole if inside: the letters' outlines go into the board (O's two, H's one), no mark, no step (${JSON.stringify(hole)})`);
+  const cutFrom = await wordsAs('cut');
+  check(cutFrom.inDraw.live >= 1 && cutFrom.out.marks === 0 && cutFrom.out.steps === 0 && cutFrom.out.n >= 1 && /Cut from sign|parts now/.test(cutFrom.inDraw.say), `cut from the part: no mark, no step (${JSON.stringify(cutFrom)})`);
+  const own = await wordsAs('part');
+  check(own.out.n === 3 && own.out.marks === 0 && own.out.steps === 0, `a part of its own over a board: letter parts (${JSON.stringify(own)})`);
+
+  // ── undo in cam, and tex's own fill ────────────────────────────
+  const carvedHi = await wordsAs('carve');
+  check(carvedHi.out.n === 1 && carvedHi.out.marks === 1 && carvedHi.out.steps === 1, `carve again (${JSON.stringify(carvedHi.out)})`);
+  await page.evaluate(() => window.kiri.api.doit.undo()); await wait(800);
+  const undone = await page.evaluate(() => { const a = window.kiri.api; return { marks: a.widgets.all().flatMap(w => w.meta.tex || []).length, steps: a.conf.get().process.ops.filter(o => o.type === 'vcarve').length }; });
+  check(undone.marks === 0 && undone.steps === 0, `undo in cam takes the carving and its step away (${JSON.stringify(undone)})`);
+  await page.evaluate(() => window.kiri.api.doit.redo()); await wait(800);
+  const redone = await page.evaluate(() => { const a = window.kiri.api; return { marks: a.widgets.all().flatMap(w => w.meta.tex || []).length, steps: a.conf.get().process.ops.filter(o => o.type === 'vcarve').length }; });
+  check(redone.marks === 1 && redone.steps === 1, `redo brings them back (${JSON.stringify(redone)})`);
+  // tex: fill › v-carve on a painted mark, the bits V-bits only
+  await board(160, 80, 19);
+  await wait(1000);
+  await page.evaluate(() => { const a = window.kiri.api; a.platform.select(a.widgets.all()[0]); });
+  await page.click('#swarf-step-tex');
+  await page.waitForFunction(() => window.__swarfTex.state(), { timeout: 15000 });
+  await page.evaluate(() => {
+    const S = window.__swarfTex.state(), C = window.SwarfTexCore, p = S.parts[0];
+    const g = C.newGrid(p.box[0] - 2, p.box[1] - 2, p.box[2] + 2, p.box[3] + 2, 0.5), cx = (p.box[0] + p.box[2]) / 2, cy = (p.box[1] + p.box[3]) / 2;
+    C.paintWhere(g, (x, y) => Math.abs(x - cx) < 30 && Math.abs(y - cy) < 5, 1);
+    p.marks.push({ id: 'pv', made: 'region', region: g, xf: C.IDENTITY.slice(), fill: C.newFill('waves'), ver: 1 }); S.sel = 0; S.mark = 0; p.dirty = true;
+    window.__swarfTex.render();
+  });
+  await wait(300);
+  const fills = await page.evaluate(() => [...document.querySelectorAll('.tx-fill')].map(b => b.dataset.fill));
+  check(fills.includes('vcarve'), `tex's fill row offers v-carve in basic mode (${fills})`);
+  await page.click('.tx-fill[data-fill="vcarve"]');
+  await page.waitForFunction(() => /About .* to carve/.test(document.querySelector('.tx-status')?.textContent || ''), { timeout: 30000 }).catch(() => {});
+  const tc = await page.evaluate(() => { const s = document.getElementById('tx-bit'), tools = window.kiri.api.conf.get().tools; return { status: document.querySelector('.tx-status')?.textContent, kinds: [...s.options].map(o => (tools.find(t => String(t.id) === o.value) || {}).type), limit: document.getElementById('tx-limit')?.value }; });
+  check(/About .* to carve/.test(tc.status) && tc.kinds.length && tc.kinds.every(k => k === 'tapermill') && tc.limit !== undefined, `its card: the time, V-bits only, flat depth (${JSON.stringify(tc)})`);
+  await page.click('#tx-done');
+  await wait(1500);
+  const texOps = await page.evaluate(() => window.kiri.api.conf.get().process.ops.map(o => o.type + ':' + (o.texlabel || '')));
+  check(texOps.some(o => /^vcarve:v-carve: painted on sign/.test(o)), `a v-carve step from tex (${texOps})`);
+  const painted = await parsed(await exportFile());
+  const pdeep = Math.max(...painted.moves.filter(m => !m.rapid).map(m => -m.z));
+  check(Math.abs(pdeep - 5) < 0.3 && !painted.routerOff && !painted.rapid && painted.on > 0, `its file: about 5 deep on a painted 10 mm bar, router on (${pdeep.toFixed(2)})`);
+
   // ── known shapes: the file against the outline ─────────────────
   // a rectangle drawn on the board, carve into it; its place in the file is its place on the board
   async function shape({ w, h, t = 19, bit, limit = 0, name }) {
