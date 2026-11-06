@@ -48,7 +48,8 @@
     auto: 'a hole if inside',
     add: 'add to the part',
     cut: 'cut from the part',
-    part: 'a part of its own'
+    part: 'a part of its own',
+    carve: 'carve into the part'
   };
   const G = () => window.SwarfDrawGeom;
   const HIT = 7;                                 // px: how near a press must be to a point
@@ -232,6 +233,24 @@
         parts.push({ w: null, line: true, name: `line ${++nl}`, depth: L.depth, curves: [{ crv }], dirty: false });
       }
     }
+    // what was carved into each part, on the bed, its words still words (a copy of a part shares its
+    // marks: one drawing here, and every copy takes the change). A mark painted over in TEX stays TEX's
+    const Cx = window.SwarfTexCore, shown = new Set();
+    for (const w of a.widgets.all()) {
+      if (!(Cx && w.meta && w.meta.svg && !w.meta.tilted && Array.isArray(w.meta.tex))) continue;
+      const pos = w.track.pos;
+      for (const m of w.meta.tex) {
+        if (!m.drawn || shown.has(m.id) || !Cx.drawnIntact(m)) continue;
+        shown.add(m.id);
+        const A = m.xf || Cx.IDENTITY, on = (x, y) => { const q = Cx.xfApply(A, x, y); return [q[0] + pos.x, q[1] + pos.y]; };
+        const curves = m.drawn.curves.map(c => ({ crv: { ...clone(c.crv), ctrlPts: c.crv.ctrlPts.map(([x, y, , wt]) => [...on(x, y), 0, wt ?? 1]) } }));
+        // a part turned or scaled since: its outline holds, but letters set again would come out square to the bed
+        const plain = Math.abs(A[0] - 1) + Math.abs(A[1]) + Math.abs(A[2]) + Math.abs(A[3] - 1) < 1e-6;
+        const part = { w: null, name: m.drawn.name, carve: { mark: m.id, tool: m.fill.tool, limit: m.fill.limit || 0 }, thick: 19, edge: { kind: 'straight', size: 2 }, curves, dirty: false };
+        if (m.drawn.text && plain) { part.text = { ...m.drawn.text, at: on(m.drawn.text.at[0], m.drawn.text.at[1]) }; part.named = true; }
+        parts.push(part);
+      }
+    }
     // every visit starts with an outline inside a part making a hole (Phil 10-29); the card changes it for this visit
     // one board for a drawn part and a made shape (deep review P14: draw said 6 mm, shape 3/4 in): the
     // last thickness typed here, else shape's last, else 3/4 in; engraved 1 mm or 1/32 in deep
@@ -241,7 +260,7 @@
     let t0 = shapeT > 0 ? shapeT : 19.05, d0 = inch ? 0.79375 : 1;
     const m0 = 'auto';
     try { t0 = parseFloat(localStorage.getItem(THICK)) || t0; d0 = parseFloat(localStorage.getItem(DEPTH)) || d0; } catch (e) { /* private */ }
-    S = { parts, others, bed: [bw, bd], sel: -1, pts: new Set(), tool: 'select', pen: [], drag: null, undo: [], thick: t0, depth: d0, mode: m0, edge: { kind: 'straight', size: 2 }, hover: null };
+    S = { parts, others, bed: [bw, bd], sel: -1, pts: new Set(), tool: 'select', pen: [], drag: null, undo: [], thick: t0, depth: d0, mode: m0, textMode: 'carve', carve: { tool: vBit0(a), limit: 0 }, edge: { kind: 'straight', size: 2 }, hover: null };
     build();
     // the part picked in the workspace is the one picked here
     const picked = a.selection.widgets ? a.selection.widgets() : [];
@@ -394,7 +413,7 @@
       const d = part.curves.map(c => pathOf(c.crv)).join(' ');
       // in the regions tool the regions are the fill: the outlines only, under them
       const src = S.tool === 'regions' && S.reg && S.reg.group && S.reg.group.includes(part);
-      out.push(`<path class="sd-part${part.line ? ' sd-line' : ''}${src ? ' sd-line sd-regsrc' : ''}${pi === S.sel ? ' on' : ''}${part.cross || part.over ? ' cross' : ''}" data-part="${pi}" d="${d}"/>`);
+      out.push(`<path class="sd-part${part.line || part.carve ? ' sd-line' : ''}${part.carve ? ' sd-carve' : ''}${src ? ' sd-line sd-regsrc' : ''}${pi === S.sel ? ' on' : ''}${part.cross || part.over ? ' cross' : ''}" data-part="${pi}" d="${d}"/>`);
       if (part.cross) out.push(`<circle class="sd-cross" cx="${sx(part.cross[0])}" cy="${sy(part.cross[1])}" r="7"/>`);
       // a wide, unseen edge, so a press near the outline (to add a point) lands on the part
       if (pi === S.sel) out.push(`<path class="sd-edge" data-part="${pi}" d="${d}"/>`);
@@ -494,7 +513,7 @@
   function overlapOf(part) {
     const mine = part.curves.map(c => polyOf(c.crv)), mb = boxOf(part.curves);
     for (const o of S.parts) {
-      if (o === part || o.gone || o.line) continue;
+      if (o === part || o.gone || o.line || o.carve) continue;
       const ob = boxOf(o.curves);
       if (ob[0] > mb[2] || mb[0] > ob[2] || ob[1] > mb[3] || mb[1] > ob[3]) continue;
       const theirs = o.curves.map(c => polyOf(c.crv));
@@ -526,6 +545,7 @@
   const crossSay = (part, x) => `${part.name} crosses itself near ${LEN.unit() === 'in' ? `${LEN.fld(x[0])}, ${LEN.fld(x[1])} in` : `${r3(x[0])}, ${r3(x[1])} mm`}: past a crossing, swarf cannot tell inside from outside. Move a point so its lines don't cross.`;
   function checkCross(part) {
     if (part.line) { part.cross = null; part.over = null; return null; }
+    if (part.carve) { part.cross = null; part.over = null; return null; }
     part.cross = part.text ? null : crossing(part);
     if (part.cross) say(crossSay(part, part.cross));
     const o = overlapOf(part);
@@ -543,7 +563,15 @@
       : `<div class="sd-row"><span>${word}</span><input id="${id}" value="${v}" inputmode="decimal"><span class="u">${unit}</span></div>`;
     const textRows = (str, hh) => `<div class="sd-row"><span>words</span><input id="sd-str" class="wide" value="${esc(str)}"></div>${row('letter height', 'sd-th', hh, 'mm')}
       <div class="sd-row"><span>font</span>${fontSelect(S.tool === 'text' || !part || !part.text ? TEXT.name : part.text.font || TEXT.name)}</div>`;
-    const modeRow = () => `<div class="sd-row" title="what an outline drawn inside or over a part makes"><span>inside or over a part</span></div><div class="sd-row"><select id="sd-mode" class="wide">${Object.entries(MODES).map(([k, v]) => `<option value="${k}"${k === S.mode ? ' selected' : ''}>${v}</option>`).join('')}</select></div>`;
+    // carve into <part>: the part it is on when it is on one, the only part there is when not
+    const carveWord = p => { const hosts = S.parts.filter(canHost), h = p ? hostOf(p) : hosts.length === 1 ? hosts[0] : null; return h ? `carve into ${h.name}` : 'carve into the part under it'; };
+    const modeRow = (now, p) => `<div class="sd-row" title="what ${now === undefined || S.tool === 'text' || p && p.text ? 'words or an outline' : 'an outline'} inside or over a part makes"><span>inside or over a part</span></div><div class="sd-row"><select id="sd-mode" class="wide">${Object.entries(MODES).map(([k, v]) => `<option value="${k}"${k === (now ?? S.mode) ? ' selected' : ''}>${k === 'carve' ? esc(carveWord(p)) : v}</option>`).join('')}</select></div>`;
+    // the V-bits by name, and how deep it may go
+    const carveRows = c => {
+      const bits = vBits(api());
+      return (bits.length ? `<div class="sd-row" title="the V-bit that carves it: 90° is wider and shallower, 60° narrower and deeper"><span>bit</span><select id="sd-vbit" class="wide">${bits.map(t => `<option value="${t.id}"${t.id === c.tool ? ' selected' : ''}>${esc(t.name)}</option>`).join('')}</select></div>` : '<div class="sd-note">No V-bit in the tool library: add one in bits, or the carve has nothing to cut with.</div>')
+        + `<div title="the deepest it goes: wider than that, the floor is flat. 0: as deep as the shape and the bit allow">${row('flat depth', 'sd-vlim', c.limit || 0, 'mm')}</div>`;
+    };
     const ptsRow = pc => pc ? `<div class="sd-row" title="how many points the freehand line is fitted to: fewer is smoother, more follows your hand closer"><span>points</span><input id="sd-pts" value="${pc.n}" inputmode="numeric"><span class="u"></span></div>` : '';
     const edgeRows = e => `<div class="sd-row"><span>top edge</span><select id="sd-edge">${['straight', 'chamfer', 'round'].map(k => `<option${k === e.kind ? ' selected' : ''}>${k}</option>`).join('')}</select><span class="u"></span></div>${e.kind === 'straight' ? '' : row('edge size', 'sd-es', e.size, 'mm')}`;
     let h = '';
@@ -563,8 +591,11 @@
       }[S.tool];
       h = `<div class="sd-h">${S.tool === 'rect' ? 'rectangle' : S.tool}</div><div class="sd-note">${how}</div>`;
       if (S.tool === 'text') h += textRows(TEXT.str, TEXT.h);
-      if (S.tool !== 'text') h += modeRow();
-      h += `${row('thickness', 'sd-pen-t', S.thick, 'mm')}${edgeRows(S.edge)}`;
+      const now = S.tool === 'text' ? S.textMode : S.mode;
+      if (S.tool !== 'regions') h += modeRow(now);
+      if (now === 'carve') h += `${carveRows(S.carve)}<div class="sd-note">${S.tool === 'text' ? 'The words' : 'The outline'} cut into the part, a V-bit going as deep as the shape is wide. Over no part, ${S.tool === 'text' ? 'they make a part' : 'it makes a part'} of ${S.tool === 'text' ? 'their' : 'its'} own.</div>`;
+      else if (S.tool === 'text' && (now === 'cut' || now === 'auto' || now === 'add')) h += '<div class="sd-note">Over a part, the letters become its outline: their words cannot be changed after.</div>';
+      if (now !== 'carve') h += `${row('thickness', 'sd-pen-t', S.thick, 'mm')}${edgeRows(S.edge)}`;
       if (S.tool === 'pen' || S.tool === 'pencil') h += `${row('engrave depth', 'sd-dep', S.depth, 'mm')}`;
       if (S.tool === 'pen' && S.pen.length >= 2) h += '<div class="sd-row"><button id="sd-pen-line" title="end the pen here: an open line, engraved into the part under it">end as a line</button></div>';
     } else if (part && !part.gone && part.line) {
@@ -575,14 +606,17 @@
         <div class="sd-row"><button id="sd-del" title="remove this line (when you press done)">delete this line</button></div>`;
     } else if (part && !part.gone) {
       const b = boxOf(part.curves), one = S.pts.size === 1 ? [...S.pts][0] : null;
-      h = `<div class="sd-h">${esc(part.name)}</div>${part.text ? textRows(part.text.str, part.text.h) : ''}${ptsRow(part.pencil)}${row('width', 'sd-w', r3(b[2] - b[0]), 'mm')}${row('length', 'sd-d', r3(b[3] - b[1]), 'mm')}${row('thickness', 'sd-t', part.thick, 'mm')}${edgeRows(part.edge)}`;
+      const host = part.carve ? hostOf(part) : null;
+      h = `<div class="sd-h">${esc(part.name)}${part.carve ? ': carved' : ''}</div>${part.text ? textRows(part.text.str, part.text.h) : ''}${ptsRow(part.pencil)}${part.text || part.carve ? modeRow(part.carve ? 'carve' : 'part', part) : ''}${part.carve ? carveRows(part.carve) : ''}${row('width', 'sd-w', r3(b[2] - b[0]), 'mm')}${row('length', 'sd-d', r3(b[3] - b[1]), 'mm')}`;
+      if (part.carve) h += `<div class="sd-note">${host ? `Cut into ${esc(host.name)} by the V-bit. Done adds a v-carve step if there is none.` : 'Over no part: move it onto a part to carve it there (over nothing it is left out).'}</div>`;
+      else h += `${row('thickness', 'sd-t', part.thick, 'mm')}${edgeRows(part.edge)}`;
       if (one) {
         const [ci, i] = one.split(':').map(Number), P = part.curves[ci].crv.ctrlPts[i];
         h += `<div class="sd-h">point</div>${row('x', 'sd-px', r3(P[0]), 'mm')}${row('y', 'sd-py', r3(P[1]), 'mm')}`;
       } else if (S.pts.size) h += `<div class="sd-h">${S.pts.size} points</div>`;
-      h += `<div class="sd-h">${S.pts.size ? (S.pts.size === 1 ? 'around it' : 'the points') : 'the part'}</div>${row('scale', 'sd-scale', 100, '%')}${row('turn', 'sd-turn', 0, '°')}
-        <div class="sd-note">${S.pts.size ? 'Drag a point, or type where it goes. Delete removes it. Double-click an edge to add one.' : 'Drag the part to move it. Click a point to pick it; drag across points to pick several.'}</div>
-        ${S.pts.size ? '' : part.drawn || !part.w ? '<div class="sd-row"><button id="sd-del" title="remove this part (when you press done)">delete this part</button></div>'
+      h += `<div class="sd-h">${S.pts.size ? (S.pts.size === 1 ? 'around it' : 'the points') : part.carve ? 'the carving' : 'the part'}</div>${row('scale', 'sd-scale', 100, '%')}${row('turn', 'sd-turn', 0, '°')}
+        <div class="sd-note">${S.pts.size ? 'Drag a point, or type where it goes. Delete removes it. Double-click an edge to add one.' : part.carve ? `Drag it to move it.${part.text ? ' Scale or turn it and its letters become an outline: the words go.' : ''}` : 'Drag the part to move it. Click a point to pick it; drag across points to pick several.'}</div>
+        ${S.pts.size ? '' : part.carve ? '<div class="sd-row"><button id="sd-del" title="take this carving off the part (when you press done)">delete this carving</button></div>' : part.drawn || !part.w ? '<div class="sd-row"><button id="sd-del" title="remove this part (when you press done)">delete this part</button></div>'
           : changedHere(part) || linesOn(part).length ? '<div class="sd-row"><button id="sd-del" title="take away what was drawn on this part; the part stays (delete it in cam)">clear what was drawn</button></div>'
           : '<div class="sd-note">Made outside draw: delete it in cam.</div>'}`;
     } else if (S.parts.some(p => !p.gone)) {
@@ -599,7 +633,16 @@
     num('sd-es', v => { if (!(r3(v) >= 0.1)) return say(`Give the edge size at least ${LEN.say(0.1)}.`); if (!E || v === E.size) return; if (S.tool === 'select') { snap(); part.dirty = true; } E.size = r3(v); render(); edgeSay(); });
     num('sd-pen-t', (v, el) => { const no = thickNo(v); if (no) { el.value = LEN.fld(S.thick); return say(no); } { S.thick = r3(v); try { localStorage.setItem(THICK, String(S.thick)); } catch (e) { /* private */ } } });
     const md = $('sd-mode');
-    if (md) md.onchange = () => { S.mode = md.value; say(modeSay()); ui.svg.focus(); };
+    if (md) md.onchange = () => {
+      if (S.tool === 'select') { applyMode(part, md.value); ui.svg.focus(); return; }
+      if (S.tool === 'text') S.textMode = md.value; else S.mode = md.value;
+      say(modeSay(md.value)); render(); ui.svg.focus();
+    };
+    // the bit and the flat depth: the tool's next carve, or the picked one
+    const C0 = S.tool === 'select' ? part && part.carve : S.carve;
+    const vb = $('sd-vbit');
+    if (vb && C0) vb.onchange = () => { const v = +vb.value; if (S.tool === 'select') { snap(); part.dirty = true; } C0.tool = v; const t = vBits(api()).find(q => q.id === v); say(t ? `Carved by the ${t.name}.` : ''); ui.svg.focus(); };
+    num('sd-vlim', v => { if (!(v >= 0) || !C0) return say('A flat depth is 0 or more (0: as deep as the shape and the bit allow).'); if (r3(v) === C0.limit) return; if (S.tool === 'select') { snap(); part.dirty = true; } C0.limit = r3(v); say(v > 0 ? `No deeper than ${LEN.say(v)}: wider than that, the floor is flat.` : 'As deep as the shape and the bit allow.'); });
     num('sd-dep', v => { if (!(r3(v) >= 0.05 && v <= 150)) return say(`An engrave depth goes from ${LEN.say(0.05)} to ${LEN.say(150)}.`); S.depth = r3(v); try { localStorage.setItem(DEPTH, String(S.depth)); } catch (e) { /* private */ } });
     num('sd-ldep', v => {
       if (!(r3(v) >= 0.05 && v <= 150)) return say(`An engrave depth goes from ${LEN.say(0.05)} to ${LEN.say(150)}.`);
@@ -646,6 +689,8 @@
     if (strEl) {
       const setText = (str, hh) => {
         if (S.tool === 'text') { TEXT.str = str; TEXT.h = hh; return; }
+        S.typing = false;
+        if (str === part.text.str && hh === part.text.h) return;   // typed in already, letter by letter
         const t = { ...part.text, str, h: hh }, c = textCurves(t);
         if (!c.length) return say('Type some letters: an empty text has nothing to cut.');
         snap(); part.text = t; part.curves = c; part.dirty = true;
@@ -653,7 +698,19 @@
         render();
       };
       strEl.onkeydown = e => { e.stopPropagation(); if (e.key === 'Enter') { strEl.blur(); } };
-      strEl.oninput = () => { if (S.tool === 'text') TEXT.str = strEl.value; };
+      // the picked words change as they are typed, one undo for the typing (review 105 F14)
+      strEl.oninput = () => {
+        if (S.tool === 'text') { TEXT.str = strEl.value; return; }
+        const t = { ...part.text, str: strEl.value }, c = textCurves(t);
+        if (!c.length) return;
+        if (!S.typing) { snap(); S.typing = true; }
+        part.text = t; part.curves = c; part.dirty = true;
+        if (part.named) part.name = wordName(t.str, part.name);
+        const at = strEl.selectionStart;
+        render();
+        const el = $('sd-str');
+        if (el) { el.focus(); el.setSelectionRange(at, at); }
+      };
       strEl.onchange = () => setText(strEl.value, S.tool === 'text' ? TEXT.h : part.text.h);
       num('sd-th', v => { if (!(r3(v) >= 1)) return say(`Give the letters at least ${LEN.say(1)} of height.`); if (v > bedMax()) return say(`Letters that tall do not fit on the bed (${LEN.say(bedMax())} at most).`); setText(S.tool === 'text' ? TEXT.str : part.text.str, r3(v)); });
       const fs = $('sd-fontsel');
@@ -720,7 +777,7 @@
   }
   // ── clear (as TEX's): what was drawn here goes, on the picked part or everywhere. Parts drawn here and
   // lines engraved here go; a part made elsewhere goes back to its own outline. Undoable ──
-  const linesOn = part => { const loops = part.curves.filter(c => isClosed(c.crv)).map(c => flat(c.crv, 1)); return S.parts.filter(L => L.line && !L.gone && inPart(flat(L.curves[0].crv, 1)[0], loops)); };
+  const linesOn = part => { const loops = part.curves.filter(c => isClosed(c.crv)).map(c => flat(c.crv, 1)); return S.parts.filter(L => (L.line || L.carve) && !L.gone && inPart(flat(L.curves[0].crv, 1)[0], loops)); };
   const changedHere = p => p.orig && JSON.stringify(p.orig) !== JSON.stringify(p.curves);
   function clearable() {
     if (!S) return [];
@@ -876,7 +933,12 @@
       else say(S.reg ? 'Click a shaded region to fill or empty it.' : 'No regions here: draw outlines that overlap first.');
       return;
     }
-    if (S.tool === 'text') { placeText(m); return; }
+    if (S.tool === 'text') {
+      S.placing = true;
+      window.addEventListener('pointerup', () => { if (!S) return; S.placing = false; if (S.wantWords) focusWords(); }, { once: true });
+      placeText(m);
+      return;
+    }
     if (S.tool === 'rect' || S.tool === 'ellipse') { S.drag = { kind: 'shape', at: [snapMM(m[0]), snapMM(m[1])] }; ui.svg.setPointerCapture(e.pointerId); return; }
     // a second press soon and near: a double-click (the board redraws on every
     // press, so the browser's own dblclick never sees the same element twice)
@@ -950,7 +1012,11 @@
     dx = snapMM(dx); dy = snapMM(dy);
     if (!dx && !dy) return;
     if (d.kind === 'pts') { shiftPts(part, [...S.pts], dx, dy); keepSmooth(part); }
-    else { for (const c of part.curves) for (const P of c.crv.ctrlPts) { P[0] += dx; P[1] += dy; } if (part.text) part.text.at = [part.text.at[0] + dx, part.text.at[1] + dy]; if (part.pencil) for (const q of part.pencil.stroke) { q[0] += dx; q[1] += dy; } part.dirty = true; }
+    else {
+      // what is carved into a part goes with it
+      if (!d.kids) d.kids = part.w || part.drawn ? linesOn(part).filter(L => L.carve) : [];
+      for (const one of [part, ...d.kids]) { for (const c of one.curves) for (const P of c.crv.ctrlPts) { P[0] += dx; P[1] += dy; } if (one.text) one.text.at = [one.text.at[0] + dx, one.text.at[1] + dy]; if (one.pencil) for (const q of one.pencil.stroke) { q[0] += dx; q[1] += dy; } one.dirty = true; }
+    }
     d.at = [d.at[0] + dx, d.at[1] + dy];
     d.moved = true;
     render();
@@ -1124,10 +1190,74 @@
     if (!curves.length) { say('Type some letters in the card first.'); return; }
     snap();
     const n = S.parts.filter(p => !p.w).length + 1;
-    S.parts.push({ w: null, name: wordName(t.str, `text-${n}`), named: true, thick: S.thick, edge: { ...S.edge }, curves, text: t, dirty: true });
+    const part = { w: null, name: wordName(t.str, `text-${n}`), named: true, thick: S.thick, edge: { ...S.edge }, curves, text: t, dirty: true };
+    S.parts.push(part);
     S.tool = 'select'; S.sel = S.parts.length - 1; S.pts.clear(); S.ghost = null;
-    say('Text placed. Change its words or height in the card; drag it to move it.');
-    checkCross(S.parts[S.sel]);
+    const mode = S.textMode, host = mode === 'carve' ? hostOf(part) : null;
+    if (host) {
+      part.carve = { tool: S.carve.tool, limit: S.carve.limit };
+      say(`Carved into ${host.name}. Type the words; drag them to move them. Done adds the step.`);
+    } else if (mode !== 'carve' && mode !== 'part' && intoHost(part, mode)) {
+      render();
+      return;
+    } else {
+      say(`Text placed${mode === 'carve' ? ', over no part: a part of its own' : ''}. Type the words; drag them to move them.`);
+    }
+    checkCross(part);
+    render();
+    // the words field, selected: typing goes straight in (review 105 F14). The press that placed them
+    // gives the board focus on its way down, so when it is still down the field waits for its release
+    if (S.placing) S.wantWords = true; else focusWords();
+  }
+  function focusWords() {
+    S.wantWords = false;
+    const el = $('sd-str');
+    if (el) { el.focus(); el.select(); }
+  }
+  // words or an outline made part of the part under it: holes in it, joined to it or cut from it. Their
+  // letters are outline now. The middle of an O stays an island: a loose piece when it is cut.
+  function intoHost(part, mode) {
+    const mine = loopsOf(part), hosts = S.parts.filter(p => p !== part && canHost(p));
+    const host = mode === 'auto' ? hosts.find(p => mine.every(L => holeIn(p, L))) : hosts.find(p => mine.some(L => touches(p, L)));
+    if (!host) return false;
+    if (mode === 'auto') {
+      snap();
+      for (const c of part.curves) host.curves.push({ crv: c.crv });
+      host.dirty = true;
+      part.gone = true; part.dirty = true;
+      S.sel = S.parts.indexOf(host); S.pts.clear();
+      say(`Holes in ${host.name}, the letters' shapes. ⌘Z takes them back.`);
+      checkCross(host);
+      return true;
+    }
+    const loops = loopsOf(host), arr = G().regions([...loops, ...mine]), fill = [];
+    arr.faces.forEach((f, i) => { if (!f.at) return; const inH = inPart(f.at, loops), inN = inPart(f.at, mine); if (mode === 'add' ? inH || inN : inH && !inN) fill.push(i); });
+    const said = rebuild(host, [host], arr, fill);
+    part.gone = true; part.dirty = true;
+    S.pts.clear();
+    say(said || (mode === 'add' ? `Joined to ${host.name}.` : `Cut from ${host.name}.`));
+    return true;
+  }
+  // the card's choice for picked words or a carved outline
+  function applyMode(part, mode) {
+    const carved = part.carve;
+    if (mode === 'carve') {
+      if (carved) return;
+      if (!hostOf(part)) { render(); say('Over no part: move it onto a part first, then carve it.'); return; }
+      snap(); part.carve = { tool: S.carve.tool, limit: S.carve.limit, ...(part.dropMark ? { mark: part.dropMark } : {}) }; delete part.dropMark; part.dirty = true; part.cross = null; part.over = null;
+      say('Carved into the part under it. Done adds the step.');
+    } else if (mode === 'part') {
+      if (!carved) return;
+      snap(); if (carved.mark) part.dropMark = carved.mark; delete part.carve; part.dirty = true;
+      say('A part of its own now: done makes it, its letters cut free.');
+      checkCross(part);
+    } else {
+      if (!G()) return;
+      if (carved) { snap(); if (carved.mark) part.dropMark = carved.mark; delete part.carve; }
+      if (!intoHost(part, mode)) say(mode === 'auto' ? 'It is not wholly inside a part, so there is nothing to make a hole in.' : 'It is over no part.');
+      if (!part.gone && carved) part.carve = carved;
+      if (part.gone && part.dropMark) part.dirty = true;
+    }
     render();
   }
   // ── holes, add, cut, regions ──
@@ -1136,7 +1266,10 @@
   const loopsOf = part => part.curves.filter(c => isClosed(c.crv)).map(c => flat(c.crv));
   // inside a part's material: inside an odd number of its outlines (a hole's inside is not)
   const inPart = (q, loops) => loops.filter(L => inside(q, L)).length % 2 === 1;
-  const canHost = p => !p.gone && !p.line && !p.text && p.curves.some(c => isClosed(c.crv));
+  const canHost = p => !p.gone && !p.line && !p.text && !p.carve && p.curves.some(c => isClosed(c.crv));
+  // the library's V-bits; the 90° first choice, for a carve
+  const vBits = a => ((a && a.conf.get().tools) || []).filter(t => t.type === 'tapermill');
+  const vBit0 = a => { const b = vBits(a); return (b.find(t => t.taper_angle === 45) || b[0] || { id: 'v90' }).id; };
   const crossesAny = (A, Bs) => Bs.some(B => { for (let i = 0; i < A.length - 1; i++) for (let j = 0; j < B.length - 1; j++) if (segX(A[i], A[i + 1], B[j], B[j + 1])) return true; return false; });
   // a new outline wholly in a part's material, holding none of its outlines: a hole there
   function holeIn(part, mine) {
@@ -1214,12 +1347,13 @@
     }
     if (window.__swarfTex) setTimeout(() => window.__swarfTex.syncSteps(a), 0);
   }
-  const modeSay = () => ({
+  const modeSay = (mode = S.mode) => ({
     auto: 'An outline drawn inside a part cuts a hole in it; anywhere else it is a part of its own.',
     add: 'The next outline over a part joins it: one part.',
     cut: 'The next outline over a part cuts its shape out of it.',
-    part: 'The next outline is a part of its own, even inside or over another.'
-  })[S.mode];
+    part: 'The next outline is a part of its own, even inside or over another.',
+    carve: 'Carved into the part under it, by a V-bit. Over no part, it is a part of its own.'
+  })[mode];
   // the regions tool: the picked part and every part it overlaps (or every part), as regions
   function enterRegions() {
     const live = S.parts.filter(canHost);
@@ -1258,10 +1392,10 @@
   // the part a line is engraved into: the one with most of the line over its material
   const HOSTS = new WeakMap();
   function hostOf(line) {
-    const L = flat(line.curves[0].crv, 1);
+    const L = line.curves.flatMap(c => flat(c.crv, 1));
     let best = null, most = 0;
     for (const p of S.parts) {
-      if (p.gone || p.line || !p.curves.some(c => isClosed(c.crv))) continue;
+      if (p === line || p.gone || p.line || p.carve || !p.curves.some(c => isClosed(c.crv))) continue;
       const loops = loopsOf(p), n = L.filter(q => inPart(q, loops)).length;
       if (n > most) { most = n; best = p; }
     }
@@ -1323,7 +1457,20 @@
     // inside or over a part (the card's choice): a hole there, joined to it, cut from it, or its own part
     if (S.mode !== 'part' && G()) {
       const mine = flat(crv), hosts = S.parts.filter(canHost);
-      if (S.mode === 'auto') {
+      if (S.mode === 'carve') {
+        const host = hosts.find(p => touches(p, mine));
+        if (host) {
+          snap();
+          const taken = new Set(S.parts.filter(p => !p.gone).map(p => p.name));
+          let n = 1;
+          while (taken.has(`${word} ${n}`)) n++;
+          S.parts.push({ w: null, name: `${word} ${n}`, thick: S.thick, edge: { ...S.edge }, curves: [{ crv }], dirty: true, carve: { tool: S.carve.tool, limit: S.carve.limit }, ...(extra || {}) });
+          S.pen = []; S.hover = null; S.tool = 'select'; S.sel = S.parts.length - 1; S.pts.clear();
+          say(`Carved into ${host.name}. Drag its points to shape it. Done adds the step.`);
+          render();
+          return;
+        }
+      } else if (S.mode === 'auto') {
         const host = hosts.find(p => holeIn(p, mine));
         if (host) {
           snap();
@@ -1435,13 +1582,14 @@
     let fresh = false;
     const changed = S.parts.filter(p => p.dirty || p.gone);
     if (!changed.length) return;
+    const carves = changed.filter(p => p.carve || p.dropMark);
     // parts stay where they were drawn: auto layout would repack them
     if (a.ui.autoLayout && a.ui.autoLayout.checked) { a.ui.autoLayout.checked = false; a.ui.autoLayout.dispatchEvent(new Event('change')); }
     const open = [], made = [], failed = [], adapted = [];
     let built = 0;
     for (const p of changed) {
       if (p.gone) { if (p.w) a.platform.delete(p.w); p.w = null; continue; }
-      if (p.line) continue;                      // engraved into a part, below
+      if (p.line || p.carve) continue;           // engraved or carved into a part, below
       const closed = p.curves.filter(c => isClosed(c.crv));
       if (closed.length < p.curves.length) open.push(p.name);
       if (!closed.length) continue;
@@ -1501,17 +1649,42 @@
       }
       if (engraved) stepAdded = engraveStep(a);
     }
+    // carved: each onto the part under it, a mark with its step (swarf-tex.js), its letters kept
+    const carved = [], carveLoose = [];
+    let carveSteps = 0;
+    if (carves.length && window.__swarfTex) {
+      const Tx = window.__swarfTex;
+      const r = Tx.carving(() => {
+        for (const p of carves) {
+          if (p.dropMark) { Tx.uncarve(p.dropMark); delete p.dropMark; }
+          if (!p.carve) continue;
+          p.dirty = false;
+          if (p.gone) { if (p.carve.mark) Tx.uncarve(p.carve.mark); continue; }
+          const host = hostOf(p), w = host && host.w;
+          if (!w) { if (p.carve.mark) { Tx.uncarve(p.carve.mark); delete p.carve.mark; } carveLoose.push(p.name); continue; }
+          const q = w.track.pos;
+          const curves = p.curves.filter(c => isClosed(c.crv)).map(c => { const crv = clone(c.crv); crv.ctrlPts = crv.ctrlPts.map(([x, y, , wt]) => [x - q.x, y - q.y, 0, wt ?? 1]); return { crv }; });
+          const loops = curves.map(c => flat(c.crv, 0.1).map(([x, y]) => [x, y]));
+          if (!loops.length) { carveLoose.push(p.name); continue; }
+          p.carve.mark = Tx.carve(w, { id: p.carve.mark, loops, curves, name: p.name, tool: p.carve.tool, limit: p.carve.limit, text: p.text ? { ...p.text, at: [p.text.at[0] - q.x, p.text.at[1] - q.y] } : null });
+          carved.push(`${p.name} is carved into ${host.name}`);
+        }
+      });
+      carveSteps = r.added || 0;
+    }
+    const carveSay = (carved.length ? `${carved.join('; ')}: ${carveSteps ? (carveSteps === 1 ? 'a v-carve step was added' : `${carveSteps} v-carve steps were added`) : 'its step cuts it'}, before the outline. Open draw to change it. Next: toolpaths.` : '') +
+      (carveLoose.length ? ` ${carveLoose.join(', ')} ${carveLoose.length === 1 ? 'is' : 'are'} over no part, so left out.` : '');
     const lineSay = (engraved ? `${engraved === 1 ? '1 line is' : `${engraved} lines are`} engraved: ${stepAdded ? 'an engrave step was added to cut them' : 'the engrave step cuts them'}.` : '') +
       (loose.length ? ` ${loose.join(', ')} ${loose.length === 1 ? 'is' : 'are'} over no part, so ${loose.length === 1 ? 'it was' : 'they were'} left out.` : '');
     // a word, or any one drawing, counts as one, however many parts its letters make
     const n = built;
     // done always leaves DRAW: what could not be made is said, and a part that was there stays as it was
     if (failed.length || adapted.length) {
-      a.show.alert([...adapted.map(x => x + '.'), ...failed].join(' ') + (failed.length ? ' Open draw again to change it.' : '') + (lineSay ? ' ' + lineSay.trim() : ''), 14);
+      a.show.alert([...adapted.map(x => x + '.'), ...failed].join(' ') + (failed.length ? ' Open draw again to change it.' : '') + (lineSay ? ' ' + lineSay.trim() : '') + (carveSay ? ' ' + carveSay.trim() : ''), 14);
       return;
     }
     const partSay = !n ? '' : open.length ? `${open.join(', ')}: open lines were left out (only closed outlines get a thickness; draw a line in DRAW to engrave it).` : `${n === 1 ? (made.length > 1 ? `Made from the drawing: ${made.length} pieces, kept together.` : '1 part rebuilt from the drawing.') : `${n} drawings made into parts.`} Next: a step (${made.some(w => w.meta.edge) ? 'contour shapes the edge, outline cuts it out' : 'outline cuts it out'}), then toolpaths. Or tex, to texture its top.`;
-    const all = [partSay, lineSay.trim()].filter(Boolean).join(' ');
+    const all = [partSay, lineSay.trim(), carveSay.trim()].filter(Boolean).join(' ');
     if (all) a.show.alert(all, 10);
   }
   // A part rebuilt from its drawing keeps TEX's marks (meta.tex): each goes to the new piece under its

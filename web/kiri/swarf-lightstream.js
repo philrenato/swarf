@@ -390,7 +390,7 @@
     if (!rec || Array.isArray(rec)) return `step ${i + 1}`;
     // as init-ui.js opRender names the step: DRAW's engrave, TEX's mark, else its type (and #note)
     if (rec.engrave) return 'engrave';
-    if (rec.type === 'texture' || rec.type === 'pierce' || rec.type === 'inlay') return String(rec.texlabel || rec.type).replace(/^(\w+): (.+?) on .*$/, '$1 · $2');
+    if (rec.type === 'texture' || rec.type === 'pierce' || rec.type === 'inlay' || rec.type === 'vcarve') return String(rec.texlabel || rec.type).replace(/^([\w-]+): (.+?) on .*$/, '$1 · $2');
     const tag = rec.note ? rec.note.split(' ').find(v => v.charAt(0) === '#') : null;
     return (rec.mode ? rec.type + ' ' + rec.mode : rec.type) + (tag ? ` (${tag.slice(1)})` : '');
   }

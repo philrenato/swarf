@@ -11,8 +11,8 @@
 // Units: mm. Part coordinates: x right, y away from you, z = 0 at the board's top, negative into it.
 //
 // A MARK (the bottom of this file) is what an app keeps on a part: a region (painted, or a shape)
-// and a fill. Two fills: 'texture' carves the top, 'pierce' cuts through (bendy-ply kerfs, holes;
-// see Pierce).
+// and a fill. 'texture' carves the top, 'vcarve' cuts a shape in with a V-bit (see V-carve), 'inlay'
+// sinks a pocket (see Inlay), 'pierce' cuts through (bendy-ply kerfs, holes; see Pierce).
 //
 // Borrowed from Pgon (a sculpting app, ported to 2D):
 //   hash3, the smootherstep fade, the octave sum   <- Pgon noise (hash3, fbm)
@@ -1766,6 +1766,7 @@ export const FINISH_WORDS = { smooth: 'smooth (slow)', fine: 'fine', standard: '
 export function markTexture(mark, o = {}) {
   const f = mark && mark.fill;
   if (f && f.fill === 'inlay') return inlayTexture(mark, o);
+  if (f && f.fill === 'vcarve') return vcarveTexture(mark, o);
   if (!f || f.fill !== 'texture' || !PATTERNS[f.pattern]) return null;
   let region = regionSpec(mark.region);
   if (!region) return null;
@@ -1888,6 +1889,7 @@ export function fillStepover(f) {
 export function markToolpath(mark, o = {}) {
   if (mark && mark.fill && mark.fill.fill === 'pierce') return pierceToolpath(mark, { ...o, thickness: o.thickness || o.maxDepth });
   if (mark && mark.fill && mark.fill.fill === 'inlay') return inlayToolpath(mark, o);
+  if (mark && mark.fill && mark.fill.fill === 'vcarve') return vcarveToolpath(mark, o);
   const tool = fillTool(mark && mark.fill);
   // the bit's radius past the part's edge, and a little: it reaches the edge with its whole flank
   const tex = markTexture(mark, { part: o.part, extend: tool.R + 0.5 });
@@ -1926,6 +1928,7 @@ export function feedRuns(moves) {
 export function markChecks(mark, o = {}) {
   if (mark && mark.fill && mark.fill.fill === 'pierce') return pierceChecks(mark, o);
   if (mark && mark.fill && mark.fill.fill === 'inlay') return inlayChecks(mark, o);
+  if (mark && mark.fill && mark.fill.fill === 'vcarve') return vcarveChecks(mark, o);
   const tool = fillTool(mark && mark.fill);
   const tex = markTexture(mark, { part: o.part, extend: tool.R + 0.5 });
   if (!tex) return { warnings: [], notes: [], tex: null };
@@ -2288,6 +2291,7 @@ export function fillTool(f) {
   // a V's angle inside (0, 180): a saved file's 0 would make every depth NaN
   if (f && f.bit && f.bit.type && f.bit.diameter > 0 && (f.bit.type !== 'v' || (f.bit.angle > 0 && f.bit.angle < 180))) return makeTool(f.bit);
   if (f && typeof f.tool === 'string' && TOOLS[f.tool]) return makeTool(f.tool);
+  if (f && f.fill === 'vcarve') return makeTool('v90');
   return makeTool(f && (f.fill === 'pierce' || f.fill === 'inlay') ? 'flat18' : 'ball14');
 }
 // the kerf pitch for a bit width w, board T, skin s and bend radius R (closure: the kerfs just touch)
@@ -3188,6 +3192,457 @@ export function inlayChecks(mark, o = {}) {
   return { warnings, notes, tex: inlayTexture(mark, { part: o.part }), inlay: sh, tool, strategy: 'pocket' };
 }
 
+// ---------------------------------------------------------------------------------------------
+// V-carve: a closed shape cut by a V-bit along its medial axis (review 105 F3, M4). At a point the
+// depth is its distance to the outline over tan(half the bit's angle), so the cone's rim touches the
+// outline all the way round and the corners come out sharp. It stops at the shallowest of: the flat
+// depth typed (fill.limit), the bit's own cone (past that the shank would have to do the cutting) and
+// the board. Where it stops, the floor is flat: rings at that depth, wall last, clear it.
+//
+//   fill = { fill: 'vcarve', limit, tool | bit, stepover? }
+//   mark.drawn = { loops, sig, curves, text, name }  an outline drawn in DRAW, exact, in the mark's frame.
+//     sig is the paint's hash: painting over the mark in TEX retires the drawing, and the paint rules
+// The board: a skin of wood stays under the tip, so it never comes through and never cuts what is below.
+export const VCARVE = { limit: 0, skin: 0.25 };
+const boardFloor = (thick) => (thick > 0 ? Math.max(thick / 2, thick - VCARVE.skin) : Infinity);
+export function newVcarve(over = {}) { return { fill: 'vcarve', limit: VCARVE.limit, tool: 'v90', ...over }; }
+// the paint that stands for a drawing in TEX (its picture, its pick, its moves): the region and its sig
+export function drawnRegion(loops, res = 0.25) {
+  const b = loopsBox(loops), pad = 2 * res;
+  const g = newGrid(b[0] - pad, b[1] - pad, b[2] + pad, b[3] + pad, res);
+  g.data = rasterLoops(loops, g.x0, g.y0, g.res, g.nx, g.ny);
+  if (!g.data.some((v) => v) && res > 0.03) return drawnRegion(loops, res / 2);
+  return { region: g, sig: regionHash(g) };
+}
+// the mark's drawing, if the paint is still what was drawn
+export function drawnIntact(mark) {
+  const d = mark && mark.drawn, g = regionSpec(mark && mark.region);
+  return !!(d && d.loops && d.loops.length && g && g.data && d.sig === regionHash(g));
+}
+// The mark's outline, part frame
+function vcarveLoops(mark, o) {
+  const A = mark.xf || IDENTITY;
+  if (drawnIntact(mark)) return mark.drawn.loops.map((L) => L.map((q) => xfApply(A, q[0], q[1])));
+  const region = regionSpec(mark.region);
+  if (!region || region.type !== 'paint') return [];
+  const paint = o.part ? clipToPart(region, A, o.part, 0).paint : region;
+  if (!paint.data.some((v) => v)) return [];
+  return paintLoops(paint).filter((P) => loopLen(P) > 4 * paint.res)
+    .map((P) => fair(resampleLoop(P, Math.max(24, Math.round(loopLen(P) / (paint.res * 0.5)))), 6).map((q) => xfApply(A, q[0], q[1])));
+}
+// simple points on the 8 neighbors, E NE N NW W SW S SE (bit 0 to 7): one 8-connected set of cells, and
+// one 4-connected set of background that touches the middle by an edge. Removing such a cell changes
+// nothing about what joins what
+const SIMPLE = (() => {
+  const t = new Uint8Array(256);
+  const X = [1, 1, 0, -1, -1, -1, 0, 1], Y = [0, 1, 1, 1, 0, -1, -1, -1];
+  for (let m = 0; m < 256; m++) {
+    const flood = (want, four) => {
+      const seen = new Uint8Array(8);
+      let n = 0, edge = 0;
+      for (let a = 0; a < 8; a++) {
+        if (seen[a] || ((m >> a) & 1) !== want) continue;
+        n++;
+        const st = [a]; seen[a] = 1;
+        let touches = false;
+        while (st.length) {
+          const c = st.pop();
+          if (c % 2 === 0) touches = true;
+          for (let b = 0; b < 8; b++) {
+            if (seen[b] || ((m >> b) & 1) !== want) continue;
+            const dx = Math.abs(X[b] - X[c]), dy = Math.abs(Y[b] - Y[c]);
+            if (four ? dx + dy === 1 : dx <= 1 && dy <= 1) { seen[b] = 1; st.push(b); }
+          }
+        }
+        if (touches) edge++;
+      }
+      return { n, edge };
+    };
+    t[m] = flood(1, false).n === 1 && flood(0, true).edge === 1 ? 1 : 0;
+  }
+  return t;
+})();
+// The distance field and the axis, over a grid of at most `cells` cells, at least `finest` mm a cell.
+// Each cell keeps its nearest segment of the real outline, so distances are exact, not a cell's worth.
+function vcarveField(loops, part, cells, finest = 0.05) {
+  const b = loopsBox(loops);
+  const a0 = Math.max(1, (b[2] - b[0]) * (b[3] - b[1]));
+  const h = Math.max(finest, Math.sqrt(a0 / cells));
+  const pad = 3 * h, x0 = b[0] - pad, y0 = b[1] - pad, nx = Math.ceil((b[2] - b[0] + 2 * pad) / h), ny = Math.ceil((b[3] - b[1] + 2 * pad) / h), N = nx * ny;
+  const on = rasterLoops(loops, x0, y0, h, nx, ny);
+  const useful = part && part.length ? part : null;
+  if (useful) { const P = rasterLoops(useful, x0, y0, h, nx, ny); for (let k = 0; k < N; k++) on[k] = on[k] && P[k] ? 1 : 0; }
+  const segs = [];
+  for (const L of [...loops, ...(useful || [])]) for (let i = 0; i < L.length; i++) {
+    const p = L[i], q = L[(i + 1) % L.length];
+    if (p[0] === q[0] && p[1] === q[1]) continue;
+    // the part's edge only matters where it passes through the drawing's box
+    if (Math.max(p[0], q[0]) < x0 || Math.min(p[0], q[0]) > x0 + nx * h || Math.max(p[1], q[1]) < y0 || Math.min(p[1], q[1]) > y0 + ny * h) continue;
+    segs.push(p[0], p[1], q[0], q[1]);
+  }
+  const near = new Int32Array(N).fill(-1), D = new Float32Array(N).fill(Infinity), FX = new Float32Array(N), FY = new Float32Array(N);
+  const cx = (i) => x0 + (i + 0.5) * h, cy = (j) => y0 + (j + 0.5) * h;
+  let qx = 0, qy = 0;
+  const distTo = (s, x, y) => {
+    const ax = segs[s], ay = segs[s + 1], dx = segs[s + 2] - ax, dy = segs[s + 3] - ay;
+    const t = Math.max(0, Math.min(1, ((x - ax) * dx + (y - ay) * dy) / (dx * dx + dy * dy)));
+    qx = ax + t * dx; qy = ay + t * dy;
+    return Math.hypot(x - qx, y - qy);
+  };
+  const offer = (k, i, j, s) => { const d = distTo(s, cx(i), cy(j)); if (d < D[k]) { D[k] = d; near[k] = s; FX[k] = qx; FY[k] = qy; return true; } return false; };
+  for (let s = 0; s < segs.length; s += 4) {
+    const len = Math.hypot(segs[s + 2] - segs[s], segs[s + 3] - segs[s + 1]), n = Math.max(1, Math.ceil(len / (h / 2)));
+    for (let t = 0; t <= n; t++) {
+      const i = Math.floor((segs[s] + (segs[s + 2] - segs[s]) * t / n - x0) / h), j = Math.floor((segs[s + 1] + (segs[s + 3] - segs[s + 1]) * t / n - y0) / h);
+      for (let v = j - 1; v <= j + 1; v++) for (let u = i - 1; u <= i + 1; u++) if (u >= 0 && v >= 0 && u < nx && v < ny) offer(v * nx + u, u, v, s);
+    }
+  }
+  for (let round = 0; round < 4; round++) {
+    let moved = false;
+    for (let j = 0; j < ny; j++) for (let i = 0; i < nx; i++) {
+      const k = j * nx + i;
+      if (!on[k]) continue;
+      if (i > 0 && near[k - 1] >= 0 && near[k - 1] !== near[k] && offer(k, i, j, near[k - 1])) moved = true;
+      if (j > 0) for (let e = -1; e <= 1; e++) { if (i + e < 0 || i + e >= nx) continue; const q = k - nx + e; if (near[q] >= 0 && near[q] !== near[k] && offer(k, i, j, near[q])) moved = true; }
+    }
+    for (let j = ny - 1; j >= 0; j--) for (let i = nx - 1; i >= 0; i--) {
+      const k = j * nx + i;
+      if (!on[k]) continue;
+      if (i < nx - 1 && near[k + 1] >= 0 && near[k + 1] !== near[k] && offer(k, i, j, near[k + 1])) moved = true;
+      if (j < ny - 1) for (let e = -1; e <= 1; e++) { if (i + e < 0 || i + e >= nx) continue; const q = k + nx + e; if (near[q] >= 0 && near[q] !== near[k] && offer(k, i, j, near[q])) moved = true; }
+    }
+    if (!moved) break;
+  }
+  // the exact distance at any point, from the nearest segments its cell and neighbors know
+  const dist = (x, y) => {
+    const i = Math.floor((x - x0) / h), j = Math.floor((y - y0) / h);
+    let best = Infinity;
+    for (let v = j - 1; v <= j + 1; v++) for (let u = i - 1; u <= i + 1; u++) {
+      if (u < 0 || v < 0 || u >= nx || v >= ny) continue;
+      const s = near[v * nx + u];
+      if (s >= 0) best = Math.min(best, distTo(s, x, y));
+    }
+    return best;
+  };
+  // the distance inside, -1 outside: what the depth reads between cells
+  const inside = (x, y) => { const i = Math.floor((x - x0) / h), j = Math.floor((y - y0) / h); return i >= 0 && j >= 0 && i < nx && j < ny && on[j * nx + i] ? dist(x, y) : -1; };
+  // ANCHORS: two neighbors whose nearest points lie apart and in different directions stand either side
+  // of the axis. Past 25° between the directions, as a corner of up to 155° does; a flattened curve's
+  // small turns do not, nor does the fan round an inside corner (one nearest point)
+  const K = new Uint8Array(N);
+  const cos0 = Math.cos(25 * Math.PI / 180), chord2 = h * h;
+  const test = (k, q, i, j, dxq, dyq) => {
+    if (!on[q]) return;
+    const ex = FX[k] - FX[q], ey = FY[k] - FY[q];
+    if (ex * ex + ey * ey <= chord2) return;
+    const ux = FX[k] - cx(i), uy = FY[k] - cy(j), vx = FX[q] - cx(i + dxq), vy = FY[q] - cy(j + dyq);
+    const lu = Math.hypot(ux, uy), lv = Math.hypot(vx, vy);
+    if (lu * lv > 0 && (ux * vx + uy * vy) / (lu * lv) < cos0) K[D[k] >= D[q] ? k : q] = 1;
+  };
+  for (let j = 0; j < ny - 1; j++) for (let i = 1; i < nx - 1; i++) {
+    const k = j * nx + i;
+    if (!on[k]) continue;
+    test(k, k + 1, i, j, 1, 0); test(k, k + nx, i, j, 0, 1); test(k, k + nx + 1, i, j, 1, 1); test(k, k + nx - 1, i, j, -1, 1);
+  }
+  // THINNING: shallowest first, every cell that is no anchor and joins nothing goes. Then the anchors'
+  // own thickness, one side at a time: a band two cells wide eaten from its tip would go altogether
+  const S = on.slice();
+  const OFF = [1, nx + 1, nx, nx - 1, -1, -nx - 1, -nx, -nx + 1];
+  const maskOf = (k) => { let m = 0; for (let a = 0; a < 8; a++) if (S[k + OFF[a]]) m |= 1 << a; return m; };
+  const count = (m) => { let c = 0; while (m) { c += m & 1; m >>= 1; } return c; };
+  const levels = [];
+  for (let k = 0; k < N; k++) if (S[k]) { const l = Math.floor(D[k] / h); (levels[l] || (levels[l] = [])).push(k); }
+  const edge = (k) => { const i = k % nx, j = Math.floor(k / nx); return i < 1 || j < 1 || i >= nx - 1 || j >= ny - 1; };
+  for (let l = 0; l < levels.length; l++) {
+    if (!levels[l]) continue;
+    const q = levels[l].slice();
+    while (q.length) {
+      const k = q.pop();
+      if (!S[k] || K[k] || edge(k)) continue;
+      if (!SIMPLE[maskOf(k)]) continue;
+      S[k] = 0;
+      // a cell passed over earlier may be free now
+      for (let a = 0; a < 8; a++) { const n = k + OFF[a]; if (S[n] && Math.floor(D[n] / h) <= l) q.push(n); }
+    }
+  }
+  let left = [];
+  for (let k = 0; k < N; k++) if (S[k] && !edge(k)) left.push(k);
+  for (let moved = true; moved;) {
+    moved = false;
+    for (const side of [0, 2, 4, 6]) for (const k of left) {
+      if (!S[k] || S[k + OFF[side]]) continue;
+      const m = maskOf(k);
+      if (SIMPLE[m] && count(m) >= 2) { S[k] = 0; moved = true; }
+    }
+    left = left.filter((k) => S[k]);
+  }
+  // THE GRAPH: runs of cells between junctions and ends
+  const deg = new Uint8Array(N), cellsOn = [];
+  for (let k = 0; k < N; k++) if (S[k] && !edge(k)) { deg[k] = count(maskOf(k)); cellsOn.push(k); }
+  const node = new Int32Array(N).fill(-1), nodes = [];
+  for (const k of cellsOn) {
+    if (deg[k] === 2 || node[k] >= 0) continue;
+    const id = nodes.length, list = [], st = [k];
+    node[k] = id;
+    while (st.length) { const c = st.pop(); list.push(c); for (const o of OFF) { const n = c + o; if (S[n] && deg[n] !== 2 && node[n] < 0) { node[n] = id; st.push(n); } } }
+    let best = list[0]; for (const c of list) if (D[c] > D[best]) best = c;
+    nodes.push({ list, at: best });
+  }
+  const seen = new Uint8Array(N), branches = [];
+  const pt = (k) => [cx(k % nx), cy(Math.floor(k / nx))];
+  nodes.forEach((nd, id) => {
+    for (const start of nd.list) for (const o of OFF) {
+      const first = start + o;
+      if (!S[first] || node[first] >= 0 || seen[first]) continue;
+      const run = [pt(nd.at)];
+      let prev = start, cur = first, end = -1;
+      for (;;) {
+        seen[cur] = 1; run.push(pt(cur));
+        let next = -1;
+        for (const q of OFF) {
+          const n = cur + q;
+          if (n === prev || !S[n]) continue;
+          if (node[n] >= 0) { if (node[n] !== id || run.length > 2) { next = n; break; } } else if (!seen[n]) next = n;
+        }
+        if (next < 0) break;
+        if (node[next] >= 0) { end = node[next]; break; }
+        prev = cur; cur = next;
+      }
+      if (end >= 0) run.push(pt(nodes[end].at));
+      branches.push({ a: id, b: end, pts: run });
+    }
+  });
+  // closed rings of cells with no junction (a letter O's axis)
+  for (const k of cellsOn) {
+    if (seen[k] || deg[k] !== 2) continue;
+    const run = [];
+    let prev = -1, cur = k;
+    while (cur >= 0 && !seen[cur]) {
+      seen[cur] = 1; run.push(pt(cur));
+      let next = -1;
+      for (const q of OFF) { const n = cur + q; if (n !== prev && S[n] && !seen[n]) { next = n; break; } }
+      prev = cur; cur = next;
+    }
+    run.push(run[0].slice());
+    branches.push({ a: -1, b: -1, pts: run });
+  }
+  // a node with no branch: the middle of a disc, a square, a star: one plunge
+  const touched = new Set();
+  for (const r of branches) { touched.add(r.a); touched.add(r.b); }
+  nodes.forEach((nd, id) => { if (!touched.has(id)) branches.push({ a: id, b: id, pts: [pt(nd.at)] }); });
+  const DIRS = [[1, 0], [0.7071, 0.7071], [0, 1], [-0.7071, 0.7071], [-1, 0], [-0.7071, -0.7071], [0, -1], [0.7071, -0.7071]];
+  const climb = (q, ways) => {
+    let r0 = dist(q[0], q[1]);
+    for (let st = h; st > h / 16; st /= 2) for (let go = 0; go < 4; go++) {
+      let best = null;
+      for (const w of ways) { const v = dist(q[0] + w[0] * st, q[1] + w[1] * st); if (v > r0 + 1e-5) { r0 = v; best = w; } }
+      if (!best) break;
+      q[0] += best[0] * st; q[1] += best[1] * st;
+    }
+  };
+  // the stairs of the grid faired away, then each point's radius, exactly, where it now is
+  for (const r of branches) {
+    const P = r.pts, closed = r.a < 0 && P.length > 3;
+    for (let pass = 0; pass < 3 && P.length > 2; pass++) {
+      const Q = P.map((q) => q.slice());
+      for (let i = 1; i < P.length - 1; i++) { Q[i][0] = (P[i - 1][0] + 2 * P[i][0] + P[i + 1][0]) / 4; Q[i][1] = (P[i - 1][1] + 2 * P[i][1] + P[i + 1][1]) / 4; }
+      for (let i = 1; i < P.length - 1; i++) P[i] = Q[i];
+      if (closed) { const m = [(P[P.length - 2][0] + P[1][0]) / 2, (P[P.length - 2][1] + P[1][1]) / 2]; P[0] = m; P[P.length - 1] = m.slice(); }
+    }
+    // the grid's half cell climbed away: each point onto the ridge, across its run; a junction or a
+    // run too short to have a direction, every way
+    for (let i = 0; i < P.length; i++) {
+      const q = P[i], A = P[Math.max(0, i - 1)], B = P[Math.min(P.length - 1, i + 1)];
+      const tx = B[0] - A[0], ty = B[1] - A[1], tl = Math.hypot(tx, ty);
+      const ways = i === 0 || i === P.length - 1 ? (r.a === r.b ? DIRS : null) : tl > h / 2 && P.length > 6 ? [[-ty / tl, tx / tl], [ty / tl, -tx / tl]] : DIRS;
+      if (ways) climb(q, ways);
+    }
+    if (closed) P[P.length - 1] = P[0].slice();
+    for (const q of P) q[2] = dist(q[0], q[1]);
+  }
+  // the runs that meet at a junction meet at one place, on the ridge
+  nodes.forEach((nd) => { if (nd.list.length) { const q = pt(nd.at); if (deg[nd.at] !== 1) climb(q, DIRS); q[2] = dist(q[0], q[1]); nd.q = q; } });
+  for (const r of branches) {
+    if (r.a >= 0) r.pts[0] = nodes[r.a].q.slice();
+    if (r.b >= 0 && r.pts.length > 1) r.pts[r.pts.length - 1] = nodes[r.b].q.slice();
+  }
+  // a spur: an end branch whose every disc lies inside the disc where it leaves the rest cuts nothing
+  // that the rest does not (a corner's branch never is: its discs reach the corner)
+  const tol = Math.max(0.02, 0.75 * h);
+  for (let again = true; again;) {
+    again = false;
+    const d = new Map();
+    for (const r of branches) { if (r.gone || r.a === r.b) continue; d.set(r.a, (d.get(r.a) || 0) + 1); d.set(r.b, (d.get(r.b) || 0) + 1); }
+    for (const r of branches) {
+      if (r.gone || r.a === r.b || r.a < 0) continue;
+      const bEnd = r.b < 0 || d.get(r.b) === 1, aEnd = d.get(r.a) === 1;
+      if (bEnd === aEnd) continue;
+      const J = aEnd ? r.pts[r.pts.length - 1] : r.pts[0];
+      if (r.pts.every((q) => Math.hypot(q[0] - J[0], q[1] - J[1]) + q[2] <= J[2] + tol)) { r.gone = true; again = true; break; }
+    }
+  }
+  const axis = branches.filter((r) => !r.gone).map((r) => thin3(r.pts, 0.012));
+  let rmax = 0;
+  for (const P of axis) for (const q of P) if (q[2] > rmax) rmax = q[2];
+  return { h, axis, rmax, dist, inside, box: [x0, y0, x0 + nx * h, y0 + ny * h], hasArea: on.some((v) => v) };
+}
+// an open run thinned in x, y and radius (Douglas-Peucker), each point keeping its exact radius
+function thin3(P, tol) {
+  if (P.length < 3) return P;
+  const keep = new Uint8Array(P.length); keep[0] = 1; keep[P.length - 1] = 1;
+  const st = [[0, P.length - 1]];
+  while (st.length) {
+    const [a, b] = st.pop();
+    const A = P[a], B = P[b], dx = B[0] - A[0], dy = B[1] - A[1], dr = B[2] - A[2], l2 = dx * dx + dy * dy + dr * dr;
+    let far = -1, fd = tol;
+    for (let i = a + 1; i < b; i++) {
+      const q = P[i], t = l2 > 0 ? Math.max(0, Math.min(1, ((q[0] - A[0]) * dx + (q[1] - A[1]) * dy + (q[2] - A[2]) * dr) / l2)) : 0;
+      const d = Math.hypot(q[0] - A[0] - t * dx, q[1] - A[1] - t * dy, q[2] - A[2] - t * dr);
+      if (d > fd) { fd = d; far = i; }
+    }
+    if (far >= 0) { keep[far] = 1; st.push([a, far], [far, b]); }
+  }
+  return P.filter((_, i) => keep[i]);
+}
+const vcarveCache = new Map();
+// THE SHAPE, part frame: { axis: runs of [x, y, r], rmax, dist, inside, box, h, tool, cap(maxDepth) }
+export function vcarveShape(mark, o = {}) {
+  const f = mark && mark.fill;
+  if (!f || f.fill !== 'vcarve') return null;
+  const tool = fillTool(f);
+  const loops = vcarveLoops(mark, o);
+  if (!loops.length) return null;
+  const cells = o.cells > 0 ? o.cells : 3e6;
+  let hash = 2166136261 >>> 0;
+  for (const L of [...loops, ...(o.part || [])]) for (const q of L) { hash = Math.imul(hash ^ Math.round(q[0] * 1000), 16777619) >>> 0; hash = Math.imul(hash ^ Math.round(q[1] * 1000), 16777619) >>> 0; }
+  const key = `${hash}:${cells}:${loops.length}`;
+  let field = vcarveCache.get(key);
+  if (!field) {
+    field = vcarveField(loops, o.part, cells);
+    if (vcarveCache.size > 6) vcarveCache.delete(vcarveCache.keys().next().value);
+    vcarveCache.set(key, field);
+  }
+  // the deepest this bit and this limit go: its cone's height, its flutes, the flat depth typed
+  const reach = tool.type === 'v' ? tool.R / tool.tanHalf : 0;
+  const bitCap = Math.min(reach, tool.flute > 0 ? tool.flute : Infinity);
+  const limit = f.limit > 0 ? f.limit : Infinity;
+  return { ...field, tool, loops, bitCap, limit, cap: (maxDepth) => Math.min(bitCap, limit, boardFloor(maxDepth)) };
+}
+// the carve as a texture (TEX's picture, as-designed mesh)
+export function vcarveTexture(mark, o = {}) {
+  const sh = vcarveShape(mark, { part: o.part, cells: o.cells || 4e5 });
+  if (!sh || !sh.hasArea || sh.tool.type !== 'v') return null;
+  const cap = sh.cap(o.maxDepth), depth = Math.min(cap, sh.rmax / sh.tool.tanHalf) || 0.01, [x0, y0, x1, y1] = sh.box;
+  const at = (x, y) => Math.max(0, sh.inside(x, y));
+  return {
+    h: (x, y) => Math.min(cap, at(x, y) / sh.tool.tanHalf), w: (x, y) => (at(x, y) > 0 ? 1 : 0),
+    depth, bbox: { x0, y0, x1, y1 }, kind: 'surface', feature: 2 * sh.h, featureLabel: 'sharp corners',
+    scale: 1, strokeWidth: 0, dotDiameter: 0, dots: () => [], strokes: () => [],
+    mask: { bbox: { x0, y0, x1, y1 }, sd: at }, vcarve: sh,
+  };
+}
+// The moves, part frame, z from the top (0) down. Each pass follows the axis at the true depth, held at
+// that pass's floor; a pass only goes where the last one left wood. Then, if the depth was held, the
+// floor's rings, innermost first, the wall (where the cone just reaches the outline) last.
+export function vcarveToolpath(mark, o = {}) {
+  const sh = vcarveShape(mark, { part: o.part, cells: o.cells || (o.res >= 0.3 ? 3e5 : undefined) });
+  if (!sh || sh.tool.type !== 'v' || !sh.axis.length) return { moves: [], vcarve: sh, strategy: 'v-carve' };
+  const tool = sh.tool, tan = tool.tanHalf, cap = sh.cap(o.maxDepth), E = emitter(o);
+  const zOf = (r) => -Math.min(r / tan, cap), deepest = zOf(sh.rmax);
+  const sd = o.stepDown > 0 ? o.stepDown : Infinity, floors = [];
+  for (let f = -sd; f > deepest + 1e-6; f -= sd) floors.push(f);
+  floors.push(deepest);
+  floors.forEach((floor, fi) => {
+    const prev = fi ? floors[fi - 1] : 1e9;
+    // the runs this pass cuts: the axis where it goes deeper than the last pass did
+    const runs = [];
+    for (const P of sh.axis) {
+      let run = null;
+      for (let i = 0; i < P.length; i++) {
+        const z = zOf(P[i][2]), need = z < prev - 1e-6;
+        if (i) {
+          // a straight run between two depths: a point where it meets this floor and the last pass's,
+          // or the held part would slope from the shallow end and leave wood along the true depth
+          const A = P[i - 1], za = zOf(A[2]), cross = (lv) => (za - lv) * (z - lv) < 0;
+          const at = [prev, floor].filter(cross).map((lv) => ({ lv, t: (lv - za) / (z - za) })).sort((u, v) => u.t - v.t);
+          for (const { lv, t } of at) {
+            const m = [A[0] + (P[i][0] - A[0]) * t, A[1] + (P[i][1] - A[1]) * t, Math.max(lv, floor)];
+            const deeper = lv === prev ? z < za : null;
+            if (lv === prev && !deeper) { if (run) { run.push(m); run = null; } continue; }
+            if (lv === prev) { run = [m]; runs.push(run); continue; }
+            if (run) run.push(m);
+          }
+        }
+        if (need) {
+          if (!run) { run = []; runs.push(run); }
+          run.push([P[i][0], P[i][1], Math.max(z, floor)]);
+        }
+      }
+    }
+    // nearest end next; one that starts where the bit is carries on without lifting
+    let cur = null;
+    while (runs.length) {
+      let bi = 0, bd = Infinity, rev = false;
+      runs.forEach((R, i) => {
+        const A = R[0], B = R[R.length - 1];
+        const da = cur ? Math.hypot(A[0] - cur[0], A[1] - cur[1]) : 0, db = cur ? Math.hypot(B[0] - cur[0], B[1] - cur[1]) : 0;
+        if (da < bd) { bd = da; bi = i; rev = false; }
+        if (db < bd) { bd = db; bi = i; rev = true; }
+      });
+      const R = runs.splice(bi, 1)[0], pts = rev ? R.slice().reverse() : R;
+      if (cur && bd < 1e-6 && Math.abs(cur[2] - pts[0][2]) < 1e-6) E.feed(pts[0][0], pts[0][1], pts[0][2]);
+      else E.travelTo(pts[0][0], pts[0][1], pts[0][2]);
+      for (let i = 1; i < pts.length; i++) E.feed(pts[i][0], pts[i][1], pts[i][2]);
+      cur = pts[pts.length - 1];
+    }
+    E.retract();
+  });
+  // the flat floor
+  const wall = cap * tan;
+  let rings = 0;
+  if (sh.rmax > wall + 1e-3) {
+    const step = Math.max(0.05, Math.min(mark.fill.stepover > 0 ? mark.fill.stepover : stepoverForScallop(tool, 0.15), 2 * wall));
+    const res = Math.max(sh.h, 0.1), b = sh.box, bb = { x0: b[0], y0: b[1], x1: b[2], y1: b[3] };
+    const levels = [];
+    for (let l = wall; l < sh.rmax - 1e-3; l += step) levels.push(l);
+    levels.reverse();
+    let at = null;
+    for (const level of levels) {
+      for (const L of isoLines(sh.inside, bb, res, level)) {
+        if (!L.closed || L.pts.length < 4) continue;
+        let P = thinLoop(L.pts, 0.01), s0 = 0;
+        if (at) { let bd = Infinity; P.forEach((q, i) => { const d = Math.hypot(q[0] - at[0], q[1] - at[1]); if (d < bd) { bd = d; s0 = i; } }); }
+        P = P.slice(s0).concat(P.slice(0, s0));
+        const p0 = P[0], gap = at ? Math.hypot(p0[0] - at[0], p0[1] - at[1]) : Infinity;
+        // a short hop stays down only if the way across keeps the rim inside the outline
+        let stay = gap <= 3 * step;
+        if (stay) for (let t = 0.25; t < 1; t += 0.25) if (sh.inside(at[0] + (p0[0] - at[0]) * t, at[1] + (p0[1] - at[1]) * t) < wall - 0.02) stay = false;
+        if (stay) E.feed(p0[0], p0[1], -cap); else E.travelTo(p0[0], p0[1], -cap);
+        for (let i = 1; i < P.length; i++) E.feed(P[i][0], P[i][1], -cap);
+        E.feed(p0[0], p0[1], -cap);
+        at = p0; rings++;
+      }
+    }
+    E.retract();
+  }
+  E.retract();
+  return { moves: E.moves, vcarve: sh, tool, strategy: 'v-carve', rings, deepest: -deepest };
+}
+// What to say about a V-carve mark
+export function vcarveChecks(mark, o = {}) {
+  const L = o.len || ((v) => `${fmt(v, 1)} mm`);
+  const warnings = [], notes = [];
+  const sh = vcarveShape(mark, { part: o.part, cells: 4e5 });
+  if (!sh || !sh.hasArea) { warnings.push('Nothing to carve: the outline has no area on the part.'); return { warnings, notes, tex: null }; }
+  const tool = sh.tool;
+  if (tool.type !== 'v') { warnings.push(`A V-carve needs a V-bit; the ${tool.name} is not one. Pick the 60° or the 90° V-bit.`); return { warnings, notes, tex: null, tool }; }
+  const want = sh.rmax / tool.tanHalf, cap = sh.cap(o.thickness), deep = Math.min(want, cap);
+  if (o.thickness > 0 && want >= boardFloor(o.thickness) && cap >= boardFloor(o.thickness) - 1e-6) warnings.push(`This V-carve wants ${L(want)} of depth and the board is ${L(o.thickness)} thick: it would cut through. It stops just short of the board's bottom, with a flat floor there. Set a flat depth, or use a blunter bit.`);
+  notes.push(`The deepest cut is ${L(deep)}, ${L(2 * deep * tool.tanHalf)} wide at the top.`);
+  if (want > cap + 1e-3) notes.push(`Wider than the ${tool.name} can make a point (more than ${L(2 * cap * tool.tanHalf)} across): the floor is flat there, ${L(cap)} deep, and takes longer to clear.`);
+  return { warnings, notes, tex: vcarveTexture(mark, { part: o.part, maxDepth: o.thickness }), tool, strategy: 'v-carve', vcarve: sh };
+}
+
 const API = {
   hash3, perlin2, fbm2, worley2, cap, stepRepeat, blend, RD_STYLES, MORSE, morseEncode, strokeField, WEAVE_DRAFTS, MOTIFS, PATTERNS, defaults,
   rectMask, ellipseMask, polygonMask, paintMask, unionMask, makeMask, maskWeight, texture, TOOLS, makeTool, toolOffsets, dropCutter,
@@ -3199,6 +3654,7 @@ const API = {
   partMesh, partMeshSize, autoMeshRes, meshCheck, meshNormals, meshSTL, meshOBJ, meshGLB, meshFile,
   RECIPE_FORMAT, RECIPE_VERSION, RECIPE_CORE, PATTERN_VERSIONS, recipeOf, fillOfRecipe, textureOfRecipe, recipeRefusal, checkOf, verifyRecipe,
   typedRange, CURVES, CURVE_WORDS, BORDERS, BORDER_WORDS, borderDefaults, isoLines, alongLines, fillShape,
+  VCARVE, newVcarve, thinLoop, drawnRegion, drawnIntact, vcarveShape, vcarveTexture, vcarveToolpath, vcarveChecks,
   INLAY, newInlay, inlayShape, inlayTexture, inlayToolpath, inlayPlug, inlayPlugSVG, inlayFit, inlayChecks,
   roundProse, PIERCES, SKIN_STRAIN, defaultSkin, kerfCount, pierceDefaults, newPierce, fillTool, kerfPitch, pierceCuts, pierceToolpath, pierceChecks, pierceSVG,
 };

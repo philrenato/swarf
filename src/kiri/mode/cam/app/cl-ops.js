@@ -726,6 +726,19 @@ export function createPopOps() {
         down: UC.newInput(LANG.cc_sdwn_s, { title: LANG.cc_sdwn_l, convert: toFloat, units }),
     };
 
+    // swarf: a V-carve (TEX's fill, or words carved from DRAW), the same feeds
+    createPopOp('vcarve', {
+        spindle: 'camTextureSpindle',
+        rate: 'camTextureSpeed',
+        plunge: 'camTexturePlunge',
+        down: 'camTextureDown',
+    }).inputs = {
+        spindle: UC.newInput(LANG.cc_spnd_s, { title: LANG.cc_spnd_l, convert: toInt, show: hasSpindle }),
+        rate: UC.newInput(LANG.cc_feed_s, { title: LANG.cc_feed_l, convert: toInt, units }),
+        plunge: UC.newInput(LANG.cc_plng_s, { title: LANG.cc_plng_l, convert: toInt, units }),
+        down: UC.newInput(LANG.cc_sdwn_s, { title: LANG.cc_sdwn_l, convert: toFloat, units }),
+    };
+
     createPopOp('gcode', {
         gcode: 'camCustomGcode',
     }).inputs = {
