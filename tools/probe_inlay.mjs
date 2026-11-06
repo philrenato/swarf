@@ -37,7 +37,7 @@ try {
   await wait(400);
   const fills = await page.evaluate(() => [...document.querySelectorAll('.tx-fill')].map(b => b.dataset.fill));
   check(fills.includes('inlay'), `the fill row offers inlay in basic mode (${fills})`);
-  await page.click('.tx-fill[data-fill="inlay"]');
+  await page.evaluate(() => document.querySelector('.tx-fill[data-fill="inlay"]').click());   // the card redraws as a mark settles: no handle kept across it
   await page.waitForFunction(() => /About .* to cut the pocket/.test(document.querySelector('.tx-status')?.textContent || ''), { timeout: 30000 }).catch(() => {});
   const card = await page.evaluate(() => ({ status: document.querySelector('.tx-status')?.textContent, depth: document.getElementById('tx-depth')?.value, gap: document.getElementById('tx-gap')?.value, proud: document.getElementById('tx-proud')?.value, bit: document.getElementById('tx-bit')?.selectedOptions[0]?.textContent, plug: document.querySelector('.tx-plugsay')?.textContent, notes: [...document.querySelectorAll('#tx-card .sd-note')].map(n => n.textContent).join(' | ') }));
   check(/About .* to cut the pocket/.test(card.status) && card.depth && card.gap && card.proud, `the inlay card: time, depth, fit gap, stands proud (${JSON.stringify(card)})`);

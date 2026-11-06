@@ -75,7 +75,7 @@ try {
   await add('pocket', { tool: 'end 1/8' });
   const last = await file(); f = facts(last);
   check(f.changes === 1 && f.routerOns === 1, `an empty last step adds no bit change or router start (${f.changes}, ${f.routerOns})`);
-  const tail = last.split('\n').filter(l => /^(C6|C7|C9|JZ|TR)\b/.test(l));
+  const tail = last.split('\n').filter(l => /^(C6|C7|C9|JZ|TR)\b/.test(l)).map(l => l.trim().split(/\s+/)[0]);
   check(tail.slice(-2).join() === 'JZ,25.4,C7', `the file ends lifted, router off (${tail.slice(-4)})`);
 
   // M2: a hole smaller than the bit
