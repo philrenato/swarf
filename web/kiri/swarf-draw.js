@@ -240,13 +240,13 @@
       if (!(Cx && w.meta && w.meta.svg && !w.meta.tilted && Array.isArray(w.meta.tex))) continue;
       const pos = w.track.pos;
       for (const m of w.meta.tex) {
-        if (!m.drawn || shown.has(m.id) || !Cx.drawnIntact(m)) continue;
+        if (!m.drawn || m.fill?.fill !== 'vcarve' || shown.has(m.id) || !Cx.drawnIntact(m)) continue;
         shown.add(m.id);
         const A = m.xf || Cx.IDENTITY, on = (x, y) => { const q = Cx.xfApply(A, x, y); return [q[0] + pos.x, q[1] + pos.y]; };
         const curves = m.drawn.curves.map(c => ({ crv: { ...clone(c.crv), ctrlPts: c.crv.ctrlPts.map(([x, y, , wt]) => [...on(x, y), 0, wt ?? 1]) } }));
         // a part turned or scaled since: its outline holds, but letters set again would come out square to the bed
         const plain = Math.abs(A[0] - 1) + Math.abs(A[1]) + Math.abs(A[2]) + Math.abs(A[3] - 1) < 1e-6;
-        const part = { w: null, name: m.drawn.name, carve: { mark: m.id, tool: m.fill.tool, limit: m.fill.limit || 0 }, thick: 19, edge: { kind: 'straight', size: 2 }, curves, dirty: false };
+        const part = { w: null, name: m.drawn.name, carve: { mark: m.id, tool: m.fill.tool, limit: m.fill.limit || 0 }, thick: (() => { const b = w.getBoundingBox(); return +(b.max.z - b.min.z).toFixed(3) || 19; })(), edge: { kind: 'straight', size: 2 }, curves, dirty: false };
         if (m.drawn.text && plain) { part.text = { ...m.drawn.text, at: on(m.drawn.text.at[0], m.drawn.text.at[1]) }; part.named = true; }
         parts.push(part);
       }

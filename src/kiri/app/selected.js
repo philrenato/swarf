@@ -239,6 +239,13 @@ function copyOf(ow, group) {
             if (ow.meta[k] !== undefined) nw.meta[k] = JSON.parse(JSON.stringify(ow.meta[k]));
         }
         nw.anno = ow.annotations();
+        // what a step has picked on this part comes along: a copy with no floor or holes of its own
+        // was cut free with its pocket missing, and drilled the holes the original had unticked
+        for (const op of api.conf.get().process?.ops || []) {
+            for (const k of ['surfaces', 'drills']) {
+                if (op && op[k] && op[k][ow.id] !== undefined) op[k][nw.id] = JSON.parse(JSON.stringify(op[k][ow.id]));
+            }
+        }
         return nw;
 }
 

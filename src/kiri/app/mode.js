@@ -79,7 +79,7 @@ function setMode(mode, lock, then) {
         const post = current.device.gcodePost;
         if (current.filter[mode] === 'ShopBot.Basic' && Array.isArray(post) && !post.some(l => /^JZ\b/.test(l))) {
             const at = post.findIndex(l => /Turning router OFF/.test(l));
-            if (at >= 0) current.device.gcodePost = current.cdev[mode].gcodePost = [...post.slice(0, at), "'Lifting clear", 'JZ,25.4', ...post.slice(at)];
+            if (at >= 0) current.device.gcodePost = current.cdev[mode].gcodePost = [...post.slice(0, at), "'Lifting clear", 'JZ,{lift}', ...post.slice(at)];
         }
         api.event.emit('device.select', api.device.get());
     }

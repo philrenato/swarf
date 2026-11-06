@@ -221,6 +221,9 @@ try {
   open = await concerns();
   say = open.find(c => /drill step has no holes/.test(c.title));
   check(!!say && /picked/.test(say.body), `none picked is said (${say && say.body})`);
+  // holes before the cut-out, however they were added (review of 109)
+  const order = await page.evaluate(() => { const a = window.kiri.api, ops = a.conf.get().process.ops; ops.length = 0; a.conf.save(); const add = t => [...document.querySelectorAll('#op-add-list > div')].find(d => d.textContent.trim() === t).click(); add('outline'); add('drill'); return ops.filter(o => o.type !== '|').map(o => o.type); });
+  check(order.join() === 'drill,outline', `drill added after outline runs first (${order})`);
   check(!errors.length, `no page errors (${errors.join(' | ')})`);
 } catch (e) { check(false, 'threw: ' + e.message); }
 await browser.close();

@@ -68,6 +68,16 @@ try {
   check(f.changes === 1 && !loads.some(l => /1\/8/.test(l)), `an empty pocket writes no bit change (${loads})`);
   check(f.routerOns === 1, `and no router start of its own (${f.routerOns})`);
 
+  // the same, last in the list: the file ends on the bit that cut (review of 109: a change and a router start after the job)
+  await fresh();
+  await part(rect(100, 80), 'plate', 12);
+  await add('outline', { tool: 'end 1/4', inside: false });
+  await add('pocket', { tool: 'end 1/8' });
+  const last = await file(); f = facts(last);
+  check(f.changes === 1 && f.routerOns === 1, `an empty last step adds no bit change or router start (${f.changes}, ${f.routerOns})`);
+  const tail = last.split('\n').filter(l => /^(C6|C7|C9|JZ|TR)\b/.test(l));
+  check(tail.slice(-2).join() === 'JZ,25.4,C7', `the file ends lifted, router off (${tail.slice(-4)})`);
+
   // M2: a hole smaller than the bit
   await fresh();
   await part('<svg xmlns="http://www.w3.org/2000/svg" width="100mm" height="80mm" viewBox="0 0 100 80"><path fill-rule="evenodd" d="M0 0H100V80H0ZM20 20H25V25H20ZM60 20H80V40H60Z"/></svg>', 'plate', 12);

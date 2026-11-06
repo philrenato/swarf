@@ -204,6 +204,9 @@
     const now = performance.now();
     if (!R.t0 || frac < R.f0 || now - R.last > 1200) { R.t0 = now; R.f0 = frac; }
     R.last = now; R.f = frac;
+    // twice a second is plenty: current() stringifies the whole job, marks and all
+    if (frac < 0.999 && now - (R.shown || 0) < 500) return;
+    R.shown = now;
     showReal();
   }
   function showReal() {

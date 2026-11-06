@@ -123,7 +123,7 @@ const steps = {
     await wait(400);
     await page.reload({ waitUntil: 'domcontentloaded' }); await h.ready();
     const post = await page.evaluate(() => window.kiri.api.conf.get().device.gcodePost);
-    check(post.includes('JZ,25.4') && post.indexOf('JZ,25.4') < post.indexOf('C7'), `a stored profile gets the lift (${post.slice(0, 4).join(' / ')})`);
+    check(post.includes('JZ,{lift}') && post.indexOf('JZ,{lift}') < post.indexOf('C7'), `a stored profile gets the lift (${post.slice(0, 4).join(' / ')})`);
   },
   async m1(page, h) {
     const compare = async (name, change) => {

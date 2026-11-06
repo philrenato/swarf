@@ -192,6 +192,15 @@ try {
     const xs2 = L.map(p => p.x0).sort((a, b) => a - b);
     check(Math.abs(xs2[1] - xs2[0] - 112.7) < 0.1, `a typed 1/2 is 12.7 mm (${(xs2[1] - xs2[0]).toFixed(2)} step)`);
   } else console.log('note: units did not switch by that route; inches not checked here');
+  // what a step picked on the part comes along (review of 109: a copy's pocket floor and unticked holes were lost)
+  const picks = await page.evaluate(() => {
+    const a = window.kiri.api, ws = a.widgets.all(), ops = a.conf.get().process.ops, w = ws[0];
+    const op = { type: 'pocket', tool: a.conf.get().tools[0].id, surfaces: { [w.id]: [7] }, drills: { [w.id]: [{ x: 1, y: 2, selected: false }] } };
+    ops.push(op); a.platform.deselect(); a.platform.select(w); const before = new Set(a.widgets.all().map(x => x.id));
+    a.selection.duplicate();
+    return new Promise(res => setTimeout(() => { const nw = a.widgets.all().find(x => !before.has(x.id)); const r = { surf: nw && op.surfaces[nw.id], drill: nw && op.drills[nw.id] }; ops.splice(ops.indexOf(op), 1); a.conf.save(); res(r); }, 600));
+  });
+  check(JSON.stringify(picks.surf) === '[7]' && picks.drill?.[0]?.selected === false, `a copy keeps the picked floor and holes (${JSON.stringify(picks)})`);
   check(!errors.length, `no page errors: ${errors.slice(0, 3).join(' | ')}`);
 } catch (e) { check(false, `the probe stopped: ${e.message}`); }
 await browser.close();

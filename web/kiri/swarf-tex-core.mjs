@@ -3552,11 +3552,26 @@ export function vcarveToolpath(mark, o = {}) {
   const sd = o.stepDown > 0 ? o.stepDown : Infinity, floors = [];
   for (let f = -sd; f > deepest + 1e-6; f -= sd) floors.push(f);
   floors.push(deepest);
+  // a straight run that crosses the depth limit bends there: depth follows the width up to it, then holds.
+  // Without the bend the pass sloped end to end and left wood at the corners (a review of 109: 1.6 mm)
+  const bendAt = cap * tan;
+  const axis = sh.axis.map((P) => {
+    const out = [];
+    P.forEach((q, i) => {
+      const A = P[i - 1];
+      if (A && (A[2] - bendAt) * (q[2] - bendAt) < 0) {
+        const t = (bendAt - A[2]) / (q[2] - A[2]);
+        out.push([A[0] + (q[0] - A[0]) * t, A[1] + (q[1] - A[1]) * t, bendAt]);
+      }
+      out.push(q);
+    });
+    return out;
+  });
   floors.forEach((floor, fi) => {
     const prev = fi ? floors[fi - 1] : 1e9;
     // the runs this pass cuts: the axis where it goes deeper than the last pass did
     const runs = [];
-    for (const P of sh.axis) {
+    for (const P of axis) {
       let run = null;
       for (let i = 0; i < P.length; i++) {
         const z = zOf(P[i][2]), need = z < prev - 1e-6;

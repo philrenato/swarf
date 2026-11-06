@@ -67,6 +67,8 @@ export function cam_export(print, online) {
             z: 1
         },
         consts = {
+            // swarf: the end of a file lifts 1 in over the top of the board, wherever Z 0 is set
+            lift: (spro.camOriginTop ? 0 : zmax) + 25.4,
             box: runbox,
             tool: 0,
             tool_name: "unknown",
@@ -161,6 +163,7 @@ export function cam_export(print, online) {
             }
             if (line.indexOf('G20') === 0) {
                 factor = 1 / 25.4;
+                consts.lift /= 25.4;
                 consts.top = (offset ? dev.bedDepth : dev.bedDepth / 2) * factor;
                 consts.left = (offset ? 0 : -dev.bedWidth / 2) * factor;
                 consts.right = (offset ? dev.bedWidth : dev.bedWidth / 2) * factor;

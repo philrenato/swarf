@@ -60,6 +60,23 @@ function roundOf(loop) {
 
 const solidAt = (p, loops) => loops.reduce((n, l) => n + (inside(p, l) ? 1 : 0), 0) % 2 === 1;
 
+// what is straight under a hole's center: the highest surface below its rim, or null when nothing is and
+// it goes through. Asked of the mesh itself: the levels above stop at the top sixteen flats, and a floor
+// below them read as through (a review of 109: a stepped part's blind hole drilled right out)
+function floorUnder(pos, c, z) {
+    let best = null;
+    for (let i = 0; i + 8 < pos.length; i += 9) {
+        const ax = pos[i], ay = pos[i + 1], bx = pos[i + 3], by = pos[i + 4], cx = pos[i + 6], cy = pos[i + 7];
+        const d = (by - cy) * (ax - cx) + (cx - bx) * (ay - cy);
+        if (Math.abs(d) < 1e-12) continue;
+        const u = ((by - cy) * (c.x - cx) + (cx - bx) * (c.y - cy)) / d, v = ((cy - ay) * (c.x - cx) + (ax - cx) * (c.y - cy)) / d;
+        if (u < -1e-9 || v < -1e-9 || u + v > 1 + 1e-9) continue;
+        const h = u * pos[i + 2] + v * pos[i + 5] + (1 - u - v) * pos[i + 8];
+        if (h < z - 0.02 && (best === null || h > best)) best = h;
+    }
+    return best;
+}
+
 /**
  * @param {ArrayLike<number>} pos triangle soup, 9 numbers a triangle
  * @returns {{ holes: Array<{ x: number, y: number, d: number, floor: ?number }>, zmin: number, zmax: number }}
@@ -78,8 +95,7 @@ export function roundHoles(pos) {
             if (!c) continue;
             if (levels.slice(0, li).some(up => solidAt(c, up.loops))) continue;
             if (holes.some(h => Math.hypot(h.x - c.x, h.y - c.y) < 0.1 * c.d && Math.abs(h.d - c.d) < Math.max(0.05, 0.05 * c.d))) continue;
-            const below = levels.slice(li + 1).find(down => solidAt(c, down.loops));
-            holes.push({ ...c, floor: below ? below.z : null });
+            holes.push({ ...c, floor: floorUnder(pos, c, level.z) });
         }
     });
     const out = { holes, zmin, zmax };

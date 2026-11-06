@@ -277,7 +277,11 @@ export const opAdd = (rec) => {
     clearPops();
     let oplist = env.current.process.ops;
     if (oplist.indexOf(rec) < 0) {
-        if (oplist.length && oplist[oplist.length - 1].type === '|') {
+        // swarf: holes before the cut-out, or they are pecked in a part only its tabs hold
+        const cutOut = rec.type === 'drill' ? oplist.findIndex(o => o.type === 'outline' || o.type === 'rough') : -1;
+        if (cutOut >= 0) {
+            oplist.splice(cutOut, 0, rec);
+        } else if (oplist.length && oplist[oplist.length - 1].type === '|') {
             oplist.splice(oplist.length - 1, 0, rec);
         } else {
             oplist.push(rec);

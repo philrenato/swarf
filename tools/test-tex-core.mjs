@@ -713,6 +713,12 @@ for (const [id, P] of Object.entries(T.PATTERNS)) {
   const big = { id: 'b', name: 'big', type: 'v', angle: 90, diameter: 50 }, v60 = { id: 'c', name: 'v60', type: 'v', angle: 60, diameter: 50 };
   const low = p => Math.min(...p.moves.filter(m => !m.rapid).map(m => m.z));
   const bar = [rect(0, 0, 60, 20)];
+  { // a straight axis that crosses the flat depth bends there (review of 109: it sloped end to end, 1.6 mm of wood left)
+    const mv = T.vcarveToolpath(mk([rect(0, 0, 40, 40)], T.newVcarve({ bit: big, limit: 6 })), { maxDepth: 19, stepDown: 3 }).moves.filter(m => !m.rapid);
+    const near = (x, y, z) => mv.some(m => Math.hypot(m.x - x, m.y - y) < 0.2 && Math.abs(m.z - z) < 0.05);
+    ok(near(3, 3, -3), 'a corner reaches the first pass floor where the width says, not half way along');
+    ok(near(6, 6, -6), 'and bends at the flat depth');
+  }
   ok(Math.abs(low(T.vcarveToolpath(mk(bar, T.newVcarve({ bit: big })), { maxDepth: 19 })) + 10) < 0.01, '20 mm bar, 90°: 10 deep');
   ok(Math.abs(low(T.vcarveToolpath(mk(bar, T.newVcarve({ bit: v60 })), { maxDepth: 30 })) + 10 / Math.tan(Math.PI / 6)) < 0.01, '20 mm bar, 60°: 17.32 deep');
   ok(Math.abs(low(T.vcarveToolpath(mk(bar, T.newVcarve({ tool: 'v90' })), { maxDepth: 19 })) + 6.35) < 1e-6, "20 mm bar, 1/2 in 90°: held at the bit's cone");

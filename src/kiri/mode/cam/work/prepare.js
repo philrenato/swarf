@@ -68,7 +68,7 @@ export async function cam_prepare(widgets, settings, update) {
     const sequence = plain
         ? runs[0].types.flatMap((_, i) => runs.map(r => [r, i]))
         : runs.flatMap(r => r.types.map((_, i) => [r, i]));
-    let lastRun;
+    let lastRun, lastTool;
     for (const [run, i] of sequence) {
         // a step that cuts nothing here (no floor picked, a mark on another part) leaves no moves, and so
         // no bit change or router start for nothing (review 105 F4)
@@ -82,9 +82,11 @@ export async function cam_prepare(widgets, settings, update) {
         } else if (made.length) {
             startPoint = point;
             lastRun = run;
+            lastTool = run.tool();
         }
     }
-    if (lastRun) lastRun.close();
+    // the file ends with the last bit that cut: an empty last step's bit is a change nobody needs
+    if (lastRun) lastRun.close(startPoint, lastTool);
 
     // prune empty levels
     const output = print.output.filter(level => Array.isArray(level));
@@ -1146,7 +1148,9 @@ function prepare_open(widget, settings, print, firstPoint, update) {
         return printPoint;
     }
 
-    function close() {
+    function close(point, endTool) {
+        if (point) printPoint = point;
+        if (endTool) tool = endTool;
         // last layer/move is to zSafe
         // re-inject that point into the last layer generated
         if (printPoint && newOutput.length) {
@@ -1165,6 +1169,7 @@ function prepare_open(widget, settings, print, firstPoint, update) {
     return {
         types: steps.map(op => op.op.type),
         keeps: i => PART_BY_PART.has(steps[i].op.type),
+        tool: () => tool,
         step,
         close,
     };
