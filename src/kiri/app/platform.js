@@ -1271,7 +1271,7 @@ function load_files(files, group) {
                 // swarf: as an .ai or .pdf does (load_svg_into), so each part keeps its own
                 // drawing (meta.svg) and DRAW, TEX and "save drawing" can use it; open lines are
                 // said as an .ai's are, and cancel (or Esc) ends the load as it began
-                const text = data.textDecode('utf-8');
+                const text = svgInMM(data.textDecode('utf-8'));
                 const open = svgOpenLines(text);
                 loadSVGDialog(opt => {
                     group = group || [];
@@ -1283,7 +1283,7 @@ function load_files(files, group) {
                         api.show.alert(`${open} open line${open > 1 ? 's were' : ' was'} left out: only closed shapes can be given a thickness`, 10);
                     }
                     load_dec();
-                }, load_dec);
+                }, load_dec, svgSizeLine(text));
             } else if (isai) {
                 // swarf r36: Illustrator / PDF drawings through Unreason's reader (web/kiri/swarf-vector.mjs),
                 // as SVG in mm into the same thickness dialog as an SVG
@@ -1300,7 +1300,7 @@ function load_files(files, group) {
                         group = group || [];
                         load_svg_into(group, r.svg, name.replace(/\.(ai|pdf)$/i, ''), opt);
                         load_dec();
-                    }, load_dec);
+                    }, load_dec, svgSizeLine(r.svg));
                 }).catch(e => { api.show.alert(`could not read that drawing: ${e.message}`, 10); load_dec(); });
             } else if (isdxf) {
                 loadDXFDialog(opt => {
@@ -1375,7 +1375,47 @@ function svgOpenLines(text) {
     } catch (e) { return 0; }
 }
 
-function loadSVGDialog(doit, cancel = () => {}) {
+// swarf: an SVG's width in real units and its viewBox together say how big one unit is; the loader
+// only looked at the width's suffix, so width="8in" viewBox="0 0 203.2 127" came in 25.4 times too
+// big (review 105 F1). The text is rewritten in mm here, so the part, its kept drawing and DRAW agree.
+const SVG_UNITS = { in: 25.4, mm: 1, cm: 10, pt: 25.4 / 72, pc: 25.4 / 6 };
+function svgInMM(text) {
+    try {
+        const doc = new DOMParser().parseFromString(text, 'image/svg+xml'), root = doc.documentElement;
+        if (root.nodeName !== 'svg' || doc.querySelector('parsererror')) return text;
+        const m = /^\s*([\d.]+)\s*(in|mm|cm|pt|pc)\s*$/.exec(root.getAttribute('width') || '');
+        const vb = (root.getAttribute('viewBox') || '').trim().split(/[\s,]+/).map(Number);
+        if (!m || vb.length !== 4 || !(vb[2] > 0) || !(vb[3] > 0) || !(+m[1] > 0)) return text;
+        const wide = +m[1] * SVG_UNITS[m[2]], unit = wide / vb[2], tall = vb[3] * unit;
+        if (m[2] === 'mm' && Math.abs(unit - 1) < 1e-6) return text;
+        const g = doc.createElementNS('http://www.w3.org/2000/svg', 'g');
+        g.setAttribute('transform', `scale(${unit}) translate(${-vb[0]} ${-vb[1]})`);
+        while (root.firstChild) g.appendChild(root.firstChild);
+        root.appendChild(g);
+        root.setAttribute('width', `${wide}mm`);
+        root.setAttribute('height', `${tall}mm`);
+        root.setAttribute('viewBox', `0 0 ${wide} ${tall}`);
+        return new XMLSerializer().serializeToString(doc);
+    } catch (e) { return text; }
+}
+
+// the card says what size the drawing comes in, before the parts are made
+function svgSizeLine(text) {
+    try {
+        let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+        for (const poly of file_load.SVG.parse(text, { flat: true, soup: false })) for (const p of poly.points) {
+            x0 = Math.min(x0, p.x); x1 = Math.max(x1, p.x);
+            y0 = Math.min(y0, p.y); y1 = Math.max(y1, p.y);
+        }
+        if (!(x1 > x0)) return '';
+        const L = self.SwarfLength, say = v => L ? L.say(v) : `${+v.toFixed(1)} mm`;
+        const root = new DOMParser().parseFromString(text, 'image/svg+xml').documentElement;
+        const real = /(in|mm|cm|pt|pc)\s*$/.test(root.getAttribute('width') || '');
+        return `It comes in at ${say(x1 - x0)} × ${say(y1 - y0)}.${real ? '' : ' It has no real units, so one unit reads as 1 mm: if that is wrong, set finer settings › pixels per inch, or type the size on the part afterward.'}`;
+    } catch (e) { return ''; }
+}
+
+function loadSVGDialog(doit, cancel = () => {}, size = '') {
     // swarf: the dialog speaks SHAPE's words (review 10-28b #7), and starts at
     // the last thickness SHAPE used, so a drawing and a shape come out alike
     const t = lastThickness();
@@ -1386,6 +1426,7 @@ function loadSVGDialog(doit, cancel = () => {}) {
         "  Each closed outline becomes a part, this thick.",
         "  Text must be turned into outlines first (in Illustrator: Type › Create Outlines).",
         "  </p>",
+        ...(size ? [`  <p class='t-just swarf-import-size' style='width:320px;line-height:1.5em;margin-top:0'>${size}</p>`] : []),
         "  <div class='f-row t-right'><table>",
         `  <tr><th>thickness</th><td><input id='svg-depth' value='${depthShow(t)}' size='6' inputmode='text'> ${depthUnit()}</td></tr>`,
         "  <tr><th title='an outline inside another is cut out of it, as a hole'>holes stay holes</th><td><input id='svg-nest' value='1' type='checkbox' checked></td></tr>",

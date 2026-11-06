@@ -599,8 +599,8 @@ html[data-skin] #swarf-run .sr-jog .sr-zrow button.next, html[data-skin] #swarf-
     // menubar and step row stay; the connection lives in the jog header; the five
     // steps and the sentence share one line.
     el.conn = h('div', { class: 'sr-conn' }, h('span', { class: 'sr-dot' }), el.connText = h('span', { text: '' }),
-      el.discBtn = h('button', { text: 'disconnect', title: 'let go of the box, so ShopBot 3 or another program can use it', onclick: () => disconnect() }),
-      el.connBtn = h('button', { text: 'connect', title: onWindows() ? 'connect to the ShopBot over its USB cable. Quit ShopBot 3 first: one program at a time' : 'connect to the ShopBot over its USB cable', onclick: () => connect(true) }));
+      el.discBtn = h('button', { text: 'disconnect', title: 'Let go of the box, so ShopBot 3 or another program can use it', onclick: () => disconnect() }),
+      el.connBtn = h('button', { text: 'connect', title: onWindows() ? 'Connect to the ShopBot over its USB cable. Quit ShopBot 3 first: one program at a time' : 'Connect to the ShopBot over its USB cable', onclick: () => connect(true) }));
     el.steps = h('div', { class: 'sr-steps' });
     STEPS.forEach((s, i) => el.steps.append(h('div', { class: 'sr-step', 'data-step': s, title: STEP_SAYS[s], onclick: () => tell(STEP_SAYS[s]) }, h('span', { class: 'n', text: String(i + 1) }), h('span', { text: s }))));
     el.say = h('div', { class: 'sr-say' });
@@ -701,7 +701,7 @@ html[data-skin] #swarf-run .sr-jog .sr-zrow button.next, html[data-skin] #swarf-
       h('div', { class: 'sr-keyrow' }, el.routerBtn,
         el.keys = h('div', { class: 'sr-keys', text: '← → ↑ ↓  X Y   ·   fn ↑ ↓  Z   ·   space stops' })),
       h('div', { class: 'sr-goto' },
-        el.homeBtn = h('button', { text: 'home', title: 'run to the home sensors', onclick: () => aboutToMove({ title: 'The machine is about to home', text: 'It lifts, then runs to the home sensors in the -X, -Y corner.', go: 'home', run: () => S.machine.home() }) }),
+        el.homeBtn = h('button', { text: 'home', title: 'Run to the home sensors', onclick: () => aboutToMove({ title: 'The machine is about to home', text: 'It lifts, then runs to the home sensors in the -X, -Y corner.', go: 'home', run: () => S.machine.home() }) }),
         el.goXY = h('button', { text: 'go to x y 0', title: 'Up, then over to X 0, Y 0', onclick: () => aboutToMove({ title: 'The bit is about to move',
           // before Z is zeroed there is no Z 0 to name: it lifts from where it is (Fable 3 #12)
           text: S.zeroZ ? `Up to ${up(1)} over Z 0 (if it is lower), then over to X 0, Y 0.` : `Up ${up(1)} from where it is, then over to X 0, Y 0.`,
@@ -732,27 +732,27 @@ html[data-skin] #swarf-run .sr-jog .sr-zrow button.next, html[data-skin] #swarf-
     el.btn = {
       trace: h('button', { class: 'trace', text: 'trace', title: `Run the rectangle the cut fills, ${up()} up, router off`, onclick: () => askCut('trace') }),
       air: h('button', { class: 'air', text: 'air cut', title: 'Run the whole file above your board, router off', onclick: () => askCut('air') }),
-      cut: h('button', { class: 'cut', text: 'cut', title: 'cut the file: the router starts', onclick: askCut }),
-      pause: h('button', { class: 'pause', text: 'pause', title: 'pause: the router stops, the bit stays put', onclick: pauseResume }),
+      cut: h('button', { class: 'cut', text: 'cut', title: 'Cut the file: the router starts', onclick: askCut }),
+      pause: h('button', { class: 'pause', text: 'pause', title: 'Pause: the router stops, the bit stays put', onclick: pauseResume }),
       stop: h('button', { class: 'stop', text: 'stop', title: 'Stop all motion', onclick: () => { S.userStopped = true; S.machine.stop(); } })
     };
     el.prog.append(h('div', { class: 'sr-actions' }, el.btn.trace, el.btn.air, el.btn.cut, el.btn.pause, el.btn.stop));
     // the feed override while a job runs (Phil 10-29, like the MR-1's): cuts only, 50 to 150 % in 5 % steps
     const ovr = d => { const m = S.machine; if (m && m.setOverride) { m.setOverride(((m.state.override || 100) + d)); refresh(); } };
     el.ovr = h('div', { class: 'sr-ovr' }, h('span', { class: 'lbl', text: 'feed' }),
-      el.ovrDn = h('button', { text: '−5%', title: 'cut 5 % slower (down to 50 %)', onclick: () => ovr(-5) }),
+      el.ovrDn = h('button', { text: '−5%', title: 'Cut 5 % slower (down to 50 %)', onclick: () => ovr(-5) }),
       el.ovrVal = h('b', { text: '100%' }),
-      el.ovrUp = h('button', { text: '+5%', title: 'cut 5 % faster (up to 150 %, never past the machine\'s top speed)', onclick: () => ovr(5) }),
-      h('button', { text: '100%', title: 'back to the file\'s own feeds', onclick: () => { const m = S.machine; if (m && m.setOverride) { m.setOverride(100); refresh(); } } }));
+      el.ovrUp = h('button', { text: '+5%', title: 'Cut 5 % faster (up to 150 %, never past the machine\'s top speed)', onclick: () => ovr(5) }),
+      h('button', { text: '100%', title: 'Back to the file\'s own feeds', onclick: () => { const m = S.machine; if (m && m.setOverride) { m.setOverride(100); refresh(); } } }));
     el.prog.append(el.ovr);
     // an air cut's speed (Phil 11-04): nothing is cutting, so a slider and a wider range. Dragged, it
     // sets the speed a few times a second: each change plans the rest of the job again
     let rateT = 0;
     const rateNow = () => { rateT = 0; const m = S.machine; if (m && m.setRate) { m.setRate(+el.rateIn.value); refresh(); } };
     el.rate = h('div', { class: 'sr-ovr sr-airspeed' }, h('span', { class: 'lbl', text: 'speed' }),
-      el.rateIn = h('input', { type: 'range', min: '50', max: '400', step: '5', value: '100', title: 'how fast this air cut runs: 100 % is the speed it will cut at. Corners still slow down, and the machine\'s speed limits hold' }),
+      el.rateIn = h('input', { type: 'range', min: '50', max: '400', step: '5', value: '100', title: 'How fast this air cut runs: 100 % is the speed it will cut at. Corners still slow down, and the machine\'s speed limits hold' }),
       el.rateVal = h('b', { text: '100%' }),
-      h('button', { text: '100%', title: 'back to the speed it will cut at', onclick: () => { el.rateIn.value = 100; rateNow(); } }));
+      h('button', { text: '100%', title: 'Back to the speed it will cut at', onclick: () => { el.rateIn.value = 100; rateNow(); } }));
     el.rateIn.addEventListener('input', () => { el.rateVal.textContent = `${el.rateIn.value}%`; if (!rateT) rateT = setTimeout(rateNow, 150); });
     el.prog.append(el.rate);
     el.need = h('div', { class: 'sr-need' });
@@ -1334,8 +1334,11 @@ html[data-skin] #swarf-run .sr-jog .sr-zrow button.next, html[data-skin] #swarf-
   }
 
   // ------------------------------------------------------------ steps
+  // the job from cam is out of date while its toolpaths are made again, or when that failed: it stays on
+  // the screen but nothing runs it (review 105 B2: for those seconds it read as ready, the old file)
+  function stale() { return S.camBusy || !!(S.camError && S.prog && S.prog.source === 'cam'); }
   function stepNow() {
-    if (!S.prog || !S.prog.parsed.moves.length) return 'load';
+    if (!S.prog || !S.prog.parsed.moves.length || stale()) return 'load';
     if (problems().block.length) return 'check';
     if (!S.zeroXY || !S.zeroZ) return 'zero';
     if (!S.traced) return 'trace';
@@ -1349,7 +1352,7 @@ html[data-skin] #swarf-run .sr-jog .sr-zrow button.next, html[data-skin] #swarf-
       { k: 'conn', label: real || !st ? 'connected' : 'connected (simulator)', ok: !!(st && st.connected), todo: 'plug in the ShopBot and press connect' },
       { k: 'fault', label: 'all clear', ok: !S.fault, todo: S.fault ? `${S.fault}: check the machine, then press all clear` : '' },
       { k: 'busy', label: 'machine still', ok: !st || !st.connected || ready, todo: 'wait for the machine to stop moving' },
-      { k: 'prog', label: 'a program', ok: !!(S.prog && S.prog.parsed.moves.length), todo: 'make a part in cam and press control, or open a file' },
+      { k: 'prog', label: 'a program', ok: !!(S.prog && S.prog.parsed.moves.length) && !stale(), todo: S.camBusy ? 'wait for the toolpaths to finish' : S.camError && S.prog ? S.camError : 'make a part in cam and press control, or open a file' },
       { k: 'file', label: 'file checked', ok: !!S.prog && !problems().block.length, todo: (S.prog ? problems().block[0] || 'fix the file' : 'load a file, or bring the toolpaths from cam').replace(/\.$/, '') },
       { k: 'xy', label: 'X Y zeroed', ok: !!S.zeroXY, todo: S.zeroHad && S.zeroHad.xy && S.zeroSetAt && !S.zx ? 'press "use the zero you set" if the board has not moved, or jog over your X 0, Y 0 and press zero x y' : 'jog the bit over your X 0, Y 0 and press zero x y' },
       { k: 'z', label: 'Z zeroed', ok: !!S.zeroZ, todo: S.zeroHad && S.zeroHad.z && S.zeroSetAt && !S.toolChange && !S.zStale ? 'press "use the zero you set", or zero Z again' : 'press z plate, or lower the bit onto paper and press zero z' },
@@ -1401,7 +1404,7 @@ html[data-skin] #swarf-run .sr-jog .sr-zrow button.next, html[data-skin] #swarf-
     };
     wait(el.btn.trace, testWhy, 'Trace', `Run the rectangle the cut fills, ${up()} up, router off`);
     wait(el.btn.air, testWhy, 'An air cut', 'Run the whole file above your board, router off');
-    wait(el.btn.cut, cutWhy, 'Cut', 'cut the file: the router starts');
+    wait(el.btn.cut, cutWhy, 'Cut', 'Cut the file: the router starts');
     el.fromBtn.disabled = running || cutWhy.length > 0;
     el.fromBtn.title = cutWhy.length ? `Continue needs: ${cutWhy.join(', then ')}.` : `Up to ${up()}, over, then cut from this line on`;
     el.need.innerHTML = '';
@@ -1434,8 +1437,8 @@ html[data-skin] #swarf-run .sr-jog .sr-zrow button.next, html[data-skin] #swarf-
     // but don't see it"); a saved zero only counts once kept ("use the zero you set")
     const okXY = !!(S.zeroXY && S.zeroSetAt), okZ = !!(S.zeroZ && S.zeroSetAt);
     el.goXY.disabled = !okXY || !!running; el.goZ.disabled = !okZ || !!running;
-    el.goXY.title = okXY ? 'Up, then over to X 0, Y 0' : 'zero X Y first (or press "use the zero you set")';
-    el.goZ.title = okZ ? `Down to ${goZword()} above Z 0, slowly` : 'zero Z first (z plate, or zero z)';
+    el.goXY.title = okXY ? 'Up, then over to X 0, Y 0' : 'Zero X Y first (or press "use the zero you set")';
+    el.goZ.title = okZ ? `Down to ${goZword()} above Z 0, slowly` : 'Zero Z first (z plate, or zero z)';
     el.goZ.textContent = `go to ${goZword()} above z 0`;
     el.strip.classList.toggle('on', !!running && !(st && st.paused));
     el.btn.trace.classList.toggle('next', now === 'trace' && !running);
@@ -1445,7 +1448,7 @@ html[data-skin] #swarf-run .sr-jog .sr-zrow button.next, html[data-skin] #swarf-
     el.btn.pause.textContent = st && st.paused ? 'resume' : 'pause';
     el.btn.stop.disabled = !st;
     el.fromCam.disabled = !!running;
-    el.fromCam.title = running ? 'not while the job runs: stop it first' : 'Make the toolpaths again and bring them here';
+    el.fromCam.title = running ? 'Not while the job runs: stop it first' : 'Make the toolpaths again and bring them here';
     // "same zero as last time": only a zero set in this session, offered when a new file needs one
     // never after a bit change: the saved Z belongs to the old bit
     // and only before either zero is set again: never in the middle of setting them (review 10-28b #21)
@@ -1493,7 +1496,7 @@ html[data-skin] #swarf-run .sr-jog .sr-zrow button.next, html[data-skin] #swarf-
         // two lines at 1280 in every skin (r093 UX W4): the status never pushes the page down
         if (S.toolChange) return say(`${S.toolChange} The router is off (leave its own switch on), the bit ${len(CHANGE_Z, 0)} up. Once it has stopped turning, change it, zero Z, then continue from line ${S.stoppedAt}.`, 'warn');
         if (S.zeroLost) return say('The box lost its position while it was unplugged. Zero X Y and Z again before you go on.', 'warn');
-        if (!S.zeroXY) return say(`Jog the bit over ${o.xy}, then press zero x y. Step 10 to get close, then 1.`);
+        if (!S.zeroXY) return say(`Jog the bit over ${o.xy}, then press zero x y. Hold an arrow to get close, then pick a step of 1 for the last of it.`);
         if (/top/.test(o.z)) return say(`Now Z, on ${o.z}: press z plate and the bit finds the board itself with the touch plate. Or lower it with step 0.1 onto a sheet of paper until it just drags, then press zero z.`);
         return say(`Lower the bit to ${o.z}: step 1 to get close, then 0.1, with a sheet of paper under the bit until it just drags. Then press zero z.`);
       case 'trace': return say(`Press trace. The bit runs the rectangle your cut fills, ${up()} up, router off. Check it clears every screw and clamp and stays over your board.`);
@@ -1748,7 +1751,7 @@ html[data-skin] #swarf-run .sr-jog .sr-zrow button.next, html[data-skin] #swarf-
   function typeWork(a) {
     const m = S.machine;
     if (!m || !m.setWork || m.state.running) return;
-    const span = el.dro[a], inp = h('input', { type: 'text', inputmode: 'decimal', class: 'v', value: posText(m.state.pos[a] || 0), title: inch() ? 'a position in inches; 1 1/2, 0.75 in or 38 mm work too' : 'a position in mm; 1 1/2 in or 38 mm work too' });
+    const span = el.dro[a], inp = h('input', { type: 'text', inputmode: 'decimal', class: 'v', value: posText(m.state.pos[a] || 0), title: inch() ? 'A position in inches; 1 1/2, 0.75 in or 38 mm work too' : 'A position in mm; 1 1/2 in or 38 mm work too' });
     span.replaceWith(inp); inp.focus(); inp.select();
     let done = false;
     const finish = ok => {
@@ -1882,7 +1885,7 @@ html[data-skin] #swarf-run .sr-jog .sr-zrow button.next, html[data-skin] #swarf-
   function airTop() { const mv = S.prog ? S.prog.parsed.moves : []; let t = 0; for (const m of mv) { if (m.z < SAFE_Z - 0.5) t = Math.max(t, m.z); if (m.z0 < SAFE_Z - 0.5) t = Math.max(t, m.z0); } return t; }
   function airClear() { return AIR_CLEAR + airTop(); }
   function askCut(kind) {
-    if (!S.prog) return;
+    if (!S.prog || stale()) return;
     const from = kind === 'from', test = kind === 'trace' || kind === 'air';
     const line = from ? Math.max(1, Math.round(+el.fromLine.value || 1)) : 0;
     el.card.innerHTML = '';
@@ -1970,7 +1973,7 @@ html[data-skin] #swarf-run .sr-jog .sr-zrow button.next, html[data-skin] #swarf-
     const act = {
       conn: () => h('button', { text: 'connect', onclick: () => { shut(); connect(true); } }),
       fault: () => h('button', { text: 'all clear…', onclick: () => faultCard() }),
-      prog: () => h('button', { text: 'make a part', onclick: () => { shut(); close(); const b = document.getElementById('swarf-step-shape'); if (b) b.click(); } }),
+      prog: () => S.camBusy ? null : h('button', { text: 'make a part', onclick: () => { shut(); close(); const b = document.getElementById('swarf-step-shape'); if (b) b.click(); } }),
       z: () => S.machine && S.machine.state.connected ? h('button', { text: 'z plate', onclick: () => { shut(); plateWizard(); } }) : null,
       trace: () => h('button', { text: 'trace', onclick: () => { shut(); if (!needs(st, ready).some(n => !n.ok && n.k !== 'trace')) askCut('trace'); else needsCard('trace'); } })
     };
@@ -2290,10 +2293,10 @@ html[data-skin] #swarf-run .sr-jog .sr-zrow button.next, html[data-skin] #swarf-
     if (airing) {
       if (document.activeElement !== el.rateIn) el.rateIn.value = st.rate || 100;
       el.rateVal.textContent = `${st.rate || 100}%${st.overrideHeld ? ' (held)' : ''}`;
-      el.rateVal.title = st.overrideHeld ? 'some moves run slower than this: the machine\'s speed limits for them hold' : '';
+      el.rateVal.title = st.overrideHeld ? 'Some moves run slower than this: the machine\'s speed limits for them hold' : '';
     }
     el.ovrVal.textContent = `${st.override || 100}%${st.overrideHeld ? ' (held)' : ''}`;
-    el.ovrVal.title = st.overrideHeld ? 'some moves run slower or faster than this: the machine\'s speed limits for them hold' : '';
+    el.ovrVal.title = st.overrideHeld ? 'Some moves run slower or faster than this: the machine\'s speed limits for them hold' : '';
     el.ovrDn.disabled = (st.override || 100) <= 50; el.ovrUp.disabled = (st.override || 100) >= 150;
     el.discBtn.disabled = !!(st.running || st.moving);
     el.simCtl.style.display = sim ? '' : 'none';
@@ -2331,7 +2334,6 @@ html[data-skin] #swarf-run .sr-jog .sr-zrow button.next, html[data-skin] #swarf-
     el.plateBtn.style.display = st.connected ? '' : 'none';
     el.cornersBtn.style.display = st.connected && !st.running ? '' : 'none';
     el.plateBtn.classList.toggle('next', !!(S.prog && S.zeroXY && (!S.zeroZ || S.toolChange) && !st.running));
-    // no home switches on the shop machine (10-27): Home shows over USB only once both sensors are set
     const hs = isDirect() && S.machine.homeCfg && S.machine.homeCfg.set;
     // the shop machine has no home switches and is zeroed by hand (Phil 10-27): Home only once both sensors are set
     el.homeBtn.style.display = hs && hs.x && hs.y ? '' : 'none';
@@ -2504,7 +2506,7 @@ html[data-skin] #swarf-run .sr-jog .sr-zrow button.next, html[data-skin] #swarf-
     // control is the ShopBot's alone: another machine has no control step (Phil 10-28)
     step.style.display = sb ? '' : 'none';
     if (sb) warnNoUsb();
-    step.title = sb && !usbOK() ? 'control: needs Chrome or Edge' : sb ? 'control the ShopBot: bring these toolpaths, jog, zero, trace, cut' : '';
+    step.title = sb && !usbOK() ? 'Control: needs Chrome or Edge' : sb ? 'Control the ShopBot: bring these toolpaths, jog, zero, trace, cut' : '';
     return true;
   }
   let tries = 0;

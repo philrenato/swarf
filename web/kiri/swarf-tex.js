@@ -1426,7 +1426,7 @@
       // where: beside the part, each piece at its own height on the part and the pieces in a row 10 mm
       // apart (cut side by side as they sit in the pocket, the bit could not pass between them); a plug
       // made again goes where the old one sat, moved by hand or not
-      const pb = plug.box, o0 = olds.find(o => o.meta.inlay.row);
+      const o0 = olds.find(o => o.meta.inlay.row);
       const lb = loops.reduce((b, L) => L.reduce((b, q) => [Math.min(b[0], q[0]), Math.min(b[1], q[1]), Math.max(b[2], q[0]), Math.max(b[3], q[1])], b), [Infinity, Infinity, -Infinity, -Infinity]);
       const row = o0 ? [was.get(o0)[0] - o0.meta.inlay.row[0], was.get(o0)[1] - o0.meta.inlay.row[1]] : [w.track.pos.x + lb[2] + 15, w.track.pos.y];
       const base = olds.length ? olds[0].meta.inlay.name : `${nameOf(w)} plug${want.size > 1 ? ` ${n}` : ''}`;

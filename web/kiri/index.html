@@ -568,7 +568,7 @@
                         <dt>step-down (depth of cut)</dt><dd>how deep each pass cuts, in mm or inches as mm | in says. swarf keeps every preset under half the bit's width: in wood that leaves the flutes room to clear the chips.</dd>
                         <dt>feed rate</dt><dd>how fast the bit moves through the wood, in mm/min (in/min when mm | in says in). the material, the bit and the step-down all affect it. when in doubt: slower is safer.</dd>
                         <dt>plunge rate</dt><dd>how fast the tool drives down into material. usually 30–50% of feed rate. too fast and you snap end-mills.</dd>
-                        <dt>spindle speed</dt><dd>RPM of the bit. a bigger bit turns slower. wood runs 12k–24k; on the ShopBot you set it on the router's dial (1–5), and the cut card names the setting.</dd>
+                        <dt>spindle speed</dt><dd>RPM of the bit. a bigger bit turns slower. on the ShopBot you set it on the router's dial, 1 (10,000 rpm) to 5 (21,000), and the cut card names the setting.</dd>
                         <dt>ease down</dt><dd>ramp into the cut at an angle instead of plunging straight down. easier on the tool, especially for end-mills with no center cut. on by default in swarf.</dd>
                         <dt>depth first</dt><dd>finish each Z layer top-to-bottom in one region before moving to the next. opposite is layer-first (sweep all regions per layer).</dd>
                         <dt>tab</dt><dd>a small uncut bridge of stock that holds the part in place during the outline cut, so it doesn't shift or fly out. break or sand off after.</dd>
@@ -585,7 +585,7 @@
                         <dt>end-mill</dt><dd>flat-bottomed cutter, the workhorse. diameter and flute count vary; fewer flutes = better chip clearance for soft material.</dd>
                         <dt>ball-end</dt><dd>spherical tip. for 3D contour finishing on curved surfaces. leaves a cusp pattern proportional to stepover.</dd>
                         <dt>v-bit</dt><dd>conical cutter for engraving and chamfering. depth controls the line width.</dd>
-                        <dt>drill</dt><dd>plunges straight down to make holes. paired with the drill operation (expert mode).</dd>
+                        <dt>drill</dt><dd>plunges straight down to make holes. the drill step is in advanced.</dd>
                     </dl>
                 </section>
                 <section>
@@ -625,7 +625,7 @@
                         <dt>inches</dt><dd>tap mm | in at the top left (or setup › preferences › units), and swarf's shape, size and draw cards and control's jog show inches. type 3/4, 1 1/2, 0.75 or 19 mm: a length with its unit works in either setting. control runs .sbp files written in inches (VCarve's ShopBot post): the checklist shows the cut's size in inches and mm for you to confirm. a file made with Z zero on the table is still refused.</dd>
                         <dt>the shop's bits</dt><dd>the tool list has the woodshop's ShopBot bits by their part numbers: 1/4 straight 48-005, 1/4 up-cut 52-910, 1/4 down-cut 57-910, 1/2 straight 48-072. an up-cut lifts its chips out: it clears a deep cut best but can fray the top face. a down-cut pushes the top fibers down for a clean top face, and swarf keeps its passes to half its diameter so the chips it packs into the slot don't burn. in wood, if swarf's own speed or pass for one of these bits would run more than half again above the shop's numbers (120 in/min and 1/8 in a pass for the 1/4 in ones), swarf uses the shop's. check the bit's length before a deep cut: swarf takes 1 in until the maker's numbers are in.</dd>
                         <dt>trace / air cut / cut</dt><dd>each one opens a checklist first. trace runs the outline of the cut, router off; an air cut runs the whole file above the board; cut starts the router. a button that is waiting tells you what it still needs.</dd>
-                        <dt>jog</dt><dd>moves at once, by the step you pick. go-to buttons and home ask first. space or esc stops; while a job runs, any key pauses it.</dd>
+                        <dt>jog</dt><dd>opens on continuous at 1000 mm/min (40 in/min): hold an arrow or a button and it moves until you let go; no end stops on this machine, so let go in time. pick a step and each press moves that far. go-to buttons and home ask first. space or esc stops; while a job runs, any key pauses it.</dd>
                         <dt>table corners</dt><dd>no home switches on this machine: put the bit over the table's front-left corner once and swarf learns it until the machine is switched off. then zero at, or go to, the front-left or front-right corner.</dd>
                         <dt>z plate</dt><dd>finds the top of the board by touching the bit to a metal plate. put the plate and its clip away before you cut.</dd>
                         <dt>router</dt><dd>Porter-Cable 7518. swarf only switches it on and off; set its speed on its dial, 1 (10,000 rpm) to 5 (21,000).</dd>
@@ -637,6 +637,7 @@
                         <dt>engrave</dt><dd>draw a line over a part (the pencil, or the pen: click its last point again), give it an engrave depth, press done: an engrave step cuts along the line, the bit's center on it, that deep from the part's top.</dd>
                         <dt>tex</dt><dd>mark a part, then texture the mark (draw makes shapes; tex marks them). the brush (B) paints a mark, erase (U) or option takes it away, rectangle (R) and ellipse (E) drag one out, region (G) fills the part's top less its holes, points (H) reshape its edge; make it a part, or a hole, hands its outline to draw. a mark stays on the part's top and runs full to its edges. the card picks the pattern, its scale, turn, soft edge and depth, the bit and the path. done keeps the marks: each is a texture step before the outline.</dd>
                         <dt>fonts</dt><dd>draw › text › font: the built-in Russo One, this computer's fonts (Chrome and Edge ask first), or a .ttf or .otf file. each word keeps its own font.</dd>
+                        <dt>new</dt><dd>files › new starts a new job: it asks first, then every part, step and toolpath comes off the bed. your bits, the material and the machine stay. not while the machine runs or toolpaths are being made.</dd>
                         <dt>shape</dt><dd>a circle, rectangle, ring, polygon, star or slot, with a thickness.</dd>
                         <dt>modes</dt><dd>cam, draw, tex and control. draw makes shapes, tex marks and textures them, control runs the machine. in draw, tex or control the step row folds to those four.</dd>
                         <dt>zero at</dt><dd>where X 0, Y 0 sits on the stock: its front-left corner (the default), or its center for something round. you put the bit on that spot before you cut.</dd>
@@ -646,10 +647,10 @@
                 <section>
                     <h3>simulation</h3>
                     <dl>
-                        <dt>chips</dt><dd>during Simulate, the cutter throws particles along its spin tangent with a kick in the feed direction. four flavors mix — long helical curls, triangular flakes, tight c-coils, and fine grit. gravity pulls them down; they settle on the build platform and stay there. import a new part to clear the floor.</dd>
-                        <dt>phase aura</dt><dd>the whole scene gently tints to the current workflow step — neutral when idle, warm while toolpathing, cool while preview slices, hot mill-red while simulating, achromatic after gcode export. touch anything and the color returns.</dd>
+                        <dt>chips</dt><dd>simulate › chips, in the swarf skin (view › skin): the cutter throws chips along its spin with a kick in the feed direction: long curls, flakes, tight coils and fine grit, tinted by the material. they settle on the bed and stay there. import a new part to clear the floor.</dd>
+                        <dt>phase aura</dt><dd>the whole scene gently tints to the current workflow step — neutral when idle, warm while toolpathing, cool while previewing, hot mill-red while simulating, gray after export. touch anything and the color returns.</dd>
                         <dt>phase LED</dt><dd>a small dot next to the renato.design watermark. dim = idle, amber = toolpaths, gold = preview, glowing mill-red = simulate, gray = exported. always on, always quiet.</dd>
-                        <dt>sky</dt><dd>procedural two-layer mackerel sky with slow drift and camera-orbit parallax. when swarf is thinking (slicing, preparing, simulating) the clouds speed up. the colors follow the skin.</dd>
+                        <dt>sky</dt><dd>procedural two-layer mackerel sky with slow drift and camera-orbit parallax. when swarf is working (toolpaths, simulate) the clouds speed up. the colors follow the skin.</dd>
                     </dl>
                 </section>
             </div>

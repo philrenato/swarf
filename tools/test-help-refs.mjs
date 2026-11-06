@@ -29,4 +29,11 @@ for (const q of ['save project', '.swarf', 'kmz', 'windows', 'zadig', 'e-stop', 
   // TEX (swarf-tex.js): the mode, its tools and its step
   'tex', 'brush', 'erase', 'mark', 'soft edge', 'patterns', 'ocean waves', 'texture step', 'v-bit', 'plunge', 'points', 'pierce', 'kerf', 'test strip', 'make it a part', 'make it a hole', 'save as a mesh'])
   assert.ok(find(q).length, `help search "${q}" finds nothing`);
+// what changed at the machine stays said (106/107): jog's default, new, the router-off refusal, carving
+for (const q of ['continuous', 'files › new', 'router off', 'carve', 'v-carve'])
+  assert.ok(find(q).length, `help search "${q}" finds nothing`);
+// every menu item says what it does when hovered (quit is hidden)
+const menu = readFileSync(root + 'src/kiri/app/init/menu.js', 'utf8');
+const bare = [...menu.matchAll(/menuItem\(actions, \{ id: '([\w-]+)'[^\n]*/g)].filter(m => !/\btitle:/.test(m[0]) && m[1] !== 'app-quit').map(m => m[1]);
+assert.deepEqual(bare, [], `menu items with no tooltip: ${bare}`);
 console.log('help refs: ok');

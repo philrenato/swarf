@@ -160,8 +160,8 @@ function content(actions) {
             // project, save the project, export the machine's file; the rest are saves of a part
             topMenu(actions, {
                 text: 'files', lk: 'fe_menu', items: [
-                    menuItem(actions, { id: 'file-new', lk: 'new', text: 'new', iconClass: 'fas fa-file' }),
-                    menuItem(actions, { id: 'file-recent', lk: 'recent', text: 'recent', iconClass: 'fas fa-list' }),
+                    menuItem(actions, { id: 'file-new', lk: 'new', text: 'new', title: 'start a new job: every part, step and toolpath comes off the bed; it asks first', iconClass: 'fas fa-file' }),
+                    menuItem(actions, { id: 'file-recent', lk: 'recent', text: 'recent', title: 'parts this computer has opened', iconClass: 'fas fa-list' }),
                     hr(),
                     menuItem(actions, {
                         id: 'file-import', text: 'import a drawing or model…', title: 'a drawing (SVG, DXF, AI, PDF) or a model (STL, OBJ): it joins what is on the bed (or drop it on the bed)', iconClass: 'fas fa-file-upload', children:
@@ -181,9 +181,9 @@ function content(actions) {
                     menuItem(actions, { id: 'swarf-file-export', text: 'export the machine file…', title: 'the file the machine runs (.sbp for the ShopBot): the same as export in the row', iconClass: 'fas fa-file-export', onclick(ev) { ev && ev.stopPropagation && ev.stopPropagation(); document.body.click(); const x = document.getElementById('act-export'); if (x) x.click(); } }),
                     hr(),
                     // swarf r36: the drawing behind shapes and 2D imports, true size (web/kiri/swarf-shape.js)
-                    menuItem(actions, { id: 'swarf-save-drawing', text: 'save the drawing (DXF, AI, SVG, PDF)', iconClass: 'fas fa-bezier-curve' }),
-                    menuItem(actions, { id: 'mesh-export-stl', text: 'save the part as a model (STL)', iconClass: 'fas fa-dice-d20' }),
-                    menuItem(actions, { id: 'mesh-export-obj', text: 'save the part as a model (OBJ)', iconClass: 'fas fa-dice-d20' }),
+                    menuItem(actions, { id: 'swarf-save-drawing', text: 'save the drawing (DXF, AI, SVG, PDF)', title: 'the outline behind a shape or a 2D import, true size', iconClass: 'fas fa-bezier-curve' }),
+                    menuItem(actions, { id: 'mesh-export-stl', text: 'save the part as a model (STL)', title: 'the picked part as a mesh, for printing or rendering', iconClass: 'fas fa-dice-d20' }),
+                    menuItem(actions, { id: 'mesh-export-obj', text: 'save the part as a model (OBJ)', title: 'the picked part as a mesh, for rendering or another modeler', iconClass: 'fas fa-dice-d20' }),
                     menuItem(actions, { id: 'app-export', text: 'save for Kiri:Moto (.kmz)', title: 'a workspace Kiri:Moto opens (it has no TEX steps: texture, inlay, pierce); .swarf keeps everything', iconClass: 'fas fa-download' }),
                     hr({ class: "app-hide" }),
                     menuItem(actions, { id: 'app-quit', lk: 'quit', text: 'quit', className: 'hide', onclick() { window.close() } })
@@ -196,7 +196,7 @@ function content(actions) {
                     menuItem(actions, { id: 'swarf-edit-undo', text: 'undo', title: 'take back the last change to the parts, tabs or steps (⌘Z)', iconClass: 'fas fa-rotate-left', children: span({ class: 'swarf-key', _: '⌘Z' }), onclick(ev) { ev && ev.stopPropagation && ev.stopPropagation(); document.body.click(); api.doit.undo(); } }),
                     menuItem(actions, { id: 'swarf-edit-redo', text: 'redo', title: 'put back what undo took (⇧⌘Z)', iconClass: 'fas fa-rotate-right', children: span({ class: 'swarf-key', _: '⇧⌘Z' }), onclick(ev) { ev && ev.stopPropagation && ev.stopPropagation(); document.body.click(); api.doit.redo(); } }),
                     hr(),
-                    menuItem(actions, { id: 'context-duplicate', lk: 'rc_dupl', text: 'duplicate', iconClass: 'fas fa-copy' }),
+                    menuItem(actions, { id: 'context-duplicate', lk: 'rc_dupl', text: 'duplicate', title: 'a copy of the picked part, beside it', iconClass: 'fas fa-copy' }),
                     menuItem(actions, { id: 'swarf-edit-delete', text: 'delete', title: 'delete the picked parts (⌫); undo brings them back', iconClass: 'fas fa-trash-can', children: span({ class: 'swarf-key', _: '⌫' }), onclick(ev) {
                         ev && ev.stopPropagation && ev.stopPropagation(); document.body.click();
                         const picked = api.selection.widgets();
@@ -208,50 +208,50 @@ function content(actions) {
                     menuItem(actions, { id: 'context-move-panel', text: 'move', title: 'move the part on X / Y', iconClass: 'fas fa-arrows-up-down-left-right' }),
                     menuItem(actions, { id: 'context-rotate-panel', text: 'rotate', title: 'rotate the selected part on X / Y / Z', iconClass: 'fas fa-rotate-right' }),
                     menuItem(actions, { id: 'context-scale-panel', text: 'size', title: 'scale the part by factor or set absolute size', iconClass: 'fas fa-expand' }),
-                    menuItem(actions, { id: 'context-mirror', lk: 'rc_mirr', text: 'mirror', iconClass: 'fas fa-arrows-left-right-to-line' }),
+                    menuItem(actions, { id: 'context-mirror', lk: 'rc_mirr', text: 'mirror', title: 'flip the picked part left to right', iconClass: 'fas fa-arrows-left-right-to-line' }),
                     hr({ class: 'swarf-expert-only' }),
-                    menuItem(actions, { id: 'context-layflat', lk: 'rc_lafl', text: 'face down', iconClass: 'fas fa-angle-double-down', className: 'swarf-expert-only' }),
-                    menuItem(actions, { id: 'context-lefty', lk: 'face_left', text: 'face left', iconClass: 'fas fa-angle-double-left', className: 'swarf-expert-only' }),
-                    menuItem(actions, { id: 'mesh-merge', lk: 'rc_merg', text: 'merge meshes', className: 'swarf-expert-only' }),
-                    menuItem(actions, { id: 'mesh-split', lk: 'rc_splt', text: 'isolate meshes', className: 'swarf-expert-only' }),
+                    menuItem(actions, { id: 'context-layflat', lk: 'rc_lafl', text: 'face down', title: 'turn the picked face down onto the bed', iconClass: 'fas fa-angle-double-down', className: 'swarf-expert-only' }),
+                    menuItem(actions, { id: 'context-lefty', lk: 'face_left', text: 'face left', title: 'turn the picked face to the left', iconClass: 'fas fa-angle-double-left', className: 'swarf-expert-only' }),
+                    menuItem(actions, { id: 'mesh-merge', lk: 'rc_merg', text: 'merge meshes', title: 'join the picked parts into one', className: 'swarf-expert-only' }),
+                    menuItem(actions, { id: 'mesh-split', lk: 'rc_splt', text: 'isolate meshes', title: 'split a part into its separate solids', className: 'swarf-expert-only' }),
                 ]
             }),
             topMenu(actions, {
                 text: 'view', lk: 'vu_menu', items: [
-                    menuItem(actions, { id: 'view-fit', text: 'fit to part', iconClass: 'fas fa-arrows-to-circle' }),
-                    menuItem(actions, { id: 'view-home', text: 'home', iconClass: 'fas fa-home' }),
-                    menuItem(actions, { id: 'view-top', text: 'top', iconClass: 'fas fa-square' }),
-                    menuItem(actions, { id: 'context-setfocus', text: 'turn around the picked part', iconClass: 'fas fa-eye' }),
+                    menuItem(actions, { id: 'view-fit', text: 'fit to part', title: 'bring the parts into view (F)', iconClass: 'fas fa-arrows-to-circle' }),
+                    menuItem(actions, { id: 'view-home', text: 'home', title: 'the view swarf starts with', iconClass: 'fas fa-home' }),
+                    menuItem(actions, { id: 'view-top', text: 'top', title: 'look straight down at the bed', iconClass: 'fas fa-square' }),
+                    menuItem(actions, { id: 'context-setfocus', text: 'turn around the picked part', title: 'the view turns about the picked part from now on', iconClass: 'fas fa-eye' }),
                     hr(),
                     // swarf: render modes folded into view — they're display choices
-                    menuItem(actions, { id: 'render-solid', text: 'solid', iconClass: 'fas fa-square' }),
-                    menuItem(actions, { id: 'render-wire', text: 'wireframe', iconClass: 'fas fa-border-all' }),
-                    menuItem(actions, { id: 'render-ghost', text: 'see-through part', iconClass: 'fas fa-border-none' }),
-                    menuItem(actions, { id: 'render-edges', text: 'edges', iconClass: 'fa-regular fa-square' }),
+                    menuItem(actions, { id: 'render-solid', text: 'solid', title: 'draw parts solid', iconClass: 'fas fa-square' }),
+                    menuItem(actions, { id: 'render-wire', text: 'wireframe', title: 'draw parts as their mesh lines', iconClass: 'fas fa-border-all' }),
+                    menuItem(actions, { id: 'render-ghost', text: 'see-through part', title: 'draw parts see-through', iconClass: 'fas fa-border-none' }),
+                    menuItem(actions, { id: 'render-edges', text: 'edges', title: 'draw the sharp edges of parts on or off', iconClass: 'fa-regular fa-square' }),
                     hr(),
                     // swarf v010 r7 rev2: simulate display toggles — click
                     // dispatches to the hidden sim-bar button with the same
                     // onclick handler, so behavior is identical whether the
                     // user uses the sim bar icons or this menu.
-                    menuItem(actions, { id: 'view-trans', text: 'see-through stock (simulate)', iconClass: 'fa-solid fa-circle-half-stroke' }),
-                    menuItem(actions, { id: 'view-model', text: 'the part (simulate)', iconClass: 'fa-solid fa-eye' }),
-                    menuItem(actions, { id: 'view-shade', text: 'stock box (simulate)', iconClass: 'fa-solid fa-cube' }),
+                    menuItem(actions, { id: 'view-trans', text: 'see-through stock (simulate)', title: 'in simulate: see through the board to the bit', iconClass: 'fa-solid fa-circle-half-stroke' }),
+                    menuItem(actions, { id: 'view-model', text: 'the part (simulate)', title: 'in simulate: show or hide the finished part', iconClass: 'fa-solid fa-eye' }),
+                    menuItem(actions, { id: 'view-shade', text: 'stock box (simulate)', title: 'in simulate: show or hide the box around the board', iconClass: 'fa-solid fa-cube' }),
                     hr(),
                     // swarf: expert-mode toggle lives under view (it's a display choice, not a preference)
                     menuItem(actions, { id: 'swarf-expert-toggle', text: 'advanced<sup class="swarf-alpha-sup">alpha</sup>', title: 'show advanced (alpha) tools — untested, may change', iconClass: 'fas fa-user-gear' }),
                     hr(),
-                    menuItem(actions, { id: 'app-xpnd', text: 'fullscreen', iconClass: 'fas fa-maximize' })
+                    menuItem(actions, { id: 'app-xpnd', text: 'fullscreen', title: 'swarf fills the screen; Esc comes back', iconClass: 'fas fa-maximize' })
                 ]
             }),
             // swarf: Setup moved to left (Mac app convention — markup Apr 15)
             topMenu(actions, {
                 text: 'setup', items: [
-                    menuItem(actions, { id: 'set-device', text: 'machine', iconClass: 'fas fa-cube' }),
-                    menuItem(actions, { id: 'set-tools', text: 'tool library', iconClass: 'fas fa-tools', className: 'swarf-expert-only' }),
-                    menuItem(actions, { id: 'set-prefs', text: 'preferences', iconClass: 'fa-solid fa-square-check' }),
+                    menuItem(actions, { id: 'set-device', text: 'machine', title: 'which machine this job is for: the ShopBot or the MR-1', iconClass: 'fas fa-cube' }),
+                    menuItem(actions, { id: 'set-tools', text: 'tool library', title: 'every bit and its sizes', iconClass: 'fas fa-tools', className: 'swarf-expert-only' }),
+                    menuItem(actions, { id: 'set-prefs', text: 'preferences', title: 'units, the view and how the bed behaves', iconClass: 'fa-solid fa-square-check' }),
                     hr({ class: "el-app-hide" }),
-                    menuItem(actions, { id: 'install', text: 'install' }),
-                    menuItem(actions, { id: 'uninstall', text: 'uninstall', className: 'hide' })
+                    menuItem(actions, { id: 'install', text: 'install', title: 'keep swarf as an app on this computer; it works offline once loaded' }),
+                    menuItem(actions, { id: 'uninstall', text: 'uninstall', title: 'take the swarf app off this computer', className: 'hide' })
                 ]
             }),
             // swarf: Info renamed Help, moved to left. Contains About, Searchable Help, Concordance.
@@ -264,7 +264,7 @@ function content(actions) {
                     menuItem(actions, { id: 'swarf-videos', text: 'swarf videos', title: 'videos about swarf, on YouTube (opens a new tab)', iconClass: 'fas fa-circle-play' }),
                     menuItem(actions, { id: 'swarf-concordance', text: 'every word in swarf', title: 'every named thing in swarf, one line each', iconClass: 'fas fa-book-open' }),
                     hr(),
-                    menuItem(actions, { id: 'swarf-reset-profile', text: 'reset profile', title: 'clear all settings and reload swarf', iconClass: 'fas fa-rotate-left' }),
+                    menuItem(actions, { id: 'swarf-reset-profile', text: 'reset profile', title: 'start swarf over on this computer: every setting, bit and part goes; a saved .swarf is kept', iconClass: 'fas fa-rotate-left' }),
                     menuItem(actions, { id: 'app-help', text: 'about swarf', title: 'about, credits, version', iconClass: 'fas fa-circle-info' }),
                 ]
             }),

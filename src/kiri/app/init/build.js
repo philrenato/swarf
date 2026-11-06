@@ -42,6 +42,7 @@ const surfaces = {
                         const hasRealOp = (proc.ops || []).some(op => op.type && op.type !== '|');
                         if (!hasRealOp) {
                             opAdd(env.popOp.rough.new());
+                            api.show.alert('No step yet, so swarf added rough. Change it or add outline in the steps.', 6);
                         }
                     }
                 } catch (e) {}

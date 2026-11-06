@@ -880,6 +880,16 @@ function setup_keybd_nav() {
                     }
                 }
             } catch (e) { /* tabs not ready yet */ }
+            // a pocket with no floor picked makes no moves, and looked done (review 105 F4)
+            try {
+                for (const o of (api.conf.get().process.ops || [])) {
+                    if (!o || o.type !== 'pocket' || o.disabled) continue;
+                    if (!Object.values(o.surfaces || {}).some(l => l && l.length)) warnings.push({
+                        title: 'a pocket has nothing to clear',
+                        body: 'no floor is picked, so this step cuts nothing.',
+                        hint: 'open the pocket step, pick the floor face on the part, or remove the step' });
+                }
+            } catch (e) { /* no process yet */ }
             // TEX's marks: what each cannot do as set, in TEX's words (web/kiri/swarf-tex.js)
             try { if (window.__swarfTex) warnings.push(...window.__swarfTex.concerns()); } catch (e) { /* tex not ready */ }
             render(warnings);
@@ -949,8 +959,8 @@ function setup_keybd_nav() {
             { kind:'shop', name:'the floor e-stop', body:'the red button on the floor, pressed with your foot. in an emergency, step on it and keep clear until everything has stopped.', tags:'e-stop emergency stop floor foot kcad' },
             { kind:'shop', name:'hours', body:'the ShopBot runs when the woodshop is open; check its hours.', tags:'hours woodshop open kcad' },
             { kind:'run', name:'control', body:'drives the ShopBot from swarf over its USB cable, in Chrome or Edge only. jog, zero, trace, air cut, cut. only shows when the ShopBot is the machine; the MR-1 uses export.', tags:'control shopbot usb run machine chrome edge' },
-            { kind:'run', name:'trace / air cut / cut', body:'each one opens a checklist first. trace runs the bit around the rectangle the cut fills, raised, router off; an air cut runs the whole file above the board; cut starts the router. a waiting button says what it still needs.', tags:'trace air cut run checklist rectangle' },
-            { kind:'run', name:'jog', body:'moves at once, by the step you pick. go-to buttons and home ask first. space or esc stops; while a job runs, any key pauses it.', tags:'jog move step keys arrows' },
+            { kind:'run', name:'trace / air cut / cut', body:'each one opens a checklist first. trace runs the bit around the rectangle the cut fills, raised, router off; an air cut runs the whole file above the board; cut starts the router. a waiting button says what it still needs. a file that feeds the bit into the board with the router off is refused, whichever software made it: export it again.', tags:'trace air cut run checklist rectangle router off refused blocked' },
+            { kind:'run', name:'jog', body:'opens on continuous at 1000 mm/min (40 in/min): hold an arrow or a button and it moves until you let go; no end stops on this machine, so let go in time. pick a step and each press moves that far. go-to buttons and home ask first. space or esc stops; while a job runs, any key pauses it.', tags:'jog move step continuous hold speed keys arrows' },
             { kind:'run', name:'table corners', body:"no home switches on this machine: put the bit over the table's front-left corner once and swarf learns it until the machine is switched off. then zero at, or go to, the front-left or front-right corner.", tags:'table corner absolute zero front left right' },
             { kind:'run', name:'z plate', body:'finds the top of the board by touching the bit to a metal plate. put the plate and its clip away before you cut.', tags:'z plate touch off zero height' },
             { kind:'run', name:'router', body:'Porter-Cable 7518. swarf only switches it on and off; set its speed on its dial, 1 (10,000 rpm) to 5 (21,000).', tags:'router spindle porter cable dial rpm' },
@@ -991,14 +1001,16 @@ function setup_keybd_nav() {
             { kind:'tex', name:'texture bit', body:"a ball bit leaves smooth hollows, a V-bit sharp grooves. each pattern starts with the bit that makes it best: a 90° V-bit for knurl, step & repeat and memphis, the 1/4 in ball for the rest. a bit you pick stays.", tags:'texture bit ball v-bit vbit tex' },
             { kind:'tex', name:'texture path', body:"a texture step's path: raster passes, cross-hatch, one plunge per dot, or along each groove's center. each pattern starts with the path that suits it best, unless you pick one.", tags:'path raster crosshatch cross-hatch plunge centerline texture tex' },
             { kind:'draw', name:'fonts', body:"draw › text › font: the built-in Russo One, this computer's fonts (Chrome and Edge ask first), or a .ttf or .otf file. each word keeps its own font.", tags:'font fonts text typeface system local draw' },
+            { kind:'app', name:'new', body:'files › new starts a new job: it asks first, then every part, step and toolpath comes off the bed. your bits, the material and the machine stay. not while the machine runs or toolpaths are being made. save the project first to keep the job.', tags:'new job start over clear scene empty bed file blank' },
+            { kind:'draw', name:'carving words', body:'swarf has no V-carve yet. draw › text makes letters that are parts of their own, standing on the bed. to cut a line into a board, draw it over the part with the pencil or pen and give it an engrave depth; to sink an area, mark it in tex as an inlay.', tags:'carve carving v-carve vcarve letters words name sign text engrave' },
             { kind:'app', name:'shape', body:'a circle, rectangle, ring, polygon, star or slot, with a thickness.', tags:'shape circle rectangle ring polygon star slot' },
             { kind:'app', name:'modes', body:'cam, draw, tex and control. cam makes the steps, draw makes shapes, tex marks and textures them, control runs the machine. in draw, tex or control the step row folds to those four.', tags:'modes mode cam draw tex control' },
             { kind:'app', name:'size card', body:'pick a part and the size card shows its width, length and thickness. if they do not match your drawing, type the right size in the card.', tags:'size card width length height thickness scale resize dimensions' },
             { kind:'app', name:'steps', body:'the steps panel on the left: the material, the bits, then each step in the order it cuts. click a step to change its numbers.', tags:'steps step list panel left operations ops toolpaths' },
             { kind:'app', name:'add a step', body:'steps › add a step puts rough, contour, outline or pocket at the end of the list. advanced adds level, drill and trace.', tags:'add a step new step operation rough contour outline pocket' },
             { kind:'app', name:'bits', body:'steps › bits opens the bit library: the shop\'s bits and their sizes, and any bit you add.', tags:'bits bit tool library tools endmills end mills cutters' },
-            { kind:'app', name:'toolpaths', body:'toolpaths, in the step row, makes the paths the bit will follow for every step and draws them on the bed. check them, then simulate.', tags:'toolpaths toolpath paths make generate preview step row' },
-            { kind:'app', name:'clear', body:'clear, in the step row, wipes the toolpaths and the simulation off the bed. the steps stay; press toolpaths to make the paths again.', tags:'clear wipe reset paths simulation step row' },
+            { kind:'app', name:'toolpaths', body:'toolpaths, in the step row, makes the paths the bit will follow for every step and draws them on the bed. with no step yet it adds a rough step and says so. check them, then simulate.', tags:'toolpaths toolpath paths make generate preview step row' },
+            { kind:'app', name:'clear', body:'clear, in the step row, wipes the toolpaths and the simulation off the bed. the parts and steps stay; press toolpaths to make the paths again. files › new takes everything off.', tags:'clear wipe reset paths simulation step row' },
             { kind:'app', name:'concerns', body:'the concerns tab, with its count, flags setup problems before you cut, each with what to do about it. click it to open the list.', tags:'concerns warning warnings problems check setup' },
             { kind:'app', name:'advanced', body:'view › advanced shows tools still in alpha: more steps (level, drill, trace), stock size, machine limits and more fields on each step. most jobs never need it.', tags:'advanced expert alpha more tools options' },
             { kind:'app', name:'reset profile', body:'help › reset profile starts swarf over on this computer: every setting, bit and part goes, and it reloads as new. a project saved as a .swarf file is kept.', tags:'reset profile start over clear settings fresh reload' },
