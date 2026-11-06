@@ -184,7 +184,7 @@
       bedChip.id = 'swarf-sim-bed';
       bedChip.className = 'swarf-sim-extra swarf-toggle';
       bedChip.textContent = 'bed slides';
-      bedChip.title = 'On: the bed slides under the gantry, as the ShopBot does. Off: the bed holds still and the gantry moves over it';
+      bedChip.title = 'On: the bed slides under the gantry. Off: the gantry moves';
       bedChip.onclick = () => {
         try { localStorage.setItem(STILL, bedStill() ? '0' : '1'); } catch (e) { /* private window */ }
         showBedChip();

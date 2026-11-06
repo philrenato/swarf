@@ -260,10 +260,10 @@
         <span class="tx-bsize" id="tx-bsize-wrap" title="across the brush ([ and ] change it)"><input type="range" id="tx-bslide" class="sd-slide" min="0" max="1" step="0.001" aria-label="brush size"><input id="tx-bsize" inputmode="text"><span class="u"></span></span>
         <span class="sd-sep"></span>
         <button id="tx-undo" title="undo (⌘Z)">undo</button>
-        <button id="tx-clear" title="remove every mark on the picked part, or on every part when none is picked (undo brings them back)">clear</button>
-        <button id="tx-fit" title="show the parts, or the whole bed (F) · pinch or ⌘-scroll to zoom, two fingers to slide">fit</button>
+        <button id="tx-clear" title="remove the marks on the picked part, or every part">clear</button>
+        <button id="tx-fit" title="show the parts, or the whole bed (F)">fit</button>
         <span class="sd-grow"></span>
-        <button id="tx-cancel" title="close without changing the marks (press twice; Esc steps back one thing at a time, then asks)">cancel</button>
+        <button id="tx-cancel" title="close without changing the marks (press twice)">cancel</button>
         <button id="tx-done" class="sd-go" title="keep the marks and close">done</button>
       </div>
       <div class="sd-card" id="tx-card"></div>
@@ -671,7 +671,7 @@
     let kerfs = '';
     for (let i = 0; i < n; i++) { const x = x0 + w * k / 2 + i * pitch * k + pitch * k / 2; kerfs += `<rect x="${(x - w * k / 2).toFixed(1)}" y="${y0}" width="${Math.max(1, w * k).toFixed(1)}" height="${((Tb - skin) * k).toFixed(1)}"/>`; }
     const by = y0 + Tb * k;
-    return `<div class="tx-kerfpic" title="from the side: kerfs a bit wide every ${esc(says(`⟦${pitch}⟧`))}, ${skin > 0 ? `${esc(says(`⟦${skin}⟧`))} of skin left under them` : 'right through'}; it bends with the skin outside">
+    return `<div class="tx-kerfpic" title="from the side: kerfs every ${esc(says(`⟦${pitch}⟧`))}, ${skin > 0 ? `${esc(says(`⟦${skin}⟧`))} of skin left` : 'right through'}">
       <svg viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" aria-hidden="true"><rect class="tx-kp-board" x="${x0}" y="${y0}" width="${span.toFixed(1)}" height="${(Tb * k).toFixed(1)}"/><g class="tx-kp-kerf">${kerfs}</g>
       <path class="tx-kp-arc" d="M${x0},${by + 6} Q${x0 + span / 2},${by + 6 + Math.min(10, 600 / pr.radius)} ${x0 + span},${by + 6}"/>
       <text class="tx-kp-t" x="${x0 + span + 4}" y="${y0 + Tb * k - 1}">skin</text><text class="tx-kp-t" x="${x0 + span / 2 - 14}" y="${H - 2}">bends this way</text></svg></div>`;
@@ -719,10 +719,10 @@
       else if (part.dormant && part.dormant.length) h += `<div class="sd-note">${part.dormant.length === 1 ? 'A mark' : `${part.dormant.length} marks`} on another face of this part ${part.dormant.length === 1 ? 'waits' : 'wait'} until that face is on top again.</div>`;
       if (S.tool === 'points' && m && markHas(m)) {
         const c = curveOf(m), n = c.loops.reduce((a, L) => a + L.handles.length, 0);
-        h += `<div class="sd-row tx-ptsrow" title="how many points the edge is fitted to: fewer is smoother, more follows the paint closer"><span>points</span><input id="tx-npts" value="${n}" inputmode="numeric"><button id="tx-fewer" title="fewer points: smoother">fewer</button><button id="tx-more" title="more points: closer to the paint">more</button></div>`;
+        h += `<div class="sd-row tx-ptsrow" title="points on the edge: fewer is smoother, more follows the paint"><span>points</span><input id="tx-npts" value="${n}" inputmode="numeric"><button id="tx-fewer" title="fewer points: smoother">fewer</button><button id="tx-more" title="more points: closer to the paint">more</button></div>`;
       }
       if (part.marks.length) h += `<div class="tx-picks">${part.marks.map((q, i) => `<button class="tx-pick${i === S.mark ? ' on' : ''}" data-mi="${i}" title="pick this mark">${esc(markName(q, i))}</button>`).join('')}</div>`;
-      if (m && markHas(m) && (S.tool === 'select' || S.tool === 'points')) h += '<div class="sd-row tx-makes"><button id="tx-as-part" title="a new part from this mark\'s outline, beside this one, the board\'s thickness (in DRAW: press done to make it)">make it a part</button><button id="tx-as-hole" title="cut this mark\'s outline through the part, as DRAW\'s holes (in DRAW: press done to make it)">make it a hole</button></div>';
+      if (m && markHas(m) && (S.tool === 'select' || S.tool === 'points')) h += '<div class="sd-row tx-makes"><button id="tx-as-part" title="a new part from this mark\'s outline, beside this one">make it a part</button><button id="tx-as-hole" title="cut this mark\'s outline through the part, as a hole">make it a hole</button></div>';
       if (!m) h += `<div class="sd-note">${part.marks.length ? 'Pick a mark, or start a new one.' : 'Paint on the part with the brush, or drag a rectangle or an ellipse: that is the mark. Then fill it here.'}</div>`;
     }
     const expert = document.body.classList.contains('swarf-expert');
@@ -734,7 +734,7 @@
     // pierce lives in advanced mode; a pierce mark seen from basic mode can still go back to
     // texture (review 10-30 F11), and says where pierce lives
     // inlay (Phil 11-02) is for everyone: a pocket, and the part that fills it
-    const fillRow = f => `<div class="sd-row tx-fills" title="texture carves the top; v-carve cuts the shape in with a V-bit; inlay sinks a flat pocket and makes the part that fills it${expert || f.fill === 'pierce' ? '; pierce cuts through it' : ''}"><span>fill</span><button class="tx-fill${f.fill === 'texture' ? ' on' : ''}" data-fill="texture">texture</button><button class="tx-fill${f.fill === 'vcarve' ? ' on' : ''}" data-fill="vcarve">v-carve</button><button class="tx-fill${f.fill === 'inlay' ? ' on' : ''}" data-fill="inlay">inlay</button>${expert || f.fill === 'pierce' ? `<button class="tx-fill${f.fill === 'pierce' ? ' on' : ''}" data-fill="pierce">pierce</button>` : ''}</div>${expert || f.fill !== 'pierce' ? '' : '<div class="sd-note tx-adv">Pierce lives in advanced mode (view › advanced): here it can go back to texture.</div>'}`;
+    const fillRow = f => `<div class="sd-row tx-fills" title="carve the top, cut in with a V-bit, sink a pocket${expert || f.fill === 'pierce' ? ', or pierce' : ''}"><span>fill</span><button class="tx-fill${f.fill === 'texture' ? ' on' : ''}" data-fill="texture">texture</button><button class="tx-fill${f.fill === 'vcarve' ? ' on' : ''}" data-fill="vcarve">v-carve</button><button class="tx-fill${f.fill === 'inlay' ? ' on' : ''}" data-fill="inlay">inlay</button>${expert || f.fill === 'pierce' ? `<button class="tx-fill${f.fill === 'pierce' ? ' on' : ''}" data-fill="pierce">pierce</button>` : ''}</div>${expert || f.fill !== 'pierce' ? '' : '<div class="sd-note tx-adv">Pierce lives in advanced mode (view › advanced): here it can go back to texture.</div>'}`;
     if (m && m.fill.fill === 'pierce') {
       const f = m.fill, P = C.PIERCES[f.pattern], pr = { ...C.pierceDefaults(f.pattern, part.thick), ...(f.params || {}) };
       h += fillRow(f);
@@ -758,7 +758,7 @@
         else for (const n of rest) h += `<div class="sd-note">${esc(n)}</div>`;
       }
       if (f.pattern === 'kerf' && compact) h += kerfPicture(part, f, pr);
-      h += '<div class="sd-row"><button id="tx-svg-save" title="the cuts as an SVG in mm for the laser: cuts on the red layer, holes on the blue">save for the laser (svg)</button></div>';
+      h += '<div class="sd-row"><button id="tx-svg-save" title="the cuts as an SVG in mm, for the laser">save for the laser (svg)</button></div>';
       // bridges and slots are second-order: folded, also in advanced mode
       const more = S.morePierce ?? false;
       h += `<details class="tx-more tx-more-p"${more ? ' open' : ''}><summary>more</summary>`;
@@ -852,7 +852,7 @@
       const rasters = !strat || strat === 'raster' || strat === 'crosshatch';
       const finRow0 = selRow('finish', 'tx-finish', [...Object.entries(C.FINISH_WORDS), ...(f.stepover > 0 ? [['custom', `custom: ${LEN.say(f.stepover)} apart`]] : [])], f.stepover > 0 ? 'custom' : (f.finish || 'standard'), 'how close the passes run: smoother takes longer; ridged and bold leave the passes showing as part of the look');
       // always there (a row that came with a raster path moved every row under it): idle off a raster
-      const finRow = rasters ? finRow0 : finRow0.replace('<select id="tx-finish"', '<select id="tx-finish" disabled title="finish sets how close a raster\'s passes run; this path follows the lines"');
+      const finRow = rasters ? finRow0 : finRow0.replace('<select id="tx-finish"', '<select id="tx-finish" disabled title="finish sets raster spacing; this path follows the lines"');
       if (!compact) h += pathRow + finRow;
       // the pattern's finer points: folded, open in advanced mode
       const more = S.more ?? document.body.classList.contains('swarf-expert');

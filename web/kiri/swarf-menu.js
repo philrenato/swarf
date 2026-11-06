@@ -76,7 +76,7 @@
         : { label: 'stand it on its side', title: 'a quarter turn onto its long edge: to cut into that edge', run: () => { standOnEdge(w); said(`${who} stands on its long edge. Lay it flat from here again.`); } },
       { label: 'mirror', title: 'flipped left to right', run: () => { a.selection.mirror(); said(`Mirrored ${who}.`); } },
       { label: 'duplicate', title: 'a copy beside it', run: () => a.selection.duplicate() },
-      { label: 'copies…', title: 'rows and columns of it: how many across, how many back, and the gap', run: () => window.__swarfSize && window.__swarfSize.copies() },
+      { label: 'copies…', title: 'rows and columns of it, with a gap', run: () => window.__swarfSize && window.__swarfSize.copies() },
       { sep: true },
       out
         ? { label: 'cut it in this run', title: 'tick it in objects again: its toolpaths come back', run: () => { a.platform.set_cut(list, true); said(`${who} will be cut in this run.`); } }
@@ -94,7 +94,7 @@
     const items = [];
     if ($('swarf-step-shape')) items.push({ label: 'make a shape', title: 'a circle, rectangle, ring, polygon, star or slot, with a thickness', run: () => $('swarf-step-shape').click() });
     if (window.__swarfDraw) items.push({ label: 'draw a part', title: 'an outline or words, seen from above', run: () => window.__swarfDraw.open() });
-    if ($('load-file')) items.push({ label: 'open a file', title: 'a drawing (SVG, DXF, AI, PDF), a model (STL, OBJ) or a project (.swarf)', run: () => $('load-file').click() });
+    if ($('load-file')) items.push({ label: 'open a file', title: 'a drawing, a model or a .swarf project', run: () => $('load-file').click() });
     if (a.widgets.all().length && a.view.is_arrange()) items.push({ label: 'select all', title: 'every part on the bed', run: () => a.platform.select_all() });
     if (V) items.push({ sep: true },
       { label: 'look from above', run: () => V.top() },

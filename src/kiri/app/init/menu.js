@@ -160,15 +160,15 @@ function content(actions) {
             // project, save the project, export the machine's file; the rest are saves of a part
             topMenu(actions, {
                 text: 'files', lk: 'fe_menu', items: [
-                    menuItem(actions, { id: 'file-new', lk: 'new', text: 'new', title: 'start a new job: every part, step and toolpath comes off the bed; it asks first', iconClass: 'fas fa-file' }),
+                    menuItem(actions, { id: 'file-new', lk: 'new', text: 'new', title: 'start a new job: parts, steps and toolpaths go; it asks first', iconClass: 'fas fa-file' }),
                     menuItem(actions, { id: 'file-recent', lk: 'recent', text: 'recent', title: 'parts this computer has opened', iconClass: 'fas fa-list' }),
                     hr(),
                     menuItem(actions, {
-                        id: 'file-import', text: 'import a drawing or model…', title: 'a drawing (SVG, DXF, AI, PDF) or a model (STL, OBJ): it joins what is on the bed (or drop it on the bed)', iconClass: 'fas fa-file-upload', children:
+                        id: 'file-import', text: 'import a drawing or model…', title: 'SVG, DXF, AI, PDF, STL or OBJ: it joins the bed', iconClass: 'fas fa-file-upload', children:
                             input({ id: 'load-file', type: 'file', name: 'loadme', style: 'display:none', accept: '.swarf,.km,.kmz,.stl,.obj,.svg,.dxf,.ai,.pdf,.png,.jpg,.jpeg,.gcode,.nc' })
                     }),
                     // swarf: the whole project, to open again here or on another computer (web/kiri/swarf-file.js)
-                    menuItem(actions, { id: 'swarf-file-open', text: 'open project (.swarf)…', title: 'open a .swarf: it takes the place of what is on the bed (you can also drop it on the bed)', iconClass: 'fas fa-folder-open', onclick(ev) {
+                    menuItem(actions, { id: 'swarf-file-open', text: 'open project (.swarf)…', title: 'open a .swarf: it replaces what is on the bed', iconClass: 'fas fa-folder-open', onclick(ev) {
                         ev && ev.stopPropagation && ev.stopPropagation();
                         // the picker shows projects only; import shows everything
                         const f = document.getElementById('load-file'), all = f.accept;
@@ -177,14 +177,14 @@ function content(actions) {
                         setTimeout(() => { f.accept = all; }, 0);
                     } }),
                     hr(),
-                    menuItem(actions, { id: 'swarf-file-save', text: 'save project (.swarf)', title: 'everything: parts, drawings, marks, tabs, steps, material, bits and machine (⌘S); open it again by dropping it on the bed', iconClass: 'fas fa-floppy-disk', children: span({ class: 'swarf-key', _: '⌘S' }) }),
-                    menuItem(actions, { id: 'swarf-file-export', text: 'export the machine file…', title: 'the file the machine runs (.sbp for the ShopBot): the same as export in the row', iconClass: 'fas fa-file-export', onclick(ev) { ev && ev.stopPropagation && ev.stopPropagation(); document.body.click(); const x = document.getElementById('act-export'); if (x) x.click(); } }),
+                    menuItem(actions, { id: 'swarf-file-save', text: 'save project (.swarf)', title: 'the whole job, to open again here or elsewhere (⌘S)', iconClass: 'fas fa-floppy-disk', children: span({ class: 'swarf-key', _: '⌘S' }) }),
+                    menuItem(actions, { id: 'swarf-file-export', text: 'export the machine file…', title: 'the file the machine runs: the same as export in the row', iconClass: 'fas fa-file-export', onclick(ev) { ev && ev.stopPropagation && ev.stopPropagation(); document.body.click(); const x = document.getElementById('act-export'); if (x) x.click(); } }),
                     hr(),
                     // swarf r36: the drawing behind shapes and 2D imports, true size (web/kiri/swarf-shape.js)
                     menuItem(actions, { id: 'swarf-save-drawing', text: 'save the drawing (DXF, AI, SVG, PDF)', title: 'the outline behind a shape or a 2D import, true size', iconClass: 'fas fa-bezier-curve' }),
                     menuItem(actions, { id: 'mesh-export-stl', text: 'save the part as a model (STL)', title: 'the picked part as a mesh, for printing or rendering', iconClass: 'fas fa-dice-d20' }),
                     menuItem(actions, { id: 'mesh-export-obj', text: 'save the part as a model (OBJ)', title: 'the picked part as a mesh, for rendering or another modeler', iconClass: 'fas fa-dice-d20' }),
-                    menuItem(actions, { id: 'app-export', text: 'save for Kiri:Moto (.kmz)', title: 'a workspace Kiri:Moto opens (it has no TEX steps: texture, v-carve, inlay, pierce); .swarf keeps everything', iconClass: 'fas fa-download' }),
+                    menuItem(actions, { id: 'app-export', text: 'save for Kiri:Moto (.kmz)', title: 'a workspace Kiri:Moto opens, without tex steps; .swarf keeps everything', iconClass: 'fas fa-download' }),
                     hr({ class: "app-hide" }),
                     menuItem(actions, { id: 'app-quit', lk: 'quit', text: 'quit', className: 'hide', onclick() { window.close() } })
                 ]
@@ -197,7 +197,7 @@ function content(actions) {
                     menuItem(actions, { id: 'swarf-edit-redo', text: 'redo', title: 'put back what undo took (⇧⌘Z)', iconClass: 'fas fa-rotate-right', children: span({ class: 'swarf-key', _: '⇧⌘Z' }), onclick(ev) { ev && ev.stopPropagation && ev.stopPropagation(); document.body.click(); api.doit.redo(); } }),
                     hr(),
                     menuItem(actions, { id: 'context-duplicate', lk: 'rc_dupl', text: 'duplicate', title: 'a copy of the picked part, beside it', iconClass: 'fas fa-copy' }),
-                    menuItem(actions, { id: 'swarf-edit-copies', text: 'copies…', title: 'rows and columns of the picked part: how many across, how many back, and the gap', iconClass: 'fas fa-table-cells', onclick(ev) { ev && ev.stopPropagation && ev.stopPropagation(); document.body.click(); if (window.__swarfSize) window.__swarfSize.copies(); } }),
+                    menuItem(actions, { id: 'swarf-edit-copies', text: 'copies…', title: 'rows and columns of the picked part, with a gap', iconClass: 'fas fa-table-cells', onclick(ev) { ev && ev.stopPropagation && ev.stopPropagation(); document.body.click(); if (window.__swarfSize) window.__swarfSize.copies(); } }),
                     menuItem(actions, { id: 'swarf-edit-delete', text: 'delete', title: 'delete the picked parts (⌫); undo brings them back', iconClass: 'fas fa-trash-can', children: span({ class: 'swarf-key', _: '⌫' }), onclick(ev) {
                         ev && ev.stopPropagation && ev.stopPropagation(); document.body.click();
                         const picked = api.selection.widgets();
@@ -251,7 +251,7 @@ function content(actions) {
                     menuItem(actions, { id: 'set-tools', text: 'tool library', title: 'every bit and its sizes', iconClass: 'fas fa-tools', className: 'swarf-expert-only' }),
                     menuItem(actions, { id: 'set-prefs', text: 'preferences', title: 'units, the view and how the bed behaves', iconClass: 'fa-solid fa-square-check' }),
                     hr({ class: "el-app-hide" }),
-                    menuItem(actions, { id: 'install', text: 'install', title: 'keep swarf as an app on this computer; it works offline once loaded' }),
+                    menuItem(actions, { id: 'install', text: 'install', title: 'keep swarf as an app; it works offline once loaded' }),
                     menuItem(actions, { id: 'uninstall', text: 'uninstall', title: 'take the swarf app off this computer', className: 'hide' })
                 ]
             }),
@@ -259,13 +259,13 @@ function content(actions) {
             topMenu(actions, {
                 text: 'help', items: [
                     // swarf (Phil 10-28): the shop poster as a walk-through (web/kiri/swarf-tutorial.js)
-                    menuItem(actions, { id: 'swarf-quickstart', text: 'ShopBot quick start', title: 'from a drawing to a cut part, ten steps, as on the shop poster', iconClass: 'fas fa-person-chalkboard' }),
+                    menuItem(actions, { id: 'swarf-quickstart', text: 'ShopBot quick start', title: 'a drawing to a cut part in ten steps', iconClass: 'fas fa-person-chalkboard' }),
                     menuItem(actions, { id: 'swarf-help-search', text: 'search help…', title: 'search help', iconClass: 'fas fa-magnifying-glass' }),
                     // swarf (Phil 11-01): the videos about swarf, on YouTube, in a new tab
                     menuItem(actions, { id: 'swarf-videos', text: 'swarf videos', title: 'videos about swarf, on YouTube (opens a new tab)', iconClass: 'fas fa-circle-play' }),
                     menuItem(actions, { id: 'swarf-concordance', text: 'every word in swarf', title: 'every named thing in swarf, one line each', iconClass: 'fas fa-book-open' }),
                     hr(),
-                    menuItem(actions, { id: 'swarf-reset-profile', text: 'reset profile', title: 'start swarf over on this computer: every setting, bit and part goes; a saved .swarf is kept', iconClass: 'fas fa-rotate-left' }),
+                    menuItem(actions, { id: 'swarf-reset-profile', text: 'reset profile', title: 'start swarf over here; a saved .swarf is kept', iconClass: 'fas fa-rotate-left' }),
                     menuItem(actions, { id: 'app-help', text: 'about swarf', title: 'about, credits, version', iconClass: 'fas fa-circle-info' }),
                 ]
             }),
@@ -297,22 +297,22 @@ function modeTools(actions) {
             span([icon('fas fa-cube')]),
             label({ _: 'cam' })
         ]),
-        span({ id: 'swarf-step-file', class: 'swarf-step', title: 'open a file: a drawing (SVG, DXF, AI, PDF), a model (STL, OBJ) or a project (.swarf)', onclick() { $('load-file').click(); } }, [
+        span({ id: 'swarf-step-file', class: 'swarf-step', title: 'open a drawing, a model or a .swarf project', onclick() { $('load-file').click(); } }, [
             span([icon('fas fa-file-arrow-up')]),
             label({ _: 'import' })
         ]),
         // swarf r36: SHAPE — make a circle, rectangle, ring… with a thickness (web/kiri/swarf-shape.js)
-        span({ id: 'swarf-step-shape', class: 'swarf-step', title: 'make a shape: circle, rectangle, ring, polygon, star or slot, with a thickness' }, [
+        span({ id: 'swarf-step-shape', class: 'swarf-step', title: 'make a circle, rectangle, ring, polygon, star or slot' }, [
             span([icon('fas fa-shapes')]),
             label({ _: 'shape' })
         ]),
         // swarf r37: DRAW — the bed from above as a drawing: move points, draw outlines (web/kiri/swarf-draw.js)
-        span({ id: 'swarf-step-draw', class: 'swarf-step', title: "draw: move a part's points, or draw with the pen, rectangle, ellipse or text" }, [
+        span({ id: 'swarf-step-draw', class: 'swarf-step', title: "move a part's points, or draw with pen, shapes or words" }, [
             span([icon('fas fa-pen-nib')]),
             label({ _: 'draw' })
         ]),
         // swarf: TEX — mark a part's top, then fill the mark with a texture (web/kiri/swarf-tex.js)
-        span({ id: 'swarf-step-tex', class: 'swarf-step', title: "tex: mark a part with the brush, a rectangle, an ellipse or a region, then texture it" }, [
+        span({ id: 'swarf-step-tex', class: 'swarf-step', title: "mark a part, then texture, carve or pocket the mark" }, [
             span([icon('fas fa-paintbrush')]),
             label({ _: 'tex' })
         ]),

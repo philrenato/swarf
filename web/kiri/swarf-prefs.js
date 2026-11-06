@@ -102,7 +102,7 @@
     box.id = 'swarf-units';
     box.setAttribute('role', 'radiogroup');
     box.setAttribute('aria-label', 'units');
-    box.title = 'Millimeters or inches, for every number swarf shows (also in setup › preferences)';
+    box.title = 'Millimeters or inches, for every number swarf shows';
     const btns = {};
     const show = () => { for (const [k, b] of Object.entries(btns)) { const on = sel.value === k; b.classList.toggle('selected', on); b.setAttribute('aria-checked', on); } };
     for (const [k, word] of [['mm', 'mm'], ['in', 'in']]) {

@@ -602,7 +602,7 @@ html[data-skin] #swarf-run .sr-jog .sr-zrow button.next, html[data-skin] #swarf-
     // menubar and step row stay; the connection lives in the jog header; the five
     // steps and the sentence share one line.
     el.conn = h('div', { class: 'sr-conn' }, h('span', { class: 'sr-dot' }), el.connText = h('span', { text: '' }),
-      el.discBtn = h('button', { text: 'disconnect', title: 'Let go of the box, so ShopBot 3 or another program can use it', onclick: () => disconnect() }),
+      el.discBtn = h('button', { text: 'disconnect', title: 'Let go of the box, so another program can use it', onclick: () => disconnect() }),
       el.connBtn = h('button', { text: 'connect', title: onWindows() ? 'Connect to the ShopBot over its USB cable. Quit ShopBot 3 first: one program at a time' : 'Connect to the ShopBot over its USB cable', onclick: () => connect(true) }));
     el.steps = h('div', { class: 'sr-steps' });
     STEPS.forEach((s, i) => el.steps.append(h('div', { class: 'sr-step', 'data-step': s, title: STEP_SAYS[s], onclick: () => tell(STEP_SAYS[s]) }, h('span', { class: 'n', text: String(i + 1) }), h('span', { text: s }))));
@@ -640,7 +640,7 @@ html[data-skin] #swarf-run .sr-jog .sr-zrow button.next, html[data-skin] #swarf-
         h('button', { text: 'top', onclick: () => view.camTop(), title: 'Look straight down' }),
         h('button', { text: '3d', onclick: () => view.camIso(), title: 'Angled view' }),
         h('button', { text: 'fit', onclick: () => view.fit(), title: 'Fit the program in view' }),
-        el.ghostBtn = h('button', { text: 'machine', title: 'Show the ShopBot: its 4 × 8 ft bed slides in X under the gantry, as it does in the shop', onclick: () => { view.setGhost(!view.ghost.visible); el.ghostBtn.classList.toggle('on', view.ghost.visible); } })),
+        el.ghostBtn = h('button', { text: 'machine', title: 'Show the ShopBot: its bed slides under the gantry', onclick: () => { view.setGhost(!view.ghost.visible); el.ghostBtn.classList.toggle('on', view.ghost.visible); } })),
       h('div', { class: 'sr-scrub' }, el.play, el.playRate, el.scrub, el.scrubLabel));
     el.view.addEventListener('dragover', e => { e.preventDefault(); el.view.classList.add('drag'); });
     el.view.addEventListener('dragleave', () => el.view.classList.remove('drag'));
@@ -694,7 +694,7 @@ html[data-skin] #swarf-run .sr-jog .sr-zrow button.next, html[data-skin] #swarf-
     cell('+Z', 'z', 1, 5, 1); cell('−Z', 'z', -1, 5, 3);
     // the router by hand, to test it (Phil 10-29): asks before it starts, red while on, one press stops it
     // the bed seen from the front, 8 x 4 like the ShopBot's (Phil 10-29): which way X and Y run
-    const bed = h('div', { class: 'sr-bedmap', title: 'The bed from the front: X runs along its long side, Y away from you. The dot is the front-left corner.' });
+    const bed = h('div', { class: 'sr-bedmap', title: 'The bed from the front; the dot is the front-left corner' });
     bed.innerHTML = '<svg viewBox="0 0 84 46" aria-hidden="true"><rect x="2" y="2" width="80" height="40" rx="3"/><circle cx="6" cy="38" r="2.6"/><path d="M14 38H34M30 35l4 3-4 3M6 30V12M3 16l3-4 3 4"/><text x="38" y="41">X</text><text x="9" y="11">Y</text></svg><small>front</small>';
     bed.style.gridColumn = 2; bed.style.gridRow = 2;
     pad.append(bed);
@@ -721,11 +721,11 @@ html[data-skin] #swarf-run .sr-jog .sr-zrow button.next, html[data-skin] #swarf-
     el.otherFile = h('a', { class: 'sr-other', text: 'open a file from other software', href: '#', title: 'A ShopBot (.sbp) or G-code (.nc) file made somewhere else' });
     el.otherFile.addEventListener('click', e => { e.preventDefault(); el.fileInput.click(); });
     el.start = h('div', { class: 'sr-start' },
-      h('button', { text: 'make a part', title: 'Back to cam: make a shape, draw one or import one, add a step, then press control again', onclick: () => { close(); const b = document.getElementById('swarf-step-shape'); if (b) b.click(); } }),
+      h('button', { text: 'make a part', title: 'Back to cam to make a part and add a step', onclick: () => { close(); const b = document.getElementById('swarf-step-shape'); if (b) b.click(); } }),
       h('button', { text: 'open a file', title: 'A ShopBot (.sbp) or G-code (.nc) file made somewhere else', onclick: () => el.fileInput.click() }),
-      h('button', { text: 'a test cut', title: 'Learn the machine on a scrap of plywood: zero, trace, cut, then measure it', onclick: () => window.__swarfLessons && window.__swarfLessons.choose() }),
+      h('button', { text: 'a test cut', title: 'Learn the machine on a scrap of plywood', onclick: () => window.__swarfLessons && window.__swarfLessons.choose() }),
       el.measure = h('button', { text: 'measure it', title: 'Type in what your calipers read', onclick: () => window.__swarfLessons && window.__swarfLessons.measure() }));
-    el.lessonLink = h('a', { class: 'sr-other', text: 'a test cut', href: '#', title: 'Learn the machine on a scrap of plywood: zero, trace, cut, then measure it' });
+    el.lessonLink = h('a', { class: 'sr-other', text: 'a test cut', href: '#', title: 'Learn the machine on a scrap of plywood' });
     el.lessonLink.addEventListener('click', e => { e.preventDefault(); if (window.__swarfLessons) window.__swarfLessons.choose(); });
     // a latched fault: a red bar over the program, its button the way out (reviews 10-29: only a small
     // underlined "all clear" in the to-run line said so)
@@ -745,7 +745,7 @@ html[data-skin] #swarf-run .sr-jog .sr-zrow button.next, html[data-skin] #swarf-
     el.ovr = h('div', { class: 'sr-ovr' }, h('span', { class: 'lbl', text: 'feed' }),
       el.ovrDn = h('button', { text: '−5%', title: 'Cut 5 % slower (down to 50 %)', onclick: () => ovr(-5) }),
       el.ovrVal = h('b', { text: '100%' }),
-      el.ovrUp = h('button', { text: '+5%', title: 'Cut 5 % faster (up to 150 %, never past the machine\'s top speed)', onclick: () => ovr(5) }),
+      el.ovrUp = h('button', { text: '+5%', title: 'Cut 5 % faster, up to 150 %', onclick: () => ovr(5) }),
       h('button', { text: '100%', title: 'Back to the file\'s own feeds', onclick: () => { const m = S.machine; if (m && m.setOverride) { m.setOverride(100); refresh(); } } }));
     el.prog.append(el.ovr);
     // an air cut's speed (Phil 11-04): nothing is cutting, so a slider and a wider range. Dragged, it
@@ -753,7 +753,7 @@ html[data-skin] #swarf-run .sr-jog .sr-zrow button.next, html[data-skin] #swarf-
     let rateT = 0;
     const rateNow = () => { rateT = 0; const m = S.machine; if (m && m.setRate) { m.setRate(+el.rateIn.value); refresh(); } };
     el.rate = h('div', { class: 'sr-ovr sr-airspeed' }, h('span', { class: 'lbl', text: 'speed' }),
-      el.rateIn = h('input', { type: 'range', min: '50', max: '400', step: '5', value: '100', title: 'How fast this air cut runs: 100 % is the speed it will cut at. Corners still slow down, and the machine\'s speed limits hold' }),
+      el.rateIn = h('input', { type: 'range', min: '50', max: '400', step: '5', value: '100', title: 'How fast this air cut runs; 100 % is the cutting speed' }),
       el.rateVal = h('b', { text: '100%' }),
       h('button', { text: '100%', title: 'Back to the speed it will cut at', onclick: () => { el.rateIn.value = 100; rateNow(); } }));
     el.rateIn.addEventListener('input', () => { el.rateVal.textContent = `${el.rateIn.value}%`; if (!rateT) rateT = setTimeout(rateNow, 150); });
@@ -781,7 +781,7 @@ html[data-skin] #swarf-run .sr-jog .sr-zrow button.next, html[data-skin] #swarf-
       h('button', { text: 'quit the file', onclick: () => S.machine.answer(-1) }));
     // sounds: on the real machine only; one chip turns them off and on
     const soundWord = () => window.SwarfSound && SwarfSound.level() ? 'sounds on' : 'sounds off';
-    el.soundBtn = h('button', { class: 'sr-out', text: soundWord(), title: 'Short sounds on the ShopBot: about to move, router starting, something wrong, finished. The simulator stays quiet.', onclick: () => { if (!window.SwarfSound) return; SwarfSound.set(SwarfSound.level() ? 0 : 0.6); el.soundBtn.textContent = soundWord(); if (SwarfSound.level()) SwarfSound.play('done'); } });
+    el.soundBtn = h('button', { class: 'sr-out', text: soundWord(), title: 'Short sounds on the ShopBot, for moves, the router and errors', onclick: () => { if (!window.SwarfSound) return; SwarfSound.set(SwarfSound.level() ? 0 : 0.6); el.soundBtn.textContent = soundWord(); if (SwarfSound.level()) SwarfSound.play('done'); } });
     el.simCtl = h('div', { class: 'sr-sim' }, 'simulated machine speed');
     for (const r of [1, 10, 50]) {
       const b = h('button', { text: `${r}×`, onclick: () => { S.simRate = r; if (S.machine.timeScale !== undefined || S.machine instanceof M.SimMachine) S.machine.timeScale = r; for (const c of el.simCtl.querySelectorAll('button')) c.classList.toggle('on', c === b); } });
@@ -1567,7 +1567,7 @@ html[data-skin] #swarf-run .sr-jog .sr-zrow button.next, html[data-skin] #swarf-
     const body = h('div', { class: 'sr-plate' });
     // (review r086 F4) the plate's numbers in cam's units; a bare number typed is in them too
     const plateShow = mm => window.SwarfLength ? SwarfLength.show(mm) : String(+(+mm).toFixed(3));
-    const thick = h('input', { type: 'text', inputmode: 'decimal', value: plateShow(m.plateCfg.thickness), title: `Measure your plate with calipers: Z zero is this much below where the bit touches (${inch() ? '0.12 in or 3 mm' : '3 mm or 1/8 in'} both work)` });
+    const thick = h('input', { type: 'text', inputmode: 'decimal', value: plateShow(m.plateCfg.thickness), title: `Your plate's thickness, from calipers: Z zero is this far below` });
     const circuit = h('p', { class: 'sr-circuit' });
     const touchBtn = sim ? h('button', { text: 'touch the plate to the bit', title: 'The simulator has no plate: this stands in for the touch', onclick: () => { proved = true; show(); } }) : null;
     const go = h('button', { class: 'go' });
@@ -1576,7 +1576,7 @@ html[data-skin] #swarf-run .sr-jog .sr-zrow button.next, html[data-skin] #swarf-
     const pic = plateView();
     // the board as measured, against the job (optional): the machine knows the top of the board and
     // not the spoilboard, so only calipers can tell
-    const measured = h('input', { type: 'text', inputmode: 'decimal', class: 'sr-board-in', title: `Optional. Your board's thickness, measured with calipers (${inch() ? '3/4, 0.75 in or 19 mm' : '19 mm or 3/4 in'} all work). swarf compares it with the job: this never stops you and never moves the machine` });
+    const measured = h('input', { type: 'text', inputmode: 'decimal', class: 'sr-board-in', title: `Optional: your board's calipered thickness, to compare with the job` });
     const boardSay = h('p', { class: 'sr-board-say' });
     measured.addEventListener('keydown', e => e.stopPropagation());
     measured.addEventListener('input', () => {
@@ -1632,7 +1632,7 @@ html[data-skin] #swarf-run .sr-jog .sr-zrow button.next, html[data-skin] #swarf-
     // (Phil 11-01) shown as every length field is (SwarfLength.show), so the number read back is the
     // one stored: 10 mm showed as 0.39 in, which read back as 9.9 mm and was refused
     const reachShow = () => plateShow((m.plateCfg && m.plateCfg.travel) || 60);
-    const reach = h('input', { type: 'text', inputmode: 'decimal', value: reachShow(), title: 'How far the bit comes down looking for the plate before it gives up' });
+    const reach = h('input', { type: 'text', inputmode: 'decimal', value: reachShow(), title: 'How far the bit comes down looking for the plate' });
     reach.addEventListener('keydown', e => e.stopPropagation());
     reach.addEventListener('change', () => {
       const t = mmOf(reach.value);
@@ -2067,7 +2067,7 @@ html[data-skin] #swarf-run .sr-jog .sr-zrow button.next, html[data-skin] #swarf-
         const p = m.mabs();
         el.card.append(h('p', { text: `Front-left corner learned ${new Date(c.at).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}. The bit is ${len(p.x - c.x)} right of it and ${len(p.y - c.y)} back. The table is ${lens([T.x, T.y], 0)}.` }));
         const rowFor = (name, cx, cy) => h('div', { class: 'sr-needrow' }, h('b', { text: '⌐' }), h('span', {}, h('strong', { text: name })),
-          h('button', { text: 'make it X 0, Y 0', title: `The ${name} corner becomes X 0, Y 0; the bit does not move`, onclick: () => { zeroAtCorner(cx, cy); shut(); tell(`X 0, Y 0 is now the table's ${name} corner. The bit did not move.`); } }),
+          h('button', { text: 'make it X 0, Y 0', title: `This corner becomes X 0, Y 0; the bit stays put`, onclick: () => { zeroAtCorner(cx, cy); shut(); tell(`X 0, Y 0 is now the table's ${name} corner. The bit did not move.`); } }),
           h('button', { text: 'go there', title: `Up to ${up(1)}, then over the ${name} corner`, onclick: () => aboutToMove({ title: 'The bit is about to move', text: `Up to ${up(1)} over Z 0 (if it is lower), then over the table's ${name} corner.`, go: 'move', run: () => goCorner(cx, cy) }) }));
         el.card.append(rowFor('front left', c.x, c.y), rowFor('front right', c.x + T.x, c.y));
       }
@@ -2318,7 +2318,7 @@ html[data-skin] #swarf-run .sr-jog .sr-zrow button.next, html[data-skin] #swarf-
   function onState(st) {
     if (isDirect() && (st.connected || st.lostMid)) { S.lastSteps = { ...S.machine.steps }; if (S.zeroXY || S.zeroZ) rememberZero(); else saveZero(); }
     for (const a of ['x', 'y', 'z']) el.dro[a].textContent = posText(st.pos[a] || 0);
-    if (isDirect() && st.mpos) for (const a of ['x', 'y', 'z']) el.dro[a].title = `machine count ${st.mpos[a].toFixed(2)} mm since the box was switched on · click to type a position`;
+    if (isDirect() && st.mpos) for (const a of ['x', 'y', 'z']) el.dro[a].title = `machine count ${st.mpos[a].toFixed(2)} mm · click to type a position`;
     el.mpos.textContent = isDirect() && st.mpos
       ? `machine ${['x', 'y', 'z'].map(a => a.toUpperCase() + ' ' + st.mpos[a].toFixed(1)).join(' ')} · ${S.machine.limitsKnown() ? 'limits on' : 'no end stops: watch the ends'}`
       : '';

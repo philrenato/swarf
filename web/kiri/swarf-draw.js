@@ -278,16 +278,16 @@
       <svg id="sd-svg" tabindex="0"></svg>
       <div class="sd-bar">
         <button data-tool="select" title="pick parts and points (V)">select</button>
-        <button data-tool="pen" title="draw an outline: click for a corner, drag for a smooth point, click the first to close (P); click the last point again to end it as a line to engrave">pen</button>
-        <button data-tool="pencil" title="draw freehand: it becomes a few smooth points; end near the start to close it, or anywhere else for a line to engrave (N)">pencil</button>
+        <button data-tool="pen" title="click a corner, drag a curve, click the first to close (P)">pen</button>
+        <button data-tool="pencil" title="draw freehand; end near the start to close it (N)">pencil</button>
         <button data-tool="rect" title="drag a rectangle from corner to corner; shift for a square (R)">rectangle</button>
         <button data-tool="ellipse" title="drag an ellipse from corner to corner; shift for a circle (E)">ellipse</button>
         <button data-tool="text" title="type the words in the card, then click where they start (T)">text</button>
-        <button data-tool="regions" title="split overlapping outlines into regions, then click a region to fill or empty it (G)">regions</button>
+        <button data-tool="regions" title="split overlaps into regions; click one to fill or empty it (G)">regions</button>
         <span class="sd-sep"></span>
         <button id="sd-undo" title="undo (⌘Z)">undo</button>
-        <button id="sd-clear" title="remove what was drawn here, on the picked part or on every part when none is picked: parts drawn here go, a part made elsewhere goes back to its own outline (undo brings it back)">clear</button>
-        <button id="sd-fit" title="show the parts, or the whole bed (F) · pinch or ⌘-scroll to zoom, two fingers to slide">fit</button>
+        <button id="sd-clear" title="remove what was drawn on the picked part, or every part">clear</button>
+        <button id="sd-fit" title="show the parts, or the whole bed (F)">fit</button>
         <span class="sd-grow"></span>
         <button id="sd-cancel" title="close without changing the parts (Esc twice)">cancel</button>
         <button id="sd-done" class="sd-go" title="rebuild the changed parts and close">done</button>
@@ -569,10 +569,10 @@
     // the V-bits by name, and how deep it may go
     const carveRows = c => {
       const bits = vBits(api());
-      return (bits.length ? `<div class="sd-row" title="the V-bit that carves it: 90° is wider and shallower, 60° narrower and deeper"><span>bit</span><select id="sd-vbit" class="wide">${bits.map(t => `<option value="${t.id}"${t.id === c.tool ? ' selected' : ''}>${esc(t.name)}</option>`).join('')}</select></div>` : '<div class="sd-note">No V-bit in the tool library: add one in bits, or the carve has nothing to cut with.</div>')
-        + `<div title="the deepest it goes: wider than that, the floor is flat. 0: as deep as the shape and the bit allow">${row('flat depth', 'sd-vlim', c.limit || 0, 'mm')}</div>`;
+      return (bits.length ? `<div class="sd-row" title="the V-bit: 90° is wider and shallower, 60° narrower and deeper"><span>bit</span><select id="sd-vbit" class="wide">${bits.map(t => `<option value="${t.id}"${t.id === c.tool ? ' selected' : ''}>${esc(t.name)}</option>`).join('')}</select></div>` : '<div class="sd-note">No V-bit in the tool library: add one in bits, or the carve has nothing to cut with.</div>')
+        + `<div title="the deepest it goes, then a flat floor; 0 has no limit">${row('flat depth', 'sd-vlim', c.limit || 0, 'mm')}</div>`;
     };
-    const ptsRow = pc => pc ? `<div class="sd-row" title="how many points the freehand line is fitted to: fewer is smoother, more follows your hand closer"><span>points</span><input id="sd-pts" value="${pc.n}" inputmode="numeric"><span class="u"></span></div>` : '';
+    const ptsRow = pc => pc ? `<div class="sd-row" title="points on the line: fewer is smoother, more follows your hand"><span>points</span><input id="sd-pts" value="${pc.n}" inputmode="numeric"><span class="u"></span></div>` : '';
     const edgeRows = e => `<div class="sd-row"><span>top edge</span><select id="sd-edge">${['straight', 'chamfer', 'round'].map(k => `<option${k === e.kind ? ' selected' : ''}>${k}</option>`).join('')}</select><span class="u"></span></div>${e.kind === 'straight' ? '' : row('edge size', 'sd-es', e.size, 'mm')}`;
     let h = '';
     if (S.tool === 'regions') {
@@ -580,7 +580,7 @@
       h = `<div class="sd-h">regions</div><div class="sd-note">${R ? 'Every region the outlines make is shaded. Click one to fill it (part) or empty it (hole or gone). Apply makes the filled ones the parts.' : 'Draw outlines that overlap, then come back: each region they make can be filled or emptied.'}</div>`;
       if (R) h += `<div class="sd-note">${R.filled.size} of ${R.arr.faces.filter(f => f.at).length} regions filled.</div>
         <div class="sd-row"><button id="sd-reg-all" title="fill every region">fill all</button><button id="sd-reg-none" title="empty every region">empty all</button></div>
-        <div class="sd-row"><button id="sd-reg-apply" class="sd-go" title="make the filled regions the parts (also when you leave this tool or press done)">apply</button></div>`;
+        <div class="sd-row"><button id="sd-reg-apply" class="sd-go" title="make the filled regions the parts">apply</button></div>`;
     } else if (S.tool !== 'select') {
       const how = {
         pen: 'Click for a corner. Drag for a smooth point. Click the first point (or press Enter) to close the outline. Click the last point again to end it as a line to engrave.',
@@ -597,7 +597,7 @@
       else if (S.tool === 'text' && (now === 'cut' || now === 'auto' || now === 'add')) h += '<div class="sd-note">Over a part, the letters become its outline: their words cannot be changed after.</div>';
       if (now !== 'carve') h += `${row('thickness', 'sd-pen-t', S.thick, 'mm')}${edgeRows(S.edge)}`;
       if (S.tool === 'pen' || S.tool === 'pencil') h += `${row('engrave depth', 'sd-dep', S.depth, 'mm')}`;
-      if (S.tool === 'pen' && S.pen.length >= 2) h += '<div class="sd-row"><button id="sd-pen-line" title="end the pen here: an open line, engraved into the part under it">end as a line</button></div>';
+      if (S.tool === 'pen' && S.pen.length >= 2) h += '<div class="sd-row"><button id="sd-pen-line" title="end here: an open line, engraved into the part under it">end as a line</button></div>';
     } else if (part && !part.gone && part.line) {
       // which part it is cut into (not worked out again on every move of a drag)
       const host = S.drag && HOSTS.has(part) ? HOSTS.get(part) : HOSTS.set(part, hostOf(part)).get(part);
@@ -617,7 +617,7 @@
       h += `<div class="sd-h">${S.pts.size ? (S.pts.size === 1 ? 'around it' : 'the points') : part.carve ? 'the carving' : 'the part'}</div>${row('scale', 'sd-scale', 100, '%')}${row('turn', 'sd-turn', 0, '°')}
         <div class="sd-note">${S.pts.size ? 'Drag a point, or type where it goes. Delete removes it. Double-click an edge to add one.' : part.carve ? `Drag it to move it.${part.text ? ' Scale or turn it and its letters become an outline: the words go.' : ''}` : 'Drag the part to move it. Click a point to pick it; drag across points to pick several.'}</div>
         ${S.pts.size ? '' : part.carve ? '<div class="sd-row"><button id="sd-del" title="take this carving off the part (when you press done)">delete this carving</button></div>' : part.drawn || !part.w ? '<div class="sd-row"><button id="sd-del" title="remove this part (when you press done)">delete this part</button></div>'
-          : changedHere(part) || linesOn(part).length ? '<div class="sd-row"><button id="sd-del" title="take away what was drawn on this part; the part stays (delete it in cam)">clear what was drawn</button></div>'
+          : changedHere(part) || linesOn(part).length ? '<div class="sd-row"><button id="sd-del" title="take away what was drawn on this part; the part stays">clear what was drawn</button></div>'
           : '<div class="sd-note">Made outside draw: delete it in cam.</div>'}`;
     } else if (S.parts.some(p => !p.gone)) {
       h = '<div class="sd-note">Click a part to edit it.</div>';

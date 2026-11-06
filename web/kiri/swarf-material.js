@@ -550,7 +550,7 @@
       const name = el('input', { title: 'what the steps call it', placeholder: 'name' });
       const width = el('input', { title: 'how wide it cuts: 1/4, 6.35 mm', placeholder: 'width' });
       const reach = el('input', { title: 'how deep its flutes reach: 1/2, 12.7 mm', placeholder: 'cuts how deep' });
-      const kind = el('select', { title: 'flat, ball or drill. A V-bit needs its angle: view › advanced, then edit in tool library' }, ...[['endmill', 'flat'], ['ballmill', 'ball'], ['drill', 'drill']].map(([value, textContent]) => el('option', { value, textContent })));
+      const kind = el('select', { title: 'flat, ball or drill; a V-bit is added in the tool library' }, ...[['endmill', 'flat'], ['ballmill', 'ball'], ['drill', 'drill']].map(([value, textContent]) => el('option', { value, textContent })));
       const part = el('input', { title: 'its part number, if it has one', placeholder: 'part number' });
       const why = el('p', { className: 'swarf-bits-why' });
       const add = el('button', { type: 'button', textContent: 'add', title: 'Put this bit on the list' });
@@ -786,7 +786,7 @@
       select.appendChild(opt);
     }
     const rule = softRule();
-    select.title = 'what your board is made of: its look in simulate and its starting speeds' + (rule ? `. ${rule.why}` : '');
+    select.title = 'your board's material: its look and its starting speeds' + (rule ? `. ${rule.why}` : '');
   }
 
   // after a machine change: a metal on a soft-only machine falls back to the
@@ -820,7 +820,7 @@
     label.style.cssText = 'font-size:13px; letter-spacing:0.02em; text-transform:none; color:var(--swarf-accent-hi, #ff3a2a); font-weight:600; flex:0 0 auto;';
     const select = document.createElement('select');
     select.id = 'swarf-material-select';
-    select.title = 'what your board is made of: its look in simulate and its starting speeds';
+    select.title = 'your board's material: its look and its starting speeds';
     select.style.cssText = 'flex:1; font-size:13px; padding:6px 8px; background:rgba(0,0,0,0.55); border:1px solid var(--swarf-accent, #7a2a1a); color:#fff; border-radius:2px; font-family:"IBM Plex Mono",ui-monospace,monospace;';
     fillOptions(select);
     select.addEventListener('change', () => setCurrent(select.value));

@@ -399,32 +399,32 @@ export function opRender() {
         // swarf: DRAW's engrave step is a trace that follows the parts' engraved lines
         if (rec.engrave) {
             label = 'engrave';
-            title = ` title="cuts the lines drawn in DRAW into their parts, the bit's center on each line, to each line's engrave depth"`;
+            title = ` title="cuts the lines drawn in draw, the bit centered on each"`;
         }
         // swarf: a mark made in TEX, textured into its part's top (web/kiri/swarf-tex.js)
         if (rec.type === 'pierce') {
             const full = esc(rec.texlabel || 'pierce');
             label = texShort(rec.texlabel || 'pierce');
             const est = rec.texest > 0 && window.SwarfTexCore ? `, about ${window.SwarfTexCore.formatTime(rec.texest)}` : '';
-            title = ` title="${full}: the mark made in TEX, cut through the part (or to its skin) by its straight bit${est}. A starting point: cut a test strip. Open tex to change it."`;
+            title = ` title="${full}: a mark cut through the part${est}; change it in tex"`;
             clazz.push('tex-step');
         } else if (rec.type === 'inlay') {
             const full = esc(rec.texlabel || 'inlay');
             label = texShort(rec.texlabel || 'inlay');
             const est = rec.texest > 0 && window.SwarfTexCore ? `, about ${window.SwarfTexCore.formatTime(rec.texest)}` : '';
-            title = ` title="${full}: the mark made in TEX, sunk as a flat pocket by its straight bit${est}; its plug is a part of its own on the bed. Open tex to change it."`;
+            title = ` title="${full}: a mark sunk as a flat pocket${est}; change it in tex"`;
             clazz.push('tex-step');
         } else if (rec.type === 'vcarve') {
             const full = esc(rec.texlabel || 'v-carve');
             label = texShort(rec.texlabel || 'v-carve');
             const est = rec.texest > 0 && window.SwarfTexCore ? `, about ${window.SwarfTexCore.formatTime(rec.texest)}` : '';
-            title = ` title="${full}: cut in by a V-bit along the middle of the shape, as deep as the shape is wide${est}. Change the words in draw, the bit and flat depth in draw or tex."`;
+            title = ` title="${full}: cut in by a V-bit${est}; change it in draw or tex"`;
             clazz.push('tex-step');
         } else if (rec.type === 'texture') {
             const full = esc(rec.texlabel || 'texture');
             label = texShort(rec.texlabel || 'texture');
             const est = rec.texest > 0 && window.SwarfTexCore ? `, about ${window.SwarfTexCore.formatTime(rec.texest)}` : '';
-            title = ` title="${full}: the mark made in TEX, cut into the part's top by its bit and path${est}. Open tex to change it."`;
+            title = ` title="${full}: a mark cut into the top${est}; change it in tex"`;
             clazz.push('tex-step');
         }
         const SWARF_OP_FIELDS = {
@@ -1084,7 +1084,7 @@ export function init() {
         const drill = word('drill'), pocket = word('pocket');
         if (drill && pocket) {
             drill.classList.remove('swarf-expert-only');
-            drill.title = 'drills the round holes in the part that are the size of its bit: peck by peck, down to the bottom of the board';
+            drill.title = 'pecks the round holes that match its bit, through the board';
             pocket.after(drill);
         }
     }
@@ -1406,7 +1406,7 @@ function paintStepLines() {
             const go = document.createElement('button');
             go.type = 'button';
             go.textContent = 'pocket in tex';
-            go.title = 'opens tex with inlay picked: drag a shape on the part and type its depth. Done adds an inlay step and a plug part left out of the run. This empty step goes.';
+            go.title = 'opens tex to mark the pocket and type its depth';
             for (const ev of ['mousedown', 'click']) go.addEventListener(ev, e => e.stopPropagation());
             go.addEventListener('click', () => {
                 const cur = (env.current?.process?.ops || [])[el.dataset.step];

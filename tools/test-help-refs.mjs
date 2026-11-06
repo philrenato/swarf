@@ -39,4 +39,13 @@ for (const q of ['last pass', 'allowance', 'drill step', 'bigger than the bit', 
 const menu = readFileSync(root + 'src/kiri/app/init/menu.js', 'utf8');
 const bare = [...menu.matchAll(/menuItem\(actions, \{ id: '([\w-]+)'[^\n]*/g)].filter(m => !/\btitle:/.test(m[0]) && m[1] !== 'app-quit').map(m => m[1]);
 assert.deepEqual(bare, [], `menu items with no tooltip: ${bare}`);
+// a tooltip names the thing and one consequence, twelve words at most (family rule); the why lives in help
+const long = [];
+for (const f of [...readdirSync(root + 'web/kiri').filter(f => /^swarf-.*\.js$/.test(f) && !/markup-inject/.test(f)).map(f => 'web/kiri/' + f), 'web/kiri/index.html', 'src/kiri/app/init/menu.js', 'src/kiri/mode/cam/app/init-ui.js'])
+  for (const m of readFileSync(root + f, 'utf8').matchAll(/\btitle\s*[:=]\s*(?:"([^"\n]{20,})"|'((?:\\.|[^'\\\n]){20,})'|`((?:\\.|[^`\\\n]){20,})`)/g)) {
+    let t = m[1] || m[2] || m[3], was;
+    do { was = t; t = t.replace(/\$\{[^{}]*\}/g, 'X'); } while (t !== was);
+    if (t.trim().split(/\s+/).length > 12) long.push(`${f}: ${t}`);
+  }
+assert.deepEqual(long, [], 'tooltips over twelve words');
 console.log('help refs: ok');

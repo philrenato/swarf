@@ -121,7 +121,7 @@
       field.value = String(window.__swarfCustomSpeed || 1);
       field.className = 'swarf-sim-extra swarf-sim-speedfield';
       field.style.cssText = 'width:52px; height:26px; padding:0 6px; text-align:right; margin:0 2px;';
-      field.title = 'how fast simulate plays, 0.5 to 100: higher is faster. The words beside it say how that compares with the real cut';
+      field.title = 'how fast simulate plays, 0.5 to 100';
       const commit = () => {
         let v = parseFloat(field.value);
         const typed = v;
@@ -146,7 +146,7 @@
       const real = document.createElement('span');
       real.id = 'swarf-sim-real';
       real.className = 'swarf-sim-word swarf-sim-real';
-      real.title = 'How this run compares with the real cut, measured while it plays: the machine takes the time shown at the end of this bar';
+      real.title = 'How this run compares with the real cut, measured as it plays';
       field.after(real);
     }
   }
