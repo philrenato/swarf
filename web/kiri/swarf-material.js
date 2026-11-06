@@ -510,6 +510,76 @@
   }
   window.__swarfDerive = derive;
   // a material's record by id (the test cuts take plywood's: 10-29, one speed rule everywhere)
+  // ---- bits: the list (review 105 F17) ----
+  const BIT_KIND = { endmill: 'flat', ballmill: 'ball', tapermill: 'V', taperball: 'V, ball tip', drill: 'drill' };
+  function bitsCard() {
+    let card = null;
+    const a = () => window.kiri.api;
+    const L = () => window.SwarfLength;
+    const el = (tag, props, ...kids) => { const e = Object.assign(document.createElement(tag), props || {}); e.append(...kids); return e; };
+    const close = () => { if (card) { card.remove(); card = null; document.removeEventListener('keydown', onKey, true); } };
+    const onKey = e => { if (e.key === 'Escape' && card) { close(); e.stopPropagation(); e.preventDefault(); } };
+    const widthOf = t => (t.flute_diam || 0) * (t.metric ? 1 : 25.4);
+    const rowFor = t => {
+      const carving = t.type === 'tapermill' || t.type === 'taperball';
+      const part = (t.swarf && t.swarf.part) || '';
+      return el('tr', {}, el('td', { textContent: t.name }), el('td', { textContent: L() ? L().say(widthOf(t)) : `${widthOf(t)} mm` }),
+        el('td', { textContent: (BIT_KIND[t.type] || t.type) + (carving ? ', for carving' : '') }), el('td', { textContent: part }));
+    };
+    function list() {
+      const tools = (a().conf.get().tools || []).slice();
+      const rank = t => (t.type === 'tapermill' || t.type === 'taperball' ? 0 : 1);
+      const order = new Map(tools.map((t, i) => [t, i]));
+      tools.sort((x, y) => rank(x) - rank(y) || order.get(x) - order.get(y));
+      return el('table', {}, el('thead', {}, el('tr', {}, ...['name', 'width', 'kind', 'part number'].map(w => el('th', { textContent: w })))), el('tbody', {}, ...tools.map(rowFor)));
+    }
+    function addForm(host, wrap) {
+      const name = el('input', { title: 'what the steps call it', placeholder: 'name' });
+      const width = el('input', { title: 'how wide it cuts: 1/4, 6.35 mm', placeholder: 'width' });
+      const reach = el('input', { title: 'how deep its flutes reach: 1/2, 12.7 mm', placeholder: 'cuts how deep' });
+      const kind = el('select', { title: 'flat, ball or drill. A V-bit needs its angle: view › advanced, then edit in tool library' }, ...[['endmill', 'flat'], ['ballmill', 'ball'], ['drill', 'drill']].map(([value, textContent]) => el('option', { value, textContent })));
+      const part = el('input', { title: 'its part number, if it has one', placeholder: 'part number' });
+      const why = el('p', { className: 'swarf-bits-why' });
+      const add = el('button', { type: 'button', textContent: 'add', title: 'Put this bit on the list' });
+      const cancel = el('button', { type: 'button', textContent: 'cancel', title: 'Close this without adding a bit' });
+      for (const i of [name, width, reach, part]) i.addEventListener('keydown', e => e.stopPropagation());
+      cancel.onclick = () => { host.innerHTML = ''; host.append(addButton(host, wrap)); };
+      add.onclick = () => {
+        const s = a().conf.get(), w = L() ? L().parse(width.value) : parseFloat(width.value), r = reach.value.trim() ? (L() ? L().parse(reach.value) : parseFloat(reach.value)) : Math.max(12.7, w * 2);
+        const n = name.value.trim();
+        const no = !n ? 'Give the bit a name.' : s.tools.some(t => t.name === n) ? 'A bit already has that name.' : !(w > 0 && w <= 50) ? 'Give the width as a length, above 0 and up to 50 mm.' : !(r > 0 && r <= 150) ? 'Give how deep it cuts as a length, above 0 and up to 150 mm.' : '';
+        why.textContent = no;
+        if (no) return;
+        const tool = { id: Date.now(), number: Math.max(0, ...s.tools.map(t => t.number || 0)) + 1, name: n, type: kind.value, taper_tip: 0, metric: true, shaft_diam: w, shaft_len: Math.max(25.4, r), flute_diam: w, flute_len: r };
+        if (part.value.trim()) tool.swarf = { part: part.value.trim() };
+        s.tools.push(tool);
+        a().conf.save(); a().conf.update_fields(); a().event.settings();
+        wrap.innerHTML = ''; wrap.append(list());
+        host.innerHTML = ''; host.append(addButton(host, wrap));
+        a().show.alert(`Added ${n}. Pick it on a step's tool row.`, 6);
+      };
+      host.innerHTML = '';
+      host.append(el('div', { className: 'swarf-bits-form' }, name, width, reach, kind, part), why, el('div', { className: 'swarf-bits-row' }, add, cancel));
+      name.focus();
+    }
+    const addButton = (host, wrap) => el('button', { type: 'button', textContent: 'add a bit', title: 'Add a flat, ball or drill bit to the list', onclick: () => addForm(host, wrap) });
+    function open() {
+      close();
+      const wrap = el('div', { className: 'swarf-bits-list' }, list());
+      const foot = el('div', { className: 'swarf-bits-row' });
+      foot.append(addButton(foot, wrap));
+      const lib = el('button', { type: 'button', textContent: 'edit in tool library', className: 'swarf-expert-only', title: 'Change or remove a bit, or add a V-bit: the full editor', onclick: () => { close(); a().show.tools(); } });
+      const shut = el('button', { type: 'button', textContent: '×', className: 'swarf-bits-x', title: 'Close the list (Esc)', onclick: close });
+      card = el('div', { id: 'swarf-bits' }, el('div', { className: 'swarf-bits-head' }, el('b', { textContent: 'bits' }), shut), wrap, el('div', { className: 'swarf-bits-foot' }, foot, lib));
+      card.setAttribute('role', 'dialog');
+      card.setAttribute('aria-label', 'bits');
+      document.body.append(card);
+      document.addEventListener('keydown', onKey, true);
+    }
+    return { open, close, toggle: () => (card ? close() : open()), isOpen: () => !!card };
+  }
+  window.__swarfBits = bitsCard();
+
   window.__swarfMaterialById = id => materials.find(m => m.id === id) || null;
 
   function toolDiamMm(tool) {
@@ -556,6 +626,7 @@
     const devName = (settings.device && settings.device.deviceName) || '';
     const findTool = id => tools.find(t => t.id == id);
     let changed = false;
+    const replaced = [];
 
     for (const op of proc.ops || []) {
       if (!op || !OP_TYPES.includes(op.type)) continue;
@@ -568,7 +639,19 @@
       if (op.preset === `${current.id}:${op.tool}:${devName}`) { op.preset = stamp; changed = true; continue; }
       const p = derive(current, dia, lim, tool);
       if (!p) continue;
-      Object.assign(op, opValues(op.type, p));
+      const now = opValues(op.type, p);
+      // (review 105 m2) this step had numbers of its own under the last material: they are replaced, by
+      // design (the stamp rule above), and said. Only the material changed: its stamp says so.
+      const [wasId, wasTool, wasDev] = String(op.preset || '').split(':');
+      const was = wasId && wasId !== current.id && wasTool == op.tool && wasDev === devName && window.__swarfMaterialById(wasId);
+      const before = was && derive(was, dia, lim, tool);
+      if (before) {
+        const prior = opValues(op.type, before);
+        const differs = k => prior[k] > 0 && op[k] > 0 && Math.abs(op[k] - prior[k]) > prior[k] * 0.01;
+        if (differs('rate')) replaced.push({ type: op.type, from: op.rate, to: now.rate });
+        else if (Object.keys(prior).some(differs)) replaced.push({ type: op.type });
+      }
+      Object.assign(op, now);
       op.preset = stamp;
       changed = true;
     }
@@ -577,6 +660,14 @@
     try { api.conf.save(); } catch (e) {}
     try { api.event.emit('cam.op.render'); } catch (e) {}
     applying = false;
+    if (replaced.length) {
+      const speed = v => window.SwarfLength && window.SwarfLength.unit() === 'in' ? `${+(v / 25.4).toFixed(1)} in/min` : `${Math.round(v)} mm/min`;
+      const r = replaced[0];
+      const text = replaced.length > 1 ? `${current.name || current.id} has its own numbers: what you typed on ${replaced.length} steps was replaced.`
+        : r.from ? `${current.name || current.id} has its own numbers: the feed you typed on ${r.type}, ${speed(r.from)}, is now ${speed(r.to)}.`
+        : `${current.name || current.id} has its own numbers: what you typed on ${r.type} was replaced.`;
+      try { api.event.alerts(true); api.show.alert(text, 8); } catch (e) { /* no alerts */ }
+    }
   }
   function notify() {
     try { window.dispatchEvent(new CustomEvent('swarf.material.change', { detail: current })); } catch (e) {}

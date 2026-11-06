@@ -1512,7 +1512,13 @@
     }
     const partSay = !n ? '' : open.length ? `${open.join(', ')}: open lines were left out (only closed outlines get a thickness; draw a line in DRAW to engrave it).` : `${n === 1 ? (made.length > 1 ? `Made from the drawing: ${made.length} pieces, kept together.` : '1 part rebuilt from the drawing.') : `${n} drawings made into parts.`} Next: a step (${made.some(w => w.meta.edge) ? 'contour shapes the edge, outline cuts it out' : 'outline cuts it out'}), then toolpaths. Or tex, to texture its top.`;
     const all = [partSay, lineSay.trim()].filter(Boolean).join(' ');
-    if (all) a.show.alert(all, 10);
+    if (!all) return;
+    // the hint goes as soon as it is followed: a step added, or toolpaths (review 105 F16, as SHAPE's)
+    const rec = a.show.alert(all, 10);
+    const add = document.getElementById('op-add-list');
+    const drop = () => { try { a.hide.alert(rec); } catch (e) { /* gone */ } if (add) add.removeEventListener('click', drop, true); };
+    if (add) add.addEventListener('click', drop, true);
+    a.event.on('preview.begin', drop);
   }
   // A part rebuilt from its drawing keeps TEX's marks (meta.tex): each goes to the new piece under its
   // middle (the first piece if none), moved into that piece's own frame (local = bed − its place).

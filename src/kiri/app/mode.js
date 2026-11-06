@@ -75,6 +75,12 @@ function setMode(mode, lock, then) {
             current.device.bedWidth = current.cdev[mode].bedWidth = 2438.4;
             current.device.bedDepth = current.cdev[mode].bedDepth = 1219.2;
         }
+        // swarf (review 105 m3): a stored ShopBot keeps the post it was saved with: the file ends lifted clear
+        const post = current.device.gcodePost;
+        if (current.filter[mode] === 'ShopBot.Basic' && Array.isArray(post) && !post.some(l => /^JZ\b/.test(l))) {
+            const at = post.findIndex(l => /Turning router OFF/.test(l));
+            if (at >= 0) current.device.gcodePost = current.cdev[mode].gcodePost = [...post.slice(0, at), "'Lifting clear", 'JZ,25.4', ...post.slice(at)];
+        }
         api.event.emit('device.select', api.device.get());
     }
     // hide/show

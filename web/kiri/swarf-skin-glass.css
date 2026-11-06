@@ -328,7 +328,7 @@ html[data-skin="glass"] #swarf-run .sr-keys, html[data-skin="glass"] #swarf-run 
 html[data-skin="glass"] #swarf-run .sr-card .row .go:disabled, html[data-skin="glass"] button.go:disabled, html[data-skin="glass"] #swarf-run .sr-card .row .go[disabled] {
   background: #e2e3e5 !important; color: #3e3f41 !important; border-color: #b9babc !important; opacity: 1 !important; box-shadow: none !important; text-shadow: none !important; }
 html[data-skin="glass"] #swarf-run button:disabled, html[data-skin="glass"] button:disabled { opacity: .72 !important; }
-html[data-skin="glass"] #swarf-run .sr-actions .cut.wait { background: #e2e3e5 !important; color: #3e3f41 !important; }
+html[data-skin="glass"] #swarf-run .sr-actions .cut.wait { background: rgba(236, 237, 238, .7) !important; color: #3e3f41 !important; }  /* review 105 F21: no darker than trace and an air cut, which wait with it */
 html[data-skin="glass"] #swarf-concerns-count { color: #2f3031 !important; }
 html[data-skin="glass"] #swarf-concerns-tab.has-warnings #swarf-concerns-count { color: #fff !important; }
 html[data-skin="glass"] .swarf-concern strong { color: #7d5820 !important; }

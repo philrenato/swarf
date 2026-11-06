@@ -539,10 +539,87 @@ function setup_keybd_nav() {
         // a call during a tween waits for it to land. Once landed, the fit is checked: a corner off
         // screen, the camera in the parts' box or under the bed, and it fits again at once.
         let queued = false, busy = false, again = false, guard = 0;
+        let only = null;     // this fit is for these meshes alone (a part too small to see), not all of them
+        // simulate's board while it is on screen (view 4 = ANIMATE)
+        const simBoard = () => {
+            const st = window.__swarfSimStock;
+            return st && st.parent && api.view.get && api.view.get() === 4 ? st : null;
+        };
+        // the window's clear part, in pixels: right of the panels, under the menus, over the bar
+        const freeArea = () => {
+            const W = innerWidth, H = innerHeight, a = { l: 0, r: W, t: 0, b: H };
+            const rect = id => {
+                const e = document.getElementById(id);
+                if (!e) return null;
+                const s = getComputedStyle(e);
+                if (s.display === 'none' || s.visibility === 'hidden') return null;
+                const b = e.getBoundingClientRect();
+                return b.width < 20 || b.height < 16 ? null : b;
+            };
+            for (const id of ['panel-left', 'panel-right', 'swarf-right-rail']) {
+                const b = rect(id);
+                if (!b) continue;
+                if (b.left < W / 2) a.l = Math.max(a.l, b.right); else a.r = Math.min(a.r, b.left);
+            }
+            for (const id of ['menubar', 'mode-tools']) { const b = rect(id); if (b && b.top < H / 2) a.t = Math.max(a.t, b.bottom); }
+            const bar = rect('layer-animate');
+            if (bar && bar.top > H / 2) a.b = Math.min(a.b, bar.top);
+            return a.r - a.l > 200 && a.b - a.t > 150 ? a : { l: 0, r: W, t: 0, b: H };
+        };
+        // where the camera goes so all of this object's box sits in the clear part, seen from the
+        // angle swarf starts with (45° down, from the front), and as large as fits. In the camera's
+        // axes a corner lands at (x - sx) / ((D + z) tan) on screen, so for a distance D each corner
+        // bounds the sideways shift sx; D is the nearest where every corner's bounds still meet.
+        const freePlace = obj => {
+            const { camera: cam, renderer } = space.internals();
+            if (!cam || !cam.isPerspectiveCamera) return null;
+            obj.updateMatrixWorld(true);
+            const box = new THREE.Box3().setFromObject(obj);
+            if (box.isEmpty()) return null;
+            const left = 0, up = Math.PI / 4;
+            const toCam = new THREE.Vector3(Math.sin(up) * Math.sin(left), Math.cos(up), Math.sin(up) * Math.cos(left));
+            const R = new THREE.Vector3().crossVectors(new THREE.Vector3(0, 1, 0), toCam).normalize();
+            const U = new THREE.Vector3().crossVectors(toCam, R);
+            const C = box.getCenter(new THREE.Vector3()), pts = [];
+            for (let i = 0; i < 8; i++) {
+                const v = new THREE.Vector3(i & 1 ? box.max.x : box.min.x, i & 2 ? box.max.y : box.min.y, i & 4 ? box.max.z : box.min.z).sub(C);
+                pts.push({ x: v.dot(R), y: v.dot(U), z: v.dot(toCam) });
+            }
+            const c = renderer.domElement.getBoundingClientRect(), f = freeArea();
+            const mx = (f.r - f.l) * 0.06, my = (f.b - f.t) * 0.06;
+            const x0 = (f.l + mx - c.left) / c.width * 2 - 1, x1 = (f.r - mx - c.left) / c.width * 2 - 1;
+            const y1 = 1 - (f.t + my - c.top) / c.height * 2, y0 = 1 - (f.b - my - c.top) / c.height * 2;
+            const tanV = Math.tan(cam.fov * Math.PI / 360), tanH = tanV * c.width / c.height;
+            const bounds = D => {
+                let lo = -Infinity, hi = Infinity, ylo = -Infinity, yhi = Infinity;
+                for (const p of pts) {
+                    const w = D - p.z;      // how far in front of the camera
+                    if (w <= 1) return null;
+                    lo = Math.max(lo, p.x - x1 * w * tanH); hi = Math.min(hi, p.x - x0 * w * tanH);
+                    ylo = Math.max(ylo, p.y - y1 * w * tanV); yhi = Math.min(yhi, p.y - y0 * w * tanV);
+                }
+                return lo <= hi && ylo <= yhi ? { sx: (lo + hi) / 2, sy: (ylo + yhi) / 2 } : null;
+            };
+            let D1 = box.getSize(new THREE.Vector3()).length() + 10, n = 0;
+            while (!bounds(D1) && n++ < 40) D1 *= 1.5;
+            let D0 = 1;
+            for (let i = 0; i < 40; i++) { const m = (D0 + D1) / 2; if (bounds(m)) D1 = m; else D0 = m; }
+            const s = bounds(D1);
+            if (!s) return null;
+            const T = C.clone().addScaledVector(R, s.sx).addScaledVector(U, s.sy);
+            return { left, up, panX: T.x, panY: T.y, panZ: T.z, distance: D1 };
+        };
         const fitNow = (then, tween) => {
             try { space.event.onResize(); } catch (e) {}
             try { api.platform.update_bounds(); } catch (e) {}
-            const all = meshes();
+            const board = simBoard();
+            if (board) {
+                const place = space.view.place && freePlace(board);
+                if (place) space.view.place(then, { ...place, tween: !!tween });
+                else space.view.fit(then, { padding: FILL * 1.35, objects: [board], visibleOnly: false, tween: !!tween });
+                return;
+            }
+            const all = only && only.length ? only : meshes();
             for (const m of all) { try { m.geometry && m.geometry.computeBoundingBox(); } catch (e) {} }
             if (!(space.view.fit && all.length)) { bed(); then && then(); return; }
             const opts = { padding: FILL, visibleOnly: true, objects: all };
@@ -551,18 +628,24 @@ function setup_keybd_nav() {
             space.view.fit(then, opts);
         };
         const settle = () => {
-            const all = meshes();
+            // a tween lands near its place, its zoom being a ratio: simulate's board is put exactly
+            if (simBoard()) { try { fitNow(null, false); } catch (e) {} return; }
+            const all = only && only.length ? only : meshes();
             if (!all.length || (inView(all, 0.95) && !below(all))) return;
             try { fitNow(null, false); } catch (e) {}
         };
         const landed = () => {
             clearTimeout(guard);
-            if (!busy) return;
+            // a slow tween outlasted the guard (the page is busy starting simulate): its end is
+            // only near the place, so simulate's board is put exactly now
+            if (!busy) { if (simBoard()) settle(); return; }
             busy = false;
             if (again) { again = false; frame(); return; }
             settle();
         };
-        const frame = () => {
+        // list: frame these meshes alone. No list (or a timer's or a frame's argument): all the parts.
+        const frame = list => {
+            only = Array.isArray(list) ? list : null;
             if (queued) return;
             queued = true;
             requestAnimationFrame(() => requestAnimationFrame(() => {
@@ -582,24 +665,62 @@ function setup_keybd_nav() {
         api.frame_bed = bed;
         // simulate frames the board it carves, not the part: the stock is wider and ran under the
         // toolpaths panel, the view on its corner (deep review S5 / r086-whole B7)
+        // (review 105 F7) it goes through frame, the one fit at a time, and frame puts the board in the
+        // clear part of the window. Waits up to a minute: stale toolpaths are made again first.
+        let simWait = 0;
         api.event.on('function.animate', () => {
             window.__swarfSimStock = null;
             let n = 0;
-            const t = setInterval(() => {
-                const st = window.__swarfSimStock;
-                if (!st && ++n < 40) return;
-                clearInterval(t);
-                if (st && space.view.fit) try { st.updateMatrixWorld && st.updateMatrixWorld(); space.view.fit(undefined, { padding: FILL * 1.35, objects: [st], visibleOnly: false }); } catch (e) { /* no view */ }
+            clearInterval(simWait);
+            simWait = setInterval(() => {
+                if (!simBoard() && ++n < 1200) return;
+                clearInterval(simWait);
+                if (simBoard()) setTimeout(frame, 80);    // its place on the bed follows the mesh by a message
             }, 50);
         });
+        // how much of the window these meshes span, the larger of across and up, 0 to 1
+        const spanOf = list => {
+            const cam = space.internals && space.internals().camera;
+            if (!cam) return 1;
+            cam.updateMatrixWorld();
+            const box = boxOf(list);
+            if (box.isEmpty()) return 1;
+            let x0 = Infinity, x1 = -Infinity, y0 = Infinity, y1 = -Infinity;
+            const v = new THREE.Vector3();
+            for (let i = 0; i < 8; i++) {
+                v.set(i & 1 ? box.max.x : box.min.x, i & 2 ? box.max.y : box.min.y, i & 4 ? box.max.z : box.min.z).project(cam);
+                x0 = Math.min(x0, v.x); x1 = Math.max(x1, v.x); y0 = Math.min(y0, v.y); y1 = Math.max(y1, v.y);
+            }
+            return Math.max(x1 - x0, y1 - y0) / 2;
+        };
+        // (review 105 F10) a part left under a fifth of the view is framed, or it lands as a dot
+        const SMALL = 0.2;
+        let sized = 0;
+        api.event.on('selection.scale', () => {
+            clearTimeout(sized);
+            sized = setTimeout(() => {
+                if (!api.view.is_arrange()) return;
+                const list = api.selection.widgets().map(w => w.mesh).filter(Boolean);
+                if (list.length && spanOf(list) < SMALL) frame(list);
+            }, 150);
+        });
+        // a duplicate beside its part leaves the camera alone (the rule above)
+        const copied = new Set();
+        api.event.on('widget.duplicate', w => { copied.add(w); setTimeout(() => copied.delete(w), 1000); });
         const always = () => { requestAnimationFrame(frame); setTimeout(frame, 250); };
         let wasEmpty = true;
         const added = payload => {
             const empty = wasEmpty;
+            // a copy, an undo or a redraw, known only at this moment
+            const notNew = window.__swarfCopying || window.__swarfRestoring || (api.doit.quiet && api.doit.quiet()) || document.body.classList.contains('swarf-draw-open') || document.body.classList.contains('swarf-tex-open');
             setTimeout(() => {
                 const list = (Array.isArray(payload) ? payload : [payload]).map(w => w && w.mesh).filter(Boolean);
                 wasEmpty = !meshes().length;
-                if (empty || !inView(list.length ? list : meshes())) frame();
+                if (empty || !inView(list.length ? list : meshes())) { frame(); return; }
+                // arrived too small to see: an import, or a shape, not a copy, an undo or a redraw
+                const given = (Array.isArray(payload) ? payload : [payload]).filter(Boolean);
+                if (notNew || given.some(w => copied.has(w))) return;
+                setTimeout(() => { if (api.view.is_arrange() && list.every(m => m.parent) && list.length && spanOf(list) < SMALL) frame(list); }, 200);    // after swarf-place has moved it
             }, 60);
         };
         api.event.on('widget.add', added);
@@ -825,7 +946,7 @@ function setup_keybd_nav() {
                 const soft = /shopbot/i.test(dev.deviceName || '');
                 for (const w of api.widgets.all()) {
                     const g = w.mesh.geometry; g.computeBoundingBox();
-                    const b = g.boundingBox, p = w.track.pos, name = (w.meta && w.meta.file || 'a part').replace(/\.[^.]+$/, '');
+                    const b = g.boundingBox, p = w.track.pos, name = api.platform.part_name(w);
                     const sx = b.max.x - b.min.x, sy = b.max.y - b.min.y, sz = b.max.z - b.min.z;
                     if (bw && bd && (sx > bw + 0.5 || sy > bd + 0.5)) warnings.push({
                         title: `${name} is bigger than the ${mach}'s bed`,
@@ -856,7 +977,7 @@ function setup_keybd_nav() {
                     const outer = outl.some(o => o.type === 'rough' || !o.inside), holes = outl.some(o => !o.omitthru && !o.omitvoid);
                     for (const w of api.widgets.all()) {
                         if (w.track.synth) continue;
-                        const name = (w.meta && w.meta.file || 'a part').replace(/\.[^.]+$/, '');
+                        const name = api.platform.part_name(w);
                         const a = audit(w);
                         // the first time a part is cut free with no tabs, the tabs drawer opens on its
                         // auto tabs button: the hint names it, so it should be in sight (deep review S10)
@@ -939,7 +1060,12 @@ function setup_keybd_nav() {
     (function(){
         const b = $('swarf-open-tools');
         // api.show.tools fills the list first; showing the modal alone left it empty (Phil 10-29)
-        if (b) b.onclick = (ev) => { ev.stopPropagation(); api.show.tools(); };
+        // (review 105 F17) swarf's own list, which leaves the menus free; Kiri's editor stays behind
+        // its edit in tool library, for advanced
+        if (b) {
+            b.title = 'the bits this machine has, and adding one';
+            b.onclick = (ev) => { ev.stopPropagation(); if (window.__swarfBits) window.__swarfBits.toggle(); else api.show.tools(); };
+        }
     })();
 
     // swarf: Searchable Help — index of every named thing in swarf with a
@@ -962,6 +1088,7 @@ function setup_keybd_nav() {
             { kind:'run', name:'trace / air cut / cut', body:'each one opens a checklist first. trace runs the bit around the rectangle the cut fills, raised, router off; an air cut runs the whole file above the board; cut starts the router. a waiting button says what it still needs. a file that feeds the bit into the board with the router off is refused, whichever software made it: export it again.', tags:'trace air cut run checklist rectangle router off refused blocked' },
             { kind:'run', name:'jog', body:'opens on continuous at 1000 mm/min (40 in/min): hold an arrow or a button and it moves until you let go; no end stops on this machine, so let go in time. pick a step and each press moves that far. go-to buttons and home ask first. space or esc stops; while a job runs, any key pauses it.', tags:'jog move step continuous hold speed keys arrows' },
             { kind:'run', name:'table corners', body:"no home switches on this machine: put the bit over the table's front-left corner once and swarf learns it until the machine is switched off. then zero at, or go to, the front-left or front-right corner.", tags:'table corner absolute zero front left right' },
+            { kind:'run', name:'board thickness', body:"after the z plate touches, its card asks (if you like) for your board's thickness as you measured it with calipers. the machine cannot tell: it knows the top of the board, not the spoilboard. more than 1 mm from the job's thickness and the card says what follows: the cut stops short of going through, or goes into the spoilboard. it never stops you and never moves the machine.", tags:'board thickness measured calipers spoilboard stops short too thick too thin check job plate' },
             { kind:'run', name:'z plate', body:'finds the top of the board by touching the bit to a metal plate. put the plate and its clip away before you cut.', tags:'z plate touch off zero height' },
             { kind:'run', name:'router', body:'Porter-Cable 7518. swarf only switches it on and off; set its speed on its dial, 1 (10,000 rpm) to 5 (21,000).', tags:'router spindle porter cable dial rpm' },
             { kind:'run', name:'test cut', body:'learn the machine on scrap plywood. the square and the circle: a groove you measure with calipers. cut out a square: a part held by tabs.', tags:'test cut training lesson calibrate measure' },
@@ -1008,7 +1135,7 @@ function setup_keybd_nav() {
             { kind:'app', name:'size card', body:'pick a part and the size card shows its width, length and thickness. if they do not match your drawing, type the right size in the card.', tags:'size card width length height thickness scale resize dimensions' },
             { kind:'app', name:'steps', body:'the steps panel on the left: the material, the bits, then each step in the order it cuts. click a step to change its numbers.', tags:'steps step list panel left operations ops toolpaths' },
             { kind:'app', name:'add a step', body:'steps › add a step puts rough, contour, outline or pocket at the end of the list. advanced adds level, drill and trace.', tags:'add a step new step operation rough contour outline pocket' },
-            { kind:'app', name:'bits', body:'steps › bits opens the bit library: the shop\'s bits and their sizes, and any bit you add.', tags:'bits bit tool library tools endmills end mills cutters' },
+            { kind:'app', name:'bits', body:'steps › bits lists the bits this machine has: name, width, kind and part number, with the V-bits first, marked for carving. the list only reads: add a bit at its foot gives the list a new flat, ball or drill bit. with view › advanced on, edit in tool library changes or removes one, and adds a V-bit.', tags:'bits bit tool library tools endmills end mills cutters v-bit part number add a bit for carving' },
             { kind:'app', name:'toolpaths', body:'toolpaths, in the step row, makes the paths the bit will follow for every step and draws them on the bed. with no step yet it adds a rough step and says so. check them, then simulate.', tags:'toolpaths toolpath paths make generate preview step row' },
             { kind:'app', name:'clear', body:'clear, in the step row, wipes the toolpaths and the simulation off the bed. the parts and steps stay; press toolpaths to make the paths again. files › new takes everything off.', tags:'clear wipe reset paths simulation step row' },
             { kind:'app', name:'concerns', body:'the concerns tab, with its count, flags setup problems before you cut, each with what to do about it. click it to open the list.', tags:'concerns warning warnings problems check setup' },
@@ -1038,7 +1165,9 @@ function setup_keybd_nav() {
             { kind:'app', name:'undo', body:'edit › undo, or ⌘Z (Ctrl+Z): takes back the last change to the parts, tabs or steps, a delete too. edit › redo, or ⇧⌘Z, puts it back.', tags:'undo redo take back cmd-z ctrl-z mistake edit menu' },
             { kind:'app', name:'select all', body:'edit › select all, or ⌘A: picks every part on the bed, to move, size or delete them together. edit › delete, or the delete key, removes the picked parts (undo brings them back); with nothing picked it does nothing.', tags:'select all pick every part delete edit menu cmd-a' },
             { kind:'app', name:'export', body:'export (in the row, or file › export the machine file) makes the file the machine runs: name it, read how long it takes, how big it is, which bit and which material, and press save name.sbp. also save the project (.swarf) keeps the parts and steps to open again.', tags:'export save sbp file machine file gcode shopbot file' },
-            { kind:'app', name:'simulate', body:'watch the bit cut the board before the machine does. space plays and pauses; speed × runs it faster (1 is the machine\'s own speed); done says how much of the cut has run.', tags:'simulate simulator simulation play pause speed done preview' },
+            { kind:'app', name:'simulate', body:'watch the bit cut the board before the machine does. space plays and pauses; speed × runs it faster or slower, and the words beside it say how that compares with the real cut: about 30× real time means a 3 min job plays in 6 s. done says how much of the cut has run. the view frames the board beside the steps panel, looking down; F frames it again.', tags:'simulate simulator simulation play pause speed done preview real time how fast too fast seconds frame' },
+            { kind:'app', name:'copies', body:'edit › copies, or right-click a part › copies: how many across, how many back, and the gap between them (12 mm to start). the count includes the part you have. they stay on the bed: the card says if they run off it or land on another part, and make waits until they fit. tabs and marks come with each copy. one undo takes them all back.', tags:'copies copy rows columns grid array nest sheet of parts many repeat across back gap duplicate' },
+            { kind:'app', name:'fit to part', body:'view › fit to part, or F: brings the parts into view (in simulate, the board). a part sized or brought in so small that it would be under a fifth of the view is framed by itself.', tags:'fit frame zoom to part view small dot lost where is my part' },
             { kind:'app', name:'step boxes', body:'in simulate, the checkbox beside each step shows or hides that step\'s paths.', tags:'step boxes checkbox checkboxes show hide paths each step simulate simulator' },
             { kind:'app', name:'machine view', body:'simulate › machine shows the ShopBot around the board as it cuts. bed slides on: the bed slides under the gantry, as on the shop\'s ShopBot; off: the bed holds still and the gantry moves.', tags:'machine view bed slides gantry shopbot simulate simulator' },
             { kind:'app', name:'chips', body:'simulate › chips throws chips off the bit as it cuts and leaves them on the bed, tinted by the material. the swarf skin only (view › skin).', tags:'chips dust sawdust simulate simulator' },

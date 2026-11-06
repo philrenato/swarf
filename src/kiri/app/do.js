@@ -121,11 +121,13 @@ function action(rec) {
                 w.group = g;
             }
             try { for (let w of rec.widgets) api.platform.add(w, true, true); } finally { quiet = false; }
-            message(rec.widgets.length > 1 ? `${rec.widgets.length} parts are back` : 'the part is back');
+            message(rec.say || (rec.widgets.length > 1 ? `${rec.widgets.length} parts are back` : 'the part is back'));
             break;
         case 'remove':
             quiet = true;
-            try { api.platform.delete(rec.widgets.slice()); } finally { quiet = false; }
+            telling = !!rec.say;
+            try { api.platform.delete(rec.widgets.slice()); } finally { quiet = false; telling = false; }
+            if (rec.say) message(rec.say);
             break;
         // swarf: a step that puts its own state back (tabs: placed, moved, resized, deleted)
         case 'call':
@@ -159,6 +161,13 @@ api.doit.push = function(undo, redo, say = {}) {
 };
 
 let quiet = false;   // an undo or redo of a delete must not clear the stack it came from
+let telling = false; // this undo says what it did itself (the bed's "Deleted..." stays out of it)
+api.doit.telling = () => telling;
+api.doit.quiet = () => quiet;
+// swarf: parts made together and taken back together (copies): the reverse of a delete
+api.doit.made = function(widgets, say = {}) {
+    pushActions({ undo: { type: 'remove', widgets, say: say.undo }, redo: { type: 'restore', widgets, say: say.redo } });
+};
 // swarf: parts made and removed as part of another step (an inlay's plug, kept in step with its
 // mark) are that step's undo, not their own, and never clear the stack
 api.doit.quietly = function(fn) {

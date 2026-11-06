@@ -76,6 +76,7 @@
         : { label: 'stand it on its side', title: 'a quarter turn onto its long edge: to cut into that edge', run: () => { standOnEdge(w); said(`${who} stands on its long edge. Lay it flat from here again.`); } },
       { label: 'mirror', title: 'flipped left to right', run: () => { a.selection.mirror(); said(`Mirrored ${who}.`); } },
       { label: 'duplicate', title: 'a copy beside it', run: () => a.selection.duplicate() },
+      { label: 'copies…', title: 'rows and columns of it: how many across, how many back, and the gap', run: () => window.__swarfSize && window.__swarfSize.copies() },
       { sep: true },
       out
         ? { label: 'cut it in this run', title: 'tick it in objects again: its toolpaths come back', run: () => { a.platform.set_cut(list, true); said(`${who} will be cut in this run.`); } }

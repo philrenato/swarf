@@ -428,10 +428,13 @@ body.swarf-run-open { filter: none !important; }
 #swarf-run .sr-pad button:active, #swarf-run .sr-pad button.held { background: var(--c-red) !important; border-color: var(--c-red) !important; }
 #swarf-run .sr-pad button.held small, #swarf-run .sr-pad button:active small { color: #fff !important; }
 #swarf-run .sr-actions { grid-template-columns: repeat(3, 1fr) !important; }
+#swarf-run .sr-board-say { min-height: 1.4em; margin: 6px 0 0; font-size: 12px; line-height: 1.4; }
+#swarf-run .sr-board-say.warn { color: var(--swarf-amber, #d09020); font-weight: 600; }
 #swarf-run .sr-actions .stop { grid-column: span 2; }   /* while a job runs, stop is the biggest target (Interfacing review 10-28 #6) */
 #swarf-run .sr-actions button { padding: 14px 0 !important; font-size: 14px !important; }
 #swarf-run .sr-actions .cut:not(:disabled) { background: var(--c-red) !important; border-color: var(--c-red) !important; color: #fff !important; }
-#swarf-run .sr-actions .cut:disabled { background: var(--c-btn) !important; border-color: var(--c-bline) !important; }
+#swarf-run .sr-actions .cut:disabled, #swarf-run .sr-actions .cut.wait { background: var(--c-btn) !important; border-color: var(--c-bline) !important; }
+#swarf-run .sr-actions .cut.wait { color: var(--c-text) !important; }
 #swarf-run .sr-actions .stop { background: var(--c-red) !important; border-color: var(--c-red) !important; color: #fff !important; font-weight: 600 !important; }
 #swarf-run .sr-actions .trace.next { border-color: #a39a90 !important; box-shadow: none !important; }
 #swarf-run .sr-actions .pause, #swarf-run .sr-actions .stop { grid-column: span 1; }
@@ -1225,7 +1228,7 @@ html[data-skin] #swarf-run .sr-jog .sr-zrow button.next, html[data-skin] #swarf-
       const outer = outl.some(o => o.type === 'rough' || !o.inside), holes = outl.some(o => !o.omitthru && !o.omitvoid);
       for (const w of a.widgets.all()) {
         if (w.track.synth || w.meta.disabled) continue;
-        const name = (w.meta && w.meta.file || 'a part').replace(/\.[^.]+$/, '');
+        const name = a.platform.part_name ? a.platform.part_name(w) : (w.meta && w.meta.file || 'a part').replace(/\.[^.]+$/, '');
         const r = audit(w);
         if (outer && r.outerTabs === 0) out.push(`${name} is cut free with no tabs: it comes loose on the last pass and the bit can throw it. Add tabs in cam (tabs › auto tabs), or screw it down where the bit does not go.`);
         const loose = holes ? r.loose.filter(h => h.tabs === 0).length : 0;
@@ -1570,6 +1573,17 @@ html[data-skin] #swarf-run .sr-jog .sr-zrow button.next, html[data-skin] #swarf-
     const back = h('button', { text: 'cancel', onclick: () => { S.plateWatch = null; el.sheet.classList.remove('on'); refresh(); } });
     const put = h('input', { type: 'checkbox' });
     const pic = plateView();
+    // the board as measured, against the job (optional): the machine knows the top of the board and
+    // not the spoilboard, so only calipers can tell
+    const measured = h('input', { type: 'text', inputmode: 'decimal', class: 'sr-board-in', title: `Optional. Your board's thickness, measured with calipers (${inch() ? '3/4, 0.75 in or 19 mm' : '19 mm or 3/4 in'} all work). swarf compares it with the job: this never stops you and never moves the machine` });
+    const boardSay = h('p', { class: 'sr-board-say' });
+    measured.addEventListener('keydown', e => e.stopPropagation());
+    measured.addEventListener('input', () => {
+      const r = boardCheck(mmOf(measured.value));
+      boardSay.textContent = r ? r.text : '';
+      boardSay.classList.toggle('warn', !!(r && r.warn));
+      S.boardWarn = r && r.warn ? r.text : '';
+    });
     const show = () => {
       const all = checks.every(([k]) => boxes[k].checked);
       if (pic) pic.pose(zeroed ? 'away' : proved ? 'flat' : 'test');
@@ -1577,7 +1591,9 @@ html[data-skin] #swarf-run .sr-jog .sr-zrow button.next, html[data-skin] #swarf-
         body.innerHTML = '';
         body.append(h('h2', { text: 'Z is zero on top of your board' }),
           h('p', { text: 'Put the plate back where it lives and unclip the ground clip, so neither is near the bit when it cuts.' }),
-          h('label', {}, put, h('span', { text: 'the plate and the clip are put away' })));
+          h('label', {}, put, h('span', { text: 'the plate and the clip are put away' })),
+          h('div', { class: 'sr-plate-t' }, h('span', { text: 'your board, measured' }), measured, h('span', { text: `${inch() ? 'in' : 'mm'}: optional, with calipers` })),
+          boardSay);
         go.textContent = 'done'; go.disabled = !put.checked;
         go.title = go.disabled ? "Tick 'the plate and the clip are put away' first" : 'Close the card: Z is set';
         return;
@@ -1631,7 +1647,7 @@ html[data-skin] #swarf-run .sr-jog .sr-zrow button.next, html[data-skin] #swarf-
     });
     put.addEventListener('change', show);
     go.onclick = async () => {
-      if (zeroed) { S.plateUsed = false; el.sheet.classList.remove('on'); refresh(); return; }
+      if (zeroed) { S.plateUsed = false; el.sheet.classList.remove('on'); refresh(); if (S.boardWarn) { say(S.boardWarn, 'warn'); S.boardWarn = ''; } return; }
       go.disabled = true; go.textContent = 'touching off…';
       S.plateWatch = null;
       el.sheet.classList.remove('on');
@@ -1655,6 +1671,35 @@ html[data-skin] #swarf-run .sr-jog .sr-zrow button.next, html[data-skin] #swarf-
     el.card.append(...(pic ? [pic.el] : []), body, h('div', { class: 'row' }, back, go));
     show();
     el.sheet.classList.add('on');
+  }
+
+  // A measured board against this job (optional, on the plate card). The job's thickness is known for
+  // cam's own toolpaths (its tallest part being cut); a file brought in says only how deep it cuts.
+  // More than 1 mm apart is one sentence, what would follow. Null when nothing was typed.
+  function boardCheck(mm) {
+    if (!(mm > 0)) return null;
+    const P = S.prog;
+    let job = null;
+    if (P && P.source === 'cam') {
+      try {
+        for (const w of window.kiri.api.widgets.all()) {
+          if (w.meta && w.meta.disabled) continue;
+          const g = w.mesh.geometry; g.computeBoundingBox();
+          job = Math.max(job || 0, g.boundingBox.max.z - g.boundingBox.min.z);
+        }
+      } catch (e) { job = null; }
+    }
+    const moves = (P && P.parsed && P.parsed.moves) || [];
+    const deep = moves.reduce((d, m) => Math.max(d, -m.z), 0);
+    const mine = `Your board measures ${len(mm, 2)}`;
+    if (job) {
+      const off = mm - job, made = `the job was made for ${len(job, 2)}`;
+      if (Math.abs(off) <= 1) return { warn: false, text: `${mine}, within 1 mm of the job's ${len(job, 2)}.` };
+      if (off > 0) return { warn: true, text: deep >= job - 0.5 ? `${mine}; ${made}. The cut would stop ${len(mm - deep, 2)} short of going through.` : `${mine}; ${made}. Its deepest cut is ${len(deep, 2)} from the top, so it stays in the board: check this is the board you meant.` };
+      return { warn: true, text: deep > mm ? `${mine}; ${made}. The cut goes ${len(deep, 2)} down from the top, so it would go ${len(deep - mm, 2)} into the spoilboard.` : `${mine}; ${made}. Its deepest cut is ${len(deep, 2)} from the top, so it stays in the board: check this is the board you meant.` };
+    }
+    if (deep > mm + 1) return { warn: true, text: `${mine}; this file cuts ${len(deep, 2)} down from the top, so it would go ${len(deep - mm, 2)} into the spoilboard.` };
+    return { warn: false, text: `${mine}; this file cuts ${len(deep, 2)} down from the top, which stays in the board.` };
   }
 
   // The plate card's picture (Phil 10-28: the plate model, swarf-plate-model.js): the bit, the

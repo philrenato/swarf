@@ -2538,3 +2538,30 @@ html body .swarf-ctx button:hover, html body .swarf-ctx button:focus { backgroun
 html body .swarf-ctx button.danger { color: var(--swarf-accent, #c01d14); }
 html[data-skin="glass"] .swarf-ctx, html[data-skin="classic"] .swarf-ctx { background: rgba(251, 251, 250, 0.95); color: #1e1f20; }
 @media (pointer: coarse) { html body .swarf-ctx button { padding: 10px 12px; } }
+
+/* copies: the bed from above, on the card (review 105) */
+.swarf-copies-says { min-height: 1.4em; margin: 6px 0 0; font-size: 12px; text-align: center; }
+.swarf-copies .swarf-shape-prev svg { fill: none; }
+.swarf-copies .swarf-shape-prev .bed { fill: none; stroke: var(--swarf-text); stroke-opacity: .5; stroke-width: .5%; vector-effect: non-scaling-stroke; }
+.swarf-copies .swarf-shape-prev .mine { fill: var(--swarf-text); fill-opacity: .85; }
+.swarf-copies .swarf-shape-prev .new { fill: var(--swarf-accent); fill-opacity: .85; }
+.swarf-copies .swarf-shape-prev .other { fill: var(--swarf-text); fill-opacity: .25; }
+/* bits: swarf's own list, beside the steps; the menus stay free (review 105 F17) */
+#swarf-bits { position: fixed; left: 336px; top: 96px; width: min(520px, calc(100vw - 352px)); max-height: calc(100vh - 170px); z-index: 30; display: flex; flex-direction: column;
+  background: var(--swarf-bg-2); color: var(--swarf-text); border: 1px solid var(--swarf-line); border-radius: 8px; box-shadow: 0 8px 24px rgba(0,0,0,.35); font-size: 12px; }
+#swarf-bits .swarf-bits-head { display: flex; align-items: center; justify-content: space-between; padding: 8px 12px; border-bottom: 1px solid var(--swarf-line); }
+#swarf-bits .swarf-bits-list { overflow-y: auto; padding: 0 12px; }
+#swarf-bits table { width: 100%; border-collapse: collapse; }
+#swarf-bits th { text-align: left; font-weight: 600; padding: 6px 8px 4px 0; position: sticky; top: 0; background: inherit; }
+#swarf-bits .swarf-bits-list { background: inherit; }
+#swarf-bits table, #swarf-bits thead, #swarf-bits tr { background: inherit; }
+html[data-skin="glass"] #swarf-bits { background: #f4f5f6; }
+html[data-skin="classic"] #swarf-bits { background: #c0c0c0; }
+body.swarf-menu-open #swarf-bits { z-index: -1 !important; pointer-events: none; }
+#swarf-bits td { padding: 3px 8px 3px 0; border-top: 1px solid var(--swarf-line); white-space: nowrap; }
+#swarf-bits .swarf-bits-foot { display: flex; justify-content: space-between; gap: 8px; align-items: flex-start; padding: 8px 12px; border-top: 1px solid var(--swarf-line); }
+#swarf-bits .swarf-bits-row { display: flex; gap: 6px; flex-wrap: wrap; }
+#swarf-bits .swarf-bits-form { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-bottom: 6px; }
+#swarf-bits .swarf-bits-why { min-height: 1.2em; margin: 0 0 6px; color: var(--swarf-accent-hi); }
+#swarf-bits .swarf-bits-x { padding: 0 8px; }
+@media (max-width: 860px) { #swarf-bits { left: 8px; width: calc(100vw - 16px); } }

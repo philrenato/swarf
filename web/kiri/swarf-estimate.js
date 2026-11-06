@@ -170,6 +170,7 @@
 
   function paint() {
     const ok = current(), est = ok ? S.est : null;
+    showReal();
     const b = bar();
     if (b) {
       if (!est) { b.textContent = ''; b.title = ''; b.hidden = true; }
@@ -187,12 +188,29 @@
     }
   }
 
+  // simulate against the clock: the file's time for the part that played, over the time it took.
+  // A pause, a new speed or a start over begins the measure again; the last number stands meanwhile.
+  const R = { t0: 0, f0: 0, last: 0, f: 0 };
+  function realTime(frac) {
+    const now = performance.now();
+    if (!R.t0 || frac < R.f0 || now - R.last > 1200) { R.t0 = now; R.f0 = frac; }
+    R.last = now; R.f = frac;
+    showReal();
+  }
+  function showReal() {
+    const est = current() ? S.est : null, dt = (R.last - R.t0) / 1000, ran = (R.f || 0) - R.f0;
+    if (!R.t0 || !est || !(est.seconds > 0) || dt < (R.f >= 0.999 ? 0.05 : 0.4) || ran <= 0) return;
+    const x = ran * est.seconds / dt, e = document.getElementById('swarf-sim-real');
+    if (e) { e.textContent = `about ${x < 10 ? +x.toFixed(1) : Math.round(x)}× real time`; e.dataset.times = x.toFixed(2); }
+  }
+  window.addEventListener('swarf.speed.custom', () => { R.t0 = 0; });
+
   window.SwarfEstimateUI = {
     paint,
     request,
     // export timed the file itself: the same number, kept for the bar and the cards
     fromExport(est) { const a = api(); try { S.sig = a.function.workSig(); S.est = est; S.frac = 0; paint(); } catch (e) { /* no cam */ } },
-    simAt(frac) { const was = S.frac; S.frac = frac; if (Math.abs(frac - was) > 0.002 || frac >= 0.999) paint(); },
+    simAt(frac) { const was = S.frac; S.frac = frac; realTime(frac); if (Math.abs(frac - was) > 0.002 || frac >= 0.999) paint(); },
     state: () => ({ sig: S.sig, est: S.est, current: current(), frac: S.frac, text: el ? el.textContent : '' })
   };
 
@@ -200,7 +218,7 @@
     const a = api();
     if (!a || !a.event) return false;
     a.event.on('preview.end', () => setTimeout(request, 250));
-    for (const ev of ['slice.begin', 'function.animate', 'animate.end']) a.event.on(ev, () => { S.frac = 0; setTimeout(paint, 0); });
+    for (const ev of ['slice.begin', 'function.animate', 'animate.end']) a.event.on(ev, () => { S.frac = 0; R.t0 = 0; setTimeout(paint, 0); });
     // an edit (a step, a part moved or left out) makes the toolpaths old: the time goes with them
     setInterval(() => { if (S.est) paint(); }, 1500);
     return true;

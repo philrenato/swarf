@@ -18,6 +18,8 @@
         "'"
     ],
     "gcodePost": [
+        "'Lifting clear",
+        "JZ,25.4",
         "'Turning router OFF",
         "C7",
         "END",
