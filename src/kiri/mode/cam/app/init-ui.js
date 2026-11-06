@@ -346,6 +346,7 @@ export function opRender() {
     if (!opUnitsHooked && api.event) {
         opUnitsHooked = true;
         api.event.on('units.set', () => setTimeout(opRender, 0));
+        for (const ev of ['widget.add', 'widget.delete', 'selection.scale', 'settings.saved']) api.event.on(ev, () => setTimeout(paintStepLines, 0));
         // (whole-app review r086 C4) strategy's machinist rows (tool init, first z max, force z
         // max, engage factor) are advanced's; a student's strategy is ease down, depth first,
         // inner first and the ease angle
@@ -486,6 +487,8 @@ export function opRender() {
             clock ? '' :
                 `<label id="${mark + i}-x" class="del"><i class="fa-solid fa-xmark"></i></label>`,
             swarfFields ? `<label id="${mark + i}-c" class="swarf-op-chevron" title="edit parameters"><i class="fa-solid fa-chevron-down"></i></label>` : '',
+            // swarf: what the step does, in a line: its bit, how deep, how fast (review 105 F6, F18, M3)
+            clock ? '' : `<div class="swarf-op-sum" data-step="${env.current.process.ops.indexOf(rec)}"></div>`,
             drawerHtml,
             `</div>`
         ]);
@@ -495,6 +498,7 @@ export function opRender() {
     let listel = $('oplist');
     listel.innerHTML = html.join('');
     if (window.SwarfEstimateUI) window.SwarfEstimateUI.paint();
+    paintStepLines();
     let bounds = [];
     let unpop = null;
     let index = 0;
@@ -1302,4 +1306,35 @@ function animate() {
     STACKS.clear();
     animFn().animate(api);
     api.view.set_animate();
+}
+
+// swarf: the line under a step: its bit, how deep it goes and in how many passes, and the speed its
+// full-width pass really runs at when that is not the number on the card (prepare.js polyEmit)
+function stepLine(rec) {
+    const { process, tools, device } = api.conf.get();
+    const tool = (tools || []).find(t => t.id == rec.tool);
+    if (!tool) return '';
+    const L = self.SwarfLength, inch = opInch();
+    const len = mm => L ? L.say(mm) : `${+mm.toFixed(2)} mm`;
+    const bits = [tool.name || `bit #${tool.number}`];
+    const parts = api.widgets.all().filter(w => !w.track.synth && !w.meta.disabled);
+    const thick = Math.max(0, ...parts.map(w => { const b = w.getBoundingBox(); return b.max.z - b.min.z; }));
+    if (thick > 0 && (rec.type === 'outline' || rec.type === 'rough')) {
+        const passes = rec.down > 0 ? Math.ceil((thick + 0.01) / rec.down) : 1;
+        bits.push(`${len(thick)} deep, ${passes} pass${passes === 1 ? '' : 'es'}`);
+    }
+    if (rec.type === 'pocket') bits.push('down to the floor you pick');
+    if (rec.rate > 0 && rec.type === 'outline' && !(process.camFullEngage >= 1)) {
+        const band = /shopbot/i.test(device?.deviceName || '') ? 1500 : 0;
+        const slow = rec.rate * (process.camFullEngage || 0.8), real = rec.rate >= band ? Math.max(slow, band) : slow;
+        if (real < rec.rate - 0.5) bits.push(`full-width pass at ${inch ? `${Math.round(real / 25.4)} in/min` : `${Math.round(real)} mm/min`}`);
+    }
+    return bits.join(' · ');
+}
+function paintStepLines() {
+    const ops = env.current?.process?.ops || [];
+    for (const el of document.querySelectorAll('#oplist .swarf-op-sum')) {
+        const rec = ops[el.dataset.step], say = rec ? stepLine(rec) : '';
+        if (el.textContent !== say) el.textContent = say;
+    }
 }

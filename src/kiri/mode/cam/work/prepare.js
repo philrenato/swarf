@@ -30,6 +30,11 @@ export async function cam_prepare(widgets, settings, update) {
     const print = self.kiri_worker.current.print = newPrint(settings, active);
     const { order, origin } = settings;
 
+    // swarf: the job's top, over every part: a rapid clears the tallest part on the bed, not just the
+    // one being cut (review 105: a 9 mm plug beside a 19 mm board crossed 122 mm at Z -4.93, in the wood)
+    const { camStockIndexed, camStockOffset, camStockZ } = settings.process;
+    print.jobTopZ = camStockIndexed ? 0 : Math.max(0, ...active.map(w => camStockOffset ? w.getBoundingBox().dim.z + camStockZ : camStockZ));
+
     // wait for safe eval setup
     await print.ready();
 
@@ -51,12 +56,35 @@ export async function cam_prepare(widgets, settings, update) {
 
     let index = 0;
     let startPoint;
+    const says = (i) => (progress, msg) => update((i * weight + progress * weight) * 0.75, msg || "prepare");
+    const runs = [];
     for (let widget of active) {
-        startPoint = await prepare_one(widget, settings, print, startPoint, (progress, msg) => {
-            update((index * weight + progress * weight) * 0.75, msg || "prepare");
-        });
-        index++;
+        runs.push(prepare_open(widget, settings, print, undefined, says(index++)));
     }
+    // swarf: step by step across the parts, so a bit's work is done once on the whole sheet, not once a
+    // part (review 105 M1: three rings and two bits asked for six bit changes). Only when every part has
+    // the same list of plain steps; a flip, an index or a loop changes the part between steps.
+    const plain = runs.every(r => r.types.join() === runs[0].types.join() && !r.types.some(t => PART_BY_PART.has(t)));
+    const sequence = plain
+        ? runs[0].types.flatMap((_, i) => runs.map(r => [r, i]))
+        : runs.flatMap(r => r.types.map((_, i) => [r, i]));
+    let lastRun;
+    for (const [run, i] of sequence) {
+        // a step that cuts nothing here (no floor picked, a mark on another part) leaves no moves, and so
+        // no bit change or router start for nothing (review 105 F4)
+        const before = print.output.length, from = startPoint;
+        const point = await run.step(i, startPoint);
+        const made = print.output.slice(before);
+        const cuts = made.some(level => !Array.isArray(level) || level.some(p => p.gcode || p.emit));
+        if (made.length && !cuts && !run.keeps(i)) {
+            print.output.length = before;
+            startPoint = from;
+        } else if (made.length) {
+            startPoint = point;
+            lastRun = run;
+        }
+    }
+    if (lastRun) lastRun.close();
 
     // prune empty levels
     const output = print.output.filter(level => Array.isArray(level));
@@ -79,8 +107,11 @@ export async function cam_prepare(widgets, settings, update) {
     );
 };
 
-// process `prepare` paths for a single widget
-export async function prepare_one(widget, settings, print, firstPoint, update) {
+// steps that change the part or the machine for the steps after them: their part's steps stay together
+const PART_BY_PART = new Set(['flip', 'index', 'lathe', 'loop', 'register', 'gcode', 'laser-on', 'laser-off']);
+
+// process `prepare` paths for a single widget, a step at a time
+function prepare_open(widget, settings, print, firstPoint, update) {
 
     let { device, process, stock: set_stock } = settings,
         { center } = set_stock,
@@ -122,7 +153,7 @@ export async function prepare_one(widget, settings, print, firstPoint, update) {
     }
 
     let stockZ = stock.z * (camStockIndexed ? 0.5 : 1),
-        stockZClear = stockZ + camZClearance,
+        stockZClear = Math.max(stockZ, print.jobTopZ || 0) + camZClearance,
         widgetTrackTop = widget.track.top,
         widgetTopToStock = stockZ - widgetTrackTop,
         boundsZ = camStockIndexed ? stock.z / 2 : bounds.max.z + widgetTopToStock,
@@ -1082,11 +1113,11 @@ export async function prepare_one(widget, settings, print, firstPoint, update) {
         }
     }
 
-    for (let op of widget.camops) {
-        // Skip loop operations (they're expanded during slice)
-        if (op.op.type === 'loop') {
-            continue;
-        }
+    const steps = widget.camops.filter(op => op.op.type !== 'loop');
+
+    async function step(i, from) {
+        const op = steps[i];
+        if (from) printPoint = from;
         contouring = false;
         lasering = false;
         let cop = currentOp = op.op;
@@ -1112,21 +1143,29 @@ export async function prepare_one(widget, settings, print, firstPoint, update) {
                 newLayer();
             }
         }
+        return printPoint;
     }
 
-    // last layer/move is to zSafe
-    // re-inject that point into the last layer generated
-    if (printPoint && newOutput.length) {
-        let lastLayer = newOutput.filter(layer => Array.isArray(layer)).peek();
-        if (Array.isArray(lastLayer)) {
-            if (printPoint.z < stockZClear) printPoint.setZ(stockZClear);
-            print.addOutput(lastLayer, printPoint, 0, 0, tool);
+    function close() {
+        // last layer/move is to zSafe
+        // re-inject that point into the last layer generated
+        if (printPoint && newOutput.length) {
+            let lastLayer = newOutput.filter(layer => Array.isArray(layer)).peek();
+            if (Array.isArray(lastLayer)) {
+                if (printPoint.z < stockZClear) printPoint.setZ(stockZClear);
+                print.addOutput(lastLayer, printPoint, 0, 0, tool);
+            }
         }
+        // console.log("prepare output", newOutput);
+        // replace output single flattened layer with all points
+        print.output = newOutput;
+        return printPoint;
     }
 
-    // console.log("prepare output", newOutput);
-    // replace output single flattened layer with all points
-    print.output = newOutput;
-
-    return printPoint;
+    return {
+        types: steps.map(op => op.op.type),
+        keeps: i => PART_BY_PART.has(steps[i].op.type),
+        step,
+        close,
+    };
 }

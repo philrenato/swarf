@@ -445,7 +445,17 @@
     return { name: `${name} (from line ${line})`, moves, sbp, events, source: parsed, spindle: spindleOn };
   }
 
-  const api = { parse, boundsOf, cutBounds, movesToSbp, traceProgram, airProgram, fromLineProgram, entryMoves, routerOffCut };
+  // the first rapid that crosses below the top of the board (review 105: at rapid speed, through the wood)
+  function rapidAcross(parsed) {
+    return parsed.moves.find(m => m.rapid && Math.min(m.z, m.z0) < -0.05 && Math.hypot(m.x - m.x0, m.y - m.y0) > 0.05) || null;
+  }
+  // the first rapid straight down below the top of the board; swarf's own files drop to just over a
+  // thinner part on the same bed, so a word, not a refusal
+  function rapidDown(parsed) {
+    return parsed.moves.find(m => m.rapid && m.z < m.z0 && m.z < -0.05 && Math.hypot(m.x - m.x0, m.y - m.y0) <= 0.05) || null;
+  }
+
+  const api = { parse, boundsOf, cutBounds, movesToSbp, traceProgram, airProgram, fromLineProgram, entryMoves, routerOffCut, rapidAcross, rapidDown };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.SwarfRunParse = api;
 })(typeof window !== 'undefined' ? window : globalThis);

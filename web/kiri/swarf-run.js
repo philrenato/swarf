@@ -1254,7 +1254,7 @@ html[data-skin] #swarf-run .sr-jog .sr-zrow button.next, html[data-skin] #swarf-
     const b = P.cutBounds(p);
     const L = M.LIMITS;
     // Z: the file's whole rise and fall within the axis' travel, and a word on deep cuts and on
-    // rapids into the board (torture test 10-29: Z 500, 45 mm deep and G0 to Z -5 all passed)
+    // rapids into the board (torture test 10-29: Z 500, 45 mm deep and G0 to Z -5 all passed; review 105: a crossing blocks)
     const all = P.boundsOf(p.moves);
     if (all) {
       const span = all.max.z - all.min.z, travel = L.z[1] - L.z[0];
@@ -1263,8 +1263,9 @@ html[data-skin] #swarf-run .sr-jog .sr-zrow button.next, html[data-skin] #swarf-
     }
     if (b && b.min.z < -38.1) out.warn.push(`The cut goes ${prose(-b.min.z)} deep, more than most router bits reach (${inch() ? '1 1/2 in' : '38 mm, 1 1/2 in'}). Check the file and that the bit is long enough.`);
     if (b && b.min.z < 0) {
-      const dive = p.moves.find(m => m.rapid && Math.min(m.z, m.z0) < -0.05 && Math.hypot(m.x - m.x0, m.y - m.y0) > 0.05);
-      if (dive) out.warn.push(`Line ${dive.line}: a rapid move goes across below the top of the board (Z ${Math.min(dive.z, dive.z0).toFixed(1)}): at rapid speed through the wood. Check the file.`);
+      const dive = P.rapidAcross(p), down = P.rapidDown(p);
+      if (dive) out.block.push(`Line ${dive.line}: a rapid move goes across below the top of the board (Z ${Math.min(dive.z, dive.z0).toFixed(1)}): at rapid speed through the wood. Make the toolpaths again and export a new file.`);
+      if (down) out.warn.push(`Line ${down.line}: a rapid move comes straight down to Z ${down.z.toFixed(1)}, below the top of the board. That is fine over a thinner part on the bed, not over the board: check the file.`);
     }
     // a bit fed into the board with the router off breaks (review 105): the file's own switches, read in order
     const dead = P.routerOffCut(p);

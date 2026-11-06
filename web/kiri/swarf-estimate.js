@@ -172,9 +172,12 @@
     const ok = current(), est = ok ? S.est : null;
     const b = bar();
     if (b) {
-      if (!est) { b.textContent = ''; b.title = ''; b.hidden = true; }
+      // out of date, or never made (a reload keeps the job, not the paths): said where the time was (review 105 F8, F19)
+      const had = S.est && !ok;
+      if (!est && had) { b.hidden = false; b.classList.add('stale'); b.textContent = 'changed: press toolpaths again'; b.title = 'the steps or the part changed since the toolpaths. Export and control make them again by themselves; simulate shows the old ones until you do.'; }
+      else if (!est) { b.textContent = ''; b.title = ''; b.hidden = true; b.classList.remove('stale'); }
       else {
-        b.hidden = false;
+        b.hidden = false; b.classList.remove('stale');
         const left = S.frac > 0.001 && S.frac < 0.999 ? ` · ${E.short(est.seconds * (1 - S.frac))} left` : '';
         b.textContent = E.words(est.seconds) + (est.changes ? ` + ${est.changes} bit change${est.changes > 1 ? 's' : ''}` : '') + left;
         b.title = breakdown(est);
@@ -185,6 +188,12 @@
       t.textContent = sec > 0 ? E.short(sec) : '';
       t.title = sec > 0 ? `about ${E.short(sec)} on the ShopBot` : '';
     }
+    // on the step row too, where cam is working: the bar above only shows in simulate
+    const stale = document.getElementById('swarf-paths-stale') || (() => {
+      const row = document.getElementById('act-paths'); if (!row) return null;
+      const e = document.createElement('em'); e.id = 'swarf-paths-stale'; e.textContent = 'changed'; e.title = 'the steps or the part changed since the toolpaths: press toolpaths again'; row.append(e); return e;
+    })();
+    if (stale) stale.hidden = !(S.est && !ok);
   }
 
   window.SwarfEstimateUI = {

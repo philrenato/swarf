@@ -15,7 +15,8 @@ import { hash } from '../../ext/md5.js';
  * Sequential print counter for generating unique export filenames.
  * Increments with each export and persists in local storage.
  */
-let printSeq = parseInt(local['kiri-print-seq'] || local['print-seq'] || "0") + 1;
+// swarf: the first file on a computer is -001 (review 105 P1: it was -002)
+let printSeq = parseInt(local['kiri-print-seq'] || local['print-seq'] || "0");
 
 function localGet(key) {
     return api.local.get(key);
@@ -167,7 +168,7 @@ function callExportSLA(options, names) {
  * @param {string[]} names - Widget filenames for naming suggestion
  */
 function exportLaserDialog(data, names) {
-    localSet('kiri-print-seq', printSeq++);
+    localSet('kiri-print-seq', ++printSeq);
 
     const fileroot = names[0] || "laser";
     const filename = names.project ? fileroot : `${fileroot}-${(printSeq.toString().padStart(3,"0"))}`;
@@ -277,12 +278,20 @@ function swarfExportCard(on, { filename, fileext, info, download, sections, gcod
     const mat = msel && msel.selectedOptions[0] ? msel.selectedOptions[0].textContent.trim() : '';
     const facts = [time, size, bits.length > 2 ? `${bits.length} bits` : bits.join(', then '), mat].filter(Boolean).join(' · ');
     const expert = document.body.classList.contains('swarf-expert');
+    // what is still wrong travels with the file: in the concerns' own words, the save says it knows
+    // (review 105 F2, M5). A file with no cutting at all has nothing to save (m6).
+    let open = [];
+    try { open = window.__swarfConcernsNow ? window.__swarfConcernsNow() : []; } catch (e) { /* not ready */ }
+    const nothing = gcodeText && !/^\s*(G0?1|G0?2|G0?3|M[23XYZ]|C[WC])\b/m.test(gcodeText);
+    const big = open.some(c => /bigger than the/.test(c.title));
+    const sayOpen = open.length ? `<div class="swarf-x-concerns"><b>${open.length === 1 ? 'One concern is' : `${open.length} concerns are`} still open</b><ul>${open.slice(0, 4).map(c => `<li>${esc(c.title)}<em>${esc(c.hint || '')}</em></li>`).join('')}</ul>${open.length > 4 ? `<p>and ${open.length - 4} more, under concerns.</p>` : ''}</div>` : '';
     card = document.createElement('div');
     card.className = 'swarf-x-card';
     card.innerHTML = `<h3>Save the ${esc(machine)} file</h3>`
         + `<p class="swarf-x-why">${shopbot ? '<b>control</b> runs it on the ShopBot.' : `The file the ${esc(machine)} runs: take it to the machine.`}</p>`
         + `<label class="swarf-x-name"><span>name</span><input type="text" spellcheck="false" autocomplete="off"/><em>.${esc(ext)}</em></label>`
         + `<p class="swarf-x-facts">${esc(facts)}</p>`
+        + (nothing ? `<p class="swarf-x-nothing">This file cuts nothing: every step is empty or left out. Check the steps and the ticks in objects.</p>` : sayOpen)
         + `<div class="swarf-x-row"><button class="swarf-x-proj" type="button" title="the parts, the steps and the settings, to open again in swarf">also save the project (.swarf)</button>`
         + (expert && sections ? `<button class="swarf-x-zip" type="button" title="a separate file for each step, in one .zip">one file per step (.zip)</button>` : '')
         + `<span class="grow"></span><button class="swarf-x-go" type="button"></button></div>`;
@@ -291,7 +300,8 @@ function swarfExportCard(on, { filename, fileext, info, download, sections, gcod
     const go = card.querySelector('.swarf-x-go');
     const kiriName = $('print-filename');
     const clean = v => String(v || '').trim().replace(/\.(sbp|nc|gcode|tap|txt)$/i, '').replace(/[\\/:*?"<>|]+/g, '-') || filename;
-    const paint = () => { go.textContent = `save ${clean(name.value)}.${ext}`; };
+    const paint = () => { go.textContent = `${open.length ? 'save anyway' : 'save'} ${clean(name.value)}.${ext}`; };
+    go.disabled = !!nothing;
     name.value = filename;
     paint();
     name.addEventListener('input', paint);
@@ -300,7 +310,7 @@ function swarfExportCard(on, { filename, fileext, info, download, sections, gcod
         if (kiriName) kiriName.value = clean(name.value);
         download();
         api.modal.hide();
-        api.show.alert(`Saved ${clean(name.value)}.${ext}${shopbot ? ': open it in control to cut it.' : '.'}`, 6);
+        api.show.alert(`Saved ${clean(name.value)}.${ext}${shopbot ? (big ? ': control refuses it until it fits the bed.' : ': open it in control to cut it.') : '.'}`, 6);
     };
     card.querySelector('.swarf-x-proj').onclick = () => {
         api.modal.hide();
@@ -325,7 +335,7 @@ function swarfExportCard(on, { filename, fileext, info, download, sections, gcod
  * @param {string[]} names - Widget filenames for naming suggestion
  */
 function exportGCodeDialog(gcode, sections, info, names) {
-    localSet('kiri-print-seq', printSeq++);
+    localSet('kiri-print-seq', ++printSeq);
 
     let settings = api.conf.get(),
         MODE = api.mode.get_id(),

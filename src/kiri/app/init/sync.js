@@ -692,6 +692,15 @@ function setup_keybd_nav() {
         document.addEventListener('click', (e) => {
             if (!wrap.contains(e.target)) wrap.classList.remove('open');
         });
+        // the fix is here too, and the panel closes off what it points at (review 105 F9)
+        body.addEventListener('click', e => {
+            if (e.target.closest('.swarf-concerns-x')) { wrap.classList.remove('open'); return; }
+            if (e.target.closest('.swarf-concern-fix')) {
+                wrap.classList.remove('open');
+                try { api.platform.select_all(); } catch (err) { /* nothing to pick */ }
+                document.getElementById('swarf-autotabs-go')?.click();
+            }
+        });
         // (review r086 F2) the pill docks under the right rail, never inside its panels: its top
         // follows the rail's bottom as panels open, close and scroll; with no rail it keeps its corner
         const dock = () => {
@@ -880,6 +889,45 @@ function setup_keybd_nav() {
                     }
                 }
             } catch (e) { /* tabs not ready yet */ }
+            // an outline only goes where its bit fits: a smaller hole is left out of the file (review 105 M2)
+            try {
+                const proc = api.conf.get().process || {}, audit = window.__swarfAutoTabs && window.__swarfAutoTabs.audit;
+                const outl = (proc.ops || []).filter(o => o && o.type === 'outline' && !o.disabled && !o.omitthru && !o.omitvoid);
+                const tools = api.conf.get().tools || [], dia = o => { const t = tools.find(x => x.id == o.tool); return t ? (t.metric ? t.flute_diam : t.flute_diam * 25.4) : 0; };
+                const least = outl.length ? Math.min(...outl.map(dia).filter(d => d > 0)) : 0;
+                if (least > 0 && audit) for (const w of api.widgets.all()) {
+                    if (w.track.synth || w.meta.disabled) continue;
+                    const small = (audit(w).holes || []).filter(h => h < least);
+                    if (!small.length) continue;
+                    const name = (w.meta && w.meta.file || 'a part').replace(/\.[^.]+$/, ''), say = window.SwarfLength ? window.SwarfLength.say : (v => `${v} mm`);
+                    warnings.push({
+                        title: `${small.length} hole${small.length === 1 ? '' : 's'} in ${name} too small for the bit`,
+                        body: `${small.length === 1 ? 'a hole' : `${small.length} holes`} ${say(Math.min(...small))}${small.length === 1 ? '' : ' or more'} across: the ${say(least)} bit does not fit, so the file leaves ${small.length === 1 ? 'it' : 'them'} out.`,
+                        hint: `pick a bit under ${say(Math.min(...small))} for the outline, or make the hole bigger` });
+                }
+            } catch (e) { /* tabs not ready yet */ }
+            // deeper than a router bit reaches (review 105 F11): the shop's bits reach about 1 in (index.html: the shop's bits)
+            try {
+                const { process: proc, tools } = api.conf.get();
+                const thick = Math.max(0, ...api.widgets.all().filter(w => !w.track.synth && !w.meta.disabled).map(w => { const b = w.getBoundingBox(); return b.max.z - b.min.z; }));
+                for (const o of (proc.ops || [])) {
+                    if (!o || o.disabled || (o.type !== 'outline' && o.type !== 'rough')) continue;
+                    const t = (tools || []).find(x => x.id == o.tool);
+                    if (!t) continue;
+                    const flute = (t.flute_len || 0) * (t.metric ? 1 : 25.4), reach = Math.max(25.4, flute), say = window.SwarfLength ? window.SwarfLength.say : (v => `${v} mm`);
+                    if (thick > reach + 0.5) warnings.push({
+                        title: `the board is deeper than ${t.name || 'the bit'} reaches`,
+                        body: `the ${o.type} goes ${say(thick)} down; this bit reaches about ${say(reach)} before its shank rubs.`,
+                        hint: 'use a longer bit, or a thinner board' });
+                }
+            } catch (e) { /* no tools yet */ }
+            // flip's own moves are not in the file: turning the part is the student's (review 105 M6)
+            try {
+                if ((api.conf.get().process.ops || []).some(o => o && o.type === 'flip' && !o.disabled)) warnings.push({
+                    title: 'a flip step does not turn the board',
+                    body: 'the file holds no stop for it, and both sides are cut as the part lies now.',
+                    hint: 'for a second side, export this side, then right-click › turn it over and make a second file' });
+            } catch (e) { /* no process yet */ }
             // a pocket with no floor picked makes no moves, and looked done (review 105 F4)
             try {
                 for (const o of (api.conf.get().process.ops || [])) {
@@ -894,9 +942,24 @@ function setup_keybd_nav() {
             try { if (window.__swarfTex) warnings.push(...window.__swarfTex.concerns()); } catch (e) { /* tex not ready */ }
             render(warnings);
         }
+        // export asks for them fresh (review 105 F2, M5)
+        window.__swarfConcernsNow = () => { evaluate(); return lastConcerns; };
+        let lastConcerns = [];
         function render(warnings) {
             const seen = new Set();
             warnings = warnings.filter(w => { const k = w.title + '|' + w.body; if (seen.has(k)) return false; seen.add(k); return true; });
+            // one line a part, not one a letter (review 105 P2, F9): "RENATO-2 is cut free" folds into RENATO
+            const folded = new Map();
+            warnings = warnings.filter(w => {
+                const m = /^(.+?)-\d+ (is cut free with no tabs)$/.exec(w.title) || /^(.+?) (is cut free with no tabs)$/.exec(w.title);
+                if (!m) return true;
+                const k = m[1];
+                if (folded.has(k)) { folded.get(k).n++; return false; }
+                folded.set(k, Object.assign(w, { n: 1, stem: k, words: m[2] }));
+                return true;
+            });
+            for (const w of folded.values()) if (w.n > 1) w.title = `${w.stem}: ${w.n} pieces are cut free with no tabs`;
+            lastConcerns = warnings;
             count.textContent = String(warnings.length);
             tab.classList.toggle('has-warnings', warnings.length > 0);
             if (warnings.length === 0) {
@@ -906,8 +969,8 @@ function setup_keybd_nav() {
             // a concern's title carries a file name: text, never markup (deep review 10-31, as M1)
             const esc = t => String(t ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
             body.innerHTML = warnings.map(w =>
-                `<div class="swarf-concern"><strong>${esc(w.title)}</strong>${esc(w.body)}<em>${esc(w.hint)}</em></div>`
-            ).join('');
+                `<div class="swarf-concern"><strong>${esc(w.title)}</strong>${esc(w.body)}<em>${esc(w.hint)}</em>${/cut free with no tabs/.test(w.title) ? '<button type="button" class="swarf-concern-fix">auto tabs</button>' : ''}</div>`
+            ).join('') + '<button type="button" class="swarf-concerns-x" title="close" aria-label="close concerns">×</button>';
         }
         evaluate();
         // re-evaluate on settings + op changes

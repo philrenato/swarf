@@ -442,7 +442,7 @@ export function autoAudit(widget, opt = {}) {
         return bd <= (r.dim.x || 0) / 2 + 2 ? best : -1;
     });
     let outerTabs = 0;
-    const loose = [];
+    const loose = [], holes = [];
     loops.forEach((loop, li) => {
         const depth = loops.reduce((c, other, oi) => c + (oi !== li && inside(loop[0], other) ? 1 : 0), 0);
         const tabs = on.filter(i => i === li).length;
@@ -450,9 +450,10 @@ export function autoAudit(widget, opt = {}) {
         let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
         for (const p of loop) { x0 = Math.min(x0, p.x); y0 = Math.min(y0, p.y); x1 = Math.max(x1, p.x); y1 = Math.max(y1, p.y); }
         const across = Math.min(x1 - x0, y1 - y0);
+        holes.push(Math.round(across * 10) / 10);
         if (across >= holeMin) loose.push({ across: Math.round(across * 10) / 10, tabs });
     });
-    const out = { outerTabs, loose, holeMin, loops: loops.length };
+    const out = { outerTabs, loose, holes, holeMin, loops: loops.length };
     audits.set(widget.id, { key, out });
     return out;
 }
