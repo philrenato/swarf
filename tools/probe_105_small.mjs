@@ -70,7 +70,8 @@ const steps = {
     check(/shapes \(2 pieces\)/.test(strip), `the size strip the same: "${strip}"`);
     await page.evaluate(() => [...document.querySelectorAll('#op-add-list > div')].find(d => d.textContent.trim() === 'outline').click()); await wait(700);
     const titles = await page.evaluate(() => [...document.querySelectorAll('#swarf-concerns-body .swarf-concern strong')].map(s => s.textContent));
-    check(titles.some(t => /^shapes piece 1\b/.test(t)) && titles.some(t => /^shapes piece 2\b/.test(t)), `concerns the same: ${titles.join(' | ')}`);
+    // the pieces of one drawing fold into one line (sync.js)
+    check(titles.some(t => /^shapes: 2 pieces are cut free/.test(t)), `concerns the same: ${titles.join(' | ')}`);
     check(!titles.some(t => /shapes-2/.test(t)), 'no "shapes-2" to puzzle over');
     // two things picked count as two things
     await h.part(rect(40, 40), 'other');

@@ -787,6 +787,7 @@ function changed() {
     const lead = w => !w.group || w.group.length < 2 || w.group[0] === w;
     h.bind($('ws-widgets'), api.widgets.all().filter(lead).map(w => {
         let color;
+        const many = w.group && w.group.length > 1;
         let fsho = partName(w, true);
         let file = fsho;
         return [
