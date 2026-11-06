@@ -57,6 +57,14 @@ try {
   const button = await page.evaluate(() => { const d = [...document.querySelectorAll('#op-add-list > div')].find(d => d.textContent.trim() === 'drill'); return d && { seen: !!d.offsetParent, title: d.title, expert: document.body.classList.contains('swarf-expert') }; });
   check(button && button.seen && !button.expert && button.title.length > 20, `drill is in add a step, not advanced, and says what it does (${JSON.stringify(button)})`);
 
+  // every basic step in sight, with a list of steps open above them, not cut off by the panel
+  const inSight = () => page.evaluate(() => [...document.querySelectorAll('#op-add-list > div')].filter(d => d.offsetParent).map(d => { const r = d.getBoundingClientRect(), hit = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2); return [d.textContent.trim(), hit === d]; }));
+  await part(board(120, 80, [[30, 40, 6]]), 'board', 19);
+  for (const t of ['pocket', 'drill', 'outline']) await add(t);
+  await page.evaluate(() => { for (const c of document.querySelectorAll('#oplist .swarf-op-chevron')) c.click(); }); await wait(500);
+  const sight = await inSight();
+  check(sight.length === 5 && sight.every(s => s[1]), `all five steps in sight under three open steps (${JSON.stringify(sight)})`);
+
   // ── circles drawn in DRAW, with the mouse ──
   await fresh();
   await page.click('#swarf-step-draw');

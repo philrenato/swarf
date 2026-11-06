@@ -36,6 +36,8 @@ try {
   const r = await route();
   check(r && /no recess/.test(r.say) && /depth you type/.test(r.say), `the pocket card says it in a sentence (${r && r.say})`);
   check(r && r.word === 'pocket in tex' && r.seen && r.tip.length > 20, `with a button and a tooltip (${r && r.word}: ${r && r.tip})`);
+  const cased = await page.evaluate(() => getComputedStyle(document.querySelector('#oplist .swarf-op-route')).textTransform);
+  check(cased === 'none', `the sentence shows in sentence case (text-transform ${cased})`);
   check((await titles()).includes(NOTHING), 'and the concern stands: it does have nothing to clear');
   await page.evaluate(() => document.querySelector('#oplist .swarf-op-route button').click());
   await page.waitForFunction(() => window.__swarfTex.state(), { timeout: 15000 }); await wait(500);
