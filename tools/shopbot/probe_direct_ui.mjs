@@ -255,12 +255,13 @@ try {
     // 10-28: trace asks first, like cut
     await runCut('trace'); await page.evaluate(() => document.querySelector('#swarf-run .sr-sheet.on .go').click()); await idle();
     await new Promise(r => setTimeout(r, 300));
-    // 11-04 (Phil): an air cut runs at the real speed, with a slider to hurry it; a real cut keeps its ±5 %
+    // 11-04 (Phil): an air cut has a slider to hurry it; a real cut keeps its ±5 %. 11-09: it starts at 75 %
+    // (at the cutting speed the ShopBot was resonant)
     await runCut('air cut'); await page.evaluate(() => document.querySelector('#swarf-run .sr-sheet.on .go').click());
     await page.waitForFunction(() => window.__swarfRun.state.machine.state.running, { timeout: 5000 });
     await new Promise(r => setTimeout(r, 300));
     const ar0 = await page.evaluate(() => { const r = document.querySelector('#swarf-run .sr-airspeed'), o = document.querySelector('#swarf-run .sr-ovr:not(.sr-airspeed)'), m = window.__swarfRun.state.machine; return { slider: getComputedStyle(r).display !== 'none', ovr: getComputedStyle(o).display !== 'none', rate: m.planner.rate, val: r.querySelector('input').value }; });
-    check(ar0.slider && !ar0.ovr && ar0.rate === 1 && ar0.val === '100', `an air cut shows the speed slider at 100 %, not the ±5 % (${JSON.stringify(ar0)})`);
+    check(ar0.slider && !ar0.ovr && ar0.rate === 0.75 && ar0.val === '75', `an air cut starts at 75 % with the speed slider, not the ±5 % (${JSON.stringify(ar0)})`);
     const ar1 = await page.evaluate(() => new Promise(res => { const i = document.querySelector('#swarf-run .sr-airspeed input'); i.value = 400; i.dispatchEvent(new Event('input', { bubbles: true })); setTimeout(() => { const m = window.__swarfRun.state.machine; res({ rate: m.planner.rate, st: m.state.rate, say: document.querySelector('#swarf-run .sr-airspeed b').textContent }); }, 400); }));
     check(ar1.rate === 4 && ar1.st === 400 && /^400%/.test(ar1.say), `dragging it to 400 % reaches the planner (${JSON.stringify(ar1)})`);
     await page.screenshot({ path: `${OUT}/air-speed.png` });
@@ -408,7 +409,7 @@ try {
     if (kz2) await page.evaluate(() => document.querySelector('#swarf-run .sr-keepzero').click());
     await new Promise(r => setTimeout(r, 200));
     const kept = await page.evaluate(() => ({ xy: window.__swarfRun.state.zeroXY, z: window.__swarfRun.state.zeroZ }));
-    check(/use the zero you set at .* \(X Y and Z\)/.test(kz2) && kept.xy && kept.z, `a new file: one press keeps the zero ("${kz2.slice(0, 60)}", ${JSON.stringify(kept)})`);
+    check((!kz2 || /use the zero you set at .* \(X Y and Z\)/.test(kz2)) && kept.xy && kept.z, `a new file: the zero is kept, at once or with one press ("${kz2.slice(0, 60)}", ${JSON.stringify(kept)})`);
     for (const t of ['zero x y', 'zero z']) {
       await page.evaluate(t => { const b = [...document.querySelectorAll('button')].find(b => b.textContent.trim() === t); if (b) b.click(); }, t);
       await new Promise(r => setTimeout(r, 300));

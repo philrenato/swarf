@@ -17,9 +17,8 @@ export function encode(recs, header = '# Generated @ https://grid.space') {
         let { file, varr } = rec;
         obj.push(`g ${file || 'unnamed'}`);
         for (let i=0; i<varr.length; p += 3) {
-            obj.push(`v ${varr[i++]} ${varr[i++]} ${varr[i++]}`);
-            obj.push(`v ${varr[i++]} ${varr[i++]} ${varr[i++]}`);
-            obj.push(`v ${varr[i++]} ${varr[i++]} ${varr[i++]}`);
+            // swarf: written Y up, as parse() reads it (x, z, -y)
+            for (let k = 0; k < 3; k++, i += 3) obj.push(`v ${varr[i]} ${varr[i+2]} ${-varr[i+1]}`);
             obj.push(`f ${p} ${p+1} ${p+2}`);
         }
     }
@@ -60,7 +59,10 @@ export function parse(text) {
                 if (v.length < 3) {
                     console.log('??',toks,line);
                 }
-                verts.push(v);
+                // swarf 11-09: an OBJ is Y up (the format's habit; Rhino's export maps Z to Y by
+                // default, Blender's too). Phil's test.obj stood a board on its edge: turn Y up to
+                // Z up, so a part comes in lying as it was drawn.
+                verts.push([v[0], -v[2], v[1]]);
                 break;
             case 'f':
                 let tok = toks.map(f => parseInt(f.split('/')[0]));

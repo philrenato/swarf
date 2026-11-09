@@ -304,13 +304,18 @@
     polylines = [[]];
     const top = boardTop();
     const meshes = stack.obj.meshes || [];
+    // Phil 11-09 (test.stl): a cut-out's straight sides are single moves 168 and 610 mm long, and the
+    // old "longer than 50 mm is a rapid" rule dropped them, so the trail showed only the curve and the
+    // part read as half cut. The stack now names each mesh's layer: take the cuts, at any length.
+    const named = meshes.some(m => m && m.userData && m.userData.layer);
     let kept = 0;
     for (const m of meshes) {
       if (!m || !m.geometry) continue;
+      if (named && m.userData.layer !== 'milling') continue;
       for (const seg of extractSegments(m.geometry)) {
         const a = seg[0], b = seg[1];
         const d = Math.hypot(b.x - a.x, b.y - a.y, b.z - a.z);
-        if (d < 1e-4 || d > BREAK_3D_MM) continue;
+        if (d < 1e-4 || (!named && d > BREAK_3D_MM)) continue;
         const c = clip(a, b, top);
         if (!c) continue;
         polylines.push(c);
@@ -373,6 +378,10 @@
   // for the probes: each step's drawn segments, and whether its box hides them
   // which look draws the trail now (probe_skin_trail.mjs)
   window.__swarfLSLook = () => ({ light: !!(core && core.visible), look: !!(look && look.visible), mode: look ? look.material.uniforms.mode.value : null });
+  // the trail's extent in X and Y (probe_cutout_perimeter: a cut-out's long straight sides are in it)
+  window.__swarfLSSpan = () => { let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity, n = 0; for (const pl of polylines) for (const p of pl) { n++; if (p.x < x0) x0 = p.x; if (p.x > x1) x1 = p.x; if (p.y < y0) y0 = p.y; if (p.y > y1) y1 = p.y; } return { x0, y0, x1, y1, n }; };
+  // how far a point (x, y) is from the trail, in XY (probe_cutout_perimeter: the middle of each side)
+  window.__swarfLSNear = (x, y) => { let best = Infinity; for (const pl of polylines) for (let i = 0; i + 1 < pl.length; i++) { const a = pl[i], b = pl[i + 1], dx = b.x - a.x, dy = b.y - a.y, L = dx * dx + dy * dy; const t = L ? Math.max(0, Math.min(1, ((x - a.x) * dx + (y - a.y) * dy) / L)) : 0; best = Math.min(best, Math.hypot(a.x + t * dx - x, a.y + t * dy - y)); } return best; };
   window.__swarfLSSteps = () => { const o = {}; for (const pl of polylines) { const k = String(pl.step); o[k] = o[k] || { segs: 0, hidden: hidden.has(pl.step) }; o[k].segs += Math.max(0, pl.length - 1); } return o; };
   function newLine(step) { const l = []; l.step = step; polylines.push(l); return l; }
 

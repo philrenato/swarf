@@ -339,7 +339,7 @@
       if (!last || Math.hypot(last.x - m.x0, last.y - m.y0, last.z - m.z0) > 1e-6) {
         out.push(`J3,${f3(m.x0)},${f3(m.y0)},${f3(m.z0 + dz)}`);
       }
-      const sp = Math.round((m.feed || 25) * 100) / 100;
+      const sp = Math.round((m.feed || 25) * (o.rate || 1) * 100) / 100;
       if (m.rapid) {
         if (js !== sp) { out.push(`JS,${sp},${sp}`); js = sp; }
         out.push(`J3,${f3(m.x)},${f3(m.y)},${f3(m.z + dz)}`);
@@ -389,12 +389,15 @@
 
   // Air cut: the whole program lifted so its deepest point sits `clear` mm
   // above zero, spindle never started.
+  // an air cut runs at 75 % of the file's feeds (Phil 11-09: at the cutting speed it was resonant on the
+  // ShopBot); swarf-shopbot-direct.js starts its live slider at the same 75
+  const AIR_RATE = 0.75;
   function airProgram(parsed, clear, name, safeZ) {
     const b = boundsOf(parsed.moves);
     if (!b) return null;
     const dz = Math.max(0, clear - b.min.z);
     const moves = parsed.moves.map(m => ({ ...m, z0: m.z0 + dz, z: m.z + dz }));
-    return { name: name + ' (air)', moves, dz, sbp: movesToSbp(parsed.moves, { name: name + ' air cut', dz, safeZ }), source: parsed, spindle: false };
+    return { name: name + ' (air)', moves, dz, sbp: movesToSbp(parsed.moves, { name: name + ' air cut', dz, safeZ, rate: AIR_RATE }), source: parsed, spindle: false, rate: AIR_RATE };
   }
 
   // The first feed move below the top of the board with the router off, by the file's own switches

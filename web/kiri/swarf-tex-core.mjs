@@ -2796,18 +2796,19 @@ export function meshSTL(mesh, name = 'swarf') {
   }
   return buf;
 }
-// a Wavefront OBJ (mm; z up, as swarf's other OBJ exports), with normals: smooth across the top so
+// a Wavefront OBJ (mm; Y up, as OBJ readers expect and swarf's import reads it, 11-09: x stays, the
+// part's z (up) is y, its y is -z, as the GLB below), with normals: smooth across the top so
 // it renders soft, one per face on the walls and the bottom so their edges stay hard
 export function meshOBJ(mesh, name = 'swarf') {
-  const P = mesh.positions, I = mesh.indices, K = mesh.kinds, N = meshNormals(mesh), out = [`# ${name}, mm, z up`, `o ${name.replace(/\s+/g, '_')}`];
+  const P = mesh.positions, I = mesh.indices, K = mesh.kinds, N = meshNormals(mesh), out = [`# ${name}, mm, y up`, `o ${name.replace(/\s+/g, '_')}`];
   const nv = P.length / 3;
-  for (let i = 0; i < P.length; i += 3) out.push(`v ${+P[i].toFixed(4)} ${+P[i + 1].toFixed(4)} ${+P[i + 2].toFixed(4)}`);
-  for (let i = 0; i < P.length; i += 3) out.push(`vn ${+N.vertex[i].toFixed(5)} ${+N.vertex[i + 1].toFixed(5)} ${+N.vertex[i + 2].toFixed(5)}`);
+  for (let i = 0; i < P.length; i += 3) out.push(`v ${+P[i].toFixed(4)} ${+P[i + 2].toFixed(4)} ${+(-P[i + 1]).toFixed(4)}`);
+  for (let i = 0; i < P.length; i += 3) out.push(`vn ${+N.vertex[i].toFixed(5)} ${+N.vertex[i + 2].toFixed(5)} ${+(-N.vertex[i + 1]).toFixed(5)}`);
   let extra = 0;
   const faces = [];
   for (let t = 0; t < I.length; t += 3) {
     if (!K || K[t / 3] === 0) { faces.push(`f ${I[t] + 1}//${I[t] + 1} ${I[t + 1] + 1}//${I[t + 1] + 1} ${I[t + 2] + 1}//${I[t + 2] + 1}`); continue; }
-    out.push(`vn ${+N.face[t].toFixed(5)} ${+N.face[t + 1].toFixed(5)} ${+N.face[t + 2].toFixed(5)}`);
+    out.push(`vn ${+N.face[t].toFixed(5)} ${+N.face[t + 2].toFixed(5)} ${+(-N.face[t + 1]).toFixed(5)}`);
     const n = nv + (++extra);
     faces.push(`f ${I[t] + 1}//${n} ${I[t + 1] + 1}//${n} ${I[t + 2] + 1}//${n}`);
   }

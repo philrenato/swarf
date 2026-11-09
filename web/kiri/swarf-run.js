@@ -87,7 +87,7 @@
     job: null,           // what is running: 'trace' | 'air' | 'cut' | 'from' | 'preview'
     lastRunning: false, jogStep: 'cont', jogSpeed: 1000, contHeld: null, simRate: 10   // Phil at the machine, 11-05: hold to move, at 1000
   };  // a zero from before a reload: offered back once connected, if the card's count has not jumped
-  try { const z = JSON.parse(localStorage.getItem('swarf-run-zero')); if (z && z.had && z.at && z.steps) { S.zeroHad = z.had; S.zeroSetAt = z.at; S.lastSteps = z.steps; } } catch (e) { /* none */ }
+  try { const z = JSON.parse(localStorage.getItem('swarf-run-zero')); if (z && z.had && z.at && z.steps) { S.zeroHad = z.had; S.zeroSetAt = z.at; S.lastSteps = z.steps; S.zeroAt = z.where; S.zBit = z.bit || undefined; } } catch (e) { /* none */ }
 
   const el = {};
   // the playhead's preview: how fast ▶ plays (× the program's own speed), and its clock
@@ -1177,15 +1177,31 @@ html[data-skin] #swarf-run .sr-jog .sr-zrow button.next, html[data-skin] #swarf-
 
   function loadProgram(name, text, source, extra) {
     playStop();
+    const before = S.prog ? { at: spotOf(), atz: originText().z, bit: S.zBit, src: S.prog.source } : null;
     // cam made the very same toolpaths again: keep the job where it is (a stop, a tool
     // change, the zero), just say so (review 10-27: a round trip to cam forgot the line)
     if (S.prog && source === 'cam' && S.prog.source === 'cam' && S.prog.text === text) { refresh(); return; }
     const parsed = P.parse(text, { machineUnits: 'mm' });
     S.prog = { name, text, parsed, source, ...(extra || {}) };
+    // Phil 11-09: "when I go to CAM and back it shouldn't make me re-zero". The zero is the board's,
+    // so a new program keeps it when it zeroes at the same place (corner or center) and the machine
+    // has not lost where it is; Z only when the program starts on the bit Z was set with.
+    const wasAt = before ? before.at : null, wasBit = before ? before.bit : undefined;
+    // only toolpaths made again (cam to cam) keep it with no press; a test cut is often a fresh piece of
+    // scrap and another file another job, so those get the one-press button
+    const roundTrip = !!(before && before.src === 'cam' && source === 'cam');
+    const keepXY = roundTrip && S.zeroXY && !S.zeroLost && !S.lostAt;
+    const keepZ = roundTrip && S.zeroZ && !S.zStale && !S.toolChange && !S.zeroLost && !S.lostAt;
     S.hold = null;   // a new program's own first step says what to do, not the last answer
     rememberZero();  // the zero is the board's, not the file's: one press keeps it (Phil 10-29)
     S.zeroXY = S.zeroZ = S.traced = false;
     S.zx = S.zy = false; S.stoppedAt = 0; S.lastDone = null; S.toolChange = null; S.lostAt = 0;
+    if (S.zeroAt === undefined && keepXY) S.zeroAt = wasAt;
+    const sameAt = !!before && knownSameSpot();
+    const kept = [];
+    if (sameAt && keepXY) { S.zeroXY = S.zx = S.zy = true; kept.push('X Y'); }
+    if (before && originText().z === before.atz && keepZ && cmpBit(wasBit, bitAt(parsed, 1)) === 'same') { S.zeroZ = true; S.zBit = bitAt(parsed, 1); kept.push('Z'); }
+    if (kept.length && el.say) tell(`Zero kept (${kept.join(' and ')}): the same board. Trace this file once before you cut.`);
     el.fileName.textContent = source === 'cam' ? `from toolpaths: ${name}` : source === 'lesson' ? `test cut: ${name}` : `${name} (from other software)`;
     el.empty.style.display = parsed.moves.length ? 'none' : '';
     view.load(parsed);
@@ -1358,8 +1374,8 @@ html[data-skin] #swarf-run .sr-jog .sr-zrow button.next, html[data-skin] #swarf-
       { k: 'busy', label: 'machine still', ok: !st || !st.connected || ready, todo: 'wait for the machine to stop moving' },
       { k: 'prog', label: 'a program', ok: !!(S.prog && S.prog.parsed.moves.length) && !stale(), todo: S.camBusy ? 'wait for the toolpaths to finish' : S.camError && S.prog ? S.camError : 'make a part in cam and press control, or open a file' },
       { k: 'file', label: 'file checked', ok: !!S.prog && !problems().block.length, todo: (S.prog ? problems().block[0] || 'fix the file' : 'load a file, or bring the toolpaths from cam').replace(/\.$/, '') },
-      { k: 'xy', label: 'X Y zeroed', ok: !!S.zeroXY, todo: S.zeroHad && S.zeroHad.xy && S.zeroSetAt && !S.zx ? 'press "use the zero you set" if the board has not moved, or jog over your X 0, Y 0 and press zero x y' : 'jog the bit over your X 0, Y 0 and press zero x y' },
-      { k: 'z', label: 'Z zeroed', ok: !!S.zeroZ, todo: S.zeroHad && S.zeroHad.z && S.zeroSetAt && !S.toolChange && !S.zStale ? 'press "use the zero you set", or zero Z again' : 'press z plate, or lower the bit onto paper and press zero z' },
+      { k: 'xy', label: 'X Y zeroed', ok: !!S.zeroXY, todo: S.zeroHad && S.zeroHad.xy && S.zeroSetAt && !S.zx && sameSpot() ? 'press "use the zero you set" if the board has not moved, or jog over your X 0, Y 0 and press zero x y' : 'jog the bit over your X 0, Y 0 and press zero x y' },
+      { k: 'z', label: 'Z zeroed', ok: !!S.zeroZ, todo: S.zeroHad && S.zeroHad.z && S.zeroSetAt && sameBit() ? 'press "use the zero you set", or zero Z again' : 'press z plate, or lower the bit onto paper and press zero z' },
       { k: 'trace', label: 'traced', ok: !!S.traced, todo: 'press trace and watch it clear the clamps' }
     ].filter(n => n.k !== 'busy' || !n.ok);
   }
@@ -1459,11 +1475,15 @@ html[data-skin] #swarf-run .sr-jog .sr-zrow button.next, html[data-skin] #swarf-
     // after a reconnect the offer stands with no file loaded too: the zero was the machine's, not the file's
     // Phil 10-29: "if I am zeroed I shouldn't have to rezero": any file, a test cut, after a reload;
     // never after a bit change (its Z is the old bit's) or a count that jumped (the box restarted)
-    const offer = S.zeroSetAt && S.zeroHad && (S.zeroHad.xy || S.zeroHad.z) && !S.zeroXY && !S.zeroZ && !S.zx && !S.zy && !S.toolChange && !S.zStale && !running
+    // Phil 11-09: "a dead simple way to confirm that zero has been set from almost any situation": the
+    // button stands whenever some of the saved zero can come back (X Y, or Z unless a bit change made
+    // it the old bit's); never halfway through zeroing X and Y by hand, never while a job runs
+    const backXY = !!(S.zeroHad && S.zeroHad.xy && !S.zeroXY && sameSpot()), backZ = !!(S.zeroHad && S.zeroHad.z && !S.zeroZ && sameBit());
+    const offer = S.zeroSetAt && (backXY || backZ) && S.zx === S.zy && !running
       && (!isDirect() || (S.machine.state && S.machine.state.connected));
     el.keepZero.style.display = offer ? '' : 'none';
     if (offer && S.zeroReconnect) el.keepZero.textContent = `the board and the machine have not moved since ${S.discWhy || (S.discAt ? 'you disconnected' : 'the link dropped')}: use the zero from ${new Date(S.zeroSetAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}${S.discAt ? '' : ', then trace to check it'}`;
-    else if (offer) el.keepZero.textContent = `use the zero you set at ${new Date(S.zeroSetAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })} (${S.zeroHad.xy && S.zeroHad.z ? 'X Y and Z' : S.zeroHad.xy ? 'X Y' : 'Z'}): the board has not moved`;
+    else if (offer) el.keepZero.textContent = `use the zero you set at ${new Date(S.zeroSetAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })} (${backXY && backZ ? 'X Y and Z' : backXY ? 'X Y' : 'Z'}): the board has not moved${zeroWords(backXY, backZ)}`;
     // the plan's checks follow the zero (Fable review 3 #1: it said "fits the table" when it no longer did)
     const sig = S.prog ? problems().block.join('|') : '';
     if (sig !== S.planSig) { S.planSig = sig; renderPlan(); }
@@ -1532,7 +1552,8 @@ html[data-skin] #swarf-run .sr-jog .sr-zrow button.next, html[data-skin] #swarf-
     else if (axes === 'x') S.zx = true;
     else if (axes === 'y') S.zy = true;
     if (S.zx && S.zy) S.zeroXY = true;
-    if (axes.includes('z')) { S.zeroZ = true; S.zStale = false; }
+    if (S.zeroXY && /[xy]/.test(axes)) markXYAt();
+    if (axes.includes('z')) { S.zeroZ = true; S.zStale = false; markZBit(); }
     S.zeroSetAt = Date.now(); S.zeroFor = progKey();
     S.zeroLost = false;
     // a new bit after a tool change keeps the trace: only Z moved
@@ -1654,7 +1675,7 @@ html[data-skin] #swarf-run .sr-jog .sr-zrow button.next, html[data-skin] #swarf-
       el.sheet.classList.remove('on');
       const ok = await m.zZero();
       if (!ok) { refresh(); return; }     // the sentence carries the reason; the card stays shut
-      S.zeroZ = true; S.zStale = false; S.zeroSetAt = Date.now(); S.zeroFor = progKey(); S.plateUsed = true;
+      S.zeroZ = true; S.zStale = false; markZBit(); S.zeroSetAt = Date.now(); S.zeroFor = progKey(); S.plateUsed = true;
       if (S.toolChange) S.toolChange = null; else S.traced = false;
       zeroed = true;
       el.sheet.classList.add('on'); show(); refresh();
@@ -1768,11 +1789,54 @@ html[data-skin] #swarf-run .sr-jog .sr-zrow button.next, html[data-skin] #swarf-
   function rememberZero() { if (S.zeroXY || S.zeroZ) S.zeroHad = { xy: !!S.zeroXY, z: !!S.zeroZ }; saveZero(); }
   function saveZero() {
     const t = Date.now(); if (t - (S.zeroSavedAt || 0) < 500 && S.zeroHad) return; S.zeroSavedAt = t;
-    try { localStorage.setItem(ZERO_KEY, JSON.stringify({ had: S.zeroHad || null, at: S.zeroSetAt || 0, steps: S.lastSteps || null })); } catch (e) { /* private window */ }
+    try { localStorage.setItem(ZERO_KEY, JSON.stringify({ had: S.zeroHad || null, at: S.zeroSetAt || 0, steps: S.lastSteps || null, where: S.zeroAt === undefined ? null : S.zeroAt, bit: S.zBit || null })); } catch (e) { /* private window */ }
   }
   // a typed length in control: mm unless it says otherwise (Phil 10-29: "I type 6in and it makes it mm")
   // a bare number is in cam's units (the plate's fields too: their numbers are shown in them)
   function mmOf(t, def) { return window.SwarfLength ? SwarfLength.parse(t, def) : parseFloat(t); }
+  // the bit a program has in at a line: the last tool named at or before it, else the first named
+  // (a file with no tool lines has one bit, '')
+  function bitAt(parsed, line) {
+    const ev = (parsed && parsed.events) || [];
+    const pick = kind => { const k = ev.filter(e => e.kind === kind); const at = k.filter(e => e.line <= line).pop() || k[0]; return at ? String(at.value).trim().toLowerCase() : ''; };
+    return { name: pick('tool-name'), num: pick('tool') };
+  }
+  // two bits: 'same', 'diff', or 'unknown' when they cannot be told apart (a name against a number,
+  // a file with no tool lines, a Z set with no file open)
+  function cmpBit(a, b) {
+    if (!a || !b) return 'unknown';
+    if (a.name && b.name) return a.name === b.name ? 'same' : 'diff';
+    if (!a.name && !b.name && a.num && b.num) return a.num === b.num ? 'same' : 'diff';
+    return 'unknown';
+  }
+  // Z was just set: remember the bit it was set with (undefined with no program: the next file adopts it)
+  function markZBit() { S.zBit = S.prog ? bitAt(S.prog.parsed, S.stoppedAt || 1) : undefined; }
+  // X Y was just set: remember which place on the board it is (front-left corner, center…); a program
+  // that zeroes somewhere else cannot use it (Phil 11-09, a corner zero offered to a center file)
+  // the place, coarsely: 'corner', 'center', or null when the file only says its own X 0, Y 0
+  function spotOf() {
+    if (!S.prog) return null;
+    if (S.prog.origin) { const t = S.prog.origin.xy || ''; return /front-left corner/.test(t) ? 'corner' : /center/.test(t) ? 'center' : null; }
+    const b = P.cutBounds(S.prog.parsed); if (!b) return null;
+    const near = (v, w) => Math.abs(v) <= Math.max(10, w * 0.03), w = b.max.x - b.min.x, d = b.max.y - b.min.y;
+    const corner = near(b.min.x, w) && near(b.min.y, d), center = near((b.min.x + b.max.x) / 2, w) && near((b.min.y + b.max.y) / 2, d);
+    // a part small enough to read as both (under about 20 mm) is not known: offered, never kept by itself
+    return corner && center ? null : corner ? 'corner' : center ? 'center' : null;
+  }
+  // what the saved zero was, in words, so a press is a choice made knowing it (review 11-09)
+  function zeroWords(xy, z) {
+    const w = [];
+    if (xy && S.zeroAt) w.push(`X Y at the ${S.zeroAt === 'corner' ? 'front-left corner' : 'center'} of the board`);
+    if (z && S.zBit && (S.zBit.name || S.zBit.num)) w.push(`Z with the ${S.zBit.name || 'bit ' + S.zBit.num}`);
+    return w.length ? `; ${w.join(', ')}` : '';
+  }
+  function markXYAt() { S.zeroAt = S.prog ? spotOf() : undefined; }
+  // offered back (one press) unless both places are known and differ; kept with no press only when both are known and equal
+  function sameSpot() { const now = spotOf(); return S.zeroAt == null || !S.prog || now == null || S.zeroAt === now; }
+  function knownSameSpot() { const now = spotOf(); return S.zeroAt != null && now != null && S.zeroAt === now; }
+  // Z set earlier still fits: no bit change since, and the program has in the bit Z was set with
+  // (offered back unless it is known to be another bit; kept with no press only when known the same)
+  function sameBit() { return !S.toolChange && !S.zStale && (!S.prog || cmpBit(S.zBit, bitAt(S.prog.parsed, S.stoppedAt || 1)) !== 'diff'); }
   function progKey() { return S.prog ? `${S.prog.source}|${S.prog.name}|${originText().xy}` : ''; }
   function keepZero() {
     const had = S.zeroHad || { xy: true, z: true };
@@ -1781,7 +1845,11 @@ html[data-skin] #swarf-run .sr-jog .sr-zrow button.next, html[data-skin] #swarf-
     // again shows the bit going round the board where it should, before any cut.
     // Read before the flags below are cleared (review A4: it read them after, and never fired)
     const unsure = !!(S.lostAt || S.stoppedAt || (S.zeroReconnect && !S.discAt));
-    S.zeroXY = !!had.xy; S.zeroZ = !!had.z; S.zx = S.zy = !!had.xy; S.zeroReconnect = false; S.discAt = 0; S.discWhy = '';
+    // what is set stays set; Z comes back only for the bit it was set with (not after a bit change)
+    if (had.xy && sameSpot()) { S.zeroXY = S.zx = S.zy = true; if (S.zeroAt == null && S.prog) S.zeroAt = spotOf(); }
+    if (had.z && sameBit()) { S.zeroZ = true; if (!S.zBit && S.prog) markZBit(); }
+    saveZero();
+    S.zeroReconnect = false; S.discAt = 0; S.discWhy = '';
     if (unsure) { S.traced = false; tell('Zero kept. Trace once before you cut: it shows the machine still knows where your board is.', 'warn'); }
     refresh();
   }
@@ -1807,8 +1875,8 @@ html[data-skin] #swarf-run .sr-jog .sr-zrow button.next, html[data-skin] #swarf-
       if (ok && isFinite(v)) {
         m.setWork(a, v);
         // a typed position sets that axis like zero does (and a new trace, unless it is Z after a tool change)
-        if (a === 'x') S.zx = true; else if (a === 'y') S.zy = true; else { S.zeroZ = true; S.zStale = false; }
-        if (S.zx && S.zy) S.zeroXY = true;
+        if (a === 'x') S.zx = true; else if (a === 'y') S.zy = true; else { S.zeroZ = true; S.zStale = false; markZBit(); }
+        if (S.zx && S.zy) { S.zeroXY = true; if (a !== 'z') markXYAt(); }
         S.zeroSetAt = Date.now(); S.zeroFor = progKey(); S.zeroLost = false;
         if (S.toolChange && a === 'z') S.toolChange = null; else S.traced = false;
         refresh();
@@ -1941,7 +2009,7 @@ html[data-skin] #swarf-run .sr-jog .sr-zrow button.next, html[data-skin] #swarf-
     const size = b ? lens([b.max.x - b.min.x, b.max.y - b.min.y], 0) : '';
     const words = {
       trace: { h: 'Trace the border', go: 'trace', p: `The machine is about to move: up to ${up(1)} over Z 0, then around the ${size} box the cut fills, router off. Watch that it stays over your board and clears every screw and clamp; clamps inside the cut are not checked. Check each one:` },
-      air: { h: `Run ${S.prog.name} as an air cut`, go: 'air cut', p: `The machine is about to move. The whole file runs ${prose(AIR_CLEAR)} above its highest point, router off, about ${mins(S.prog.parsed.seconds)}. It is not a clamp check: watch the path before you cut. Check each one:` },
+      air: { h: `Run ${S.prog.name} as an air cut`, go: 'air cut', p: `The machine is about to move. The whole file runs ${prose(AIR_CLEAR)} above its highest point, router off, at three quarters of the cutting speed (a slider changes it as it runs), about ${mins(S.prog.parsed.seconds / 0.75)}. It is not a clamp check: watch the path before you cut. Check each one:` },
       from: { h: `Continue from line ${line}`, go: `continue from line ${line}`, p: `The machine is about to move and the router to start. The bit goes up to ${up(1)}, over to where that line starts, starts the router, then cuts the rest of the file. Check each one:` },
       cut: { h: `Cut ${S.prog.name}`, go: 'cut', p: `The machine is about to move and the router to start. The file runs to the end, about ${mins(S.prog.parsed.seconds)}. Check each one:` }
     }[from ? 'from' : test ? kind : 'cut'];
@@ -2083,7 +2151,7 @@ html[data-skin] #swarf-run .sr-jog .sr-zrow button.next, html[data-skin] #swarf-
   function zeroAtCorner(cx, cy) {
     const m = S.machine, p = m.mabs();
     m.setWork('x', p.x - cx); m.setWork('y', p.y - cy);
-    S.zx = S.zy = S.zeroXY = true; S.zeroSetAt = Date.now(); S.zeroFor = progKey(); S.zeroLost = false; S.traced = false;
+    S.zx = S.zy = S.zeroXY = true; markXYAt(); S.zeroSetAt = Date.now(); S.zeroFor = progKey(); S.zeroLost = false; S.traced = false;
     refresh();
   }
   function goCorner(cx, cy) {

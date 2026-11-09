@@ -1327,7 +1327,8 @@ function load_files(files, group) {
                         api.show.alert(`DXF contains no supported entities`, 10);
                     }
                     for (let v of dxf) {
-                        load_verts(group, dxf[ind++], ind ? `${name}-${ind}` : name);
+                        // swarf: one piece keeps the file's name (it read "test.dxf-1")
+                        load_verts(group, dxf[ind++], dxf.length > 1 ? `${name}-${ind}` : name);
                     }
                     load_dec();
                 }, load_dec);

@@ -41,6 +41,30 @@ export function parse(text, opt = { }) {
     // Scale all entities to mm BEFORE stitching
     scaleEntities(entities, scale);
 
+    // swarf 11-09 (Phil's test.dxf from Rhino): a drawing for cutting is flat. Its elevation (Z -292.1
+    // there) became part of the extrude, a 311 mm "thickness" floating off the bed. Every point lies
+    // on Z 0; the typed thickness is the only height.
+    flattenZ(entities);
+
+    // swarf 11-09: an open spline joins the lines, arcs and polylines it meets (the same file: one
+    // spline and one polyline closing a board's outline came in as two broken pieces). Sampled here,
+    // it stitches as a polyline does.
+    for (let k = 0; k < entities.length; k++) {
+        const e = entities[k];
+        if (e.type !== 'SPLINE' || e.closed || e.controlPoints.length < 2) continue;
+        const pts = evaluateSpline(e, segmentSize, minSegments).map(p => ({ x: p.x, y: p.y, z: 0 }));
+        if (pts.length < 2) continue;
+        // a clamped spline ends on its end control points: use them exactly, so the join matches
+        const { degree, knots, controlPoints: cp } = e;
+        const clamped = knots.length > degree + 1 && knots.slice(0, degree + 1).every(v => v === knots[0])
+            && knots.slice(-degree - 1).every(v => v === knots[knots.length - 1]);
+        if (clamped) {
+            pts[0] = { x: cp[0].x, y: cp[0].y, z: 0 };
+            pts[pts.length - 1] = { x: cp[cp.length - 1].x, y: cp[cp.length - 1].y, z: 0 };
+        }
+        entities[k] = { type: 'POLYLINE', points: pts, closed: false, fromSpline: true };
+    }
+
     // Stitch together open paths that share endpoints (tolerance in mm now)
     const tolerance = Math.max(0.001, segmentSize * 0.001); // 0.1% of segment size, min 0.001mm
     const stitchedEntities = stitchPaths(entities, tolerance);
@@ -612,6 +636,14 @@ function evaluateNURBS(t, degree, controlPoints, knots) {
 }
 
 // Scale all entity coordinates to millimeters
+// swarf: every point of every entity onto Z 0 (start, end, center, points, control points)
+function flattenZ(o) {
+    if (Array.isArray(o)) { for (const v of o) flattenZ(v); return; }
+    if (!o || typeof o !== 'object') return;
+    if (typeof o.x === 'number' && typeof o.y === 'number' && 'z' in o) o.z = 0;
+    for (const v of Object.values(o)) if (v && typeof v === 'object') flattenZ(v);
+}
+
 function scaleEntities(entities, scale) {
     if (scale === 1) return; // no scaling needed
 
