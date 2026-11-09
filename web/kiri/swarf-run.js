@@ -753,7 +753,7 @@ html[data-skin] #swarf-run .sr-jog .sr-zrow button.next, html[data-skin] #swarf-
     let rateT = 0;
     const rateNow = () => { rateT = 0; const m = S.machine; if (m && m.setRate) { m.setRate(+el.rateIn.value); refresh(); } };
     el.rate = h('div', { class: 'sr-ovr sr-airspeed' }, h('span', { class: 'lbl', text: 'speed' }),
-      el.rateIn = h('input', { type: 'range', min: '50', max: '400', step: '5', value: '100', title: 'How fast this air cut runs; 100 % is the cutting speed' }),
+      el.rateIn = h('input', { type: 'range', min: '50', max: '400', step: '5', value: '100', title: 'Air cut speed: starts at 75 %; 100 % is cutting speed' }),
       el.rateVal = h('b', { text: '100%' }),
       h('button', { text: '100%', title: 'Back to the speed it will cut at', onclick: () => { el.rateIn.value = 100; rateNow(); } }));
     el.rateIn.addEventListener('input', () => { el.rateVal.textContent = `${el.rateIn.value}%`; if (!rateT) rateT = setTimeout(rateNow, 150); });
@@ -1811,9 +1811,8 @@ html[data-skin] #swarf-run .sr-jog .sr-zrow button.next, html[data-skin] #swarf-
   }
   // Z was just set: remember the bit it was set with (undefined with no program: the next file adopts it)
   function markZBit() { S.zBit = S.prog ? bitAt(S.prog.parsed, S.stoppedAt || 1) : undefined; }
-  // X Y was just set: remember which place on the board it is (front-left corner, center…); a program
-  // that zeroes somewhere else cannot use it (Phil 11-09, a corner zero offered to a center file)
-  // the place, coarsely: 'corner', 'center', or null when the file only says its own X 0, Y 0
+  // the place a program zeroes X Y, coarsely: 'corner', 'center', or null when the file only says its
+  // own X 0, Y 0 (Phil 11-09: a corner zero was offered to a center file)
   function spotOf() {
     if (!S.prog) return null;
     if (S.prog.origin) { const t = S.prog.origin.xy || ''; return /front-left corner/.test(t) ? 'corner' : /center/.test(t) ? 'center' : null; }
@@ -1830,6 +1829,7 @@ html[data-skin] #swarf-run .sr-jog .sr-zrow button.next, html[data-skin] #swarf-
     if (z && S.zBit && (S.zBit.name || S.zBit.num)) w.push(`Z with the ${S.zBit.name || 'bit ' + S.zBit.num}`);
     return w.length ? `; ${w.join(', ')}` : '';
   }
+  // X Y was just set: remember the place
   function markXYAt() { S.zeroAt = S.prog ? spotOf() : undefined; }
   // offered back (one press) unless both places are known and differ; kept with no press only when both are known and equal
   function sameSpot() { const now = spotOf(); return S.zeroAt == null || !S.prog || now == null || S.zeroAt === now; }
