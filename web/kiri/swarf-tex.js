@@ -868,7 +868,7 @@
       const res = S.meshRes || r3(T().autoMeshRes(part.loops)), size = T().partMeshSize(part.loops, res);
       h += `<details class="tx-more tx-mesh"${S.meshOpen ? ' open' : ''}><summary>save as a mesh</summary>
         ${selRow('version', 'tx-mesh-cut', [['designed', 'as designed'], ['cut', 'as cut']], S.meshCut ? 'cut' : 'designed', 'as designed: each pattern\'s own surface; as cut: what the bits leave, as simulate shows it')}
-        ${selRow('file', 'tx-mesh-fmt', [['stl', 'STL'], ['obj', 'OBJ'], ['glb', 'GLB']], S.meshFmt || 'stl', 'the part with its marks, a closed solid: STL and OBJ in mm, GLB (glTF) in meters with y up as glTF wants')}
+        ${selRow('file', 'tx-mesh-fmt', [['stl', 'STL'], ['obj', 'OBJ'], ['glb', 'GLB']], S.meshFmt || 'stl', 'the part with its marks, a closed solid: STL in mm, OBJ in mm with y up, GLB (glTF) in meters with y up')}
         ${lenRow('detail', 'tx-mesh-res', res, 'the grid the top is made on: finer is closer and bigger')}
         <div class="sd-note">About ${(size.triangles / 1000).toFixed(0)} thousand triangles, ${(size.triangles * 50 / 1e6).toFixed(1)} MB as STL.</div>
         <div class="sd-row"><button id="tx-mesh-save" title="the part as a mesh with its marks, for rendering">save the part</button></div></details>`;
