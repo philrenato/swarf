@@ -1361,6 +1361,9 @@ html[data-skin] #swarf-bits {
 html[data-skin] .swarf-autotabs-placed.none {
     color: var(--swarf-amber, rgb(var(--sk-warn) / calc(1 * var(--sk-a-warn, 1))))
 }
+html[data-skin] #swarf-help-float {
+    box-shadow: 0 8px 24px rgb(var(--sk-shadow) / calc(0.35 * var(--sk-a-shadow, 1)))
+}
 
 /* ---- from web/kiri/index.html ---- */
 html[data-skin] #curtain {

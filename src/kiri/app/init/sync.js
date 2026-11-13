@@ -390,7 +390,8 @@ function setup_keybd_nav() {
     $('set-prefs').onclick = (ev) => { ev.stopPropagation(); api.modal.show('prefs') };
     // swarf: Help menu — Search / Concordance / About
     const helpSearch = $('swarf-help-search');
-    if (helpSearch) helpSearch.onclick = (ev) => { ev.stopPropagation(); api.modal.show('swarf-search'); setTimeout(() => { const i = $('swarf-search-input'); if (i) i.focus(); }, 50); };
+    // (Interfacing #2, Phil 11-13) help floats beside the work: the search card below opens it
+    if (helpSearch) helpSearch.onclick = (ev) => { ev.stopPropagation(); document.body.click(); if (window.__swarfHelp) window.__swarfHelp.open(); };
     // the videos about swarf (Phil 11-01), one place for the link: the about card and help › swarf videos
     const VIDEOS = 'https://www.youtube.com/watch?v=PLagAIp6MCY&list=PLNPXIo7F2Cm0';
     const helpVid = $('swarf-videos');
@@ -1192,8 +1193,10 @@ function setup_keybd_nav() {
             }
             // a concern's title carries a file name: text, never markup (deep review 10-31, as M1)
             const esc = t => String(t ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
+            // its help entry opens in the floating help, the concern list stays (Phil 11-13)
+            const helpBtn = w => { const n = window.__swarfHelp && window.__swarfHelp.forConcern(w); return n ? `<button type="button" class="swarf-concern-help" data-swarf-help="${esc(n)}" title="help on ${esc(n)}">help</button>` : ''; };
             body.innerHTML = warnings.map(w =>
-                `<div class="swarf-concern"><strong>${esc(w.title)}</strong>${esc(w.body)}<em>${esc(w.hint)}</em>${/cut free with no tabs/.test(w.title) ? '<button type="button" class="swarf-concern-fix">auto tabs</button>' : ''}</div>`
+                `<div class="swarf-concern"><strong>${esc(w.title)}</strong>${esc(w.body)}<em>${esc(w.hint)}</em>${/cut free with no tabs/.test(w.title) ? '<button type="button" class="swarf-concern-fix">auto tabs</button>' : ''}${helpBtn(w)}</div>`
             ).join('') + '<button type="button" class="swarf-concerns-x" title="close" aria-label="close concerns">×</button>';
         }
         evaluate();
@@ -1306,7 +1309,8 @@ function setup_keybd_nav() {
             { kind:'app', name:'bits', body:'steps › bits lists the bits this machine has: name, width, kind and part number, with the V-bits first, marked for carving. the list only reads: add a bit at its foot gives the list a new flat, ball or drill bit. with view › advanced on, edit in tool library changes or removes one, and adds a V-bit.', tags:'bits bit tool library tools endmills end mills cutters v-bit part number add a bit for carving' },
             { kind:'app', name:'toolpaths', body:'toolpaths, in the step row, makes the paths the bit will follow for every step and draws them on the bed. with no step yet it adds a rough step and says so. check them, then simulate.', tags:'toolpaths toolpath paths make generate preview step row' },
             { kind:'app', name:'clear', body:'clear, in the step row, wipes the toolpaths and the simulation off the bed. the parts and steps stay; press toolpaths to make the paths again. file › new takes everything off.', tags:'clear wipe reset paths simulation step row' },
-            { kind:'app', name:'concerns', body:'the concerns tab, with its count, flags setup problems before you cut, each with what to do about it. click it to open the list.', tags:'concerns warning warnings problems check setup' },
+            { kind:'app', name:'concerns', body:'the concerns tab, with its count, flags setup problems before you cut, each with what to do about it. click it to open the list. a concern\'s help button opens its entry in help, beside the list.', tags:'concerns warning warnings problems check setup' },
+            { kind:'app', name:'help', body:'help › search help opens this card beside the work: keep it open while you pick and move parts, the bed still takes clicks. drag its top bar to move it; this browser keeps it where you left it. type a control name or a question. × or escape (in the card) closes it.', tags:'help search find question panel card move drag close escape' },
             { kind:'app', name:'advanced', body:'view › advanced shows tools still in alpha: more steps (level, trace), stock size, machine limits and more fields on each step. most jobs never need it.', tags:'advanced expert alpha more tools options' },
             { kind:'app', name:'reset profile', body:'help › reset profile starts swarf over on this computer: every setting, bit and part goes, and it reloads as new. a project saved as a .swarf file is kept.', tags:'reset profile start over clear settings fresh reload' },
             { kind:'app', name:'version', body:'the build number sits at the bottom right, always. tap it to update to the latest build: swarf clears its cache and reloads.', tags:'version build number update latest reload badge' },
@@ -1415,8 +1419,112 @@ function setup_keybd_nav() {
                 `<div class="swarf-result"><span class="swarf-result-kind ${e.kind}">${({ app: 'swarf', run: 'control', op: 'step', param: 'setting', coach: 'how to', tool: 'bit' })[e.kind] || e.kind}</span><strong>${e.name}</strong><p>${e.body}</p></div>`
             ).join('');
         }
-        input.addEventListener('keyup', () => render(input.value));
+        // only a changed search redraws: the keyup of the Enter that opened help on an entry kept its mark
+        let shown = '';
+        const show = v => { if (v === shown) return; shown = v; render(v); };
+        input.addEventListener('keyup', () => show(input.value));
+        input.addEventListener('input', () => show(input.value));
         render('');
+
+        // help floats beside the work (Interfacing deviation #2: no modal over the work, Phil 11-13):
+        // a non-modal card the student keeps open while picking parts on the bed. Dragged by its
+        // top bar, kept where it was put (per browser), kept on screen, closed by × or Escape.
+        const card = document.getElementById('swarf-help-float');
+        const grip = document.getElementById('swarf-help-grip');
+        const shut = document.getElementById('swarf-help-close');
+        if (!card || !grip) return;
+        const POS = 'swarf.help.pos';
+        const saved = () => { try { const p = JSON.parse(localStorage.getItem(POS) || 'null'); return p && isFinite(p.left) && isFinite(p.top) ? p : null; } catch (e) { return null; } };
+        const keep = () => { try { localStorage.setItem(POS, JSON.stringify({ left: Math.round(card.offsetLeft), top: Math.round(card.offsetTop) })); } catch (e) { /* private window: not kept */ } };
+        // on screen whatever the window does: it goes where it was put (at least 240 px of it below its
+        // top) and its list grows down only as far as the window's foot
+        const place = (left, top) => {
+            const w = card.offsetWidth || 380, pad = 8;
+            const L = Math.max(pad, Math.min(left, window.innerWidth - w - pad));
+            const T = Math.max(pad, Math.min(top, window.innerHeight - 240 - pad));
+            card.style.left = Math.round(L) + 'px';
+            card.style.top = Math.round(T) + 'px';
+            card.style.maxHeight = Math.round(Math.max(120, Math.min(window.innerHeight * 0.72, window.innerHeight - T - pad))) + 'px';
+        };
+        // first time: at the right edge under the right rail and the concerns pill, off the bed's middle
+        // where parts land (the steps column has the left); on a short window, under the step bar
+        const first = () => {
+            const box = id => { const e = document.getElementById(id); return e && e.offsetParent !== null ? e.getBoundingClientRect() : null; };
+            const mt = box('mode-tools'), bar = mt ? mt.bottom + 10 : 92;
+            const under = Math.max(bar, ...[box('swarf-right-rail'), box('swarf-concerns')].filter(r => r && r.height > 4).map(r => r.bottom + 8));
+            return { left: window.innerWidth - (card.offsetWidth || 380) - 16, top: window.innerHeight - under >= 240 ? under : bar };
+        };
+        let back = null, eatEsc = false;
+        const isOpen = () => !card.hidden;
+        function close() {
+            if (!isOpen()) return;
+            const inside = card.contains(document.activeElement);
+            card.hidden = true;
+            if (back && back.isConnected && (inside || document.activeElement === document.body)) {
+                try { back.focus({ preventScroll: true }); } catch (e) { /* gone */ }
+            }
+            back = null;
+        }
+        // open(name): with an entry's name it lands on that entry, its search in the field
+        function open(name) {
+            const was = isOpen();
+            const a = document.activeElement;
+            if (!was) back = a && a !== document.body && !card.contains(a) ? a : null;
+            card.hidden = false;
+            if (!was) { const p = saved() || first(); place(p.left, p.top); }
+            const q = typeof name === 'string' ? name : '';
+            if (q || !was) { input.value = shown = q; render(q); }
+            results.scrollTop = 0;
+            const hit = q && [...results.querySelectorAll('.swarf-result')].find(r => (r.querySelector('strong')?.textContent || '').toLowerCase() === q.toLowerCase());
+            results.querySelectorAll('.swarf-result-hit').forEach(r => r.classList.remove('swarf-result-hit'));
+            if (hit) { hit.classList.add('swarf-result-hit'); hit.scrollIntoView({ block: 'nearest' }); }
+            try { input.focus({ preventScroll: true }); if (!q) input.select(); } catch (e) { /* hidden */ }
+        }
+        shut.addEventListener('click', ev => { ev.stopPropagation(); close(); });
+        // drag by the top bar, mouse or touch (pointer events); the close button is not a handle
+        let drag = null;
+        grip.addEventListener('pointerdown', ev => {
+            if (ev.button !== 0 || ev.target.closest('#swarf-help-close')) return;
+            drag = { x: ev.clientX - card.offsetLeft, y: ev.clientY - card.offsetTop, id: ev.pointerId };
+            try { grip.setPointerCapture(ev.pointerId); } catch (e) { /* no capture */ }
+            card.classList.add('swarf-help-moving');
+            ev.preventDefault();
+        });
+        grip.addEventListener('pointermove', ev => { if (drag && ev.pointerId === drag.id) place(ev.clientX - drag.x, ev.clientY - drag.y); });
+        const drop = ev => {
+            if (!drag || ev.pointerId !== drag.id) return;
+            drag = null;
+            card.classList.remove('swarf-help-moving');
+            keep();
+        };
+        grip.addEventListener('pointerup', drop);
+        grip.addEventListener('pointercancel', drop);
+        window.addEventListener('resize', () => { if (isOpen()) place(card.offsetLeft, card.offsetTop); });
+        // keys inside help stay in help: Escape closes it (Kiri's own Escape runs on keyup and would
+        // deselect the part, so that keyup is eaten), Delete and ⌘A never reach the bed's part
+        card.addEventListener('keydown', ev => {
+            if (ev.key === 'Escape') { ev.stopPropagation(); ev.preventDefault(); eatEsc = true; close(); return; }
+            if (ev.key === 'Delete' || ev.key === 'Backspace' || ((ev.metaKey || ev.ctrlKey) && (ev.key === 'a' || ev.key === 'A'))) ev.stopPropagation();
+        });
+        window.addEventListener('keyup', ev => { if (eatEsc && ev.key === 'Escape') { eatEsc = false; ev.stopImmediatePropagation(); ev.preventDefault(); } }, true);
+        window.addEventListener('blur', () => { eatEsc = false; });
+        window.addEventListener('keydown', ev => { if (ev.key !== 'Escape') eatEsc = false; }, true);
+        // any [data-swarf-help="entry"] in swarf (a concern's help button, a card's help link) opens it
+        document.addEventListener('click', ev => {
+            const a = ev.target.closest && ev.target.closest('[data-swarf-help]');
+            if (!a) return;
+            ev.preventDefault(); ev.stopPropagation();
+            open(a.getAttribute('data-swarf-help'));
+        });
+        // which entry answers a concern, read from its title (the concerns list carries a help button)
+        const FOR = [[/cut free with no tabs/, 'auto tabs'], [/loose piece/, 'loose pieces'], [/stepover/, 'stepover'], [/plunge/, 'plunge rate'],
+            [/step-down/, 'step-down'], [/ bottom is /, 'z top / z bottom'], [/spindle/, 'spindle speed'], [/^rapids/, 'z clearance'],
+            [/ thick$/, 'your board'], [/deeper than/, 'board thickness'], [/drill step|hole/, 'drill step'], [/last pass/, 'last pass'],
+            [/pocket/, 'pocket'], [/bed$/, 'size card']];
+        const forConcern = w => { const t = String(w && w.title || ''); const f = FOR.find(([re]) => re.test(t)); return f && INDEX.some(e => e.name === f[1]) ? f[1] : (w && w.help) || ''; };
+        window.__swarfHelp = { open, close, isOpen, forConcern };
+        // the concerns drew before help was here: again, with their help buttons
+        try { if (window.__swarfConcernsNow) window.__swarfConcernsNow(); } catch (e) { /* not yet */ }
     })();
 
     $('file-new').onclick = (ev) => { ev.stopPropagation(); settingsOps.new_workspace() };

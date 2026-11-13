@@ -49,7 +49,7 @@
     'swarf-skin', 'swarf-sound', 'swarf_phone_mode', 'swarf.chips', 'swarf.lightstream', 'swarf.paths', 'swarf-run-ghost', 'swarf-sim-bed-still',
     'swarf-markup-toolbar-pos', 'swarf-markup-toolbar-collapsed', 'swarf-draw-thick', 'swarf-draw-engrave',
     'swarf-tex-brush', 'swarf-tex-fill', 'swarf-shape-last', 'swarf-size-keep', 'swarf-lesson-board', 'swarf-test-results',
-    'swarf-shopbot-link', 'swarf-shopbot-anyport', 'swarf-origin-front-left', 'swarf-file-saved',
+    'swarf-shopbot-link', 'swarf-shopbot-anyport', 'swarf-origin-front-left', 'swarf-file-saved', 'swarf.help.pos',
   ];
   // the machine's zero and where it is: never in a file, never taken from one
   const NEVER_KEYS = [
