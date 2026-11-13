@@ -200,6 +200,37 @@ export function autoPlace(opt) {
     return summary(plans);
 }
 
+/**
+ * A concern's fix (sync.js, Phil 11-13): auto tabs on these parts only, whatever is selected, in
+ * one step of undo. holes: "hold inside pieces" goes back on for each of them (and a pinned
+ * "holes from" wider than its loose piece lets go), on its own settings, so its hole tabs are placed.
+ * @returns {{ placed: number, held: number, parts: number } | null} null where auto tabs cannot go
+ */
+export function autoFix(widgets, holes) {
+    if (!env.isCamMode || api.conf.get().process.camStockIndexed) return null;
+    const all = api.widgets.all();
+    const ws = (widgets || []).filter(w => w && !w.track.synth && all.includes(w));
+    if (!ws.length) return null;
+    const before = tabSnap(ws);
+    const id = { next: Date.now() };
+    const plans = ws.map(w => {
+        const set = normal(clone(holes && setOf(w) ? setOf(w) : cur));
+        if (holes) {
+            delete set.pin.holes;
+            const least = Math.min(...autoAudit(w).loose.filter(h => !h.tabs).map(h => h.across));
+            if (set.pin.holeMin > least) delete set.pin.holeMin;
+        }
+        return planOne(w, set, id);
+    });
+    const { placed } = place(plans);
+    tabUndo(before, holes ? 'hold inside pieces' : 'auto tabs');
+    lastPlans = plans;
+    sayLine(describe(plans));
+    follow();
+    try { window.dispatchEvent(new CustomEvent('swarf.autotabs.placed', { detail: summary(plans) })); } catch (e) {}
+    return { placed, held: plans.reduce((a, p) => a + p.kept.filter(t => t.hole).length, 0), parts: plans.length };
+}
+
 // ---- undo: a step is every touched part's tabs and settings before, and after -------------------
 
 /** The tabs and tab settings of these parts (default: every part), to put back later. */
@@ -791,7 +822,7 @@ export function autoTabRow() {
         fit: holeFit,
     };
     window.__swarfAutoTabs = {
-        plan: autoPlan, place: autoPlace, inputs: autoInputs, rule: tabRule,
+        plan: autoPlan, place: autoPlace, fix: autoFix, inputs: autoInputs, rule: tabRule,
         refresh: autoRefresh, forget: autoForget, audit: autoAudit, fields: FIELDS,
         get settings() { return clone(cur); },
         set(o) { cur = normal(Object.assign(clone(cur), o)); edited(); return clone(cur); },
