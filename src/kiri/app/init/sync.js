@@ -858,12 +858,65 @@ function setup_keybd_nav() {
         // the fix is here too, and the panel closes off what it points at (review 105 F9)
         body.addEventListener('click', e => {
             if (e.target.closest('.swarf-concerns-x')) { wrap.classList.remove('open'); return; }
-            if (e.target.closest('.swarf-concern-fix')) {
+            const btn = e.target.closest('.swarf-concern-fix');
+            if (btn) {
+                const w = lastConcerns[+btn.dataset.i], F = w && FIXES[w.fix];
+                if (!F) return;
                 wrap.classList.remove('open');
-                try { api.platform.select_all(); } catch (err) { /* nothing to pick */ }
-                document.getElementById('swarf-autotabs-go')?.click();
+                let said = null;
+                try { said = F.run(w.arg || [], w); } catch (err) { console.warn('swarf concern fix', err); }
+                try { api.show.alert(said || 'nothing changed: the concern says where to fix it', 6); } catch (err) { /* no alerts yet */ }
+                evaluate();
             }
         });
+        // one press, only where one press is always right (Phil 11-13): each concern names its fix by
+        // id and says what it acts on (arg: parts, steps). Every fix is one step of undo; the rest of
+        // the concerns keep pointing at where to fix them, since they need a value the student chooses
+        const partsOf = ids => api.widgets.all().filter(w => ids.includes(w.id));
+        const nameOf = w => (w.meta && w.meta.file || 'a part').replace(/\.[^.]+$/, '');
+        const tabsFix = (ids, holes) => {
+            const ws = partsOf(ids), r = window.__swarfAutoTabs && window.__swarfAutoTabs.fix(ws, holes);
+            if (!r) return 'tabs go on in cam, on a flat board';
+            const who = ws.length === 1 ? nameOf(ws[0]) : `${ws.length} parts`;
+            if (!r.placed) return `no tab fit on ${who}: place them by hand with tabs › +`;
+            if (holes && !r.held) return `${r.placed} tabs placed on ${who}, none fit inside: place one by hand with tabs › +`;
+            return `${r.placed} tab${r.placed === 1 ? '' : 's'} placed on ${who}${holes ? `, ${r.held} holding inside pieces` : ''}. Undo takes them back`;
+        };
+        const FIXES = {
+            tabs: { verb: 'auto tabs', title: 'place a starting set of tabs on this part', run: ids => tabsFix(ids, false) },
+            holes: { verb: 'hold inside pieces', title: 'tabs in its holes too, so cut-out pieces stay put', run: ids => tabsFix(ids, true) },
+            // a step that cuts nothing as set: turned off, the file is the same
+            leave: { verb: 'leave it out', title: 'turn this step off: as set, it cuts nothing', run: ops => {
+                const proc = api.conf.get().process || {};
+                const on = ops.filter(o => o && !o.disabled && (proc.ops || []).includes(o));
+                if (!on.length) return null;
+                const put = off => { for (const o of on) o.disabled = off; api.conf.save(); api.event.emit('cam.op.render'); };
+                put(true);
+                const what = on.length === 1 ? `the ${on[0].type} step` : `${on.length} steps`;
+                api.doit.push(() => put(false), () => put(true), { undo: `${what}: back in`, redo: `${what}: left out` });
+                return `${what} left out: it cut nothing. Undo puts it back`;
+            } },
+            // rapids under the machine's floor: back to swarf's own clearance (swarf-sky.js), never lower
+            zclear: { verb: 'raise them', title: "back to swarf's clearance for this machine", run: ([to]) => {
+                const proc = api.conf.get().process, was = proc.camZClearance;
+                if (!(to > was)) return null;
+                const put = v => { proc.camZClearance = v; try { api.conf.update_fields(); } catch (e) { /* no fields */ } api.conf.save(); api.event.emit('cam.op.render'); };
+                put(to);
+                api.doit.push(() => put(was), () => put(to), { undo: 'z clearance: undone', redo: 'z clearance: back' });
+                const say = window.SwarfLength ? window.SwarfLength.say(to) : `${to} mm`;
+                return `rapids now ${say} above the board (limits › z clearance). Undo puts it back`;
+            } },
+            // the least slide back onto the bed, offered only where it lands clear of the other parts
+            bed: { verb: 'move onto the bed', title: 'slide it the shortest way back onto the bed', run: ([id, dx, dy]) => {
+                const w = partsOf([id])[0];
+                if (!w) return null;
+                if (!api.view.is_arrange()) api.view.set_arrange();
+                const mv = (x, y) => { w.move(x, y, 0); try { api.platform.update_bounds(); api.space.auto_save(); } catch (e) { /* no bounds */ } space.update(); evaluate(); };
+                mv(dx, dy);
+                api.doit.push(() => mv(-dx, -dy), () => mv(dx, dy), { undo: `${nameOf(w)}: back where it was`, redo: `${nameOf(w)}: on the bed` });
+                return `${nameOf(w)} moved onto the bed. Undo puts it back`;
+            } },
+        };
         // (review r086 F2) the pill docks under the right rail, never inside its panels: its top
         // follows the rail's bottom as panels open, close and scroll; with no rail it keeps its corner
         const dock = () => {
@@ -914,6 +967,7 @@ function setup_keybd_nav() {
                 const ops = (proc.ops || proc.ops2 || []).filter(Boolean);
                 const tools = settings.tools || [];
                 for (const op of ops) {
+                    if (op.disabled) continue;   // left out: it is not in the file
                     // op.tool holds a tool id; the library stores imperial
                     // tools in inches, and every op field here is mm.
                     const tool = tools.find(t => t.id == op.tool);
@@ -950,7 +1004,8 @@ function setup_keybd_nav() {
                         if (op.ov_botz < -2 || (thick && op.ov_botz > thick)) warnings.push({
                             title: `${op.type} bottom is ${len(op.ov_botz)}`,
                             body: op.ov_botz < -2 ? `that is ${len(-op.ov_botz)} below the bottom of the board: into the spoilboard or the table.` : 'that is above the top of the board: the step cuts nothing.',
-                            hint: 'leave the override at 0 to cut to the part\'s own bottom' });
+                            hint: 'leave the override at 0 to cut to the part\'s own bottom',
+                            ...(op.ov_botz < -2 ? {} : { fix: 'leave', arg: [op] }) });
                     }
                     // rule 3 — step-down past half the tool diameter, the palette's ceiling
                     if (op.down && td && op.down > td * 0.5) {
@@ -987,7 +1042,8 @@ function setup_keybd_nav() {
                 if (zc != null && zc < (sb ? 3 : 0.5)) warnings.push({
                     title: `rapids only ${zsay(zc)} above the board`,
                     body: zc <= 0 ? 'with z clearance at or under 0, every rapid move runs at or into the board at full speed.' : 'moves between cuts barely clear the board and catch on a screw, a clamp or a high spot.',
-                    hint: `limits › z clearance: ${sb ? '5 mm (0.2 in)' : 'at least 1 mm'}` });
+                    hint: `limits › z clearance: ${sb ? '5 mm (0.2 in)' : 'at least 1 mm'}`,
+                    fix: 'zclear', arg: [sb ? 5.08 : 1] });
             } catch (e) { /* swallow until ops shape is finalised */ }
             // the bed is a limit on both machines (Fable review 3 #13): a part bigger than the bed,
             // or hanging off it, is a concern in cam, not only a blocked file in control
@@ -1003,10 +1059,20 @@ function setup_keybd_nav() {
                         title: `${name} is bigger than the ${mach}'s bed`,
                         body: `${pair(sx, sy)}; the bed is ${pair(bw, bd)}. The machine cannot cut it as it is.`,
                         hint: 'make it smaller, or choose the other machine (setup › machine)' });
-                    else if (bw && bd && (p.x + b.min.x < -bw / 2 - 0.5 || p.x + b.max.x > bw / 2 + 0.5 || p.y + b.min.y < -bd / 2 - 0.5 || p.y + b.max.y > bd / 2 + 0.5)) warnings.push({
-                        title: `${name} hangs off the bed`,
-                        body: `part of it sits outside the ${mach}'s ${pair(bw, bd)} bed.`,
-                        hint: 'drag it back onto the bed' });
+                    else if (bw && bd && (p.x + b.min.x < -bw / 2 - 0.5 || p.x + b.max.x > bw / 2 + 0.5 || p.y + b.min.y < -bd / 2 - 0.5 || p.y + b.max.y > bd / 2 + 0.5)) {
+                        // the least slide that puts it on the bed; offered only for a part on its own that
+                        // lands clear of every other part (a slide onto another part is not always right)
+                        const into = (lo, hi, half) => lo < -half ? -half - lo : hi > half ? half - hi : 0;
+                        const dx = into(p.x + b.min.x, p.x + b.max.x, bw / 2), dy = into(p.y + b.min.y, p.y + b.max.y, bd / 2);
+                        const box = w => { const g = w.mesh.geometry; g.computeBoundingBox(); const q = g.boundingBox, s = w.track.pos; return [s.x + q.min.x, s.y + q.min.y, s.x + q.max.x, s.y + q.max.y]; };
+                        const to = [p.x + b.min.x + dx, p.y + b.min.y + dy, p.x + b.max.x + dx, p.y + b.max.y + dy];
+                        const clear = (w.group || [w]).length <= 1 && !api.widgets.all().some(o => o !== w && !o.track.synth && (([x0, y0, x1, y1]) => x0 < to[2] - 0.01 && x1 > to[0] + 0.01 && y0 < to[3] - 0.01 && y1 > to[1] + 0.01)(box(o)));
+                        warnings.push({
+                            title: `${name} hangs off the bed`,
+                            body: `part of it sits outside the ${mach}'s ${pair(bw, bd)} bed.`,
+                            hint: 'drag it back onto the bed',
+                            ...(clear ? { fix: 'bed', arg: [w.id, dx, dy] } : {}) });
+                    }
                     // the shop's ShopBot rule (KCAD guidelines): boards from 1/4 to 2 1/2 in; thinner goes to the laser
                     if (soft && (sz < 6.35 - 0.05 || sz > 63.5 + 0.05)) warnings.push({
                         title: `${name} is ${len(sz)} thick`,
@@ -1039,7 +1105,8 @@ function setup_keybd_nav() {
                         if (outer && a.outerTabs === 0) warnings.push({
                             title: `${name} is cut free with no tabs`,
                             body: `the ${outl.some(o => o.type === 'outline') ? 'outline' : 'rough'} cuts all the way down around it, so on the last pass the part comes loose. The spinning bit can grab it and throw it.`,
-                            hint: 'tabs › auto tabs holds it to the board, or screw it down where the bit does not go' });
+                            hint: 'tabs › auto tabs holds it to the board, or screw it down where the bit does not go',
+                            fix: 'tabs', arg: [w.id] });
                         const loose = holes ? a.loose.filter(h => h.tabs === 0) : [];
                         if (loose.length) {
                             const big = Math.max(...loose.map(h => h.across));
@@ -1047,7 +1114,8 @@ function setup_keybd_nav() {
                             warnings.push({
                                 title: `${loose.length} loose piece${loose.length === 1 ? '' : 's'} inside ${name}`,
                                 body: `${loose.length === 1 ? 'a hole leaves' : `${loose.length} holes leave`} a piece cut free (${loose.length === 1 ? '' : 'the widest '}${say} across) with no tab. It can fly when it comes loose.`,
-                                hint: 'tabs › auto tabs with "hold inside pieces" on, or a pocket that clears the hole instead' });
+                                hint: 'tabs › auto tabs with "hold inside pieces" on, or a pocket that clears the hole instead',
+                                fix: 'holes', arg: [w.id] });
                         }
                     }
                 }
@@ -1138,7 +1206,8 @@ function setup_keybd_nav() {
                     if (!some && !bigger.size && !smaller.size) warnings.push({
                         title: 'a drill step has no holes to drill',
                         body: hand ? 'none of the holes shown on the part is picked, so this step cuts nothing.' : any ? 'the holes in the parts are bigger than this bit and the outline cuts them, so this step cuts nothing.' : 'there are no round holes in the parts, so this step cuts nothing.',
-                        hint: hand ? 'pick a hole on the part, or remove the step' : any ? 'remove the step' : 'draw › ellipse inside the part, with shift for a circle, or remove the step' });
+                        hint: hand ? 'pick a hole on the part, or remove the step' : any ? 'remove the step' : 'draw › ellipse inside the part, with shift for a circle, or remove the step',
+                        fix: 'leave', arg: [o] });
                 }
             } catch (e) { /* no tools yet */ }
             // a last pass skims the edge of what the first passes left: with no tabs that is a loose part
@@ -1150,7 +1219,8 @@ function setup_keybd_nav() {
                     warnings.push({
                         title: `a last pass would skim ${(w.meta && w.meta.file || 'a part').replace(/\.[^.]+$/, '')} loose`,
                         body: 'the first passes cut it free, so with no tabs it can move before the last pass reaches it.',
-                        hint: 'tabs › auto tabs: tabs stay in both passes' });
+                        hint: 'tabs › auto tabs: tabs stay in both passes',
+                        fix: 'tabs', arg: [w.id] });
                 }
             } catch (e) { /* tabs not ready yet */ }
             // a pocket with no floor picked makes no moves, and looked done (review 105 F4)
@@ -1160,7 +1230,8 @@ function setup_keybd_nav() {
                     if (!Object.values(o.surfaces || {}).some(l => l && l.length)) warnings.push({
                         title: 'a pocket has nothing to clear',
                         body: 'no floor is picked, so this step cuts nothing.',
-                        hint: 'open the pocket step, pick the floor face on the part, or remove the step' });
+                        hint: 'open the pocket step, pick the floor face on the part, or remove the step',
+                        fix: 'leave', arg: [o] });
                 }
             } catch (e) { /* no process yet */ }
             // TEX's marks: what each cannot do as set, in TEX's words (web/kiri/swarf-tex.js)
@@ -1171,15 +1242,21 @@ function setup_keybd_nav() {
         window.__swarfConcernsNow = () => { evaluate(); return lastConcerns; };
         let lastConcerns = [];
         function render(warnings) {
-            const seen = new Set();
-            warnings = warnings.filter(w => { const k = w.title + '|' + w.body; if (seen.has(k)) return false; seen.add(k); return true; });
+            // a repeat folds into the first, and so does what its fix acts on (two empty pockets: one press, both)
+            const seen = new Map();
+            warnings = warnings.filter(w => {
+                const k = w.title + '|' + w.body, was = seen.get(k);
+                if (!was) { seen.set(k, w); return true; }
+                if (was.fix && was.fix === w.fix && was.fix !== 'zclear' && was.fix !== 'bed') was.arg = was.arg.concat(w.arg.filter(a => !was.arg.includes(a)));
+                return false;
+            });
             // one line a part, not one a letter (review 105 P2, F9): "RENATO-2 is cut free" folds into RENATO
             const folded = new Map();
             warnings = warnings.filter(w => {
                 const m = /^(.+?)(?:-\d+| piece \d+) (is cut free with no tabs)$/.exec(w.title) || /^(.+?) (is cut free with no tabs)$/.exec(w.title);
                 if (!m) return true;
                 const k = m[1];
-                if (folded.has(k)) { folded.get(k).n++; return false; }
+                if (folded.has(k)) { const f = folded.get(k); f.n++; if (f.fix === 'tabs' && w.fix === 'tabs') f.arg = f.arg.concat(w.arg); return false; }
                 folded.set(k, Object.assign(w, { n: 1, stem: k, words: m[2] }));
                 return true;
             });
@@ -1195,8 +1272,8 @@ function setup_keybd_nav() {
             const esc = t => String(t ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
             // its help entry opens in the floating help, the concern list stays (Phil 11-13)
             const helpBtn = w => { const n = window.__swarfHelp && window.__swarfHelp.forConcern(w); return n ? `<button type="button" class="swarf-concern-help" data-swarf-help="${esc(n)}" title="help on ${esc(n)}">help</button>` : ''; };
-            body.innerHTML = warnings.map(w =>
-                `<div class="swarf-concern"><strong>${esc(w.title)}</strong>${esc(w.body)}<em>${esc(w.hint)}</em>${/cut free with no tabs/.test(w.title) ? '<button type="button" class="swarf-concern-fix">auto tabs</button>' : ''}${helpBtn(w)}</div>`
+            body.innerHTML = warnings.map((w, i) =>
+                `<div class="swarf-concern"><strong>${esc(w.title)}</strong>${esc(w.body)}<em>${esc(w.hint)}</em>${FIXES[w.fix] ? `<button type="button" class="swarf-concern-fix" data-fix="${esc(w.fix)}" data-i="${i}" title="${esc(FIXES[w.fix].title)}">${esc(FIXES[w.fix].verb)}</button>` : ''}${helpBtn(w)}</div>`
             ).join('') + '<button type="button" class="swarf-concerns-x" title="close" aria-label="close concerns">×</button>';
         }
         evaluate();
@@ -1309,7 +1386,7 @@ function setup_keybd_nav() {
             { kind:'app', name:'bits', body:'steps › bits lists the bits this machine has: name, width, kind and part number, with the V-bits first, marked for carving. the list only reads: add a bit at its foot gives the list a new flat, ball or drill bit. with view › advanced on, edit in tool library changes or removes one, and adds a V-bit.', tags:'bits bit tool library tools endmills end mills cutters v-bit part number add a bit for carving' },
             { kind:'app', name:'toolpaths', body:'toolpaths, in the step row, makes the paths the bit will follow for every step and draws them on the bed. with no step yet it adds a rough step and says so. check them, then simulate.', tags:'toolpaths toolpath paths make generate preview step row' },
             { kind:'app', name:'clear', body:'clear, in the step row, wipes the toolpaths and the simulation off the bed. the parts and steps stay; press toolpaths to make the paths again. file › new takes everything off.', tags:'clear wipe reset paths simulation step row' },
-            { kind:'app', name:'concerns', body:'the concerns tab, with its count, flags setup problems before you cut, each with what to do about it. click it to open the list. a concern\'s help button opens its entry in help, beside the list.', tags:'concerns warning warnings problems check setup' },
+            { kind:'app', name:'concerns', body:'the concerns tab, with its count, flags setup problems before you cut, each with what to do about it. click it to open the list. where one press is always right, a concern has its own button: auto tabs or hold inside pieces for a part or piece cut free, leave it out for a step that cuts nothing, raise them for rapids too close to the board, move onto the bed for a part hanging off it (when it lands clear of the others). each is one undo. the rest need a number or a choice that is yours (a bit, a depth, a board), so they say where to change it. a concern\'s help button opens its entry in help, beside the list.', tags:'concerns warning warnings problems check setup fix button leave it out move onto the bed raise' },
             { kind:'app', name:'help', body:'help › search help opens this card beside the work: keep it open while you pick and move parts, the bed still takes clicks. drag its top bar to move it; this browser keeps it where you left it. type a control name or a question. × or escape (in the card) closes it.', tags:'help search find question panel card move drag close escape' },
             { kind:'app', name:'advanced', body:'view › advanced shows tools still in alpha: more steps (level, trace), stock size, machine limits and more fields on each step. most jobs never need it.', tags:'advanced expert alpha more tools options' },
             { kind:'app', name:'reset profile', body:'help › reset profile starts swarf over on this computer: every setting, bit and part goes, and it reloads as new. a project saved as a .swarf file is kept.', tags:'reset profile start over clear settings fresh reload' },
@@ -1319,7 +1396,7 @@ function setup_keybd_nav() {
             { kind:'op', name:'auto tabs', body:'tabs › auto tabs: a starting set of tabs sized for the material, the bit, the board and the machine. how many: fewer to more; size: smaller to larger. the press places them at once, as ordinary tabs: there is no apply. click a tab to move, resize or delete it; undo or remove all takes them back. the line above the button says how many tabs are on the part now: 0 in amber means none yet, whatever the numbers below say.', tags:'auto tabs bridges hold parts cutout outline' },
             { kind:'op', name:'move a tab', body:'click a tab to pick it: drag it along the edge, press delete to remove it, or change its length, height and reach in its card. a tab you moved or resized stays as you set it when auto tabs are placed again (back to automatic lets go); where you deleted one stays empty. remove all starts over. undo takes back each change.', tags:'move tab drag tab delete tab remove tab resize tab pick tab single tab pinned back to automatic no tab here' },
             { kind:'op', name:'tab settings', body:'tabs: every number is a field — length, height, reach, count, from corners, hold inside pieces, holes from, in each hole. empty = automatic (gray); type a value to pin it. tabs follow their part: change a field, scale the part, or change the material, bit or machine, and they are placed again. all automatic empties them.', tags:'tab settings length height reach how many count corners holes pinned automatic parametric tab size' },
-            { kind:'op', name:'loose pieces', body:'an outline that cuts through frees the part, and the piece inside every hole it cuts. with no tab it can catch the bit and fly. concerns and the cut checklist name each one; auto tabs hold them (hold inside pieces), or screw them down where the bit does not go. never reach in while the router turns.', tags:'loose pieces cut free through no tabs fly thrown slug hole inside piece retain hold down screw' },
+            { kind:'op', name:'loose pieces', body:'an outline that cuts through frees the part, and the piece inside every hole it cuts. with no tab it can catch the bit and fly. concerns and the cut checklist name each one; auto tabs hold them (hold inside pieces, also a button on the concern), or screw them down where the bit does not go. never reach in while the router turns.', tags:'loose pieces cut free through no tabs fly thrown slug hole inside piece retain hold down screw' },
             { kind:'run', name:'windows', body:'control runs in Chrome or Edge on Windows too. quit ShopBot 3 first: the box takes one program at a time. press disconnect (or close the tab) before going back to ShopBot 3. if Chrome lists no port for the box, check the box is on and its cable in, quit ShopBot 3, and press connect again.', tags:'windows pc com port com3 shopbot 3 chrome edge one program driver' },
             { kind:'run', name:'windows laptop', body:'your own Windows laptop (no ShopBot software): give the box a driver once with Zadig (zadig.akeo.ie): Options › List All Devices, pick V204ShopBot (USB ID 10C4 83C4), set WinUSB, Replace Driver. never on a PC that runs ShopBot 3.', tags:'windows laptop zadig winusb driver student usb' },
             { kind:'run', name:'disconnect', body:'lets go of the box (outputs off), so another program can use it. connect again and swarf offers to keep your zero.', tags:'disconnect release box com port shopbot 3 reconnect' },
