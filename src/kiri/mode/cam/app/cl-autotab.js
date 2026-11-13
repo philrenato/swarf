@@ -538,6 +538,23 @@ function sayLine(text) {
 }
 
 // the fields: pinned values as typed, automatic ones as gray placeholders from the first part
+// what is on the board now, before any number (review 11-13 #7: a count field reading 3 looked like
+// three tabs while the part had none): the tabs placed on the parts this panel acts on, and the
+// button says what a press will do
+function showPlaced(suggest) {
+    if (!els.placed) return;
+    const ws = targets();
+    let n = 0, bare = 0;
+    try { for (const w of ws) { const k = (api.widgets.annotate(w.id).tab || []).length; n += k; if (!k) bare++; } } catch (e) { return; }
+    const who = ws.length === 1 ? (ws[0].meta && ws[0].meta.file || 'this part') : `${ws.length} parts`;
+    // several parts: say how many have none, so one tabbed part does not hide an untabbed one (fresh review 11-13)
+    els.placed.textContent = !ws.length ? '' : `${n} tab${n === 1 ? '' : 's'} placed on ${who}${ws.length > 1 && bare ? `: ${bare} with none` : ''}`;
+    els.placed.classList.toggle('none', !!bare);
+    n = bare ? 0 : n;
+    // the button keeps its name (help and every concern say tabs › auto tabs) and adds what it will do
+    if (els.go) els.go.textContent = n ? 'auto tabs again' : suggest ? `auto tabs: place ${suggest}` : 'auto tabs';
+}
+
 function showFields(plan) {
     if (!els.fields) return;
     if (!plan) {
@@ -552,6 +569,8 @@ function showFields(plan) {
         count: outer ? outer.count : '', corner: plan.rule.width / 2 + plan.rule.bit,
         holeMin: holeMinFor(plan.rule.bit), holeCount: hole ? hole.count : '–',
     } : {};
+    if (els.placed) els.placed.dataset.suggest = outer && targets().length === 1 ? outer.count : 0;
+    showPlaced(outer && targets().length === 1 ? outer.count : 0);
     for (const f of FIELDS) {
         const el = els.fields[f.key];
         if (!el) continue;
@@ -712,14 +731,21 @@ export function autoTabRow() {
         edited();
     });
     auto.classList.add('swarf-autotabs-reset');
-    els = { density: density.input, scale: scale.input, say, fields };
+    // the tabs actually on the board, above the button and the numbers (review 11-13 #7)
+    const placed = document.createElement('div');
+    placed.className = 'swarf-autotabs-placed';
+    placed.setAttribute('aria-live', 'polite');
+    els = { density: density.input, scale: scale.input, say, fields, placed, go };
+    // a tab moved, added or deleted by hand changes the count without a field changing: a light check
+    // while the panel shows
+    setInterval(() => { if (placed.offsetParent) showPlaced(+(placed.dataset.suggest || 0)); }, 1000);
     recall();
     const box = document.createElement('div');
     box.className = 'swarf-autotabs';
     // the line that says what the press did sits under the sliders, above the fields (r086 check S1: at
     // 720 it was below the rail's fold under the fields; above the sliders, its two lines becoming three
     // moved the slider being dragged, Phil 11-01), with room kept for its usual length (swarf.css)
-    box.append(what, btns, density.wrap, scale.wrap, say, grid, auto);
+    box.append(what, placed, btns, density.wrap, scale.wrap, say, grid, auto);
     setTimeout(() => {
         try {
             api.event.on('cam.tabs.auto', () => autoPlace());

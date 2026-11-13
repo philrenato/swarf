@@ -806,8 +806,26 @@ function setup_keybd_nav() {
         const tab = wrap.querySelector('#swarf-concerns-tab');
         const body = wrap.querySelector('#swarf-concerns-body');
         const count = wrap.querySelector('#swarf-concerns-count');
+        // a disclosure button for a keyboard and a screen reader (review 11-13 #9): its count and
+        // whether it is open are said; Enter or Space opens it like a click
+        tab.setAttribute('role', 'button');
+        tab.setAttribute('tabindex', '0');
+        tab.setAttribute('aria-controls', 'swarf-concerns-body');
+        const expanded = () => {
+            const n = count.textContent.trim();
+            tab.setAttribute('aria-expanded', wrap.classList.contains('open') ? 'true' : 'false');
+            tab.setAttribute('aria-label', `concerns: ${n === '0' ? 'none' : n}`);
+        };
+        new MutationObserver(expanded).observe(wrap, { attributes: true, attributeFilter: ['class'] });
+        new MutationObserver(expanded).observe(count, { childList: true, characterData: true, subtree: true });
+        expanded();
         tab.addEventListener('click', (e) => {
             e.stopPropagation();
+            wrap.classList.toggle('open');
+        });
+        tab.addEventListener('keydown', (e) => {
+            if (e.key !== 'Enter' && e.key !== ' ') return;
+            e.preventDefault(); e.stopPropagation();
             wrap.classList.toggle('open');
         });
         document.addEventListener('click', (e) => {
@@ -1287,11 +1305,11 @@ function setup_keybd_nav() {
             { kind:'app', name:'open project', body:'drop a .swarf file on the bed, use file › open project, or double-click it once swarf is installed. a bit or machine this computer lacks is added, and swarf says so.', tags:'open project swarf file another computer drag drop double-click' },
             { kind:'app', name:'.swarf or .kmz', body:'.swarf keeps everything; .kmz opens in Kiri:Moto. file › save for Kiri:Moto (.kmz) writes the parts, machine and steps as Kiri:Moto reads them, less the tex steps (Kiri:Moto has no texture step). a skin, sounds and other choices of this computer stay on it, in both.', tags:'kmz kiri moto export workspace swarf file which' },
             { kind:'app', name:'the shop\'s bits', body:'1/4 straight 48-005, 1/4 up-cut 52-910, 1/4 down-cut 57-910, 1/2 straight 48-072, in bits. in wood they cut with the shop\'s own numbers (120 in/min, 1/8 in a pass, 12,000 rpm).', tags:'bits tools shop upcut downcut straight part number feeds' },
-            { kind:'run', name:'keep the zero', body:'a zero you set stays with the board. toolpaths made again in cam keep it with no press if they zero at the same place (corner or center) on the same bit. after another file, a test cut, a reconnect or a reload, one press of use the zero you set brings it back. it is never offered for another place; Z is dropped after a bit change, the whole zero after a box restart.', tags:'zero keep reuse reload reconnect' },
+            { kind:'run', name:'keep the zero', body:'a zero you set stays with the board. toolpaths made again in cam keep it with no press if they zero at the same place (corner or center) on the same bit. after another file, a test cut, a reconnect or a reload, one press of use the zero you set brings it back. it is never offered for another place; Z is dropped after a bit change, the whole zero after a box restart. a kept zero is swarf assuming the board and the bit have not moved: if either did, press the board moved or the bit was changed or reseated under the program, and zero that again.', tags:'zero keep reuse reload reconnect moved reseated' },
             { kind:'run', name:'search down', body:'on the z plate card: how far the bit comes down looking for the plate, 60 mm unless you raise it.', tags:'z plate search down distance touch off' },
             { kind:'app', name:'undo', body:'edit › undo, or ⌘Z (Ctrl+Z): takes back the last change to the parts, tabs or steps, a delete too. edit › redo, or ⇧⌘Z, puts it back.', tags:'undo redo take back cmd-z ctrl-z mistake edit menu' },
             { kind:'app', name:'select all', body:'edit › select all, or ⌘A: picks every part on the bed, to move, size or delete them together. edit › delete, or the delete key, removes the picked parts (undo brings them back); with nothing picked it does nothing.', tags:'select all pick every part delete edit menu cmd-a' },
-            { kind:'app', name:'export', body:'export (in the row, or file › export the machine file) makes the file the machine runs: name it, read how long it takes, how big it is, which bit and which material, and press save name.sbp. also save the project (.swarf) keeps the parts and steps to open again.', tags:'export save sbp file machine file gcode shopbot file' },
+            { kind:'app', name:'export', body:'export (in the row, or file › export the machine file) makes the file the machine runs: name it, read how long it takes, how big it is, which bit and which material, and press save name.sbp. save the project too (.swarf) keeps the parts and steps to open again, and leaves the card open for the machine file. the file carries the concerns still open when it was saved, and control shows them when it is opened on its own.', tags:'export save sbp file machine file gcode shopbot file' },
             { kind:'app', name:'simulate', body:'watch the bit cut the board before the machine does. space plays and pauses; speed × runs it faster or slower, and the words beside it say how that compares with the real cut: about 30× real time means a 3 min job plays in 6 s. done says how much of the cut has run. the view frames the board beside the steps panel, looking down; F frames it again.', tags:'simulate simulator simulation play pause speed done preview real time how fast too fast seconds frame' },
             { kind:'app', name:'copies', body:'edit › copies, or right-click a part › copies: how many across, how many back, and the gap between them (12 mm to start). the count includes the part you have. they stay on the bed: the card says if they run off it or land on another part, and make waits until they fit. tabs and marks come with each copy. one undo takes them all back.', tags:'copies copy rows columns grid array nest sheet of parts many repeat across back gap duplicate' },
             { kind:'app', name:'fit to part', body:'view › fit to part, or F: brings the parts into view (in simulate, the board). a part sized or brought in so small that it would be under a fifth of the view is framed by itself.', tags:'fit frame zoom to part view small dot lost where is my part' },

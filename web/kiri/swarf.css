@@ -2601,3 +2601,8 @@ body.swarf-menu-open #swarf-bits { z-index: -1 !important; pointer-events: none;
 #swarf-bits .swarf-bits-why { min-height: 1.2em; margin: 0 0 6px; color: var(--swarf-accent-hi); }
 #swarf-bits .swarf-bits-x { padding: 0 8px; }
 @media (max-width: 860px) { #swarf-bits { left: 8px; width: calc(100vw - 16px); } }
+/* review 11-13 #11: "make it wider" is for a narrow desktop window, not a phone */
+@media (pointer: coarse) { .swarf-phone-wide { display: none; } }
+/* review 11-13 #7: the tabs on the board, said before the numbers */
+.swarf-autotabs-placed { font-size: 12px; margin: 2px 0 6px; }
+.swarf-autotabs-placed.none { color: var(--swarf-amber, #c08a3a); }

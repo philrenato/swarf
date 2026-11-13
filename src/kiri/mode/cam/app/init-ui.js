@@ -1091,6 +1091,18 @@ export function init() {
             drill.title = 'pecks the round holes that match its bit, through the board';
             pocket.after(drill);
         }
+        // each step is a button for a keyboard and a screen reader (review 11-13 #9: outline, the first
+        // job's step, read as plain text): its tooltip is its description; Enter or Space adds it
+        for (const k of list.children) {
+            k.setAttribute('role', 'button');
+            k.setAttribute('tabindex', '0');
+            if (k.title) k.setAttribute('aria-description', k.title);
+        }
+        list.addEventListener('keydown', ev => {
+            if ((ev.key !== 'Enter' && ev.key !== ' ') || !ev.target.closest('[role=button]')) return;
+            ev.preventDefault(); ev.stopPropagation();
+            ev.target.click();
+        });
     }
 
     $('op-add-list').onclick = (ev) => {

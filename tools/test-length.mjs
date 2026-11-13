@@ -31,4 +31,9 @@ assert.equal(L.prose(20, 'in'), '13/16 in'); assert.equal(L.prose(25, 'in'), '1 
 assert.equal(L.prose(-3.2, 'in'), '-1/8 in'); assert.equal(L.prose(0, 'in'), '0 in'); assert.equal(L.prose(NaN, 'in'), '');
 assert.equal(L.prose(71, 'mm'), '71 mm'); assert.equal(L.prose(4.76, 'mm'), '4.8 mm'); assert.equal(L.prose(4.76, 'mm', 2), '4.76 mm');
 for (let k = 1; k <= 4000; k++) { const mm = k * 0.137, t = L.prose(mm, 'in'); assert.ok(/^(\d+ )?(\d+\/(2|4|8|16|32) )?in$|^0\.\d+ in$/.test(t), `${mm} → ${t}`); if (/\/32/.test(t)) assert.ok(mm < 3.2, `${mm} → ${t}: 32nds only under 1/8`); if (mm >= 0.8) assert.ok(Math.abs(L.parse(t, 'in') - mm) <= 25.4 / 32 + 1e-9, `${mm} → ${t} within a 32nd`); }
+// a bare fraction in mm is read as inches, and says so (review 11-13 #5); nothing to say otherwise
+assert.equal(L.note('3/4', 'mm'), '3/4 is read as inches: 19.05 mm. For 3/4 of a millimeter type 0.75 or 3/4 mm.');
+assert.ok(/38\.1 mm/.test(L.note('1 1/2', 'mm'))); assert.ok(/38\.1 mm/.test(L.note('1-1/2', 'mm')));
+for (const t of ['3/4 mm', '3/4 in', '0.75', '19', '', 'abc', '3/0']) assert.equal(L.note(t, 'mm'), '', t);
+assert.equal(L.note('3/4', 'in'), '');
 console.log('length: ok');

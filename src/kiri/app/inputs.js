@@ -486,8 +486,12 @@ function unitsValue(input) {
         if (old !== undefined) input.setv(old); else input.value = '';
         return old;
     }
+    // a bare fraction in mm reads as inches: say so, it has a second plausible reading (review 11-13 #5)
+    const said = L && L.note ? L.note(text, units === 25.4 ? 'in' : 'mm') : '';
+    if (said && !input.bound) fieldSay(`${fieldName(input)}: ${said}`);
     if (input.bound) {
         const held = input.bound(mm);
+        if (said && held === mm) fieldSay(`${fieldName(input)}: ${said}`);
         if (held !== mm) {
             const lo = input.bound(-Infinity), hi = input.bound(Infinity), u = units === 25.4 ? 'in' : 'mm';
             const num = v => { const t = L ? L.show(v, u) : String(+(v / units).toFixed(3)); return +t === 0 && v > 0 ? String(+(v / units).toPrecision(2)) : t; };

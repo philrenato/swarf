@@ -241,6 +241,28 @@ function bindField(field, varname) {
  * the machine runs ("save circle.sbp"), a quiet "also save the project". Kiri's own rows (gcode
  * preview, one file per step) stay reachable in advanced. Outside cam the dialog is Kiri's.
  */
+/**
+ * swarf (review 11-13 #3): what swarf knew when it saved the file goes into the file, as comments the
+ * machine skips: one line that swarf saved it, and each concern still open. Control reads them back
+ * (swarf-run.js fileNotes) when the file is opened on its own, so a technician sees the missing tabs
+ * the student saw. The comment mark is the file's own: ' in a ShopBot file, else ; or ( ).
+ */
+function swarfFileNote(text, open, ext) {
+    const t = String(text || '');
+    const sbp = /^sbp$/i.test(ext) || /^\s*'/m.test(t);
+    const paren = !sbp && !/^\s*;/m.test(t) && /^\s*\(/m.test(t);
+    // plain ASCII, no brackets or apostrophes (a parser that strips ' comments first would cut a
+    // bracketed line in half), and short: some controllers refuse lines over 255 (fresh review 11-13 #3, #4)
+    const ascii = { '\u203a': '>', '\u2013': '-', '\u2014': '-', '\u00d7': 'x', '\u2019': '', '\u2018': '', '\u201c': '"', '\u201d': '"', '\u00b0': ' deg', '\u2026': '...' };
+    const clean = v => String(v || '').replace(/[\u2018-\u203a\u00b0\u00d7\u2013\u2014]/g, c => ascii[c] != null ? ascii[c] : ' ')
+        .replace(/[^\x20-\x7e]/g, ' ').replace(/['()]/g, '').replace(/\s+/g, ' ').trim();
+    const line = v => { v = v.length > 110 ? v.slice(0, 107) + '...' : v; return sbp ? `' ${v}\n` : paren ? `(${v})\n` : `; ${v}\n`; };
+    const day = new Date().toISOString().slice(0, 10);
+    let head = line(`swarf saved: ${day}, ${open.length ? open.length + ' concern' + (open.length === 1 ? '' : 's') + ' open' : 'no concerns open'}`);
+    for (const c of open) head += line(`swarf concern: ${clean(c.title)}${c.hint ? ' - ' + clean(c.hint) : ''}`);
+    return head;
+}
+
 function swarfExportCard(on, { filename, fileext, info, download, sections, gcodeText }) {
     const box = $('mod-x-any');
     if (!box) return;
@@ -292,7 +314,7 @@ function swarfExportCard(on, { filename, fileext, info, download, sections, gcod
         + `<label class="swarf-x-name"><span>name</span><input type="text" spellcheck="false" autocomplete="off"/><em>.${esc(ext)}</em></label>`
         + `<p class="swarf-x-facts">${esc(facts)}</p>`
         + (nothing ? `<p class="swarf-x-nothing">This file cuts nothing: every step is empty or left out. Check the steps and the ticks in objects.</p>` : sayOpen)
-        + `<div class="swarf-x-row"><button class="swarf-x-proj" type="button" title="the parts, the steps and the settings, to open again in swarf">also save the project (.swarf)</button>`
+        + `<div class="swarf-x-row"><button class="swarf-x-proj" type="button" title="the parts, the steps and the settings, to open again in swarf: the machine file still needs its own save">save the project too (.swarf)</button>`
         + (expert && sections ? `<button class="swarf-x-zip" type="button" title="a separate file for each step, in one .zip">one file per step (.zip)</button>` : '')
         + `<span class="grow"></span><button class="swarf-x-go" type="button"></button></div>`;
     box.prepend(card);
@@ -306,15 +328,24 @@ function swarfExportCard(on, { filename, fileext, info, download, sections, gcod
     paint();
     name.addEventListener('input', paint);
     name.addEventListener('keydown', ev => { ev.stopPropagation(); if (ev.key === 'Enter') go.click(); });
+    // two files, two buttons, each says what it saved (review 11-13 #4: "also save the project" closed the
+    // card and saved only the project, so a student could reach the machine without the machine file)
+    let projSaved = '';
     go.onclick = () => {
         if (kiriName) kiriName.value = clean(name.value);
-        download();
+        download(swarfFileNote(gcodeText, open, ext));
         api.modal.hide();
-        api.show.alert(`Saved ${clean(name.value)}.${ext}${shopbot ? (big ? ': control refuses it until it fits the bed.' : ': open it in control to cut it.') : '.'}`, 6);
+        const both = projSaved ? ` and the project ${projSaved}` : '';
+        api.show.alert(`Saved ${clean(name.value)}.${ext}${both}${shopbot ? (big ? ': control refuses it until it fits the bed.' : ': open it in control to cut it.') : '.'}`, 6);
     };
-    card.querySelector('.swarf-x-proj').onclick = () => {
-        api.modal.hide();
-        if (window.SwarfFile) window.SwarfFile.save({ name: clean(name.value) });
+    const proj = card.querySelector('.swarf-x-proj');
+    proj.onclick = () => {
+        if (!window.SwarfFile) return;
+        window.SwarfFile.save({ name: clean(name.value) });
+        projSaved = `${clean(name.value)}.swarf`;
+        proj.textContent = `project saved (${projSaved}): now save the machine file`;
+        proj.disabled = true;
+        go.focus();
     };
     const zip = card.querySelector('.swarf-x-zip');
     if (zip) zip.onclick = () => { if (kiriName) kiriName.value = clean(name.value); $('print-zip').onclick(); };
@@ -440,10 +471,10 @@ function exportGCodeDialog(gcode, sections, info, names) {
         ajax.send(form);
     }
 
-    function download() {
+    function download(head) {
         filename = $('print-filename').value;
         // swarf: a device extension written with its dot (".sbp") saved "name..sbp"
-        api.util.download(gcode, filename + "." + String(fileext).replace(/^\./, ''));
+        api.util.download((head || '') + gcode, filename + "." + String(fileext).replace(/^\./, ''));
         // saveAs(getBlob(), filename + "." + fileext);
     }
 

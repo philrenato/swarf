@@ -10,6 +10,7 @@
  *                                in: 3 places, 4 for a 64th; mm: 2 places, 3 under 1 mm or for an inch size)
  *   SwarfLength.field(mm)        a design field's text: "3/16" or "0.079" in inches (TEX, tabs)
  *   SwarfLength.say(mm)          words: "19.05 mm", or "3/4 in" when it is an exact 64th, else "0.7874 in"
+ *   SwarfLength.note(text)       a sentence when a bare fraction in mm mode is read as inches, else ''
  *   SwarfLength.prose(mm, u, dp) a length in a sentence: in inches the nearest 16th ("2 9/16 in", what a
  *                                tape measure reads; under 1/8 the nearest 32nd), under a 64th in
  *                                thousandths ("0.012 in");
@@ -103,7 +104,29 @@
     return `${frac(n / d) || 0} in`;
   }
 
-  const api = { unit, parse, show, field, say, prose, IN };
+  // a bare fraction typed while the units are mm is read as inches (parse, above). Two readings of
+  // the same text are both plausible, so say which one was taken (review 11-13 #5): '' when there is
+  // nothing to say (inches, a unit typed, a decimal)
+  function note(text, def) {
+    const s = String(text == null ? '' : text).trim().toLowerCase();
+    if ((def || unit()) === 'in' || !/^[-+]?\d*(\s+|\s*-\s*)?\d+\s*\/\s*\d+$/.test(s)) return '';
+    const mm = parse(s, 'mm');
+    if (!Number.isFinite(mm)) return '';
+    return `${s} is read as inches: ${+mm.toFixed(2)} mm. For ${s} of a millimeter type ${+(mm / IN).toFixed(3)} or ${s} mm.`;
+  }
+
+  const api = { unit, parse, show, field, say, prose, note, IN };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
-  else root.SwarfLength = api;
+  else {
+    root.SwarfLength = api;
+    // swarf's own length fields (data-len: tex, draw) say a fraction's reading as it is committed;
+    // Kiri's fields say it in inputs.js unitsValue
+    if (root.document) root.document.addEventListener('change', ev => {
+      const t = ev.target;
+      if (!t || !t.matches || !t.matches('input[data-len]')) return;
+      const n = note(t.value);
+      if (!n) return;
+      try { root.kiri.api.show.alert(n, 8); } catch (e) { /* no alert yet */ }
+    }, true);
+  }
 })(typeof window !== 'undefined' ? window : globalThis);

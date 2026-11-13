@@ -56,7 +56,7 @@ try {
   check(z1.text !== t0, 'a new program came back (the bigger part)'); delete z0.text; delete z1.text;
   check(z1.xy && z1.z && !z1.offer, `cam and back: still zeroed, nothing to press ${JSON.stringify(z1)}`);
   const said = await page.evaluate(() => document.querySelector('.sr-say').textContent);
-  check(/Zero kept \(X Y and Z\)/.test(said), `and it says so: "${said.slice(0, 80)}"`);
+  check(/Using the earlier zero \(X Y and Z\)/.test(said), `and it says so: "${said.slice(0, 80)}"`);
 
   // 2. cam and back with zero at center: X Y is another place on the board, so not kept; one press
   await toCam();

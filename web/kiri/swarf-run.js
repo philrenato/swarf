@@ -27,7 +27,7 @@
   const STEPS = ['load', 'check', 'zero', 'trace', 'cut'];
   const STEP_SAYS = {
     load: 'Load: the toolpaths from cam (press control with a part and a step on the bed), or a file from other software.',
-    check: 'Check: swarf reads the file: millimeters, fits the table, every line it can run.',
+    check: 'Check: swarf reads the file: millimeters, small enough for the machine, every line it can run. Where it lands on the table is checked once X Y is zeroed.',
     zero: 'Zero: jog the bit to your board\'s X 0, Y 0 and press zero x y; then zero z, or use the z plate.',
     get trace() { return `Trace: the bit runs the rectangle the cut fills, ${up()} up, router off. An air cut runs the whole file above the board. Both need a program and the zero.`; },
     cut: 'Cut: after a trace, a short checklist, then the router starts.'
@@ -218,6 +218,7 @@
 .sr-plan { flex: 1; min-height: 0; overflow-y: auto; padding: 10px 12px; color: var(--swarf-text-2, #8a857c); font-size: 12px; line-height: 1.6; }
 .sr-plan .w { color: var(--swarf-amber, #c08a3a); }
 .sr-plan .b { color: var(--swarf-accent-hi, #ff3a2a); }
+.sr-plan .sr-kept button { margin: 2px 6px 2px 0; padding: 1px 8px; font-size: 11px; }
 .sr-from { display: flex; gap: 6px; align-items: center; padding: 6px 12px 0; color: var(--swarf-text-3, #58534a); font-size: 12px; }
 .sr-from input { width: 80px; background: var(--swarf-bg, #0a0808); color: inherit; border: 1px solid var(--swarf-line-2, #3a1e18); border-radius: 6px; padding: 4px 6px; font: inherit; }
 .sr-from button { background: none; border: 1px solid var(--swarf-line-2, #3a1e18); border-radius: 999px; padding: 3px 10px; }
@@ -752,7 +753,7 @@ html[data-skin] #swarf-run .sr-jog .sr-zrow button.next, html[data-skin] #swarf-
     // sets the speed a few times a second: each change plans the rest of the job again
     let rateT = 0;
     const rateNow = () => { rateT = 0; const m = S.machine; if (m && m.setRate) { m.setRate(+el.rateIn.value); refresh(); } };
-    el.rate = h('div', { class: 'sr-ovr sr-airspeed' }, h('span', { class: 'lbl', text: 'speed' }),
+    el.rate = h('div', { class: 'sr-ovr sr-airspeed' }, h('span', { class: 'lbl', text: 'air run, % of the file\'s feed' }),
       el.rateIn = h('input', { type: 'range', min: '50', max: '400', step: '5', value: '100', title: 'Air cut speed: starts at 75 %; 100 % is cutting speed' }),
       el.rateVal = h('b', { text: '100%' }),
       h('button', { text: '100%', title: 'Back to the speed it will cut at', onclick: () => { el.rateIn.value = 100; rateNow(); } }));
@@ -1201,7 +1202,10 @@ html[data-skin] #swarf-run .sr-jog .sr-zrow button.next, html[data-skin] #swarf-
     const kept = [];
     if (sameAt && keepXY) { S.zeroXY = S.zx = S.zy = true; kept.push('X Y'); }
     if (before && originText().z === before.atz && keepZ && cmpBit(wasBit, bitAt(parsed, 1)) === 'same') { S.zeroZ = true; S.zBit = bitAt(parsed, 1); kept.push('Z'); }
-    if (kept.length && el.say) tell(`Zero kept (${kept.join(' and ')}): the same board. Trace this file once before you cut.`);
+    // a kept zero is an assumption about the shop, not a measurement (review 11-13 #2): said as one,
+    // and it stays on the plan with a way to drop the half that is no longer true
+    S.keptZero = kept.length ? { xy: kept.includes('X Y'), z: kept.includes('Z') } : null;
+    if (kept.length && el.say) tell(`Using the earlier zero (${kept.join(' and ')}): right only if the board and the bit have not moved. Trace this file once before you cut.`);
     el.fileName.textContent = source === 'cam' ? `from toolpaths: ${name}` : source === 'lesson' ? `test cut: ${name}` : `${name} (from other software)`;
     el.empty.style.display = parsed.moves.length ? 'none' : '';
     view.load(parsed);
@@ -1270,6 +1274,13 @@ html[data-skin] #swarf-run .sr-jog .sr-zrow button.next, html[data-skin] #swarf-
     else if (p.units !== 'mm') out.block.push(`This file's units (${p.units}) are not inches or millimeters.`);
     // from cam: a part, or a piece inside a hole, the outline cuts free with no tab (Phil 10-29)
     if (S.prog.source === 'cam') for (const line of looseWords()) out.warn.push(line);
+    // a file opened on its own (review 11-13 #3): cam's parts are not here to ask, so read what swarf
+    // wrote into the file when it was saved; with no such lines, say what swarf cannot know
+    else if (S.prog.source !== 'lesson') {
+      const notes = fileNotes(S.prog.text);
+      if (notes.saved) for (const c of notes.concerns) out.warn.push(`When this file was saved, swarf said: ${c}`);
+      else out.warn.push('This file comes from outside swarf\'s toolpaths, so swarf cannot see what holds each part down. Before you cut, find out how every part that comes free is held: tabs, screws, or a fixture.');
+    }
     const b = P.cutBounds(p);
     const L = M.LIMITS;
     // Z: the file's whole rise and fall within the axis' travel, and a word on deep cuts and on
@@ -1316,14 +1327,58 @@ html[data-skin] #swarf-run .sr-jog .sr-zrow button.next, html[data-skin] #swarf-
     return out;
   }
 
+  // the student says what moved: that half of the kept zero goes, and is not offered back
+  function dropKept(which) {
+    if (!S.keptZero || (S.machine && S.machine.state.running)) return;
+    if (which === 'xy') { S.zeroXY = S.zx = S.zy = false; S.keptZero.xy = false; S.zeroAt = undefined; }
+    else { S.zeroZ = false; S.keptZero.z = false; S.zBit = undefined; }
+    S.traced = false;
+    if (S.zeroHad) S.zeroHad = { ...S.zeroHad, [which]: false };
+    S.zeroSavedAt = 0; saveZero();
+    tell(which === 'xy' ? 'X Y forgotten: zero X Y on the board as it is now.' : 'Z forgotten: zero Z on the top of the board with this bit.', 'warn');
+    renderPlan(); refresh();
+  }
+
+  // the setup lines the export writes at the top of a file (export.js swarfFileNote): whether swarf
+  // saved it, and the concerns still open then
+  function fileNotes(text) {
+    const head = String(text || '').split(/\r?\n/, 60);
+    const out = { saved: false, concerns: [] };
+    for (const l of head) {
+      const m = l.match(/^\s*(?:'|;|\()\s*swarf (saved|concern):\s*(.*?)\)?\s*$/i);
+      if (!m) continue;
+      out.saved = true;
+      if (/concern/i.test(m[1]) && m[2]) out.concerns.push(m[2]);
+    }
+    return out;
+  }
+
   function renderPlan() {
     el.plan.innerHTML = '';
     if (!S.prog) return;
     const p = S.prog.parsed, b = P.cutBounds(p);
     const add = (t, cls) => el.plan.append(h('div', { class: cls || '', text: t }));
-    el.facts.textContent = b ? `${lens([b.max.x - b.min.x, b.max.y - b.min.y], 0)} · ${len(-Math.min(0, b.min.z))} deep · about ${mins(p.seconds)}` : '';
+    // the bit's path, not the part: an outline runs a bit's radius outside it, so a 100 mm disc reads
+    // about 106 here, and that is right (review 11-13 #1: never resize the part to get back to 100)
+    el.facts.textContent = b ? `bit's path ${lens([b.max.x - b.min.x, b.max.y - b.min.y], 0)} · ${len(-Math.min(0, b.min.z))} deep · about ${mins(p.seconds)}` : '';
+    el.facts.title = 'Where the bit\'s center goes: half a bit outside an outline';
     const pr = problems();
-    if (!pr.block.length) add(`${p.unitsGuessed ? '? units not named, read as millimeters' : p.units === 'in' ? '✓ inches, turned into millimeters' : '✓ millimeters'} · ✓ fits the table · ✓ ${p.moves.length} moves read`, 'ok');
+    if (!pr.block.length) add(`${p.unitsGuessed ? '? units not named, read as millimeters' : p.units === 'in' ? '✓ inches, turned into millimeters' : '✓ millimeters'} · ✓ small enough for the machine · ✓ ${p.moves.length} moves read`, 'ok');
+    if (b && S.prog.source === 'cam') add('the size above is the bit\'s path: an outline runs half a bit outside the part, so the part itself is smaller. Leave the part as it is.');
+    // where it lands is a second check, and it needs the table's corner and an X Y zero (review 11-13 #1)
+    if (b && !pr.block.some(x => /runs off the table|bigger than the table/.test(x))) {
+      const known = !!(S.machine && S.machine.mabs && corner());
+      if (!S.zeroXY) add('where it lands on the table: not checked until X Y is zeroed');
+      else if (!known) add('where it lands on the table: not checked (swarf does not know the table\'s corner: table corners)');
+      else add('✓ on the table from this zero', 'ok');
+    }
+    // the kept zero, until it is zeroed again (review 11-13 #2)
+    const kz = S.keptZero, kxy = !!(kz && kz.xy && S.zeroXY), kzz = !!(kz && kz.z && S.zeroZ);
+    if (kxy || kzz) {
+      el.plan.append(h('div', { class: 'w sr-kept' }, `using the earlier zero (${kxy && kzz ? 'X Y and Z' : kxy ? 'X Y' : 'Z'}${zeroWords(kxy, kzz)}): right only if nothing moved `,
+        kxy ? h('button', { text: 'the board moved', title: 'Forget the X Y zero, then zero it again here', onclick: () => dropKept('xy') }) : null,
+        kzz ? h('button', { text: 'the bit was changed or reseated', title: 'Forget the Z zero, then zero it with this bit', onclick: () => dropKept('z') }) : null));
+    }
     const t = fileTools();
     if (t.names.length) add(`bit  ${t.names.join(', then ')}`);
     if (t.rpm.length) add(`router  ${t.rpm.map(dialFor).join(', then ')}`);
@@ -1485,7 +1540,7 @@ html[data-skin] #swarf-run .sr-jog .sr-zrow button.next, html[data-skin] #swarf-
     if (offer && S.zeroReconnect) el.keepZero.textContent = `the board and the machine have not moved since ${S.discWhy || (S.discAt ? 'you disconnected' : 'the link dropped')}: use the zero from ${new Date(S.zeroSetAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}${S.discAt ? '' : ', then trace to check it'}`;
     else if (offer) el.keepZero.textContent = `use the zero you set at ${new Date(S.zeroSetAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })} (${backXY && backZ ? 'X Y and Z' : backXY ? 'X Y' : 'Z'}): the board has not moved${zeroWords(backXY, backZ)}`;
     // the plan's checks follow the zero (Fable review 3 #1: it said "fits the table" when it no longer did)
-    const sig = S.prog ? problems().block.join('|') : '';
+    const sig = S.prog ? problems().block.join('|') + `|${!!S.zeroXY}${!!S.zeroZ}${!!(S.keptZero && S.keptZero.xy)}${!!(S.keptZero && S.keptZero.z)}|${S.zeroAt}|${S.zBit ? (S.zBit.name || S.zBit.num) : ''}${!!(S.machine && S.machine.mabs && corner())}` : '';
     if (sig !== S.planSig) { S.planSig = sig; renderPlan(); }
     // a latched fault sounds, softly and again every few seconds, until all clear (real machine only)
     if (window.SwarfSound) { const want = !!S.fault && isDirect(); if (want !== SwarfSound.faulting()) SwarfSound.fault(want); }
@@ -1547,6 +1602,7 @@ html[data-skin] #swarf-run .sr-jog .sr-zrow button.next, html[data-skin] #swarf-
   // ------------------------------------------------------------ actions
   function doZero(axes) {
     if (!S.machine || S.machine.state.running) return;
+    freshZero(axes);
     S.machine.zero(axes);
     if (axes.includes('x') && axes.includes('y')) S.zeroXY = true;
     else if (axes === 'x') S.zx = true;
@@ -1675,7 +1731,7 @@ html[data-skin] #swarf-run .sr-jog .sr-zrow button.next, html[data-skin] #swarf-
       el.sheet.classList.remove('on');
       const ok = await m.zZero();
       if (!ok) { refresh(); return; }     // the sentence carries the reason; the card stays shut
-      S.zeroZ = true; S.zStale = false; markZBit(); S.zeroSetAt = Date.now(); S.zeroFor = progKey(); S.plateUsed = true;
+      freshZero('z'); S.zeroZ = true; S.zStale = false; markZBit(); S.zeroSetAt = Date.now(); S.zeroFor = progKey(); S.plateUsed = true;
       if (S.toolChange) S.toolChange = null; else S.traced = false;
       zeroed = true;
       el.sheet.classList.add('on'); show(); refresh();
@@ -1831,6 +1887,14 @@ html[data-skin] #swarf-run .sr-jog .sr-zrow button.next, html[data-skin] #swarf-
   }
   // X Y was just set: remember the place
   function markXYAt() { S.zeroAt = S.prog ? spotOf() : undefined; }
+  // a zero measured now replaces that half of a kept one: its note and its drop button go (fresh
+  // review 11-13 #1: the z plate, a typed position and the corners card left the note up, and its
+  // button would then have dropped the zero just measured). Every path that sets a zero calls it.
+  function freshZero(axes) {
+    if (!S.keptZero) return;
+    if (/[xy]/.test(axes)) S.keptZero.xy = false;
+    if (/z/.test(axes)) S.keptZero.z = false;
+  }
   // offered back (one press) unless both places are known and differ; kept with no press only when both are known and equal
   function sameSpot() { const now = spotOf(); return S.zeroAt == null || !S.prog || now == null || S.zeroAt === now; }
   function knownSameSpot() { const now = spotOf(); return S.zeroAt != null && now != null && S.zeroAt === now; }
@@ -1846,8 +1910,11 @@ html[data-skin] #swarf-run .sr-jog .sr-zrow button.next, html[data-skin] #swarf-
     // Read before the flags below are cleared (review A4: it read them after, and never fired)
     const unsure = !!(S.lostAt || S.stoppedAt || (S.zeroReconnect && !S.discAt));
     // what is set stays set; Z comes back only for the bit it was set with (not after a bit change)
-    if (had.xy && sameSpot()) { S.zeroXY = S.zx = S.zy = true; if (S.zeroAt == null && S.prog) S.zeroAt = spotOf(); }
-    if (had.z && sameBit()) { S.zeroZ = true; if (!S.zBit && S.prog) markZBit(); }
+    const back = { xy: false, z: false };
+    if (had.xy && sameSpot()) { S.zeroXY = S.zx = S.zy = true; back.xy = true; if (S.zeroAt == null && S.prog) S.zeroAt = spotOf(); }
+    if (had.z && sameBit()) { S.zeroZ = true; back.z = true; if (!S.zBit && S.prog) markZBit(); }
+    // brought back, not measured: the same note and drop buttons as a zero kept across cam (review 11-13 #5)
+    if (back.xy || back.z) S.keptZero = { xy: back.xy || !!(S.keptZero && S.keptZero.xy), z: back.z || !!(S.keptZero && S.keptZero.z) };
     saveZero();
     S.zeroReconnect = false; S.discAt = 0; S.discWhy = '';
     if (unsure) { S.traced = false; tell('Zero kept. Trace once before you cut: it shows the machine still knows where your board is.', 'warn'); }
@@ -1875,6 +1942,7 @@ html[data-skin] #swarf-run .sr-jog .sr-zrow button.next, html[data-skin] #swarf-
       if (ok && isFinite(v)) {
         m.setWork(a, v);
         // a typed position sets that axis like zero does (and a new trace, unless it is Z after a tool change)
+        freshZero(a);
         if (a === 'x') S.zx = true; else if (a === 'y') S.zy = true; else { S.zeroZ = true; S.zStale = false; markZBit(); }
         if (S.zx && S.zy) { S.zeroXY = true; if (a !== 'z') markXYAt(); }
         S.zeroSetAt = Date.now(); S.zeroFor = progKey(); S.zeroLost = false;
@@ -2151,7 +2219,7 @@ html[data-skin] #swarf-run .sr-jog .sr-zrow button.next, html[data-skin] #swarf-
   function zeroAtCorner(cx, cy) {
     const m = S.machine, p = m.mabs();
     m.setWork('x', p.x - cx); m.setWork('y', p.y - cy);
-    S.zx = S.zy = S.zeroXY = true; markXYAt(); S.zeroSetAt = Date.now(); S.zeroFor = progKey(); S.zeroLost = false; S.traced = false;
+    freshZero('xy'); S.zx = S.zy = S.zeroXY = true; markXYAt(); S.zeroSetAt = Date.now(); S.zeroFor = progKey(); S.zeroLost = false; S.traced = false;
     refresh();
   }
   function goCorner(cx, cy) {
