@@ -373,3 +373,12 @@ html[data-skin="classic"] #tx-card { --swarf-more-bg: #d4d0c8; }
 html[data-skin="classic"] .swarf-about { font-family: var(--c-font) !important; }
 html[data-skin="classic"] .swarf-about .swarf-license { font-family: var(--c-mono) !important; }
 html[data-skin="classic"] #swarf-watermark:hover { color: #000080 !important; }  /* review r093 F3: the hover the legibility rule overrode */
+
+/* the draw and tex tabs, when on, sit on the accent: white words, as swarf.css means them (the map made them the skin's ink, black on navy, look_legibility 11-13) */
+html[data-skin="classic"] #mode-tools > span#swarf-step-draw.swarf-step-on label, html[data-skin="classic"] #mode-tools > span#swarf-step-draw.swarf-step-on i, html[data-skin="classic"] #mode-tools > span#swarf-step-draw.swarf-step-on svg,
+html[data-skin="classic"] #mode-tools > span#swarf-step-tex.swarf-step-on label, html[data-skin="classic"] #mode-tools > span#swarf-step-tex.swarf-step-on i, html[data-skin="classic"] #mode-tools > span#swarf-step-tex.swarf-step-on svg { color: #fff !important; fill: #fff !important; }
+/* the quick start's title on its navy bar, and control's target chip on the steel-blue desk: white words (the map made them ink and info navy, look_legibility 11-13) */
+html[data-skin="classic"] #swarf-tutorial .st-title { color: #fff; }
+html[data-skin="classic"] #swarf-run .sr-target.sim, html[data-skin="classic"] #swarf-run .sr-target.live { color: #fff; }
+html[data-skin="classic"] #swarf-run .sr-target.sim { border-color: #fff; }
+html[data-skin="classic"] #swarf-run .sr-target.live { border-color: #8fd3a8; }

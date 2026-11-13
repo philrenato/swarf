@@ -377,3 +377,7 @@ html[data-skin="glass"] body.swarf-phase-simulating #panel-right .set2-group { b
 html[data-skin="glass"] .swarf-about { font-family: var(--g-font) !important; }
 html[data-skin="glass"] .swarf-about .swarf-license { font-family: var(--g-mono) !important; }
 html[data-skin="glass"] #swarf-watermark:hover { color: #212223 !important; }  /* review r093 F3: the hover the legibility rule overrode */
+
+/* the draw and tex tabs, when on, sit on the accent: white words, as swarf.css means them (the map made them the skin's ink, black on graphite, look_legibility 11-13) */
+html[data-skin="glass"] #mode-tools > span#swarf-step-draw.swarf-step-on label, html[data-skin="glass"] #mode-tools > span#swarf-step-draw.swarf-step-on i, html[data-skin="glass"] #mode-tools > span#swarf-step-draw.swarf-step-on svg,
+html[data-skin="glass"] #mode-tools > span#swarf-step-tex.swarf-step-on label, html[data-skin="glass"] #mode-tools > span#swarf-step-tex.swarf-step-on i, html[data-skin="glass"] #mode-tools > span#swarf-step-tex.swarf-step-on svg { color: #fff !important; fill: #fff !important; }
