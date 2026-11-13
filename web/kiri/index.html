@@ -467,6 +467,22 @@
     <div id="container"></div>
 
     <!-- modal dialogs-->
+    <!-- swarf: help floats beside the work (Interfacing #2: no modal over the work): non-modal,
+         dragged by its bar, the bed takes clicks while it is open; sync.js wires it -->
+    <div id="swarf-help-float" class="f-col" role="dialog" aria-modal="false" aria-label="help" hidden>
+        <div class="swarf-help-head">
+            <div id="swarf-help-grip" class="swarf-help-grip" title="drag to move help">
+                <span class="swarf-help-title">search help</span>
+                <button type="button" id="swarf-help-close" class="swarf-help-close" title="close help" aria-label="close help">&times;</button>
+            </div>
+            <input id="swarf-search-input" type="text" placeholder="type a control name, a question, or a machining term" autocomplete="off" aria-label="search help">
+        </div>
+        <div id="swarf-search-results" class="swarf-help-body swarf-search">
+            <!-- starter results render before any keystroke; the inline JS in sync.js
+                 wires keyup → filter against the static index. -->
+        </div>
+    </div>
+
     <div id="modal">
         <div id="modal-box" class="f-col">
 
@@ -530,18 +546,6 @@
                     <span class="sep">&middot;</span>
                     <a href="/privacy/" target="_blank">privacy</a>
                 </span>
-            </div>
-        </div>
-
-        <!-- swarf: Searchable Help — populated index over operations / params / tools / coaching -->
-        <div id="mod-swarf-search" class="mdialog f-col swarf-help-modal">
-            <div class="swarf-help-head">
-                <span class="swarf-help-title">search help</span>
-                <input id="swarf-search-input" type="text" placeholder="type a control name, a question, or a machining term" autocomplete="off">
-            </div>
-            <div id="swarf-search-results" class="swarf-help-body swarf-search">
-                <!-- starter results render before any keystroke; the inline JS in sync.js
-                     wires keyup → filter against the static index. -->
             </div>
         </div>
 

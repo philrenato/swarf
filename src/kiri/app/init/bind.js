@@ -71,7 +71,6 @@ export function bind() {
             xlaser:         $('mod-x-laser'),
             don8:           $('mod-don8'),
             any:            $('mod-any'),
-            'swarf-search':      $('mod-swarf-search'),
             'swarf-concordance': $('mod-swarf-concordance'),
         },
 

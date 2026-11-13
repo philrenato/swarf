@@ -23,7 +23,7 @@
     { n: 7, h: 'Zero Z with the plate', p: ['Clip on the black Allen screw in the router\'s side, the plate under the bit, <b>touch off</b>. Then put the plate and clip away.'], show: ['open control', () => click('swarf-step-run')] },
     { n: 8, h: 'Trace, then air cut', p: ['<b>trace</b> runs the outline, <b>air cut</b> the whole file 5 mm up, the bit not spinning. Neither checks clamps: watch.'] },
     { n: 9, h: 'Cut and stay with it', p: ['Dust collection on. <b>cut</b>, tick only what\'s true, then <b>cut</b> again.', '%keyPause%'] },
-    { n: 10, h: 'Finish safely', p: ['%finished%', 'Bit changed? Zero Z again. More in <b>help</b>: search &ldquo;kcad&rdquo;, or ask the technician.'] },
+    { n: 10, h: 'Finish safely', p: ['%finished%', 'Bit changed? Zero Z again. More in <a href="#" data-swarf-help="kcad"><b>help</b></a>: search &ldquo;kcad&rdquo;, or ask the technician.'] },
     { n: '', h: 'Emergency: step on the red floor e-stop', p: ['Keep clear until everything has stopped. Get the technician before restarting.', 'After the e-stop swarf lets go of the machine: press <b>connect</b> again only once it is safe. USB lost, or the position unsure? swarf holds everything until you check the machine and press <b>all clear</b>.'], last: true }
   ];
   // the safety sentences come from swarf-safety-words.js, the copy the poster matches word for word
@@ -45,6 +45,8 @@
     root.addEventListener('click', e => { if (e.target === root) close(); });
     window.addEventListener('keydown', e => {
       if (!root.classList.contains('on')) return;
+      // keys typed in the floating help are help's (its Escape closes help, not this card)
+      if (document.getElementById('swarf-help-float')?.contains(document.activeElement)) return;
       if (e.key === 'Escape') { e.stopPropagation(); close(); }
       else if (e.key === 'ArrowRight' && !PAGES[at].last) { e.stopPropagation(); go(at + 1); }
       else if (e.key === 'ArrowLeft' && at) { e.stopPropagation(); go(at - 1); }
