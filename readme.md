@@ -12,8 +12,11 @@ simulate, then cut.
   Every tab setting is editable, and pieces inside holes are held too. Parts cut free
   with no tabs are flagged.
 - **Make parts:** shapes, drawing, text, or import SVG, DXF, AI, PDF, STL or OBJ.
-- **Toolpaths:** rough, contour, outline, pocket, with feeds and speeds from the
-  material and the bit.
+- **Toolpaths:** rough, contour, outline, pocket, drill and V-carve, with feeds and
+  speeds from the material and the bit. Right-click a part to carve words, pocket a
+  shape or texture an area.
+- **Checks that say what they checked.** Concerns name what could go wrong and offer the
+  fix; a saved machine file carries the concerns still open, and control shows them.
 - **Inches or millimeters**, fractions included.
 - **Simulate** before you cut.
 - **Two machines:** ShopBot (default) and Langmuir MR-1, which runs from an exported file.
@@ -24,8 +27,11 @@ simulate, then cut.
 ```
 npm i && mkdir -p src/pack && npm run webpack-ext   # once, after a fresh clone
 npm run webpack-src
-npx gs-app-server --debug --single --port 8181      # then open localhost:8181/kiri/
+npx gs-app-server --single --port 8181              # then open localhost:8181/kiri/
 ```
+
+gs-app-server listens on every network interface, not only this computer: use it on a
+network you trust. Leave out `--debug`: with it the toolpath worker never finishes.
 
 swarf is MIT (`license.md` keeps Kiri:Moto's notice; keep both). To make your own copy:
 remove the GoatCounter tag at the end of `web/kiri/index.html`, change the canonical /
@@ -41,5 +47,6 @@ swarf is a fork of [Kiri:Moto](https://github.com/GridSpace/grid-apps) by Stewar
 code. Third-party licenses: `THIRD_PARTY_NOTICES.txt`.
 
 ShopBot is a trademark of ShopBot Tools, Inc.; MR-1 of Langmuir Systems; Porter-Cable of its
-owner. swarf is independent, not made, endorsed or supported by any of them; the names only
-say which machines it drives.
+owner; VCarve of Vectric Ltd.; Rhino of Robert McNeel & Associates; Blender of the Blender
+Foundation. swarf is independent, not made, endorsed or supported by any of them; the names only
+say which machines it drives and which programs' files it reads.

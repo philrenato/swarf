@@ -171,11 +171,11 @@
 #swarf-run .sr-bedmap circle { fill: currentColor; }
 #swarf-run .sr-bedmap path { fill: none; stroke: currentColor; stroke-width: 1.4; stroke-linecap: round; stroke-linejoin: round; opacity: .8; }
 #swarf-run .sr-bedmap text { font: 600 8px system-ui, sans-serif; fill: currentColor; }
-#swarf-run .sr-bedmap small { font-size: 10px; line-height: 1; }
+#swarf-run .sr-bedmap small { font-size: 11px; line-height: 1; }
 .sr-keyrow .sr-keys { flex: 1; }
 #swarf-run .sr-keyrow button.sr-router { flex: none; min-width: 0; padding: 3px 10px; border-radius: 999px; font-size: 11px; line-height: 1.1; display: flex; flex-direction: column; align-items: center; }
 #swarf-run .sr-keyrow button.sr-router b { font-size: 12px; }
-#swarf-run .sr-keyrow button.sr-router small { font-size: 10px; }
+#swarf-run .sr-keyrow button.sr-router small { font-size: 11px; }
 .sr-lock { display: none; position: static; margin: 2px 14px 0; text-align: right; color: var(--swarf-text-2, #8a857c); font-size: 11px; }
 .sr-jog.locked .sr-lock { display: block; }
 .sr-dro { margin: 0 12px; display: grid; gap: 4px; }
@@ -267,7 +267,7 @@ body.swarf-run-open { filter: none !important; }
 /* ---- review pass 10-27 ---- */
 .sr-pad button { flex-direction: column; gap: 1px; line-height: 1.05; }
 .sr-pad button b { font-size: 15px; }
-.sr-pad button small { font-size: 9px; font-weight: 500; letter-spacing: .04em; color: #d8d2c6; text-transform: none; }
+.sr-pad button small { font-size: 11px; font-weight: 500; letter-spacing: .04em; color: #d8d2c6; text-transform: none; }
 .sr-jog .sr-pad { grid-template-columns: repeat(3, 56px) 14px 56px; grid-template-rows: repeat(3, 44px); gap: 5px; margin-top: 8px; }
 .sr-jog .sr-axis .v, .sr-jog .sr-axis input.v { font-size: 23px; }
 .sr-jog .sr-dro { gap: 3px; }
@@ -294,7 +294,7 @@ body.swarf-run-open { filter: none !important; }
 .sr-next { padding: 0 12px 6px; font-size: 12px; color: var(--swarf-amber, #c08a3a); }
 .sr-top .sr-steps { flex: none; padding: 0; gap: 4px; }
 .sr-top .sr-step { flex: none; padding: 5px 9px; font-size: 11px; gap: 6px; }
-.sr-top .sr-step .n { width: 17px; height: 17px; font-size: 10px; }
+.sr-top .sr-step .n { width: 18px; height: 18px; font-size: 11px; }
 .sr-top .sr-say { flex: 1; padding: 0; min-height: 2.7em; font-size: 14px; line-height: 1.35; }  /* two lines kept: a long sentence no longer moves the page (review 10-28b #22) */
 .sr-jog h3.sr-jh { display: flex; align-items: center; gap: 10px; }
 .sr-jh .sr-conn { margin-left: auto; text-transform: none; letter-spacing: .02em; font-weight: 400; font-size: 12px; }
@@ -343,11 +343,11 @@ body.swarf-run-open { filter: none !important; }
 #swarf-run.open { bottom: 0; }
 .sr-grid { padding-bottom: 34px !important; }
 .sr-jog .sr-modes .lbl { display: flex; flex-direction: column; line-height: 1.15; }
-.sr-jog .sr-modes .lbl small { color: var(--swarf-text-2, #8a857c); font-size: 10px; font-weight: 400; letter-spacing: .04em; text-transform: none; }
+.sr-jog .sr-modes .lbl small { color: var(--swarf-text-2, #8a857c); font-size: 11px; font-weight: 400; letter-spacing: .04em; text-transform: none; }
 .sr-jog .sr-modes button, .sr-jog .sr-modes input { width: 100%; min-width: 0; height: 32px; padding: 0; box-sizing: border-box; text-align: center; font-size: 13px; flex: none; }
 .sr-jog .sr-modes button.held { flex: none; }
 .sr-jog .sr-pad { display: grid; grid-template-columns: repeat(3, 60px) 22px 60px; grid-template-rows: repeat(3, 50px); gap: 6px; justify-content: center; margin: 12px 12px 0; }
-.sr-jog .sr-pad button small { font-size: 9px; letter-spacing: .06em; }
+.sr-jog .sr-pad button small { font-size: 11px; letter-spacing: .04em; }
 .sr-jog .sr-keys { margin: 8px 12px 0; white-space: normal; font-size: 11px; }
 .sr-jog .sr-keyrow .sr-keys { margin: 0; }
 .sr-faultbar { display: flex; align-items: center; gap: 10px; margin: 6px 0 8px; padding: 8px 10px; border-radius: 8px; background: #b3261e; color: #fff; font-size: 13px; font-weight: 600; }
@@ -488,7 +488,7 @@ body.swarf-run-open { filter: none !important; }
 #swarf-run .sr-plate-view canvas { width: 100%; height: 100%; display: block; }
 #swarf-run .sr-plate-view span { position: absolute; transform: translate(-50%, -130%); font-size: 11px; white-space: nowrap; pointer-events: none;
   color: var(--c-text, #d8d2c6); background: var(--swarf-bg-2, rgba(19,16,15,.8)); padding: 1px 6px; border-radius: 6px; }
-#swarf-run .sr-plate-view .sr-plate-note { position: absolute; right: 6px; bottom: 4px; font-size: 10px; font-style: normal; color: var(--c-dim, #8a857c); }
+#swarf-run .sr-plate-view .sr-plate-note { position: absolute; right: 6px; bottom: 4px; font-size: 11px; font-style: normal; color: var(--c-dim, #8a857c); }
 #swarf-run .sr-plate-view span.l { transform: translate(-140%, -50%); }
 #swarf-run .sr-plate-view span.r { transform: translate(30%, -50%); }
 #swarf-run .sr-plate-view span.b { transform: translate(-50%, 60%); }
@@ -567,7 +567,7 @@ html[data-skin] #swarf-run .sr-jog .sr-zrow button.next, html[data-skin] #swarf-
     const pickStep = (v, b) => { S.jogStep = v; S.jogTyped = !b && v !== 'cont'; for (const c of el.modes.querySelectorAll('button')) c.classList.toggle('on', c === b); stepIn.classList.toggle('on', !b); };
     for (const v of [...steps, 'cont']) {
       const label = v === 'cont' ? 'continuous' : String(ui ? +(v / IN).toFixed(4) : v);
-      const b = h('button', { class: v === 'cont' ? 'held' : '', text: label, title: v === 'cont' ? 'Continuous (as on the MR-1): moves for as long as you hold the button or key down. No end stops on this machine: let go in time.' : `Each press moves ${label} ${u}` });
+      const b = h('button', { class: v === 'cont' ? 'held' : '', text: label, title: v === 'cont' ? 'Moves while held, as on the MR-1; let go in time' : `Each press moves ${label} ${u}` });
       b.onclick = () => pickStep(v, b);
       if (v === S.jogStep || same(v, S.jogStep)) b.classList.add('on');
       el.modes.append(b);
@@ -611,7 +611,7 @@ html[data-skin] #swarf-run .sr-jog .sr-zrow button.next, html[data-skin] #swarf-
     // steps and the sentence share one line.
     el.conn = h('div', { class: 'sr-conn' }, h('span', { class: 'sr-dot' }), el.connText = h('span', { text: '' }),
       el.discBtn = h('button', { text: 'disconnect', title: 'Let go of the box, so another program can use it', onclick: () => disconnect() }),
-      el.connBtn = h('button', { text: 'connect', title: onWindows() ? 'Connect to the ShopBot over its USB cable. Quit ShopBot 3 first: one program at a time' : 'Connect to the ShopBot over its USB cable', onclick: () => connect(true) }));
+      el.connBtn = h('button', { text: 'connect', title: onWindows() ? 'Connect over USB; quit ShopBot 3 first: one program at a time' : 'Connect to the ShopBot over its USB cable', onclick: () => connect(true) }));
     el.steps = h('div', { class: 'sr-steps' });
     STEPS.forEach((s, i) => el.steps.append(h('div', { class: 'sr-step', 'data-step': s, title: STEP_SAYS[s], onclick: () => tell(STEP_SAYS[s]) }, h('span', { class: 'n', text: String(i + 1) }), h('span', { text: s }))));
     el.say = h('div', { class: 'sr-say' });
@@ -1509,7 +1509,7 @@ html[data-skin] #swarf-run .sr-jog .sr-zrow button.next, html[data-skin] #swarf-
     if (el.measure) el.measure.style.display = finished && S.prog && S.prog.source === 'lesson' ? '' : 'none';
     // Z's keys as the keyboard names them: fn + arrows on a Mac, Page Up / Page Down elsewhere (review 10-29)
     const zKeys = /Mac/i.test(navigator.platform || navigator.userAgent) ? 'fn ↑ ↓  Z' : 'PgUp PgDn  Z';
-    if (el.keys) el.keys.textContent = running ? 'any key pauses   ·   emergency: the red e-stop on the floor' : `← → ↑ ↓  X Y   ·   ${zKeys}   ·   space stops`;   // Fable 3 #10
+    if (el.keys) el.keys.textContent = running ? 'any key pauses   ·   emergency: the red e-stop on the floor' : `← → ↑ ↓  X Y   ·   ${zKeys}   ·   space stops${S.jogStep === 'cont' ? '   ·   continuous: no end stops, let go in time' : ''}`;   // Fable 3 #10
     // the links stand in for the button row, never beside it (deep review S14: two "a test cut" after a finish)
     const startShown = !S.prog || finished;
     el.otherFile.style.display = S.prog && !startShown ? '' : 'none';
@@ -1945,7 +1945,7 @@ html[data-skin] #swarf-run .sr-jog .sr-zrow button.next, html[data-skin] #swarf-
   function typeWork(a) {
     const m = S.machine;
     if (!m || !m.setWork || m.state.running) return;
-    const span = el.dro[a], inp = h('input', { type: 'text', inputmode: 'decimal', class: 'v', value: posText(m.state.pos[a] || 0), title: inch() ? 'A position in inches; 1 1/2, 0.75 in or 38 mm work too' : 'A position in mm; 1 1/2 in or 38 mm work too' });
+    const span = el.dro[a], inp = h('input', { type: 'text', inputmode: 'decimal', class: 'v', value: posText(m.state.pos[a] || 0), title: inch() ? 'A position in inches; 1 1/2 or 38 mm work too' : 'A position in mm; 1 1/2 in or 38 mm work too' });
     span.replaceWith(inp); inp.focus(); inp.select();
     let done = false;
     const finish = ok => {
@@ -2481,7 +2481,7 @@ html[data-skin] #swarf-run .sr-jog .sr-zrow button.next, html[data-skin] #swarf-
     el.connText.textContent = sim ? `simulator · ${what}` : st.connected ? `connected · ${what}${st.spindle ? ' · router on' : ''}` : 'not connected';
     el.target.textContent = sim ? 'practice simulator' : st.connected ? 'ShopBot' : 'no machine';
     el.target.className = 'sr-target ' + (sim ? 'sim' : st.connected ? 'live' : 'off');
-    el.conn.title = sim ? 'The simulator, not the real machine: plug the ShopBot in and press connect' : '';
+    el.conn.title = sim ? 'The simulator, not the machine: plug in the ShopBot, press connect' : '';
     el.connBtn.style.display = st.connected && !sim ? 'none' : '';
     el.discBtn.style.display = st.connected && !sim ? '' : 'none';
     const airing = isDirect() && st.running && S.job === 'air';
@@ -2490,10 +2490,10 @@ html[data-skin] #swarf-run .sr-jog .sr-zrow button.next, html[data-skin] #swarf-
     if (airing) {
       if (document.activeElement !== el.rateIn) el.rateIn.value = st.rate || 100;
       el.rateVal.textContent = `${st.rate || 100}%${st.overrideHeld ? ' (held)' : ''}`;
-      el.rateVal.title = st.overrideHeld ? 'Some moves run slower than this: the machine\'s speed limits for them hold' : '';
+      el.rateVal.title = st.overrideHeld ? 'Some moves stay slower: the machine\'s speed limits hold' : '';
     }
     el.ovrVal.textContent = `${st.override || 100}%${st.overrideHeld ? ' (held)' : ''}`;
-    el.ovrVal.title = st.overrideHeld ? 'Some moves run slower or faster than this: the machine\'s speed limits for them hold' : '';
+    el.ovrVal.title = st.overrideHeld ? 'Some moves run slower or faster: the machine\'s limits hold' : '';
     el.ovrDn.disabled = (st.override || 100) <= 50; el.ovrUp.disabled = (st.override || 100) >= 150;
     el.discBtn.disabled = !!(st.running || st.moving);
     el.simCtl.style.display = sim ? '' : 'none';

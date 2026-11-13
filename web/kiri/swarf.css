@@ -1141,11 +1141,11 @@ html:not([data-skin]) #panel-left  .set2-group::after {
 #swarf-concerns-body .swarf-concern strong {
   color: var(--swarf-amber); font-weight: 600;
   display: block; margin-bottom: 2px;
-  letter-spacing: 0.08em; text-transform: none; font-size: 10px;
+  letter-spacing: 0.08em; text-transform: none; font-size: 12px;
 }
 #swarf-concerns-body .swarf-concern em {
-  color: var(--swarf-text-3); font-style: normal;
-  display: block; margin-top: 2px; font-size: 10px;
+  color: var(--swarf-text-2); font-style: normal;
+  display: block; margin-top: 2px; font-size: 12px;
 }
 #swarf-concerns-body .swarf-empty {
   color: var(--swarf-text-3); font-size: 11px; font-style: italic;

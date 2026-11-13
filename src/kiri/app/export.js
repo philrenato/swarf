@@ -314,7 +314,7 @@ function swarfExportCard(on, { filename, fileext, info, download, sections, gcod
         + `<label class="swarf-x-name"><span>name</span><input type="text" spellcheck="false" autocomplete="off"/><em>.${esc(ext)}</em></label>`
         + `<p class="swarf-x-facts">${esc(facts)}</p>`
         + (nothing ? `<p class="swarf-x-nothing">This file cuts nothing: every step is empty or left out. Check the steps and the ticks in objects.</p>` : sayOpen)
-        + `<div class="swarf-x-row"><button class="swarf-x-proj" type="button" title="the parts, the steps and the settings, to open again in swarf: the machine file still needs its own save">save the project too (.swarf)</button>`
+        + `<div class="swarf-x-row"><button class="swarf-x-proj" type="button" title="parts, steps and settings to reopen in swarf; not the machine file">save the project too (.swarf)</button>`
         + (expert && sections ? `<button class="swarf-x-zip" type="button" title="a separate file for each step, in one .zip">one file per step (.zip)</button>` : '')
         + `<span class="grow"></span><button class="swarf-x-go" type="button"></button></div>`;
     box.prepend(card);

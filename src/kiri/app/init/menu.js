@@ -61,7 +61,7 @@ function movePanel(actions) {
         div({ id: 'panel-move-head', class: 'selection-panel-head' }, [
             div({ class: 'selection-panel-head-title' }, [
                 i({ class: 'fas fa-arrows-up-down-left-right' }),
-                label({ _: 'Move' })
+                label({ _: 'move' })
             ]),
             button({ id: 'panel-move-close', class: 'selection-panel-close', title: 'close' }, [
                 i({ class: 'fas fa-times' })
@@ -88,7 +88,7 @@ function rotatePanel(actions) {
         div({ id: 'panel-rotate-head', class: 'selection-panel-head' }, [
             div({ class: 'selection-panel-head-title' }, [
                 i({ class: 'fas fa-rotate-right' }),
-                label({ _: 'Rotate' })
+                label({ _: 'rotate' })
             ]),
             button({ id: 'panel-rotate-close', class: 'selection-panel-close', title: 'close' }, [
                 i({ class: 'fas fa-times' })
@@ -119,7 +119,7 @@ function scalePanel(actions) {
         div({ id: 'panel-scale-head', class: 'selection-panel-head' }, [
             div({ class: 'selection-panel-head-title' }, [
                 i({ class: 'fas fa-expand' }),
-                label({ _: 'Scale / Size' })
+                label({ _: 'size' })
             ]),
             button({ id: 'panel-scale-close', class: 'selection-panel-close', title: 'close' }, [
                 i({ class: 'fas fa-times' })

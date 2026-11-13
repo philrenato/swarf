@@ -44,11 +44,22 @@ const bare = [...menu.matchAll(/menuItem\(actions, \{ id: '([\w-]+)'[^\n]*/g)].f
 assert.deepEqual(bare, [], `menu items with no tooltip: ${bare}`);
 // a tooltip names the thing and one consequence, twelve words at most (family rule); the why lives in help
 const long = [];
-for (const f of [...readdirSync(root + 'web/kiri').filter(f => /^swarf-.*\.js$/.test(f) && !/markup-inject/.test(f)).map(f => 'web/kiri/' + f), 'web/kiri/index.html', 'src/kiri/app/init/menu.js', 'src/kiri/mode/cam/app/init-ui.js'])
+for (const f of [...readdirSync(root + 'web/kiri').filter(f => /^swarf-.*\.js$/.test(f) && !/markup-inject/.test(f)).map(f => 'web/kiri/' + f), 'web/kiri/index.html', 'src/kiri/app/init/menu.js', 'src/kiri/mode/cam/app/init-ui.js',
+    // swarf's cards written in Kiri's own files too (hygiene 11-13: the export card's project button ran to 19 words)
+    'src/kiri/app/export.js', 'src/kiri/app/platform.js', 'src/kiri/app/init/sync.js', 'src/kiri/mode/cam/app/cl-autotab.js', 'src/kiri/mode/cam/app/cl-tabedit.js'])
   for (const m of readFileSync(root + f, 'utf8').matchAll(/\btitle\s*[:=]\s*(?:"([^"\n]{20,})"|'((?:\\.|[^'\\\n]){20,})'|`((?:\\.|[^`\\\n]){20,})`)/g)) {
     let t = m[1] || m[2] || m[3], was;
     do { was = t; t = t.replace(/\$\{[^{}]*\}/g, 'X'); } while (t !== was);
     if (t.trim().split(/\s+/).length > 12) long.push(`${f}: ${t}`);
   }
+// a tooltip chosen by a condition (title: x ? '…' : '…') hid four long ones from the scan above (Interfacing audit 11-13)
+for (const f of files.concat(['src/kiri/app/export.js', 'src/kiri/app/platform.js', 'src/kiri/mode/cam/app/cl-autotab.js', 'src/kiri/mode/cam/app/cl-tabedit.js']))
+  for (const m of readFileSync(root + f, 'utf8').matchAll(/\btitle\s*[:=]\s*[^'"`\n,;]*\?\s*(?:'((?:\\.|[^'\\\n])*)'|`((?:\\.|[^`\\\n])*)`)\s*:\s*(?:'((?:\\.|[^'\\\n])*)'|`((?:\\.|[^`\\\n])*)`)/g))
+    for (let t of [m[1] || m[2], m[3] || m[4]]) {
+      if (!t || t.length < 20) continue;
+      let was;
+      do { was = t; t = t.replace(/\$\{[^{}]*\}/g, 'X'); } while (t !== was);
+      if (t.trim().split(/\s+/).length > 12) long.push(`${f}: ${t}`);
+    }
 assert.deepEqual(long, [], 'tooltips over twelve words');
 console.log('help refs: ok');

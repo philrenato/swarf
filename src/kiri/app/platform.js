@@ -840,7 +840,7 @@ function changed() {
                     type: "checkbox",
                     class: "swarf-cut-tick",
                     id: `w-cut-${w.id}`,
-                    title: (w.meta.disabled ? `${file} is left out of this run: tick it to cut it` : `${file} is cut in this run: untick it to leave it out (it stays on the bed, grayed)`).replace(/"/g, '&quot;'),
+                    title: (w.meta.disabled ? `${file} is left out of this run: tick it to cut it` : `${file} is cut in this run: untick to leave it out`).replace(/"/g, '&quot;'),
                     _checked: !w.meta.disabled,
                     onclick(ev) {
                         ev.stopPropagation();
@@ -1460,7 +1460,7 @@ function loadSVGDialog(doit, cancel = () => {}, size = '') {
         "  <details style='width:320px'><summary>finer settings</summary><table>",
         "  <tr><th title='more points follow a curve more closely; 0.5 is accepted'>points per mm on a curve</th><td><input id='svg-arcs' value='1' size='3'></td></tr>",
         "  <tr><th title='so a small circle stays round'>fewest points on a curve</th><td><input id='svg-marc' value='10' size='3'></td></tr>",
-        "  <tr><th title='only if the drawing is measured in pixels; 0 reads it in mm'>pixels per inch</th><td><input id='svg-dpi' value='0' size='3'></td></tr>",
+        "  <tr><th title='only for a drawing measured in pixels; 0 reads mm'>pixels per inch</th><td><input id='svg-dpi' value='0' size='3'></td></tr>",
         "  </table></details>",
         "</div>"
     ]};
@@ -1578,7 +1578,7 @@ function loadDXFDialog(doit, cancel = () => {}) {
         `  </p>`,
         `  <div class="f-row t-right image-convert-fields"><table>`,
         `  <tr><th>thickness</th><td><input id="dxf-depth-${rnd}" value="${depthShow(lastThickness())}" size="6" inputmode="text"> ${depthUnit()}</td></tr>`,
-        `  <tr><th title="most drawings say their units; pick one if the parts come out 25 times too big or too small">units</th><td><select id="dxf-units-${rnd}"><option value="auto" selected>as the file says</option><option value="mm">millimeters</option><option value="inch">inches</option></select></td></tr>`,
+        `  <tr><th title="most drawings name their units; change it if parts are 25× off">units</th><td><select id="dxf-units-${rnd}"><option value="auto" selected>as the file says</option><option value="mm">millimeters</option><option value="inch">inches</option></select></td></tr>`,
         `  <tr><th title="an outline inside another is cut out of it, as a hole">holes stay holes</th><td><input id="dxf-nest-${rnd}" type="checkbox" checked></td></tr>`,
         `  </table></div>`,
         `  <details class="image-convert-fields"><summary>finer settings</summary><table>`,

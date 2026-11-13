@@ -43,12 +43,12 @@ let cur = { density: 0, scale: 0, pin: {} };
 // every attribute a tab set has; len = a length (mm inside, the cam units on screen)
 export const FIELDS = [
     { key: 'width',     label: 'length',       kind: 'len', title: 'how long each tab is, along the edge' },
-    { key: 'height',    label: 'height',       kind: 'len', title: 'how tall each tab is, up from the bottom of the cut (less than the board)' },
+    { key: 'height',    label: 'height',       kind: 'len', title: 'tab height from the bottom of the cut; under the board' },
     { key: 'depth',     label: 'reach',        kind: 'len', title: 'how far each tab reaches across the cut; at least the bit' },
     { key: 'count',     label: 'count',        kind: 'int', title: 'how many tabs around each part\'s outside edge' },
     { key: 'corner',    label: 'from corners', kind: 'len', title: 'how far the middle of a tab stays from a corner' },
-    { key: 'holes',     label: 'hold inside pieces', kind: 'bool', title: 'put tabs in holes too, so the piece cut out of a hole stays put and cannot fly' },
-    { key: 'holeMin',   label: 'holes from',   kind: 'len', title: 'a hole at least this wide across gets tabs (automatic: any hole that leaves a loose piece)' },
+    { key: 'holes',     label: 'hold inside pieces', kind: 'bool', title: 'tabs in holes too, so cut-out pieces cannot fly' },
+    { key: 'holeMin',   label: 'holes from',   kind: 'len', title: 'holes this wide get tabs; automatic: any with a loose piece' },
     { key: 'holeCount', label: 'in each hole', kind: 'int', title: 'tabs in each big hole' },
 ];
 
