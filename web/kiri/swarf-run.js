@@ -289,6 +289,7 @@ body.swarf-run-open { filter: none !important; }
 .sr-target.sim { color: #8fb0d0; border-color: #4f6f8f; }
 .sr-target.live { color: #8fd3a8; border-color: #4f8f68; }
 .sr-target.off { color: var(--swarf-text-2, #8a857c); }
+.sr-target:empty { display: none; }
 .sr-pin { position: sticky; top: 0; z-index: 2; background: var(--swarf-bg-2, #13100f); }
 .sr-next { padding: 0 12px 6px; font-size: 12px; color: var(--swarf-amber, #c08a3a); }
 .sr-top .sr-steps { flex: none; padding: 0; gap: 4px; }

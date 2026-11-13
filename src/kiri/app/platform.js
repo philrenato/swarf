@@ -1481,8 +1481,18 @@ function loadSVGDialog(doit, cancel = () => {}, size = '') {
 // face is up, and its toggle turns the part in place: Z up is a quarter turn about X from Y up
 // ((x,-z,y) back to (x,y,z)). Each flip is one undo. The part stays as it is when the card closes.
 const OBJ_TURN = { z: -Math.PI / 2, y: Math.PI / 2 };   // from the other reading to this one
+// OBJs waiting for their card: one card for every OBJ in a drop, and never over another import's
+// dialog (fresh review 11-13: it replaced a pending DXF dialog, whose watcher then quit that load)
+let objWaiting = [], objWaitT = 0;
 function objUpCard(made, name) {
-    made = (made || []).filter(Boolean);
+    objWaiting.push(...(made || []).filter(Boolean));
+    if (!objWaitT) objWaitT = setTimeout(objUpFlush, 0);
+}
+function objUpFlush() {
+    objWaitT = 0;
+    if (api.modal && api.modal.visible && api.modal.visible()) { objWaitT = setTimeout(objUpFlush, 400); return; }
+    const made = objWaiting.filter(w => api.widgets.all().includes(w));
+    objWaiting = [];
     if (!made.length || !api.modal) return;
     const rnd = Date.now().toString(36);
     const L = self.SwarfLength, say = v => L ? L.say(v) : `${+v.toFixed(1)} mm`;

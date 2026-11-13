@@ -1814,6 +1814,8 @@
     const a = api(), picked = a && a.selection.widgets ? a.selection.widgets() : [];
     if (a && !picked.length) { const one = a.widgets.all().find(w => !(w.track && w.track.synth) && !(w.meta && w.meta.disabled)); if (one) a.platform.select(one); }
     open();
+    // tex did not open (draw would not close): no visit to be a pocket one, so the flag goes (fresh review 11-13)
+    if (!S) pocketVisit = false;
     if (S) { say('Pocket: drag a rectangle or an ellipse on the part, then type its depth on the card. Done adds an inlay step, and a plug that fills it, left out of this run.'); render(); }
   }
   window.__swarfTex = { open, openPocket, close, say, setTool, render, state: () => S, lastMesh: () => S && S.lastMesh, concerns, syncSteps, pierceAvoid, stepCard, setStepCard, carve, uncarve, carving };

@@ -371,6 +371,10 @@ function parseLWPolyline(lines, start) {
     let closed = false;
     const points = [];
     let currentPoint = null;
+    // swarf (fresh review 11-13): an LWPOLYLINE's one height is its elevation, code 38; read as 0 it
+    // counted as a second height beside a spline at the same elevation
+    let elev = 0;
+    const done = () => { for (const p of points) p.z = elev; };
 
     while (i < lines.length - 1) {
         const code = lines[i];
@@ -379,6 +383,8 @@ function parseLWPolyline(lines, start) {
         if (code === '70') {
             closed = (parseInt(value) & 1) === 1;
         }
+
+        if (code === '38') elev = parseFloat(value) || 0;
 
         if (code === '10') {
             if (currentPoint) {
@@ -395,6 +401,7 @@ function parseLWPolyline(lines, start) {
             if (currentPoint) {
                 points.push(currentPoint);
             }
+            done();
             return { type: 'LWPOLYLINE', points, closed, endIndex: i };
         }
 
@@ -404,6 +411,7 @@ function parseLWPolyline(lines, start) {
     if (currentPoint) {
         points.push(currentPoint);
     }
+    done();
 
     return { type: 'LWPOLYLINE', points, closed, endIndex: i };
 }

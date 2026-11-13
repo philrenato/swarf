@@ -35,6 +35,16 @@ const obj = ['# Rhino', ...P.map(([x, y, z]) => `v ${x} ${z} ${-y}`), ...F.map(f
 // the same box saved Z up (Rhino with "Map Rhino Z to OBJ Y" unticked): read Y up it stands on its edge
 const objZ = ['# Rhino, Z up', ...P.map(([x, y, z]) => `v ${x} ${y} ${z}`), ...F.map(f => `f ${f.join(' ')}`), ''].join('\n');
 // 115a: the same 100 x 50 board flat at one elevation (no note), and with its spline 10 mm higher (two heights)
+// fresh review 11-13: the three sides as an LWPOLYLINE, its one height in code 38, beside the spline at the
+// same elevation: one height, no note (it read 0 and said two)
+const dxfLw = elev => g('  0', 'SECTION', '  2', 'HEADER', '  9', '$INSUNITS', ' 70', '4', '  0', 'ENDSEC',
+  '  0', 'SECTION', '  2', 'ENTITIES',
+  '  0', 'LWPOLYLINE', '  8', '0', ' 90', '4', ' 70', '0', ' 38', elev,
+  ...[[0, 0], [100, 0], [100, -50], [0, -50]].flatMap(([x, y]) => [' 10', String(x), ' 20', String(y)]),
+  '  0', 'SPLINE', '  8', '0', ' 70', '8', ' 71', '3', ' 72', '8', ' 73', '4',
+  ...[0, 0, 0, 0, 1, 1, 1, 1].flatMap(k => [' 40', String(k)]),
+  ...[[0, -50], [-15, -33], [-15, -17], [0, 0]].flatMap(([x, y]) => [' 10', String(x), ' 20', String(y), ' 30', Z]),
+  '  0', 'ENDSEC', '  0', 'EOF', '');
 const dxfAt = (zPoly, zSpline) => dxf.split('\n').map((l, i, a) => l === Z ? (a.slice(i + 1).includes('SPLINE') ? zPoly : zSpline) : l).join('\n');
 
 const browser = await puppeteer.launch({ executablePath: CHROME, headless: 'new', defaultViewport: { width: 1440, height: 900 }, userDataDir: mkdtempSync(join(tmpdir(), 'swarf-axes-')), args: ['--enable-webgl', '--use-gl=angle', '--enable-unsafe-swiftshader'] });
@@ -101,6 +111,12 @@ try {
   const d1 = await load(dxfAt('-292.1', '-292.1'), 'one-height.dxf', 12);
   const s1 = await said();
   check(d1.length === 1 && !s1.some(m => /^drawn at \d+ heights/.test(m)), `DXF one elevation: no heights note (${JSON.stringify(d1)} ${JSON.stringify(s1)})`);
+  const d3 = await load(dxfLw(Z), 'lw-one-height.dxf', 12);
+  const s3 = await said();
+  check(d3.length >= 1 && !s3.some(m => /^drawn at \d+ heights/.test(m)), `DXF LWPOLYLINE + spline at one elevation: no heights note (${JSON.stringify(s3)})`);
+  const d4 = await load(dxfLw('-282.1'), 'lw-two-heights.dxf', 12);
+  const s4 = await said();
+  check(d4.length >= 1 && s4.some(m => /^drawn at 2 heights/.test(m)), `DXF LWPOLYLINE 10 mm above the spline: the note says 2 heights (${JSON.stringify(s4)})`);
   check(!errors.length, `no page errors ${errors.slice(0, 3).join(' | ')}`);
 } finally {
   await browser.close();

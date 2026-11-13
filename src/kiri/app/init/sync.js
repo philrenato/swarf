@@ -827,8 +827,8 @@ function setup_keybd_nav() {
             document.body.classList.toggle('swarf-concerns-up', on);
             if (!on && back && back.isConnected && (wrap.contains(document.activeElement) || document.activeElement === document.body)) {
                 try { back.focus({ preventScroll: true }); } catch (e) { /* gone */ }
-                back = null;
             }
+            if (!on) back = null;   // never handed to a later opening (fresh review 11-13)
         };
         new MutationObserver(placed).observe(wrap, { attributes: true, attributeFilter: ['class'] });
         // Escape closes the concerns and nothing else: Kiri's own Escape runs on keyup (blur, deselect),
@@ -836,6 +836,9 @@ function setup_keybd_nav() {
         let eatEsc = false;
         wrap.addEventListener('keydown', e => { if (e.key === 'Escape' && wrap.classList.contains('open')) { e.stopPropagation(); eatEsc = true; wrap.classList.remove('open'); } });
         window.addEventListener('keyup', e => { if (eatEsc && e.key === 'Escape') { eatEsc = false; e.stopImmediatePropagation(); e.preventDefault(); } }, true);
+        // a keyup that never came (the window lost focus first) must not eat a later Escape (fresh review 11-13)
+        window.addEventListener('blur', () => { eatEsc = false; });
+        window.addEventListener('keydown', e => { if (e.key !== 'Escape') eatEsc = false; }, true);
         new MutationObserver(expanded).observe(wrap, { attributes: true, attributeFilter: ['class'] });
         new MutationObserver(expanded).observe(count, { childList: true, characterData: true, subtree: true });
         expanded();
