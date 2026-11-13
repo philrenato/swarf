@@ -44,7 +44,11 @@ export function parse(text, opt = { }) {
     // swarf 11-09 (Phil's test.dxf from Rhino): a drawing for cutting is flat. Its elevation (Z -292.1
     // there) became part of the extrude, a 311 mm "thickness" floating off the bed. Every point lies
     // on Z 0; the typed thickness is the only height.
-    flattenZ(entities);
+    // swarf 115a (review 11-13 #6): the heights it was drawn at are counted first (0.01 mm apart is one
+    // height), so the import can say when curves at several heights were pressed onto one board
+    const zs = [];
+    flattenZ(entities, zs);
+    opt.heights = countHeights(zs);
 
     // swarf 11-09: an open spline joins the lines, arcs and polylines it meets (the same file: one
     // spline and one polyline closing a board's outline came in as two broken pieces). Sampled here,
@@ -637,11 +641,23 @@ function evaluateNURBS(t, degree, controlPoints, knots) {
 
 // Scale all entity coordinates to millimeters
 // swarf: every point of every entity onto Z 0 (start, end, center, points, control points)
-function flattenZ(o) {
-    if (Array.isArray(o)) { for (const v of o) flattenZ(v); return; }
+function flattenZ(o, zs) {
+    if (Array.isArray(o)) { for (const v of o) flattenZ(v, zs); return; }
     if (!o || typeof o !== 'object') return;
-    if (typeof o.x === 'number' && typeof o.y === 'number' && 'z' in o) o.z = 0;
-    for (const v of Object.values(o)) if (v && typeof v === 'object') flattenZ(v);
+    if (typeof o.x === 'number' && typeof o.y === 'number' && 'z' in o) {
+        if (zs && Number.isFinite(o.z)) zs.push(o.z);
+        o.z = 0;
+    }
+    for (const v of Object.values(o)) if (v && typeof v === 'object') flattenZ(v, zs);
+}
+
+// swarf: how many distinct heights, 0.01 mm apart or more (0 for no points)
+function countHeights(zs, tol = 0.01) {
+    if (!zs.length) return 0;
+    const s = zs.slice().sort((a, b) => a - b);
+    let n = 1;
+    for (let i = 1, at = s[0]; i < s.length; i++) if (s[i] - at > tol) { n++; at = s[i]; }
+    return n;
 }
 
 function scaleEntities(entities, scale) {
