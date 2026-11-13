@@ -2606,3 +2606,5 @@ body.swarf-menu-open #swarf-bits { z-index: -1 !important; pointer-events: none;
 /* review 11-13 #7: the tabs on the board, said before the numbers */
 .swarf-autotabs-placed { font-size: 12px; margin: 2px 0 6px; }
 .swarf-autotabs-placed.none { color: var(--swarf-amber, #c08a3a); }
+/* review 11-13 #8: on a short screen open concerns take the size strip's place, not half of it */
+@media (max-height: 820px) { body.swarf-concerns-up #swarf-size { display: none !important; } }

@@ -109,6 +109,26 @@ try {
   check(await btn('the board moved'), 'press the board moved'); await wait(400);
   const k2 = await kept();
   check(!k2.xy && k2.z && !k2.traced && !k2.text && !/X Y/.test(k2.offer), `#2 X Y forgotten, not offered back, Z kept (${JSON.stringify(k2)})`);
+  // #8 (115): the target in the top row, the next step pinned in the jog panel, the pinned header still live offline
+  const lay = await page.evaluate(() => {
+    const t = document.querySelector('#swarf-run .sr-top .sr-target'), n = document.querySelector('#swarf-run .sr-jog .sr-pin .sr-next'), pin = document.querySelector('#swarf-run .sr-jog .sr-pin');
+    return { target: t && t.textContent, next: n && getComputedStyle(n).display !== 'none' ? n.textContent : '', sticky: pin && getComputedStyle(pin).position, pe: pin && getComputedStyle(pin).pointerEvents };
+  });
+  check(lay.target === 'practice simulator', `#8 the top row names the target ("${lay.target}")`);
+  check(/^next: .*zero|^next: /.test(lay.next) && /x y|X Y|zero/i.test(lay.next), `#8 the next step is pinned in the jog panel ("${lay.next}")`);
+  check(lay.sticky === 'sticky' && lay.pe !== 'none', `#8 the jog header stays put and takes clicks (${lay.sticky}, ${lay.pe})`);
+  // #8: on a short screen open concerns take the size strip's place; Escape closes and gives focus back
+  await page.evaluate(() => window.__swarfRun.close()); await wait(500);
+  await page.setViewport({ width: 1280, height: 720 }); await wait(600);
+  await page.evaluate(() => { const a = window.kiri.api; a.platform.select(a.widgets.all()[0]); }); await wait(600);
+  const size0 = await page.evaluate(() => { const z = document.getElementById('swarf-size'); return z ? getComputedStyle(z).display : 'none'; });
+  await page.evaluate(() => document.getElementById('swarf-concerns-tab').focus());
+  await page.keyboard.press('Enter'); await wait(300);
+  const open = await page.evaluate(() => { const z = document.getElementById('swarf-size'); return { open: document.getElementById('swarf-concerns').classList.contains('open'), size: z ? getComputedStyle(z).display : 'none', exp: document.getElementById('swarf-concerns-tab').getAttribute('aria-expanded') }; });
+  check(open.open && open.exp === 'true' && open.size === 'none', `#8 at 720 the open concerns replace the size strip (strip was ${size0}: ${JSON.stringify(open)})`);
+  await page.keyboard.press('Escape'); await wait(300);
+  const shut = await page.evaluate(() => { const z = document.getElementById('swarf-size'); return { open: document.getElementById('swarf-concerns').classList.contains('open'), size: z ? getComputedStyle(z).display : 'none', focus: document.activeElement && document.activeElement.id }; });
+  check(!shut.open && shut.size === size0 && shut.focus === 'swarf-concerns-tab', `#8 Escape closes, the strip comes back, focus stays on the tab (${JSON.stringify(shut)})`);
   check(!errors.length, `no page errors ${errors.slice(0, 3).join(' | ')}`);
 } finally {
   await browser.close();

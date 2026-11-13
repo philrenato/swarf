@@ -816,6 +816,26 @@ function setup_keybd_nav() {
             tab.setAttribute('aria-expanded', wrap.classList.contains('open') ? 'true' : 'false');
             tab.setAttribute('aria-label', `concerns: ${n === '0' ? 'none' : n}`);
         };
+        // open on a short screen (review 11-13 #8): the concerns take the size strip's place instead of
+        // covering half of it, and closing gives focus back to where it was
+        let was = false, back = null;
+        const placed = () => {
+            const on = wrap.classList.contains('open');
+            if (on === was) return;
+            was = on;
+            if (on) back = document.activeElement !== document.body && !wrap.contains(document.activeElement) ? document.activeElement : back;
+            document.body.classList.toggle('swarf-concerns-up', on);
+            if (!on && back && back.isConnected && (wrap.contains(document.activeElement) || document.activeElement === document.body)) {
+                try { back.focus({ preventScroll: true }); } catch (e) { /* gone */ }
+                back = null;
+            }
+        };
+        new MutationObserver(placed).observe(wrap, { attributes: true, attributeFilter: ['class'] });
+        // Escape closes the concerns and nothing else: Kiri's own Escape runs on keyup (blur, deselect),
+        // so that keyup is swallowed, and the part stays picked
+        let eatEsc = false;
+        wrap.addEventListener('keydown', e => { if (e.key === 'Escape' && wrap.classList.contains('open')) { e.stopPropagation(); eatEsc = true; wrap.classList.remove('open'); } });
+        window.addEventListener('keyup', e => { if (eatEsc && e.key === 'Escape') { eatEsc = false; e.stopImmediatePropagation(); e.preventDefault(); } }, true);
         new MutationObserver(expanded).observe(wrap, { attributes: true, attributeFilter: ['class'] });
         new MutationObserver(expanded).observe(count, { childList: true, characterData: true, subtree: true });
         expanded();

@@ -1358,6 +1358,9 @@ html[data-skin] #swarf-paths-stale {
 html[data-skin] #swarf-bits {
     box-shadow: 0 8px 24px rgb(var(--sk-shadow) / calc(0.35 * var(--sk-a-shadow, 1)))
 }
+html[data-skin] .swarf-autotabs-placed.none {
+    color: var(--swarf-amber, rgb(var(--sk-warn) / calc(1 * var(--sk-a-warn, 1))))
+}
 
 /* ---- from web/kiri/index.html ---- */
 html[data-skin] #curtain {
@@ -1771,6 +1774,26 @@ html[data-skin] #swarf-run .sr-card summary {
 }
 html[data-skin] #swarf-run .sr-stat .sr-hold.arming {
     background: var(--swarf-accent, rgb(var(--sk-acc) / calc(1 * var(--sk-a-acc, 1)))) !important
+}
+html[data-skin] #swarf-run .sr-target {
+    border: 1px solid var(--swarf-line, rgb(var(--sk-n2) / calc(1 * var(--sk-a-n2, 1))))
+}
+html[data-skin] #swarf-run .sr-target.sim {
+    color: rgb(var(--sk-info) / calc(1 * var(--sk-a-info, 1)));
+    border-color: rgb(var(--sk-info) / calc(1 * var(--sk-a-info, 1)))
+}
+html[data-skin] #swarf-run .sr-target.live {
+    color: rgb(var(--sk-ok) / calc(1 * var(--sk-a-ok, 1)));
+    border-color: rgb(var(--sk-ok) / calc(1 * var(--sk-a-ok, 1)))
+}
+html[data-skin] #swarf-run .sr-target.off {
+    color: var(--swarf-text-2, rgb(var(--sk-n6) / calc(1 * var(--sk-a-n6, 1))))
+}
+html[data-skin] #swarf-run .sr-pin {
+    background: var(--swarf-bg-2, rgb(var(--sk-n0) / calc(1 * var(--sk-a-n0, 1))))
+}
+html[data-skin] #swarf-run .sr-next {
+    color: var(--swarf-amber, rgb(var(--sk-warn) / calc(1 * var(--sk-a-warn, 1))))
 }
 html[data-skin] #swarf-run .sr-vtools button.on {
     background: rgb(var(--sk-n3) / calc(1 * var(--sk-a-n3, 1))) !important;

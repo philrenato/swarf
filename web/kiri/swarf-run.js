@@ -155,9 +155,9 @@
 .sr-scrub .sr-play, .sr-scrub .sr-rate { min-width: 34px; height: 26px; padding: 0 8px; border-radius: 6px; border: 1px solid #4f4642; background: #2a2523; font-size: 12px; cursor: pointer; }
 .sr-scrub .sr-play.on { border-color: #a39a90; }
 .sr-jog { padding-bottom: 10px; overflow-y: auto; transition: opacity .2s; }
-.sr-jog.locked > :not(.sr-lock):not(.sr-dro):not(.sr-jh) { opacity: .85; pointer-events: none; }   /* readable while locked (legibility pass 10-28); the lock line says why */   /* readable while locked (legibility pass 10-28) */
+.sr-jog.locked > :not(.sr-lock):not(.sr-dro):not(.sr-jh):not(.sr-pin) { opacity: .85; pointer-events: none; }   /* readable while locked (legibility pass 10-28); the lock line says why */   /* readable while locked (legibility pass 10-28) */
 .sr-jog.locked .sr-dro { pointer-events: none; }
-.sr-jog.offline > :not(.sr-lock):not(.sr-jh) { opacity: .4; pointer-events: none; filter: grayscale(1); }   /* not connected: nothing here can reach the machine */
+.sr-jog.offline > :not(.sr-lock):not(.sr-jh):not(.sr-pin) { opacity: .4; pointer-events: none; filter: grayscale(1); }   /* not connected: nothing here can reach the machine */
 .sr-keyrow { display: flex; align-items: center; gap: 10px; margin: 8px 12px 0; }
 #swarf-run .sr-ovr { display: flex; align-items: center; gap: 8px; margin: 6px 0 2px; }
 #swarf-run .sr-ovr .lbl { font-size: 12px; }
@@ -285,6 +285,12 @@ body.swarf-run-open { filter: none !important; }
 .sr-stat .sr-hold.arming { background: var(--swarf-accent, #d02020) !important; transition: background 1.5s linear; }
 /* ---- inside swarf (10-27): no header row; steps + sentence share a line ---- */
 .sr-top { display: flex; align-items: center; gap: 14px; padding: 0 16px 6px; }
+.sr-target { margin-left: auto; flex: none; padding: 4px 12px; border-radius: 999px; font-size: 13px; border: 1px solid var(--swarf-line, #2a1612); white-space: nowrap; }
+.sr-target.sim { color: #8fb0d0; border-color: #4f6f8f; }
+.sr-target.live { color: #8fd3a8; border-color: #4f8f68; }
+.sr-target.off { color: var(--swarf-text-2, #8a857c); }
+.sr-pin { position: sticky; top: 0; z-index: 2; background: var(--swarf-bg-2, #13100f); }
+.sr-next { padding: 0 12px 6px; font-size: 12px; color: var(--swarf-amber, #c08a3a); }
 .sr-top .sr-steps { flex: none; padding: 0; gap: 4px; }
 .sr-top .sr-step { flex: none; padding: 5px 9px; font-size: 11px; gap: 6px; }
 .sr-top .sr-step .n { width: 17px; height: 17px; font-size: 10px; }
@@ -609,7 +615,9 @@ html[data-skin] #swarf-run .sr-jog .sr-zrow button.next, html[data-skin] #swarf-
     STEPS.forEach((s, i) => el.steps.append(h('div', { class: 'sr-step', 'data-step': s, title: STEP_SAYS[s], onclick: () => tell(STEP_SAYS[s]) }, h('span', { class: 'n', text: String(i + 1) }), h('span', { text: s }))));
     el.say = h('div', { class: 'sr-say' });
     el.strip = h('div', { class: 'sr-strip' });   // MASQ's working strip: on while the machine runs
-    root.append(h('div', { class: 'sr-top' }, el.steps, el.say), el.strip);
+    // which machine this is, in one place (review 11-13 #8): in the top row, not a new line (Phil 10-27)
+    el.target = h('div', { class: 'sr-target', title: 'What the buttons below move' });
+    root.append(h('div', { class: 'sr-top' }, el.steps, el.say, el.target), el.strip);
     // the mm | in switch with control open: its sentence and the steps' words follow (r086 check S2)
     try {
       const u = window.kiri.api.ui.units;
@@ -652,7 +660,7 @@ html[data-skin] #swarf-run .sr-jog .sr-zrow button.next, html[data-skin] #swarf-
     });
 
     // jog (upper right)
-    el.jog = h('div', { class: 'sr-box sr-jog' }, h('h3', { class: 'sr-jh' }, h('span', { text: 'jog' }), el.conn), h('div', { class: 'sr-lock', text: 'locked while the program runs' }));
+    el.jog = h('div', { class: 'sr-box sr-jog' }, h('div', { class: 'sr-pin' }, h('h3', { class: 'sr-jh' }, h('span', { text: 'jog' }), el.conn), el.next = h('div', { class: 'sr-next' })), h('div', { class: 'sr-lock', text: 'locked while the program runs' }));
     el.dro = {};
     const dro = h('div', { class: 'sr-dro' });
     for (const a of ['x', 'y', 'z']) {
@@ -1483,6 +1491,10 @@ html[data-skin] #swarf-run .sr-jog .sr-zrow button.next, html[data-skin] #swarf-
     el.fromBtn.disabled = running || cutWhy.length > 0;
     el.fromBtn.title = cutWhy.length ? `Continue needs: ${cutWhy.join(', then ')}.` : `Up to ${up()}, over, then cut from this line on`;
     el.need.innerHTML = '';
+    // the next thing to do and why, pinned above each panel that scrolls (review 11-13 #8)
+    const nextNeed = !running && need.find(n => !n.ok);
+    el.next.textContent = nextNeed ? `next: ${nextNeed.todo}` : '';
+    el.next.style.display = nextNeed ? '' : 'none';
     if (!running && need.some(n => !n.ok)) {
       el.need.append(h('b', { text: 'to run:' }));
       for (const n of need) el.need.append(h('span', { class: n.ok ? 'ok' : 'no', text: (n.ok ? '✓ ' : '○ ') + n.label, title: n.ok ? '' : n.todo, onclick: n.ok ? null : () => { tell(`${n.todo[0].toUpperCase()}${n.todo.slice(1)}.`, 'warn'); flashNeed(n.k); } }));
@@ -2466,6 +2478,8 @@ html[data-skin] #swarf-run .sr-jog .sr-zrow button.next, html[data-skin] #swarf-
     el.conn.className = 'sr-conn ' + (sim ? 'sim' : st.connected ? 'live' : '');
     const what = st.running ? (st.paused ? 'paused' : (S.job === 'trace' || S.job === 'air') ? 'test run' : 'cutting') : st.moving ? 'moving' : 'idle';
     el.connText.textContent = sim ? `simulator · ${what}` : st.connected ? `connected · ${what}${st.spindle ? ' · router on' : ''}` : 'not connected';
+    el.target.textContent = sim ? 'practice simulator' : st.connected ? 'ShopBot' : 'no machine';
+    el.target.className = 'sr-target ' + (sim ? 'sim' : st.connected ? 'live' : 'off');
     el.conn.title = sim ? 'The simulator, not the real machine: plug the ShopBot in and press connect' : '';
     el.connBtn.style.display = st.connected && !sim ? 'none' : '';
     el.discBtn.style.display = st.connected && !sim ? '' : 'none';
