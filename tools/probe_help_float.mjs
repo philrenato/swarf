@@ -171,6 +171,24 @@ try {
   check(c.shown && c.left >= 0 && c.top >= 0 && c.right > c.left && c.right <= 900 && c.bottom <= 600, `in a 900 x 600 window help is all on screen (${c.left},${c.top} → ${c.right},${c.bottom})`);
   const sw = await page.evaluate(() => document.documentElement.scrollWidth);
   check(sw <= 900, `no sideways page scroll (${sw})`);
+  // ── fresh review 11-13: with control open, keys typed in help still reach control (any key pauses a run) ──
+  await page.setViewport({ width: 1440, height: 900 }); await wait(400);
+  await page.evaluate(() => window.__swarfRun.open()); await wait(1500);
+  await page.evaluate(() => window.__swarfHelp.open('control')); await wait(400);
+  const reach = await page.evaluate(() => {
+    const got = []; const f = e => got.push(e.key);
+    document.addEventListener('keydown', f);
+    const i = document.getElementById('swarf-search-input'); i.focus();
+    for (const key of ['Escape', 'Delete', 'Backspace']) i.dispatchEvent(new KeyboardEvent('keydown', { key, bubbles: true }));
+    document.removeEventListener('keydown', f);
+    return { got, open: !document.getElementById('swarf-help-float').hidden };
+  });
+  check(reach.got.join() === 'Escape,Delete,Backspace' && !reach.open, `with control open, Escape/Delete in help reach control, and Escape still closes help (${JSON.stringify(reach)})`);
+  await page.evaluate(() => window.__swarfRun.close()); await wait(500);
+  // a click inside help keeps focus in help, so Delete there cannot reach the part
+  await page.evaluate(() => window.__swarfHelp.open('tab')); await wait(300);
+  const foc = await page.evaluate(() => { const c = document.getElementById('swarf-help-float'); c.focus(); return document.activeElement === c; });
+  check(foc, 'the help card itself can hold focus (tabindex -1)');
   check(errors.length === 0, `no page errors (${errors.slice(0, 3).join(' | ')})`);
 } finally {
   await browser.close();

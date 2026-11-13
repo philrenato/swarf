@@ -853,7 +853,8 @@ function setup_keybd_nav() {
             wrap.classList.toggle('open');
         });
         document.addEventListener('click', (e) => {
-            if (!wrap.contains(e.target)) wrap.classList.remove('open');
+            // help beside the list is part of reading it (fresh review 11-13)
+            if (!wrap.contains(e.target) && !(e.target.closest && e.target.closest('#swarf-help-float'))) wrap.classList.remove('open');
         });
         // the fix is here too, and the panel closes off what it points at (review 105 F9)
         body.addEventListener('click', e => {
@@ -907,11 +908,16 @@ function setup_keybd_nav() {
                 return `rapids now ${say} above the board (limits › z clearance). Undo puts it back`;
             } },
             // the least slide back onto the bed, offered only where it lands clear of the other parts
-            bed: { verb: 'move onto the bed', title: 'slide it the shortest way back onto the bed', run: ([id, dx, dy]) => {
+            bed: { verb: 'move onto the bed', title: 'slide it the shortest way back onto the bed', run: ([id]) => {
                 const w = partsOf([id])[0];
                 if (!w) return null;
                 if (!api.view.is_arrange()) api.view.set_arrange();
-                const mv = (x, y) => { w.move(x, y, 0); try { api.platform.update_bounds(); api.space.auto_save(); } catch (e) { /* no bounds */ } space.update(); evaluate(); };
+                // worked out again now (fresh review 11-13: a turn after the list was drawn made the old slide wrong)
+                evaluate();
+                const now = lastConcerns.find(c => c.fix === 'bed' && c.arg && c.arg[0] === id);
+                if (!now) return `${nameOf(w)}: no clear spot on the bed from here; drag it on`;
+                const [, dx, dy] = now.arg;
+                const mv = (x, y) => { if (!api.view.is_arrange()) api.view.set_arrange(); w.move(x, y, 0); try { api.platform.update_bounds(); api.space.auto_save(); } catch (e) { /* no bounds */ } space.update(); evaluate(); };
                 mv(dx, dy);
                 api.doit.push(() => mv(-dx, -dy), () => mv(dx, dy), { undo: `${nameOf(w)}: back where it was`, redo: `${nameOf(w)}: on the bed` });
                 return `${nameOf(w)} moved onto the bed. Undo puts it back`;
@@ -1579,9 +1585,12 @@ function setup_keybd_nav() {
         window.addEventListener('resize', () => { if (isOpen()) place(card.offsetLeft, card.offsetTop); });
         // keys inside help stay in help: Escape closes it (Kiri's own Escape runs on keyup and would
         // deselect the part, so that keyup is eaten), Delete and ⌘A never reach the bed's part
+        // with control open nothing is held back (fresh review 11-13: help over a running cut ate the
+        // Escape and Delete that pause it); control's own keys come first, help still closes on Escape
         card.addEventListener('keydown', ev => {
-            if (ev.key === 'Escape') { ev.stopPropagation(); ev.preventDefault(); eatEsc = true; close(); return; }
-            if (ev.key === 'Delete' || ev.key === 'Backspace' || ((ev.metaKey || ev.ctrlKey) && (ev.key === 'a' || ev.key === 'A'))) ev.stopPropagation();
+            const ctl = document.body.classList.contains('swarf-run-open');
+            if (ev.key === 'Escape') { if (!ctl) { ev.stopPropagation(); ev.preventDefault(); eatEsc = true; } close(); return; }
+            if (!ctl && (ev.key === 'Delete' || ev.key === 'Backspace' || ((ev.metaKey || ev.ctrlKey) && (ev.key === 'a' || ev.key === 'A')))) ev.stopPropagation();
         });
         window.addEventListener('keyup', ev => { if (eatEsc && ev.key === 'Escape') { eatEsc = false; ev.stopImmediatePropagation(); ev.preventDefault(); } }, true);
         window.addEventListener('blur', () => { eatEsc = false; });

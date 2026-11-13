@@ -214,7 +214,7 @@ export function autoFix(widgets, holes) {
     const before = tabSnap(ws);
     const id = { next: Date.now() };
     const plans = ws.map(w => {
-        const set = normal(clone(holes && setOf(w) ? setOf(w) : cur));
+        const set = normal(clone(setOf(w) || cur));   // the part's own settings, never the panel's (fresh review 11-13)
         if (holes) {
             delete set.pin.holes;
             const least = Math.min(...autoAudit(w).loose.filter(h => !h.tabs).map(h => h.across));
