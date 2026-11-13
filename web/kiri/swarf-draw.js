@@ -203,7 +203,8 @@
   let S = null;                                  // open state
   const ui = {};
 
-  function open() {
+  // opts.text: open on the text tool, carving into the picked part (the right-click menu's carve words)
+  function open(opts) {
     try { settleTilted(); } catch (e) { console.warn('swarf draw: settle', e); }
     const a = api();
     if (!a || !V() || S) return;
@@ -269,6 +270,16 @@
     fit();
     say(parts.length ? 'Pick a part, then a point to move it. The pen draws a new outline.' : (others.length ? 'These parts have no drawing to edit (only shapes and 2D drawings do). The pen draws a new outline.' : 'The pen draws an outline: click its corners, then click the first one to close it.'));
     render();
+    const into = opts && opts.text === true && i >= 0 ? parts[i] : null;
+    if (into) {
+      S.textMode = 'carve';
+      setTool('text');
+      S.textFor = into;
+      render();
+      say(`Type the words, then click on ${into.name} where they start: they carve into it.`);
+      // the words field takes the typing (setTool's font render keeps it there)
+      focusWords();
+    }
   }
 
   function build() {
@@ -564,7 +575,7 @@
     const textRows = (str, hh) => `<div class="sd-row"><span>words</span><input id="sd-str" class="wide" value="${esc(str)}"></div>${row('letter height', 'sd-th', hh, 'mm')}
       <div class="sd-row"><span>font</span>${fontSelect(S.tool === 'text' || !part || !part.text ? TEXT.name : part.text.font || TEXT.name)}</div>`;
     // carve into <part>: the part it is on when it is on one, the only part there is when not
-    const carveWord = p => { const hosts = S.parts.filter(canHost), h = p ? hostOf(p) : hosts.length === 1 ? hosts[0] : null; return h ? `carve into ${h.name}` : 'carve into the part under it'; };
+    const carveWord = p => { const hosts = S.parts.filter(canHost), h = p ? hostOf(p) : S.textFor && !S.textFor.gone ? S.textFor : hosts.length === 1 ? hosts[0] : null; return h ? `carve into ${h.name}` : 'carve into the part under it'; };
     const modeRow = (now, p) => `<div class="sd-row" title="what ${now === undefined || S.tool === 'text' || p && p.text ? 'words or an outline' : 'an outline'} inside or over a part makes"><span>inside or over a part</span></div><div class="sd-row"><select id="sd-mode" class="wide">${Object.entries(MODES).map(([k, v]) => `<option value="${k}"${k === (now ?? S.mode) ? ' selected' : ''}>${k === 'carve' ? esc(carveWord(p)) : v}</option>`).join('')}</select></div>`;
     // the V-bits by name, and how deep it may go
     const carveRows = c => {
@@ -914,10 +925,18 @@
     if (S.tool === 'regions' && t === 'regions') return;
     if (S.tool === 'regions' && t !== 'regions') applyRegions();
     const keep = S.sel;
+    if (t !== 'text') S.textFor = null;
     S.tool = t; S.pen = []; S.hover = null; S.ghost = null; S.ghostText = null; S.stroke = null;
     if (t !== 'select') { S.sel = -1; S.pts.clear(); }
     if (t === 'regions') { S.sel = keep; enterRegions(); S.sel = -1; }
-    if (t === 'text') fontReady().then(() => S && render()).catch(e => say(`Text needs its font: ${e.message}.`));
+    // the font's render builds a new card: a words field that had the typing keeps it, caret and all
+    if (t === 'text') fontReady().then(() => {
+      if (!S) return;
+      const f = document.activeElement, had = f && f.id === 'sd-str' ? [f.selectionStart, f.selectionEnd] : null;
+      render();
+      const el = had && $('sd-str');
+      if (el) { el.focus(); el.setSelectionRange(...had); }
+    }).catch(e => say(`Text needs its font: ${e.message}.`));
     render(); ui.svg.focus();
   }
   const snapMM = v => Math.round(v * 10) / 10;
