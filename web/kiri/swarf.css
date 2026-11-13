@@ -14,7 +14,7 @@ body.swarf-expert .swarf-expert-only { display: initial !important; }
 
 /* "advanced (alpha)" menu item — superscript styling for the alpha tag */
 .swarf-alpha-sup {
-  font-size: 0.62em;
+  font-size: max(11px, 0.62em);
   font-weight: 600;
   letter-spacing: 0.04em;
   text-transform: none;
@@ -181,7 +181,7 @@ html[data-skin] { border: 0 !important; }
 #swarf-watermark {
   position: fixed; left: 18px; bottom: 14px; z-index: 9999;
   font-family: "IBM Plex Mono", ui-monospace, monospace;
-  font-size: 10px; letter-spacing: 0.02em; text-transform: none;
+  font-size: 11px; letter-spacing: 0.02em; text-transform: none;
   color: var(--swarf-text-3); text-decoration: none; opacity: 0.55;
   pointer-events: auto; padding: 2px 6px;
   border-left: 1px solid var(--swarf-line);
@@ -537,7 +537,7 @@ body.swarf-run-open #install-swarf, body.swarf-run-open #swarf-watermark { visib
    Explicit none on every <sup> in the about/credits block kills it. */
 .swarf-about sup, .swarf-credits sup { text-decoration: none; }
 .swarf-about-sub {
-  font-size: 9px; letter-spacing: 0.02em; text-transform: none;
+  font-size: 11px; letter-spacing: 0.02em; text-transform: none;
   color: var(--swarf-text-2);
 }
 .swarf-about-body p {
@@ -550,7 +550,7 @@ body.swarf-run-open #install-swarf, body.swarf-run-open #swarf-watermark { visib
   grid-template-columns: auto 1fr;
   gap: 4px 16px;
   padding: 4px 20px 12px 20px;
-  font-size: 10px; line-height: 1.45;
+  font-size: 11px; line-height: 1.45;
 }
 .swarf-credit-role {
   text-transform: none; letter-spacing: 0.02em;
@@ -563,7 +563,7 @@ body.swarf-run-open #install-swarf, body.swarf-run-open #swarf-watermark { visib
   display: flex; justify-content: space-between; align-items: center;
   padding: 8px 20px 12px 20px;
   border-top: 1px solid var(--swarf-line);
-  font-size: 9px; letter-spacing: 0.02em; text-transform: none;
+  font-size: 11px; letter-spacing: 0.02em; text-transform: none;
   color: var(--swarf-text-3);
 }
 .swarf-about-links { display: flex; gap: 8px; align-items: center; }
@@ -590,7 +590,7 @@ body.swarf-run-open #install-swarf, body.swarf-run-open #swarf-watermark { visib
   display: flex; flex-direction: column; gap: 10px;
 }
 .swarf-help-title {
-  font-size: 10px; letter-spacing: 0.02em; text-transform: none;
+  font-size: 11px; letter-spacing: 0.02em; text-transform: none;
   color: var(--swarf-text-2);
 }
 .swarf-help-sub {
@@ -896,7 +896,7 @@ html[data-skin] .swarf-toggle-chips { display: none !important; }
   display: inline-block;
   color: var(--swarf-text-3);
   margin-right: 8px;
-  font-size: 8px;
+  font-size: 11px;
   vertical-align: middle;
 }
 #panel-left .set-header[style*="background: rgb"] { background: transparent !important; }
@@ -1080,7 +1080,7 @@ html:not([data-skin]) #panel-left  .set2-group::after {
 }
 .swarf-search .swarf-result-kind {
   display: inline-block; padding: 1px 8px;
-  font-size: 9px; letter-spacing: 0.02em; text-transform: none;
+  font-size: 11px; letter-spacing: 0.02em; text-transform: none;
   border: 1px solid var(--swarf-line);
   color: var(--swarf-text-3);
   background: var(--swarf-bg-3);
@@ -1103,7 +1103,7 @@ html:not([data-skin]) #panel-left  .set2-group::after {
   background: var(--swarf-bg-2);
   border: 1px solid var(--swarf-line);
   border-left: 2px solid var(--swarf-amber);
-  font-size: 10px; letter-spacing: 0.02em; text-transform: none;
+  font-size: 11px; letter-spacing: 0.02em; text-transform: none;
   color: var(--swarf-text-2);
   cursor: pointer;
   transition: color 120ms, border-color 120ms;
@@ -1117,7 +1117,7 @@ html:not([data-skin]) #panel-left  .set2-group::after {
   border: 1px solid var(--swarf-line);
   border-radius: 9px;
   padding: 0 6px;
-  font-size: 10px; letter-spacing: 0;
+  font-size: 11px; letter-spacing: 0;
 }
 #swarf-concerns-tab.has-warnings #swarf-concerns-count {
   background: var(--swarf-accent); color: #fff; border-color: var(--swarf-accent-hi);
@@ -1155,7 +1155,7 @@ html:not([data-skin]) #panel-left  .set2-group::after {
 /* swarf: always-visible add-op grid inside the toolpaths panel
    (markup Apr 15 — "I still don't see a way to make/add/change/see toolpaths") */
 .swarf-add-op-label {
-  font-size: 9px; letter-spacing: 0.02em; text-transform: none;
+  font-size: 11px; letter-spacing: 0.02em; text-transform: none;
   color: var(--swarf-text-3);
   padding: 10px 4px 6px 4px;
   border-top: 1px dashed var(--swarf-line);
@@ -1209,11 +1209,11 @@ body:not(.swarf-expert) .swarf-add-op-grid > .swarf-expert-only {
   font-family: "IBM Plex Mono", ui-monospace, monospace;
 }
 .swarf-license-title {
-  font-size: 10px; letter-spacing: 0.02em; text-transform: none;
+  font-size: 11px; letter-spacing: 0.02em; text-transform: none;
   color: var(--swarf-text-2); margin-bottom: 6px;
 }
 .swarf-license-body {
-  font-size: 10px; line-height: 1.5; color: var(--swarf-text-3);
+  font-size: 11px; line-height: 1.5; color: var(--swarf-text-3);
 }
 .swarf-license-body a { color: var(--swarf-accent); text-decoration: none; }
 .swarf-license-body a:hover { color: var(--swarf-accent-hi); }
@@ -1297,7 +1297,7 @@ body:not(.swarf-expert) .swarf-add-op-grid > .swarf-expert-only {
   flex-direction: row;
   align-items: center;
   gap: 6px;
-  font-size: 10px;
+  font-size: 11px;
   letter-spacing: 0.02em;
   text-transform: lowercase;
   color: var(--swarf-text-2, #aaa);
@@ -1312,13 +1312,13 @@ body:not(.swarf-expert) .swarf-add-op-grid > .swarf-expert-only {
   border: 1px solid var(--swarf-line, #2a2a2a);
   color: var(--swarf-text-1, #ddd);
   font-family: "IBM Plex Mono", ui-monospace, monospace;
-  font-size: 10px;
+  font-size: 11px;
   padding: 2px 4px;
   border-radius: 2px;
   min-width: 0;
 }
 /* (review r086 F4) each number names its unit, in mm or in */
-.swarf-op-params .swarf-op-row > .swarf-op-unit { flex: 0 0 48px; font-style: normal; font-size: 10px; white-space: nowrap; }
+.swarf-op-params .swarf-op-row > .swarf-op-unit { flex: 0 0 48px; font-style: normal; font-size: 11px; white-space: nowrap; }
 .swarf-op-params .swarf-op-num > input { text-align: right; width: 0; }
 .swarf-op-params { box-sizing: border-box; max-width: 100%; }
 .swarf-op-params .swarf-op-row > input:focus,
@@ -1429,7 +1429,7 @@ body:not(.swarf-expert) .swarf-add-op-grid > .swarf-expert-only {
   font-family: "IBM Plex Mono", ui-monospace, monospace !important;
   letter-spacing: 0.02em !important;
   text-transform: lowercase !important;
-  font-size: 10px !important;
+  font-size: 11px !important;
   font-weight: 600 !important;
 }
 body.swarf-phase-simulating #swarf-watermark {
@@ -1480,7 +1480,7 @@ body.swarf-phase-exported   #swarf-watermark::after { background: #6a6a6a; }
   position: absolute;
   top: -18px; left: 50%; transform: translateX(-50%);
   font-family: "IBM Plex Mono", monospace;
-  font-size: 9px;
+  font-size: 11px;
   letter-spacing: 0.02em;
   text-transform: none;
   color: var(--swarf-text-2);
@@ -1541,7 +1541,7 @@ body:not(.swarf-expert) #speeds { display: none !important; }
   border-radius: 0 !important;
   padding: 5px 12px !important;
   font-family: "IBM Plex Mono", monospace !important;
-  font-size: 10px !important;
+  font-size: 11px !important;
   letter-spacing: 0.02em;
   text-transform: none;
   font-weight: 600;
@@ -1985,7 +1985,7 @@ body:has(#swarf-size.on) #panel-right #oplist { max-height: min(calc(70vh - 200p
 #swarf-size .ax { display: flex; flex-direction: column; align-items: center; gap: 1px; }
 #swarf-size .ax input { width: 78px; text-align: right; background: #322c29; border: 1px solid #4f4642; border-radius: 6px; color: #fff; padding: 5px 8px; font: inherit; font-size: 15px; }
 #swarf-size .ax input:focus { outline: none; border-color: #a39a90; }
-#swarf-size .ax small { color: var(--swarf-text-2); font-size: 10px; }
+#swarf-size .ax small { color: var(--swarf-text-2); font-size: 11px; }
 #swarf-size .keep { display: flex; align-items: center; gap: 6px; margin-left: 8px; color: var(--swarf-text-2); font-size: 12px; cursor: pointer; }
 
 /* swarf draw (r37): the bed from above as a drawing, over the workspace. Quiet: no red here */
@@ -2074,7 +2074,7 @@ body.swarf-run-busy #mode-tools > span:not(.swarf-step-run):hover svg { fill: va
 .swarf-shape-prev svg .band, .swarf-shape-prev svg .band * { stroke: #f2ede4; stroke-opacity: .55; fill: none; }
 #swarf-size .n, #swarf-size .lbl { white-space: nowrap; }
 #swarf-start p.nudge { color: var(--swarf-amber, #c08a3a); }
-#swarf-draw [data-tool] kbd { font: inherit; font-size: 10px; color: #7d736b; margin-left: 3px; }
+#swarf-draw [data-tool] kbd { font: inherit; font-size: 11px; color: #7d736b; margin-left: 3px; }
 #swarf-start small.bed { color: var(--swarf-text-2); margin-top: -4px; }
 #swarf-draw .sd-wordbox { fill: transparent; stroke: #a39a90; stroke-width: 1; stroke-dasharray: 4 3; cursor: move; pointer-events: fill; }
 @media (max-width: 1100px) { #swarf-size { flex-wrap: wrap; left: 16px; right: 16px; transform: none; justify-content: center; } }
@@ -2247,7 +2247,7 @@ html[data-skin] #modal-box .swarf-help-modal::before, html[data-skin] #modal-box
 #mod-x { cursor: pointer; }
 html[data-skin="glass"] #mod-x { width: 28px; height: 28px; display: grid; place-items: center; border-radius: 50%; margin: 10px 10px 0 auto; background: var(--g-jelly); border: 1px solid rgba(120,120,125,.35) !important; box-shadow: var(--g-jelly-shadow); color: #2a2b2d; }
 html[data-skin="glass"] #mod-x i, html[data-skin="glass"] #mod-x svg { color: #2a2b2d !important; fill: #2a2b2d !important; }
-html[data-skin="classic"] #mod-x { width: 18px; height: 16px; display: grid; place-items: center; margin: 4px 4px 0 auto; background: #c0c0c0; box-shadow: inset -1px -1px #0a0a0a, inset 1px 1px #fff, inset -2px -2px #808080, inset 2px 2px #dfdfdf; color: #000; font-size: 10px; }
+html[data-skin="classic"] #mod-x { width: 18px; height: 16px; display: grid; place-items: center; margin: 4px 4px 0 auto; background: #c0c0c0; box-shadow: inset -1px -1px #0a0a0a, inset 1px 1px #fff, inset -2px -2px #808080, inset 2px 2px #dfdfdf; color: #000; font-size: 11px; }
 html:not([data-skin]) .swarf-license a, html:not([data-skin]) .swarf-about a, html:not([data-skin]) .swarf-credits a { color: #ff8a7e !important; }   /* the about box links read on the dark plate */
 html:not([data-skin]) .swarf-concordance section h3 { color: #ff8a7e !important; }   /* section heads on the dark plate */
 
@@ -2351,7 +2351,7 @@ html[data-skin] #swarf-draw svg .sd-part.sd-regsrc, #swarf-draw svg .sd-part.sd-
 /* the patterns as swatches; the picked one, and the picked mark, lit as the bar's picked tool */
 #swarf-draw.sd-tex .tx-sws { display: grid; grid-template-columns: repeat(5, 1fr); gap: 4px; margin: 4px 0 6px; }
 /* a swatch: its picture and its name inside the tile with room round them, in every skin's button shape */
-#swarf-draw.sd-tex .sd-card .tx-sw { display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 4px 2px 5px !important; min-width: 0; height: auto !important; min-height: 0 !important; border-radius: 7px !important; font-size: 10.5px !important; line-height: 1.2 !important; letter-spacing: 0 !important; }
+#swarf-draw.sd-tex .sd-card .tx-sw { display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 4px 2px 5px !important; min-width: 0; height: auto !important; min-height: 0 !important; border-radius: 7px !important; font-size: 11px !important; line-height: 1.2 !important; letter-spacing: 0 !important; }
 #swarf-draw.sd-tex .tx-sw img { width: 40px; height: 40px; border-radius: 4px; display: block; }
 #swarf-draw.sd-tex .tx-sw span { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 #swarf-draw.sd-tex .tx-picks { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; margin: 4px 0; }
@@ -2371,18 +2371,21 @@ html[data-skin] #swarf-draw svg .sd-part.sd-regsrc, #swarf-draw svg .sd-part.sd-
 #swarf-draw.sd-tex .tx-cut { fill: none; stroke: var(--swarf-text); stroke-linecap: round; opacity: .85; pointer-events: none; }
 #swarf-draw.sd-tex circle.tx-cut { stroke-width: 1.2px; fill: var(--swarf-text); fill-opacity: .25; }
 #swarf-draw.sd-tex .tx-fills { gap: 4px; }
+/* four fills (advanced: pierce too) sit two by two beside their label, never one alone on a line (look_tex_fit) */
+#swarf-draw.sd-tex .tx-fills:has(> button:nth-of-type(4)) { display: grid; grid-template-columns: auto 1fr 1fr; align-items: center; }
+#swarf-draw.sd-tex .tx-fills:has(> button:nth-of-type(4)) > span { grid-row: span 2; }
 /* the brush size in the bar; small swatches in one row on a short window; the points row on one line */
 #swarf-draw.sd-tex .tx-bsize { display: inline-flex; align-items: center; gap: 4px; font-size: 12px; }
 #swarf-draw.sd-tex .tx-bsize input { font: inherit; width: 52px; text-align: right; padding: 4px 6px; border-radius: 6px; border: 1px solid currentColor; background: transparent; color: inherit; }
 /* 720p: two rows of five with their one-word captions (review 10-30 B3), a 22 px picture each */
 /* fourteen patterns (reaction, blobtex 11-01) in two rows on a short window, so the basic card still fits */
-#swarf-draw.sd-tex .tx-sws.tx-compact { grid-template-columns: repeat(7, 1fr); gap: 3px; margin: 2px 0 4px; }
-#swarf-draw.sd-tex .tx-sws.tx-compact .tx-sw { padding: 3px 0 3px !important; gap: 1px; font-size: 8.5px !important; min-width: 0; }
+#swarf-draw.sd-tex .tx-sws.tx-compact { grid-template-columns: repeat(5, 1fr); gap: 3px; margin: 2px 0 4px; }   /* 11 px captions (Phil 11-13) need five across, three rows */
+#swarf-draw.sd-tex .tx-sws.tx-compact .tx-sw { padding: 3px 0 3px !important; gap: 1px; font-size: 11px !important; min-width: 0; }
 #swarf-draw.sd-tex .tx-sws.tx-compact .tx-sw span { letter-spacing: -0.02em !important; }
 #swarf-draw.sd-tex .tx-sws.tx-compact .tx-sw img { width: 22px; height: 22px; border-radius: 3px; }
 /* six to a row in a short window: a caption in the system's sans in every skin (the swarf skin's mono ran
    six letters past a 31 px swatch) */
-#swarf-draw.sd-tex .tx-sws.tx-compact .tx-sw span { font-family: system-ui, -apple-system, 'Segoe UI', sans-serif !important; letter-spacing: 0 !important; }
+#swarf-draw.sd-tex .tx-sws .tx-sw span { font-family: system-ui, -apple-system, 'Segoe UI', sans-serif !important; letter-spacing: 0 !important; }   /* every swatch: 11 px mono touched the tile's edge (Phil 11-13 floor) */
 #swarf-draw.sd-tex .sd-card .tx-ptsrow { flex-wrap: nowrap; }
 #swarf-draw.sd-tex .sd-card .tx-ptsrow input { width: 44px; }
 /* the kerfed board from the side, in the skin's own text color */
@@ -2391,7 +2394,7 @@ html[data-skin] #swarf-draw svg .sd-part.sd-regsrc, #swarf-draw svg .sd-part.sd-
 #swarf-draw.sd-tex .tx-kp-board { fill: currentColor; fill-opacity: .18; stroke: currentColor; stroke-opacity: .6; }
 #swarf-draw.sd-tex .tx-kp-kerf rect { fill: currentColor; fill-opacity: .7; }
 #swarf-draw.sd-tex .tx-kp-arc { fill: none; stroke: currentColor; stroke-dasharray: 3 2; stroke-opacity: .7; }
-#swarf-draw.sd-tex .tx-kp-t { fill: currentColor; font-size: 10.5px; }
+#swarf-draw.sd-tex .tx-kp-t { fill: currentColor; font-size: 11px; }
 #swarf-draw.sd-tex .tx-edge { fill: none !important; vector-effect: non-scaling-stroke; pointer-events: none; }
 #swarf-draw.sd-tex .sd-card select { width: 136px; text-overflow: ellipsis; }
 #swarf-draw.sd-tex .sd-card .tx-warn { border-left: 2px solid var(--swarf-amber); padding-left: 7px; }
@@ -2429,7 +2432,7 @@ body.swarf-draw-open #swarf-tabcard { display: none !important; }
 #swarf-tabcard .ax { display: flex; flex-direction: column; align-items: center; gap: 1px; }
 #swarf-tabcard .ax input { width: 70px; text-align: right; background: #322c29; border: 1px solid #4f4642; border-radius: 6px; color: #fff; padding: 5px 8px; font: inherit; font-size: 15px; }
 #swarf-tabcard .ax input:focus { outline: none; border-color: #a39a90; }
-#swarf-tabcard .ax small { color: var(--swarf-text-2); font-size: 10px; }
+#swarf-tabcard .ax small { color: var(--swarf-text-2); font-size: 11px; }
 #swarf-tabcard .sep { width: 1px; height: 26px; background: #3a3230; margin: 0 4px; }
 #swarf-tabcard .act { font: inherit; font-size: 12px; color: var(--swarf-text); background: #2a2523; border: 1px solid #4f4642; border-radius: 6px; padding: 5px 10px; cursor: pointer; text-transform: none; letter-spacing: 0; white-space: nowrap; }
 #swarf-tabcard .act:hover { border-color: #a39a90; }
@@ -2567,7 +2570,7 @@ html[data-skin="glass"] .swarf-ctx, html[data-skin="classic"] .swarf-ctx { backg
 #oplist .draggable > .swarf-op-route button { display: block; margin: 4px 0 0; padding: 3px 10px; width: auto; font-size: 11px; cursor: pointer; text-transform: lowercase; }
 #oplist .draggable > .swarf-op-params { order: 6; }
 .swarf-sim-time.stale { opacity: .85; font-style: italic; }
-#swarf-paths-stale { display: inline-block; margin-left: 5px; padding: 0 5px; font-style: normal; font-size: 10px; line-height: 15px; border-radius: 8px; background: var(--swarf-warn, #b8862a); color: #fff; }
+#swarf-paths-stale { display: inline-block; margin-left: 5px; padding: 0 5px; font-style: normal; font-size: 11px; line-height: 15px; border-radius: 8px; background: var(--swarf-warn, #b8862a); color: #fff; }
 #swarf-paths-stale[hidden] { display: none; }
 .swarf-concern-fix { display: block; margin-top: 5px; padding: 2px 10px; font-size: 11px; cursor: pointer; }
 #swarf-concerns-body { position: relative; }
@@ -2608,3 +2611,4 @@ body.swarf-menu-open #swarf-bits { z-index: -1 !important; pointer-events: none;
 .swarf-autotabs-placed.none { color: var(--swarf-amber, #c08a3a); }
 /* review 11-13 #8: on a short screen open concerns take the size strip's place, not half of it */
 @media (max-height: 820px) { body.swarf-concerns-up #swarf-size { display: none !important; } }
+/* Interfacing #6 (Phil 11-13): an 11 px floor for every word swarf shows; the two ™ marks are marks, not words */
