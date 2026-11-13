@@ -1228,10 +1228,13 @@ function load_files(files, group) {
             } else if (isobj) {
                 const objs = file_load.OBJ.parse(data.textDecode('utf-8'));
                 const ondn = function() {
+                    const made = [];
                     for (let obj of objs) {
-                        load_verts(group, obj, obj.name ? `${obj.name}-${name}` : name);
+                        made.push(load_verts(group, obj, obj.name ? `${obj.name}-${name}` : name));
                     }
                     load_dec();
+                    // swarf 115a: say its size and which way is up; Y up / Z up turns it in place
+                    setTimeout(() => objUpCard(made, name), 300);
                 };
                 if (objs.length > 1 && !group) {
                     api.uc.confirm('group objects?').then(ok => {
@@ -1329,6 +1332,12 @@ function load_files(files, group) {
                     for (let v of dxf) {
                         // swarf: one piece keeps the file's name (it read "test.dxf-1")
                         load_verts(group, dxf[ind++], dxf.length > 1 ? `${name}-${ind}` : name);
+                    }
+                    // swarf 115a (review 11-13 #6): curves drawn at several heights were all pressed
+                    // onto Z 0; say so, and how thick the board is (a flat drawing at any height says nothing)
+                    if (dxf.length && opt.heights > 1) {
+                        const L = self.SwarfLength, say = v => L ? L.say(v) : `${+v.toFixed(2)} mm`;
+                        api.show.alert(`drawn at ${opt.heights} heights: projected flat onto the board, ${say(opt.depth)} thick`, 10);
                     }
                     load_dec();
                 }, load_dec);
@@ -1465,6 +1474,81 @@ function loadSVGDialog(doit, cancel = () => {}, size = '') {
         let soup = $('svg-nest').checked;
         ok && doit({ soup, resolution: arcs, segmin: marc, depth, dpi: sdpi });
     });
+}
+
+// swarf 115a (review 11-13 #6): an OBJ is read Y up (Rhino and Blender's habit, obj.js), so one saved
+// Z up came in on its edge with no way back. This card says the part's size in shop units and which
+// face is up, and its toggle turns the part in place: Z up is a quarter turn about X from Y up
+// ((x,-z,y) back to (x,y,z)). Each flip is one undo. The part stays as it is when the card closes.
+const OBJ_TURN = { z: -Math.PI / 2, y: Math.PI / 2 };   // from the other reading to this one
+function objUpCard(made, name) {
+    made = (made || []).filter(Boolean);
+    if (!made.length || !api.modal) return;
+    const rnd = Date.now().toString(36);
+    const L = self.SwarfLength, say = v => L ? L.say(v) : `${+v.toFixed(1)} mm`;
+    const parts = () => made.filter(w => api.widgets.all().includes(w));
+    const turn = up => {
+        const seen = new Set();
+        for (const w of parts()) {
+            const g = w.group || [w];
+            if (seen.has(g)) continue;
+            seen.add(g);
+            w.rotate(OBJ_TURN[up], 0, 0);
+            for (const m of g) m.meta.objUp = up;
+        }
+        if (api.selection && api.selection.update_bounds) api.selection.update_bounds();
+        update_bounds();
+        api.space.auto_save();
+        if (api.selection && api.selection.update_info) api.selection.update_info();
+        space.update();
+    };
+    const sizeLine = () => {
+        const b = new THREE.Box3();
+        for (const w of parts()) {
+            const wb = w.getBoundingBox().clone(), p = w.track.pos;
+            b.union(wb.translate(new THREE.Vector3(p.x, p.y, 0)));
+        }
+        if (b.isEmpty()) return '';
+        const s = b.getSize(new THREE.Vector3());
+        return `comes in at ${say(s.x)} × ${say(s.y)}, ${say(s.z)} tall. the ${say(s.x)} × ${say(s.y)} face is up.`;
+    };
+    const host = $('mod-any');
+    host.innerHTML = [
+        `<div class="image-convert-dialog f-col a-center swarf-import swarf-obj-up">`,
+        `  <h3 class="image-convert-title">which way is up</h3>`,
+        `  <p class="image-convert-copy t-just swarf-import-size" id="obj-size-${rnd}">${sizeLine()}</p>`,
+        `  <p class="image-convert-copy t-just">on its edge? the file was saved Z up: switch below.</p>`,
+        `  <div class="f-row t-right image-convert-fields"><table>`,
+        `  <tr><th title="how the file was saved; switching turns the part in place">saved</th><td>`,
+        `    <label title="Rhino and Blender save this way"><input type="radio" name="obj-up-${rnd}" id="obj-up-y-${rnd}" value="y" checked> Y up (Rhino, Blender)</label><br>`,
+        `    <label title="as STL is read"><input type="radio" name="obj-up-${rnd}" id="obj-up-z-${rnd}" value="z"> Z up</label>`,
+        `  </td></tr>`,
+        `  </table></div>`,
+        `  <div class="f-row j-end image-convert-actions">`,
+        `    <button id="obj-up-ok-${rnd}">done</button>`,
+        `  </div>`,
+        `</div>`
+    ].join('');
+    const ry = $(`obj-up-y-${rnd}`), rz = $(`obj-up-z-${rnd}`), size = $(`obj-size-${rnd}`);
+    let up = 'y';
+    const show = () => {
+        // the card may be closed by now (an undo later): only touch it if it is still this one
+        if (ry && ry.isConnected) { ry.checked = up === 'y'; rz.checked = up === 'z'; size.textContent = sizeLine(); }
+    };
+    const set = (to, push) => {
+        if (to === up || !parts().length) return show();
+        const from = up;
+        up = to;
+        turn(to);
+        show();
+        if (push && api.doit && api.doit.push) api.doit.push(() => set(from, false), () => set(to, false), {
+            undo: `the part is read ${from.toUpperCase()} up again`, redo: `the part is read ${to.toUpperCase()} up again`
+        });
+    };
+    ry.onchange = () => ry.checked && set('y', true);
+    rz.onchange = () => rz.checked && set('z', true);
+    $(`obj-up-ok-${rnd}`).onclick = () => api.modal.hide();
+    api.modal.show('any');
 }
 
 /**
