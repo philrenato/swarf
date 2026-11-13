@@ -2,7 +2,8 @@
  * swarf menu — what you can do with a part, where it is (Phil 11-02: "consider what might be
  * appropriate for right click features ala Unreason. Maybe people could get to rotate etc that
  * way?"). Right-click a part on the bed: turn it, turn it over, stand it on its side or lay it flat,
- * mirror, duplicate, leave it out of this run, edit it in draw, texture it in tex, delete. Right-
+ * mirror, duplicate, leave it out of this run, edit it in draw, carve words, pocket a shape,
+ * texture an area, delete. Right-
  * click the empty bed: make a shape, draw, open a file, select all, and three ways to look. In
  * simulate: play or pause, start over, and the ways to look.
  *
@@ -59,6 +60,37 @@
     if (long === 'x') turn(Math.PI / 2, 0, 0); else turn(0, Math.PI / 2, 0);
   }
 
+  // carving words, pocketing a shape and texturing an area live in three modes (draw, a step, tex):
+  // a student starts from the part and the row says which mode owns the task (review 11-13 #10).
+  // Each opens that mode as it already is, with this part picked (partItems picked it).
+  //   carve words: draw's text tool, carving into this part (only a 2D part draw can carve into)
+  //   pocket a shape: a part with a floor to pick gets a pocket step; a flat part goes to tex's inlay,
+  //     the way the pocket card's own "pocket in tex" does (init-ui.js pocketRoute)
+  //   texture an area: tex on this part
+  function boardItems(w) {
+    const D = window.__swarfDraw, Tx = window.__swarfTex, m = w.meta || {};
+    const out = [];
+    if (D && m.svg && !m.tilted) out.push({ label: 'carve words', title: 'draw opens with text: letters V-carved into this part', run: () => D.open({ text: true }) });
+    if (Tx) out.push({ label: 'pocket a shape', title: 'a pocket step, or tex inlay when the part is flat', run: () => pocketShape(w) });
+    if (Tx) out.push({ label: 'texture an area', title: 'tex opens on this part: paint a texture or a mark', run: () => Tx.open() });
+    return out;
+  }
+  function pocketShape(w) {
+    const a = api(), H = window.__swarfHoles;
+    let floor = false;
+    try { floor = !!(H && H.recess(w)); } catch (e) { /* no reading: the flat route */ }
+    if (!floor) { window.__swarfTex.openPocket(); return; }
+    // a pocket step with nothing picked yet is used again, not doubled
+    const ops = (a.conf.get().process || {}).ops || [];
+    const empty = ops.find(o => o.type === 'pocket' && !Object.values(o.surfaces || {}).some(l => l && l.length));
+    if (!empty) {
+      const add = [...document.querySelectorAll('#op-add-list > div')].find(d => d.textContent.trim() === 'pocket');
+      if (!add) { said('No pocket step in this mode.'); return; }
+      add.click();
+    }
+    said(`${empty ? 'The pocket step is' : 'A pocket step is added'}: open its card, press select, and click the floor of ${nameOf(w)}.`);
+  }
+
   function partItems(w) {
     const a = api(), sel = a.selection.widgets ? a.selection.widgets() : [];
     // a part already among the picked ones: the rows act on all of them; else on this one alone
@@ -83,7 +115,7 @@
         : { label: 'leave it out of this run', title: 'untick it in objects: it stays on the bed, nothing cuts it', run: () => { a.platform.set_cut(list, false); said(`${who} is left out of this run: tick it in objects to cut it again.`); } },
     ];
     if (list.length === 1 && w.meta && w.meta.svg && window.__swarfDraw) items.push({ label: 'edit in draw', title: 'move its points, reshape it, change its thickness or edge', run: () => window.__swarfDraw.open() });
-    if (list.length === 1 && document.getElementById('swarf-step-tex')) items.push({ label: 'texture it in tex', title: 'paint a texture or a mark on its top', run: () => document.getElementById('swarf-step-tex').click() });
+    if (list.length === 1) items.push({ sep: true }, ...boardItems(w));
     items.push({ sep: true }, { label: 'delete', title: '⌘Z brings it back', danger: true, run: () => a.selection.delete() });
     return { title: who, items };
   }
