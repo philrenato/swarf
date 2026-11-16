@@ -69,8 +69,9 @@ export function cam_export(print, online) {
             z: 1
         },
         consts = {
-            // swarf: the end of a file lifts 1 in over the top of the board, wherever Z 0 is set
-            lift: (spro.camOriginTop ? 0 : zmax) + 25.4,
+            // swarf: the end of a file lifts over the top of the board, wherever Z 0 is set: 1 in, or
+            // 10 mm on the MR-1, whose 150 mm of Z travel leaves little room over a tall block
+            lift: (spro.camOriginTop ? 0 : zmax) + (/MR-1/i.test((settings.device && settings.device.deviceName) || '') ? 10 : 25.4),
             box: runbox,
             tool: 0,
             tool_name: "unknown",

@@ -815,9 +815,13 @@
     }
 
     // ---------------------------------------------------------------- plans and jobs
+    // the lift heights come down to just under the top of Z travel when the work zero sits high: on
+    // a short Z the usual 25.4 mm lift over the board can pass the top, and the envelope would refuse
+    // every run. A lift that then no longer clears the file's own moves still fails the envelope check.
     planCfg() {
       const r = this.cfg.rapid;
-      return { safeZ: this.cfg.safeZ, rapid: { ...r }, move: { ...r }, jog: { ...this.cfg.jog }, spinUp: this.cfg.spinUp, changeZ: this.cfg.changeZ };
+      const top = this.settings && this.wco ? this.box().z[1] - this.wco.z - 0.01 : Infinity;
+      return { safeZ: Math.min(this.cfg.safeZ, top), rapid: { ...r }, move: { ...r }, jog: { ...this.cfg.jog }, spinUp: this.cfg.spinUp, changeZ: Math.min(this.cfg.changeZ, top) };
     }
     // what a plan is for: this zero, on this link (a reconnect or a new zero makes a new plan)
     planCtx() {

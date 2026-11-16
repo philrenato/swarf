@@ -77,7 +77,7 @@ try {
   const tail = L1.slice(-5);
   check(tail[0] === 'S0' && tail[1] === 'G4 P1' && /^M0?5$/.test(tail[2]) && /^G0 Z[\d.]+$/.test(tail[3]) && tail[4] === 'M30', `ends S0, G4 P1, M5, a lift, M30 (${tail.join(' | ')})`);
   const lift = +(tail[3].match(/Z([\d.]+)/) || [])[1];
-  check(lift > 19 && lift < 150, `the lift is over the board and inside the travel (Z ${lift})`);
+  check(lift >= 9.99 && lift < 150, `the lift is 10 mm over the board, inside the travel (Z ${lift})`);
   check(!L1.slice(0, -5).some(l => /^M0?[05]\b|^M0?0\b/.test(l)), 'no M5 or M0 before the end');
   check(!one.files, 'one bit: one file');
 

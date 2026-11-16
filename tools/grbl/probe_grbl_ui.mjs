@@ -185,6 +185,8 @@ try {
   await page.evaluate(() => { for (const c of document.querySelectorAll('#swarf-run .sr-sheet.on input[type=checkbox]')) c.click(); });
   const go = await sheetGo();
   check(/without a trace/.test(go), `its button: "${go}"`);
+  const why = await page.evaluate(() => [...document.querySelectorAll('#swarf-run .sr-way.bad, #swarf-run .sr-say')].map(e => e.textContent).join(' | '));
+  if (why) console.log('     card and line:', why.slice(0, 400));
   await until('st.running', 5000, 'cut running');
   await page.waitForFunction(() => window.__stub.state.spindle.on && window.__stub.state.state === 'Run', { timeout: 20000, polling: 20 });
   const rpm = await page.evaluate(() => window.__stub.state.spindle.S);
