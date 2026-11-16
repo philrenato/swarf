@@ -1438,8 +1438,10 @@ html[data-skin] #swarf-run .sr-jog .sr-zrow button.next, html[data-skin] #swarf-
       { k: 'busy', label: 'machine still', ok: !st || !st.connected || ready, todo: 'wait for the machine to stop moving' },
       { k: 'prog', label: 'a program', ok: !!(S.prog && S.prog.parsed.moves.length) && !stale(), todo: S.camBusy ? 'wait for the toolpaths to finish' : S.camError && S.prog ? S.camError : 'make a part in cam and press control, or open a file' },
       { k: 'file', label: 'file checked', ok: !!S.prog && !problems().block.length, todo: (S.prog ? problems().block[0] || 'fix the file' : 'load a file, or bring the toolpaths from cam').replace(/\.$/, '') },
-      { k: 'xy', label: 'X Y zeroed', ok: !!S.zeroXY, todo: S.zeroHad && S.zeroHad.xy && S.zeroSetAt && !S.zx && sameSpot() ? 'press "use the zero you set" if the board has not moved, or jog over your X 0, Y 0 and press zero x y' : 'jog the bit over your X 0, Y 0 and press zero x y' },
-      { k: 'z', label: 'Z zeroed', ok: !!S.zeroZ, todo: S.zeroHad && S.zeroHad.z && S.zeroSetAt && sameBit() ? 'press "use the zero you set", or zero Z again' : 'press z plate, or lower the bit onto paper and press zero z' },
+      // the zero too can be skipped for a cut (Phil 11-16: "Got it means I am not cutting"): the cut
+      // card then says it runs from the machine's own zero and asks for one more tick (askCut)
+      { k: 'xy', label: 'X Y zeroed', opt: true, ok: !!S.zeroXY, todo: S.zeroHad && S.zeroHad.xy && S.zeroSetAt && !S.zx && sameSpot() ? 'press "use the zero you set" if the board has not moved, or jog over your X 0, Y 0 and press zero x y' : 'jog the bit over your X 0, Y 0 and press zero x y' },
+      { k: 'z', label: 'Z zeroed', opt: true, ok: !!S.zeroZ, todo: S.zeroHad && S.zeroHad.z && S.zeroSetAt && sameBit() ? 'press "use the zero you set", or zero Z again' : 'press z plate, or lower the bit onto paper and press zero z' },
       // the trace is the protocol, not physics (Phil 11-16: "you DO NOT HAVE TO TRACE OR AIRCUT"): cut
       // goes ahead without it, after one more tick on its card (askCut); the rest above never skip
       { k: 'trace', label: 'traced', opt: true, ok: !!S.traced, todo: 'press trace and watch it clear the clamps, or cut without it' }
@@ -1480,7 +1482,7 @@ html[data-skin] #swarf-run .sr-jog .sr-zrow button.next, html[data-skin] #swarf-
     // what trace, in the air and cut wait for, each one named; a waiting button still takes the
     // press and says it (Phil 10-28: "I can't figure out why it won't let me go to trace or in the air")
     const need = needs(st, ready);
-    const testWhy = need.filter(n => !n.ok && n.k !== 'trace').map(n => n.todo);
+    const testWhy = need.filter(n => !n.ok && n.k !== 'trace').map(n => n.todo);   // trace and air cut still want the zero: they are the check of it
     const cutWhy = need.filter(n => !n.ok && !n.opt).map(n => n.todo);
     const wait = (b, list, word, title) => {
       b.disabled = !!running || offline;
@@ -2088,7 +2090,10 @@ html[data-skin] #swarf-run .sr-jog .sr-zrow button.next, html[data-skin] #swarf-
     el.card.innerHTML = '';
     // a cut with no trace this zero: said at the top, and one more tick the student owns
     const untraced = !test && !S.traced;
-    const items = test ? testChecklist() : checklist(from ? line : 0).concat(untraced ? ['no trace this time: I checked myself that the bit clears every clamp and the zero is right'] : []);
+    const unzeroed = !test && (!S.zeroXY || !S.zeroZ) ? [!S.zeroXY ? 'X Y' : '', !S.zeroZ ? 'Z' : ''].filter(Boolean).join(' and ') : '';
+    const items = test ? testChecklist() : checklist(from ? line : 0).concat(
+      unzeroed ? [`${unzeroed} not zeroed in swarf: I know where the machine's own zero is, and the file runs from it`] : [],
+      untraced ? ['no trace this time: I checked myself that the bit clears every clamp and the zero is right'] : []);
     const checks = items.map(t => h('input', { type: 'checkbox' }));
     const b = P.cutBounds(S.prog.parsed);
     const size = b ? lens([b.max.x - b.min.x, b.max.y - b.min.y], 0) : '';
@@ -2099,7 +2104,7 @@ html[data-skin] #swarf-run .sr-jog .sr-zrow button.next, html[data-skin] #swarf-
       cut: { h: `Cut ${S.prog.name}`, go: 'cut', p: `The machine is about to move and the router to start. The file runs to the end, about ${mins(S.prog.parsed.seconds)}. Check each one:` }
     }[from ? 'from' : test ? kind : 'cut'];
     const plan = makePlan(from ? 'from' : test ? kind : 'cut', line);
-    const go = h('button', { class: 'go', text: untraced ? `${words.go} without a trace` : words.go, disabled: '' });
+    const go = h('button', { class: 'go', text: unzeroed ? (from ? `${words.go} anyway` : 'cut anyway') : untraced ? `${words.go} without a trace` : words.go, disabled: '' });
     const bad = !plan ? 'There is nothing to run there.' : plan.problems.length ? `It can't run: ${plan.problems[0]}.` : '';
     const update = () => { go.disabled = !!bad || !checks.every(c => c.checked); };
     checks.forEach(c => c.addEventListener('change', update));
@@ -2109,11 +2114,12 @@ html[data-skin] #swarf-run .sr-jog .sr-zrow button.next, html[data-skin] #swarf-
     el.card.append(h('h2', { text: words.h }), h('p', { text: words.p }),
       ...(way ? [h('p', { class: 'sr-way', text: `First: ${way}.` })] : []),
       ...(bad ? [h('p', { class: 'sr-way bad', text: bad })] : []),
+      ...(unzeroed ? [h('p', { class: 'sr-way bad', text: `${unzeroed} not zeroed in swarf: the file runs from wherever the machine's own zero is now.` })] : []),
       ...(untraced ? [h('p', { class: 'sr-way bad', text: 'No trace this time: clamps inside the cut and the zero are unproven. Trace first if you are not sure.' })] : []),
       ...items.map((t, i) => h('label', {}, checks[i], h('span', { text: t }))),
       h('div', { class: 'row' }, h('button', { text: 'not yet', onclick: back }), go));
     // the student's ticks arm this plan, and only it; a plan made before the bit moved will not run
-    go.onclick = () => { el.sheet.classList.remove('on'); if (untraced) tell('Cutting without a trace.', 'warn'); start(window.SwarfRunPlan.arm(plan)); };
+    go.onclick = () => { el.sheet.classList.remove('on'); if (unzeroed) tell(`Cutting from the machine's own zero (${unzeroed} not zeroed in swarf).`, 'warn'); else if (untraced) tell('Cutting without a trace.', 'warn'); start(window.SwarfRunPlan.arm(plan)); };
     if (plan) showPlan(plan);
     el.sheet.classList.add('on');
   }
@@ -2167,7 +2173,7 @@ html[data-skin] #swarf-run .sr-jog .sr-zrow button.next, html[data-skin] #swarf-
   function needsCard(k) {
     const st = S.machine && S.machine.state;
     const ready = st && st.connected && !st.queued && !(st.kind === 'sim' && st.moving);
-    const list = needs(st, ready).filter(n => !n.opt && (k === 'cut' || n.k !== 'trace'));
+    const list = needs(st, ready).filter(n => k === 'cut' ? !n.opt : n.k !== 'trace');
     const word = { trace: 'trace', air: 'run an air cut', cut: 'cut' }[k];
     const shut = () => el.sheet.classList.remove('on');
     const act = {
