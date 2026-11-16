@@ -260,6 +260,10 @@ function swarfFileNote(text, open, ext) {
     const day = new Date().toISOString().slice(0, 10);
     let head = line(`swarf saved: ${day}, ${open.length ? open.length + ' concern' + (open.length === 1 ? '' : 's') + ' open' : 'no concerns open'}`);
     for (const c of open) head += line(`swarf concern: ${clean(c.title)}${c.hint ? ' - ' + clean(c.hint) : ''}`);
+    // the board size, so control names the zero on it for a file opened alone (Phil 11-16)
+    const pr = api.conf.get().process || {};
+    if (pr.swarfBoardOn && pr.swarfBoardX > 0 && pr.swarfBoardY > 0 && pr.swarfBoardZ > 0)
+        head += line(`swarf board: ${+pr.swarfBoardX.toFixed(2)} x ${+pr.swarfBoardY.toFixed(2)} x ${+pr.swarfBoardZ.toFixed(2)} mm, X 0 Y 0 at its ${pr.camOriginCenter ? 'center' : 'front-left corner'}`);
     return head;
 }
 

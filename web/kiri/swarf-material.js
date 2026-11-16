@@ -830,7 +830,100 @@
     const toolsRow = camops.querySelector('#swarf-tools-row');
     if (toolsRow) camops.insertBefore(row, toolsRow);
     else camops.insertBefore(row, camops.firstChild);
-    camops.insertBefore(originRow(label.style.cssText), row.nextSibling);
+    const origin = originRow(label.style.cssText);
+    camops.insertBefore(origin, row.nextSibling);
+    camops.insertBefore(boardRow(label.style.cssText), origin);
+  }
+
+  // the board the student has (Phil 11-16: "an optional material blank size ... a block of material of that
+  // size is shown that is what the paths cut from ... toggled on and off/deleted"). Kiri's own stock in
+  // its absolute mode (camStockOffset off, camStockX/Y/Z), the parts centred in it and sitting on its
+  // bottom (camZAnchor bottom), so an outline goes through and the top is cut down from the board's top.
+  // Off puts Kiri's stock back the way swarf keeps it: the parts' own size (offset 0), the old anchor.
+  function applyBoard() {
+    const api = window.kiri && window.kiri.api;
+    if (!api) return;
+    const p = api.conf.get().process;
+    const on = !!(p.swarfBoardOn && p.swarfBoardX > 0 && p.swarfBoardY > 0 && p.swarfBoardZ > 0);
+    if (on) {
+      if (!p.swarfBoardSet) p.swarfBoardAnchor = p.camZAnchor || 'middle';
+      Object.assign(p, { camStockOffset: false, camStockX: p.swarfBoardX, camStockY: p.swarfBoardY, camStockZ: p.swarfBoardZ, camZAnchor: 'bottom', swarfBoardSet: true });
+    } else if (p.swarfBoardSet) {
+      Object.assign(p, { camStockOffset: true, camStockX: 0, camStockY: 0, camStockZ: 0, camZAnchor: p.swarfBoardAnchor || 'middle', swarfBoardSet: false, swarfBoardAnchor: '' });
+    }
+    try { api.conf.update_fields(p); } catch (e) { /* fields not built */ }
+    api.conf.save();
+    try { if (api.function.clear_progress) api.function.clear_progress(); } catch (e) { /* none */ }   // toolpaths for the old stock are stale
+    api.event.emit('swarf.stock');
+  }
+  window.__swarfBoard = { apply: applyBoard };
+
+  function boardRow(labelCss) {
+    const api = window.kiri && window.kiri.api;
+    const L = window.SwarfLength;
+    const row = document.createElement('div');
+    row.id = 'swarf-board-row';
+    row.style.cssText = 'display:flex; flex-wrap:wrap; gap:6px; padding:4px 6px 6px; align-items:center;';
+    const label = document.createElement('span');
+    label.textContent = 'board';
+    label.style.cssText = labelCss;
+    const add = document.createElement('button');
+    add.textContent = 'board size';
+    add.title = 'the board you have: the paths cut from it';
+    add.style.cssText = 'flex:1; font-size:12px; padding:5px 6px;';
+    const fields = document.createElement('span');
+    fields.style.cssText = 'display:flex; gap:4px; align-items:center; flex:1; min-width:0;';
+    const mk = (k, title) => {
+      const i = document.createElement('input');
+      i.type = 'text'; i.inputMode = 'decimal'; i.dataset.len = '1'; i.title = title;
+      i.style.cssText = 'width:0; flex:1; min-width:3.2em; font-size:12px; padding:4px 5px;';
+      i.addEventListener('keydown', e => e.stopPropagation());
+      i.addEventListener('change', () => {
+        const p = api.conf.get().process, mm = L ? L.parse(i.value) : parseFloat(i.value);
+        if (Number.isFinite(mm) && mm > 0 && mm < 10000) p[k] = mm;
+        show(); applyBoard();
+      });
+      return i;
+    };
+    const fx = mk('swarfBoardX', 'width, left to right'), fy = mk('swarfBoardY', 'depth, front to back'), fz = mk('swarfBoardZ', 'thickness');
+    const x = s => { const t = document.createElement('span'); t.textContent = s; t.style.cssText = 'opacity:.6; font-size:12px;'; return t; };
+    const onoff = document.createElement('button');
+    onoff.style.cssText = 'font-size:12px; padding:5px 6px;';
+    onoff.addEventListener('click', () => { const p = api.conf.get().process; p.swarfBoardOn = !p.swarfBoardOn; show(); applyBoard(); });
+    const del = document.createElement('button');
+    del.textContent = '×'; del.title = 'remove the board size';
+    del.style.cssText = 'font-size:12px; padding:5px 8px;';
+    del.addEventListener('click', () => { Object.assign(api.conf.get().process, { swarfBoardOn: false, swarfBoardX: 0, swarfBoardY: 0, swarfBoardZ: 0 }); show(); applyBoard(); });
+    // a first press starts from the parts' own size, rounded up, so the numbers are near what is meant
+    add.addEventListener('click', () => {
+      const p = api.conf.get().process, b = api.conf.get().bounds;
+      const inch = L && L.unit() === 'in', step = inch ? 6.35 : 5;    // a quarter inch, or 5 mm
+      const up = v => +(Math.ceil(v / step - 1e-9) * step).toFixed(3) || 100;
+      if (!(p.swarfBoardX > 0)) p.swarfBoardX = up(b ? b.max.x - b.min.x : 0);
+      if (!(p.swarfBoardY > 0)) p.swarfBoardY = up(b ? b.max.y - b.min.y : 0);
+      if (!(p.swarfBoardZ > 0)) p.swarfBoardZ = b && b.max.z - b.min.z > 0 ? +(b.max.z - b.min.z).toFixed(2) : 19.05;
+      p.swarfBoardOn = true; show(); applyBoard(); fx.focus(); fx.select();
+    });
+    fields.append(fx, x('×'), fy, x('×'), fz);
+    row.append(label, add, fields, onoff, del);
+    function show() {
+      const p = api && api.conf.get().process || {};
+      const has = p.swarfBoardX > 0 && p.swarfBoardY > 0 && p.swarfBoardZ > 0;
+      add.style.display = has ? 'none' : '';
+      for (const e of [fields, onoff, del]) e.style.display = has ? '' : 'none';
+      const v = mm => L ? L.field(mm) : String(+(+mm).toFixed(2));
+      if (has) { fx.value = v(p.swarfBoardX); fy.value = v(p.swarfBoardY); fz.value = v(p.swarfBoardZ); }
+      onoff.textContent = p.swarfBoardOn ? 'on' : 'off';
+      onoff.classList.toggle('selected', !!p.swarfBoardOn);
+      onoff.title = p.swarfBoardOn ? 'on: paths cut from this board' : 'off: paths cut from the parts alone';
+      fields.style.opacity = p.swarfBoardOn ? '' : '.5';
+    }
+    show();
+    // a loaded project or another machine brings its own board: shown, and Kiri's stock set to match
+    try { for (const ev of ['settings.load', 'settings.saved', 'device.selected']) api.event.on(ev, show); } catch (e) {}
+    try { api.event.on('settings.load', () => setTimeout(() => { const p = api.conf.get().process; if (p.swarfBoardOn || p.swarfBoardSet) applyBoard(); }, 0)); } catch (e) {}
+    try { api.event.on('units', show); } catch (e) {}
+    return row;
   }
 
   // where X 0, Y 0 sits on the stock (Phil 10-28): its front-left corner by default; the

@@ -102,7 +102,9 @@ export function updateStock() {
     }
     // swarf: when not in expert mode, never even build the stock outline mesh
     // (markup Apr 15). Skip construction entirely outside expert mode.
-    const swarfHideStock = !document.body.classList.contains('swarf-expert');
+    // (Phil 11-16) the board the student set under material is always shown: it is what the paths cut from
+    const swarfBoard = !!process.swarfBoardOn;
+    const swarfHideStock = !document.body.classList.contains('swarf-expert') && !swarfBoard;
     // swarf v00000-009: keep SIMULATE enabled in student mode too — the
     // upstream gate only flips animate's disabled class when the stock
     // outline is built, which in swarf student mode is never. SIMULATE
@@ -147,7 +149,7 @@ export function updateStock() {
             // derives from part bounds in student mode and shows up as a translucent
             // cuboid around every part. For students it reads as noise, not as
             // "this is your raw material." Expert-mode body class re-enables it.
-            env.camStock.visible = document.body.classList.contains('swarf-expert');
+            env.camStock.visible = document.body.classList.contains('swarf-expert') || swarfBoard;
             SPACE.world.add(env.camStock);
         }
         // fight z fighting in threejs
@@ -158,7 +160,8 @@ export function updateStock() {
         position.x = center.x;
         position.y = center.y;
         position.z = center.z;
-        lines.material.color = new THREE.Color(isDark() ? 0x555555 : 0xaaaaaa);
+        lines.material.color = new THREE.Color(swarfBoard ? (isDark() ? 0xc8b48a : 0x8a6a3a) : isDark() ? 0x555555 : 0xaaaaaa);
+        env.camStock.material.opacity = swarfBoard ? 0.12 : 0.05;
     }
 
     showZTop(process.camZTop);

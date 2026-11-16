@@ -1232,6 +1232,9 @@ html[data-skin] #swarf-run .sr-jog .sr-zrow button.next, html[data-skin] #swarf-
     const b = S.prog && P.cutBounds(S.prog.parsed);
     if (S.prog && S.prog.origin) return S.prog.origin;     // a test cut names its own (swarf-lessons.js)
     if (!b) return { xy: 'X 0, Y 0', z: 'Z 0' };
+    // a board size set in cam (or written in the file's head): X 0, Y 0 is on that board, wherever the cut sits in it
+    const board = boardOf();
+    if (board) return { xy: board.center ? 'the center of your board' : 'the front-left corner of your board', z: 'the top of your board' };
     const near = (v, w) => Math.abs(v) <= Math.max(10, w * 0.03);   // an outline's path sits a bit's radius outside the stock
     const w = b.max.x - b.min.x, d = b.max.y - b.min.y;
     let xy;
@@ -1350,10 +1353,23 @@ html[data-skin] #swarf-run .sr-jog .sr-zrow button.next, html[data-skin] #swarf-
 
   // the setup lines the export writes at the top of a file (export.js swarfFileNote): whether swarf
   // saved it, and the concerns still open then
+  // the board the file was made for: cam's board size for toolpaths from cam, else the file's own head line
+  function boardOf() {
+    if (!S.prog) return null;
+    if (S.prog.source === 'cam') {
+      try {
+        const p = window.kiri.api.conf.get().process;
+        return p.swarfBoardOn && p.swarfBoardX > 0 && p.swarfBoardY > 0 && p.swarfBoardZ > 0 ? { x: p.swarfBoardX, y: p.swarfBoardY, z: p.swarfBoardZ, center: !!p.camOriginCenter } : null;
+      } catch (e) { return null; }
+    }
+    return fileNotes(S.prog.text).board || null;
+  }
   function fileNotes(text) {
     const head = String(text || '').split(/\r?\n/, 60);
     const out = { saved: false, concerns: [] };
     for (const l of head) {
+      const bm = l.match(/^\s*(?:'|;|\()\s*swarf board:\s*([\d.]+) x ([\d.]+) x ([\d.]+) mm, X 0 Y 0 at its (center|front-left corner)/i);
+      if (bm) { out.board = { x: +bm[1], y: +bm[2], z: +bm[3], center: /center/i.test(bm[4]) }; continue; }
       const m = l.match(/^\s*(?:'|;|\()\s*swarf (saved|concern):\s*(.*?)\)?\s*$/i);
       if (!m) continue;
       out.saved = true;

@@ -1086,6 +1086,27 @@ function setup_keybd_nav() {
                         hint: sz < 6.35 ? 'use the laser for thin sheet' : 'ask the technician about thicker stock' });
                 }
             } catch (e) { /* no device yet */ }
+            // the board size under material (Phil 11-16: "ensure that their part will fit"): the parts,
+            // centred in it, must fit across, back to front, and in its thickness
+            try {
+                const proc = api.conf.get().process, bo = api.conf.get().bounds;
+                const parts = api.widgets.all().filter(w => !w.meta.disabled);
+                if (proc.swarfBoardOn && proc.swarfBoardX > 0 && proc.swarfBoardY > 0 && proc.swarfBoardZ > 0 && parts.length && bo && !bo.isEmpty()) {
+                    const bx = proc.swarfBoardX, by = proc.swarfBoardY, bz = proc.swarfBoardZ;
+                    const sx = bo.max.x - bo.min.x, sy = bo.max.y - bo.min.y;
+                    if (sx > bx + 0.05 || sy > by + 0.05) warnings.push({
+                        title: parts.length > 1 ? 'the parts do not fit the board' : `${api.platform.part_name(parts[0])} does not fit the board`,
+                        body: `${pair(sx, sy)} of parts; the board is ${pair(bx, by)}.`,
+                        hint: 'make the board size bigger, or the parts smaller or closer' });
+                    for (const w of parts) {
+                        const b = w.getBoundingBox(), sz = b.max.z - b.min.z;
+                        if (sz > bz + 0.05) warnings.push({
+                            title: `${api.platform.part_name(w)} is thicker than the board`,
+                            body: `${len(sz)} thick; the board is ${len(bz)}.`,
+                            hint: 'set the board thickness, or make the part thinner' });
+                    }
+                }
+            } catch (e) { /* no board */ }
             // cut free with nothing holding it (Phil 10-29: "anything that could fly off the
             // machine"; "cuts that seem to go all the way through without tabs should be flagged"):
             // an outline cut through the board leaves the part, and every piece inside a hole it
@@ -1422,6 +1443,7 @@ function setup_keybd_nav() {
             { kind:'app', name:'select all', body:'edit › select all, or ⌘A: picks every part on the bed, to move, size or delete them together. edit › delete, or the delete key, removes the picked parts (undo brings them back); with nothing picked it does nothing.', tags:'select all pick every part delete edit menu cmd-a' },
             { kind:'app', name:'export', body:'export (in the row, or file › export the machine file) makes the file the machine runs: name it, read how long it takes, how big it is, which bit and which material, and press save name.sbp. save the project too (.swarf) keeps the parts and steps to open again, and leaves the card open for the machine file. the file carries the concerns still open when it was saved, and control shows them when it is opened on its own.', tags:'export save sbp file machine file gcode shopbot file' },
             { kind:'app', name:'simulate', body:'watch the bit cut the board before the machine does. space plays and pauses; speed × runs it faster or slower, and the words beside it say how that compares with the real cut: about 30× real time means a 3 min job plays in 6 s. done says how much of the cut has run. the view frames the board beside the steps panel, looking down; F frames it again.', tags:'simulate simulator simulation play pause speed done preview real time how fast too fast seconds frame' },
+            { kind:'app', name:'board size', body:'under material, board size: the width, depth and thickness of the board you have. the board shows on the bed, the parts sit in its middle on its bottom, and the paths cut from its top: the top is cut down to the parts, and X 0, Y 0 is the front-left corner of the board. a concern says when the parts do not fit. on / off keeps the numbers, the x removes them.', tags:'board size stock blank material size block fit width depth thickness sheet' },
             { kind:'app', name:'separate the parts', body:"one file can bring several parts at once: an STL holding several solids comes in as one part, and a file's objects can come in grouped. right-click it › separate the parts: each solid becomes its own part where it sat (named -1, -2, ...), or the grouped parts move on their own. then pick, move, cut or delete each alone. a hollow inside a solid stays with that solid. one undo puts it back as it was.", tags:'separate the parts ungroup split explode several parts one file stl solids bodies pieces group isolate delete one' },
             { kind:'app', name:'copies', body:'edit › copies, or right-click a part › copies: how many across, how many back, and the gap between them (12 mm to start). the count includes the part you have. they stay on the bed: the card says if they run off it or land on another part, and make waits until they fit. tabs and marks come with each copy. one undo takes them all back.', tags:'copies copy rows columns grid array nest sheet of parts many repeat across back gap duplicate' },
             { kind:'app', name:'fit to part', body:'view › fit to part, or F: brings the parts into view (in simulate, the board). a part sized or brought in so small that it would be under a fifth of the view is framed by itself.', tags:'fit frame zoom to part view small dot lost where is my part' },

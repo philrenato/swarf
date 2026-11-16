@@ -867,6 +867,9 @@ export function init() {
 
     api.event.on("cam.trace.clear", traceClear);
 
+    // swarf: the board row under material changed the stock (swarf-material.js boardRow)
+    api.event.on('swarf.stock', () => { api.platform.update_bounds(); updateStock(); });
+
     api.event.on("cam.parse.gerber", opts => {
         const { data, mesh } = opts;
         const { open, closed, circs, rects } = load.GBR.parse(data);

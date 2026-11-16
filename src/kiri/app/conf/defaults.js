@@ -618,6 +618,14 @@ export const conf = {
                 // (markup Apr 15 round 4 — "parts should not have any material/padding").
                 // Expert mode can dial these up via the stock panel when ready.
                 camStockX: 0,
+                // swarf (Phil 11-16): the board the student has, under material: when on, Kiri's stock is
+                // this size (camStockOffset off), the parts centred in it, their bottoms on its bottom
+                swarfBoardOn: false,
+                swarfBoardX: 0,
+                swarfBoardY: 0,
+                swarfBoardZ: 0,
+                swarfBoardSet: false,      // the board set Kiri's stock: only then does turning it off put it back
+                swarfBoardAnchor: "",
                 camStockY: 0,
                 camStockZ: 0,
                 camTabsDepth: 5,
