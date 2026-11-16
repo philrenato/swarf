@@ -1705,11 +1705,17 @@ html[data-skin] #swarf-run .sr-jog .sr-zrow button.next, html[data-skin] #swarf-
     };
     // the inputs as they stand with the clip on: a touch changes exactly one of them
     const watch = st => {
-      if (!base || !st.inputs || proved) return;
+      if (!st.inputs || proved) return;
+      // (11-16, a first touch-off on another Mac never lit touch off) the card can open before the
+      // box has sent its inputs: the first reading after it opens is the one a touch changes
+      if (!base) { base = { ...st.inputs }; return; }
       // once the plate's input is set in machine setup, only that input counts (design review 10-28 #8)
       const only = m.plateCfg && m.plateCfg.confirmed ? m.plateCfg.input : 0;
+      // the e-stop's input is never the plate: a press or a flicker there was saved as the plate's input
+      const stopIn = m.stopCfg ? m.stopCfg().input : 0;
       for (let n = 1; n <= 12; n++) {
         if (only && n !== only) continue;
+        if (n === stopIn) continue;
         const was = m.level(base, n), now = m.level(st.inputs, n);
         if (now !== was && !seen) { seen = { input: n, hit: now }; circuit.textContent = 'touch seen: now take the plate away'; }
         if (seen && n === seen.input && now === was) {      // touched and let go: the circuit works
