@@ -59,7 +59,9 @@ try {
   await wait(800);
   // alerts said, kept to read back
   await page.evaluate(() => { const a = window.kiri.api, was = a.show.alert; window.__said = []; a.show.alert = function (t) { window.__said.push(String(t)); return was.apply(this, arguments); }; });
-  const load = (text, name) => page.evaluate((text, name) => { const a = window.kiri.api; a.platform.clear(); window.__said = []; a.platform.load_files([new File([text], name)]); }, text, name).then(() => wait(2500));
+  // every STL now opens a units card: it is closed as a student would, with done
+  const shut = () => page.evaluate(() => [...document.querySelectorAll('.swarf-stl-units button')].find(b => b.textContent === 'done')?.click()).then(() => wait(300));
+  const load = (text, name) => page.evaluate((text, name) => { const a = window.kiri.api; a.platform.clear(); window.__said = []; a.platform.load_files([new File([text], name)]); }, text, name).then(() => wait(2500)).then(shut);
   const parts = () => page.evaluate(() => window.kiri.api.widgets.all().map(w => {
     const b = new window.THREE.Box3().setFromObject(w.mesh);
     return { name: w.meta.file, id: w.id, min: [b.min.x, b.min.z].map(v => +v.toFixed(2)), max: [b.max.x, b.max.z].map(v => +v.toFixed(2)), group: w.group.length };
@@ -180,7 +182,7 @@ try {
 
   // ── parts that move as one (a group, as a file's objects come in when grouped) ──
   await page.evaluate((t1, t2) => { const a = window.kiri.api; a.platform.clear(); a.platform.load_files([new File([t1], 'g1.stl'), new File([t2], 'g2.stl')]); }, stl('g1', boxTris(0, 0, 0, 40, 40, 10)), stl('g2', boxTris(0, 0, 0, 30, 30, 10)));
-  await wait(2500);
+  await wait(2500); await shut(); await shut();
   await page.evaluate(() => { const a = window.kiri.api; a.platform.deselect(); for (const w of a.widgets.all()) a.platform.select(w, true); a.group.merge(); a.platform.deselect(); });
   await wait(500);
   let g0 = await parts();

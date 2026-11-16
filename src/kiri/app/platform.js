@@ -1222,9 +1222,14 @@ function load_files(files, group) {
                 api.feature.on_add_stl(data, file);
                 load_dec();
             } else if (isstl) {
-                const stl = new file_load.STL().parse(data, api.view.unit_scale());
+                // an STL has no units: read as mm, then as inches only if that is the reading that
+                // fits the bed (both fit: the units switch decides); the card says which and switches
+                const stl = new file_load.STL().parse(data, 1);
+                const reading = stlReading(stl);
+                if (reading === 'in') for (let i = 0; i < stl.length; i++) stl[i] *= 25.4;
                 const sw = load_verts(group, stl, name);
                 load_dec();
+                setTimeout(() => stlUnitsCard(sw, name, reading), 300);
                 // swarf (Phil 11-16): an STL of several solids arrives as one part: say how to
                 // make each its own (right-click › separate the parts)
                 setTimeout(() => {
@@ -1488,6 +1493,89 @@ function loadSVGDialog(doit, cancel = () => {}, size = '') {
 // Z up came in on its edge with no way back. This card says the part's size in shop units and which
 // face is up, and its toggle turns the part in place: Z up is a quarter turn about X from Y up
 // ((x,-z,y) back to (x,y,z)). Each flip is one undo. The part stays as it is when the card closes.
+// the reading of an STL's numbers: 'mm' or 'in'. A reading fits when its footprint is on the bed and
+// it is a size a part can be (its longest side at least 6 mm); one that fits wins, both: the units
+// switch, neither: mm
+function stlReading(v) {
+    let lo = [Infinity, Infinity, Infinity], hi = [-Infinity, -Infinity, -Infinity];
+    for (let i = 0; i + 2 < v.length; i += 3) for (let k = 0; k < 3; k++) { const x = v[i + k]; if (x < lo[k]) lo[k] = x; if (x > hi[k]) hi[k] = x; }
+    const s = [0, 1, 2].map(k => hi[k] - lo[k]);
+    if (!s.every(Number.isFinite)) return 'mm';
+    const dev = current().device || {}, bw = dev.bedWidth || Infinity, bd = dev.bedDepth || Infinity;
+    const fits = k => s[0] * k <= bw + 0.5 && s[1] * k <= bd + 0.5 && Math.max(...s) * k >= 6;
+    const mm = fits(1), inch = fits(25.4);
+    if (mm && inch) return api.view.unit_scale() === 25.4 ? 'in' : 'mm';
+    return inch ? 'in' : 'mm';
+}
+
+// what the STL was read as, its size both ways, and one press to switch (an undo step)
+let stlWaiting = [], stlWaitT = 0;
+function stlUnitsCard(w, name, reading) {
+    if (!w) return;
+    stlWaiting.push({ w, name, reading });
+    if (!stlWaitT) stlWaitT = setTimeout(stlUnitsFlush, 0);
+}
+function stlUnitsFlush() {
+    stlWaitT = 0;
+    if (api.modal && api.modal.visible && api.modal.visible()) { stlWaitT = setTimeout(stlUnitsFlush, 400); return; }
+    const live = stlWaiting.filter(r => api.widgets.all().includes(r.w));
+    if (!live.length || !api.modal) { stlWaiting = []; return; }
+    // one card per reading: files read differently are switched apart
+    const list = live.filter(r => r.reading === live[0].reading);
+    stlWaiting = live.filter(r => r.reading !== live[0].reading);
+    if (stlWaiting.length) stlWaitT = setTimeout(stlUnitsFlush, 400);
+    const rnd = Date.now().toString(36);
+    const L = self.SwarfLength, say = v => L ? L.say(v) : `${+v.toFixed(1)} mm`;
+    const size = (w, k) => { const b = w.getBoundingBox(), s = b.getSize(new THREE.Vector3()).multiplyScalar(k); return `${say(s.x)} × ${say(s.y)} × ${say(s.z)}`; };
+    let now = list[0].reading;
+    const who = list.length > 1 ? `${list.length} files` : list[0].name;
+    // sizes as each reading: the part is now read as `now`
+    const asMM = () => size(list[0].w, now === 'in' ? 1 / 25.4 : 1), asIn = () => size(list[0].w, now === 'in' ? 1 : 25.4);
+    const host = $('mod-any');
+    host.innerHTML = [
+        `<div class="image-convert-dialog f-col a-center swarf-import swarf-stl-units">`,
+        `  <h3 class="image-convert-title">${who}: which units</h3>`,
+        `  <p class="image-convert-copy t-just">an STL has no units. it came in as ${now === 'in' ? 'inches' : 'millimeters'}.</p>`,
+        `  <div class="f-row t-right image-convert-fields"><table>`,
+        `  <tr><th>read as</th><td>`,
+        `    <label><input type="radio" name="stl-u-${rnd}" id="stl-mm-${rnd}" value="mm"> millimeters: <span id="stl-mms-${rnd}"></span></label><br>`,
+        `    <label><input type="radio" name="stl-u-${rnd}" id="stl-in-${rnd}" value="in"> inches: <span id="stl-ins-${rnd}"></span></label>`,
+        `  </td></tr>`,
+        `  </table></div>`,
+        `  <div class="f-row j-end image-convert-actions"><button id="stl-ok-${rnd}">done</button></div>`,
+        `</div>`
+    ].join('');
+    const rm = $(`stl-mm-${rnd}`), ri = $(`stl-in-${rnd}`);
+    const show = () => {
+        if (!rm || !rm.isConnected) return;
+        rm.checked = now === 'mm'; ri.checked = now === 'in';
+        $(`stl-mms-${rnd}`).textContent = asMM(); $(`stl-ins-${rnd}`).textContent = asIn();
+    };
+    const apply = to => {
+        const k = to === 'in' ? 25.4 : 1 / 25.4;
+        for (const r of list) if (api.widgets.all().includes(r.w)) r.w.scale(k, k, k);
+        now = to;
+        update_bounds();
+        if (api.selection && api.selection.update_info) api.selection.update_info();
+        api.space.auto_save();
+        space.update();
+        show();
+    };
+    const set = (to, push) => {
+        if (to === now) return show();
+        const from = now;
+        apply(to);
+        if (push && api.doit && api.doit.push) api.doit.push(() => apply(from), () => apply(to), {
+            undo: `read as ${from === 'in' ? 'inches' : 'millimeters'} again`, redo: `read as ${to === 'in' ? 'inches' : 'millimeters'} again`
+        });
+    };
+    rm.onchange = () => rm.checked && set('mm', true);
+    ri.onchange = () => ri.checked && set('in', true);
+    $(`stl-ok-${rnd}`).onclick = () => api.modal.hide();
+    show();
+    api.modal.show('any');
+}
+
 const OBJ_TURN = { z: -Math.PI / 2, y: Math.PI / 2 };   // from the other reading to this one
 // OBJs waiting for their card: one card for every OBJ in a drop, and never over another import's
 // dialog (fresh review 11-13: it replaced a pending DXF dialog, whose watcher then quit that load)
