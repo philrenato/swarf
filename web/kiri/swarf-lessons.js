@@ -124,7 +124,7 @@
     const fixed = bit.d >= 9 ? { feed: 1500, plunge: 300, pass: 2.0 } : bit.d >= 6 ? { feed: 1500, plunge: 300, pass: 1.5 } : { feed: 900, plunge: 240, pass: 1.0 };
     const D = window.__swarfDerive, M = window.__swarfMaterialById && window.__swarfMaterialById('plywood');
     if (!D || !M) return fixed;
-    const p = D(M, bit.d, { spindleMin: 10000, spindleMax: 21000, feedMax: 15240, feedMaxZ: 2540 });
+    const p = D(M, bit.d, { spindleMin: 10000, spindleMax: 21000, feedMax: 15240, feedMaxZ: 2540, shopbot: true });
     if (!p) return fixed;
     return { feed: p.feed, plunge: Math.min(p.plunge, 600), pass: Math.min(fixed.pass, p.stepdown) };
   }

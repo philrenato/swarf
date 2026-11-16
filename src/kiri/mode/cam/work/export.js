@@ -31,6 +31,8 @@ export function cam_export(print, online) {
         isRML = device.gcodeFExt?.toLowerCase() === 'rml',
         stripComments = device.gcodeStrip || false,
         cmdToolChange = device.gcodeChange || ["M6 T{tool}"],
+        // swarf: one file per bit on a machine that cannot change a bit mid-file (the MR-1)
+        perBit = !!device.gcodeFilePerBit,
         cmdSpindle = device.gcodeSpindle || ["M3 S{speed}"],
         cmdDwell = device.gcodeDwell || ["G4 P{time}"],
         axis = { X: 'X', Y: 'Y', Z: 'Z', A: 'A', F: 'F', R: 'R', I: 'I', J: 'J' },
@@ -222,7 +224,12 @@ export function cam_export(print, online) {
             pos.t = out.tool;
             consts.tool = pos.t.getNumber();
             consts.tool_name = pos.t.getName();
-            if (!laserOp && (spro.camToolInit || toolChanges > 0)) {
+            if (perBit) {
+                // swarf: no change inside the file. Where a bit starts is marked instead, and the app
+                // makes one file per bit, each with the start and end (app/export.js bitFiles)
+                append();
+                online({ bit: { order: toolChanges + 1, number: consts.tool, name: consts.tool_name } });
+            } else if (!laserOp && (spro.camToolInit || toolChanges > 0)) {
                 filterEmit(cmdToolChange, { ...consts, spindle: newSpindle });
             }
             toolChanges++;

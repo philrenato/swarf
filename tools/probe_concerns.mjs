@@ -82,7 +82,9 @@ try {
     await new Promise(r => setTimeout(r, 900));
     await setMaterial('aluminum_6061');
     out.steps.push({ step: 'aluminum, preset', ...(await concerns()) });
-    const op = await setOp('plunge', 280);
+    // the plunge typed up to the step's own feed (the MR-1's 4-flute end mills: not a fixed number)
+    const feedNow = await page.evaluate(() => window.kiri.api.conf.get().process.ops.find(o => o && o.type === 'rough').rate);
+    const op = await setOp('plunge', feedNow);
     await wait(200);
     out.steps.push({ step: 'plunge = feed', op, ...(await concerns()) });
     await setOp('plunge', 100);

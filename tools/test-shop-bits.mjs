@@ -21,7 +21,7 @@ assert.equal(new Set(tools.map(t => t.id)).size, tools.length, 'ids unique');
 assert.equal(new Set(tools.map(t => t.number)).size, tools.length, 'T numbers unique');
 const up = shop[1];
 assert.equal(up.flute_diam, 0.25, 'the up-cut is 1/4 in (the shop library had the spoil-board cutter\'s 1 1/4 in)');
-const lim = { spindleMin: 10000, spindleMax: 21000, feedMax: 15240, feedMaxZ: 2540 };
+const lim = { spindleMin: 10000, spindleMax: 21000, feedMax: 15240, feedMaxZ: 2540, shopbot: true };
 const mats = JSON.parse(read('web/kiri/swarf-materials.json'));
 const ply = (Array.isArray(mats) ? mats : mats.materials).find(m => m.id === 'plywood');
 // in plywood the shop's bit cuts with the shop's own numbers (10-29): 120 in/min, 1/8 in a pass, 12,000 rpm
@@ -42,4 +42,20 @@ assert.ok(derive(acr, 6.35, lim, up).feed > 3050 && derive(acr, 6.35, lim, up).s
 const deep = { id: 'foam', cut: { vc: 120, flutes: 2, chip: 0.017, down: 0.9, downMax: 0, stepover: 0.45 } };
 assert.ok(derive(deep, 6.35, lim, shop[2]).stepdown <= 3.175 + 0.025, `down-cut pass ${derive(deep, 6.35, lim, shop[2]).stepdown}`);
 assert.ok(derive(deep, 6.35, lim, up).stepdown > 3.2, 'an up-cut keeps the deeper pass');
+// on the MR-1 (8000 rpm, 2540 mm/min): the shop's numbers scaled by its rpm, the same chip a tooth,
+// and never starting at the machine's top feed
+const mr1 = { spindleMin: 250, spindleMax: 8000, feedMax: 2540, feedMaxZ: 300, endFlutes: 4 };
+const m1 = derive(ply, 6.35, mr1, up);
+assert.equal(m1.spindle, 8000); assert.equal(m1.feed, 2030, `1/4 in shop bit scaled to 8000 rpm (${m1.feed})`);
+const m2 = derive(ply, 12.7, mr1, shop[3]);
+assert.ok(m2.feed < 2540 && m2.feed <= 2032, `1/2 in shop bit under the top feed (${m2.feed})`);
+// and no wood floor there: a plain 1/4 in end mill keeps its own chip, at the MR-1's usual 4 flutes
+const hw = (Array.isArray(mats) ? mats : mats.materials).find(m => m.id === 'hardwood');
+const em = { type: 'endmill', metric: true, flute_diam: 6.35, flute_len: 25.4 };
+assert.equal(derive(hw, 6.35, mr1, em).feed, 1600, `generic 1/4 in hardwood on the MR-1, 4 flutes (${derive(hw, 6.35, mr1, em).feed})`);
+assert.equal(derive(hw, 6.35, { ...mr1, endFlutes: 0 }, em).feed, 800, 'at 2 flutes, half the feed: the same chip a tooth');
+// a carbide bit starts faster than HSS, under the machine
+const cb = derive(hw, 6.35, mr1, { ...em, swarf: { cutter: 'carbide' } });
+assert.ok(cb.spindle > derive(hw, 6.35, mr1, em).spindle && cb.spindle <= 8000 && cb.feed <= 2540, `carbide start ${cb.spindle} rpm ${cb.feed} mm/min`);
+assert.equal(derive(hw, 6.35, lim).feed >= 1500, true, 'the ShopBot keeps its floor');
 console.log('shop bits: ok');

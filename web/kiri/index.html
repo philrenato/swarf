@@ -572,6 +572,7 @@
                         <dt>step-down (depth of cut)</dt><dd>how deep each pass cuts, in mm or inches as mm | in says. swarf keeps every preset under half the bit's width: in wood that leaves the flutes room to clear the chips.</dd>
                         <dt>feed rate</dt><dd>how fast the bit moves through the wood, in mm/min (in/min when mm | in says in). the material, the bit and the step-down all affect it. when in doubt: slower is safer.</dd>
                         <dt>plunge rate</dt><dd>how fast the tool drives down into material. usually 30–50% of feed rate. too fast and you snap end-mills.</dd>
+                        <dt>speed</dt><dd>beside the material: start is the safe numbers every step begins with; +25%, +50%, +75% and max move rpm, feed, plunge and step-down together toward the most the bit and the machine take, never past the machine. go up one step at a time and listen. tick carbide beside the bit of a step, or in the bits list: a carbide bit starts faster and goes higher. its flutes are in the bits list; on the MR-1 an end mill counts as 4-flute unless it says. the project keeps the speed; the fields of each step can still be typed after.</dd>
                         <dt>spindle speed</dt><dd>RPM of the bit. a bigger bit turns slower. on the ShopBot you set it on the router's dial, 1 (10,000 rpm) to 5 (21,000), and the cut card names the setting.</dd>
                         <dt>ease down</dt><dd>ramp into the cut at an angle instead of plunging straight down. easier on the tool, especially for end-mills with no center cut. on by default in swarf.</dd>
                         <dt>depth first</dt><dd>finish each Z layer top-to-bottom in one region before moving to the next. opposite is layer-first (sweep all regions per layer).</dd>
@@ -597,7 +598,7 @@
                 <section>
                     <h3>machines</h3>
                     <dl>
-                        <dt>Langmuir MR-1</dt><dd>benchtop CNC mill, 30×17×16" envelope, BT30 spindle. it takes the exported file.</dd>
+                        <dt>Langmuir MR-1</dt><dd>benchtop CNC mill: 580 x 550 x 150 mm travel (22.8 x 21.7 x 5.9 in), CAT40 spindle to 8000 rpm. it takes the exported file, one file per bit: zero Z again for each bit.</dd>
                         <dt>ShopBot Basic</dt><dd>4 × 8 ft bed. a Porter-Cable 7518 router: swarf switches it on and off, you set its speed on its dial (1–5). driven from swarf by control.</dd>
                     </dl>
                 </section>

@@ -1,12 +1,10 @@
 /*
- * swarf MR-1 model — Langmuir's MR-1 as a ghost, for SIMULATE (Phil 10-28: "the mr-1
- * machine is a stationary bed machine. It needs its own basic model to show ... the
- * axes in motion over a fixed bed where work happens"). From Langmuir's product
- * render (~/Documents/claude/swarf/reference_shopbot_photos/MR-1_reference.png):
- * a black splayed-leg stand, a blue-gray slotted table, two black side rails with
- * silver rods running front to back, a gantry beam riding them in Y, the carriage
- * crossing it in X, and the tall black "MR-1" column carrying the spindle in Z.
- * Work envelope 22.8 × 21.8 × 6 in (579 × 554 × 152 mm).
+ * swarf MR-1 model: the MR-1 as a ghost for SIMULATE. It is a fixed-bed machine, so the
+ * ghost shows the axes moving over a table that stays still: a black splayed-leg stand, a
+ * blue-gray slotted table, two black side rails with silver rods running front to back, a
+ * gantry beam riding them in Y, the carriage crossing it in X, and a tall black column
+ * carrying the spindle in Z. Drawn envelope 579 × 554 × 152 mm, about the machine's
+ * 580 × 550 × 150 mm travel.
  *
  * Frame: z up, mm, the table's top at z 0, the work envelope centered on x 0, y 0
  * (as cam's platform is), so set(x, y, z) takes the bit's own position.

@@ -40,6 +40,7 @@ function selectTool(tool) {
         toolType: selectedTool.type,
         toolNum: selectedTool.number,
         toolMetric: selectedTool.metric,
+        toolCarbide: !!(selectedTool.swarf && selectedTool.swarf.cutter === 'carbide'),
         toolShaftDiam: selectedTool.shaft_diam,
         toolShaftLen: selectedTool.shaft_len,
         toolFluteDiam: selectedTool.flute_diam,
@@ -51,6 +52,7 @@ function selectTool(tool) {
         toolType: ui.toolType,
         toolNum: ui.toolNum,
         toolMetric: ui.toolMetric,
+        toolCarbide: ui.toolCarbide,
         toolShaftDiam: ui.toolShaftDiam,
         toolShaftLen: ui.toolShaftLen,
         toolFluteDiam: ui.toolFluteDiam,
@@ -81,6 +83,7 @@ export function updateTool(ev) {
         toolType: selectedTool.type,
         toolNum: selectedTool.number,
         toolMetric: selectedTool.metric,
+        toolCarbide: !!(selectedTool.swarf && selectedTool.swarf.cutter === 'carbide'),
         toolShaftDiam: selectedTool.shaft_diam,
         toolShaftLen: selectedTool.shaft_len,
         toolFluteDiam: selectedTool.flute_diam,
@@ -94,6 +97,7 @@ export function updateTool(ev) {
         toolType: ui.toolType,
         toolNum: ui.toolNum,
         toolMetric: ui.toolMetric,
+        toolCarbide: ui.toolCarbide,
         toolShaftDiam: ui.toolShaftDiam,
         toolShaftLen: ui.toolShaftLen,
         toolFluteDiam: ui.toolFluteDiam,
@@ -106,6 +110,9 @@ export function updateTool(ev) {
     selectedTool.type = changed.toolType;
     selectedTool.number = changed.toolNum;
     selectedTool.metric = changed.toolMetric;
+    // swarf: carbide or high-speed steel, kept with the bit's other swarf facts
+    if (changed.toolCarbide) selectedTool.swarf = Object.assign({}, selectedTool.swarf, { cutter: 'carbide' });
+    else if (selectedTool.swarf && selectedTool.swarf.cutter) { selectedTool.swarf = Object.assign({}, selectedTool.swarf); delete selectedTool.swarf.cutter; }
     selectedTool.shaft_diam = changed.toolShaftDiam;
     selectedTool.shaft_len = changed.toolShaftLen;
     selectedTool.flute_diam = changed.toolFluteDiam;

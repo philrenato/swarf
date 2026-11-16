@@ -2636,3 +2636,7 @@ html[data-skin="classic"] #swarf-help-float, html[data-skin="classic"] #swarf-he
 /* a concern's help button opens its entry in the floating help */
 .swarf-concern-help { display: inline-block; margin-top: 5px; padding: 1px 8px; font-size: 11px; cursor: pointer; }
 .swarf-concern-fix + .swarf-concern-help { margin-top: 4px; }
+
+/* the carbide tick on a bit in the bits list (swarf-material.js) */
+#swarf-bits label.swarf-carbide { display: inline-flex; align-items: center; gap: 4px; font-size: 12px; white-space: nowrap; cursor: pointer; }
+#swarf-bits label.swarf-carbide input { margin: 0; }

@@ -27,6 +27,17 @@
     unit: { x: 72.183661, y: 72.183661, z: 90.229567 }
   };
 
+  // Any other machine (the MR-1): moves and rapids at its own top speeds from the machine profile
+  // (feedMax, feedMaxZ in mm/min), and no extra spin-up, its file dwells for it (G4 P2). The
+  // speed-up profile stays the ShopBot card's: a rough guess there, but rapids no longer run at a
+  // speed the machine cannot reach.
+  function cfgFor(device) {
+    const d = device || {};
+    if (/shopbot/i.test(d.deviceName || '') || !(d.feedMax > 0)) return SHOP;
+    const xy = d.feedMax / 60, z = (d.feedMaxZ > 0 ? d.feedMaxZ : d.feedMax) / 60;
+    return Object.assign({}, SHOP, { move: { xy, z }, rapid: { xy, z }, spinUp: 0 });
+  }
+
   // seconds for one segment of a profile: up from vStart at k per mm, at most the feed, down to vEnd
   function segSeconds(s, k) {
     const L = s.len, F = Math.max(1e-3, s.feed);
@@ -91,6 +102,9 @@
     }
     while (e < events.length) event(events[e++]);
     flush();
+    // one file per bit (the MR-1): the export marks where each bit starts instead of a change
+    const bitRuns = (opts.sections || []).filter(s => s && s.bit != null).length;
+    if (bitRuns > 1) out.changes = Math.max(out.changes, bitRuns - 1);
     return out;
   }
 
@@ -110,7 +124,7 @@
     return m < 60 ? `${m} min` : `${Math.floor(m / 60)} h ${String(m % 60).padStart(2, '0')}`;
   }
 
-  const api = { of, words, short, segSeconds, SHOP };
+  const api = { of, words, short, segSeconds, cfgFor, SHOP };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.SwarfEstimate = api;
 })(typeof window !== 'undefined' ? window : globalThis);
@@ -134,7 +148,9 @@
       // the timing waits for a quiet moment: a texture's file can be long
       const go = () => {
         S.busy = false;
-        if (text) { S.est = E.of(text, { sections: starts || [] }); S.sig = sig; S.frac = 0; }
+        let device = null;
+        try { device = a.conf.get().device; } catch (e) { /* no settings yet */ }
+        if (text) { S.est = E.of(text, { sections: starts || [], cfg: E.cfgFor(device) }); S.sig = sig; S.frac = 0; }
         paint();
         if (S.again) { S.again = false; request(); }
       };
@@ -146,7 +162,10 @@
     const m = s => E.short(s);
     const parts = [`cutting ${m(est.cut)}`, `in the air ${m(est.air)}`];
     if (est.dwell >= 1) parts.push(`the router starting ${m(est.dwell)}`);
-    let t = `How long the ShopBot takes for the ticked parts and steps: ${parts.join(', ')}. It counts the bit speeding up and slowing at bends, as control runs it.`;
+    let name = 'ShopBot';
+    try { const d = api().conf.get().device.deviceName || ''; if (!/shopbot/i.test(d)) name = d.replace(/^[^.]*\./, '').replace(/\./g, ' ') || 'machine'; } catch (e) { /* no settings yet */ }
+    let t = name === 'ShopBot' ? `How long the ShopBot takes for the ticked parts and steps: ${parts.join(', ')}. It counts the bit speeding up and slowing at bends, as control runs it.`
+      : `About how long the ${name} takes for the ticked parts and steps, at its own top speeds: ${parts.join(', ')}.`;
     if (est.changes) t += ` Plus ${est.changes} bit change${est.changes > 1 ? 's' : ''}, as long as you take.`;
     return t;
   }

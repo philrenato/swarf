@@ -7,27 +7,33 @@
     "maxHeight": 150,
     "originCenter": false,
     "spindleMax": 8000,
-    "spindleMin": 0,
+    "spindleMin": 250,
     "feedMax": 2540,
     "feedMaxZ": 1016,
+    "endmillFlutes": 4,
     "gcodePre": [
-        "G21 ; set units to MM (required)",
-        "G90 ; absolute position mode (required)"
+        "G21 ; millimeters",
+        "G90 ; absolute positions",
+        "G94 ; feed in units per minute",
+        "G17 ; arcs in the XY plane",
+        "G54 ; the work zero set at the machine"
     ],
     "gcodePost": [
+        "S0 ; spindle speed to zero under control",
+        "G4 P1 ; let it slow",
         "M05 ; spindle off",
+        "G0 Z{lift} ; lift clear of the board",
         "M30 ; program end"
     ],
     "gcodeDwell": [
         "G4 P{time} ; dwell for {time} s"
     ],
     "gcodeSpindle": [
-        "M03 S{speed} ; spindle {speed} rpm"
+        "M03 S{speed} ; spindle {speed} rpm",
+        "G4 P2 ; spin up before the first plunge"
     ],
-    "gcodeChange": [
-        "M05 ; spindle off for tool change",
-        "M00 ; load T{tool} {tool_name}, then cycle start"
-    ],
+    "gcodeChange": [],
+    "gcodeFilePerBit": true,
     "gcodeFExt": "nc",
     "gcodeSpace": true,
     "gcodeStrip": true,

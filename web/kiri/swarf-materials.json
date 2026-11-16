@@ -1,11 +1,12 @@
 {
-  "_note": "swarf material palette. STUDENT-SAFE STARTING VALUES, not optimal ones — every entry is slow, shallow and survivable, and every one can be pushed once you know what the cut sounds like. Feeds and speeds assume HSS tooling, which is the limiting factor: HSS runs at roughly a third the cutting speed of the coated carbide in Langmuir's MR-1 chart, so RPM drops as the tool gets bigger rather than sitting at the machine's ceiling.",
+  "_note": "swarf material palette. STUDENT-SAFE STARTING VALUES, not optimal ones: every entry is slow, shallow and survivable, and every one can be pushed once you know what the cut sounds like. The starts assume HSS tooling, the limiting factor: HSS runs at roughly a third of carbide's cutting speed, so RPM drops as the tool gets bigger rather than sitting at the machine's top speed.",
   "_cut": "Each material carries one `cut` record and every tool's numbers are derived from it at apply time (window.__swarfDerive in swarf-material.js): rpm = vc x 1000 / (pi x D) clamped to the device's spindleMin..spindleMax; feed = rpm x flutes x chip x D (chip is chip load per mm of tool diameter, so the chip scales with the tool); plunge = 0.35 x feed, capped at the device's feedMaxZ and the process camFastFeedZ; stepdown = down x D, capped at downMax mm when set; stepover is a fraction of D. Device limits live in src/kiri/dev/cam/*.json. With carbide instead of HSS, vc can roughly triple.",
-  "_tooling": "HSS, 2-flute for everything except mild steel, which assumes 4-flute. The tool library has no flute-count field, so nothing adapts automatically — running a 4-flute where 2 is assumed halves the chip load (safe, though it can rub in aluminum); running a 2-flute where 4 is assumed doubles it.",
+  "_carbide": "`carbide` is the start for a bit marked carbide (the carbide tick on the bit): the same record as `cut` with a higher cutting speed, about half of the carbide ceiling's, so a carbide bit starts faster yet well short of what it takes. Same chip a tooth and depth as the HSS start.",
+  "_top": "Each material's `top` holds its ceiling for an HSS and for a carbide bit, run through the same derive as `cut`: vc toward the top of the usual cutting-speed range for that cutter in that material, chip a tooth as a fraction of D, down as a fraction of D for a full-width slot, and mrr (cm3/min) a power budget that makes a wide bit shallower in metal. Woods, wax and foam are held by the spindle's top speed, not the cutter. The machine then caps it: spindleMax, feedMax, 90% of feedMax for the cutting feed, feedMaxZ for the plunge. A ceiling assumes a sharp bit, stick-out of three diameters or less, the work held rigidly, and lubricant in metal: it is where a student works up to a step at a time (the speed control on the material row), not where to start.",
+  "_tooling": "The starts assume HSS, 2-flute for everything except mild steel, which assumes 4-flute. A bit can say its own flute count (tool swarf.flutes) and what it is made of (swarf.cutter, hss by default, or carbide): the flute count changes the feed for the same chip a tooth, and the cutter picks which ceiling (`top`) the speed control rises to.",
   "_units": "vc m/min · chip mm per tooth per mm of diameter · down fraction of diameter · downMax mm · stepover fraction of diameter · ramp angle degrees. Derived: feed and plunge mm/min, spindle rpm, stepdown mm.",
-  "_ramp": "ramp.angle drives camEaseAngle, ramp.ease drives camEaseDown — the tool walks down into the cut instead of drilling in on a flute that may not cut at center. 1.8 degrees is the MR-1 chart's helical-ramp figure and is used for the metals. Softer materials ramp steeper so the entry move stays short.",
+  "_ramp": "ramp.angle drives camEaseAngle, ramp.ease drives camEaseDown: the tool walks down into the cut instead of drilling in on a flute that may not cut at center. 1.8 degrees is swarf's shallow ramp for the metals; softer materials ramp steeper so the entry move stays short.",
   "_rules": "Invariants held over every tool in the default library on both devices, checked by tools/check_materials.mjs through the same derive function the app runs: plunge is 30-40% of feed unless the Z ceiling capped it; stepdown stays under half the tool diameter; spindle and feed inside the device limits; stepover in (0, 0.5]; feed never falls as the tool grows while the spindle holds steady.",
-  "_source": "https://assets.langmuirsystems.com/file/CuttingParameters-GettingStartedReferenceGuide-Rev11_30_2022.pdf",
   "default": "hardwood",
   "_soft": "A machine can be marked soft-only in `machines`: its MATERIAL list then leaves out every entry with \"metal\": true, and a metal already chosen falls back to the default. The ShopBot in the shop is a wood router: wood, plastics, foam and wax, never metal.",
   "machines": {
@@ -27,6 +28,30 @@
         "down": 0.16,
         "downMax": 1.5,
         "stepover": 0.2
+      },
+      "carbide": {
+        "vc": 150,
+        "flutes": 2,
+        "chip": 0.0073,
+        "down": 0.16,
+        "downMax": 1.5,
+        "stepover": 0.2
+      },
+      "top": {
+        "hss": {
+          "vc": 90,
+          "flutes": 2,
+          "chip": 0.008,
+          "down": 0.25,
+          "mrr": 30
+        },
+        "carbide": {
+          "vc": 300,
+          "flutes": 2,
+          "chip": 0.01,
+          "down": 0.5,
+          "mrr": 30
+        }
       },
       "ramp": {
         "ease": true,
@@ -60,6 +85,30 @@
         "downMax": 1.2,
         "stepover": 0.18
       },
+      "carbide": {
+        "vc": 110,
+        "flutes": 2,
+        "chip": 0.007,
+        "down": 0.13,
+        "downMax": 1.2,
+        "stepover": 0.18
+      },
+      "top": {
+        "hss": {
+          "vc": 60,
+          "flutes": 2,
+          "chip": 0.007,
+          "down": 0.25,
+          "mrr": 30
+        },
+        "carbide": {
+          "vc": 150,
+          "flutes": 2,
+          "chip": 0.009,
+          "down": 0.5,
+          "mrr": 30
+        }
+      },
       "ramp": {
         "ease": true,
         "angle": 1.8
@@ -92,6 +141,30 @@
         "downMax": 0.8,
         "stepover": 0.12
       },
+      "carbide": {
+        "vc": 60,
+        "flutes": 4,
+        "chip": 0.0055,
+        "down": 0.095,
+        "downMax": 0.8,
+        "stepover": 0.12
+      },
+      "top": {
+        "hss": {
+          "vc": 27,
+          "flutes": 4,
+          "chip": 0.0055,
+          "down": 0.1,
+          "mrr": 10
+        },
+        "carbide": {
+          "vc": 100,
+          "flutes": 4,
+          "chip": 0.005,
+          "down": 0.25,
+          "mrr": 10
+        }
+      },
       "ramp": {
         "ease": true,
         "angle": 1.8
@@ -122,6 +195,28 @@
         "down": 0.24,
         "downMax": 0,
         "stepover": 0.3
+      },
+      "carbide": {
+        "vc": 120,
+        "flutes": 2,
+        "chip": 0.0087,
+        "down": 0.24,
+        "downMax": 0,
+        "stepover": 0.3
+      },
+      "top": {
+        "hss": {
+          "vc": 150,
+          "flutes": 2,
+          "chip": 0.015,
+          "down": 0.5
+        },
+        "carbide": {
+          "vc": 150,
+          "flutes": 2,
+          "chip": 0.015,
+          "down": 1.0
+        }
       },
       "ramp": {
         "ease": true,
@@ -154,6 +249,28 @@
         "downMax": 0,
         "stepover": 0.3
       },
+      "carbide": {
+        "vc": 100,
+        "flutes": 2,
+        "chip": 0.0095,
+        "down": 0.24,
+        "downMax": 0,
+        "stepover": 0.3
+      },
+      "top": {
+        "hss": {
+          "vc": 120,
+          "flutes": 2,
+          "chip": 0.015,
+          "down": 0.5
+        },
+        "carbide": {
+          "vc": 120,
+          "flutes": 2,
+          "chip": 0.015,
+          "down": 1.0
+        }
+      },
       "ramp": {
         "ease": true,
         "angle": 3
@@ -184,6 +301,28 @@
         "down": 0.32,
         "downMax": 0,
         "stepover": 0.3
+      },
+      "carbide": {
+        "vc": 150,
+        "flutes": 2,
+        "chip": 0.011,
+        "down": 0.32,
+        "downMax": 0,
+        "stepover": 0.3
+      },
+      "top": {
+        "hss": {
+          "vc": 250,
+          "flutes": 2,
+          "chip": 0.02,
+          "down": 0.5
+        },
+        "carbide": {
+          "vc": 250,
+          "flutes": 2,
+          "chip": 0.02,
+          "down": 1.0
+        }
       },
       "ramp": {
         "ease": true,
@@ -216,6 +355,28 @@
         "downMax": 0,
         "stepover": 0.35
       },
+      "carbide": {
+        "vc": 240,
+        "flutes": 2,
+        "chip": 0.0098,
+        "down": 0.32,
+        "downMax": 0,
+        "stepover": 0.35
+      },
+      "top": {
+        "hss": {
+          "vc": 400,
+          "flutes": 2,
+          "chip": 0.02,
+          "down": 0.5
+        },
+        "carbide": {
+          "vc": 400,
+          "flutes": 2,
+          "chip": 0.025,
+          "down": 1.0
+        }
+      },
       "ramp": {
         "ease": true,
         "angle": 5
@@ -246,6 +407,28 @@
         "down": 0.32,
         "downMax": 0,
         "stepover": 0.35
+      },
+      "carbide": {
+        "vc": 240,
+        "flutes": 2,
+        "chip": 0.0105,
+        "down": 0.32,
+        "downMax": 0,
+        "stepover": 0.35
+      },
+      "top": {
+        "hss": {
+          "vc": 400,
+          "flutes": 2,
+          "chip": 0.02,
+          "down": 0.5
+        },
+        "carbide": {
+          "vc": 400,
+          "flutes": 2,
+          "chip": 0.025,
+          "down": 1.0
+        }
       },
       "ramp": {
         "ease": true,
@@ -278,6 +461,28 @@
         "downMax": 0,
         "stepover": 0.35
       },
+      "carbide": {
+        "vc": 240,
+        "flutes": 2,
+        "chip": 0.0098,
+        "down": 0.32,
+        "downMax": 0,
+        "stepover": 0.35
+      },
+      "top": {
+        "hss": {
+          "vc": 400,
+          "flutes": 2,
+          "chip": 0.02,
+          "down": 0.5
+        },
+        "carbide": {
+          "vc": 400,
+          "flutes": 2,
+          "chip": 0.025,
+          "down": 1.0
+        }
+      },
       "ramp": {
         "ease": true,
         "angle": 5
@@ -308,6 +513,28 @@
         "down": 0.32,
         "downMax": 0,
         "stepover": 0.35
+      },
+      "carbide": {
+        "vc": 240,
+        "flutes": 2,
+        "chip": 0.009,
+        "down": 0.32,
+        "downMax": 0,
+        "stepover": 0.35
+      },
+      "top": {
+        "hss": {
+          "vc": 400,
+          "flutes": 2,
+          "chip": 0.02,
+          "down": 0.5
+        },
+        "carbide": {
+          "vc": 400,
+          "flutes": 2,
+          "chip": 0.025,
+          "down": 1.0
+        }
       },
       "ramp": {
         "ease": true,
@@ -340,6 +567,28 @@
         "downMax": 0,
         "stepover": 0.35
       },
+      "carbide": {
+        "vc": 240,
+        "flutes": 2,
+        "chip": 0.0098,
+        "down": 0.25,
+        "downMax": 0,
+        "stepover": 0.35
+      },
+      "top": {
+        "hss": {
+          "vc": 400,
+          "flutes": 2,
+          "chip": 0.02,
+          "down": 0.5
+        },
+        "carbide": {
+          "vc": 400,
+          "flutes": 2,
+          "chip": 0.025,
+          "down": 1.0
+        }
+      },
       "ramp": {
         "ease": true,
         "angle": 5
@@ -371,6 +620,28 @@
         "downMax": 0,
         "stepover": 0.4
       },
+      "carbide": {
+        "vc": 240,
+        "flutes": 2,
+        "chip": 0.013,
+        "down": 0.47,
+        "downMax": 0,
+        "stepover": 0.4
+      },
+      "top": {
+        "hss": {
+          "vc": 400,
+          "flutes": 2,
+          "chip": 0.03,
+          "down": 1.0
+        },
+        "carbide": {
+          "vc": 400,
+          "flutes": 2,
+          "chip": 0.03,
+          "down": 1.0
+        }
+      },
       "ramp": {
         "ease": true,
         "angle": 8
@@ -401,6 +672,28 @@
         "down": 0.45,
         "downMax": 0,
         "stepover": 0.45
+      },
+      "carbide": {
+        "vc": 240,
+        "flutes": 2,
+        "chip": 0.017,
+        "down": 0.45,
+        "downMax": 0,
+        "stepover": 0.45
+      },
+      "top": {
+        "hss": {
+          "vc": 400,
+          "flutes": 2,
+          "chip": 0.04,
+          "down": 2.0
+        },
+        "carbide": {
+          "vc": 400,
+          "flutes": 2,
+          "chip": 0.04,
+          "down": 2.0
+        }
       },
       "ramp": {
         "ease": true,

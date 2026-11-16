@@ -74,12 +74,15 @@ function callExport(callback, mode, names) {
     // swarf: where each step starts in the file (1-based lines), for the time estimate's shares.
     // The worker sends its lines in chunks of up to a thousand, so the lines are counted.
     let starts = [], count = 0;
+    const bits = bitFiles();
     client.export(api.conf.get(), (line) => {
+        bits.take(line);
         if (typeof line !== 'string') {
             if (line.section) {
                 sections[line.section] = section = [];
                 starts.push({ step: line.step, line: count + 1 });
             }
+            if (line.bit) starts.push({ bit: line.bit.order, line: count + 1 });
             return;
         }
         count += lineCount(line);
@@ -88,6 +91,7 @@ function callExport(callback, mode, names) {
     }, (output, error) => {
         api.hide.alert(alert);
         if (output) output.swarfStarts = starts;
+        if (output) output.swarfBitFiles = bits.files();
         if (error) {
             api.show.alert(error, 5);
         } else if (callback) {
@@ -96,6 +100,39 @@ function callExport(callback, mode, names) {
             exportGCodeDialog(gcode, mode === 'CAM' ? sections : undefined, output, names);
         }
     });
+}
+
+/**
+ * swarf: one file per bit, for a machine that takes no bit change inside a file (the MR-1: its
+ * controller cannot jog or set a new bit's length while a program is held). The worker marks where
+ * each bit starts (cam/work/export.js perBit); each file is the start lines, that bit's cutting and
+ * the end lines, so each one runs alone after its own Z zero. files() is null for a one-bit job.
+ */
+function bitFiles() {
+    let where = '', head = [], foot = [], pre = [], runs = [], now = null;
+    const name = v => String(v || '').trim().replace(/[\\/:*?"<>|]+/g, '-').replace(/\s+/g, '-').replace(/-+/g, '-').substring(0, 40);
+    return {
+        take(line) {
+            if (typeof line !== 'string') {
+                if (line && line.section) where = line.section === 'header' || line.section === 'footer' ? line.section : 'step';
+                // a step's lines before its first bit (a comment) go with that bit
+                if (line && line.bit) { runs.push(now = { bit: line.bit, lines: pre }); pre = []; }
+                return;
+            }
+            if (where === 'header') head.push(line);
+            else if (where === 'footer') foot.push(line);
+            else if (now) now.lines.push(line);
+            else pre.push(line);
+        },
+        files() {
+            if (runs.length < 2) return null;
+            return runs.map((r, i) => ({
+                name: `${i + 1}-${name(r.bit.name) || 'bit-' + r.bit.number}`,
+                bit: r.bit.name,
+                text: [...head, ...r.lines, ...foot].join('\r\n') + '\r\n'
+            }));
+        }
+    };
 }
 
 // the lines in one chunk the worker sent (joined with \r\n)
@@ -115,6 +152,7 @@ export function exportQuiet(callback) {
     client.export(api.conf.get(), (line) => {
         if (typeof line !== 'string') {
             if (line && line.section) starts.push({ step: line.step, line: count + 1 });
+            if (line && line.bit) starts.push({ bit: line.bit.order, line: count + 1 });
             return;
         }
         count += lineCount(line);
@@ -267,7 +305,7 @@ function swarfFileNote(text, open, ext) {
     return head;
 }
 
-function swarfExportCard(on, { filename, fileext, info, download, sections, gcodeText }) {
+function swarfExportCard(on, { filename, fileext, info, download, downloadBits, sections, gcodeText }) {
     const box = $('mod-x-any');
     if (!box) return;
     box.classList.toggle('swarf-x', !!on);
@@ -285,7 +323,7 @@ function swarfExportCard(on, { filename, fileext, info, download, sections, gcod
     // the router's spin-up), the same number simulate and the step cards show; Kiri's own
     // distance-over-feed time was a quarter short on a texture (Phil 11-02)
     const E = window.SwarfEstimate;
-    const est = E && gcodeText ? E.of(gcodeText, { sections: info.swarfStarts || [] }) : null;
+    const est = E && gcodeText ? E.of(gcodeText, { sections: info.swarfStarts || [], cfg: E.cfgFor ? E.cfgFor(set.device) : undefined }) : null;
     if (est) info.time = est.seconds;   // Kiri's time row in advanced says the same
     if (est && window.SwarfEstimateUI) window.SwarfEstimateUI.fromExport(est);
     const t = Math.round(est ? est.seconds : info.time || 0);
@@ -310,12 +348,15 @@ function swarfExportCard(on, { filename, fileext, info, download, sections, gcod
     try { open = window.__swarfConcernsNow ? window.__swarfConcernsNow() : []; } catch (e) { /* not ready */ }
     const nothing = gcodeText && !/^\s*(G0?1|G0?2|G0?3|M[23XYZ]|C[WC])\b/m.test(gcodeText);
     const big = open.some(c => /bigger than the/.test(c.title));
+    // a machine that takes one bit a file: a job with several bits saves one file per bit, in a .zip
+    const perBit = info.swarfBitFiles && info.swarfBitFiles.length > 1 ? info.swarfBitFiles : null;
+    const saveExt = perBit ? 'zip' : ext;
     const sayOpen = open.length ? `<div class="swarf-x-concerns"><b>${open.length === 1 ? 'One concern is' : `${open.length} concerns are`} still open</b><ul>${open.slice(0, 4).map(c => `<li>${esc(c.title)}<em>${esc(c.hint || '')}</em></li>`).join('')}</ul>${open.length > 4 ? `<p>and ${open.length - 4} more, under concerns.</p>` : ''}</div>` : '';
     card = document.createElement('div');
     card.className = 'swarf-x-card';
     card.innerHTML = `<h3>Save the ${esc(machine)} file</h3>`
-        + `<p class="swarf-x-why">${shopbot ? '<b>control</b> runs it on the ShopBot.' : `The file the ${esc(machine)} runs: take it to the machine.`}</p>`
-        + `<label class="swarf-x-name"><span>name</span><input type="text" spellcheck="false" autocomplete="off"/><em>.${esc(ext)}</em></label>`
+        + `<p class="swarf-x-why">${shopbot ? '<b>control</b> runs it on the ShopBot.' : perBit ? `${perBit.length} files, one for each bit, run in order: zero Z again for each bit.` : `The file the ${esc(machine)} runs: take it to the machine.`}</p>`
+        + `<label class="swarf-x-name"><span>name</span><input type="text" spellcheck="false" autocomplete="off"/><em>.${esc(saveExt)}</em></label>`
         + `<p class="swarf-x-facts">${esc(facts)}</p>`
         + (nothing ? `<p class="swarf-x-nothing">This file cuts nothing: every step is empty or left out. Check the steps and the ticks in objects.</p>` : sayOpen)
         + `<div class="swarf-x-row"><button class="swarf-x-proj" type="button" title="parts, steps and settings to reopen in swarf; not the machine file">save the project too (.swarf)</button>`
@@ -326,7 +367,7 @@ function swarfExportCard(on, { filename, fileext, info, download, sections, gcod
     const go = card.querySelector('.swarf-x-go');
     const kiriName = $('print-filename');
     const clean = v => String(v || '').trim().replace(/\.(sbp|nc|gcode|tap|txt)$/i, '').replace(/[\\/:*?"<>|]+/g, '-') || filename;
-    const paint = () => { go.textContent = `${open.length ? 'save anyway' : 'save'} ${clean(name.value)}.${ext}`; };
+    const paint = () => { go.textContent = `${open.length ? 'save anyway' : 'save'} ${clean(name.value)}.${saveExt}`; };
     go.disabled = !!nothing;
     name.value = filename;
     paint();
@@ -337,10 +378,11 @@ function swarfExportCard(on, { filename, fileext, info, download, sections, gcod
     let projSaved = '';
     go.onclick = () => {
         if (kiriName) kiriName.value = clean(name.value);
-        download(swarfFileNote(gcodeText, open, ext));
+        if (perBit) downloadBits(swarfFileNote(gcodeText, open, ext));
+        else download(swarfFileNote(gcodeText, open, ext));
         api.modal.hide();
         const both = projSaved ? ` and the project ${projSaved}` : '';
-        api.show.alert(`Saved ${clean(name.value)}.${ext}${both}${shopbot ? (big ? ': control refuses it until it fits the bed.' : ': open it in control to cut it.') : '.'}`, 6);
+        api.show.alert(`Saved ${clean(name.value)}.${saveExt}${both}${shopbot ? (big ? ': control refuses it until it fits the bed.' : ': open it in control to cut it.') : '.'}`, 6);
     };
     const proj = card.querySelector('.swarf-x-proj');
     proj.onclick = () => {
@@ -482,6 +524,20 @@ function exportGCodeDialog(gcode, sections, info, names) {
         // saveAs(getBlob(), filename + "." + fileext);
     }
 
+    // swarf: a job with several bits on a one-bit-a-file machine: each bit's file, named for its
+    // order and its bit, in one .zip. Each carries what swarf knew when it saved (head).
+    function downloadBits(head) {
+        filename = $('print-filename').value;
+        const ext = String(fileext).replace(/^\./, '');
+        const files = info.swarfBitFiles.map(f => ({ name: `${filename}-${f.name}.${ext}`, data: (head || '') + f.text }));
+        client.zip(files, progress => {
+            api.show.progress(progress.percent/100, "making the files");
+        }, output => {
+            api.show.progress(0);
+            api.util.download(output, `${filename}.zip`);
+        });
+    }
+
     function pad(v) {
         v = v.toString();
         return v.length < 2 ? '0' + v : v;
@@ -518,7 +574,7 @@ function exportGCodeDialog(gcode, sections, info, names) {
 
     api.modal.show('xany');
         // swarf (review r086 B1): in cam the dialog is one swarf card, the file the machine runs
-        swarfExportCard(MODE === MODES.CAM, { filename, fileext, info, download, sections, gcodeText: gcode });
+        swarfExportCard(MODE === MODES.CAM, { filename, fileext, info, download, downloadBits, sections, gcodeText: gcode });
         let set = api.conf.get();
         let fdm = MODE === MODES.FDM;
         let cam = MODE === MODES.CAM;
@@ -526,7 +582,8 @@ function exportGCodeDialog(gcode, sections, info, names) {
         let preview = set.controller.exportPreview;
         $('code-preview-head').style.display = preview ? '' : 'none';
         $('code-preview').style.display = preview ? '' : 'none';
-        $('print-download').onclick = download;
+        // one file holding several bits never leaves on a one-bit-a-file machine, from advanced either
+        $('print-download').onclick = info.swarfBitFiles && info.swarfBitFiles.length > 1 ? () => downloadBits() : download;
         $('print-filament').style.display = fdm ? '' : 'none';
         $('print-filename').value = filename;
         $('print-filesize').value = util.comma(info.bytes);

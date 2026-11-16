@@ -443,9 +443,9 @@
 
   // One material record, one tool diameter, one device: the numbers an op
   // gets. Pure, so tools/check_materials.mjs runs this exact function over
-  // the whole tool library. lim = { spindleMin, spindleMax, feedMax, feedMaxZ }
+  // the whole tool library. lim = { spindleMin, spindleMax, feedMax, feedMaxZ, shopbot }
   // in rpm and mm/min, 0 = no limit.
-  // the woods the shop's ShopBot library was written for (10-29: its bits' numbers cap swarf's here)
+  // the woods the shop's ShopBot bits have numbers for: those numbers set swarf's for those bits here
   const SHOP_WOODS = new Set(['plywood', 'mdf', 'hardwood', 'osb', 'hardboard']);
   // A V-bit is as wide as it is deep, not as wide as its shank: its tip does the cutting and its full
   // 1/2 in is seldom in the wood. It takes the numbers of the width it has at one pass's depth, and that
@@ -457,17 +457,28 @@
     const byWidth = V_WIDTH / 2 / Math.tan(half * Math.PI / 180);
     return Math.min(byWidth, c.down * V_WIDTH * 2, c.downMax > 0 ? c.downMax : Infinity);
   }
-  function derive(m, diamMm, lim, tool) {
-    const c = m && m.cut;
+  // the bit's own flute count when it has one; else the machine's usual count for an end or ball
+  // mill (lim.endFlutes: 4 on the MR-1); else the material's assumption
+  const flutesOf = (c, tool, lim) => (tool && tool.swarf && tool.swarf.flutes > 0 ? tool.swarf.flutes
+    : lim && lim.endFlutes > 0 && tool && (tool.type === 'endmill' || tool.type === 'ballmill') ? lim.endFlutes : c.flutes);
+  // what the bit is made of: high-speed steel unless it says carbide
+  const cutterOf = tool => (tool && tool.swarf && tool.swarf.cutter === 'carbide' ? 'carbide' : 'hss');
+  // opts.top: the ceiling, with the material's top record for this cutter (ceiling() below), which
+  // takes no shop numbers or wood floor, and no more depth than the flutes reach
+  function derive(m, diamMm, lim, tool, opts) {
+    const top = !!(opts && opts.top);
+    // the start: the material's HSS record, or its carbide one for a bit marked carbide
+    const c = m && (top ? m.top && m.top[cutterOf(tool)] : (cutterOf(tool) === 'carbide' && m.carbide) || m.cut);
     if (!c || !(diamMm > 0)) return null;
     lim = lim || {};
+    const flutes = flutesOf(c, tool, lim);
     const vPass = vBitPass(c, tool);
     if (vPass) diamMm = Math.min(diamMm, V_WIDTH);
     let rpm = c.vc * 1000 / (Math.PI * diamMm);
     if (lim.spindleMax > 0) rpm = Math.min(rpm, lim.spindleMax);
     if (lim.spindleMin > 0) rpm = Math.max(rpm, lim.spindleMin);
     rpm = Math.floor(rpm / 50) * 50;
-    let feed = rpm * c.flutes * c.chip * diamMm;
+    let feed = rpm * flutes * c.chip * diamMm;
     if (lim.feedMax > 0) feed = Math.min(feed, lim.feedMax);
     feed = Math.round(feed / 10) * 10;
     let plunge = feed * 0.35;
@@ -475,7 +486,11 @@
     plunge = Math.round(plunge / 5) * 5;
     let down = c.down * diamMm;
     if (c.downMax > 0) down = Math.min(down, c.downMax);
+    // a power budget (cm³ a minute of metal removed in a full-width slot): a wide bit at a fast feed
+    // goes shallower so the spindle is not asked for more than it has
+    if (c.mrr > 0 && feed > 0) down = Math.min(down, c.mrr * 1000 / (diamMm * feed));
     if (vPass) down = vPass;
+    if (top && tool && tool.flute_len > 0) down = Math.min(down, tool.flute_len * (tool.metric ? 1 : 25.4));
     // a down-cut packs its chips into the slot it cuts: no deeper than half its diameter a pass
     const sw = tool && tool.swarf;
     let capped = false;
@@ -483,27 +498,36 @@
     // the shop's own numbers for its own bit: a computed number well above them (half again) gives
     // way to the shop's, which are cautious by design. Inches and in/s there; mm and mm/min here.
     let shop = null;
-    if (sw && sw.shop && SHOP_WOODS.has(m.id)) {
-      // the shop's own numbers for its own bit (Phil 10-29: they are what ShopBot 3 cuts with here,
-      // and swarf's own sat in the motors' rough band and rubbed more than it cut)
-      const S = sw.shop, sf = S.feed * 25.4 * 60, sp = S.plunge * 25.4 * 60, sd = S.pass * 25.4;
-      feed = Math.round(Math.min(sf, lim.feedMax > 0 ? lim.feedMax : sf) / 10) * 10;
+    if (!top && sw && sw.shop && SHOP_WOODS.has(m.id)) {
+      // the shop's own numbers for its own bit: what the shop cuts with on its ShopBot (swarf's own
+      // numbers sat in the motors' rough band there and rubbed more than they cut)
+      const S = sw.shop, sp = S.plunge * 25.4 * 60, sd = S.pass * 25.4;
+      let sf = S.feed * 25.4 * 60;
+      if (S.rpm) rpm = Math.max(lim.spindleMin || 0, Math.min(lim.spindleMax || S.rpm, S.rpm));
+      // a slower spindle (the MR-1's 8000 against the shop's 12,000) takes the same chip a tooth: the
+      // feed scales with the rpm, and starts under the machine's top feed (80% of it), never at it
+      let most = lim.feedMax > 0 ? lim.feedMax : sf;
+      if (!lim.shopbot && S.rpm && rpm < S.rpm) {
+        sf = sf * rpm / S.rpm;
+        if (lim.feedMax > 0) most = lim.feedMax * 0.8;
+      }
+      feed = Math.round(Math.min(sf, most) / 10) * 10;
       plunge = Math.round(Math.min(sp, feed, lim.feedMaxZ > 0 ? lim.feedMaxZ : sp) / 5) * 5;
       down = sd; capped = true;
-      if (S.rpm) rpm = Math.max(lim.spindleMin || 0, Math.min(lim.spindleMax || S.rpm, S.rpm));
       shop = { feed: sf, plunge: sp, pass: sd };
-    } else if (SHOP_WOODS.has(m.id)) {
-      // any other bit in wood: at least 1500 mm/min, above the rough band (~25 mm/s), when the bit
-      // can take it (a chip of 2% of its diameter a tooth at most)
-      const most = rpm * c.flutes * 0.02 * diamMm;
+    } else if (!top && lim.shopbot && SHOP_WOODS.has(m.id)) {
+      // on the ShopBot, any other bit in wood: at least 1500 mm/min, above its motors' rough band
+      // (~25 mm/s), when the bit can take it (a chip of 2% of its diameter a tooth at most). Only
+      // there: on a mill with a slower spindle the floor would nearly double the bit's chip
+      const most = rpm * flutes * 0.02 * diamMm;
       const floor = Math.min(1500, most);
       if (feed < floor) { feed = Math.round(floor / 10) * 10; plunge = Math.round(Math.min(feed * 0.35, lim.feedMaxZ > 0 ? lim.feedMaxZ : feed) / 5) * 5; }
-      // on the ShopBot, what the shop's Vectric files cut wood at (Phil 11-04, its 1/4 in up-cut:
-      // 1.5 in/s at 14,000 rpm, the same bite a tooth as 1500 mm/min at 10,000). Plywood stays
-      // until a test cut says so.
-      if (lim.shopbot && m.id !== 'plywood') {
+      // what the shop's own files cut wood at on the ShopBot (its 1/4 in up-cut: 1.5 in/s at
+      // 14,000 rpm, the same bite a tooth as 1500 mm/min at 10,000). Plywood stays until a test
+      // cut says so.
+      if (m.id !== 'plywood') {
         rpm = Math.max(lim.spindleMin || 0, Math.min(lim.spindleMax || 14000, 14000));
-        const fast = Math.min(2290, Math.max(rpm * c.flutes * 0.0128 * diamMm, Math.min(1500, rpm * c.flutes * 0.02 * diamMm)));
+        const fast = Math.min(2290, Math.max(rpm * flutes * 0.0128 * diamMm, Math.min(1500, rpm * flutes * 0.02 * diamMm)));
         feed = Math.round(Math.min(fast, lim.feedMax > 0 ? lim.feedMax : fast) / 10) * 10;
         plunge = Math.round(Math.min(feed * 0.35, lim.feedMaxZ > 0 ? lim.feedMaxZ : feed) / 5) * 5;
       }
@@ -522,6 +546,40 @@
     };
   }
   window.__swarfDerive = derive;
+
+  // The most a material takes with this bit on this machine: the same formula run with the
+  // material's top record for the bit's cutter (cutting speed, chip a tooth, depth), the cutting
+  // feed held to 90% of the machine's top feed so the axes keep some room
+  function ceiling(m, diamMm, lim, tool) {
+    lim = lim || {};
+    return derive(m, diamMm, Object.assign({}, lim, { feedMax: lim.feedMax > 0 ? lim.feedMax * 0.9 : 0 }), tool, { top: true });
+  }
+  // the speed control's steps: how far from the safe start toward the ceiling
+  const SPEEDS = [{ f: 0, word: 'start' }, { f: 0.25, word: '+25%' }, { f: 0.5, word: '+50%' }, { f: 0.75, word: '+75%' }, { f: 1, word: 'max' }];
+  const speedLevel = v => Math.max(0, Math.min(SPEEDS.length - 1, Math.round(+v || 0)));
+  // A step's numbers at a speed: the start (level 0) moved toward the ceiling, rpm, feed, plunge
+  // and step-down together, each never past the machine's caps nor below the start
+  function atSpeed(m, diamMm, lim, tool, level) {
+    const a = derive(m, diamMm, lim, tool);
+    const f = SPEEDS[speedLevel(level)].f;
+    if (!a || !f) return a;
+    const b = ceiling(m, diamMm, lim, tool);
+    if (!b) return a;
+    lim = lim || {};
+    const go = k => a[k] + f * Math.max(0, b[k] - a[k]);
+    let rpm = Math.floor(go('spindle') / 50) * 50;
+    if (lim.spindleMax > 0) rpm = Math.min(rpm, lim.spindleMax);
+    let feed = Math.round(go('feed') / 10) * 10;
+    if (lim.feedMax > 0) feed = Math.min(feed, Math.max(a.feed, lim.feedMax * 0.9));
+    let plunge = Math.round(go('plunge') / 5) * 5;
+    plunge = Math.min(plunge, Math.max(a.plunge, feed));
+    if (lim.feedMaxZ > 0) plunge = Math.min(plunge, Math.max(a.plunge, lim.feedMaxZ));
+    const down = Math.floor(go('stepdown') * 20 + 1e-9) / 20;
+    return Object.assign({}, a, { spindle: rpm, feed, plunge, stepdown: down, vc: a.spindle > 0 ? Math.round(a.vc * rpm / a.spindle) : a.vc });
+  }
+  window.__swarfCeiling = ceiling;
+  window.__swarfAtSpeed = atSpeed;
+  window.__swarfSpeeds = SPEEDS;
   // a material's record by id (the test cuts take plywood's: 10-29, one speed rule everywhere)
   // ---- bits: the list (review 105 F17) ----
   const BIT_KIND = { endmill: 'flat', ballmill: 'ball', tapermill: 'V', taperball: 'V, ball tip', drill: 'drill' };
@@ -533,24 +591,50 @@
     const close = () => { if (card) { card.remove(); card = null; document.removeEventListener('keydown', onKey, true); } };
     const onKey = e => { if (e.key === 'Escape' && card) { close(); e.stopPropagation(); e.preventDefault(); } };
     const widthOf = t => (t.flute_diam || 0) * (t.metric ? 1 : 25.4);
+    // what the bit is made of and its flutes: the speed control's ceiling follows them
+    const pickFor = (t, key, choices, title) => {
+      const now = String((t.swarf && t.swarf[key]) || '');
+      const sel = el('select', { title }, ...choices.map(([value, textContent]) => el('option', { value, textContent, selected: value === now })));
+      sel.addEventListener('change', () => {
+        t.swarf = Object.assign({}, t.swarf || {});
+        if (sel.value) t.swarf[key] = key === 'flutes' ? +sel.value : sel.value; else delete t.swarf[key];
+        a().conf.save(); applyFeedsToOps();
+      });
+      return sel;
+    };
+    // the carbide tick: the same setting as the one beside a step's bit and in the tool library
+    const carbideFor = t => {
+      const box = el('input', { type: 'checkbox', checked: !!(t.swarf && t.swarf.cutter === 'carbide') });
+      box.addEventListener('change', () => {
+        t.swarf = Object.assign({}, t.swarf || {});
+        if (box.checked) t.swarf.cutter = 'carbide'; else delete t.swarf.cutter;
+        applyFeedsToOps(); a().conf.save();
+      });
+      return el('label', { className: 'swarf-carbide', title: 'carbide bit: faster starting speeds and a higher ceiling' }, box, 'carbide');
+    };
     const rowFor = t => {
       const carving = t.type === 'tapermill' || t.type === 'taperball';
       const part = (t.swarf && t.swarf.part) || '';
       return el('tr', {}, el('td', { textContent: t.name }), el('td', { textContent: L() ? L().say(widthOf(t)) : `${widthOf(t)} mm` }),
-        el('td', { textContent: (BIT_KIND[t.type] || t.type) + (carving ? ', for carving' : '') }), el('td', { textContent: part }));
+        el('td', { textContent: (BIT_KIND[t.type] || t.type) + (carving ? ', for carving' : '') }),
+        el('td', {}, carbideFor(t)),
+        el('td', {}, pickFor(t, 'flutes', [['', '–'], ['1', '1'], ['2', '2'], ['3', '3'], ['4', '4']], 'its flutes; – takes the usual count')),
+        el('td', { textContent: part }));
     };
     function list() {
       const tools = (a().conf.get().tools || []).slice();
       const rank = t => (t.type === 'tapermill' || t.type === 'taperball' ? 0 : 1);
       const order = new Map(tools.map((t, i) => [t, i]));
       tools.sort((x, y) => rank(x) - rank(y) || order.get(x) - order.get(y));
-      return el('table', {}, el('thead', {}, el('tr', {}, ...['name', 'width', 'kind', 'part number'].map(w => el('th', { textContent: w })))), el('tbody', {}, ...tools.map(rowFor)));
+      return el('table', {}, el('thead', {}, el('tr', {}, ...['name', 'width', 'kind', '', 'flutes', 'part number'].map(w => el('th', { textContent: w })))), el('tbody', {}, ...tools.map(rowFor)));
     }
     function addForm(host, wrap) {
       const name = el('input', { title: 'what the steps call it', placeholder: 'name' });
       const width = el('input', { title: 'how wide it cuts: 1/4, 6.35 mm', placeholder: 'width' });
       const reach = el('input', { title: 'how deep its flutes reach: 1/2, 12.7 mm', placeholder: 'cuts how deep' });
       const kind = el('select', { title: 'flat, ball or drill; a V-bit is added in the tool library' }, ...[['endmill', 'flat'], ['ballmill', 'ball'], ['drill', 'drill']].map(([value, textContent]) => el('option', { value, textContent })));
+      const carb = el('input', { type: 'checkbox' });
+      const cutter = el('label', { className: 'swarf-carbide', title: 'carbide bit: faster starting speeds and a higher ceiling' }, carb, 'carbide');
       const part = el('input', { title: 'its part number, if it has one', placeholder: 'part number' });
       const why = el('p', { className: 'swarf-bits-why' });
       const add = el('button', { type: 'button', textContent: 'add', title: 'Put this bit on the list' });
@@ -565,6 +649,7 @@
         if (no) return;
         const tool = { id: Date.now(), number: Math.max(0, ...s.tools.map(t => t.number || 0)) + 1, name: n, type: kind.value, taper_tip: 0, metric: true, shaft_diam: w, shaft_len: Math.max(25.4, r), flute_diam: w, flute_len: r };
         if (part.value.trim()) tool.swarf = { part: part.value.trim() };
+        if (carb.checked) tool.swarf = Object.assign(tool.swarf || {}, { cutter: 'carbide' });
         s.tools.push(tool);
         a().conf.save(); a().conf.update_fields(); a().event.settings();
         wrap.innerHTML = ''; wrap.append(list());
@@ -572,7 +657,7 @@
         a().show.alert(`Added ${n}. Pick it on a step's tool row.`, 6);
       };
       host.innerHTML = '';
-      host.append(el('div', { className: 'swarf-bits-form' }, name, width, reach, kind, part), why, el('div', { className: 'swarf-bits-row' }, add, cancel));
+      host.append(el('div', { className: 'swarf-bits-form' }, name, width, reach, kind, cutter, part), why, el('div', { className: 'swarf-bits-row' }, add, cancel));
       name.focus();
     }
     const addButton = (host, wrap) => el('button', { type: 'button', textContent: 'add a bit', title: 'Add a flat, ball or drill bit to the list', onclick: () => addForm(host, wrap) });
@@ -610,6 +695,7 @@
       feedMax: dev.feedMax || 0,
       feedMaxZ: zcaps.length ? Math.min(...zcaps) : 0,
       shopbot: /shopbot/i.test(dev.deviceName || ''),
+      endFlutes: dev.endmillFlutes || 0,
     };
   }
 
@@ -638,7 +724,8 @@
     const lim = deviceLimits(settings);
     const devName = (settings.device && settings.device.deviceName) || '';
     const findTool = id => tools.find(t => t.id == id);
-    let changed = false;
+    const level = speedLevel(proc.swarfSpeed);
+    let changed = false, why = '';
     const replaced = [];
 
     for (const op of proc.ops || []) {
@@ -646,18 +733,27 @@
       // the stamp carries what the numbers came from (design review 10-28 #9): the tool's own
       // diameter and the machine's limits, so editing either re-derives, not only a new id
       const tool = findTool(op.tool), dia = toolDiamMm(tool);
-      const stamp = `${current.id}:${op.tool}:${devName}:${(+dia || 0).toFixed(3)}:${lim ? [lim.spindleMin, lim.spindleMax, lim.feedMax, lim.feedMaxZ].join(',') : ''}`;
+      // the speed and what the bit is (cutter, flutes) join it only when not the start's, so a stamp
+      // from before them still matches
+      const sw = (tool && tool.swarf) || {};
+      const more = (level ? `:s${level}` : '') + (sw.cutter === 'carbide' ? ':carbide' : '') + (sw.flutes > 0 ? `:f${sw.flutes}` : '');
+      const stamp = `${current.id}:${op.tool}:${devName}:${(+dia || 0).toFixed(3)}:${lim ? [lim.spindleMin, lim.spindleMax, lim.feedMax, lim.feedMaxZ].join(',') + (lim.endFlutes ? `,${lim.endFlutes}` : '') : ''}${more}`;
       if (op.preset === stamp) continue;
       // a stamp from before carries no geometry: take it as matching once, so a student's edits survive the upgrade
       if (op.preset === `${current.id}:${op.tool}:${devName}`) { op.preset = stamp; changed = true; continue; }
-      const p = derive(current, dia, lim, tool);
+      const p = atSpeed(current, dia, lim, tool, level);
       if (!p) continue;
       const now = opValues(op.type, p);
       // (review 105 m2) this step had numbers of its own under the last material: they are replaced, by
       // design (the stamp rule above), and said. Only the material changed: its stamp says so.
       const [wasId, wasTool, wasDev] = String(op.preset || '').split(':');
       const was = wasId && wasId !== current.id && wasTool == op.tool && wasDev === devName && window.__swarfMaterialById(wasId);
-      const before = was && derive(was, dia, lim, tool);
+      // the bit was ticked carbide or unticked, nothing else: the same rule, its own sentence
+      const wasCarb = /:carbide(:|$)/.test(String(op.preset || '')), nowCarb = sw.cutter === 'carbide';
+      const flip = !was && wasId === current.id && wasTool == op.tool && wasDev === devName && wasCarb !== nowCarb
+        ? Object.assign({}, tool, { swarf: Object.assign({}, sw, { cutter: wasCarb ? 'carbide' : 'hss' }) }) : null;
+      if (flip) why = nowCarb ? 'carbide' : 'HSS';
+      const before = was ? atSpeed(was, dia, lim, tool, level) : flip ? atSpeed(current, dia, lim, flip, level) : null;
       if (before) {
         const prior = opValues(op.type, before);
         const differs = k => prior[k] > 0 && op[k] > 0 && Math.abs(op[k] - prior[k]) > prior[k] * 0.01;
@@ -676,9 +772,10 @@
     if (replaced.length) {
       const speed = v => window.SwarfLength && window.SwarfLength.unit() === 'in' ? `${+(v / 25.4).toFixed(1)} in/min` : `${Math.round(v)} mm/min`;
       const r = replaced[0];
-      const text = replaced.length > 1 ? `${current.name || current.id} has its own numbers: what you typed on ${replaced.length} steps was replaced.`
-        : r.from ? `${current.name || current.id} has its own numbers: the feed you typed on ${r.type}, ${speed(r.from)}, is now ${speed(r.to)}.`
-        : `${current.name || current.id} has its own numbers: what you typed on ${r.type} was replaced.`;
+      const who = why || current.name || current.id;
+      const text = replaced.length > 1 ? `${who} has its own numbers: what you typed on ${replaced.length} steps was replaced.`
+        : r.from ? `${who} has its own numbers: the feed you typed on ${r.type}, ${speed(r.from)}, is now ${speed(r.to)}.`
+        : `${who} has its own numbers: what you typed on ${r.type} was replaced.`;
       try { api.event.alerts(true); api.show.alert(text, 8); } catch (e) { /* no alerts */ }
     }
   }
@@ -826,6 +923,7 @@
     select.addEventListener('change', () => setCurrent(select.value));
     row.appendChild(label);
     row.appendChild(select);
+    row.appendChild(speedSelect());
     // insert above the existing tool-library row if present, else at top
     const toolsRow = camops.querySelector('#swarf-tools-row');
     if (toolsRow) camops.insertBefore(row, toolsRow);
@@ -834,6 +932,40 @@
     camops.insertBefore(origin, row.nextSibling);
     camops.insertBefore(boardRow(label.style.cssText), origin);
   }
+
+  // The speed: the steps start at the material's safe numbers and can be raised toward its ceiling
+  // a step at a time. Kept in the process, so a saved project keeps it; the steps' own fields stay
+  // editable after (an edit holds until the material, a bit or the speed changes).
+  function setSpeed(level) {
+    const api = window.kiri && window.kiri.api;
+    if (!api || !api.conf) return;
+    const proc = api.conf.get().process;
+    if (!proc) return;
+    proc.swarfSpeed = speedLevel(level);
+    applyFeedsToOps();
+    try { api.conf.save(); api.conf.update_fields(); } catch (e) { /* fields not built */ }
+    paintSpeed();
+  }
+  function paintSpeed() {
+    const sel = document.getElementById('swarf-speed-select');
+    if (!sel) return;
+    let v = 0;
+    try { v = speedLevel(window.kiri.api.conf.get().process.swarfSpeed); } catch (e) { /* no settings yet */ }
+    sel.value = String(v);
+  }
+  function speedSelect() {
+    const sel = document.createElement('select');
+    sel.id = 'swarf-speed-select';
+    sel.title = 'speed: from the safe start up to the most the bit takes';
+    sel.setAttribute('aria-label', 'speed');
+    sel.style.cssText = 'flex:0 0 auto; font-size:13px; padding:6px 4px; background:rgba(0,0,0,0.55); border:1px solid var(--swarf-accent, #7a2a1a); color:#fff; border-radius:2px; font-family:"IBM Plex Mono",ui-monospace,monospace;';
+    SPEEDS.forEach((sp, i) => { const o = document.createElement('option'); o.value = String(i); o.textContent = sp.word; sel.appendChild(o); });
+    sel.addEventListener('change', () => setSpeed(+sel.value));
+    setTimeout(paintSpeed, 0);
+    try { for (const ev of ['settings.load', 'settings.saved', 'device.selected']) window.kiri.api.event.on(ev, paintSpeed); } catch (e) { /* no events yet */ }
+    return sel;
+  }
+  window.__swarfSpeed = { set: setSpeed, get: () => { try { return speedLevel(window.kiri.api.conf.get().process.swarfSpeed); } catch (e) { return 0; } } };
 
   // the board the student has (Phil 11-16: "an optional material blank size ... a block of material of that
   // size is shown that is what the paths cut from ... toggled on and off/deleted"). Kiri's own stock in

@@ -48,6 +48,8 @@ const devices = readdirSync(join(root, devDir)).filter(f => f.endsWith('.json'))
         spindleMax: d.spindleMax || 0,
         feedMax: d.feedMax || 0,
         feedMaxZ: zcaps.length ? Math.min(...zcaps) : 0,
+        shopbot: /shopbot/i.test(d.deviceName || f),
+        endFlutes: d.endmillFlutes || 0,
     };
 });
 const EASE_MIN = 0.1, EASE_MAX = 85;  // camEaseAngle bound in init-menu.js
@@ -58,7 +60,7 @@ const flag = (id, msg) => fail.push(`${id}: ${msg}`);
 if (tools.length < 7) flag('<tools>', `only ${tools.length} default tools parsed from defaults.js`);
 for (const t of tools) {
     const mm = toolMm(t);
-    // ER-20 / ER-25 collets hold 1–13 mm; a 0.125 mm "1/8" is the unit flag lying
+    // the library runs 1/16 in to 1/2 in; a 0.125 mm "1/8" is the unit flag lying
     if (!(mm >= 0.5 && mm <= 13)) flag(`tool ${t.name}`, `${mm.toFixed(3)} mm diameter is outside the collet range — check metric:${t.metric}`);
     if (!(t.flute_len > 0 && t.shaft_len > 0)) flag(`tool ${t.name}`, 'flute_len / shaft_len must be positive');
     if (t.shaft_diam < t.flute_diam) flag(`tool ${t.name}`, 'shank narrower than the flute');

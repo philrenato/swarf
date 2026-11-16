@@ -29,6 +29,7 @@ const derive = win.__swarfDerive;
 const limits = (dev, camFastFeedZ) => ({
     spindleMin: dev.spindleMin || 0, spindleMax: dev.spindleMax || 0, feedMax: dev.feedMax || 0,
     feedMaxZ: Math.min(...[dev.feedMaxZ, camFastFeedZ].filter(v => v > 0)),
+    shopbot: /shopbot/i.test(dev.deviceName || ''),
 });
 
 const stlB64 = readFileSync(STL).toString('base64');

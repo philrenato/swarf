@@ -483,7 +483,9 @@ export function opRender() {
             const rows = swarfFields.map(f => {
                 const tip = tips[f] ? ` title="${tips[f]}"` : '';
                 if (f === 'tool') {
-                    return `<label class="swarf-op-row"${tip}><span>${labels[f]}</span><select data-swarf-field="tool" data-op="${mark + i}"></select></label>`;
+                    // the carbide tick sits by the bit: it is the bit's own setting (tool.swarf.cutter)
+                    return `<label class="swarf-op-row"${tip}><span>${labels[f]}</span><select data-swarf-field="tool" data-op="${mark + i}"></select></label>`
+                        + `<label class="swarf-op-row swarf-op-bool swarf-carbide" title="carbide bit: faster starting speeds and a higher ceiling"><input type="checkbox" data-swarf-field="carbide" data-op="${mark + i}"/><span>carbide</span></label>`;
                 }
                 // a TEX step's path and finish: the mark's, as TEX lists them
                 if ((f === 'path' || f === 'finish') && tex) {
@@ -542,6 +544,25 @@ export function opRender() {
                 const T = window.__swarfTex, card = rec.texmark && T && T.stepCard ? T.stepCard(rec.texmark) : null;
                 drawerEl.querySelectorAll('[data-swarf-field]').forEach(inp => {
                     const f = inp.dataset.swarfField;
+                    // carbide: marks the step's bit carbide (or back to HSS); every step on that bit
+                    // takes the new start and ceiling at once (swarf-material.js applyFeedsToOps)
+                    if (f === 'carbide') {
+                        const bitOf = () => (api.conf.get().tools || []).find(t => t.id == (card ? card.tool : rec.tool));
+                        const t0 = bitOf();
+                        inp.checked = !!(t0 && t0.swarf && t0.swarf.cutter === 'carbide');
+                        if (!t0) inp.closest('label').style.display = 'none';
+                        inp.addEventListener('change', () => {
+                            const t = bitOf();
+                            if (!t) return;
+                            t.swarf = Object.assign({}, t.swarf);
+                            if (inp.checked) t.swarf.cutter = 'carbide'; else delete t.swarf.cutter;
+                            if (window.__swarfApplyFeeds) window.__swarfApplyFeeds();
+                            api.conf.save();
+                            api.event.emit('cam.op.render');
+                        });
+                        for (const ev of ['mousedown', 'click']) inp.addEventListener(ev, e => e.stopPropagation());
+                        return;
+                    }
                     // a TEX step's mark fields: the mark's values, written back to the mark (every copy),
                     // then the card again so a finish and its stepover say each other
                     if (card && (f === 'tool' || f === 'path' || f === 'finish' || f === 'texstep')) {

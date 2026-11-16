@@ -7,6 +7,7 @@ import { modal } from './modal.js';
 import { platform } from './platform.js';
 import { selection } from './selected.js';
 import { settings } from './conf/manager.js';
+import { devices as devlist } from '../../pack/kiri-devs.js';
 
 const { MODES, VIEWS } = consts;
 const clone = Object.clone;
@@ -80,6 +81,17 @@ function setMode(mode, lock, then) {
         if (current.filter[mode] === 'ShopBot.Basic' && Array.isArray(post) && !post.some(l => /^JZ\b/.test(l))) {
             const at = post.findIndex(l => /Turning router OFF/.test(l));
             if (at >= 0) current.device.gcodePost = current.cdev[mode].gcodePost = [...post.slice(0, at), "'Lifting clear", 'JZ,{lift}', ...post.slice(at)];
+        }
+        // swarf: a stored MR-1 takes the file start, end, spindle lines and one-bit-a-file rule of the
+        // profile that ships: its old file held a bit change inside it and no spin-up wait
+        if (current.filter[mode] === 'Langmuir.MR-1' && !current.device.gcodeFilePerBit) {
+            let code = (devlist.cam || {})['Langmuir.MR-1'];
+            try { if (typeof code === 'string') code = JSON.parse(code); } catch (e) { code = null; }
+            if (code && code.gcodeFilePerBit) {
+                for (const k of ['gcodePre', 'gcodePost', 'gcodeSpindle', 'gcodeChange', 'gcodeFilePerBit', 'spindleMin', 'endmillFlutes']) {
+                    current.device[k] = current.cdev[mode][k] = JSON.parse(JSON.stringify(code[k]));
+                }
+            }
         }
         api.event.emit('device.select', api.device.get());
     }

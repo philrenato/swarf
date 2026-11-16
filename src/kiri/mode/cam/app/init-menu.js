@@ -100,6 +100,8 @@ export function menu() {
     toolType:            newSelect('type', { title: 'tool type', id: 'tool-type', action:updateTool }, "camtool"),
     toolNum:             newInput('tool #', { title:'tool number', id: 'tool-num', convert: toInt }),
     toolMetric:          newBoolean('metric', updateTool, { title: 'metric', id: 'tool-metric' }),
+    // swarf: what the bit is made of (tool.swarf.cutter); its speeds follow it (swarf-material.js)
+    toolCarbide:         newBoolean('carbide', updateTool, { title: 'carbide bit: faster starting speeds and a higher ceiling', id: 'tool-carbide' }),
     _____:               newGroup(LANG.td_shft),
     toolShaftDiam:       toolField(newInput('diameter', { text: true }), 'width'),
     toolShaftLen:        toolField(newInput('length', { text: true }), 'length'),

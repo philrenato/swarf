@@ -1013,30 +1013,56 @@ function setup_keybd_nav() {
                             hint: 'leave the override at 0 to cut to the part\'s own bottom',
                             ...(op.ov_botz < -2 ? {} : { fix: 'leave', arg: [op] }) });
                     }
-                    // rule 3 — step-down past half the tool diameter, the palette's ceiling
-                    if (op.down && td && op.down > td * 0.5) {
+                    // rule 3: step-down past half the tool diameter, the palette's start, or past the
+                    // depth the speed control's ceiling allows for this bit's cutter when that is deeper
+                    const mat0 = window.__swarfMaterial;
+                    const cutter = tool && tool.swarf && tool.swarf.cutter === 'carbide' ? 'carbide' : 'hss';
+                    const topRec = mat0 && mat0.top && mat0.top[cutter];
+                    const deepest = Math.max(0.5, topRec && topRec.down > 0 ? topRec.down : 0);
+                    if (op.down && td && op.down > td * deepest + 0.01) {
                         warnings.push({
-                            title: `step-down over half the tool diameter`,
-                            body: `a ${len(op.down, 2)} step-down on a ${len(td, 2)} bit: swarf's presets stay under ${len(td / 2, 2)}.`,
+                            title: `step-down over ${deepest > 0.5 ? 'what the bit takes' : 'half the tool diameter'}`,
+                            body: `a ${len(op.down, 2)} step-down on a ${len(td, 2)} bit: swarf's presets stay under ${len(td * deepest, 2)}.`,
                             hint: 'split into shallower passes for safer cutting'
+                        });
+                    }
+                    // deeper a pass than the flutes reach: the shank rubs and the bit breaks (any machine)
+                    const fluteLen = tool && tool.flute_len > 0 ? tool.flute_len * (tool.metric ? 1 : 25.4) : 0;
+                    if (op.down && fluteLen && op.down > fluteLen + 0.01) {
+                        warnings.push({
+                            title: `step-down deeper than the flutes`,
+                            body: `a ${len(op.down, 2)} step-down on ${tool.name || 'a bit'} whose flutes reach ${len(fluteLen, 2)}: the shank rubs and the bit can break.`,
+                            hint: `a step-down under ${len(fluteLen, 2)}, better under half the bit's width`
                         });
                     }
                     // rule 4 — cutting speed past the material's HSS figure: the
                     // machine's spindle floor (ShopBot 9000) or a hand-typed rpm
                     // not on the ShopBot: its router turns 10,000 rpm at its slowest and takes
                     // carbide bits, so this fired on every default setup (reviews 10-29)
+                    // the allowance is the ceiling's cutting speed for the bit's cutter when the material has one
                     const mat = window.__swarfMaterial;
+                    const vcTop = topRec && topRec.vc > 0 ? topRec.vc : 0;
                     const vcMax = mat && mat.cut && mat.cut.vc;
+                    const allow = vcMax ? Math.max(vcMax * 1.5, vcTop) : 0;
                     const router = /shopbot/i.test((settings.device && settings.device.deviceName) || '');
-                    if (vcMax && op.spindle && td && !router) {
+                    if (allow && op.spindle && td && !router) {
                         const vc = Math.PI * td * op.spindle / 1000;
-                        if (vc > vcMax * 1.5) {
+                        if (vc > allow + 1) {
+                            const carb = cutter === 'carbide';
                             warnings.push({
-                                title: `spindle too fast for a steel bit in ${mat.name}`,
-                                body: `${vc.toFixed(0)} m/min cutting speed at ${op.spindle} rpm on a ${td.toFixed(2)} mm tool — a high-speed steel (HSS) bit in ${mat.name} wants ${vcMax}.`,
-                                hint: 'carbide, a smaller tool, or a slower spindle'
+                                title: `spindle too fast for a ${carb ? 'carbide' : 'steel'} bit in ${mat.name}`,
+                                body: `${vc.toFixed(0)} m/min cutting speed at ${op.spindle} rpm on a ${td.toFixed(2)} mm tool — a ${carb ? 'carbide' : 'high-speed steel (HSS)'} bit in ${mat.name} takes up to about ${Math.round(allow)}.`,
+                                hint: carb ? 'a smaller tool, or a slower spindle' : 'carbide, a smaller tool, or a slower spindle'
                             });
                         }
+                    }
+                    // a mill spindle loses power as it slows: under about 800 rpm in metal it can stall
+                    if (mat && mat.metal && op.spindle > 0 && op.spindle < 800 && !router) {
+                        warnings.push({
+                            title: `spindle slow for ${mat.name}: ${op.spindle} rpm`,
+                            body: `under about 800 rpm the spindle has little power left and can stall in the cut.`,
+                            hint: 'a smaller bit (it turns faster), a lighter cut, and listen on the first pass'
+                        });
                     }
                 }
                 // rapids skim the board: z clearance is how far above its top they travel. The ShopBot
@@ -1461,6 +1487,7 @@ function setup_keybd_nav() {
             { kind:'param', name:'step-down', body:'how deep each pass cuts, in mm or inches as mm | in says (type 1/8 or 3 mm). swarf keeps every preset under half the bit\'s width, which is careful for wood. deeper than the bit is wide and its flutes cannot clear the chips.', tags:'depth of cut step down stepdown doc layer pass' },
             { kind:'param', name:'feed rate', body:'how fast the bit moves through the wood: mm/min, or in/min when mm | in says in. when in doubt: slower is safer.', tags:'feed feedrate mm/min in/min cutting speed' },
             { kind:'param', name:'plunge rate', body:'how fast the tool drives down into material. usually 30–50% of feed rate. too fast snaps end-mills.', tags:'plunge plungerate descent' },
+            { kind:'param', name:'speed', body:'beside the material: start is the safe numbers every step begins with; +25%, +50%, +75% and max move rpm, feed, plunge and step-down together toward the most the bit and the machine take, never past the machine. go up one step at a time and listen. tick carbide beside the bit of a step, or in the bits list: a carbide bit starts faster and goes higher. its flutes are in the bits list; on the MR-1 an end mill counts as 4-flute unless it says. the project keeps the speed; the fields of each step can still be typed after.', tags:'speed faster ceiling max start ramp carbide hss flutes' },
             { kind:'param', name:'spindle speed', body:'RPM of the cutter. it follows the material and the tool width, not a fixed number — a wider tool at the same RPM cuts faster at its edge, so it has to slow down. the MR-1 tops out at 8000. on the ShopBot the router is set by hand on its dial, 1 (10,000 rpm) to 5 (21,000); the cut card names the setting the file asks for.', tags:'spindle rpm cutter speed' },
             { kind:'param', name:'ease down', body:'ramp into the cut at an angle instead of plunging straight down. easier on the tool, especially for end-mills with no center cut. on by default, and the material sets the angle: a shallow one for hard wood, up to 10 degrees for foam.', tags:'ease down ramp helix descent' },
             { kind:'param', name:'depth first', body:'advanced: cut each area to its full depth before moving to the next, instead of one layer across every area at a time.', tags:'depth first order strategy advanced' },

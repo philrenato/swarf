@@ -432,6 +432,9 @@ export const conf = {
                 spindleMin: 0,
                 feedMax: 0,
                 feedMaxZ: 0,
+                // swarf: the flutes an end or ball mill has when the bit does not say (0 = the
+                // material's assumption): the MR-1's end mills are mostly 4-flute
+                endmillFlutes: 0,
                 gcodePre: [],
                 gcodePost: [],
                 gcodeFExt: "",
@@ -439,6 +442,9 @@ export const conf = {
                 gcodeStrip: true,
                 gcodeDwell: ["G4 P{time}"],
                 gcodeChange: ["M6 T{tool}"],
+                // swarf: a machine that takes no bit change inside a file (no tool changer, and its
+                // controller cannot jog while a program is held): one file per bit instead
+                gcodeFilePerBit: false,
                 gcodeSpindle: ["M3 S{speed}"],
                 gcodeResetA: ["G92.4 A0 R0"]
             },
@@ -626,6 +632,9 @@ export const conf = {
                 swarfBoardZ: 0,
                 swarfBoardSet: false,      // the board set Kiri's stock: only then does turning it off put it back
                 swarfBoardAnchor: "",
+                // swarf: how far the steps' numbers sit from the material's safe start toward its
+                // ceiling, in quarters: 0 start, 4 the ceiling (swarf-material.js speed)
+                swarfSpeed: 0,
                 camStockY: 0,
                 camStockZ: 0,
                 camTabsDepth: 5,
@@ -847,12 +856,14 @@ export const conf = {
         // CAM only
         origin: {},
         stock: {},
-        // swarf: every shank the two machines' collets hold, inch and metric,
-        // up to 1/2 inch — MR-1 is ER-20 (1–13 mm), ShopBot's HSD spindle is
-        // ER-25 (1–16 mm, 1/2 max shank on the stock set). 1/8 and 1/4 are the
-        // shop's working sizes: 1/2 inch flute on an inch of shank. Larger
-        // sizes carry HSS catalog flute lengths (DIN 844 short for metric).
+        // swarf: the bits a student picks from, inch and metric, up to 1/2 inch
+        // wide. 1/8 and 1/4 are the shop's working sizes: 1/2 inch flute on an
+        // inch of shank. Larger sizes carry HSS catalog flute lengths (DIN 844
+        // short for metric). The 1/16 has a 1/8 inch shank, as small end mills do.
         // Each tool is stored in its own unit; `metric` scales it (tool.js).
+        // A bit may say what it is made of and how many flutes it has in
+        // swarf.cutter ("hss", the default, or "carbide") and swarf.flutes:
+        // the speed control's ceiling follows them (swarf-material.js).
         tools:[
             {
                 id: 1002,
@@ -860,7 +871,7 @@ export const conf = {
                 type: "endmill",
                 name: "end 1/16",
                 metric: false,
-                shaft_diam: 0.0625,
+                shaft_diam: 0.125,
                 shaft_len:  1,
                 flute_diam: 0.0625,
                 flute_len:  0.5,
@@ -1095,8 +1106,8 @@ export const conf = {
                 flute_len:  2,
                 taper_tip: 0,
             },
-            // swarf: the shop's ShopBot starter bits by their part numbers. Cutting lengths are
-            // not confirmed from the maker yet: 1 in is the common length for these sizes
+            // swarf: the shop's starter bits by their part numbers. 1 in is the common cutting
+            // length for these sizes
             {
                 id: 1101,
                 number: 21,
@@ -1108,8 +1119,8 @@ export const conf = {
                 flute_diam: 0.25,
                 flute_len:  1,
                 taper_tip: 0,
-                // swarf: the woodshop's own bit (its ShopBot library, 10-29): the cut it makes, its
-                // part number, and the library's numbers (in, in/s, rpm), which cap swarf's in wood
+                // swarf: the cut it makes, its part number, and the shop's numbers for it in wood
+                // (pass in, plunge and feed in/s, rpm), which swarf starts from in wood
                 swarf: { cut: "straight", part: "48-005", shop: { pass: 0.125, plunge: 1, feed: 2, rpm: 12000 } },
             },
             {
@@ -1123,8 +1134,8 @@ export const conf = {
                 flute_diam: 0.25,
                 flute_len:  1,
                 taper_tip: 0,
-                // swarf: the woodshop's own bit (its ShopBot library, 10-29): the cut it makes, its
-                // part number, and the library's numbers (in, in/s, rpm), which cap swarf's in wood
+                // swarf: the cut it makes, its part number, and the shop's numbers for it in wood
+                // (pass in, plunge and feed in/s, rpm), which swarf starts from in wood
                 swarf: { cut: "up", part: "52-910", shop: { pass: 0.125, plunge: 1, feed: 2, rpm: 12000 } },
             },
             {
@@ -1138,8 +1149,8 @@ export const conf = {
                 flute_diam: 0.25,
                 flute_len:  1,
                 taper_tip: 0,
-                // swarf: the woodshop's own bit (its ShopBot library, 10-29): the cut it makes, its
-                // part number, and the library's numbers (in, in/s, rpm), which cap swarf's in wood
+                // swarf: the cut it makes, its part number, and the shop's numbers for it in wood
+                // (pass in, plunge and feed in/s, rpm), which swarf starts from in wood
                 swarf: { cut: "down", part: "57-910", shop: { pass: 0.125, plunge: 1, feed: 2, rpm: 12000 } },
             },
             {
@@ -1153,8 +1164,8 @@ export const conf = {
                 flute_diam: 0.5,
                 flute_len:  1,
                 taper_tip: 0,
-                // swarf: the woodshop's own bit (its ShopBot library, 10-29): the cut it makes, its
-                // part number, and the library's numbers (in, in/s, rpm), which cap swarf's in wood
+                // swarf: the cut it makes, its part number, and the shop's numbers for it in wood
+                // (pass in, plunge and feed in/s, rpm), which swarf starts from in wood
                 swarf: { cut: "straight", part: "48-072", shop: { pass: 0.25, plunge: 1, feed: 4, rpm: 12000 } },
             },
             // swarf: TEX's V-bits (the ball bits are ball 1/8 and ball 1/4 above). A 1/2 in V whose
