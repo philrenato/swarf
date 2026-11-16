@@ -2,7 +2,7 @@
  * swarf menu — what you can do with a part, where it is (Phil 11-02: "consider what might be
  * appropriate for right click features ala Unreason. Maybe people could get to rotate etc that
  * way?"). Right-click a part on the bed: turn it, turn it over, stand it on its side or lay it flat,
- * mirror, duplicate, leave it out of this run, edit it in draw, carve words, pocket a shape,
+ * mirror, duplicate, leave it out of this run, separate the parts, edit it in draw, carve words, pocket a shape,
  * texture an area, delete. Right-
  * click the empty bed: make a shape, draw, open a file, select all, and three ways to look. In
  * simulate: play or pause, start over, and the ways to look.
@@ -114,6 +114,15 @@
         ? { label: 'cut it in this run', title: 'tick it in objects again: its toolpaths come back', run: () => { a.platform.set_cut(list, true); said(`${who} will be cut in this run.`); } }
         : { label: 'leave it out of this run', title: 'untick it in objects: it stays on the bed, nothing cuts it', run: () => { a.platform.set_cut(list, false); said(`${who} is left out of this run: tick it in objects to cut it again.`); } },
     ];
+    // parts that came in together (one STL of several solids, or a file's objects grouped): each
+    // becomes its own part, to pick, move, cut or delete alone (Phil 11-16)
+    const how = list.length === 1 || list.every(p => p.group === w.group) ? a.selection.separable && a.selection.separable(w) : null;
+    if (how) items.push({ label: 'separate the parts', title: how === 'group' ? 'they came in together: each moves on its own' : 'one part for each solid in it, each where it sits', run: () => {
+      const r = a.selection.separate(w) || {};
+      if (r.how === 'one') said(`${nameOf(w)} is one solid: nothing to separate.`);
+      else if (r.how === 'group') said(`The ${r.n} parts that came in together now move on their own. ⌘Z puts them back together.`);
+      else if (r.n) said(`${nameOf(w)} is now ${r.n} parts: pick, move or delete each on its own.${(r.lost || []).length ? ' ' + r.lost.join('; ') + '.' : ''} ⌘Z puts it back.`);
+    } });
     if (list.length === 1 && w.meta && w.meta.svg && window.__swarfDraw) items.push({ label: 'edit in draw', title: 'move its points, reshape it, change its thickness or edge', run: () => window.__swarfDraw.open() });
     if (list.length === 1) items.push({ sep: true }, ...boardItems(w));
     items.push({ sep: true }, { label: 'delete', title: '⌘Z brings it back', danger: true, run: () => a.selection.delete() });

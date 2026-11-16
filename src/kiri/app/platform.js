@@ -1223,8 +1223,16 @@ function load_files(files, group) {
                 load_dec();
             } else if (isstl) {
                 const stl = new file_load.STL().parse(data, api.view.unit_scale());
-                load_verts(group, stl, name);
+                const sw = load_verts(group, stl, name);
                 load_dec();
+                // swarf (Phil 11-16): an STL of several solids arrives as one part: say how to
+                // make each its own (right-click › separate the parts)
+                setTimeout(() => {
+                    try {
+                        const n = api.widgets.all().includes(sw) && sw.meta.vertices / 3 <= 1000000 ? api.selection.pieces(sw).length : 0;
+                        if (n > 1) api.show.alert(`${name} holds ${n} separate solids: right-click it › separate the parts to pick each on its own`, 10);
+                    } catch (e) { /* no count: no sentence */ }
+                }, 400);
             } else if (isobj) {
                 const objs = file_load.OBJ.parse(data.textDecode('utf-8'));
                 const ondn = function() {

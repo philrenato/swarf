@@ -4,6 +4,7 @@ import { api } from './api.js';
 import { space } from '../../moto/space.js';
 import { THREE } from '../../ext/three.js';
 import { tool as MeshTool } from '../../mesh/tool.js';
+import { Widget } from './widget.js';
 import { encode as objEncode } from '../../load/obj.js';
 import { encode as stlEncode } from '../../load/stl.js';
 import { $ } from '../../moto/webui.js';
@@ -422,6 +423,238 @@ function isolateBodies(){
 }
 
 /**
+ * swarf (Phil 11-16: "if multiple parts come in together, for instance as an stl, allow a right
+ * click to ungroup these parts so they can be selected and worked on and deleted separately").
+ *
+ * pieces(w): the separate solids in one part's mesh, as lists of triangle numbers. Triangles that
+ * share a corner (by position, to 1/10000 mm) are one piece. A closed shell turned inside out that
+ * lies inside a solid (a hollow: its volume reads negative) belongs to that solid. Remembered per
+ * mesh until its corners change (a move does not change them; a turn or a scale does).
+ */
+const piecesSeen = new WeakMap();
+const BIG = 1000000;    // triangles: past this a part is counted when asked, not on every right-click
+function sample(arr) {
+    let s = arr.length;
+    const step = Math.max(1, Math.floor(arr.length / 64));
+    for (let i = 0; i < arr.length; i += step) s += arr[i] * (i % 7 + 1);
+    return s;
+}
+function counted(w) {
+    const arr = w && w.mesh && w.mesh.geometry && w.getGeoVertices({ unroll: true });
+    const seen = arr && piecesSeen.get(w);
+    return seen && seen.arr === arr && seen.sum === sample(arr) ? seen.out : null;
+}
+function pieces(w) {
+    const arr = w && w.mesh && w.mesh.geometry && w.getGeoVertices({ unroll: true });
+    if (!arr || !arr.length) return [];
+    const was = counted(w);
+    if (was) return was;
+    const n = (arr.length / 9) | 0;
+    // a corner's key is its position; each triangle joins the pieces of its three corners
+    const parent = new Int32Array(n);
+    for (let i = 0; i < n; i++) parent[i] = i;
+    const find = i => { while (parent[i] !== i) i = parent[i] = parent[parent[i]]; return i; };
+    const owner = new Map();
+    const keyOf = o => `${Math.round(arr[o] * 1e4)},${Math.round(arr[o + 1] * 1e4)},${Math.round(arr[o + 2] * 1e4)}`;
+    for (let t = 0; t < n; t++) {
+        for (let k = 0; k < 3; k++) {
+            const key = keyOf(t * 9 + k * 3);
+            const had = owner.get(key);
+            if (had === undefined) { owner.set(key, t); continue; }
+            const a = find(had), b = find(t);
+            if (a !== b) parent[a] = b;
+        }
+    }
+    const byRoot = new Map();
+    for (let t = 0; t < n; t++) {
+        const r = find(t);
+        let p = byRoot.get(r);
+        if (!p) byRoot.set(r, p = { tris: [], vol: 0, min: [Infinity, Infinity, Infinity], max: [-Infinity, -Infinity, -Infinity] });
+        p.tris.push(t);
+        const o = t * 9;
+        const ax = arr[o], ay = arr[o + 1], az = arr[o + 2], bx = arr[o + 3], by = arr[o + 4], bz = arr[o + 5], cx = arr[o + 6], cy = arr[o + 7], cz = arr[o + 8];
+        p.vol += (ax * (by * cz - bz * cy) - ay * (bx * cz - bz * cx) + az * (bx * cy - by * cx)) / 6;
+        for (let k = 0; k < 9; k++) {
+            const v = arr[o + k], d = k % 3;
+            if (v < p.min[d]) p.min[d] = v;
+            if (v > p.max[d]) p.max[d] = v;
+        }
+    }
+    let list = [...byRoot.values()];
+    // a hollow belongs to the smallest solid around it: inside out (negative volume), closed (each
+    // edge on two triangles), and truly inside (a ray from one of its corners crosses the solid an
+    // odd number of times), not only inside its box. Only when the file has solids that read
+    // positive: a whole file wound backwards keeps every piece.
+    const solids = list.filter(p => p.vol > 0);
+    if (solids.length && solids.length < list.length) {
+        const inBox = (a, b) => [0, 1, 2].every(d => a.min[d] >= b.min[d] - 1e-3 && a.max[d] <= b.max[d] + 1e-3);
+        const size = p => (p.max[0] - p.min[0]) * (p.max[1] - p.min[1]) * (p.max[2] - p.min[2]);
+        const closed = p => {
+            const edges = new Map();
+            for (const t of p.tris) for (let k = 0; k < 3; k++) {
+                const a = keyOf(t * 9 + k * 3), b = keyOf(t * 9 + ((k + 1) % 3) * 3);
+                const e = a < b ? a + '|' + b : b + '|' + a;
+                edges.set(e, (edges.get(e) || 0) + 1);
+            }
+            for (const c of edges.values()) if (c !== 2) return false;
+            return true;
+        };
+        // a ray along +x from (x, y, z), nudged off the axes so it misses edges: odd crossings = inside
+        const within = (h, s) => {
+            const o0 = h.tris[0] * 9, px = arr[o0], py = arr[o0 + 1] + 1.234e-5, pz = arr[o0 + 2] + 2.345e-5;
+            let hits = 0;
+            for (const t of s.tris) {
+                const o = t * 9;
+                const ay = arr[o + 1], az = arr[o + 2], by = arr[o + 4], bz = arr[o + 5], cy = arr[o + 7], cz = arr[o + 8];
+                const d = (by - ay) * (cz - az) - (bz - az) * (cy - ay);
+                if (Math.abs(d) < 1e-12) continue;
+                const u = ((py - ay) * (cz - az) - (pz - az) * (cy - ay)) / d;
+                const v = ((by - ay) * (pz - az) - (bz - az) * (py - ay)) / d;
+                if (u < 0 || v < 0 || u + v > 1) continue;
+                const x = arr[o] + u * (arr[o + 3] - arr[o]) + v * (arr[o + 6] - arr[o]);
+                if (x > px) hits++;
+            }
+            return hits % 2 === 1;
+        };
+        for (const h of list.filter(p => p.vol <= 0)) {
+            const host = solids.filter(s => inBox(h, s)).sort((a, b) => size(a) - size(b)).find(s => within(h, s));
+            if (!host || !closed(h)) continue;
+            for (const t of h.tris) host.tris.push(t);
+            h.gone = true;
+        }
+        list = list.filter(p => !p.gone);
+    }
+    const out = list.map(p => p.tris);
+    piecesSeen.set(w, { arr, sum: sample(arr), out });
+    return out;
+}
+
+/**
+ * swarf: what separate(w) would do to this part: 'group' (parts that came in together and move as
+ * one: each moves on its own after), 'pieces' (one mesh holding several solids: each becomes a
+ * part), 'maybe' (a mesh too big to count on a right-click: counted when asked), or null.
+ * Not for a drawn part, a part with tex marks or one on the rotary axis: those carry what a piece
+ * could not keep (its drawing, its marks and their steps, its axis).
+ */
+function separable(w) {
+    if (!w || !api.view.is_arrange()) return null;
+    if (w.group && w.group.length > 1) return 'group';
+    const m = w.meta || {};
+    if (m.svg || m.drawn || m.engrave || (m.tex && m.tex.length) || w.track.indexed) return null;
+    const known = counted(w);
+    if (!known && (w.meta.vertices || 0) / 3 > BIG) return 'maybe';
+    return pieces(w).length > 1 ? 'pieces' : null;
+}
+
+/**
+ * swarf: separate a part. Parts grouped on import are ungrouped, each centred on itself where it
+ * sat; a mesh of several solids becomes one part per solid, each where it sat, named <name>-1, -2,
+ * ..., keeping the tabs and the picked floors that fall on it. One undo step either way.
+ * @returns {{ n: number, how: string, lost: string[] }} n 0: nothing to separate
+ */
+function separate(w) {
+    const how = separable(w);
+    if (!how) return { n: 0, how };
+    const name = String(w.meta.file || 'the part');
+    if (how === 'group') {
+        const members = w.group.slice();
+        const split = () => {
+            Widget.Groups.split(members);
+            // each member's mesh was placed about the group's centre: centred on itself, it turns,
+            // mirrors and scales about itself, and its box is its own
+            for (const m of members) {
+                const g = m.mesh.geometry;
+                g.computeBoundingBox();
+                const b = g.boundingBox, dx = (b.min.x + b.max.x) / 2, dy = (b.min.y + b.max.y) / 2;
+                m.moveMesh(dx, dy, 0);
+                m._move(dx, dy, 0);
+                m.group.centered = true;
+            }
+            api.platform.deselect();
+            api.platform.select(w, false);
+            api.platform.update_bounds();
+            api.space.auto_save();
+        };
+        const join = () => {
+            Widget.Groups.merge(members);
+            api.platform.deselect();
+            api.platform.select(members[0], false);
+            api.platform.update_bounds();
+            api.space.auto_save();
+        };
+        split();
+        api.doit.push(join, split, {
+            undo: `the ${members.length} parts move together again`,
+            redo: `the ${members.length} parts move on their own`
+        });
+        return { n: members.length, how, lost: [] };
+    }
+    const list = pieces(w);
+    if (list.length < 2) return { n: 1, how: 'one', lost: [] };
+    const arr = w.getGeoVertices({ unroll: true });
+    const op = w.track.pos;
+    const base = name.replace(/\.(stl|obj|3mf|amf)$/i, '').replace(/-\d+$/, '');
+    const taken = new Set(api.widgets.all().map(x => x.meta.file));
+    const anno = w.annotations ? w.annotations() : (w.anno || {});
+    const ops = (api.conf.get().process || {}).ops || [];
+    const whereTri = new Map();     // the original's triangle number -> [piece, its number there]
+    const lost = [];
+    let n = 1;
+    const made = [], boxes = [];
+    list.forEach((tris, pi) => {
+        const v = new Float32Array(tris.length * 9);
+        let i = 0;
+        tris.forEach((t, j) => { whereTri.set(t, [pi, j]); for (let k = 0; k < 9; k++) v[i++] = arr[t * 9 + k]; });
+        let x0 = Infinity, y0 = Infinity, z0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+        for (let j = 0; j < v.length; j += 3) {
+            if (v[j] < x0) x0 = v[j]; if (v[j] > x1) x1 = v[j];
+            if (v[j + 1] < y0) y0 = v[j + 1]; if (v[j + 1] > y1) y1 = v[j + 1];
+            if (v[j + 2] < z0) z0 = v[j + 2];
+        }
+        // centred on its own footprint, its bottom on the bed, then moved back where it sat
+        const cx = (x0 + x1) / 2, cy = (y0 + y1) / 2;
+        for (let j = 0; j < v.length; j += 3) { v[j] -= cx; v[j + 1] -= cy; v[j + 2] -= z0; }
+        const nw = api.widgets.new().loadVertices(v);
+        nw.center();                // its box for the layout and the checks (the mesh is already centred)
+        nw.group.centered = true;
+        while (taken.has(`${base}-${n}`)) n++;
+        taken.add(nw.meta.file = `${base}-${n}`);
+        if (w.meta.disabled) nw.meta.disabled = w.meta.disabled;
+        nw._move(op.x + cx, op.y + cy, op.z, true);
+        made.push(nw);
+        boxes.push({ x0, y0, x1, y1, cx, cy });
+    });
+    // tabs: each goes to the piece whose footprint is nearest it (a tab sits on an outline's edge)
+    const tabs = (anno.tab || []);
+    for (const rec of tabs) {
+        const d = b => Math.hypot(Math.max(b.x0 - rec.pos.x, 0, rec.pos.x - b.x1), Math.max(b.y0 - rec.pos.y, 0, rec.pos.y - b.y1));
+        let best = 0;
+        boxes.forEach((b, k) => { if (d(b) < d(boxes[best])) best = k; });
+        const nw = made[best], b = boxes[best], c = JSON.parse(JSON.stringify(rec));
+        c.pos = { x: rec.pos.x - b.cx, y: rec.pos.y - b.cy, z: rec.pos.z };
+        nw.anno = nw.anno || {};
+        (nw.anno.tab = nw.anno.tab || []).push(c);
+    }
+    // a step's picked floors are triangle numbers: each goes to its piece, renumbered there
+    for (const o of ops) {
+        const picks = o && o.surfaces && o.surfaces[w.id];
+        if (!picks || !picks.length) continue;
+        for (const f of picks) {
+            const at = whereTri.get(f);
+            if (!at) continue;
+            const id = made[at[0]].id;
+            (o.surfaces[id] = o.surfaces[id] || []).push(at[1]);
+        }
+    }
+    if (ops.some(o => o && o.drills && o.drills[w.id])) lost.push('the drill step finds its holes again on each piece');
+    api.doit.swap([w], made, {
+        undo: `${name} is one part again`,
+        redo: `${name} is ${made.length} parts again`
+    });
+    return { n: made.length, how, lost };
+}
+
+/**
  * Export selected widgets to STL or OBJ format.
  * If multiple widgets, applies position offsets in STL format.
  * @param {string} [format="stl"] - Export format: "stl" or "obj"
@@ -670,6 +903,9 @@ export const selection = {
     input_rotate,
     isolateBodies,
     merge,
+    pieces,
+    separable,
+    separate,
     mirror,
     move,
     rotate,

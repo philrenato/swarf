@@ -168,6 +168,29 @@ api.doit.quiet = () => quiet;
 api.doit.made = function(widgets, say = {}) {
     pushActions({ undo: { type: 'remove', widgets, say: say.undo }, redo: { type: 'restore', widgets, say: say.redo } });
 };
+// swarf: parts that became other parts (separate: one part became its pieces). Runs the change
+// now; undo takes the new parts away and puts the old ones back where they were, redo the reverse.
+// Nothing is packed again (telling) and nothing is moved off its neighbour (swarf-place.js).
+api.doit.swap = function(from, to, say = {}) {
+    const go = (out, back, s) => {
+        quiet = true; telling = true; self.__swarfCopying = true;
+        try {
+            api.platform.delete(out.slice());
+            for (let w of back) {
+                const g = Widget.Groups.forid((w.group && w.group.id) || w.id);
+                if (!g.includes(w)) g.push(w);
+                w.group = g;
+                api.platform.add(w, true, true);
+            }
+        } finally { quiet = false; telling = false; self.__swarfCopying = false; }
+        api.platform.deselect();
+        for (let w of back) if (!api.selection.contains(w)) api.platform.select(w, true);
+        api.space.auto_save();
+        if (s) message(s);
+    };
+    go(from, to);
+    pushActions({ undo: { type: 'call', fn: () => go(to, from), say: say.undo }, redo: { type: 'call', fn: () => go(from, to), say: say.redo } });
+};
 // swarf: parts made and removed as part of another step (an inlay's plug, kept in step with its
 // mark) are that step's undo, not their own, and never clear the stack
 api.doit.quietly = function(fn) {
