@@ -1,7 +1,7 @@
 // r49 (v00000-048):
 //  - CONTROL opens on an empty bed: two ways to start, and trace / in the air say what they
 //    wait for when pressed (the sentence stays), with a "to run" line naming each need
-//  - control is the ShopBot's alone: hidden on the MR-1
+//  - control is the ShopBot's and the MR-1's, each driving its own
 //  - a browser without USB is told at the right time: pressing control shows a card first
 //  - modes: in control and draw the step row folds to cam · draw · tex · control; cam leads back
 //  - setup › preferences regrouped in swarf's words
@@ -148,10 +148,11 @@ try {
   check(!(await page.evaluate(() => window.__swarfDraw.state())) && await page.evaluate(() => window.__swarfRun.state.open), 'control from draw: draw closes, control opens');
   await page.click('#swarf-step-cam'); await wait(600);
 
-  // MR-1: no control step
+  // MR-1: control drives its own board
   await page.evaluate(() => window.kiri.api.devices.select('Langmuir.MR-1'));
   await wait(1000);
-  check(!(await shown(page, 'swarf-step-run')), 'control is hidden on the MR-1');
+  const mr1Title = await page.evaluate(() => document.getElementById('swarf-step-run').title);
+  check(await shown(page, 'swarf-step-run') && /MR-1/.test(mr1Title), `control is offered on the MR-1 ("${mr1Title}")`);
   await page.evaluate(() => window.kiri.api.devices.select('ShopBot.Basic'));
   await wait(800);
 

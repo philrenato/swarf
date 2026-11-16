@@ -253,8 +253,14 @@
       return head.concat(this.traffic.map(([t, d, s]) => `${t - t0} ${d} ${s}`)).join('\n') + '\n';
     }
     // what a read-only machine check saves: the banner, $$, $#, $I and the last status, as the board sent them
+    // the USB ids of the port in use, as Chrome reports them ('16d0:103e'), or ''
+    portInfo() {
+      const port = this.link && this.link.port, i = port && port.getInfo ? port.getInfo() : {};
+      const hex = v => Number(v).toString(16).padStart(4, '0');
+      return i.usbVendorId !== undefined ? `${hex(i.usbVendorId)}:${hex(i.usbProductId)}` : '';
+    }
     capture() {
-      return [`banner: ${this.raw.banner}`, '$$:', ...this.raw.settings, '$#:', ...this.raw.offsets, '$I:', ...this.raw.info,
+      return [`port: ${this.portInfo() || 'no USB ids reported'}`, `banner: ${this.raw.banner}`, '$$:', ...this.raw.settings, '$#:', ...this.raw.offsets, '$I:', ...this.raw.info,
         `status: ${this.lastStatus ? this.lastStatus.raw : ''}`, ...this.raw.messages.map(m => `message: ${m}`)].join('\n') + '\n';
     }
 
@@ -742,7 +748,8 @@
       const why = this.whyNot('goto');
       if (why) { this.set({ note: why }); return false; }
       const w = this.wco || { x: 0, y: 0, z: 0 }, p = { ...this.state.pos }, path = [];
-      if (t.z !== undefined && t.z > p.z) { p.z = t.z; path.push({ ...p }); }
+      // a lift asked past the top of travel stops at the top (less the margin): up is never the danger
+      if (t.z !== undefined && t.z > p.z) { p.z = Math.max(p.z, Math.min(t.z, this.box().z[1] - w.z)); path.push({ ...p }); }
       if (t.x !== undefined) p.x = t.x;
       if (t.y !== undefined) p.y = t.y;
       path.push({ ...p });

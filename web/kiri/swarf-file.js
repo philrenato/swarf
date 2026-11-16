@@ -33,7 +33,7 @@
  *                                          | camera, opacity, view toggles (Kiri's local + controller)
  *   NEVER, in either direction: a machine zero, position or jog state — swarf-run-zero,
  *   swarf-shopbot-origin / -home / -plate / -flip / -stop / -coast / -checked,
- *   swarf-plate-thickness, swarf-table-corner. A reopened job asks for zero as a new one does.
+ *   swarf-plate-thickness, swarf-table-corner, swarf-grbl-zero. A reopened job asks for zero as a new one does.
  */
 (function (root) {
   'use strict';
@@ -55,6 +55,7 @@
   const NEVER_KEYS = [
     'swarf-run-zero', 'swarf-shopbot-origin', 'swarf-shopbot-home', 'swarf-shopbot-plate', 'swarf-shopbot-flip',
     'swarf-shopbot-stop', 'swarf-shopbot-coast', 'swarf-shopbot-checked', 'swarf-plate-thickness', 'swarf-table-corner',
+    'swarf-grbl-zero',
   ];
   const NEVER_RE = /zero|origin|home|plate|jog|position|corner|flip|e-?stop|coast|checked/i;
   // Kiri:Moto's own steps; any other type is swarf's and is left out of a .kmz

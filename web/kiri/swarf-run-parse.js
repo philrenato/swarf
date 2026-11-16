@@ -229,7 +229,9 @@
     function gcodeLine(U, n) {
       // the whole line must be words swarf knows, each with a number (follow-up review #1:
       // "Xbad" or a stray Q999 were silently dropped)
-      const rest = U.replace(/^N\d+\s*/, '').replace(/[GMXYZIJFSTN]\s*[-+]?(\d+\.?\d*|\.\d+)/g, '').trim();
+      // a dwell (G4) carries its seconds in P; P on any other line is still a word swarf does not know
+      const dwell = /(^|[^A-Z])G\s*0*4(?![\d.])/.test(U);
+      const rest = U.replace(/^N\d+\s*/, '').replace(dwell ? /[GMXYZIJFSTNP]\s*[-+]?(\d+\.?\d*|\.\d+)/g : /[GMXYZIJFSTN]\s*[-+]?(\d+\.?\d*|\.\d+)/g, '').trim();
       if (rest) { out.unsupported.push({ line: n, text: U.trim() }); return; }
       const words = {};
       const re = /([A-Z])\s*([-+]?\d*\.?\d+)/g;
@@ -244,9 +246,15 @@
       // G93 feed modes …) makes the whole line unreadable, which blocks the run
       // G17 XY plane, G20/21 units, G40/49/80 cancels, G54 the one work offset, G90/91, G94: all
       // what swarf does anyway. M3 router on, M5 off, M6 tool change, M0/M1 pause. Nothing else.
-      const G_OK = new Set([0, 1, 2, 3, 17, 20, 21, 40, 49, 54, 80, 90, 91, 94]);
+      // G4 P a dwell in seconds (GRBL's reading, the MR-1's files: a pause after the spindle starts)
+      const G_OK = new Set([0, 1, 2, 3, 4, 17, 20, 21, 40, 49, 54, 80, 90, 91, 94]);
       const M_OK = { 3: 'spindle-on', 5: 'spindle-off', 6: 'tool-change', 0: 'pause', 1: 'pause' };
       if (gs.some(g => !G_OK.has(g)) || ms.some(c => !(c in M_OK) && c !== 2 && c !== 30)) { out.unsupported.push({ line: n, text: U.trim() }); return; }
+      if (gs.includes(4)) {
+        // a dwell stands alone: its seconds and nothing that moves
+        if (!(words.P >= 0) || 'X' in words || 'Y' in words || 'Z' in words) { out.unsupported.push({ line: n, text: U.trim() }); return; }
+        if (words.P > 0) { event(n, 'pause', words.P); out.seconds += words.P; }
+      }
       for (const c of ms) {
         if (c === 2 || c === 30) { st.ended = true; return; }
         event(n, M_OK[c], c === 0 || c === 1 ? 0 : 'M' + c);

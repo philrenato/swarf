@@ -483,5 +483,7 @@
     return stub;
   }
 
+  // node: require it; a page (the browser gate): a global
   if (typeof module !== 'undefined' && module.exports) module.exports = StubGrbl;
+  else globalThis.StubGrbl = StubGrbl;
 })();

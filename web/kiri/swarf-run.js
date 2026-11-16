@@ -1,5 +1,5 @@
 /**
- * swarf run — Run mode: drive the ShopBot from swarf.
+ * swarf run — Run mode: drive the ShopBot (or the MR-1, over its GRBL board) from swarf.
  *
  * Layout (Phil, 10-22): preview upper left, blank until a program loads; jog
  * upper right, always there, locked while a program runs. Program and its
@@ -71,7 +71,7 @@
       'your board lies flat, screwed or clamped down, and the bit clears every screw and clamp',
       inchItem(),
       bit ? `the bit in the router is the ${bit} this file ${line ? `uses at line ${line}` : 'was made for'}` : 'the bit in the router is the one this file was made for',
-      rpm ? `the router is set to ${dialFor(rpm)}: swarf only switches it on and off` : null,
+      rpm ? (isMR1() ? `the spindle will run at ${rpm.toLocaleString()} rpm: swarf sets it from the file` : `the router is set to ${dialFor(rpm)}: swarf only switches it on and off`) : null,
       S.plateUsed ? 'the Z plate and its clip are put away' : null,
       /^the /.test(o.z) ? `Z zero is on ${o.z}` : `Z zero is ${o.z}`,
       'safety glasses on, dust collection on',
@@ -262,6 +262,8 @@
 .sr-dots { display: flex; gap: 6px; flex-wrap: wrap; margin: 4px 0 8px; }
 .sr-dots i { width: 26px; height: 26px; border-radius: 50%; display: grid; place-items: center; font: 600 11px "IBM Plex Mono", ui-monospace, monospace; font-style: normal; border: 1px solid var(--swarf-line-2, #3a1e18); color: var(--swarf-text-2, #8a857c); }
 .sr-dots i.on { background: var(--swarf-accent, #d02020); border-color: var(--swarf-accent, #d02020); color: #fff; }
+.sr-mr1chk { margin: 4px 0 8px; }
+.sr-mr1raw { max-height: 180px; overflow: auto; font-size: 11px; white-space: pre-wrap; margin: 4px 0; }
 .sr-card .sr-out.armed { border-color: var(--swarf-accent, #d02020); color: #fff; }
 body.swarf-run-open { filter: none !important; }
 /* ---- review pass 10-27 ---- */
@@ -714,7 +716,10 @@ html[data-skin] #swarf-run .sr-jog .sr-zrow button.next, html[data-skin] #swarf-
       h('div', { class: 'sr-keyrow' }, el.routerBtn,
         el.keys = h('div', { class: 'sr-keys', text: '← → ↑ ↓  X Y   ·   fn ↑ ↓  Z   ·   space stops' })),
       h('div', { class: 'sr-goto' },
-        el.homeBtn = h('button', { text: 'home', title: 'Run to the home sensors', onclick: () => aboutToMove({ title: 'The machine is about to home', text: 'It lifts, then runs to the home sensors in the -X, -Y corner.', go: 'home', run: () => S.machine.home() }) }),
+        el.homeBtn = h('button', { text: 'home', title: 'Run to the home sensors', onclick: () => isGrbl()
+          ? aboutToMove({ title: 'The MR-1 is about to home', text: 'It runs to its switches by itself: up first, then to its home corner. It can take a minute. Nothing else moves until it is done.', go: 'home', run: homeGrbl })
+          : aboutToMove({ title: 'The machine is about to home', text: 'It lifts, then runs to the home sensors in the -X, -Y corner.', go: 'home', run: () => S.machine.home() }) }),
+        el.mr1CheckBtn = h('button', { text: 'machine check', title: 'What the MR-1 reports: its settings, its switches. Nothing moves', onclick: () => mr1Check() }),
         el.goXY = h('button', { text: 'go to x y 0', title: 'Up, then over to X 0, Y 0', onclick: () => aboutToMove({ title: 'The bit is about to move',
           // before Z is zeroed there is no Z 0 to name: it lifts from where it is (Fable 3 #12)
           text: S.zeroZ ? `Up to ${up(1)} over Z 0 (if it is lower), then over to X 0, Y 0.` : `Up ${up(1)} from where it is, then over to X 0, Y 0.`,
@@ -1294,7 +1299,7 @@ html[data-skin] #swarf-run .sr-jog .sr-zrow button.next, html[data-skin] #swarf-
       else out.warn.push('This file comes from outside swarf\'s toolpaths, so swarf cannot see what holds each part down. Before you cut, find out how every part that comes free is held: tabs, screws, or a fixture.');
     }
     const b = P.cutBounds(p);
-    const L = M.LIMITS;
+    const L = isMR1() ? mr1Limits() : M.LIMITS;
     // Z: the file's whole rise and fall within the axis' travel, and a word on deep cuts and on
     // rapids into the board (torture test 10-29: Z 500, 45 mm deep and G0 to Z -5 all passed; review 105: a crossing blocks)
     const all = P.boundsOf(p.moves);
@@ -1329,7 +1334,7 @@ html[data-skin] #swarf-run .sr-jog .sr-zrow button.next, html[data-skin] #swarf-
     // per move, from its own steps (follow-up review #2): a diagonal's floor is higher than an axis's
     const T = 7372800 / 65536, U = { x: 72.183661, y: 72.183661, z: 90.229567 };
     const floorOf = m => { const L = Math.hypot(m.x - m.x0, m.y - m.y0, m.z - m.z0), st = Math.max(Math.abs(m.x - m.x0) * U.x, Math.abs(m.y - m.y0) * U.y, Math.abs(m.z - m.z0) * U.z); return st >= 1 ? T * L / st : 0; };
-    const slow = p.moves.find(m => !m.rapid && m.feed > 0 && m.feed < floorOf(m) * 1.02);
+    const slow = !isMR1() && p.moves.find(m => !m.rapid && m.feed > 0 && m.feed < floorOf(m) * 1.02);
     if (slow) out.block.push(`Line ${slow.line} asks for ${Math.round(slow.feed * 60)} mm/min, slower than the machine can step smoothly in that direction (${Math.ceil(floorOf(slow) * 60 * 1.02)} mm/min). It would run faster than asked. Raise that feed and make the toolpaths again.`);
     if (b) {
       const w = b.max.x - b.min.x, d = b.max.y - b.min.y;
@@ -1394,6 +1399,7 @@ html[data-skin] #swarf-run .sr-jog .sr-zrow button.next, html[data-skin] #swarf-
     if (b && !pr.block.some(x => /runs off the table|bigger than the table/.test(x))) {
       const known = !!(S.machine && S.machine.mabs && corner());
       if (!S.zeroXY) add('where it lands on the table: not checked until X Y is zeroed');
+      else if (isGrbl()) add('where it lands: every move is checked against the MR-1\'s travel before it runs');
       else if (!known) add('where it lands on the table: not checked (swarf does not know the table\'s corner: table corners)');
       else add('✓ on the table from this zero', 'ok');
     }
@@ -1406,7 +1412,7 @@ html[data-skin] #swarf-run .sr-jog .sr-zrow button.next, html[data-skin] #swarf-
     }
     const t = fileTools();
     if (t.names.length) add(`bit  ${t.names.join(', then ')}`);
-    if (t.rpm.length) add(`router  ${t.rpm.map(dialFor).join(', then ')}`);
+    if (t.rpm.length) add(isMR1() ? `spindle  ${t.rpm.map(r => `${r.toLocaleString()} rpm`).join(', then ')}` : `router  ${t.rpm.map(dialFor).join(', then ')}`);
     const changes = p.events.filter(e => e.kind === 'tool-change');
     if (changes.length > 1) add(`${changes.length} tool changes: at each one the bit stops ${len(CHANGE_Z, 0)} up with the router off; change it, zero Z again, then continue`, 'w');
     for (const x of pr.block) add(x, 'b');
@@ -1449,7 +1455,9 @@ html[data-skin] #swarf-run .sr-jog .sr-zrow button.next, html[data-skin] #swarf-
   function needs(st, ready) {
     const real = st && st.kind !== 'sim';
     return [
-      { k: 'conn', label: real || !st ? 'connected' : 'connected (simulator)', ok: !!(st && st.connected), todo: 'plug in the ShopBot and press connect' },
+      { k: 'conn', label: real || !st ? 'connected' : 'connected (simulator)', ok: !!(st && st.connected), todo: isMR1() ? 'plug in the MR-1\'s USB cable and press connect' : 'plug in the ShopBot and press connect' },
+      // the MR-1 restarts on every connect and knows nothing of where it is until it homes
+      ...(isGrbl() ? [{ k: 'home', label: 'homed', ok: !!(st && st.homed), todo: st && st.refused ? st.refused : 'press home: the MR-1 finds its corner after every connect' }] : []),
       { k: 'fault', label: 'all clear', ok: !S.fault, todo: S.fault ? `${S.fault}: check the machine, then press all clear` : '' },
       { k: 'busy', label: 'machine still', ok: !st || !st.connected || ready, todo: 'wait for the machine to stop moving' },
       { k: 'prog', label: 'a program', ok: !!(S.prog && S.prog.parsed.moves.length) && !stale(), todo: S.camBusy ? 'wait for the toolpaths to finish' : S.camError && S.prog ? S.camError : 'make a part in cam and press control, or open a file' },
@@ -1457,7 +1465,7 @@ html[data-skin] #swarf-run .sr-jog .sr-zrow button.next, html[data-skin] #swarf-
       // the zero too can be skipped for a cut (Phil 11-16: "Got it means I am not cutting"): the cut
       // card then says it runs from the machine's own zero and asks for one more tick (askCut)
       { k: 'xy', label: 'X Y zeroed', opt: true, ok: !!S.zeroXY, todo: S.zeroHad && S.zeroHad.xy && S.zeroSetAt && !S.zx && sameSpot() ? 'press "use the zero you set" if the board has not moved, or jog over your X 0, Y 0 and press zero x y' : 'jog the bit over your X 0, Y 0 and press zero x y' },
-      { k: 'z', label: 'Z zeroed', opt: true, ok: !!S.zeroZ, todo: S.zeroHad && S.zeroHad.z && S.zeroSetAt && sameBit() ? 'press "use the zero you set", or zero Z again' : 'press z plate, or lower the bit onto paper and press zero z' },
+      { k: 'z', label: 'Z zeroed', opt: true, ok: !!S.zeroZ, todo: S.zeroHad && S.zeroHad.z && S.zeroSetAt && sameBit() ? 'press "use the zero you set", or zero Z again' : isGrbl() ? 'lower the bit onto paper and press zero z' : 'press z plate, or lower the bit onto paper and press zero z' },
       // the trace is the protocol, not physics (Phil 11-16: "you DO NOT HAVE TO TRACE OR AIRCUT"): cut
       // goes ahead without it, after one more tick on its card (askCut); the rest above never skip
       { k: 'trace', label: 'traced', opt: true, ok: !!S.traced, todo: 'press trace and watch it clear the clamps, or cut without it' }
@@ -1465,7 +1473,7 @@ html[data-skin] #swarf-run .sr-jog .sr-zrow button.next, html[data-skin] #swarf-
   }
   function flashNeed(k) {
     const first = k || ((needs(S.machine && S.machine.state, true).find(n => !n.ok)) || {}).k;
-    const b = { conn: el.connBtn, xy: el.zxyBtn, z: el.plateBtn && el.plateBtn.style.display !== 'none' ? el.plateBtn : el.zzBtn, prog: el.start, trace: el.btn.trace }[first];
+    const b = { conn: el.connBtn, home: el.homeBtn, xy: el.zxyBtn, z: el.plateBtn && el.plateBtn.style.display !== 'none' ? el.plateBtn : el.zzBtn, prog: el.start, trace: el.btn.trace }[first];
     if (!b || !b.animate) return;
     b.animate([{ boxShadow: '0 0 0 0 rgba(242,237,228,0)' }, { boxShadow: '0 0 0 6px rgba(242,237,228,.6)' }, { boxShadow: '0 0 0 0 rgba(242,237,228,0)' }], { duration: 700, iterations: 2 });
   }
@@ -1490,7 +1498,7 @@ html[data-skin] #swarf-run .sr-jog .sr-zrow button.next, html[data-skin] #swarf-
     const ready = st && st.connected && !st.queued && !(st.kind === 'sim' && st.moving);
     el.jog.classList.toggle('locked', !!running);
     // the ShopBot not connected: everything that needs it greys out (Phil 10-29); the simulator keeps them
-    const offline = isDirect() && !(st && st.connected);
+    const offline = isReal() && !(st && st.connected);
     el.jog.classList.toggle('offline', offline);
     for (const b of [el.btn.trace, el.btn.air, el.btn.cut]) if (b) b.classList.toggle('offline', offline);
     // a job on the machine (running or paused) keeps control: cam's steps look asleep (review 10-28 #20)
@@ -1568,7 +1576,9 @@ html[data-skin] #swarf-run .sr-jog .sr-zrow button.next, html[data-skin] #swarf-
     // it the old bit's); never halfway through zeroing X and Y by hand, never while a job runs
     const backXY = !!(S.zeroHad && S.zeroHad.xy && !S.zeroXY && sameSpot()), backZ = !!(S.zeroHad && S.zeroHad.z && !S.zeroZ && sameBit());
     const offer = S.zeroSetAt && (backXY || backZ) && S.zx === S.zy && !running
-      && (!isDirect() || (S.machine.state && S.machine.state.connected));
+      && (!isDirect() || (S.machine.state && S.machine.state.connected))
+      // the MR-1: only once homed on this connection, and only the half whose G54 the board still holds
+      && (!isGrbl() || !!(st && st.connected && st.homed && S.g54ok && ((backXY && S.g54ok.xy) || (backZ && S.g54ok.z))));
     el.keepZero.style.display = offer ? '' : 'none';
     if (offer && S.zeroReconnect) el.keepZero.textContent = `the board and the machine have not moved since ${S.discWhy || (S.discAt ? 'you disconnected' : 'the link dropped')}: use the zero from ${new Date(S.zeroSetAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}${S.discAt ? '' : ', then trace to check it'}`;
     else if (offer) el.keepZero.textContent = `use the zero you set at ${new Date(S.zeroSetAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })} (${backXY && backZ ? 'X Y and Z' : backXY ? 'X Y' : 'Z'}): the board has not moved${zeroWords(backXY, backZ)}`;
@@ -1576,7 +1586,7 @@ html[data-skin] #swarf-run .sr-jog .sr-zrow button.next, html[data-skin] #swarf-
     const sig = S.prog ? problems().block.join('|') + `|${!!S.zeroXY}${!!S.zeroZ}${!!(S.keptZero && S.keptZero.xy)}${!!(S.keptZero && S.keptZero.z)}|${S.zeroAt}|${S.zBit ? (S.zBit.name || S.zBit.num) : ''}${!!(S.machine && S.machine.mabs && corner())}` : '';
     if (sig !== S.planSig) { S.planSig = sig; renderPlan(); }
     // a latched fault sounds, softly and again every few seconds, until all clear (real machine only)
-    if (window.SwarfSound) { const want = !!S.fault && isDirect(); if (want !== SwarfSound.faulting()) SwarfSound.fault(want); }
+    if (window.SwarfSound) { const want = !!S.fault && isReal(); if (want !== SwarfSound.faulting()) SwarfSound.fault(want); }
     coach(now, st);
   }
 
@@ -1586,17 +1596,27 @@ html[data-skin] #swarf-run .sr-jog .sr-zrow button.next, html[data-skin] #swarf-
     if (S.fault && !(st && (st.running || st.routerUnknown))) return say(`${S.fault[0].toUpperCase()}${S.fault.slice(1)}. Check the machine, then press all clear in the line under the buttons. Jogs still work, to lift the bit clear.`, 'bad');
     if (st && st.routerUnknown) return say(`${S.lostAt ? `The USB link dropped at line ${S.lostAt}. ` : ''}swarf can't tell whether the router is still on: press the red e-stop on the floor and wait until the bit has stopped turning. Then plug in and press connect${S.lostAt ? `; continue from line ${S.lostAt} after` : ''}.`, 'bad');
     if (S.connMsg && (!st || st.kind === 'sim' || !st.connected)) return say(S.connMsg, 'bad');
+    if (isGrbl() && st.connected && st.refused) return say(`${st.refused}.`, 'bad');
     if (st && st.dialog) return say(`The file asks: ${st.dialog.caption || st.dialog.message}`, 'warn');
     if (st && st.running) {
       const total = S.prog ? S.prog.parsed.lines : 0;
       const what = { trace: `Tracing the rectangle the cut fills, ${up()} up, router off`, air: 'Running an air cut, router off', cut: 'Cutting', from: 'Cutting', preview: 'Previewing' }[S.job] || 'Running';
       const left = timeLeft();
       const where = left ? `, about ${mins(left)} left` : '';
+      if (isGrbl()) {
+        // the MR-1 holds with its spindle still turning
+        if (st.paused) return say(`${what}: paused, the spindle still turning. Press resume to go on, or end the job.`, 'warn');
+        return say(`${what}${where}. Stay at the machine. Any key pauses it while swarf is in front (the bit held, the spindle still turning); that is not an emergency stop. In an emergency, press the MR-1's e-stop.`);
+      }
       if (st.paused) return say(`${what}: paused, router off. Press resume to go on, or end the job.`, 'warn');
       return say(`${what}${where}. Stay at the machine. Any key pauses it while swarf is in front (router off, bit held); that is not an emergency stop. ${(window.SwarfSafetyWords || {}).emergency || 'In an emergency, step on the red e-stop on the floor.'}`);
     }
     if (st && !st.connected && st.estopped) return say(`The e-stop stopped the machine${S.stoppedAt ? ` at line ${S.stoppedAt}` : ''}, and swarf let go of it. When everything has stopped and the machine is safe, press connect.`, 'bad');
-    if (st && !st.connected && S.lostAt) return say(`The USB link dropped at line ${S.lostAt}. If the machine is still moving or the router still turns, press the floor e-stop. Plug in, press connect, then continue from line ${S.lostAt}.`, 'bad');
+    if (st && !st.connected && S.lostAt) return say(isGrbl() ? `The USB link dropped at line ${S.lostAt}. The MR-1 may finish the moves it already has, with the spindle on: press its e-stop. Plug in, press connect, home, then continue from line ${S.lostAt}.` : `The USB link dropped at line ${S.lostAt}. If the machine is still moving or the router still turns, press the floor e-stop. Plug in, press connect, then continue from line ${S.lostAt}.`, 'bad');
+    if (st && !st.connected && isGrbl()) return say(`Not connected: ${st.note}. Plug the MR-1's USB cable into this computer and press connect.`, 'bad');
+    if (st && !st.connected && isMR1()) return say('Not connected. Plug the MR-1 into this computer and press connect.', 'bad');
+    // connected and not homed: nothing on the MR-1 moves or zeroes before it finds its corner
+    if (isGrbl() && st.connected && !st.homed) return say(st.homing || S.machine.homing ? 'Homing: the MR-1 runs to its switches. Any key stops it.' : 'Press home: the MR-1 finds its corner after every connect. Machine check shows what it reports first; nothing moves there.');
     const win = onWindows() ? ` ${WIN_ONE}` : '';
     if (st && !st.connected && M.DirectMachine && S.machine instanceof M.DirectMachine) return say(`Not connected: ${st.note}. Plug the box's USB cable into this computer and press connect.${win}`, 'bad');
     if (st && !st.connected) return say(`Not connected. Plug the ShopBot into this computer and press connect.${win}`, 'bad');
@@ -1609,6 +1629,7 @@ html[data-skin] #swarf-run .sr-jog .sr-zrow button.next, html[data-skin] #swarf-
         if (S.toolChange) return say(`${S.toolChange} The router is off (leave its own switch on), the bit ${len(CHANGE_Z, 0)} up. Once it has stopped turning, change it, zero Z, then continue from line ${S.stoppedAt}.`, 'warn');
         if (S.zeroLost) return say('The box lost its position while it was unplugged. Zero X Y and Z again before you go on.', 'warn');
         if (!S.zeroXY) return say(`Jog the bit over ${o.xy}, then press zero x y. Hold an arrow to get close, then pick a step of 1 for the last of it.`);
+        if (/top/.test(o.z) && isGrbl()) return say(`Now Z, on ${o.z}: lower the bit with step 1, then 0.1, onto a sheet of paper until it just drags. Then press zero z.`);
         if (/top/.test(o.z)) return say(`Now Z, on ${o.z}: press z plate and the bit finds the board itself with the touch plate. Or lower it with step 0.1 onto a sheet of paper until it just drags, then press zero z.`);
         return say(`Lower the bit to ${o.z}: step 1 to get close, then 0.1, with a sheet of paper under the bit until it just drags. Then press zero z.`);
       case 'trace': return say(`Press trace. The bit runs the rectangle your cut fills, ${up()} up, router off. Check it clears every screw and clamp and stays over your board.`);
@@ -1633,10 +1654,15 @@ html[data-skin] #swarf-run .sr-jog .sr-zrow button.next, html[data-skin] #swarf-
   }
 
   // ------------------------------------------------------------ actions
-  function doZero(axes) {
+  async function doZero(axes) {
     if (!S.machine || S.machine.state.running) return;
-    freshZero(axes);
-    S.machine.zero(axes);
+    if (isGrbl()) {
+      if (!(await S.machine.zero(axes))) { tell(`Not zeroed: ${S.machine.state.note}.`, 'warn'); refresh(); return; }
+      freshZero(axes);
+    } else {
+      freshZero(axes);
+      S.machine.zero(axes);
+    }
     if (axes.includes('x') && axes.includes('y')) S.zeroXY = true;
     else if (axes === 'x') S.zx = true;
     else if (axes === 'y') S.zy = true;
@@ -1648,6 +1674,7 @@ html[data-skin] #swarf-run .sr-jog .sr-zrow button.next, html[data-skin] #swarf-
     // a new bit after a tool change keeps the trace: only Z moved
     if (S.toolChange && axes === 'z') S.toolChange = null;
     else S.traced = false;
+    if (isGrbl()) { S.g54ok = { xy: true, z: true }; rememberZero(); saveG54(); }
     refresh();
   }
 
@@ -1974,18 +2001,20 @@ html[data-skin] #swarf-run .sr-jog .sr-zrow button.next, html[data-skin] #swarf-
     const span = el.dro[a], inp = h('input', { type: 'text', inputmode: 'decimal', class: 'v', value: posText(m.state.pos[a] || 0), title: inch() ? 'A position in inches; 1 1/2 or 38 mm work too' : 'A position in mm; 1 1/2 in or 38 mm work too' });
     span.replaceWith(inp); inp.focus(); inp.select();
     let done = false;
-    const finish = ok => {
+    const finish = async ok => {
       if (done) return; done = true;
       const v = mmOf(inp.value);
       inp.replaceWith(span);
       if (ok && isFinite(v)) {
-        m.setWork(a, v);
+        if (isGrbl()) { if (!(await m.setWork(a, v))) { tell(`Not set: ${m.state.note}.`, 'warn'); refresh(); return; } }
+        else m.setWork(a, v);
         // a typed position sets that axis like zero does (and a new trace, unless it is Z after a tool change)
         freshZero(a);
         if (a === 'x') S.zx = true; else if (a === 'y') S.zy = true; else { S.zeroZ = true; S.zStale = false; markZBit(); }
         if (S.zx && S.zy) { S.zeroXY = true; if (a !== 'z') markXYAt(); }
         S.zeroSetAt = Date.now(); S.zeroFor = progKey(); S.zeroLost = false;
         if (S.toolChange && a === 'z') S.toolChange = null; else S.traced = false;
+        if (isGrbl()) { S.g54ok = { xy: true, z: true }; rememberZero(); saveG54(); }
         refresh();
       }
     };
@@ -2012,7 +2041,7 @@ html[data-skin] #swarf-run .sr-jog .sr-zrow button.next, html[data-skin] #swarf-
   function onKey(e) {
     // a card on the sheet: only a click presses its buttons; Esc closes it (nothing is moving yet)
     if (S.open && el.sheet && el.sheet.classList.contains('on') && e.type === 'keydown' && !(S.machine && (S.machine.state.running || S.machine.homing))) {
-      if (e.key === 'Escape') { e.preventDefault(); S.plateWatch = null; el.sheet.classList.remove('on'); refresh(); return; }
+      if (e.key === 'Escape') { e.preventDefault(); S.plateWatch = null; S.mr1Watch = null; el.sheet.classList.remove('on'); refresh(); return; }
       const t = e.target;
       if ((e.key === ' ' || e.key === 'Enter') && t && t.tagName === 'BUTTON' && el.sheet.contains(t)) { e.preventDefault(); e.stopPropagation(); return; }
       if (t && t.tagName === 'INPUT') return;
@@ -2096,7 +2125,7 @@ html[data-skin] #swarf-run .sr-jog .sr-zrow button.next, html[data-skin] #swarf-
       'your board lies flat, screwed or clamped down, and the bit clears every screw and clamp',
       inchItem(),
       /^the /.test(o.z) ? `Z zero is on ${o.z}` : `Z zero is ${o.z}`,
-      'hands clear of the gantry, a foot near the floor e-stop'
+      isMR1() ? 'hands clear of the gantry, a hand near the MR-1\'s e-stop' : 'hands clear of the gantry, a foot near the floor e-stop'
     ].filter(Boolean);
   }
   // in the air: the deepest point clears the highest point of the cut by AIR_CLEAR, so a file
@@ -2160,9 +2189,9 @@ html[data-skin] #swarf-run .sr-jog .sr-zrow button.next, html[data-skin] #swarf-
     if (!S.machine || S.machine.state.running) return;
     el.card.innerHTML = '';
     const ok = h('button', { class: 'go', text: go || 'move' });
-    ok.onclick = () => { el.sheet.classList.remove('on'); if (isDirect() && window.SwarfSound) SwarfSound.play('move'); run(); };
+    ok.onclick = () => { el.sheet.classList.remove('on'); if (isReal() && window.SwarfSound) SwarfSound.play('move'); run(); };
     const no = h('button', { text: 'not yet', onclick: () => el.sheet.classList.remove('on') });
-    el.card.append(h('h2', { text: title }), h('p', { text }), h('p', { text: 'Hands clear of the gantry, a foot near the floor e-stop. Once it moves, space or Esc stops it.' }),
+    el.card.append(h('h2', { text: title }), h('p', { text }), h('p', { text: isMR1() ? 'Hands clear of the gantry, a hand near the MR-1\'s e-stop. Once it moves, space or Esc stops it.' : 'Hands clear of the gantry, a foot near the floor e-stop. Once it moves, space or Esc stops it.' }),
       h('div', { class: 'row' }, no, ok));
     el.sheet.classList.add('on');
     no.focus();   // a stray key never starts the machine (Interfacing review 10-28 #1)
@@ -2200,9 +2229,10 @@ html[data-skin] #swarf-run .sr-jog .sr-zrow button.next, html[data-skin] #swarf-
     const shut = () => el.sheet.classList.remove('on');
     const act = {
       conn: () => h('button', { text: 'connect', onclick: () => { shut(); connect(true); } }),
+      home: () => st && st.connected && !st.refused ? h('button', { text: 'home', onclick: () => { shut(); el.homeBtn.click(); } }) : null,
       fault: () => h('button', { text: 'all clear…', onclick: () => faultCard() }),
       prog: () => S.camBusy ? null : h('button', { text: 'make a part', onclick: () => { shut(); close(); const b = document.getElementById('swarf-step-shape'); if (b) b.click(); } }),
-      z: () => S.machine && S.machine.state.connected ? h('button', { text: 'z plate', onclick: () => { shut(); plateWizard(); } }) : null,
+      z: () => S.machine && S.machine.state.connected && !isGrbl() ? h('button', { text: 'z plate', onclick: () => { shut(); plateWizard(); } }) : null,
       trace: () => h('button', { text: 'trace', onclick: () => { shut(); if (!needs(st, ready).some(n => !n.ok && n.k !== 'trace')) askCut('trace'); else needsCard('trace'); } })
     };
     el.card.innerHTML = '';
@@ -2279,6 +2309,9 @@ html[data-skin] #swarf-run .sr-jog .sr-zrow button.next, html[data-skin] #swarf-
   const CHECKED = 'swarf-shopbot-checked';
   const AXIS_HINT = { x: 'should go right, along the long side', y: 'should go away from you', z: 'should go up' };
   function isDirect() { return !!(M.DirectMachine && S.machine instanceof M.DirectMachine); }
+  // the MR-1's board over Web Serial (swarf-grbl.js); a real machine is either one
+  function isGrbl() { return !!(window.SwarfGrbl && S.machine instanceof window.SwarfGrbl.GrblMachine); }
+  function isReal() { return isDirect() || isGrbl(); }
   function openCheck() {
     const m = S.machine;
     if (!isDirect() || !m.state.connected) return;
@@ -2403,6 +2436,172 @@ html[data-skin] #swarf-run .sr-jog .sr-zrow button.next, html[data-skin] #swarf-
     S.machine.resume(window.SwarfRunPlan.arm(plan));
   }
 
+  // ------------------------------------------------------------ the MR-1 (swarf-grbl.js)
+  // the job's machine is the MR-1 (setup › machine)
+  function isMR1() {
+    try { return /MR-1/i.test(window.kiri.api.conf.get().device.deviceName || ''); } catch (e) { return false; }
+  }
+  // the MR-1's working box for the file checks, from its machine profile (the board's own travel is checked on every plan)
+  function mr1Limits() {
+    let d = {};
+    try { d = window.kiri.api.conf.get().device || {}; } catch (e) { /* no cam */ }
+    return { x: [0, d.bedWidth || 500], y: [0, d.bedDepth || 500], z: [0, d.maxHeight || 150] };
+  }
+  const serialOK = () => !!(navigator && navigator.serial);
+  const NO_SERIAL = () => `${browserName()} can't reach serial ports, so it can't run the MR-1. Everything else works here: design, toolpaths, simulate, export. To run the machine, open swarf in Chrome or Edge.`;
+  function noSerialCard() {
+    const api = window.kiri && window.kiri.api;
+    const pre = ["<div class='f-col a-center swarf-shape'><h3>Running the MR-1 needs Chrome or Edge</h3>",
+      `<p class='swarf-shape-why' style='color:inherit;max-width:360px'>${NO_SERIAL()}</p></div>`];
+    return api.uc.confirm(undefined, { 'copy the link': 'copy', 'try control in the simulator': 'sim', cancel: false }, undefined, { pre }).then(v => {
+      if (v === 'copy') { try { navigator.clipboard.writeText(location.origin + location.pathname); api.show.alert('The link is copied: paste it into Chrome or Edge.', 6); } catch (e) { /* no clipboard */ } return false; }
+      return v === 'sim';
+    });
+  }
+  // Chrome's reasons and the driver's, in plain words, for the MR-1
+  function connWhyMR1(e) {
+    const m = (e && (e.name + ': ' + e.message)) || String(e);
+    if (/NotFoundError/.test(m) && /No port selected|No device selected/i.test(m)) return 'Chrome\'s port box closed without a choice. Press connect and pick the MR-1 (a USB serial port) in the box under the address bar.';
+    if (/NotFoundError|no MR-1 on USB/.test(m)) return 'Chrome found no MR-1 it may offer. Check the USB cable and that the MR-1 is switched on, then press connect again.';
+    if (/SecurityError|NotAllowedError/.test(m)) return 'Chrome blocks serial ports on this site. Click the icon left of the address, set Serial ports to Ask, reload, press connect.';
+    if (/in use|another program has the port|InvalidState|busy|access/i.test(m)) return 'CutControl (or another swarf tab) has the MR-1\'s port. Quit CutControl and close other swarf tabs, then press connect. Only one program can use the port at a time.';
+    if (/no GRBL board answered/.test(m)) return 'The port opened but no MR-1 answered. Press connect and pick the MR-1\'s port; if it repeats, switch the MR-1 off and on.';
+    if (/did not send its settings/.test(m)) return 'The MR-1 answered but did not send its settings. Check the cable, then press connect again.';
+    return `The MR-1 would not connect (${e && e.message ? e.message : m}). Press connect again; if it repeats, switch the MR-1 off and on.`;
+  }
+  // Connect to the MR-1: a port this page was allowed before connects by itself; the button asks once.
+  // Every connect restarts the board, so it is never homed after one, and a zero comes back only
+  // once it has homed again (homeGrbl) and its G54 still matches.
+  async function connectGrbl(manual) {
+    const G = window.SwarfGrbl && window.SwarfGrbl.GrblMachine;
+    if (G && G.supported() && (manual || await G.known())) {
+      if (S.machine instanceof G && S.machine.state.connected) return;
+      const d = new G();
+      let err = null;
+      const ok = await d.connect(manual).catch(e => { err = e; d.set({ note: e.message }); return false; });
+      S.connMsg = ok ? '' : manual ? connWhyMR1(err || { name: '', message: d.state.note }) : S.connMsg;
+      if (ok) {
+        if (S.estopHit) { S.estopHit = false; S.fault = null; S.hold = null; }
+        S.connSession = (S.connSession || 0) + 1;
+        if (S.zeroXY || S.zeroZ) rememberZero();
+        S.zeroXY = S.zeroZ = S.traced = false; S.zx = S.zy = false; S.g54ok = null; S.keptZero = null; S.grblHomed = false;
+        if (S.unsub) S.unsub();
+        if (S.machine) { if (S.machine.stopPoll) S.machine.stopPoll(); else if (S.machine.timer) clearTimeout(S.machine.timer); }
+        S.machine = d;
+        d.onCue = name => { if (window.SwarfSound) SwarfSound.play(name); };
+        S.unsub = d.on(onState);
+        return;
+      }
+      if (manual && !err && d.state.note !== 'no MR-1 on USB') { refresh(); return; }
+    }
+    if (S.machine && !manual) return;
+    if (S.unsub) S.unsub();
+    if (S.machine) { if (S.machine.stopPoll) S.machine.stopPoll(); else if (S.machine.timer) clearTimeout(S.machine.timer); }
+    S.machine = new M.SimMachine();
+    S.machine.timeScale = S.simRate;
+    if (manual && !(G && G.supported())) S.connMsg = NO_SERIAL();
+    S.unsub = S.machine.on(onState);
+    refresh();
+  }
+  // the board lost its place (an alarm, a restart): its zero is unproven until it homes again
+  function grblState(st) {
+    const homed = !!(st.connected && st.homed);
+    if (S.grblHomed && !homed) {
+      if (S.zeroXY || S.zeroZ) rememberZero();
+      S.zeroXY = S.zeroZ = S.traced = false; S.zx = S.zy = false; S.g54ok = null; S.keptZero = null;
+    }
+    S.grblHomed = homed;
+  }
+  // the G54 zero the MR-1 was given, kept beside the board's own so "use the zero you set" can check it
+  const G54_KEY = 'swarf-grbl-zero';
+  function saveG54() {
+    const g = S.machine && S.machine.offsets && S.machine.offsets.G54;
+    if (!g) return;
+    try { localStorage.setItem(G54_KEY, JSON.stringify({ g54: g, at: S.zeroSetAt || Date.now(), had: S.zeroHad || null, where: S.zeroAt == null ? null : S.zeroAt, bit: S.zBit || null })); } catch (e) { /* private window */ }
+  }
+  function savedG54() { try { return JSON.parse(localStorage.getItem(G54_KEY)) || null; } catch (e) { return null; } }
+  async function homeGrbl() {
+    const m = S.machine;
+    if (!isGrbl()) return;
+    refresh();
+    const ok = await m.home();
+    if (!ok) { tell(`Not homed: ${m.state.note}.`, 'bad'); refresh(); return; }
+    // the zero set before: still the board's G54 (to 0.01 mm), axis by axis
+    S.g54ok = null;
+    const z = savedG54();
+    if (z && z.g54) {
+      const o = await m.readOffsets();
+      const g = o && o.G54, near = a => !!g && Math.abs(g[a] - z.g54[a]) <= 0.01;
+      S.g54ok = { xy: near('x') && near('y'), z: near('z') };
+      // after a reload the zero's record comes from beside the board's
+      if (!S.zeroHad && z.had) { S.zeroHad = z.had; S.zeroSetAt = z.at; S.zeroAt = z.where == null ? undefined : z.where; S.zBit = z.bit || undefined; }
+    }
+    const back = S.g54ok && S.zeroHad && ((S.zeroHad.xy && S.g54ok.xy) || (S.zeroHad.z && S.g54ok.z));
+    tell(back ? 'Homed. The zero you set is still on the MR-1: press "use the zero you set" if the board has not moved, or zero again.' : 'Homed. Now jog the bit over your X 0, Y 0 and press zero x y.');
+    refresh();
+  }
+  // The MR-1's machine check: what the board reports, read only. Its inputs light live, so each
+  // switch can be pressed by hand and seen; the capture saves everything the board sent.
+  function mr1Check() {
+    const m = S.machine;
+    if (!isGrbl() || !m.state.connected) return;
+    const s = m.settings || {}, g = m.offsets && m.offsets.G54;
+    const val = (k, u) => s[k] === undefined ? '—' : `${s[k]}${u ? ' ' + u : ''}`;
+    const onOff = k => s[k] === 1 ? 'on' : s[k] === 0 ? 'off' : '—';
+    const rows = [
+      ['port', m.portInfo() || 'no USB ids reported'],
+      ['board', m.raw.banner || `Grbl ${m.version || ''}`],
+      ['reports in', s[13] === 1 ? 'inches ($13=1): swarf turns them into mm' : s[13] === 0 ? 'mm ($13=0)' : '—'],
+      ['homing ($22)', onOff(22)],
+      ['limit switches ($21)', onOff(21)],
+      ['soft limits ($20)', s[20] === 0 ? 'off: swarf keeps every move 2 mm inside the travel itself' : onOff(20)],
+      ['travel ($130-$132)', `X ${val(130)} · Y ${val(131)} · Z ${val(132)} mm`],
+      ['top speeds ($110-$112)', `X ${val(110)} · Y ${val(111)} · Z ${val(112)} mm/min`],
+      ['spindle top ($30)', val(30, 'rpm')],
+      ['work zero (G54)', g ? `X ${g.x.toFixed(3)} · Y ${g.y.toFixed(3)} · Z ${g.z.toFixed(3)} mm` : '—']
+    ];
+    const LETTERS = [['X', 'x', 'X limit switch'], ['Y', 'y', 'Y limit switch'], ['Z', 'z', 'Z limit switch'], ['P', 'p', 'probe or tool setter'], ['D', 'd', 'door'], ['H', 'h', 'hold'], ['R', 'r', 'reset'], ['S', 's', 'cycle start']];
+    const dots = h('div', { class: 'sr-dots' }), lit = LETTERS.map(([L, k, t]) => { const d = h('i', { text: L, title: t }); dots.append(d); return [k, d]; });
+    const live = h('p', { class: 'sr-mr1live' }), pinText = h('p'), q = h('p');
+    S.mr1Watch = st => {
+      live.textContent = `now: ${st.grbl || '…'}${st.homed ? ', homed' : ', not homed'} · machine ${st.mpos ? ['x', 'y', 'z'].map(a => `${a.toUpperCase()} ${st.mpos[a].toFixed(3)}`).join(' ') : '—'} mm`;
+      const p = st.pins || {};
+      for (const [k, d] of lit) d.classList.toggle('on', !!p[k]);
+      pinText.textContent = p.raw ? `inputs active now: ${p.raw}` : 'no input reads active';
+      q.textContent = st.q !== undefined ? `input selected (Q): ${st.q}` : '';
+      q.style.display = st.q !== undefined ? '' : 'none';
+    };
+    el.card.innerHTML = '';
+    el.card.append(h('h2', { text: 'Machine check (nothing moves)' }),
+      h('p', { text: 'What the MR-1 reports. Press each limit switch by hand, then the tool setter: its letter lights. Then press the e-stop and note what this card says.' }),
+      h('div', { class: 'sr-mr1chk' }, ...rows.map(([k, v]) => h('div', { class: 'sr-row' }, h('span', { text: k }), h('span', { text: v })))),
+      live, dots, pinText, q,
+      h('details', {}, h('summary', { text: 'everything the board sent ($$, $#, $I)' }), h('pre', { class: 'sr-mr1raw', text: m.capture() })),
+      h('div', { class: 'row' },
+        h('button', { text: 'save the capture', title: 'Every line to and from the board, as a text file', onclick: saveCapture }),
+        h('button', { class: 'go', text: 'done', onclick: () => { S.mr1Watch = null; el.sheet.classList.remove('on'); refresh(); } })));
+    el.sheet.classList.add('on');
+    S.mr1Watch(m.state);
+  }
+  function saveCapture() {
+    if (!isGrbl()) return;
+    const m = S.machine;
+    const text = m.capture() + '\n--- every line, ms since the first (> to the board, < from it) ---\n' + m.logText();
+    const a = h('a', { href: URL.createObjectURL(new Blob([text], { type: 'text/plain' })), download: `mr1-check-${new Date().toISOString().replace(/[:.]/g, '-')}.txt` });
+    document.body.append(a); a.click(); a.remove();
+  }
+  // a machine of the other kind still held (the job's machine was switched): let it go, so connect finds the right one
+  function letGoOfOther() {
+    const m = S.machine;
+    const wrong = (isMR1() && isDirect()) || (!isMR1() && isGrbl());
+    if (!m || !wrong || m.state.running) return Promise.resolve();
+    if (S.unsub) S.unsub();
+    S.unsub = null;
+    if (m.stopPoll) m.stopPoll();
+    S.machine = null;
+    return Promise.resolve(m.disconnect ? m.disconnect() : true).catch(() => {});
+  }
+
   // ------------------------------------------------------------ machine
   // One connect at a time: the page's own connect and a click must not both
   // open the box.
@@ -2445,6 +2644,7 @@ html[data-skin] #swarf-run .sr-jog .sr-zrow button.next, html[data-skin] #swarf-
   }
   async function connectNow(manual) {
     if (manual && !buildsAgree()) { S.connMsg = 'This page has files from two swarf builds (an update arrived while it loaded). Tap the version stamp in the corner to reload before you run the machine.'; tell(S.connMsg, 'bad'); refresh(); return; }
+    if (isMR1()) return connectGrbl(manual);
     // swarf drives the box itself, over USB (Chrome/Edge). A box this page was allowed before connects by itself; the
     // connect button asks once. Without a box: the simulator.
     const D = M.DirectMachine;
@@ -2503,7 +2703,9 @@ html[data-skin] #swarf-run .sr-jog .sr-zrow button.next, html[data-skin] #swarf-
     if (isDirect() && st.mpos) for (const a of ['x', 'y', 'z']) el.dro[a].title = `machine count ${st.mpos[a].toFixed(2)} mm · click to type a position`;
     el.mpos.textContent = isDirect() && st.mpos
       ? `machine ${['x', 'y', 'z'].map(a => a.toUpperCase() + ' ' + st.mpos[a].toFixed(1)).join(' ')} · ${S.machine.limitsKnown() ? 'limits on' : 'no end stops: watch the ends'}`
+      : isGrbl() && st.mpos ? `machine ${['x', 'y', 'z'].map(a => a.toUpperCase() + ' ' + st.mpos[a].toFixed(1)).join(' ')} · ${st.homed ? 'homed: jogs stop 2 mm short of each end' : 'not homed'}`
       : '';
+    if (isGrbl()) grblState(st);
     const tc = S.machine.mabs && corner();
     if (tc) { const p = S.machine.mabs(); el.mpos.textContent = `from the table's front-left corner: X ${(p.x - tc.x).toFixed(1)} Y ${(p.y - tc.y).toFixed(1)}` + (el.mpos.textContent ? ' · ' + el.mpos.textContent : ''); }
     view.setTool(st.pos);
@@ -2511,14 +2713,15 @@ html[data-skin] #swarf-run .sr-jog .sr-zrow button.next, html[data-skin] #swarf-
     const sim = st.kind === 'sim';
     el.conn.className = 'sr-conn ' + (sim ? 'sim' : st.connected ? 'live' : '');
     const what = st.running ? (st.paused ? 'paused' : (S.job === 'trace' || S.job === 'air') ? 'test run' : 'cutting') : st.moving ? 'moving' : 'idle';
-    el.connText.textContent = sim ? `simulator · ${what}` : st.connected ? `connected · ${what}${st.spindle ? ' · router on' : ''}` : 'not connected';
-    el.target.textContent = sim ? 'practice simulator' : st.connected ? 'ShopBot' : 'no machine';
+    el.connText.textContent = sim ? `simulator · ${what}` : st.connected ? `connected · ${what}${st.spindle ? (isGrbl() ? ' · spindle on' : ' · router on') : ''}` : 'not connected';
+    el.target.textContent = sim ? 'practice simulator' : st.connected ? (isGrbl() ? 'MR-1' : 'ShopBot') : 'no machine';
     el.target.className = 'sr-target ' + (sim ? 'sim' : st.connected ? 'live' : 'off');
-    el.conn.title = sim ? 'The simulator, not the machine: plug in the ShopBot, press connect' : '';
+    el.conn.title = sim ? `The simulator, not the machine: plug in the ${isMR1() ? 'MR-1' : 'ShopBot'}, press connect` : '';
     el.connBtn.style.display = st.connected && !sim ? 'none' : '';
     el.discBtn.style.display = st.connected && !sim ? '' : 'none';
     const airing = isDirect() && st.running && S.job === 'air';
-    el.ovr.style.display = isDirect() && st.running && !airing ? '' : 'none';
+    // the MR-1's board scales cutting feeds only: shown for a cut, not for a trace or an air cut
+    el.ovr.style.display = (isDirect() && st.running && !airing) || (isGrbl() && st.running && (S.job === 'cut' || S.job === 'from')) ? '' : 'none';
     el.rate.style.display = airing ? '' : 'none';
     if (airing) {
       if (document.activeElement !== el.rateIn) el.rateIn.value = st.rate || 100;
@@ -2533,7 +2736,8 @@ html[data-skin] #swarf-run .sr-jog .sr-zrow button.next, html[data-skin] #swarf-
     el.big.textContent = st.dialog ? 'waiting for you' : st.running ? (st.paused ? 'paused' : (S.job === 'trace' || S.job === 'air') ? 'test run' : 'cutting') : st.moving ? 'moving' : st.connected ? 'idle' : 'offline';
     el.rows.innerHTML = '';
     const row = (k, v) => el.rows.append(h('div', { class: 'sr-row' }, h('span', { text: k }), h('span', { text: v })));
-    row('router', st.routerUnknown ? 'unknown' : st.spindle ? 'on' : 'off');
+    row(isGrbl() ? 'spindle' : 'router', st.routerUnknown ? 'unknown' : st.spindle ? 'on' : 'off');
+    if (isGrbl()) row('board', `${st.grbl || '…'}${st.homed ? ' · homed' : ''}`);
     if (!sim && st.note && !st.running) el.rows.append(h('div', { class: 'sr-row note', text: st.note }));
     el.ask.classList.toggle('on', !!st.dialog);
     const veiled = !!(st.running && st.paused);
@@ -2547,10 +2751,12 @@ html[data-skin] #swarf-run .sr-jog .sr-zrow button.next, html[data-skin] #swarf-
         // the button says what the plan does: a pause on the way in has no router to start
         // a trace or an air cut never had the router on (reviews 10-29: it said "start the router")
         const dry = S.job === 'trace' || S.job === 'air';
-        el.resumeBtn.textContent = !dry && (!rp || rp.steps.some(x => x.router === true)) ? 'start the router and resume' : 'resume';
+        el.resumeBtn.textContent = !dry && !isGrbl() && (!rp || rp.steps.some(x => x.router === true)) ? 'start the router and resume' : 'resume';
         const h2 = el.veil.querySelector('h2'), p = el.veil.querySelector('.sr-veilcard p');
-        if (h2) h2.textContent = dry ? `Paused. The ${S.job === 'air' ? 'air cut' : 'trace'} runs with the router off.` : 'Paused. The router is switched off.';
-        if (p) p.textContent = dry ? 'The bit stopped where it was. Resume carries on from here, router still off. End the job stops it.'
+        if (h2) h2.textContent = dry ? `Paused. The ${S.job === 'air' ? 'air cut' : 'trace'} runs with the ${isGrbl() ? 'spindle' : 'router'} off.` : isGrbl() ? 'Paused. The spindle keeps turning.' : 'Paused. The router is switched off.';
+        if (p) p.textContent = dry ? `The bit stopped where it was. Resume carries on from here, ${isGrbl() ? 'spindle' : 'router'} still off. End the job stops it.`
+          // the MR-1's board holds the motion only: its spindle runs on through a pause
+          : isGrbl() ? 'The bit stopped where it was, and the spindle is still turning: keep your hands clear. Resume carries on from here. End the job stops the spindle and keeps the line so you can continue later.'
           : 'The bit stopped where it was; it slows for a few seconds before it stops turning. Resume starts the router and carries on from here. End the job keeps the line so you can continue later.';
       }
     }
@@ -2561,26 +2767,31 @@ html[data-skin] #swarf-run .sr-jog .sr-zrow button.next, html[data-skin] #swarf-
     el.veil.classList.toggle('on', veiled);
     el.veil.parentElement.classList.toggle('sr-veiled', veiled);   // its buttons only: the ones under it hide (review 10-28)
     el.checkBtn.style.display = isDirect() && st.connected ? '' : 'none';
-    el.plateBtn.style.display = st.connected ? '' : 'none';
-    el.cornersBtn.style.display = st.connected && !st.running ? '' : 'none';
+    // the MR-1: no Z plate (its tool setter comes later) and no table corners (it homes to its own)
+    el.plateBtn.style.display = st.connected && !isGrbl() ? '' : 'none';
+    el.cornersBtn.style.display = st.connected && !st.running && !isGrbl() ? '' : 'none';
+    el.mr1CheckBtn.style.display = isGrbl() && st.connected && !st.running ? '' : 'none';
     el.plateBtn.classList.toggle('next', !!(S.prog && S.zeroXY && (!S.zeroZ || S.toolChange) && !st.running));
     const hs = isDirect() && S.machine.homeCfg && S.machine.homeCfg.set;
     // the shop machine has no home switches and is zeroed by hand (Phil 10-27): Home only once both sensors are set
-    el.homeBtn.style.display = hs && hs.x && hs.y ? '' : 'none';
+    el.homeBtn.style.display = (hs && hs.x && hs.y) || (isGrbl() && st.connected && !st.running) ? '' : 'none';
+    el.homeBtn.classList.toggle('next', isGrbl() && !!st.connected && !st.homed && !st.refused);
     el.routerBtn.style.display = isDirect() && st.connected ? '' : 'none';
     el.routerBtn.classList.toggle('on', !!st.routerTest);
     el.routerBtn.disabled = !!(st.running || st.moving) && !st.routerTest;
     el.routerBtn.querySelector('small').textContent = st.routerTest ? 'on: stop' : 'test';
     el.note.textContent = isDirect()
       ? 'In an emergency, step on the red e-stop on the floor and keep clear until everything has stopped.'
-      : 'This is the simulator, not the machine. Press connect with the ShopBot plugged in.';
+      : isGrbl() ? 'In an emergency, press the MR-1\'s e-stop and keep clear until everything has stopped.'
+      : `This is the simulator, not the machine. Press connect with the ${isMR1() ? 'MR-1' : 'ShopBot'} plugged in.`;
     if (S.check) updateCheck(st);
+    if (S.mr1Watch) S.mr1Watch(st);
     if (S.plateWatch) S.plateWatch(st);
     // 10-27: directions proven on the real box (no flips), so the check card waits for its button
     if (st.dialog) el.askText.textContent = st.dialog.caption || st.dialog.message || '';
     // a finished trace completes the trace step; a stopped one does not
-    if (st.kind === 'shopbot' && st.running) st.line = lineAt(st.pos);
-    if (st.routerUnknown && !S.fault && !st.estopped) S.fault = 'swarf could not tell whether the router was still on';
+    if ((st.kind === 'shopbot' || st.kind === 'grbl') && st.running) st.line = lineAt(st.pos);
+    if (st.routerUnknown && !S.fault && !st.estopped) S.fault = isGrbl() ? 'swarf could not tell whether the spindle was still on' : 'swarf could not tell whether the router was still on';
     // the e-stop latches once, when its note first appears (the note stays in the state after)
     // the e-stop (Phil 10-29): swarf lets go of the machine, and connecting again clears it, so no
     // all-clear checklist; the zero is offered back on reconnect
@@ -2588,8 +2799,10 @@ html[data-skin] #swarf-run .sr-jog .sr-zrow button.next, html[data-skin] #swarf-
     S.prevNote = st.note || '';
     if (S.lastRunning && !st.running) {
       // only a real end of file is a finish: a stop, a hold or a dropped link keeps the line (Fable review 10-27)
-      const finished = !S.userStopped && !st.stopHit && !st.lostMid && (st.kind === 'shopbot' ? st.done === true : /finished/.test(st.note));
+      const finished = !S.userStopped && !st.stopHit && !st.lostMid && (st.kind === 'shopbot' || st.kind === 'grbl' ? st.done === true : /finished/.test(st.note));
       S.userStopped = false;
+      // the MR-1 still connected after a job ended mid-file restarted (power, its e-stop, the cable)
+      if (st.lostMid && !S.fault && isGrbl() && st.connected) S.fault = `the MR-1 restarted at line ${S.lastLine || 1} while it was running: it is not homed and its zero is unproven`;
       if (st.lostMid && !S.fault) S.fault = `the USB link dropped at line ${S.lastLine || 1} while the machine was running`;
       if (st.lostMid && (S.job === 'cut' || S.job === 'from')) {
         S.lostAt = S.stoppedAt = S.lastLine || 1;
@@ -2706,6 +2919,17 @@ html[data-skin] #swarf-run .sr-jog .sr-zrow button.next, html[data-skin] #swarf-
   }
   function runStep() {
     const api = window.kiri && window.kiri.api;
+    if (isMR1()) {
+      if (!serialOK() && !S.simOK && api && api.uc) {
+        noSerialCard().then(go => { if (go) { S.simOK = true; runStep(); } });
+        return;
+      }
+      letGoOfOther().then(() => {
+        open();
+        if (!(S.machine && S.machine.state.running)) fromCam();
+      });
+      return;
+    }
     if (!usbOK() && isShopBot() && !S.simOK && api && api.uc) {
       noUsbCard().then(go => { if (go) { S.simOK = true; runStep(); } });
       return;
@@ -2714,15 +2938,17 @@ html[data-skin] #swarf-run .sr-jog .sr-zrow button.next, html[data-skin] #swarf-
     // machine should not ask" you to find setup › machine first)
     if (!isShopBot()) {
       if (!api || !api.uc || !api.devices) return;
-      const pre = ["<div class='f-col a-center swarf-shape'><h3>Control drives the shop's ShopBot</h3>",
-        "<p class='swarf-shape-why' style='color:inherit;max-width:340px'>This job is set up for another machine. Switch it to the ShopBot (a 4 × 8 ft bed) and go on to control? The MR-1 uses export instead.</p></div>"];
-      api.uc.confirm(undefined, { 'use the ShopBot': true, cancel: false }, undefined, { pre }).then(yes => {
-        if (!yes) return;
-        try { api.devices.select('ShopBot.Basic'); } catch (e) { api.show.alert(`swarf could not switch to the ShopBot: ${e.message}`, 8); return; }
-        setTimeout(() => { placeEntry(); if (isShopBot()) runStep(); }, 400);
+      const pre = ["<div class='f-col a-center swarf-shape'><h3>Control drives the ShopBot and the MR-1</h3>",
+        "<p class='swarf-shape-why' style='color:inherit;max-width:340px'>This job is set up for another machine. Switch it to the ShopBot (a 4 × 8 ft bed) or the MR-1 (the benchtop mill) and go on to control?</p></div>"];
+      api.uc.confirm(undefined, { 'use the ShopBot': 'ShopBot.Basic', 'use the MR-1': 'Langmuir.MR-1', cancel: false }, undefined, { pre }).then(v => {
+        if (!v) return;
+        try { api.devices.select(v); } catch (e) { api.show.alert(`swarf could not switch the machine: ${e.message}`, 8); return; }
+        setTimeout(() => { placeEntry(); if (isShopBot() || isMR1()) runStep(); }, 400);
       });
       return;
     }
+    // a MR-1 still held from before the switch is let go first
+    if (isGrbl() && !S.machine.state.running) { letGoOfOther().then(() => runStep()); return; }
     open();
     // control runs what cam made: fresh toolpaths each time, unless a job is running
     if (!(S.machine && S.machine.state.running)) fromCam();
@@ -2731,12 +2957,13 @@ html[data-skin] #swarf-run .sr-jog .sr-zrow button.next, html[data-skin] #swarf-
     const step = document.getElementById('swarf-step-run');
     if (!step) return false;
     if (!step.dataset.wired) { step.addEventListener('click', runStep); step.dataset.wired = '1'; }
-    const sb = isShopBot();
+    const mr1 = isMR1(), sb = isShopBot() || mr1;
     step.classList.toggle('swarf-step-off', !sb);
-    // control is the ShopBot's alone: another machine has no control step (Phil 10-28)
+    // control is the ShopBot's and the MR-1's: another machine has no control step (Phil 10-28)
     step.style.display = sb ? '' : 'none';
-    if (sb) warnNoUsb();
-    step.title = sb && !usbOK() ? 'Control: needs Chrome or Edge' : sb ? 'Control the ShopBot: bring these toolpaths, jog, zero, trace, cut' : '';
+    if (sb && !mr1) warnNoUsb();
+    step.title = mr1 ? (serialOK() ? 'Control the MR-1: bring these toolpaths, home, jog, zero, trace, cut' : 'Control: needs Chrome or Edge')
+      : sb && !usbOK() ? 'Control: needs Chrome or Edge' : sb ? 'Control the ShopBot: bring these toolpaths, jog, zero, trace, cut' : '';
     return true;
   }
   let tries = 0;
