@@ -229,8 +229,8 @@
     function gcodeLine(U, n) {
       // the whole line must be words swarf knows, each with a number (follow-up review #1:
       // "Xbad" or a stray Q999 were silently dropped)
-      // P only as a dwell's seconds (G4 P2); on any other line it is a word swarf does not carry out
-      const dwell = /G\s*0*4(?![\d.])/.test(U);
+      // a dwell (G4) carries its seconds in P; P on any other line is still a word swarf does not know
+      const dwell = /(^|[^A-Z])G\s*0*4(?![\d.])/.test(U);
       const rest = U.replace(/^N\d+\s*/, '').replace(dwell ? /[GMXYZIJFSTNP]\s*[-+]?(\d+\.?\d*|\.\d+)/g : /[GMXYZIJFSTN]\s*[-+]?(\d+\.?\d*|\.\d+)/g, '').trim();
       if (rest) { out.unsupported.push({ line: n, text: U.trim() }); return; }
       const words = {};
@@ -245,14 +245,15 @@
       // carry out exactly (G92 offsets, G18/G19 planes, G41/42 compensation, canned cycles,
       // G93 feed modes …) makes the whole line unreadable, which blocks the run
       // G17 XY plane, G20/21 units, G40/49/80 cancels, G54 the one work offset, G90/91, G94: all
-      // what swarf does anyway. G4 P a timed wait in seconds (the spindle's spin-up). M3 router on,
-      // M5 off, M6 tool change, M0/M1 pause. Nothing else.
+      // what swarf does anyway. M3 router on, M5 off, M6 tool change, M0/M1 pause. Nothing else.
+      // G4 P a dwell in seconds (GRBL's reading, the MR-1's files: a pause after the spindle starts)
       const G_OK = new Set([0, 1, 2, 3, 4, 17, 20, 21, 40, 49, 54, 80, 90, 91, 94]);
       const M_OK = { 3: 'spindle-on', 5: 'spindle-off', 6: 'tool-change', 0: 'pause', 1: 'pause' };
       if (gs.some(g => !G_OK.has(g)) || ms.some(c => !(c in M_OK) && c !== 2 && c !== 30)) { out.unsupported.push({ line: n, text: U.trim() }); return; }
       if (gs.includes(4)) {
-        if (!(words.P >= 0)) { out.unsupported.push({ line: n, text: U.trim() }); return; }
-        event(n, 'pause', words.P);
+        // a dwell stands alone: its seconds and nothing that moves
+        if (!(words.P >= 0) || 'X' in words || 'Y' in words || 'Z' in words) { out.unsupported.push({ line: n, text: U.trim() }); return; }
+        if (words.P > 0) { event(n, 'pause', words.P); out.seconds += words.P; }
       }
       for (const c of ms) {
         if (c === 2 || c === 30) { st.ended = true; return; }
