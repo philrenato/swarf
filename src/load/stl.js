@@ -262,19 +262,33 @@ export class STL {
 
     parse(data, scale) {
         let binData = this.convertToBinary(data);
+        let len = binData.byteLength;
 
-        let isBinary = function () {
-            let expect, face_size, n_faces, reader;
-            reader = new DataView(binData);
-            face_size = (32 / 8 * 3) + ((32 / 8 * 3) * 3) + (16 / 8);
-            n_faces = reader.getUint32(80, true);
-            expect = 80 + (32 / 8) + (n_faces * face_size);
-            return expect === reader.byteLength;
-        };
+        // too short for a binary header: only text can hold a triangle here
+        if (len < 84) {
+            return this.parseASCII(this.convertToString(data), scale);
+        }
 
-        return isBinary()
-            ? this.parseBinary(binData, scale)
-            : this.parseASCII(this.convertToString(data), scale);
+        let reader = new DataView(binData),
+            stated = reader.getUint32(80, true),
+            fit = Math.floor((len - 84) / 50);
+
+        // the stated count matches the size exactly: binary
+        if (84 + stated * 50 === len) {
+            return this.parseBinary(binData, scale, stated);
+        }
+
+        // otherwise text when its start holds no control or high bytes (a binary count or float
+        // always does), else binary with no more triangles than the file holds (a count of 0, as
+        // some writers leave it, reads all of them)
+        let bytes = new Uint8Array(binData), text = true;
+        for (let i = 0, end = Math.min(len, 4096); text && i < end; i++) {
+            let c = bytes[i];
+            if (c > 126 || (c < 32 && c !== 9 && c !== 10 && c !== 13)) text = false;
+        }
+        return text
+            ? this.parseASCII(this.convertToString(data), scale)
+            : this.parseBinary(binData, scale, stated > 0 ? Math.min(stated, fit) : fit);
     }
 
     parseAsync(data, scale) {
@@ -283,9 +297,9 @@ export class STL {
         });
     }
 
-    parseBinary(data, scale = 1) {
+    parseBinary(data, scale = 1, count) {
         let reader = new DataView(data),
-            faces = reader.getUint32(80, true),
+            faces = count ?? Math.min(reader.getUint32(80, true), Math.floor((data.byteLength - 84) / 50)),
             r, g, b, hasColors = false, colors,
             defaultR, defaultG, defaultB, alpha;
 
@@ -358,28 +372,30 @@ export class STL {
     }
 
     parseASCII(data, scale = 1) {
+        // a number as STL writers print it: 1, -1.5, .5, 1., 2e-3 (never nan or inf)
+        const NUM = '([-+]?(?:[0-9]+\\.?[0-9]*|\\.[0-9]+)(?:[eE][-+]?[0-9]+)?)';
+        const SEP = '\\s+';
         let result,
             resultText,
-            patternNormal,
-            patternVertex,
             vertices = [],
             normals = [],
-            patternFace = /facet([\s\S]*?)endfacet/g;
+            patternNormal = new RegExp(`normal${SEP}${NUM}${SEP}${NUM}${SEP}${NUM}`, 'i'),
+            patternVertex = new RegExp(`vertex${SEP}${NUM}${SEP}${NUM}${SEP}${NUM}(?![^\\s])`, 'gi'),
+            patternFace = /facet([\s\S]*?)endfacet/gi;
 
         while ((result = patternFace.exec(data)) !== null) {
             resultText = result[0];
-            patternNormal = /normal[\s]+([\-+]?[0-9]+\.?[0-9]*([eE][\-+]?[0-9]+)?)+[\s]+([\-+]?[0-9]*\.?[0-9]+([eE][\-+]?[0-9]+)?)+[\s]+([\-+]?[0-9]*\.?[0-9]+([eE][\-+]?[0-9]+)?)+/g;
-            patternVertex = /vertex[\s]+([\-+]?[0-9]+\.?[0-9]*([eE][\-+]?[0-9]+)?)+[\s]+([\-+]?[0-9]*\.?[0-9]+([eE][\-+]?[0-9]+)?)+[\s]+([\-+]?[0-9]*\.?[0-9]+([eE][\-+]?[0-9]+)?)+/g;
-            while ((result = patternNormal.exec(resultText)) !== null) {
-                normals.push(parseFloat(result[1]));
-                normals.push(parseFloat(result[3]));
-                normals.push(parseFloat(result[5]));
+            // a facet is kept whole or left out whole, so one bad number never shifts the rest
+            let verts = [], m;
+            patternVertex.lastIndex = 0;
+            while ((m = patternVertex.exec(resultText)) !== null) {
+                verts.push(parseFloat(m[1]) * scale, parseFloat(m[2]) * scale, parseFloat(m[3]) * scale);
             }
-            while ((result = patternVertex.exec(resultText)) !== null) {
-                vertices.push(parseFloat(result[1]) * scale);
-                vertices.push(parseFloat(result[3]) * scale);
-                vertices.push(parseFloat(result[5]) * scale);
-            }
+            let says = (resultText.match(/vertex/gi) || []).length;
+            if (verts.length !== 9 || says !== 3) continue;
+            vertices.push(...verts);
+            let n = patternNormal.exec(resultText);
+            normals.push(n ? parseFloat(n[1]) : 0, n ? parseFloat(n[2]) : 0, n ? parseFloat(n[3]) : 0);
         }
 
         let vToFloat32 = new Float32Array(vertices.length),
@@ -419,4 +435,36 @@ export class STL {
             return buf;
         }
     }
+}
+
+/** how many millimeters one unit of each STL reading is */
+export const STL_UNITS = { mm: 1, in: 25.4, m: 1000 };
+
+/**
+ * The likely units of an STL's numbers (an STL says none): 'mm', 'in' or 'm'. A reading fits when
+ * its footprint is on the bed and its longest side is at least 6 mm. Numbers all under 1 that fit
+ * as meters are meters; else the reading that fits; both: the preferred one; neither: mm.
+ * @param {Float32Array} v - vertex coordinates
+ * @param {object} opt - { bedWidth, bedDepth, inch } (inch: inches are preferred when both fit)
+ * @returns {string} 'mm', 'in' or 'm'
+ */
+export function stlUnits(v, opt = {}) {
+    let lo = [Infinity, Infinity, Infinity], hi = [-Infinity, -Infinity, -Infinity], most = 0;
+    for (let i = 0; i + 2 < v.length; i += 3) {
+        for (let k = 0; k < 3; k++) {
+            const x = v[i + k];
+            if (!Number.isFinite(x)) continue;
+            if (x < lo[k]) lo[k] = x;
+            if (x > hi[k]) hi[k] = x;
+            if (Math.abs(x) > most) most = Math.abs(x);
+        }
+    }
+    const s = [0, 1, 2].map(k => hi[k] - lo[k]);
+    if (!s.every(Number.isFinite)) return 'mm';
+    const bw = opt.bedWidth || Infinity, bd = opt.bedDepth || Infinity;
+    const fits = k => s[0] * k <= bw + 0.5 && s[1] * k <= bd + 0.5 && Math.max(...s) * k >= 6;
+    if (most < 1 && fits(STL_UNITS.m)) return 'm';
+    const mm = fits(1), inch = fits(STL_UNITS.in);
+    if (mm && inch) return opt.inch ? 'in' : 'mm';
+    return inch ? 'in' : 'mm';
 }

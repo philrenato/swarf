@@ -130,6 +130,28 @@ assert.deepEqual(types.filter(t => !['texture', 'pierce', 'inlay', 'vcarve'].inc
 // ── fingerprint ──
 ok(F.fingerprint([{ id: 'a', pos: { x: 1 } }], { ops: [{ type: 'outline' }] }, 'mdf') === F.fingerprint([{ pos: { x: 1 }, id: 'a' }], { ops: [{ type: 'outline' }] }, 'mdf'), 'fingerprint ignores key order');
 ok(F.fingerprint([{ id: 'a', pos: { x: 1 } }], { ops: [] }, 'mdf') !== F.fingerprint([{ id: 'a', pos: { x: 2 } }], { ops: [] }, 'mdf'), 'a moved part is a change');
+// a save keeps the board, the depth and the bits: a change to any of them is a change
+{
+  const fp = (proc, tools) => F.fingerprint([{ id: 'a', pos: { x: 1 } }], proc, 'mdf', { process: proc, tools });
+  const base = { ops: [], camStockZ: 19.05, camZBottom: 0 };
+  ok(fp(base, [{ id: 1003, flute_diam: 0.25 }]) !== fp({ ...base, camStockZ: 12.7 }, [{ id: 1003, flute_diam: 0.25 }]), 'a thinner board is a change');
+  ok(fp(base, [{ id: 1003, flute_diam: 0.25 }]) !== fp({ ...base, camZBottom: 5 }, [{ id: 1003, flute_diam: 0.25 }]), 'a cut depth is a change');
+  ok(fp(base, [{ id: 1003, flute_diam: 0.25 }]) !== fp(base, [{ id: 1003, flute_diam: 0.5 }]), 'an edited bit is a change');
+  ok(F.fingerprint([{ id: 'a', scale: { x: 1 } }], base, 'mdf') !== F.fingerprint([{ id: 'a', scale: { x: 1.5 } }], base, 'mdf'), 'a resized part is a change');
+}
+// a bit renumbered on open: the marks that cut with it follow it
+{
+  const file = { tools: [{ id: 1018, number: 18, name: 'ball 1/4', type: 'ballmill', flute_diam: 0.25, metric: false }],
+    process: { processName: 'p', ops: [{ type: 'texture', texmark: 'm1', tool: 1018 }] } };
+  const local = { tools: [{ id: 1018, number: 18, name: 'end 1/2', type: 'endmill', flute_diam: 0.5, metric: false }], process: { ops: [] } };
+  const merged = F.mergeSettings(local, file, { name: 'job.swarf' });
+  const step = merged.settings.process.ops[0].tool;
+  ok(step !== 1018, 'the step uses the file bit under a new number');
+  const work = [{ meta: { tex: [{ id: 'm1', fill: { tool: 1018 } }, { id: 'm2', fill: { tool: 1003 } }] } }, { meta: {} }];
+  ok(F.remapMarks(work, merged.remap) === 1, 'one mark re-pointed');
+  ok(work[0].meta.tex[0].fill.tool === step, 'the mark cuts with the same bit as its step');
+  ok(work[0].meta.tex[1].fill.tool === 1003, 'a mark on another bit stays');
+}
 ok(F.restamp('a:1:Dev:Name:with:colons:6.350:1,2', 7, 'New') === 'a:7:New:6.350:1,2', 'a stamp with colons in the machine name');
 ok(F.restamp('old-style-stamp', 7, 'New') === 'old-style-stamp', 'a stamp it cannot read stays');
 

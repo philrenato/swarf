@@ -35,51 +35,57 @@ export function parseAsync(text) {
     });
 }
 
+/**
+ * Read an OBJ's faces as triangles, one vertex array per group (g).
+ * Faces of four or more corners are triangulated in their own plane. A face
+ * that points at a missing vertex is left out; the returned list says how many
+ * were (refused). Groups with no triangles are not returned.
+ * @param {String} text
+ * @returns {Array} vertex face arrays, with .refused
+ */
 export function parse(text) {
-    let lines = text.replaceAll(/ +/g,' ').split('\n').map(l => l.trim());
-    let verts = [];
+    const lines = String(text).split(/\r?\n/);
+    const verts = [];
+    const objs = [];
     let faces = [];
-    let objs = [ faces ];
+    let refused = 0;
 
-    // Polyfill for appendAll if not present
-    if (!Array.prototype.appendAll) {
-        Object.defineProperty(Array.prototype, 'appendAll', {
-            value: function(arr) {
-                for (let v of arr) this.push(v);
-            },
-            enumerable: false
-        });
-    }
+    objs.push(faces);
+
+    // a 1-based index, or a negative one counted back from the last vertex read
+    const corner = tok => {
+        const n = parseInt(tok.split('/')[0], 10);
+        const i = n > 0 ? n - 1 : n < 0 ? verts.length + n : -1;
+        return i >= 0 && i < verts.length ? verts[i] : null;
+    };
 
     for (let line of lines) {
-        let toks = line.split(' ');
+        const toks = line.trim().split(/\s+/);
         switch (toks.shift()) {
-            case 'v':
-                let v = toks.map(v => parseFloat(v)).slice(0,3);
-                if (v.length < 3) {
-                    console.log('??',toks,line);
-                }
-                // swarf 11-09: an OBJ is Y up (the format's habit; Rhino's export maps Z to Y by
-                // default, Blender's too). Phil's test.obj stood a board on its edge: turn Y up to
-                // Z up, so a part comes in lying as it was drawn.
-                verts.push([v[0], -v[2], v[1]]);
+            case 'v': {
+                const v = toks.slice(0, 3).map(t => parseFloat(t));
+                // an OBJ is Y up (the format's habit; Rhino and Blender export it so):
+                // turned to Z up, a part comes in lying as it was drawn
+                const ok = v.length === 3 && v.every(Number.isFinite);
+                verts.push(ok ? [v[0], -v[2], v[1]] : null);
                 break;
-            case 'f':
-                let tok = toks.map(f => parseInt(f.split('/')[0]));
-                if (tok.length > 3) {
-                    const p = tok.map(t => verts[t-1]).flat();
-                    const t = util.triangulate(p, [], 3, true);
-                    const r = t.map(i => tok[i]);
-                    for (let v of r) {
-                        faces.appendAll(verts[v - 1]);
-                    }
-                } else {
-                    // add support for negative indices (offset from last vertex array point)
-                    faces.appendAll(verts[tok[0]-1]);
-                    faces.appendAll(verts[tok[1]-1]);
-                    faces.appendAll(verts[tok[2]-1]);
+            }
+            case 'f': {
+                const pts = toks.filter(t => t).map(corner);
+                if (pts.length < 3 || pts.some(p => !p)) {
+                    refused++;
+                    break;
+                }
+                if (pts.length === 3) {
+                    for (const p of pts) faces.push(p[0], p[1], p[2]);
+                    break;
+                }
+                for (const i of util.triangulate(pts.flat(), [], 3, true)) {
+                    const p = pts[i];
+                    faces.push(p[0], p[1], p[2]);
                 }
                 break;
+            }
             case 'g':
                 if (faces.length) {
                     objs.push(faces = []);
@@ -90,5 +96,7 @@ export function parse(text) {
                 break;
         }
     }
-    return objs;
+    const out = objs.filter(f => f.length >= 9);
+    out.refused = refused;
+    return out;
 }

@@ -1,5 +1,5 @@
 // Drill out of advanced (review 105 B0c, B4), read from the exported file: circles drawn in DRAW are
-// found and drilled, peck by peck, at their X Y, to the board's bottom, router on, no rapid in the
+// found and drilled, peck by peck, at their X Y, through the board's bottom by the drill's point, router on, no rapid in the
 // wood. A step with no holes says so and writes no bit change. A hole bigger than the bit is not
 // drilled and a concern says what it needs. Holes picked by hand are left as picked. With DUMP=dir set,
 // a hand-picked job's file is written there, to compare byte for byte against another build.
@@ -103,7 +103,9 @@ try {
   const x0 = Math.min(...side.map(m => m.x)) + 3.175 / 2, y0 = Math.min(...side.map(m => m.y)) + 3.175 / 2;
   const holes = all.filter(h => drawn.some(([x, y]) => near(h.x - x0, x, 0.15) && near(h.y - y0, y, 0.15)));
   check(holes.length === 4, `four plunges at the drawn X Y: ${holes.map(h => `${(h.x - x0).toFixed(2)},${(h.y - y0).toFixed(2)}`).join(' ')}`);
-  check(holes.length && holes.every(h => near(h.z, -thick, 0.02)), `each to the board's bottom, Z ${(-thick).toFixed(2)} (${holes.map(h => h.z)})`);
+  // through: the 1/4 drill's 118 degree point goes past the bottom, so its full width does too
+  const tip = (6.35 / 2) / Math.tan(59 * Math.PI / 180);
+  check(holes.length && holes.every(h => near(h.z, -thick - tip, 0.02)), `each through the board's bottom by the drill's point, Z ${(-thick - tip).toFixed(2)} (${holes.map(h => h.z)})`);
   const wanted = Math.ceil(thick / 5);
   check(holes.length && holes.every(h => h.pecks >= Math.min(2, wanted)), `each in pecks (${holes.map(h => h.pecks)}, ${thick.toFixed(1)} mm at 5 mm a peck)`);
   // the drill's own block has nothing sideways in the wood: every cut on the drill's XY is straight down
@@ -117,7 +119,7 @@ try {
   await add('drill', { tool: 'drill 1/4', down: 5 });
   text = await file(); parsed = P.parse(text, { machineUnits: 'mm' });
   let found = plunges(parsed);
-  check(found.length === 2 && found.every(h => near(h.z, -12, 0.02)), `an imported drawing's 6 and 6.35 mm circles are drilled too (${JSON.stringify(found)})`);
+  check(found.length === 2 && found.every(h => near(h.z, -12 - tip, 0.02)), `an imported drawing's 6 and 6.35 mm circles are drilled too (${JSON.stringify(found)})`);
 
   // ── no round holes at all ──
   await fresh();

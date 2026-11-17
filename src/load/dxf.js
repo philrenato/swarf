@@ -209,10 +209,18 @@ export function parse(text, opt = { }) {
         }
     }
 
+    // a part needs a closed outline with an inside: open lines, arcs and outlines with no area are
+    // left out of the solids (and counted in opt.dropped, so the import can say so)
+    let shapes = polys;
+    if (!justPoly) {
+        shapes = polys.filter(p => !p.isOpen() && Math.abs(p.area()) >= 0.01);
+        opt.dropped = polys.length - shapes.length;
+    }
+
     // Nest polygons to identify holes vs outlines
-    const sub = fromSoup ? polygons.nest(polys) : polys;
+    const sub = fromSoup ? polygons.nest(shapes) : shapes;
     const nest = sub.filter(p => {
-        for (let pc of polys) {
+        for (let pc of shapes) {
             if (pc === p) {
                 return true;
             } else {

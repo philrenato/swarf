@@ -92,22 +92,26 @@ function message(txt) {
  * @param {Array} rec.widgets - Widgets to operate on
  */
 function action(rec) {
+    // a group turns and scales as one (each call acts on the whole group), so once per group
+    const groups = () => [...new Set(rec.widgets.map(w => w.group || [w]))].map(g => g[0]);
     switch (rec.type) {
         case 'move':
             for (let w of rec.widgets) {
                 w._move(rec.dist.x, rec.dist.y, 0);
             }
+            placed();
             break;
         case 'rotate':
-            for (let w of rec.widgets) {
+            for (let w of groups()) {
                 w.rotate(rec.x, rec.y, rec.z);
             }
+            placed();
             break;
         case 'scale':
-            for (let w of rec.widgets) {
-                w._scale(rec.x, rec.y, rec.z);
+            for (let w of groups()) {
+                w.scale(rec.x, rec.y, rec.z);
             }
-            api.selection.update_info();
+            placed();
             break;
         // swarf (Interfacing review 10-28: delete could not be undone): a deleted part comes
         // back where it was, and undo-redo deletes it again
@@ -137,6 +141,18 @@ function action(rec) {
     }
     space.update();
     updateButtons();
+}
+
+// after an undo or redo moves, turns or scales parts: the stock, the picked box and the saved
+// workspace follow, as they do for the step itself
+function placed() {
+    try {
+        api.platform.update_bounds();
+        api.selection.update_bounds();
+        api.selection.update_info();
+    } finally {
+        api.space.auto_save();
+    }
 }
 
 /**
@@ -226,6 +242,8 @@ event.on('selection.rotate', (rec) => {
     if (!(x || y || z)) {
         return;
     }
+    // a turn given as a quaternion (lay flat on a face) is undone by its inverse
+    const back = x && x.isQuaternion ? { x: x.clone().invert() } : { x: -x, y: -y, z: -z };
     pushActions({
         redo: {
             type,
@@ -235,7 +253,7 @@ event.on('selection.rotate', (rec) => {
         undo: {
             type,
             widgets,
-            x: -x, y: -y, z: -z
+            ...back
         }
     })
 });

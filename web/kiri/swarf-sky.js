@@ -161,7 +161,8 @@
       try {
         localStorage.removeItem('ws-settings');
         Object.keys(localStorage).forEach(k => {
-          if (k.startsWith('swarf.')) localStorage.removeItem(k);
+          // swarf's settings (swarf.) and control's saved machine state (swarf-: plate, flips, corners, zero)
+          if (k.startsWith('swarf.') || k.startsWith('swarf-')) localStorage.removeItem(k);
         });
       } catch (e) {}
       // unregister every service worker under this origin
