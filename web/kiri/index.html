@@ -401,19 +401,14 @@
                     <details id="swarf-toolpaths-details" open>
                     <summary class="set-header mode-cam" title="the steps the machine cuts, in order"><a>steps</a></summary>
                     <div id="camops" class="f-col a-stretch grow">
-                        <!-- swarf: tool library opener (markup Apr 15) — endmills / drills / bits -->
-                        <div id="swarf-tools-row" class="f-row" style="gap:6px; padding:4px 0; align-items:center">
-                            <span style="flex:1"></span>
-                            <button id="swarf-open-tools" title="the bits this machine has: add, change or remove one" style="font-size:11px; padding:3px 10px">bits</button>
-                        </div>
-
                         <!-- swarf: live operations list (rough/contour/outline/pocket added here) -->
                         <div id="oplist" class="f-col"></div>
 
                         <!-- swarf: ALWAYS-VISIBLE add-operation grid. Phil markup Apr 15:
                              "I still don't see a way to make/add/change/see toolpaths."
                              Pulled out of the +-popover so the primary action is obvious. -->
-                        <div class="swarf-add-op-label">add a step</div>
+                        <!-- the steps' bits: the tool library opener sits on the steps' own line -->
+                        <div class="swarf-add-op-label"><span>add a step</span><button id="swarf-open-tools" title="the bits this machine has: add, change or remove one">bits</button></div>
                         <div id="op-add-list" class="opdiv op-grid swarf-add-op-grid">
                             <div title="clears most of the wood in flat layers: the first step">rough</div>
                             <div title="smooths a curved top line by line, after rough">contour</div>

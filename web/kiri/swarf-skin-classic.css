@@ -16,6 +16,7 @@ html[data-skin="classic"] {
   --sk-shadow: 0 0 0; --sk-a-shadow: .5; --sk-glint: 255 255 255;
   --sk-acc-dim: 0 0 96; --sk-acc: 0 0 128; --sk-acc-hi: 0 0 160;
   --sk-warn: 122 78 0; --sk-ok: 0 128 0; --sk-info: 0 0 128; --sk-violet: 96 64 160;
+  --sk-on-acc: 255 255 255;   /* text on an accent fill */
 
   --swarf-bg: #c0c0c0;  --swarf-bg-2: #d4d0c8;  --swarf-bg-3: #dfdfdf;
   --swarf-line: #808080;  --swarf-line-2: #404040;
@@ -91,11 +92,11 @@ html[data-skin="classic"] .top-menu-drop > .content {
 }
 html[data-skin="classic"] #menubar .top-menu > span.swarf-open .top-menu-drop label,
 html[data-skin="classic"] #menubar .top-menu > span.swarf-open .top-menu-drop i { color: #000 !important; }
-html[data-skin="classic"] #menubar .top-menu > span.swarf-open .top-menu-drop div:hover label,
-html[data-skin="classic"] #menubar .top-menu > span.swarf-open .top-menu-drop div:hover i { color: #fff !important; }
-html[data-skin="classic"] .top-menu-drop div { color: #000 !important; border-radius: 0 !important; }
-html[data-skin="classic"] .top-menu-drop div:hover { background: #3a5ca8 !important; color: #fff !important; }
-html[data-skin="classic"] .top-menu-drop div:hover label, html[data-skin="classic"] .top-menu-drop div:hover i { color: #fff !important; }
+html[data-skin="classic"] #menubar .top-menu > span.swarf-open .top-menu-drop .content > div:hover label,
+html[data-skin="classic"] #menubar .top-menu > span.swarf-open .top-menu-drop .content > div:hover i { color: #fff !important; }
+html[data-skin="classic"] .top-menu-drop .content > div { color: #000 !important; border-radius: 0 !important; }
+html[data-skin="classic"] .top-menu-drop .content > div:hover { background: #3a5ca8 !important; color: #fff !important; }
+html[data-skin="classic"] .top-menu-drop .content > div:hover label, html[data-skin="classic"] .top-menu-drop .content > div:hover i { color: #fff !important; }
 html[data-skin="classic"] .top-menu-drop hr { border-top: 1px solid #b0b0b0 !important; opacity: 1 !important; }
 
 /* ---- the step row: the Windows 95 taskbar ---- */
@@ -318,7 +319,7 @@ html[data-skin="classic"] #swarf-run .sr-modes button.on, html[data-skin="classi
 html[data-skin="classic"] #swarf-run .sr-vtools button.on { background: #000080 !important; color: #fff !important; }
 html[data-skin="classic"] #swarf-concerns-count { color: #fff !important; background: #000080 !important; }
 html[data-skin="classic"] #swarf-run .sr-box h3, html[data-skin="classic"] #swarf-run .sr-box h3 span { color: #000 !important; }
-html[data-skin="classic"] #swarf-watermark, html[data-skin="classic"] #swarf-start small, html[data-skin="classic"] #swarf-tools-row > span,
+html[data-skin="classic"] #swarf-watermark, html[data-skin="classic"] #swarf-start small,
 html[data-skin="classic"] .swarf-add-op-label, html[data-skin="classic"] #swarf-run .sr-keys, html[data-skin="classic"] #swarf-run .sr-other,
 html[data-skin="classic"] #swarf-run .sr-need, html[data-skin="classic"] #swarf-run .sr-need .ok, html[data-skin="classic"] #swarf-run .sr-needrow small,
 html[data-skin="classic"] #swarf-run .sr-jog .sr-modes .lbl, html[data-skin="classic"] #swarf-run .sr-jog .sr-modes .lbl small, html[data-skin="classic"] #swarf-run .sr-pad button small,
@@ -360,7 +361,7 @@ html[data-skin="classic"] #alert-text button.alert-x:focus-visible { outline: 1p
    simulate bar and the step card in Geneva; Monaco stays for numbers and code */
 html[data-skin="classic"] #swarf-start, html[data-skin="classic"] #swarf-start *:not([class*="fa-"]):not(.fas), html[data-skin="classic"] #swarf-concerns, html[data-skin="classic"] #swarf-concerns *:not([class*="fa-"]):not(.fas),
 html[data-skin="classic"] .swarf-help-modal, html[data-skin="classic"] .swarf-help-modal *:not([class*="fa-"]):not(.fas), html[data-skin="classic"] #mod-x-any, html[data-skin="classic"] #mod-x-any *:not([class*="fa-"]):not(.fas),
-html[data-skin="classic"] #mod-prefs, html[data-skin="classic"] #mod-prefs *:not([class*="fa-"]):not(.fas), html[data-skin="classic"] #layer-animate, html[data-skin="classic"] #layer-animate *:not([class*="fa-"]):not(.fas),
+html[data-skin="classic"] #mod-prefs, html[data-skin="classic"] #mod-prefs *:not([class*="fa-"]):not(.fas), html[data-skin="classic"] #mod-any, html[data-skin="classic"] #mod-any *:not([class*="fa-"]):not(.fas), html[data-skin="classic"] #layer-animate, html[data-skin="classic"] #layer-animate *:not([class*="fa-"]):not(.fas),
 html[data-skin="classic"] .swarf-op-params, html[data-skin="classic"] .swarf-op-params *:not([class*="fa-"]):not(.fas), html[data-skin="classic"] #oplist .draggable *:not([class*="fa-"]):not(.fas), html[data-skin="classic"] #layers *:not([class*="fa-"]):not(.fas) {
   font-family: var(--c-font) !important;
 }

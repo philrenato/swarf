@@ -955,10 +955,8 @@
     select.addEventListener('change', () => setCurrent(select.value));
     row.appendChild(label);
     row.appendChild(select);
-    // insert above the existing tool-library row if present, else at top
-    const toolsRow = camops.querySelector('#swarf-tools-row');
-    if (toolsRow) camops.insertBefore(row, toolsRow);
-    else camops.insertBefore(row, camops.firstChild);
+    // insert above the steps
+    camops.insertBefore(row, camops.querySelector('#oplist') || camops.firstChild);
     const speed = speedRow(label.style.cssText);
     camops.insertBefore(speed, row.nextSibling);
     const origin = originRow(label.style.cssText);

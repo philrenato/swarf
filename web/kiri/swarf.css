@@ -166,11 +166,6 @@ body.swarf-sky-working::before {
 /* (review r086 F3) the app is the window: it never scrolls as a page (Space in simulate, a
    trackpad flick or a focused field below the fold moved the menubar and wordmark off the top) */
 html, body { overflow: hidden !important; overscroll-behavior: none; }
-/* r086 check P6: the document was 2 px taller than the window in wet plastic and classic. The
-   generated swarf-skin-map.css folds Kiri's dark-theme rules for buttons and fields into one
-   html[data-skin][data-theme="dark"] block, so <html> itself got a 1 px border top and bottom.
-   (The generator, tools/make_skins.mjs, is the real home of this fix.) */
-html[data-skin] { border: 0 !important; }
 #mid-mid { min-width: 60vw; min-height: calc(100vh - 100px); }
 #container { min-height: calc(100vh - 100px); }
 
@@ -396,11 +391,18 @@ select:focus, input:focus { outline: none; border-color: var(--swarf-accent); }
   border: 1px solid var(--swarf-line) !important;
   color: var(--swarf-text);
 }
-.top-menu-drop div { color: var(--swarf-text); }
-.top-menu-drop div:hover {
+/* a row lights under the pointer, never the list around it (a div:hover on the list painted the
+   whole menu in the accent while the pointer was anywhere inside it) */
+.top-menu-drop .content > div { color: var(--swarf-text); }
+.top-menu-drop .content > div:hover {
   background: var(--swarf-accent) !important;
   color: #fff !important;
 }
+/* the skin list's heading is a label, not a row: it does not light */
+html #menubar .top-menu-drop .content > div.swarf-skin-head:hover { background: none !important; box-shadow: none !important; cursor: default; }
+html #menubar .top-menu > span.swarf-open .top-menu-drop .content > div.swarf-skin-head:hover label { color: var(--swarf-text-2) !important; }
+/* a lit row's shortcut takes the row's light text */
+html #menubar .top-menu > span.swarf-open .top-menu-drop .content > div:hover .swarf-key { color: inherit !important; }
 
 /* ---- Form inputs: hard overrides on Kiri's #fff baseline ---- */
 input, input[type="text"], input[type="number"], textarea {
@@ -1155,12 +1157,14 @@ html:not([data-skin]) #panel-left  .set2-group::after {
 /* swarf: always-visible add-op grid inside the toolpaths panel
    (markup Apr 15 — "I still don't see a way to make/add/change/see toolpaths") */
 .swarf-add-op-label {
+  display: flex; align-items: center; justify-content: space-between; gap: 8px;
   font-size: 11px; letter-spacing: 0.02em; text-transform: none;
   color: var(--swarf-text-3);
-  padding: 10px 4px 6px 4px;
+  padding: 8px 4px 6px 4px;
   border-top: 1px dashed var(--swarf-line);
   margin-top: 6px;
 }
+.swarf-add-op-label #swarf-open-tools { font-size: 11px; padding: 3px 10px; }
 .swarf-add-op-grid {
   display: grid !important;
   grid-template-columns: 1fr 1fr;
@@ -1236,7 +1240,7 @@ body:not(.swarf-expert) .swarf-add-op-grid > .swarf-expert-only {
   padding: 3px 7px;
   border: 1px solid var(--swarf-line, #2a1612);
   border-radius: 2px;
-  transition: transform 140ms, color 140ms, background 140ms, border-color 140ms;
+  transition: transform 140ms;   /* the fill and text change at once: no frame of dark text on a darkening fill */
   display: inline-flex; align-items: center; gap: 5px;
   letter-spacing: 0.02em; text-transform: none; font-weight: 600;
 }
@@ -1669,6 +1673,9 @@ body:not(.swarf-expert) #speeds { display: none !important; }
 
 /* an STL drop: each file's reading on its own, the list scrolling in a short window */
 #mod-any .swarf-stl-files { width: 100%; max-height: calc(100vh - 220px); overflow-y: auto; display: flex; flex-direction: column; gap: 10px; }
+#mod-any .swarf-stl-file { flex-direction: column; align-items: flex-start; gap: 2px; }
+#mod-any .swarf-stl-file br { display: none; }
+#mod-any .swarf-stl-file .image-convert-copy { margin: 0 0 4px; }
 #mod-any .swarf-stl-file h4 { margin: 0; font-weight: 600; overflow-wrap: anywhere; }
 #mod-any .swarf-stl-file label { line-height: 1.7; }
 #mod-any .swarf-stl-units .image-convert-title { overflow-wrap: anywhere; max-width: 420px; }
@@ -2155,6 +2162,9 @@ h1, h2, h3, h4, .sr-card h2, .sr-veilcard h2, #swarf-start h2, .menu-title, #swa
 /* focus is always visible, in every skin (Fable review 3 #24 / Interfacing 1C) */
 :focus-visible { outline: 2px solid var(--swarf-accent-hi, #3a6aa8) !important; outline-offset: 2px !important; }
 html[data-skin="glass"] :focus-visible { outline-color: #303236 !important; }
+/* a card that takes the focus when it opens (so Esc and Tab start inside it) is not a control:
+   no ring around the whole card, which read as a second, square frame; its controls keep theirs */
+#modal-box > .mdialog:focus-visible, #dialog:focus-visible { outline: none !important; }
 /* deep review S16: a 1 px dotted ring was lost on the dark selected pills */
 html[data-skin="classic"] :focus-visible { outline: 2px dotted #000 !important; outline-offset: -4px !important; box-shadow: 0 0 0 2px #fff inset !important; }
 .swarf-search .swarf-result-kind.shop { color: var(--swarf-text); }
@@ -2171,7 +2181,7 @@ html[data-skin="classic"] :focus-visible { outline: 2px dotted #000 !important; 
    measured with tools/look_legibility.mjs: 4.5:1 for every text on the dark plates and the red sky */
 html:not([data-skin]) { --swarf-text-2: #b8b0a4; --swarf-text-3: #9a9286; }
 html:not([data-skin]) #swarf-watermark { color: #efe6d8 !important; opacity: 1 !important; text-shadow: 0 1px 2px rgba(0,0,0,.6); }
-html:not([data-skin]) #swarf-tools-row > span, html:not([data-skin]) .swarf-add-op-label, html:not([data-skin]) .swarf-concern em,
+html:not([data-skin]) .swarf-add-op-label > span, html:not([data-skin]) .swarf-concern em,
 html:not([data-skin]) #swarf-start small, html:not([data-skin]) #ver, html:not([data-skin]) #mode-tools > span.disabled label { color: #b8b0a4 !important; }
 html:not([data-skin]) #swarf-run .sr-sim button.on, html:not([data-skin]) #swarf-run .sr-vtools button.on { color: #fff !important; }
 html:not([data-skin]) #swarf-run button:disabled, html:not([data-skin]) button:disabled { opacity: .75 !important; }
@@ -2243,17 +2253,28 @@ html[data-skin="classic"] #swarf-tutorial button.st-go { outline: 1px solid #000
 html[data-skin="glass"] #swarf-start .swarf-start-quick { color: #2f3135; }
 html[data-skin="classic"] #swarf-start .swarf-start-quick { color: #000080; }
 
-/* help and about modals: one frame, not two (Phil 10-28: "weird chrome in concordance"). The
-   skins frame #modal-box; the panel inside it stays flat, and the red-sky's clipped corner and
-   thick left edge stay in the swarf skin. */
-html[data-skin] #modal-box:has(> .swarf-help-modal), html[data-skin] #modal-box:has(> .swarf-about) { clip-path: none !important; border-left-width: 1px !important; }
-html[data-skin] #modal-box .swarf-help-modal, html[data-skin] #modal-box .swarf-about { background: transparent !important; border: 0 !important; box-shadow: none !important; border-radius: 0 !important; backdrop-filter: none !important; -webkit-backdrop-filter: none !important; }
-html[data-skin] #modal-box .swarf-help-modal::before, html[data-skin] #modal-box .swarf-help-modal::after { display: none !important; }
-/* the closer: a round button in the corner, inside the frame */
+/* every modal card: one frame, not two. The skins frame #modal-box; the card inside it (export,
+   machine, help, about, files, prefs...) stays flat, with no rail, chamfer, scanlines or shadow of
+   its own, and the title strip above it is gone. The red-sky's clipped corner and thick left edge
+   stay in the swarf skin. */
+html[data-skin] #modal-box { clip-path: none !important; border-left-width: 1px !important; }
+html[data-skin] #modal-box > .mdialog { background: transparent !important; border: 0 !important; box-shadow: none !important; border-radius: 0 !important; clip-path: none !important; backdrop-filter: none !important; -webkit-backdrop-filter: none !important; }
+html[data-skin] #modal-box > .mdialog::before, html[data-skin] #modal-box > .mdialog::after { display: none !important; }
+html[data-skin] #modal-box .image-convert-dialog { background: transparent !important; border: 0 !important; box-shadow: none !important; border-radius: 0 !important; backdrop-filter: none !important; -webkit-backdrop-filter: none !important; }
+html[data-skin="classic"] #modal-box .image-convert-dialog::before { display: none !important; }
+html[data-skin="classic"] #modal-box > .mdialog, html[data-skin="classic"] #modal-box .image-convert-dialog { padding-top: 0 !important; }
+html[data-skin] #modal-box > .mod-top, html[data-skin] #modal-box > .mod-end { height: 0; border: 0 !important; background: none !important; }
+/* the red-sky's shells (export, prefs, the import cards) carry their own plate: the box around
+   them stays bare there, so the shell is the one frame */
+html:not([data-skin]) #modal-box:has(> #mod-x-any[style*="flex"], > #mod-x-sla[style*="flex"], > #mod-x-laser[style*="flex"], > #mod-prefs[style*="flex"], > #mod-any[style*="flex"]) {
+  background: transparent !important; border-color: transparent !important; box-shadow: none !important;
+}
+html:not([data-skin]) #modal-box > .mod-top, html:not([data-skin]) #modal-box > .mod-end { border-bottom: 0; background: none; }
+/* the closer: a round button in the card's corner, inside the frame */
 #mod-x { cursor: pointer; }
-html[data-skin="glass"] #mod-x { width: 28px; height: 28px; display: grid; place-items: center; border-radius: 50%; margin: 10px 10px 0 auto; background: var(--g-jelly); border: 1px solid rgba(120,120,125,.35) !important; box-shadow: var(--g-jelly-shadow); color: #2a2b2d; }
+html[data-skin="glass"] #mod-x { width: 28px; height: 28px; display: grid; place-items: center; border-radius: 50%; top: 12px; right: 12px; bottom: auto; margin: 0; background: var(--g-jelly); border: 1px solid rgba(120,120,125,.35) !important; box-shadow: var(--g-jelly-shadow); color: #2a2b2d; }
 html[data-skin="glass"] #mod-x i, html[data-skin="glass"] #mod-x svg { color: #2a2b2d !important; fill: #2a2b2d !important; }
-html[data-skin="classic"] #mod-x { width: 18px; height: 16px; display: grid; place-items: center; margin: 4px 4px 0 auto; background: #c0c0c0; box-shadow: inset -1px -1px #0a0a0a, inset 1px 1px #fff, inset -2px -2px #808080, inset 2px 2px #dfdfdf; color: #000; font-size: 11px; }
+html[data-skin="classic"] #mod-x { width: 18px; height: 16px; display: grid; place-items: center; top: 6px; right: 6px; bottom: auto; margin: 0; background: #c0c0c0; box-shadow: inset -1px -1px #0a0a0a, inset 1px 1px #fff, inset -2px -2px #808080, inset 2px 2px #dfdfdf; color: #000; font-size: 11px; }
 html:not([data-skin]) .swarf-license a, html:not([data-skin]) .swarf-about a, html:not([data-skin]) .swarf-credits a { color: #ff8a7e !important; }   /* the about box links read on the dark plate */
 html:not([data-skin]) .swarf-concordance section h3 { color: #ff8a7e !important; }   /* section heads on the dark plate */
 
@@ -2579,7 +2600,6 @@ html[data-skin="glass"] .swarf-ctx, html[data-skin="classic"] .swarf-ctx { backg
 #swarf-paths-stale { display: inline-block; margin-left: 5px; padding: 0 5px; font-style: normal; font-size: 11px; line-height: 15px; border-radius: 8px; background: var(--swarf-warn, #b8862a); color: #fff; }
 #swarf-paths-stale[hidden] { display: none; }
 .swarf-concern-fix { display: block; margin-top: 5px; padding: 2px 10px; font-size: 11px; cursor: pointer; }
-#swarf-concerns-body { position: relative; }
 .swarf-concerns-x { position: absolute; top: 2px; right: 4px; padding: 0 5px; border: 0; background: none; color: inherit; font-size: 15px; line-height: 18px; cursor: pointer; }
 
 body { font-variant-numeric: tabular-nums; }
@@ -2646,3 +2666,11 @@ html[data-skin="classic"] #swarf-help-float, html[data-skin="classic"] #swarf-he
 /* the carbide tick on a bit in the bits list (swarf-material.js) */
 #swarf-bits label.swarf-carbide { display: inline-flex; align-items: center; gap: 4px; font-size: 12px; white-space: nowrap; cursor: pointer; }
 #swarf-bits label.swarf-carbide input { margin: 0; }
+
+/* edit › move: the arrows either side of their axis, the step beside them, center under all */
+#ft-move { display: grid; grid-template-columns: auto auto auto 1fr; align-items: center; gap: 4px 6px; }
+#ft-move > div:not(.buttons) { justify-content: center; align-items: center; cursor: pointer; padding: 2px 4px; }
+#ft-move > label { text-align: center; margin: 0; }
+#ft-move .buttons { grid-column: 1 / -1; }
+/* the move, turn and size panels belong to the bed: not over control, draw or tex */
+body.swarf-run-open .selection-panel, body.swarf-draw-open .selection-panel { display: none !important; }
