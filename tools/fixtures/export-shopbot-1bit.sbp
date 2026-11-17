@@ -6,10 +6,10 @@ CN, 90               'Set program to absolute coordinate mode
 C7                   'Spindle off for tool change
 &Tool =4        'Load end 1/4
 C9                   'Change tool
+G0 Z5.0700 F6000
 TR,14000
 C6
 PAUSE 2
-G0 Z5.0700 F6000
 G0 X0.0 Y0.0
 G0 X-3.1750 Y-3.1750 F2280
 G1 X123.1750 Z-1.9100 F1500

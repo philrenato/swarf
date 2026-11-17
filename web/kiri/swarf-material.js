@@ -688,11 +688,14 @@
   function deviceLimits(settings) {
     const dev = settings.device || {};
     const proc = settings.process || {};
+    // the file never moves faster than the machine's top speed or the process's own cap, so neither
+    // does a speed swarf offers
+    const xycaps = [dev.feedMax, proc.camFastFeed].filter(v => v > 0);
     const zcaps = [dev.feedMaxZ, proc.camFastFeedZ].filter(v => v > 0);
     return {
       spindleMin: dev.spindleMin || 0,
       spindleMax: dev.spindleMax || 0,
-      feedMax: dev.feedMax || 0,
+      feedMax: xycaps.length ? Math.min(...xycaps) : 0,
       feedMaxZ: zcaps.length ? Math.min(...zcaps) : 0,
       shopbot: /shopbot/i.test(dev.deviceName || ''),
       endFlutes: dev.endmillFlutes || 0,

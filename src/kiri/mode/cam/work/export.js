@@ -195,6 +195,7 @@ export function cam_export(print, online) {
      * @param {number} [out.speed] - the speed to move at (in mm/min)
      * @param {number} [out.emit] - the emission state (0=off, 1=on)
      * @param {boolean} [opt.newOp] - whether to force a new operation
+     * @param {boolean} [opt.quiet] - write the move only, no router lines
      * @param {number} [opt.dx] - the delta X change (if not given, uses out.point.x - pos.x)
      * @param {number} [opt.dy] - the delta Y change (if not given, uses out.point.y - pos.y)
      * @param {number} [opt.dz] - the delta Z change (if not given, uses out.point.z - pos.z)
@@ -239,8 +240,26 @@ export function cam_export(print, online) {
         // on spindle change (deferred from layer transition so it's post-toolchange)
         // swarf: a bit change always turns the router back on. An op with no speed of its own (TEX, an
         // inlay) wrote none, and the next bit went in stopped (review 105): the last speed, else the top
+        // at a bit start the bit rises to the first point's height before the router starts, so a bit
+        // left resting on the board after zeroing never spins in place
+        const firstMove = points === 0 || changeTool;
+        if (firstMove) {
+            pos.x = pos.y = pos.z = 0;
+        }
+        if (firstMove && spro.camFirstZMax) {
+            points++;
+            moveTo({
+                tool: out.tool,
+                point: { x: pos.x, y: pos.y, z: newpos.z, a: newpos.a },
+                emit: 0,
+            }, {
+                dx: 0, dy: 0, dz: 1, time: 0, quiet: true
+            });
+            points--;
+        }
+
         const wantSpindle = newSpindle || (changeTool ? spindle || spindleMax : 0);
-        if (spindleMax && wantSpindle && (changeTool || wantSpindle !== spindle || opt.newOp)) {
+        if (!opt.quiet && spindleMax && wantSpindle && (changeTool || wantSpindle !== spindle || opt.newOp)) {
             spindle = wantSpindle;
             if (!laserOp) {
                 if (spindle > 0) {
@@ -252,24 +271,12 @@ export function cam_export(print, online) {
             }
         }
 
-        // enforce XY origin at start of print
-        if (points === 0 || changeTool) {
-            pos.x = pos.y = pos.z = 0;
-        }
-
         // split first move to X,Y then Z for that new location
         // safety to prevent tool crashing
-        if (points === 0 || changeTool) {
+        if (firstMove) {
             points++;
             if (spro.camFirstZMax) {
-                moveTo({
-                    // speed: Infinity,
-                    tool: out.tool,
-                    point: { x: pos.x, y: pos.y, z: newpos.z, a: newpos.a },
-                    emit: 0,
-                }, {
-                    dx: 0, dy: 0, dz: 1, time: 0
-                });
+                // the Z rise was written above, before the router lines
                 moveTo({
                     // speed: Infinity,
                     tool: out.tool,

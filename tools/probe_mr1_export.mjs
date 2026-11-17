@@ -1,6 +1,7 @@
 // The MR-1's machine files, line by line, for a one-bit and a two-bit job, and the ShopBot's files
 // for the same jobs unchanged to the byte (tools/fixtures/export-shopbot-*.sbp).
-//  - start: G21 G90 G94 G17 G54; after the spindle-on line a G4 P2 dwell (spin up before the first plunge)
+//  - start: G21 G90 G94 G17 G54; each bit rises to its first height before the spindle-on line, and a G4
+//    P2 dwell follows it (spin up before the first plunge)
 //  - end: S0, G4 P1, M5, a lift to clearance, M30 (the spindle brought to zero under control, then off)
 //  - no M5 or M0 between two bits in one file: a two-bit job is one file per bit, each named for its
 //    order and its bit, each with its own start and end; the export card saves them as one .zip and
@@ -72,6 +73,7 @@ try {
   check(L1.slice(0, 5).join(' ') === 'G21 G90 G94 G17 G54', `starts G21 G90 G94 G17 G54 (${L1.slice(0, 5).join(' ')})`);
   const on = L1.findIndex(l => /^M0?3\b/.test(l));
   check(on > 0 && /^G4 P2$/.test(L1[on + 1]), `the spindle-on line is followed by G4 P2 (${L1[on]} | ${L1[on + 1]})`);
+  check(on > 0 && /^G0 Z[\d.]+/.test(L1[on - 1]), `the bit rises before the spindle-on line (${L1[on - 1]} | ${L1[on]})`);
   const firstCut = L1.findIndex(l => /^G1\b/.test(l));
   check(on > 0 && firstCut > on + 1, 'the dwell comes before the first cutting move');
   const tail = L1.slice(-5);
@@ -96,6 +98,7 @@ try {
       const i = L.findIndex(l => /^M0?3\b/.test(l));
       check(L.slice(0, 5).join(' ') === 'G21 G90 G94 G17 G54', `${k} file has its own start`);
       check(ons.length === 1 && L[i + 1] === 'G4 P2', `${k} file turns the spindle on once and dwells (${ons.join(', ')})`);
+      check(i > 0 && /^G0 Z[\d.]+/.test(L[i - 1]), `${k} file rises before the spindle-on line (${L[i - 1]} | ${L[i]})`);
       check(L.slice(-5).join(' ').match(/^S0 G4 P1 M0?5 G0 Z[\d.]+ M30$/), `${k} file has its own end (${L.slice(-5).join(' | ')})`);
       check(!L.slice(0, -5).some(l => /^M0?[05]\b/.test(l)), `${k} file has no stop inside`);
       check(L.some(l => /^G1\b/.test(l)), `${k} file cuts`);

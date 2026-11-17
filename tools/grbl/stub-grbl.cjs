@@ -19,10 +19,11 @@
   const PLANNER = 15;
   const LINE_MAX = 80;
   const BANNER = 'Grbl 1.1h [\'$\' for help]';
-  // factory-style values (mm, mm/min, mm/s²)
+  // the MR-1's own table (mm, mm/min, mm/s²): WPos reports with a WCO now and then ($10=0), inches
+  // ($13=1), X homes toward minus and Y, Z toward plus ($23=1)
   const FACTORY = {
-    0: 10, 1: 255, 2: 0, 3: 0, 4: 0, 5: 0, 6: 0, 10: 1, 11: 0.010, 12: 0.002, 13: 1, 20: 0, 21: 1, 22: 1, 23: 3, 24: 100, 25: 762, 26: 250, 27: 1.5,
-    30: 9000, 31: 0, 32: 0, 100: 80, 101: 80, 102: 400, 110: 2540, 111: 2540, 112: 1016, 120: 300, 121: 300, 122: 50, 130: 580, 131: 550, 132: 150
+    0: 10, 1: 255, 2: 0, 3: 0, 4: 0, 5: 0, 6: 0, 10: 0, 11: 0.010, 12: 0.002, 13: 1, 20: 0, 21: 1, 22: 1, 23: 1, 24: 100, 25: 762, 26: 250, 27: 1.5,
+    30: 9000, 31: 0, 32: 0, 100: 320, 101: 320, 102: 533.333, 110: 2540, 111: 2540, 112: 1016, 120: 300, 121: 300, 122: 50, 130: 580, 131: 550, 132: 150
   };
   const SWITCH = 1.5;           // a home switch closes this far past machine 0
 
@@ -127,8 +128,9 @@
       if (s.state === 'Run') { s.state = 'Hold'; s.sub = 1; s.holdEnd = s.simT + decel(); return; }
       if (s.state === 'Idle' && !s.planner.length && !s.cur) { s.state = 'Hold'; s.sub = 0; }
     }
+    // a cycle start acts only once a hold has come to rest (Hold:0); one sent while it slows is lost
     function cycleStart() {
-      if (s.state !== 'Hold') return;
+      if (s.state !== 'Hold' || s.sub !== 0) return;
       if (s.m0) { s.m0 = false; s.state = s.cur || s.planner.length ? 'Run' : 'Idle'; s.sub = null; ok(); return; }
       s.state = s.cur || s.planner.length ? 'Run' : 'Idle'; s.sub = null;
     }
@@ -248,7 +250,7 @@
     }
 
     function jog(body) {
-      if (!(s.state === 'Idle' || s.state === 'Jog')) return err(s.state === 'Alarm' ? 9 : 8);
+      if (!(s.state === 'Idle' || s.state === 'Jog')) return err(8);
       const w = words(body);
       if (!w) return err(16);
       let units = s.modal.units, dist = s.modal.dist, mach = false, f = null;
@@ -405,7 +407,8 @@
     function motion(dt) {
       if (s.state === 'Home') {
         if (s.simT >= s.homeEnd) {
-          if (s.homeFail) { const n = s.homeFail; s.homeFail = 0; s.state = 'Idle'; alarm(n, true); return; }
+          // a failed home resets the board: the alarm, then its banner and the lock message, unasked
+          if (s.homeFail) { const n = s.homeFail; s.homeFail = 0; s.state = 'Idle'; alarm(n, false); restart(false); return; }
           s.phys = [0, 0, 0]; s.off = [0, 0, 0];
           s.state = 'Idle';
           ok();
@@ -478,7 +481,10 @@
       // the nth line from now answers error:code
       errorOnLine(n, code = 20) { s.failLine = s.linesIn + n; s.failCode = code; },
       // the next homing fails with alarm n
-      homeFail(n = 9) { s.homeFail = n; }
+      homeFail(n = 9) { s.homeFail = n; },
+      // the board's own hold and cycle start inputs (a button, or an e-stop wired as a hold)
+      hold() { feedHold(); },
+      cycleStart() { cycleStart(); }
     };
     return stub;
   }

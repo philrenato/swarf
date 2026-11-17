@@ -609,7 +609,13 @@ export function opRender() {
                             // or a feed past the machine's own top speed
                             const typed = inp.value.trim(), v = opParse(f, typed);
                             const set = api.conf.get(), dev = set.device || {};
-                            const top = dev.feedMax > 0 ? dev.feedMax : (set.process && set.process.camFastFeed) || 0;
+                            // the file holds every move to the lower of the machine's top speed and the
+                            // process cap, and every downward move to the lower of the two Z limits
+                            const proc = set.process || {};
+                            const lowest = (...v) => { v = v.filter(n => n > 0); return v.length ? Math.min(...v) : 0; };
+                            const top = lowest(dev.feedMax, proc.camFastFeed);
+                            const topZ = lowest(dev.feedMaxZ, proc.camFastFeedZ);
+                            const plungeField = f === 'plunge' || (f === 'rate' && rec.type === 'drill');
                             const rateWords = mm => `${Math.round(mm / (opInch() ? 25.4 : 1))} ${opInch() ? 'in' : 'mm'}/min`;
                             let no = null;
                             const lenWords = mm => window.SwarfLength ? window.SwarfLength.say(mm) : `${mm} mm`;
@@ -618,6 +624,7 @@ export function opRender() {
                             else if (f === 'down' && v > 150) no = `A step-down goes up to ${lenWords(150)}, the most this machine cuts: it stays as it was.`;
                             else if (f === 'down' && v === 0 && rec.type !== 'drill') no = 'A step-down of 0 cuts nothing, or the whole depth at once: give it a depth above 0. It stays as it was.';
                             else if (f === 'leave' && v > toolWidth(rec)) no = `An allowance goes up to the bit's width (${lenWords(toolWidth(rec))}): it stays as it was.`;
+                            else if (plungeField && topZ > 0 && v > topZ) no = `That is faster than this machine plunges (${rateWords(topZ)} at most): it stays as it was.`;
                             else if (f === 'rate' && top > 0 && v > top) no = `That is faster than this machine moves (${rateWords(top)} at most): the feed stays as it was.`;
                             if (no) api.show.alert(no, 6);
                             else if (Number.isFinite(v)) rec[f] = v;

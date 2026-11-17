@@ -29,7 +29,8 @@
   G.SWARF_BUILDS = Object.assign(G.SWARF_BUILDS || {}, { 'swarf-grbl.js': '__SWARF_BUILD__' });
 
   const VID = 0x16D0, PID = 0x103E, BAUD = 115200;
-  const RX = 128;            // the board's receive buffer: bytes in flight stay under this
+  const RX = 128;            // the board's receive buffer: bytes in flight stay under this, or under the
+                             // smaller size $I reports
   const LINE_MAX = 80;       // the board's line buffer: a line this long or longer is refused (error 11)
   const IN = 25.4;
   const PREAMBLE = ['G21', 'G90', 'G94', 'G17', 'G54'];
@@ -200,6 +201,8 @@
     homeMs: 600000,          // $H: a full homing pass on every axis
     holdMs: 15000,           // a feed hold coming to rest
     resetMs: 5000,           // the banner after a soft reset
+    alarmBannerMs: 1500,     // a banner this soon after an alarm is the alarm's own reset
+    resumeTries: 5,          // cycle starts sent before a resume gives up
     pollMs: 200,             // status
     silentMs: 3000,          // no status this long (outside homing) is said
     margin: 2,               // mm kept from each end of travel
@@ -236,6 +239,8 @@
       this.linkNo = 0;
       this.homed = false;
       this.raw = { banner: '', settings: [], offsets: [], info: [], messages: [] };
+      this.rx = RX;
+      this.alarmAt = 0;
     }
 
     static supported() { return GrblSerial.supported(); }
@@ -324,7 +329,7 @@
       return new Promise(resolve => { this.waiting.push({ text, len: text.length + 1, resolve, collect: [], meta }); this.pump(); });
     }
     pump() {
-      while (this.link && this.waiting.length && this.inflight + this.waiting[0].len < RX) {
+      while (this.link && this.waiting.length && this.inflight + this.waiting[0].len < this.rx) {
         const e = this.waiting.shift();
         this.inflight += e.len;
         this.maxInflight = Math.max(this.maxInflight, this.inflight);
@@ -381,6 +386,16 @@
       else if (r.state === 'Idle' || r.state === 'Run' || r.state === 'Jog') patch.locked = false;
       // a jog chain is over once the board rests with no jog line waiting
       if (r.state === 'Idle' && !this.jogging && !this.held) this.jogAt = null;
+      // in a job, paused is the board's own Hold: a hold from its button or input pauses swarf too, and a
+      // cycle start on the board resumes it. Right after swarf's own pause the board may still say Run
+      if (this.job && this.state.running && !this.stopping) {
+        if (r.state === 'Hold') {
+          this.pauseSent = false;
+          if (!this.state.paused) { patch.paused = true; patch.note = 'paused by the machine: the spindle keeps turning. Resume, or stop'; }
+        } else if (r.state === 'Run' && this.state.paused && !this.pauseSent) {
+          patch.paused = false; patch.note = 'running';
+        }
+      }
       this.set(patch);
       for (const w of [...this.waiters]) if (w.pred(r)) { this.waiters.delete(w); w.resolve(r); }
     }
@@ -410,10 +425,14 @@
       // held is gone: the lines in flight, the homing, the machine position; the work offset in its
       // memory survives, but against a machine position that is no longer known.
       this.flush('the board restarted');
+      // an alarm that resets the board (a failed home, a limit hit) sends its banner straight after:
+      // the alarm's words say why, not a restart
+      const afterAlarm = this.state.alarm && now() - this.alarmAt < this.cfg.alarmBannerMs;
       const mid = this.state.running;
       this.homed = false; this.jogAt = null; this.held = null;
       if (this.job) this.job.ended = true;
       this.job = null;
+      if (afterAlarm) { this.set({ homed: false, locked: true, running: false, paused: false, moving: false, spindle: false, stopHit: mid || this.state.stopHit, done: false }); return; }
       this.set({ homed: false, locked: true, running: false, paused: false, moving: false, spindle: false, stopHit: mid || this.state.stopHit, done: false, lostMid: mid,
         note: `the board restarted${mid ? ` at line ${this.state.line}` : ''} (power, the e-stop or the cable): it is not homed and its zero is unknown. Home again, then zero` });
     }
@@ -428,6 +447,7 @@
     alarm(n) {
       // the board drops its buffers with an alarm: nothing in flight will be answered
       this.flush(`alarm ${n}`);
+      this.alarmAt = now();
       if (LOSES_POSITION.has(n)) { this.homed = false; this.jogAt = null; }
       this.held = null;
       const job = this.job, line = this.state.line;
@@ -481,6 +501,12 @@
       await this.readOffsets();
       const info = await this.cmd('$I');
       this.raw.info = info.lines || [];
+      // [OPT:codes,blocks,rx]: a board with a smaller receive buffer gets fewer bytes in flight
+      this.rx = RX;
+      for (const l of this.raw.info) {
+        const o = /^\[OPT:[^,\]]*,(\d+),(\d+)\]$/.exec(l);
+        if (o && +o[2] > 0) this.rx = Math.min(RX, +o[2]);
+      }
       const refused = this.refusal();
       this.poll();
       await this.fresh(2000);
@@ -507,6 +533,8 @@
       const s = this.settings || {};
       if (s[22] !== 1) return 'swarf will not drive this board: homing is off ($22=0). swarf changes no settings; turn homing back on in the machine\'s own software';
       if (s[21] !== 1) return 'swarf will not drive this board: the limit switches are off ($21=0). swarf changes no settings; turn them back on in the machine\'s own software';
+      // the travel box (box below) is X 0..+, Y and Z -..0: homing X toward minus, Y and Z toward plus
+      if (s[23] !== 1) return `swarf will not drive this board: its homing directions are $23=${s[23]}, not the MR-1's $23=1. swarf changes no settings; set it back in the machine's own software`;
       const t = this.travel();
       if (!(t.x > 0 && t.y > 0 && t.z > 0)) return 'swarf will not drive this board: it did not report its travel ($130-$132)';
       return '';
@@ -953,15 +981,36 @@
 
     pause() {
       if (!this.state.running || this.state.paused) return;
+      this.pauseSent = true;
       this.rt(RT.hold);
       this.set({ paused: true, note: 'paused: the spindle keeps turning. Resume, or stop' });
     }
     // the board keeps its own queue through a hold: no plan to make again
     resumePlan() { return null; }
-    resume() {
-      if (!this.state.running || !this.state.paused) return;
-      this.rt(RT.start);
-      this.set({ paused: false, note: 'running' });
+    // The board takes a cycle start only once its hold has come to rest (Hold:0): wait for that, send it,
+    // and send it again until the board says Run
+    async resume() {
+      if (!this.state.running || !this.state.paused || this.resuming) return;
+      const job = this.job;
+      this.resuming = true;
+      this.set({ note: 'resuming' });
+      try {
+        for (let i = 0; i < this.cfg.resumeTries; i++) {
+          if (!this.state.running || this.job !== job || this.stopping) return;
+          const st = await this.waitStatus(r => !(r.state === 'Hold' && r.sub !== 0), this.cfg.holdMs);
+          if (!this.state.running || this.job !== job || this.stopping) return;
+          if (!st) continue;
+          if (st.state === 'Run' || st.state === 'Idle') break;
+          await this.rt(RT.start);
+          const go = await this.waitStatus(r => r.state === 'Run' || r.state === 'Idle', 500);
+          if (go) break;
+        }
+        const st = this.lastStatus ? this.lastStatus.state : '';
+        if (this.state.running && this.job === job && !this.stopping) {
+          if (st === 'Run' || st === 'Idle') this.set({ paused: false, note: 'running' });
+          else this.set({ note: 'the machine did not resume: resume again, or stop' });
+        }
+      } finally { this.resuming = false; }
     }
 
     stop() {

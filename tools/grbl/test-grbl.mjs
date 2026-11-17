@@ -183,7 +183,7 @@ const log = (...a) => console.log('  ', ...a);
     const after = tail(stub, mark);
     assert.deepEqual(after.slice(-5), PREAMBLE, 'the preamble resent after the reset');
     await m.fresh();
-    for (const [i, a] of ['x', 'y', 'z'].entries()) near(m.state.mpos[a], stub.mpos()[i], 0.0013, `position kept ${a}`);
+    for (const [i, a] of ['x', 'y', 'z'].entries()) near(m.state.mpos[a], stub.mpos()[i], 0.003, `position kept ${a}`);   // WPos and WCO each rounded to 0.0001 in
     assert.match(m.state.note, /^stopped/);
     log('stop:', m.state.note, '| at', JSON.stringify(m.state.pos));
   }
@@ -295,15 +295,15 @@ const log = (...a) => console.log('  ', ...a);
 // ------------------------------------------------------------------ refusals
 {
   console.log('refusals');
-  for (const [k, word] of [[22, /homing is off \(\$22=0\)/], [21, /limit switches are off \(\$21=0\)/]]) {
-    const { m, stub } = await machine({ settings: { [k]: 0 } });
+  for (const [k, word, v = 0] of [[22, /homing is off \(\$22=0\)/], [21, /limit switches are off \(\$21=0\)/], [23, /homing directions are \$23=3/, 3], [23, /homing directions are \$23=0/]]) {
+    const { m, stub } = await machine({ settings: { [k]: v } });
     assert.ok(await m.connect(true), 'connects to read');
     assert.match(m.state.refused, word);
     assert.equal(await m.home(), false);
     assert.match(m.state.note, word);
     assert.equal(await m.jog('x', 1), false);
     assert.ok(!stub.state.received.some(l => /^\$\d+=/.test(l)), 'no setting written');
-    log(`$${k}=0:`, m.state.note);
+    log(`$${k}=${v}:`, m.state.note);
     await m.disconnect();
   }
   // lines the board would refuse never leave
@@ -353,6 +353,88 @@ const log = (...a) => console.log('  ', ...a);
   log('long pause:', m.state.note);
 }
 
+// ------------------------------------------------------------------ the MR-1's own table; a failed home; the board's hold
+{
+  console.log('the MR-1 table: a failed home, holds, the receive buffer');
+  const { m, stub } = await machine();
+  assert.equal(stub.settings[10], 0); assert.equal(stub.settings[23], 1);
+  stub.eeprom.coords[54] = [123.4, -210, -88.8];
+  assert.ok(await m.connect(true), m.state.note);
+  assert.equal(m.state.refused, '');
+  assert.equal(m.rx, 128, '$I reports 128');
+  near(m.wco.x, 123.4, 0.003, 'G54 read from $#');
+
+  // a failed home: the alarm, then the board's banner; the note keeps the alarm's words
+  stub.fault.homeFail(9);
+  assert.equal(await m.home(), false);
+  await until(() => m.state.alarm === 9, 5000, 'alarm 9');
+  await sleep(150);
+  assert.match(m.state.note, /switch was not found/, `a failed home says so: ${m.state.note}`);
+  assert.doesNotMatch(m.state.note, /restarted/);
+  assert.equal(m.homed, false);
+  log('failed home:', m.state.note);
+  assert.ok(await m.home(), m.state.note);
+  assert.ok(await m.goTo({ x: 100, y: -100, z: -50 })); await rest(m);
+  assert.ok(await m.zero('xyz')); await rest(m);
+  await m.fresh();
+
+  // resume pressed while the hold still slows (Hold:1): the board takes ~ only at Hold:0
+  stub.state.tf = 4;
+  const p = job(m, zigzag(60, 5, 2400));
+  assert.ok(m.run(R.arm(p)), m.state.note);
+  await until(() => stub.state.state === 'Run' && stub.mpos()[0] > 110, 20000, 'cutting');
+  m.pause();
+  await until(() => stub.state.state === 'Hold' && stub.state.sub === 1, 2000, 'Hold:1');
+  await m.resume();
+  await m.fresh();
+  assert.ok(stub.state.state === 'Run' || stub.state.state === 'Idle', `the board runs again (${stub.state.state}:${stub.state.sub})`);
+  assert.equal(m.state.paused, false);
+  log('resume in Hold:1:', m.state.note);
+  stub.state.tf = 40;
+
+  // the board holds by itself (its button, or an e-stop wired as a hold): swarf shows it paused
+  stub.fault.hold();
+  await until(() => m.state.paused, 3000, 'swarf paused by the board');
+  assert.equal(m.state.running, true);
+  log('board hold:', m.state.note);
+  // and the board's own cycle start clears it
+  await until(() => stub.state.sub === 0, 3000, 'Hold:0');
+  stub.fault.cycleStart();
+  await until(() => !m.state.paused || !m.state.running, 3000, 'swarf running again');
+  // swarf's own pause right after a Run report is not undone by that report
+  if (m.state.running && stub.state.state === 'Run') {
+    m.pause();
+    assert.equal(m.state.paused, true);
+    await m.fresh(); await m.fresh();
+    assert.equal(m.state.paused, true, 'still paused');
+    await m.resume();
+  }
+  await until(() => !m.state.running, 30000, 'finish');
+  assert.equal(m.state.done, true, m.state.note);
+  await m.disconnect();
+}
+{
+  // a board that reports a smaller receive buffer gets fewer bytes in flight
+  const { m, stub } = await machine();
+  const sys = stub.write;
+  stub.write = b => {
+    const t = String.fromCharCode(...b);
+    if (t === '$I\n') { setTimeout(() => stub.onData(Uint8Array.from('[VER:1.1h.20190825:]\r\n[OPT:V,15,64]\r\nok\r\n', c => c.charCodeAt(0))), 0); return b.length; }
+    return sys(b);
+  };
+  assert.ok(await m.connect(true));
+  assert.equal(m.rx, 64);
+  assert.ok(await m.home());
+  assert.ok(await m.goTo({ x: 100, y: -100, z: -50 })); await rest(m);
+  assert.ok(await m.zero('xyz')); await rest(m); await m.fresh();
+  m.maxInflight = 0;
+  assert.ok(m.run(R.arm(job(m, zigzag(200)))));
+  await until(() => !m.state.running, 30000, 'finish');
+  assert.ok(m.maxInflight < 64, `in flight under 64 (most ${m.maxInflight})`);
+  log('rx 64: most in flight', m.maxInflight);
+  await m.disconnect();
+}
+
 // ------------------------------------------------------------------ the stub on its own
 {
   console.log('the stub, line by line');
@@ -372,7 +454,7 @@ const log = (...a) => console.log('  ', ...a);
   assert.deepEqual(await say('G1X1\n'), ['error:22'], 'no feed yet');
   assert.deepEqual(await say('G2X10Y0I3J0F100\n'), ['error:33'], 'an arc whose end is off its circle');
   const r = await say('?');
-  assert.match(r[0], /^<Idle\|MPos:0\.0000,0\.0000,0\.0000\|FS:0\.0,0\|WCO:/, 'inches, four decimals, WCO');
+  assert.match(r[0], /^<Idle\|WPos:0\.0000,0\.0000,0\.0000\|FS:0\.0,0\|WCO:/, 'the MR-1 table: work position, inches, four decimals, WCO');
   await say('G1X100F600\n', 5);
   assert.deepEqual(await say('$$\n', 5), ['error:8'], '$$ while moving');
   await say('(a comment with a ! in it)\n', 100);
