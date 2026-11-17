@@ -112,7 +112,7 @@ try {
       const f = await end();
       const nested = framed ? await page.evaluate(nestedFrames, scope) : [];
       // the card must really be on screen, or the frame checks below see nothing and pass
-      const shown = await page.evaluate(sc => [...document.querySelectorAll(sc)].some(e => e.offsetParent && e.getBoundingClientRect().height > 20), scope);
+      const shown = await page.evaluate(sc => [...document.querySelectorAll(sc)].some(e => { const r = e.getBoundingClientRect(), cs = getComputedStyle(e); return r.height > 20 && r.width > 20 && cs.visibility !== 'hidden' && cs.display !== 'none' && +cs.opacity > 0; }), scope);
       check(opened !== false && shown && f.n > 5, `${skin}: ${what} opens and shows (${f.n} frames${shown ? '' : ', not on screen'})`);
       check(!f.list.length, `${skin}: ${what}, no dark fill in any frame${f.list.length ? ': ' + f.list.slice(0, 3).join('; ') : ''}`);
       if (framed) check(!nested.length, `${skin}: ${what}, one frame${nested.length ? ': ' + nested.join('; ') : ''}`);
@@ -120,7 +120,7 @@ try {
       await page.keyboard.press('Escape'); await page.evaluate(() => { try { window.kiri.api.modal.hide(); } catch (e) {} }); await wait(300);
     };
     const press = id => () => page.evaluate(id => { const e = document.getElementById(id); e && e.click(); return !!e; }, id);
-    await card('the machine card', '#modal', press('set-device'));
+    await card('the machine card', '#dialog', press('set-device'), () => page.evaluate(() => [...document.querySelectorAll('#dialog button')].find(b => b.textContent === 'cancel')?.click()));
     await card('the about card', '#modal', press('app-help'));
     await card('every word in swarf', '#modal', press('swarf-concordance'));
     const stl = 'solid b\n' + [[[0, 0, 0], [50, 75, 0], [50, 0, 0]], [[0, 0, 0], [0, 75, 0], [50, 75, 0]], [[0, 0, 19], [50, 0, 19], [50, 75, 19]]].map(t => ` facet normal 0 0 0\n  outer loop\n${t.map(v => `   vertex ${v.join(' ')}`).join('\n')}\n  endloop\n endfacet`).join('\n') + '\nendsolid b\n';

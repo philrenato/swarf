@@ -73,6 +73,9 @@ try {
     [...row.querySelectorAll('button')].find(b => b.textContent.startsWith(label)).click();
   }, axis, label);
   const idle = () => page.waitForFunction(() => !window.__swarfRun.state.machine.busy(), { timeout: 10000 }).then(() => new Promise(r => setTimeout(r, 200)));
+  // the card's own position unchanged for half a second: a move has really finished (busy() can read
+  // false before a move has started streaming)
+  const settled = async () => { let last = null; for (let i = 0; i < 100; i++) { const p = await page.evaluate(() => window.__stub.state.pos.slice(0, 3).join()); if (p === last) return; last = p; await new Promise(r => setTimeout(r, 500)); } };
   const cardX = () => page.evaluate(() => window.__stub.state.pos[0]);
   await chk('X', '+20 mm'); await idle();
   const x1 = await cardX();
@@ -177,8 +180,9 @@ try {
   const rowsIn = await page.evaluate(() => [...document.querySelectorAll('.sr-modes')].slice(0, 2).map(r => r.textContent));
   check(/^stepin/.test(rowsIn[0]) && /0\.01/.test(rowsIn[0]) && /^speedin\/min/.test(rowsIn[1]) && /100/.test(rowsIn[1]), `in inches the rows say inches (${rowsIn.join(' | ')})`);
   await pick(0, '1'); await pick(1, '100');
+  await settled();
   c0 = await card();
-  await page.keyboard.press('ArrowRight'); await idle();
+  await page.keyboard.press('ArrowRight'); await new Promise(r => setTimeout(r, 300)); await idle(); await settled();
   c1 = await card();
   const droIn = await page.$eval('.sr-axis .v', e => e.textContent);
   check(Math.abs((c1[0] - c0[0]) / 72.18 - 25.4) < 0.1 && /^\d+\.\d{4}$/.test(droIn), `a 1 in step moves 25.4 mm (${((c1[0] - c0[0]) / 72.18).toFixed(2)}), the readout in inches (${droIn})`);
