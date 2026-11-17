@@ -7,7 +7,7 @@
  *
  * Output (all lengths in mm, speeds in mm/s):
  *   { units, moves:[{x0,y0,z0,x,y,z,rapid,feed,line}], events:[{line,kind,value}],
- *     warnings:[{line,text}], unsupported:[{line,text}], bounds, seconds, lines }
+ *     warnings:[{line,text}], unsupported:[{line,text,why?}], bounds, seconds, lines }
  *
  * What it does not run: SBP control flow (IF/GOTO/GOSUB other than VCarve's
  * unit check), loops, variables in motion parameters it cannot resolve. Those
@@ -19,6 +19,8 @@
   (typeof window !== 'undefined' ? window : globalThis).SWARF_BUILDS = Object.assign((typeof window !== 'undefined' ? window : globalThis).SWARF_BUILDS || {}, { 'swarf-run-parse.js': '__SWARF_BUILD__' });
 
   const IN = 25.4;
+  const ARC_MAX = 5000;      // mm: an arc radius past this fits no table
+  const ARC_CHORDS = 5000;   // chords in one arc at most
 
   function parse(text, opts = {}) {
     const machineUnits = opts.machineUnits || 'mm';
@@ -49,7 +51,7 @@
       if (tok === '') return undefined;
       if (tok[0] === '&') {
         const v = st.vars[tok.slice(1).toLowerCase()];
-        return v === undefined ? NaN : v;
+        return typeof v === 'number' && Number.isFinite(v) ? v : NaN;
       }
       const n = Number(tok);
       return Number.isFinite(n) ? n : NaN;
@@ -63,7 +65,7 @@
     }
 
     function seg(x, y, z, rapid, feed, line) {
-      if ([x, y, z].some(Number.isNaN)) {
+      if (![x, y, z].every(Number.isFinite)) {
         out.unsupported.push({ line, text: lines[line - 1].trim() });
         return;
       }
@@ -85,12 +87,17 @@
       const cx = st.x + i, cy = st.y + j;
       const r = Math.hypot(st.x - cx, st.y - cy);
       if (!(r > 0)) { seg(x, y, z, rapid, feed, line); return; }
+      // the end must lie on the circle (GRBL's own test: off by more than 0.005 mm and 0.1 %), and the
+      // arc must fit a machine table
+      const rEnd = Math.hypot(x - cx, y - cy), off = Math.abs(rEnd - r);
+      if (off > 0.005 && off > 0.001 * r) { out.unsupported.push({ line, text: lines[line - 1].trim(), why: 'its arc ends off its own circle' }); st.x = x; st.y = y; st.z = z; return; }
+      if (r > ARC_MAX) { out.unsupported.push({ line, text: lines[line - 1].trim(), why: 'its arc is bigger than any table' }); st.x = x; st.y = y; st.z = z; return; }
       let a0 = Math.atan2(st.y - cy, st.x - cx);
       let a1 = Math.atan2(y - cy, x - cx);
       let sweep = a1 - a0;
       if (cw) { if (sweep >= 0) sweep -= 2 * Math.PI; }
       else { if (sweep <= 0) sweep += 2 * Math.PI; }
-      const n = Math.max(4, Math.ceil(Math.abs(sweep) * r / 1.0));   // ~1 mm chords
+      const n = Math.min(ARC_CHORDS, Math.max(4, Math.ceil(Math.abs(sweep) * r / 1.0)));   // ~1 mm chords, longer on a very big arc
       const z0 = st.z;
       for (let k = 1; k <= n; k++) {
         const a = a0 + sweep * k / n;
@@ -106,10 +113,19 @@
       let raw = lines[n - 1];
       const uc = raw.match(/^\s*'\s*UNITS\s*:\s*(MM|INCH|IN)/i);
       if (uc) { setUnits(/^MM$/i.test(uc[1]) ? 'mm' : 'in', n); continue; }
-      // strip comments: SBP ' to end, G-code ( ) and ;
-      let s = raw.replace(/'.*$/, '').replace(/(?<!%)\([^)]*\)/g, '').replace(/;.*$/, '').trim();
+      // strip comments: G-code ( ) first (an apostrophe inside one is not an SBP comment), then SBP ' to
+      // end, then ;
+      let s = raw.replace(/(?<!%)\([^)]*\)/g, '').replace(/'.*$/, '').replace(/;.*$/, '').trim();
       if (!s) continue;
+      // a % line marks a G-code file's start and end
+      if (/^%+$/.test(s)) continue;
       const U = s.toUpperCase();
+      // OpenSBP Z2 / Z3 zero the axes at the bit; in a file with no G-code before it this is that
+      // command, not a move to Z 2 or Z 3. swarf does not carry it out
+      if (!st.sawG && /^Z[23]$/.test(U)) {
+        out.unsupported.push({ line: n, text: s, why: `${U} zeroes the machine's axes partway through the file` });
+        continue;
+      }
 
       // VCarve's unit check: %(25) is ShopBot's unit flag, 0 = inch, 1 = mm.
       // "IF %(25)=0 THEN GOTO UNIT_ERROR" means this file needs mm.
@@ -135,7 +151,10 @@
 
       // G-code: a line that starts with G/M/T/S/F/N or bare axis words. A comma
       // after the first token makes it SBP: "M3,1,2,0" is a move, "M3 S9000" a spindle.
-      if (!/^[A-Z][A-Z0-9]*\s*,/.test(U) && /^(N\d+\s*)?[GMTSFXYZIJ][-+.\d]/.test(U)) {
+      // a line that is only a line number does nothing
+      if (/^N\s*\d+$/.test(U)) continue;
+      if (!/^[A-Z][A-Z0-9]*\s*,/.test(U) && /^(N\s*\d+\s*)?[GMTSFXYZIJ]\s*[-+.\d]/.test(U)) {
+        if (/^(N\s*\d+\s*)?[GM]/.test(U)) st.sawG = true;
         gcodeLine(U, n);
         if (st.ended) break;          // M2 / M30: the program ends here
         continue;
@@ -231,7 +250,7 @@
       // "Xbad" or a stray Q999 were silently dropped)
       // a dwell (G4) carries its seconds in P; P on any other line is still a word swarf does not know
       const dwell = /(^|[^A-Z])G\s*0*4(?![\d.])/.test(U);
-      const rest = U.replace(/^N\d+\s*/, '').replace(dwell ? /[GMXYZIJFSTNP]\s*[-+]?(\d+\.?\d*|\.\d+)/g : /[GMXYZIJFSTN]\s*[-+]?(\d+\.?\d*|\.\d+)/g, '').trim();
+      const rest = U.replace(/^N\s*\d+\s*/, '').replace(dwell ? /[GMXYZIJFSTNP]\s*[-+]?(\d+\.?\d*|\.\d+)/g : /[GMXYZIJFSTN]\s*[-+]?(\d+\.?\d*|\.\d+)/g, '').trim();
       if (rest) { out.unsupported.push({ line: n, text: U.trim() }); return; }
       const words = {};
       const re = /([A-Z])\s*([-+]?\d*\.?\d+)/g;
@@ -241,6 +260,10 @@
         else if (m[1] === 'M') ms.push(Number(m[2]));
         else words[m[1]] = Number(m[2]);
       }
+      // every number on the line is a finite one
+      if (![...gs, ...ms, ...Object.values(words)].every(Number.isFinite)) { out.unsupported.push({ line: n, text: U.trim(), why: 'a number too big to be real' }); return; }
+      // a feed is a speed above zero
+      if (words.F !== undefined && !(words.F > 0)) { out.unsupported.push({ line: n, text: U.trim(), why: 'a feed rate of zero or less' }); return; }
       // an allowlist, not a blacklist (design review 10-28 #2): a G or M code swarf does not
       // carry out exactly (G92 offsets, G18/G19 planes, G41/42 compensation, canned cycles,
       // G93 feed modes …) makes the whole line unreadable, which blocks the run
@@ -270,8 +293,12 @@
       if (words.S !== undefined) event(n, 'rpm', words.S);
       if (words.F !== undefined) st.gfeed = words.F * st.scale / 60;
       const has = 'X' in words || 'Y' in words || 'Z' in words;
+      // an arc centre with no end point (a full circle written as G2 I-5) is not carried out
+      if (!has && ('I' in words || 'J' in words)) { out.unsupported.push({ line: n, text: U.trim(), why: 'an arc with no end point' }); return; }
       if (!has) return;
       const ax = (cur, k) => k in words ? (st.abs ? words[k] * st.scale : cur + words[k] * st.scale) : cur;
+      // a cutting move needs a feed the file set: none would run at the machine's top speed
+      if (st.gmode !== 0 && !(st.gfeed > 0)) { out.unsupported.push({ line: n, text: U.trim(), why: 'a cutting move with no feed rate (F)' }); st.x = ax(st.x, 'X'); st.y = ax(st.y, 'Y'); st.z = ax(st.z, 'Z'); return; }
       const x = ax(st.x, 'X'), y = ax(st.y, 'Y'), z = ax(st.z, 'Z');
       const rapid = st.gmode === 0;
       const feed = rapid ? st.jogXY : (st.gfeed || st.moveXY);
@@ -416,7 +443,8 @@
     if (!switches.some(e => e.kind === 'spindle-on' || (e.kind === 'output' && e.value[1] === 1))) return null;
     let on = false, afterChange = false, i = 0;
     for (const m of parsed.moves) {
-      for (; i < switches.length && switches[i].line < m.line; i++) {
+      // a switch on the move's own line (G1 Z-1 F300 M3 S12000) acts before the move
+      for (; i < switches.length && switches[i].line <= m.line; i++) {
         const e = switches[i], kind = e.kind === 'output' ? (e.value[1] === 1 ? 'spindle-on' : 'spindle-off') : e.kind;
         if (kind === 'spindle-on') { on = true; afterChange = false; }
         else { on = false; afterChange = kind === 'tool-change'; }
@@ -453,7 +481,26 @@
     const outs = new Map();
     for (const e of parsed.events) if (e.line < line && e.kind === 'output' && e.value[0] >= 2) outs.set(e.value[0], e);
     const events = [...[...outs.values()].map(e => ({ ...e, line: line - 0.5 })), ...parsed.events.filter(e => e.line >= line)];
-    return { name: `${name} (from line ${line})`, moves, sbp, events, source: parsed, spindle: spindleOn };
+    // a continue is a cut: the router starts at the way in if it was on at line N, and the file's own
+    // switches from line N on (C6 after a tool change) turn it on and off
+    return { name: `${name} (from line ${line})`, moves, sbp, events, source: parsed, spindle: spindleOn, cut: true };
+  }
+
+  // A job made as one file per bit (the MR-1's: each with its own start and end) as one program
+  // control can hold at each bit change: every bit's file in order, each but the last without its
+  // program end, a bit change between two (the bit named for the change card, then M6). Each bit's
+  // own spindle line and speed stay with it.
+  function joinBitFiles(files) {
+    const out = [];
+    files.forEach((f, i) => {
+      let lines = String(f.text).split(/\r\n|\r|\n/);
+      if (i < files.length - 1) lines = lines.filter(l => !/^\s*(N\s*\d+\s*)?M0*(2|30)\b/i.test(l));
+      const name = String(f.bit || f.name || `bit ${i + 1}`).replace(/[\r\n']/g, ' ');
+      out.push(`&Tool =${i + 1}        'Load ${name}`);
+      if (i > 0) out.push('M6');
+      out.push(...lines.filter(l => l.trim() !== ''));
+    });
+    return out.join('\n') + '\n';
   }
 
   // the first rapid that crosses below the top of the board (review 105: at rapid speed, through the wood)
@@ -466,7 +513,7 @@
     return parsed.moves.find(m => m.rapid && m.z < m.z0 && m.z < -0.05 && Math.hypot(m.x - m.x0, m.y - m.y0) <= 0.05) || null;
   }
 
-  const api = { parse, boundsOf, cutBounds, movesToSbp, traceProgram, airProgram, fromLineProgram, entryMoves, routerOffCut, rapidAcross, rapidDown };
+  const api = { parse, boundsOf, cutBounds, movesToSbp, traceProgram, airProgram, fromLineProgram, entryMoves, routerOffCut, rapidAcross, rapidDown, joinBitFiles };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.SwarfRunParse = api;
 })(typeof window !== 'undefined' ? window : globalThis);

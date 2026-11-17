@@ -155,6 +155,7 @@
       if (s.reports % (moving ? 20 : 10) === 1 || ova !== s.lastOv) { r += `|Ov:${ov}`; if (a) r += `|A:${a}`; s.lastOv = ova; }
       if (s.q !== undefined) r += `|Q:${s.q}`;
       s.reports++;
+      if (s.garble) { s.garble = false; r = r.includes('WCO:') ? r.replace(/WCO:([-\d.]+),/, 'WCO:$1') : r.replace(/Pos:([-\d.]+),/, 'Pos:$1'); }
       out(r + '>');
     }
 
@@ -482,6 +483,8 @@
       errorOnLine(n, code = 20) { s.failLine = s.linesIn + n; s.failCode = code; },
       // the next homing fails with alarm n
       homeFail(n = 9) { s.homeFail = n; },
+      // the next status report arrives damaged: a byte of its WCO (or position) field changed
+      garble() { s.garble = true; },
       // the board's own hold and cycle start inputs (a button, or an e-stop wired as a hold)
       hold() { feedHold(); },
       cycleStart() { cycleStart(); }

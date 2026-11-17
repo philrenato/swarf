@@ -363,7 +363,8 @@
         if (op.cue) { try { op.cue(); } catch (e) { /* a sound never stops a stream */ } }
         if (op.out === undefined && op.dwell === undefined) { run.push(op); continue; }
         if (run.length) { if (yield* this.moveRun(run, from)) return; from = run[run.length - 1]; run = []; }
-        if (this.halt) break;
+        // halted at a switch or a dwell: the job picks up from this op, which was never sent
+        if (this.halt) { this.at = { steps: this.st.cur, line: op.line, op }; yield END; return; }
         if (op.out !== undefined) { yield 0x70; yield op.out & 0xFF; yield (op.out >> 8) & 0x0F; }
         else yield* this.dwell(op.dwell, op.line);
       }

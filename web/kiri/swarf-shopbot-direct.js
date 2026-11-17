@@ -109,10 +109,20 @@
       if (typeof H.confirmed !== 'boolean') H.confirmed = false;
       const P = this.plateCfg;
       if (!input(P.input) || !level(P.hit)) { P.input = PLATE.input; P.hit = PLATE.hit; P.confirmed = false; }
+      // a plate on the e-stop's input or a home sensor's is a misread, not a plate: the card asks for a touch again
+      if (this.plateClash()) P.confirmed = false;
       if (!num(P.thickness, v => v > 0 && v < 50)) P.thickness = PLATE.thickness;     // setPlateThickness's range
       if (!num(P.travel, v => v >= 10 && v <= 150)) P.travel = PLATE.travel;          // setPlateTravel's
       for (const k of ['fast', 'slow', 'lift']) if (!num(P[k], v => v > 0)) P[k] = PLATE[k];
       if (typeof P.confirmed !== 'boolean') P.confirmed = false;
+    }
+
+    // the saved plate input is one the e-stop or a home sensor uses
+    plateClash() {
+      const P = this.plateCfg, H = this.homeCfg || {};
+      if (!P) return false;
+      if (P.input === this.stopCfg().input) return true;
+      return ['x', 'y'].some(a => H[a] && H[a].input === P.input && H.set && H.set[a]);
     }
 
     invertMask() { return (this.flip.x ? 1 : 0) | (this.flip.y ? 2 : 0) | (this.flip.z ? 4 : 0); }
@@ -417,10 +427,13 @@
             this.estopped(); return;
           }
         }
-        this.timer = setTimeout(loop, this.routerTesting ? 100 : 400);
+        this.timer = setTimeout(loop, this.pollMs());
       };
-      this.timer = setTimeout(loop, this.routerTesting ? 100 : 400);
+      this.timer = setTimeout(loop, this.pollMs());
     }
+
+    // inputs read at rest: fast while the router runs by hand or a card waits for a touch (wantInputs, set by the page)
+    pollMs() { return this.routerTesting ? 100 : this.wantInputs && this.wantInputs() ? 75 : 400; }
 
     busy() { return !this.card || this.card.streaming || this.state.running || !!this.testing || !!this.homing || !!this.routerTesting; }
 
@@ -441,6 +454,11 @@
     stopClear(inputs) { const i = inputs || this.state.inputs, c = this.stopCfg(); return !!i && this.level(i, c.input) === c.rest; }
 
     async stack(ops, hook, wanted) {
+      // a stop pressed from here until the card starts streaming lands in stopEarly
+      this.stacking = true; this.stopEarly = false;
+      try { return await this.stackNow(ops, hook, wanted); } finally { this.stacking = false; this.stopEarly = false; }
+    }
+    async stackNow(ops, hook, wanted) {
       // a fresh reading of the e-stop before anything moves (follow-up review #6), not the last poll's
       const stop = await this.freshStop();
       if (stop !== 'clear') { const e = new Error(STOP_WORDS[stop]); e.refused = true; throw e; }
@@ -458,6 +476,8 @@
         if (why) { const e = new Error(`not moved: a move ${why}`); e.refused = true; throw e; }
         a = o;
       }
+      // a stop, or a job's pause, pressed while the e-stop was read and the moves checked: nothing is sent
+      if (this.stopEarly || (this.state.running && this.halted)) { const e = new Error('halted before it moved'); e.halted = true; throw e; }
       this.set({ moving: true });
       this.streamAt = performance.now();
       const p = this.planner;
@@ -513,7 +533,7 @@
       if (this.state.routerUnknown) { this.set({ note: UNKNOWN }); return; }
       for (let i = 0, a = this.state.pos; i < targets.length; a = targets[i++]) { const why = root.SwarfRunPlan.segProblem(a, targets[i], speed(targets[i]), this.planCfg()); if (why) { this.set({ note: `not moved: that move ${why}` }); return; } }
       const ops = targets.map(t => Object.assign(this.machine(t), { feed: speed(t), line: 0 }));
-      this.stack(ops, null, wanted).catch(e => this.set({ moving: false, note: e.message })).finally(() => { if (!this.state.running) this.halted = null; });
+      this.stack(ops, null, wanted).catch(e => this.set({ moving: false, note: e.halted ? 'stopped' : e.message })).finally(() => { if (!this.state.running) this.halted = null; });
     }
 
     jog(axis, dist) {
@@ -673,6 +693,7 @@
       if (this.busy()) return false;
       if (this.state.routerUnknown) { this.set({ note: UNKNOWN }); return false; }
       const P = this.plateCfg, u = this.cfg.unit.z;
+      if (this.plateClash()) { P.confirmed = false; this.savePlate(); }
       if (!P.confirmed) { this.set({ note: 'set the Z plate in "check the machine" first' }); return false; }
       this.read(await this.card.status());
       if (this.level(this.state.inputs, P.input) === P.hit) { this.set({ note: 'the plate already reads contact: lift the bit off the plate, then zero again' }); return false; }
@@ -747,7 +768,7 @@
     // what a plan is for: this zero, on this link (a reconnect or a new zero makes a new plan)
     planCtx() { const o = this.origin; return { machine: 'shopbot', link: this.linkNo || 0, origin: [Math.round(o.x), Math.round(o.y), Math.round(o.z)] }; }
     plan(prog) {
-      return root.SwarfRunPlan.build(prog, { pos: this.state.pos, live: prog.spindle !== false && !prog.preview, cfg: this.planCfg(), ctx: this.planCtx() });
+      return root.SwarfRunPlan.build(prog, { pos: this.state.pos, live: (prog.cut || prog.spindle !== false) && !prog.preview, cfg: this.planCfg(), ctx: this.planCtx() });
     }
 
     // Only a plan swarf made, the student confirmed, and nothing changed since runs (third review
@@ -845,21 +866,22 @@
       await new Promise(r => (typeof requestIdleCallback === 'function' ? requestIdleCallback(() => r(), { timeout: 300 }) : setTimeout(r, 60)));
       this.starting = false;
       // a stop or a pause pressed in that moment holds before anything is sent
-      if (this.halted && this.job) {
+      const heldBack = () => {
         const how = this.halted;
         this.halted = null;
-        if (how === 'pause') {
+        if (how === 'pause' && this.job) {
           this.job.rest = ops; this.job.restStep = ops.length && ops[0].si !== undefined ? ops[0].si : 0; this.job.haltAt = { ...this.state.pos };
-          this.set({ paused: true, spindle: false, note: 'paused' });
+          this.set({ paused: true, moving: false, spindle: false, note: 'paused' });
         } else {
-          this.job = null;
+          this.job = null; this.holdAt = null;
           this.set({ running: false, paused: false, moving: false, spindle: false, stopHit: true, note: 'stopped before it moved' });
         }
-        return;
-      }
+      };
+      if (this.halted && this.job) { heldBack(); return; }
       try {
         await this.stack(ops);
       } catch (e) {
+        if (e.halted) { if (!this.halted) this.halted = 'stop'; heldBack(); return; }
         if (e.refused) {
           // refused before anything was sent (the e-stop read): nothing moved, nothing switched
           this.job = null; this.holdAt = null;
@@ -959,7 +981,9 @@
       if (this.homing) this.homeAbort = true;
       // pressed while the job waits to set off: it never sets off
       if (this.starting) { this.halted = 'stop'; return; }
-      if (this.card && this.card.streaming) { if (!this.homing) this.halted = 'stop'; this.planner.stop(); }
+      if (this.card && this.card.streaming) { if (!this.homing) this.halted = 'stop'; this.planner.stop(); return; }
+      // pressed while a job, a jog, a seek or a resume reads the e-stop and checks its moves: none of it is sent
+      if (this.stacking) { this.stopEarly = true; if (this.state.running && !this.homing) this.halted = 'stop'; }
     }
 
     answer(v) { if (v === 1) this.resume(); else this.stop(); }

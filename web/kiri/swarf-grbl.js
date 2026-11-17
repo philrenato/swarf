@@ -365,6 +365,10 @@
     toMm() { return this.settings && this.settings[13] === 1 ? IN : 1; }
 
     status(r) {
+      // a report damaged on the wire (a lost comma, a flipped byte) is ignored whole: one bad offset
+      // would turn every travel check off
+      const finite = v => !v || [v.x, v.y, v.z].every(Number.isFinite);
+      if (!finite(r.mpos) || !finite(r.wpos) || !finite(r.wco) || (r.feed !== undefined && !Number.isFinite(r.feed))) { this.badReports = (this.badReports || 0) + 1; return; }
       const f = this.toMm();
       const scale = v => ({ x: v.x * f, y: v.y * f, z: v.z * f });
       if (r.wco) this.wco = scale(r.wco);
@@ -425,6 +429,8 @@
       // held is gone: the lines in flight, the homing, the machine position; the work offset in its
       // memory survives, but against a machine position that is no longer known.
       this.flush('the board restarted');
+      // a restarted board with homing on sits locked until it homes; the last report before it is stale
+      if (this.lastStatus) this.lastStatus = { ...this.lastStatus, state: 'Alarm', sub: null };
       // an alarm that resets the board (a failed home, a limit hit) sends its banner straight after:
       // the alarm's words say why, not a restart
       const afterAlarm = this.state.alarm && now() - this.alarmAt < this.cfg.alarmBannerMs;
@@ -868,7 +874,7 @@
     }
     plan(prog) {
       const R = root.SwarfRunPlan;
-      const p = R.build(prog, { pos: this.state.pos, live: prog.spindle !== false && !prog.preview, cfg: this.planCfg(), ctx: this.planCtx() });
+      const p = R.build(prog, { pos: this.state.pos, live: (prog.cut || prog.spindle !== false) && !prog.preview, cfg: this.planCfg(), ctx: this.planCtx() });
       const rpm = this.rpmOf(prog);
       const extra = [];
       const env = this.envelope(p);
@@ -877,6 +883,8 @@
         if (!(rpm > 0)) extra.push('the file names no spindle speed (an S word)');
         else if (rpm > this.cfg.rpmMax) extra.push(`the file's spindle speed (${rpm}) is over this machine's ${this.cfg.rpmMax}`);
       }
+      const fast = p.steps.find(s => s.rpm > this.cfg.rpmMax);
+      if (fast) extra.push(`line ${fast.line}'s spindle speed (${fast.rpm}) is over this machine's ${this.cfg.rpmMax}`);
       const outs = p.steps.find(s => s.out);
       if (outs) extra.push(`line ${outs.line} switches output ${outs.out}, which this machine does not have`);
       // the fingerprint covers the steps; the speed and these problems ride beside them
@@ -891,7 +899,8 @@
         if (!s.move) continue;
         for (const a of ['x', 'y', 'z']) {
           const v = s.move[a] + w[a];
-          if (Math.abs(this.clampAxis(a, f[a], v) - v) > 0.0005)
+          // a number that is not one fails too (a damaged report's offset)
+          if (!(Math.abs(this.clampAxis(a, f[a], v) - v) <= 0.0005))
             return `line ${s.line || 0} goes past the machine's ${a.toUpperCase()} travel (${fmt(s.move[a], 1)} mm in work, ${fmt(v, 1)} on the machine)`;
         }
       }
@@ -917,13 +926,15 @@
     // the plan as the lines the board gets, each with the file line it came from
     linesOf(plan) {
       const out = PREAMBLE.map(text => ({ text, line: 0 }));
-      const rpm = Math.min(this.cfg.rpmMax, Math.round(plan.rpm || 0));
+      // each start runs at the speed the file set there; a new S while it runs is sent as it comes
+      const speed = v => Math.min(this.cfg.rpmMax, Math.round(v || plan.rpm || 0));
       for (const s of plan.steps) {
         if (s.move) {
           const m = s.move, xyz = `X${fmt(m.x)}Y${fmt(m.y)}Z${fmt(m.z)}`;
           if (s.work && s.work.rapid) out.push({ text: `G0${xyz}`, line: s.line });
           else out.push({ text: `G1${xyz}F${fmt(s.feed * 60, 1)}`, line: s.line });
-        } else if (s.router === true) out.push({ text: `M3S${rpm}`, line: s.line });
+        } else if (s.router === true) out.push({ text: `M3S${speed(s.rpm)}`, line: s.line });
+        else if (s.rpm > 0) out.push({ text: `S${speed(s.rpm)}`, line: s.line });
         else if (s.router === false) { out.push({ text: 'S0', line: s.line }, { text: 'G4P1', line: s.line }, { text: 'M5', line: s.line }); }
         else if (s.dwell > 0) out.push({ text: `G4P${fmt(s.dwell)}`, line: s.line });
       }

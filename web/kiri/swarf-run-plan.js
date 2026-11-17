@@ -6,12 +6,14 @@
  * it, the simulator plays it and the ShopBot driver sends it; nothing adds a move afterwards.
  *
  *   const plan = SwarfRunPlan.build(prog, { pos, live, cfg })
- *     prog   { name, moves, events?, sbp?, spindle, kind }   (a program from swarf-run-parse)
+ *     prog   { name, moves, events?, sbp?, spindle, cut?, kind }   (a program from swarf-run-parse;
+ *            spindle: the router is on where it starts; cut: a cut even if it starts with it off)
  *     pos    where the bit is now (work mm)
  *     live   the router may run (a cut or a continue)
  *     cfg    { safeZ, rapid: {xy, z}, move: {xy, z}, jog: {z}, spinUp, changeZ, unit, tickHz }
  *   plan.steps      [{ move: {x, y, z}, feed, line, work?, phase }, { router: true|false, line },
- *                    { out: n, on, line }, { dwell: s, line }]   in order
+ *                    { out: n, on, line }, { dwell: s, line }, { rpm, line }]   in order (a router step
+ *                    carries the speed in force, rpm, when the file named one)
  *   plan.hold       the tool change or pause that ends it early, or null
  *   plan.moves      the moves as segments (x0..z) for the preview
  *   plan.problems   why it must not run ([] when it may)
@@ -38,13 +40,15 @@
     if (!src) problems.push('there is no checked file behind these moves');
     else for (const v of validate(src)) problems.push(v.text);
     // the events are the program's own (a trace or an air cut writes its own file); the source is only checked
-    const events = (prog.events || (prog.sbp && P ? (prog.source ? P.parse(prog.sbp, { machineUnits: 'mm' }) : src).events : src ? src.events : [])).slice().sort((a, b) => a.line - b.line);
-    let router = false, e = 0, moved = false, hold = null;
-    const say = (on, line) => { if (on !== router) { router = on; steps.push({ router: on, line: line || 0 }); if (on) steps.push({ dwell: cfg.spinUp, line: line || 0 }); } };
+    // a speed on a line goes before that line's switch (M3 S8000: the router starts at 8000)
+    const events = (prog.events || (prog.sbp && P ? (prog.source ? P.parse(prog.sbp, { machineUnits: 'mm' }) : src).events : src ? src.events : [])).slice().sort((a, b) => a.line - b.line || (b.kind === 'rpm') - (a.kind === 'rpm'));
+    let router = false, e = 0, moved = false, hold = null, rpm = 0;
+    const say = (on, line) => { if (on !== router) { router = on; steps.push({ router: on, line: line || 0, ...(on && rpm ? { rpm } : {}) }); if (on) steps.push({ dwell: cfg.spinUp, line: line || 0 }); } };
     const move = (t, feed, line, phase, work) => steps.push({ move: { x: t.x, y: t.y, z: t.z }, feed, line: line || 0, phase, ...(work ? { work } : {}) });
     const event = ev => {
       const k = ev.kind;
-      if (live && k === 'spindle-on') say(true, ev.line);
+      if (live && k === 'rpm' && ev.value > 0) { if (ev.value !== rpm) { rpm = ev.value; if (router) steps.push({ rpm, line: ev.line }); } }
+      else if (live && k === 'spindle-on') say(true, ev.line);
       else if (live && k === 'spindle-off') say(false, ev.line);
       else if (live && k === 'output' && ev.value[0] === 1) say(ev.value[1] === 1, ev.line);
       else if (live && k === 'output' && ev.value[0] >= 2 && ev.value[0] <= 12) steps.push({ out: ev.value[0], on: ev.value[1] === 1, line: ev.line });
@@ -75,8 +79,9 @@
         at = { x: m.x, y: m.y, z: Math.max(at.z, m.z) };
         continue;
       }
-      if (!started) { if (live) say(true, m.line); started = true; }
-      while (e < events.length && events[e].line < m.line) event(events[e++]);
+      if (!started) { if (live && prog.spindle !== false) say(true, m.line); started = true; }
+      // a router switch on the move's own line (G1 Z-1 F300 M3) acts before the move
+      while (e < events.length && (events[e].line < m.line || (events[e].line === m.line && isSwitch(events[e])))) event(events[e++]);
       if (hold) break;
       let feed = m.rapid ? (m.z !== m.z0 && m.x === m.x0 && m.y === m.y0 ? cfg.rapid.z : cfg.rapid.xy) : (m.feed || cfg.move.xy);
       if (!m.rapid) {
@@ -85,6 +90,8 @@
         feed = Math.min(feed, cfg.move.xy);
         if (dz > 1e-9 && L > 0) feed = Math.min(feed, cfg.move.z * L / dz);
       }
+      // a cut never feeds into the board with the router off
+      if (live && !router && !m.rapid && Math.min(m.z, m.z0) < -0.05 && !problems.some(t => /router off/.test(t))) problems.push(`line ${m.line} feeds into the board with the router off`);
       move(m, feed, m.line, m.lead ? 'entry' : 'program', m);
       at = { x: m.x, y: m.y, z: m.z };
       moved = true;
@@ -114,6 +121,8 @@
     return seal({ kind: prog.kind || (live ? 'cut' : 'test'), name: prog.name, live, from: { ...pos }, steps, hold, moves: segs, problems, ctx: ctx || null, armed: false });
   }
 
+  function isSwitch(ev) { return ev.kind === 'spindle-on' || ev.kind === 'spindle-off' || (ev.kind === 'output' && ev.value[0] === 1); }
+
   // a copy of the plan's data (no shared objects with whoever made it), frozen all the way down,
   // with its fingerprint (third review #4)
   function seal(plan) {
@@ -131,7 +140,7 @@
     add(plan.kind); add(plan.name); add(plan.live); add(plan.from.x); add(plan.from.y); add(plan.from.z); add(plan.ctx); add(plan.hold);
     for (const s of plan.steps) {
       if (s.move) { add('m'); add(s.move.x); add(s.move.y); add(s.move.z); add(s.feed); add(s.line); add(s.phase); add(!!(s.work && s.work.rapid)); }
-      else { add(s.router); add(s.out); add(s.on); add(s.dwell); add(s.restore); add(s.line); }
+      else { add(s.router); add(s.out); add(s.on); add(s.dwell); add(s.restore); add(s.rpm); add(s.line); }
     }
     return h.toString(36) + ':' + plan.steps.length;
   }

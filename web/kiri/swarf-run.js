@@ -1118,16 +1118,24 @@ html[data-skin] #swarf-run .sr-jog .sr-zrow button.next, html[data-skin] #swarf-
     const done = msg => { S.camBusy = false; S.camDone = null; if (msg) S.camError = msg; clearTimeout(S.camTimer); refresh(); };
     // cam's event bus has no off(): one listener for good, pointed at the current request
     S.camDone = done;
-    if (!S.camErrHooked) { S.camErrHooked = true; api.event.on('preview.error', e => { if (S.camDone) S.camDone(`The toolpaths could not be made: ${e && e.message ? e.message : e || 'check the steps'}.`); }); }
+    if (!S.camErrHooked) {
+      S.camErrHooked = true;
+      for (const ev of ['preview.error', 'export.error']) api.event.on(ev, e => { if (S.camDone) S.camDone(`The toolpaths could not be made: ${e && e.message ? e.message : e || 'check the steps'}.`); });
+    }
     S.camTimer = setTimeout(() => done('The toolpaths took too long to make. Press toolpaths in the step row to see why.'), 120000);
     try {
       if (api.function.clear_progress) api.function.clear_progress();
-      api.function.export((text) => {
+      api.function.export((text, out) => {
         if (!S.camBusy) return;
+        // a failed export says why
+        if (text === null && out) { done(`The toolpaths could not be made: ${out.message || out}.`); return; }
         done('');
         if (!text || !/\S/.test(text)) { S.camError = 'No toolpaths were made. Check the steps, then press control.'; refresh(); return; }
         const names = api.widgets.all().filter(w => !w.meta.disabled).map(w => w.meta && w.meta.file).filter(Boolean);
         const base = (names[0] || 'part').replace(/\.[^.]+$/, '').replace(/[^\w-]+/g, '-').slice(0, 40);
+        // one file per bit (the MR-1): run as one program that stops at each bit change
+        const bits = out && out.swarfBitFiles;
+        if (bits && bits.length > 1) { loadProgram(base + '.nc', P.joinBitFiles(bits), 'cam'); return; }
         loadProgram(base + '.sbp', text, 'cam');
       });
     } catch (e) {
@@ -1329,7 +1337,7 @@ html[data-skin] #swarf-run .sr-jog .sr-zrow button.next, html[data-skin] #swarf-
     // any line swarf can't carry out exactly blocks the run (design review 10-28 #2): skipping
     // one can start every move after it from the wrong place
     const mover = p.unsupported[0];
-    if (mover) out.block.push(`Line ${mover.line} is something swarf can't carry out exactly ("${mover.text.slice(0, 40)}")${p.unsupported.length > 1 ? `, and ${p.unsupported.length - 1} more` : ''}. Skipping it could start the moves after it from the wrong place, so swarf won't run this file. Make it again from swarf's toolpaths, or without that line.`);
+    if (mover) out.block.push(`Line ${mover.line} is something swarf can't carry out exactly ("${mover.text.slice(0, 40)}"${mover.why ? `: ${mover.why}` : ''})${p.unsupported.length > 1 ? `, and ${p.unsupported.length - 1} more` : ''}. Skipping it could start the moves after it from the wrong place, so swarf won't run this file. Make it again from swarf's toolpaths, or without that line.`);
     // the card cannot step slower than this (a 16-bit tick at its clock): a slower feed would run faster (review #3)
     // per move, from its own steps (follow-up review #2): a diagonal's floor is higher than an axis's
     const T = 7372800 / 65536, U = { x: 72.183661, y: 72.183661, z: 90.229567 };
@@ -1693,6 +1701,8 @@ html[data-skin] #swarf-run .sr-jog .sr-zrow button.next, html[data-skin] #swarf-
     // the plate's input once proved is kept (machine setup, or the first touch): after that the card
     // has no touch step (Phil 10-29: "I don't want/like that"). The plate already reading contact is
     // still refused before the bit moves, and the descent stops after its travel.
+    // a saved plate input that is the e-stop's (or a home sensor's) is no plate: prove it again
+    if (!sim && m.plateClash && m.plateClash() && m.plateCfg.confirmed) { m.plateCfg.confirmed = false; m.savePlate(); }
     const known = !sim && !!(m.plateCfg && m.plateCfg.confirmed);
     let base = null, seen = null, proved = known, zeroed = false;
     const checks = [
@@ -1738,7 +1748,7 @@ html[data-skin] #swarf-run .sr-jog .sr-zrow button.next, html[data-skin] #swarf-
       }
       circuit.textContent = proved
         ? '✓ the circuit works'
-        : sim ? 'Touch the plate to the bit, to prove the circuit.' : 'Touch the plate to the bit, then take it away: swarf waits for the touch.';
+        : sim ? 'Touch the plate to the bit, to prove the circuit.' : 'Touch the plate to the bit and hold it there a second, then take it away.';
       circuit.classList.toggle('ok', proved);
       circuit.style.display = known ? 'none' : '';
       if (touchBtn) touchBtn.style.display = proved ? 'none' : '';
@@ -1769,7 +1779,7 @@ html[data-skin] #swarf-run .sr-jog .sr-zrow button.next, html[data-skin] #swarf-
         }
       }
     };
-    if (!sim && !known) { base = m.state.inputs ? { ...m.state.inputs } : null; S.plateWatch = watch; }
+    if (!sim && !known) { base = m.state.inputs ? { ...m.state.inputs } : null; S.plateWatch = watch; m.wantInputs = () => !!S.plateWatch; }
     thick.addEventListener('keydown', e => e.stopPropagation());
     // how far the bit searches down for the plate (Phil 10-29: 60 mm by default, raise it by hand)
     // (Phil 11-01) shown as every length field is (SwarfLength.show), so the number read back is the
@@ -2000,12 +2010,14 @@ html[data-skin] #swarf-run .sr-jog .sr-zrow button.next, html[data-skin] #swarf-
     if (!m || !m.setWork || m.state.running) return;
     const span = el.dro[a], inp = h('input', { type: 'text', inputmode: 'decimal', class: 'v', value: posText(m.state.pos[a] || 0), title: inch() ? 'A position in inches; 1 1/2 or 38 mm work too' : 'A position in mm; 1 1/2 in or 38 mm work too' });
     span.replaceWith(inp); inp.focus(); inp.select();
+    const opened = inp.value;
     let done = false;
     const finish = async ok => {
       if (done) return; done = true;
       const v = mmOf(inp.value);
       inp.replaceWith(span);
-      if (ok && isFinite(v)) {
+      // only a typed value sets the axis: opening the field and leaving it unchanged sets nothing
+      if (ok && isFinite(v) && inp.value.trim() !== opened.trim()) {
         if (isGrbl()) { if (!(await m.setWork(a, v))) { tell(`Not set: ${m.state.note}.`, 'warn'); refresh(); return; } }
         else m.setWork(a, v);
         // a typed position sets that axis like zero does (and a new trace, unless it is Z after a tool change)

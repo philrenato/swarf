@@ -218,7 +218,7 @@
     // the simulator plays the same job plan the ShopBot runs (swarf-run-plan.js): its entry, its
     // moves, its hold at a tool change
     plan(prog) {
-      return root.SwarfRunPlan.build(prog, { pos: this.state.pos, live: prog.spindle !== false && !prog.preview,
+      return root.SwarfRunPlan.build(prog, { pos: this.state.pos, live: (prog.cut || prog.spindle !== false) && !prog.preview,
         cfg: { safeZ: 25.4, rapid: { xy: this.jogSpeed.xy, z: this.jogSpeed.z }, move: { xy: 76.2, z: 25.4 }, jog: { z: this.jogSpeed.z }, spinUp: 0, changeZ: 50 } });
     }
     run(progOrPlan) {
