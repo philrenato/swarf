@@ -115,9 +115,10 @@ echo "      ok — cache version: $STAMP"
 # every file the page loads (its scripts and stylesheets, and the offline cache's list) that comes from
 # web/kiri must be on the site as the source has it (after the rewrites above): a file left out of the
 # copy keeps an old build live with nothing said
-node - "$WEB_APP" "$STAMP" <<'CHECK'
+REFS="$(mktemp -t swarf-refs)"
+node - "$WEB_APP" "$STAMP" "$REFS" <<'CHECK'
 const fs = require('fs'), path = require('path');
-const [site, stamp] = process.argv.slice(2);
+const [site, stamp, refsOut] = process.argv.slice(2);
 const html = fs.readFileSync(path.join(site, 'index.html'), 'utf8');
 const sw = fs.readFileSync('web/kiri/swarf-sw.js', 'utf8');
 const refs = new Set();
@@ -138,6 +139,7 @@ for (const r of refs) {
   if (fs.readFileSync(dst, 'utf8') !== want) bad.push(`differs from its source: ${r}`);
 }
 if (bad.length) { console.error('[4/6] FAIL — the site would serve files the deploy did not copy:\n  ' + bad.join('\n  ')); process.exit(1); }
+fs.writeFileSync(refsOut, [...refs, 'lib/main/kiri.js', 'lib/kiri/run/worker.js', 'lib/kiri/run/minion.js', 'index.css'].join('\n') + '\n');
 console.log(`      ok — ${refs.size} files the page loads match their source`);
 CHECK
 
@@ -150,8 +152,15 @@ for f in swarf-app/lib/main/kiri.js swarf-app/lib/kiri/run/worker.js swarf-app/l
   swarf-app/swarf*.js swarf-app/swarf*.mjs swarf-app/vendor swarf-app/swarf*.css swarf-app/swarf-materials.json \
   swarf-app/swarf-icon-*.png swarf-app/manifest.json swarf-app/index.html \
   swarf-app/license.md swarf-app/THIRD_PARTY_NOTICES.txt; do
-  git check-ignore -q "$f" || STAGE+=("$f")
+  if git check-ignore -q "$f"; then
+    # an ignored file the page loads would stay old on the live site with nothing said: stop
+    if grep -qxF "${f#swarf-app/}" "$REFS"; then echo "[5/6] FAIL — the site repo ignores $f, which the page loads"; rm -f "$REFS"; exit 1; fi
+    echo "      left out (the site repo ignores it): $f"
+  else
+    STAGE+=("$f")
+  fi
 done
+rm -f "$REFS"
 git add "${STAGE[@]}"
 # NOTE: index.html is staged but NEVER copied from source. The deploy copy has
 # its own SEO metadata and RELATIVE css/font paths (moto/palette.css, not

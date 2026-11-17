@@ -39,6 +39,7 @@ og URLs at its top and the renato.design watermark in `src/kiri/app/init/sync.js
 `tools/deploy.sh` updates an existing static copy served at `/swarf-app/` (set
 `SWARF_WEB_REPO`); to start fresh, build with `npm run webpack-src prod` and serve `web/`.
 The gates in `tools/` drive Chrome for Testing (`CHROME=/path/to/chrome`) against a URL you pass.
+How swarf ramps and stops the ShopBot, and its rough speeds: `docs/shopbot-motion.md`.
 
 ## Credits
 
