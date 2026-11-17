@@ -181,8 +181,9 @@
     const g = lesson.id === 'square' ? lesson1(b, bit) : lesson2(b, bit);
     const name = lesson.id === 'square' ? 'square-and-circle' : 'cut-out-square';
     L = { lesson, board: { ...b }, bit, ...g, at: Date.now() };
-    r.loadProgram(name + '.sbp', sbp(name, bit, g.paths), 'lesson', {
-      origin: { xy: 'the front-left corner of your plywood (not the table\'s)', z: 'the top of your board' }, lesson: lesson.id });
+    // refused (a job held in control): control says why, and the test cut is not loaded
+    if (r.loadProgram(name + '.sbp', sbp(name, bit, g.paths), 'lesson', {
+      origin: { xy: 'the front-left corner of your plywood (not the table\'s)', z: 'the top of your board' }, lesson: lesson.id }) === false) return;
     r.card([el('h2', { text: 'The test cut is loaded' }),
       el('p', { text: `${g.what}, centered on your ${dims(b.w, b.d)} board.` }),
       el('p', { text: 'Now control\'s own steps, the sentence at the top says each one: jog over the front-left corner of the plywood and press zero x y; zero Z on top with the z plate; trace (the bit must stay over the plywood and clear every screw); then cut.' }),

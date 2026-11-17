@@ -1119,10 +1119,15 @@ html[data-skin] #swarf-run .sr-jog .sr-zrow button.next, html[data-skin] #swarf-
   function refuseLoad(name, again) {
     if (!jobHeld()) return false;
     const st = S.machine && S.machine.state;
-    if (again && S.stoppedAt && !S.toolChange && !(st && (st.running || st.paused))) {
+    // not while another card is open (a zero step would be wiped), the machine moves or homes, or the
+    // link is still down after dropping mid-job (the e-stop advice stays until the machine is back)
+    const still = !(st && (st.running || st.paused || st.moving)) && !(S.machine && S.machine.homing) && !S.contHeld;
+    const cardOpen = el.sheet && el.sheet.classList.contains('on');
+    const linkDown = !!S.lostAt && !(st && st.connected);
+    if (again && S.stoppedAt && !S.toolChange && !linkDown && still && !cardOpen) {
       el.card.innerHTML = '';
-      const no = h('button', { text: 'not yet', onclick: () => { el.sheet.classList.remove('on'); refresh(); } });
-      const go = h('button', { text: `open ${name} instead`, onclick: () => { el.sheet.classList.remove('on'); S.stoppedAt = 0; S.lostAt = 0; again(); } });
+      const no = h('button', { text: 'not yet', onclick: () => { S.plateWatch = null; S.mr1Watch = null; S.afterZero = null; el.sheet.classList.remove('on'); refresh(); } });
+      const go = h('button', { text: `open ${name} instead`, onclick: () => { S.plateWatch = null; S.mr1Watch = null; S.afterZero = null; el.sheet.classList.remove('on'); again(true); } });
       el.card.append(h('h2', { text: `This job stopped at line ${S.stoppedAt}` }),
         h('p', { text: `Open ${name} instead? Continue from line ${S.stoppedAt} goes, and the new file starts from its first line.` }),
         h('div', { class: 'row' }, no, go));
@@ -1132,10 +1137,12 @@ html[data-skin] #swarf-run .sr-jog .sr-zrow button.next, html[data-skin] #swarf-
     tell('Finish or end this job first: a new file now would change what continue runs.', 'warn');
     return true;
   }
-  function readFile(f) {
-    if (refuseLoad(f.name, () => readFile(f))) return;
+  // given: the student chose to give up the stopped job; its continue line goes once the new file is read
+  function readFile(f, given) {
+    if (!given && refuseLoad(f.name, ok => readFile(f, ok))) return;
     const r = new FileReader();
-    r.onload = () => loadProgram(f.name, String(r.result), 'file');
+    r.onload = () => { if (given) { S.stoppedAt = 0; S.lostAt = 0; } loadProgram(f.name, String(r.result), 'file'); };
+    r.onerror = () => tell(`Could not read ${f.name}.`, 'warn');
     r.readAsText(f);
   }
 
@@ -1233,7 +1240,7 @@ html[data-skin] #swarf-run .sr-jog .sr-zrow button.next, html[data-skin] #swarf-
   }
 
   function loadProgram(name, text, source, extra) {
-    if (source !== 'cam' && refuseLoad(name, () => loadProgram(name, text, source, extra))) return false;
+    if (source !== 'cam' && refuseLoad(name, () => { S.stoppedAt = 0; S.lostAt = 0; loadProgram(name, text, source, extra); })) return false;
     // a file or a test cut chosen while cam still makes toolpaths: that request is over
     if (source !== 'cam' && S.camBusy) { S.camBusy = false; S.camDone = null; clearTimeout(S.camTimer); }
     playStop();
@@ -3194,6 +3201,8 @@ html[data-skin] #swarf-run .sr-jog .sr-zrow button.next, html[data-skin] #swarf-
   // a card on control's sheet, for swarf-lessons.js: nodes in, the sheet shown; null hides it
   function card(nodes) {
     if (!el.root) build();
+    // control closed meanwhile (a card due a moment after a cut): nothing opens over a hidden control
+    if (nodes && !S.open) return;
     else if (S.rowsUnit !== (inch() ? 'in' : 'mm')) { rateRows(); renderPlan(); }
     if (!nodes) { el.sheet.classList.remove('on'); refresh(); return; }
     el.card.innerHTML = ''; el.card.append(...nodes); el.sheet.classList.add('on');
