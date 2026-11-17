@@ -139,6 +139,45 @@ const log = (...a) => console.log('  ', ...a);
   assert.equal(stub.state.spindle.on, false, 'spindle off at the end');
   log(`cut: ${lines.length} lines, most in flight ${m.maxInflight} bytes, board buffer peak ${stub.state.rxMax}`);
 
+  // a speed change inside one spindle-on reaches the board in order, between the cuts it sits between
+  {
+    const two = 'G21\nG90\nM3 S6000\nG0 Z5\nG0 X0 Y0\nG1 Z-1 F300\nG1 X10 F600\nS3000\nG1 X20\nG0 Z5\nM5\nM30\n';
+    await m.fresh();
+    const p = job(m, two);
+    assert.deepEqual([...p.problems], [], `two speeds: ${p.problems}`);
+    const sent = m.linesOf(p);
+    const at = (t, from = 0) => sent.findIndex((l, i) => i >= from && l.text === t);
+    const on = at('M3S6000'), x10 = sent.findIndex(l => /^G1X10Y0Z-1F/.test(l.text)), s3 = at('S3000'), x20 = sent.findIndex(l => /^G1X20Y0Z-1F/.test(l.text));
+    assert.ok(on >= 0 && x10 > on && s3 > x10 && x20 > s3, `M3S6000 < X10 < S3000 < X20: ${sent.map(l => l.text).join(' ')}`);
+    assert.equal(sent[s3].line, 8, 'S3000 carries its file line');
+    const mark = stub.state.received.length;
+    assert.ok(m.run(R.arm(p)), m.state.note);
+    await until(() => !m.state.running, 30000, 'two speeds to finish');
+    assert.equal(m.state.done, true, m.state.note);
+    const got = tail(stub, mark);
+    assert.ok(got.indexOf('S3000') > got.indexOf('M3S6000') && got.indexOf('S3000') > 0, 'S3000 reached the board after M3S6000');
+    // off and on again at another speed: the second start runs at the new speed
+    const again = 'G21\nG90\nM3 S6000\nG0 Z5\nG0 X0 Y0\nG1 Z-1 F300\nG1 X10 F600\nG0 Z5\nM5\nS4000\nM3\nG1 Z-1 F300\nG1 X20 F600\nG0 Z5\nM5\nM30\n';
+    const q = job(m, again).problems.length ? null : m.linesOf(job(m, again)).map(l => l.text);
+    assert.ok(q, 'stop and restart plans');
+    const starts = q.filter(t => /^M3S/.test(t));
+    assert.deepEqual(starts, ['M3S6000', 'M3S4000'], `each start at its own speed: ${starts}`);
+    // a later speed past the machine is refused, not clipped
+    const over = job(m, two.replace('S3000', 'S9000'));
+    assert.ok(over.problems.some(t => /line 8's spindle speed \(9000\) is over/.test(t)), `over-limit later S refused: ${over.problems}`);
+    assert.equal(m.run(R.arm(over)), false, 'the over-limit plan does not run');
+    // continue from line 9 (after the S3000 on line 8): the spindle starts at 3000
+    const parsed = P.parse(two, { machineUnits: 'mm' });
+    const cont = m.plan({ ...P.fromLineProgram(parsed, 9, 25.4, 't'), kind: 'from', preview: false });
+    const cl = m.linesOf(cont).map(l => l.text);
+    assert.equal(cl.find(t => /^M3S/.test(t)), 'M3S3000', `continue uses the modal S: ${cl.join(' ')}`);
+    assert.ok(!cl.includes('M3S6000'), 'no 6000 on the continue');
+    // and from line 7 (before it): 6000, then the change
+    const c7 = m.linesOf(m.plan({ ...P.fromLineProgram(parsed, 7, 25.4, 't'), kind: 'from', preview: false })).map(l => l.text);
+    assert.ok(c7.indexOf('M3S6000') >= 0 && c7.indexOf('S3000') > c7.indexOf('M3S6000'), `continue before the change: ${c7.join(' ')}`);
+    log('speeds: M3S6000 → X10 → S3000 → X20 sent in order; restart at S4000; S9000 refused; continue from 9 at S3000');
+  }
+
   // the plan refuses a job past the travel
   {
     const far = 'G21\nG90\nM3 S6000\nG0 Z5\nG1 Z-1 F300\nG1 X600 F1200\nM5\n';
