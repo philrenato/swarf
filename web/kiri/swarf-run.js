@@ -86,7 +86,7 @@
     prog: null,          // { name, text, parsed, source }
     zeroXY: false, zeroZ: false, traced: false,
     job: null,           // what is running: 'trace' | 'air' | 'cut' | 'from' | 'preview'
-    lastRunning: false, jogStep: 'cont', jogSpeed: 1000, contHeld: null, simRate: 10   // Phil at the machine, 11-05: hold to move, at 1000
+    lastRunning: false, jogStep: 'cont', jogSpeed: 2500, contHeld: null, simRate: 10   // hold to move at 2500 mm/min: above the X axis's rough band (about 16-30 mm/s steady, see docs/shopbot-motion.md)
   };  // a zero from before a reload: offered back once connected, if the card's count has not jumped
   try { const z = JSON.parse(localStorage.getItem('swarf-run-zero')); if (z && z.had && z.at && z.steps && zeroFresh(z.at)) { S.zeroHad = z.had; S.zeroSetAt = z.at; S.lastSteps = z.steps; S.zeroAt = z.where; S.zBit = z.bit || undefined; } } catch (e) { /* none */ }
 
@@ -600,7 +600,8 @@ html[data-skin] #swarf-run .sr-jog .sr-zrow button.next, html[data-skin] #swarf-
     el.modes.insertBefore(stepIn, el.modes.querySelector('button.held'));
     const su = ui ? 'in/min' : 'mm/min', zMax = ui ? `${Math.round(Z_JOG_MAX / IN)} in/min` : `${Z_JOG_MAX}`;
     el.speeds.replaceChildren(h('span', { class: 'lbl' }, 'speed', h('small', { text: su })));
-    const speeds = ui ? [10, 20, 40, 100, 200].map(v => v * IN) : [250, 500, 1000, 2500, 5000];
+    // none inside the X axis's rough band (about 960-1800 mm/min steady): the slow ones under it, the rest over
+    const speeds = ui ? [10, 20, 28, 100, 200].map(v => v * IN) : [250, 500, 700, 2500, 5000];
     // the speed lit is the one nearest what is set, so a switch of units keeps a button lit
     const lit = S.jogSpeed === 'rapid' ? 'rapid' : speeds.reduce((a, b) => Math.abs(b - S.jogSpeed) < Math.abs(a - S.jogSpeed) ? b : a);
     if (lit !== S.jogSpeed) { S.jogSpeed = lit; if (S.machine) setJogSpeed(); }

@@ -22,8 +22,8 @@ Steady travel on the shop machine (no load):
   below and at 60 mm/s and above. Frame shake rises with speed above 50 mm/s.
 - **Y** (the carriage) is milder at every speed; quietest around 35 mm/s.
 - Ramps pass through the rough band in a fraction of a second. Steady moves in it are the loud
-  ones: continuous jog at 1000 mm/min (16.7 mm/s), homing's slow seek (25.4 mm/s), and cut
-  feeds of about 1000–1800 mm/min.
+  ones: homing's slow seek (25.4 mm/s) and cut feeds of about 1000–1800 mm/min. Jog speeds skip the
+  band: 250, 500, 700, 2500 (the default) and 5000 mm/min.
 
 ## Measuring
 The tuning page (branch `shopbot-tune`, web/kiri/tune/, never deployed) runs fixed test moves
