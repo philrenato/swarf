@@ -39,7 +39,8 @@ try {
   // a real click on a visible control button by its words
   const click = async t => {
     const hs = await page.$$('#swarf-run button');
-    for (const b of hs) if (await b.evaluate((b, t) => b.textContent.trim() === t && !!b.offsetParent, t)) { const r = await b.boundingBox(); await page.mouse.click(r.x + r.width / 2, r.y + r.height / 2); return true; }
+    // scrolled into its column first, as a student scrolls to it (the column scrolls in a short window)
+    for (const b of hs) if (await b.evaluate((b, t) => b.textContent.trim() === t && !!b.offsetParent, t)) { await b.evaluate(b => b.scrollIntoView({ block: 'nearest' })); const r = await b.boundingBox(); await page.mouse.click(r.x + r.width / 2, r.y + r.height / 2); return true; }
     return false;
   };
   const active = () => page.evaluate(() => { const a = document.activeElement, c = document.querySelector('#swarf-run .sr-card'); return { inCard: !!(c && c.contains(a)), tag: a && a.tagName, text: a && (a.textContent || '').trim(), type: a && a.type, checked: a && a.checked }; });
@@ -70,7 +71,7 @@ try {
   await until('document.querySelector("#swarf-run .sr-sheet.on")', 5000);
   await wait(100);
   let d = await dialog();
-  check(d.role === 'dialog' && d.modal === 'true' && /MR-1/.test(d.name) && /about to home/.test(d.name), `a dialog named "${d.name}"`);
+  check(d.role === 'dialog' && d.modal === 'true' && /MR-1/.test(d.name) && /about\sto\shome/.test(d.name), `a dialog named "${d.name}" (role ${d.role}, modal ${d.modal})`);
   let a = await active();
   check(a.inCard && a.text === 'not yet', `focus opens on the safe button ("${a.text}")`);
   const pos0 = await page.evaluate(() => window.__stub.mpos());
@@ -110,7 +111,9 @@ try {
   const labels = await page.evaluate(() => [...document.querySelectorAll('#swarf-run .sr-sheet.on label')].map(l => l.textContent));
   check(labels.length >= 8 && labels.some(t => /spindle/.test(t)) && !labels.some(t => /router|dust/.test(t)), `the checklist says spindle, not router or dust (${labels.length} ticks)`);
 
-  // the card in the window, its buttons in view and on top, each tick reachable
+  // the card in the window, its buttons in view and on top, each tick reachable; at 125 % and 150 % the
+  // window is under 820 px wide, so the student has pressed "show the interface anyway" on the narrow-window wall
+  await page.evaluate(() => localStorage.setItem('swarf_phone_mode', 'off'));
   for (const [W, H, z] of [[1280, 720, '100 %'], [1024, 600, '100 %'], [819, 480, '125 %'], [683, 400, '150 %']]) {
     await page.setViewport({ width: W, height: H }); await wait(400);
     const r = await page.evaluate(() => {
@@ -129,6 +132,7 @@ try {
     await page.screenshot({ path: join(OUT, `cut-card-${W}x${H}.png`) });
   }
   await page.setViewport({ width: 1024, height: 600 }); await wait(300);
+  await page.evaluate(() => localStorage.removeItem('swarf_phone_mode'));
 
   // cancel by keys: Enter on not yet; focus back on cut; then Esc
   a = await active();

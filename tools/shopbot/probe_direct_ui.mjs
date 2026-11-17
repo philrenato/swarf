@@ -412,6 +412,10 @@ try {
     await new Promise(r => setTimeout(r, 300));
     await page.evaluate((t) => window.__swarfRun.loadProgram('vcarve-inch.sbp', t, 'file'), inch);
     await new Promise(r => setTimeout(r, 400));
+    // the job above stopped partway: another file is opened only once the student gives that job up
+    const giveUp = await page.evaluate(() => { const b = [...document.querySelectorAll('#swarf-run .sr-sheet.on button')].find(b => b.textContent === 'open vcarve-inch.sbp instead'); if (b) b.click(); return !!b; });
+    await new Promise(r => setTimeout(r, 400));
+    check(giveUp && await page.evaluate(() => window.__swarfRun.state.prog.name) === 'vcarve-inch.sbp', 'a job stopped partway: another file asks first, then opens');
     // 10-29 (Phil): a new file keeps the board's zero with one press, no re-zeroing
     const kz2 = await page.evaluate(() => { const b = document.querySelector('#swarf-run .sr-keepzero'); return b && getComputedStyle(b).display !== 'none' ? b.textContent : ''; });
     if (kz2) await page.evaluate(() => document.querySelector('#swarf-run .sr-keepzero').click());

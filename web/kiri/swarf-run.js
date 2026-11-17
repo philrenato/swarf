@@ -1114,13 +1114,26 @@ html[data-skin] #swarf-run .sr-jog .sr-zrow button.next, html[data-skin] #swarf-
   // ------------------------------------------------------------ program
   // a job running, paused or stopped partway keeps its program: a new one would change what continue runs
   function jobHeld() { const st = S.machine && S.machine.state; return !!(st && (st.running || st.paused)) || !!S.stoppedAt || !!S.toolChange; }
-  function refuseLoad() {
+  // a job stopped partway (not running, paused or in a bit change) may be given up for another file,
+  // once the student says so: its continue from line goes
+  function refuseLoad(name, again) {
     if (!jobHeld()) return false;
+    const st = S.machine && S.machine.state;
+    if (again && S.stoppedAt && !S.toolChange && !(st && (st.running || st.paused))) {
+      el.card.innerHTML = '';
+      const no = h('button', { text: 'not yet', onclick: () => { el.sheet.classList.remove('on'); refresh(); } });
+      const go = h('button', { text: `open ${name} instead`, onclick: () => { el.sheet.classList.remove('on'); S.stoppedAt = 0; S.lostAt = 0; again(); } });
+      el.card.append(h('h2', { text: `This job stopped at line ${S.stoppedAt}` }),
+        h('p', { text: `Open ${name} instead? Continue from line ${S.stoppedAt} goes, and the new file starts from its first line.` }),
+        h('div', { class: 'row' }, no, go));
+      el.sheet.classList.add('on');
+      return true;
+    }
     tell('Finish or end this job first: a new file now would change what continue runs.', 'warn');
     return true;
   }
   function readFile(f) {
-    if (refuseLoad()) return;
+    if (refuseLoad(f.name, () => readFile(f))) return;
     const r = new FileReader();
     r.onload = () => loadProgram(f.name, String(r.result), 'file');
     r.readAsText(f);
@@ -1220,7 +1233,7 @@ html[data-skin] #swarf-run .sr-jog .sr-zrow button.next, html[data-skin] #swarf-
   }
 
   function loadProgram(name, text, source, extra) {
-    if (source !== 'cam' && refuseLoad()) return false;
+    if (source !== 'cam' && refuseLoad(name, () => loadProgram(name, text, source, extra))) return false;
     // a file or a test cut chosen while cam still makes toolpaths: that request is over
     if (source !== 'cam' && S.camBusy) { S.camBusy = false; S.camDone = null; clearTimeout(S.camTimer); }
     playStop();

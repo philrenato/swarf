@@ -88,8 +88,8 @@ try {
   const bb = await sel.boundingBox();
   await page.mouse.click(bb.x + bb.width / 2, bb.y + bb.height / 2);
   await wait(200);
-  await page.keyboard.press('Escape');   // the native list, if it opened
   check(await page.evaluate(() => document.activeElement && document.activeElement.id === 'swarf-speed-select'), 'a click on the speed focuses it');
+  await page.keyboard.press('Escape');   // the native list, if it opened (Esc also leaves the field)
   await page.focus('#swarf-material-select');
   await page.keyboard.press('Tab');
   check(await page.evaluate(() => document.activeElement && document.activeElement.id === 'swarf-speed-select'), 'Tab from the material reaches the speed');

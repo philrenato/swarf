@@ -86,6 +86,8 @@ try {
   await wait(200);
   const z4 = await zero(); delete z4.text;
   check(!z4.z, `after a bit change Z stays unset until zeroed for the new bit (${JSON.stringify(z4)})`);
+  // the held job ends before another file is loaded (a held bit change refuses a new program)
+  await page.evaluate(() => { const S = window.__swarfRun.state; S.toolChange = null; S.zStale = false; });
   // 5. (review 11-09) a Z-only zero leaves where X Y was zeroed alone; the place and the bit survive a reload,
   // so after one a center file is not offered a corner zero
   const sbp = (pts, tool) => [`&Tool = 1   'Load ${tool}`, 'C9', 'TR,18000', 'C6', 'JZ,5', `J2,${pts[0][0]},${pts[0][1]}`, ...pts.map(([x, y]) => `M3,${x},${y},-1`), 'JZ,5', 'C7', 'END'].join('\n');

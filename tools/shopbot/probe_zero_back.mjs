@@ -38,11 +38,14 @@ try {
   // 1. a computer that never set a zero: the cut card leads back to one
   await cut(); await wait(300);
   let c = await card();
-  check(c && c.h === 'Zero first' && /never set/.test(c.text), `never set: "${c && c.h}" ${c && c.text.slice(0, 90)}`);
+  check(c && c.h === 'Zero first' && /no zero was ever set/.test(c.text), `never set: "${c && c.h}" ${c && c.text.slice(0, 90)}`);
   check(c && c.buttons.includes('X+') && c.buttons.includes('this spot is X 0 Y 0'), 'with a jog pad and the X Y button');
   // a dialog, on its safe button; in a 1024 x 600 window (and at 150 % zoom) its last buttons stay in view and on top
   const dlg = await page.evaluate(() => { const c = document.querySelector('#swarf-run .sr-card'); return { role: c.getAttribute('role'), modal: c.getAttribute('aria-modal'), name: c.getAttribute('aria-labelledby').split(' ').map(id => document.getElementById(id).textContent).join(' '), focus: document.activeElement && document.activeElement.textContent }; });
   check(dlg.role === 'dialog' && dlg.modal === 'true' && /ShopBot/.test(dlg.name) && /Zero first/.test(dlg.name) && dlg.focus === 'not yet', `zero first is a dialog named "${dlg.name}", focus on "${dlg.focus}"`);
+  // 683 x 400 is that screen at 150 %: narrower than 820 px, so the student has pressed "show the
+  // interface anyway" on the narrow-window wall
+  await page.evaluate(() => localStorage.setItem('swarf_phone_mode', 'off'));
   for (const [W, H] of [[1024, 600], [683, 400]]) {
     await page.setViewport({ width: W, height: H }); await wait(300);
     const fit = await page.evaluate(() => {
@@ -52,6 +55,7 @@ try {
     check(fit.card[0] >= 0 && fit.card[1] <= H && fit.buttons.length >= 2 && fit.buttons.every(b => b.on && b.inside), `zero first at ${W} x ${H}: card ${fit.card}, buttons ${JSON.stringify(fit.buttons)}`);
   }
   await page.setViewport({ width: 1440, height: 900 }); await wait(300);
+  await page.evaluate(() => localStorage.removeItem('swarf_phone_mode'));
   await press('X+'); await idle();
   check(await page.evaluate(() => Math.abs(window.__swarfRun.state.machine.state.pos.x) > 0.5), 'the pad jogs');
   await press('this spot is X 0 Y 0'); await idle(); await wait(200);
@@ -79,9 +83,9 @@ try {
 
   // 4. a pending bit change: Z is required, so cut waits and names it
   await page.evaluate(() => { const S = window.__swarfRun.state; S.zeroLost = false; S.zeroXY = S.zx = S.zy = true; S.zeroZ = false; S.toolChange = 'Tool change at line 5.'; S.zStale = true; window.__swarfRun.tell('x'); });
-  await wait(300);
+  await wait(5400);   // the told line steps aside and control refreshes
   const wt = await page.evaluate(() => { const b = document.querySelector('#swarf-run button.cut'); return { wait: b.classList.contains('wait'), why: b.dataset.why }; });
-  check(wt.wait && /Z/.test(wt.why), `bit change: cut waits for Z (${wt.why})`);
+  check(wt.wait && /zero z/i.test(wt.why), `bit change: cut waits for Z (${wt.why})`);
 
   // 5. a readout opened and left unchanged sets nothing
   const z0 = await page.evaluate(() => window.__swarfRun.state.zeroZ);
