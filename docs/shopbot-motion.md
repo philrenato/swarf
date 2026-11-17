@@ -11,8 +11,9 @@ web/kiri/swarf-shopbot-direct.js, `SHOP`). The numbers are the shop machine's.
   X ringing after a stop is about half. Costs about 0.9 s on a 250 mm jog.
 - **Ramp speed** (`rampSpeed`, 10.16 mm/s): the speed through a right-angle corner or sharper.
   Gentler bends keep more speed; under 3° keeps full speed.
-- **Stop** (pause, stop, e-stop): ramps down at kStop = 50.8 / rampRate (10 mm/s per mm), to the
-  start speed: about 6–10 mm from 100 mm/s.
+- **Stop** (pause, stop, e-stop, a seek's contact): ramps down at kStop = 50.8 / rampRate
+  (10 mm/s per mm) and ends at the ramp speed, at once: about 6–10 mm from 100 mm/s, and a slow
+  seek (the Z plate) stops on the next tick after contact.
 - A move whose feed is below the start speed runs at its own feed, unramped.
 
 ## Rough speeds
