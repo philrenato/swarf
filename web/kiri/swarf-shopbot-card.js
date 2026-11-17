@@ -256,16 +256,19 @@
    * rises with distance, v = v0 + k*s (VR "ramp rate": 2 in/s gained per
    * `rate` of travel), from the ramp speed v0 up to the move's feed.
    * Corners slow toward v0 by angle; a straight continuation keeps speed.
+   * A move from rest starts, and a move to rest ends, at the start speed (lower than v0: a jump
+   * straight to v0 knocks the gantry, which then rings).
    *
    *   const p = new Planner(machine)
    *   p.items(moves, startSteps)   -> iterator of item bytes
    *   p.stop() / p.hold()          -> ramp down at the next tick it plans
-   * machine: { unit: {x,y,z} steps/mm, rampSpeed mm/s, rampRate mm,
+   * machine: { unit: {x,y,z} steps/mm, rampSpeed mm/s, startSpeed mm/s (default rampSpeed), rampRate mm,
    *            maxTickHz, minTickHz, invert: direction bits to flip (X 1, Y 2, Z 4) }
    */
   class Planner {
     constructor(m) {
       this.m = Object.assign({ rampSpeed: 10.16, rampRate: 5.08, maxTickHz: 25000, minTickHz: 20, invert: 0 }, m);
+      if (!(this.m.startSpeed > 0)) this.m.startSpeed = this.m.rampSpeed;
       // How fast speed rises with distance, measured from ShopBot 3 on the shop's machine (10-29:
       // its keypad jog reaches 38 mm/s in about 0.4 s, 3 mm/s per mm with this Ramp Rate of 5.08).
       // The manual's 2 units per Ramp Rate gave 0.39 in this metric setup, which crawled through
@@ -293,7 +296,7 @@
     // at 400 % the junction speeds would be 400 % too, and a square corner would take 40 mm/s.
     // vIn: the speed the run starts at, when the rate changed partway through.
     profile(moves, from, vIn0) {
-      const v0 = this.m.rampSpeed, k = this.k;
+      const v0 = this.m.rampSpeed, vs = Math.min(this.m.startSpeed, v0), k = this.k;
       const feedOf = mv => {
         if (!mv.rehearse || !mv.feed) return mv.feed || v0;
         const want = mv.feed * this.rate, f = Math.max(Math.min(want, mv.vmax ?? Infinity, this.m.maxFeed || Infinity), Math.min(mv.vmin ?? 0, mv.feed));
@@ -311,7 +314,7 @@
       }
       for (let i = 0; i < segs.length; i++) {
         const s = segs[i], n = segs[i + 1];
-        if (!n) { s.vEnd = v0; continue; }
+        if (!n) { s.vEnd = vs; continue; }
         // the speed through a bend, by its angle: full through a gentle one (under 3°), down to the ramp
         // speed at a right angle or sharper, in a straight line between. It was 65 % of the feed at any
         // bend past 2.6°, so a curve or a texture's raster drawn in short segments ran at two speeds,
@@ -322,11 +325,11 @@
         const f = deg <= 3 ? 1 : deg >= 90 ? 0 : 1 - (deg - 3) / 87;
         s.vEnd = Math.max(v0, Math.min(s.feed, n.feed) * f);
       }
-      let vIn = vIn0 ?? v0;
+      let vIn = vIn0 ?? vs;
       for (const s of segs) { s.vStart = Math.min(vIn, s.feed); s.vEnd = Math.min(s.vEnd, s.vStart + k * s.len); vIn = s.vEnd; }
       for (let i = segs.length - 1; i >= 0; i--) {
         const s = segs[i];
-        const next = i + 1 < segs.length ? segs[i + 1].vStart : v0;
+        const next = i + 1 < segs.length ? segs[i + 1].vStart : vs;
         s.vEnd = Math.min(s.vEnd, next);
         s.vStart = Math.min(s.vStart, s.vEnd + k * s.len);
       }
@@ -386,7 +389,7 @@
     // One run of moves with a shared ramp profile. Returns true when a stop
     // ended the stack.
     *moveRun(moves, start) {
-      const u = this.m.unit, v0 = this.m.rampSpeed, k = this.k;
+      const u = this.m.unit, v0 = this.m.rampSpeed, vs = Math.min(this.m.startSpeed, v0), k = this.k;
       const st = this.st;
       let cur = st.cur;
       let dirs = st.dirs, line = st.line, reload = st.reload;
@@ -431,7 +434,7 @@
             // segment, so curves made of short segments never came down to a stop)
             this.vHalt = Math.max(0, Math.min(this.vHalt === null ? v : this.vHalt, v) - this.kStop * mmPerTick);
             v = this.vHalt;
-            if (v <= v0) { this.at = { steps: cur, line: ln, op: s.mv }; yield END; return true; }
+            if (v <= vs) { this.at = { steps: cur, line: ln, op: s.mv }; yield END; return true; }
           }
           let r = this.reloadFor(v / mmPerTick);
           // ramp in 0.5% steps. (10-29: 0.1% steps were tried against a buzz; recordings at constant

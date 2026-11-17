@@ -23,7 +23,7 @@
   // the shop's ShopBot as swarf-shopbot-direct.js drives it (rapids at the jog speed)
   const SHOP = {
     move: { xy: 76.2, z: 25.4 }, rapid: { xy: 100, z: 100 },
-    rampSpeed: 10.16, rampRate: 5.08, spinUp: 3,
+    rampSpeed: 10.16, startSpeed: 2.54, rampRate: 5.08, spinUp: 3,
     unit: { x: 72.183661, y: 72.183661, z: 90.229567 }
   };
 
@@ -54,7 +54,7 @@
     const out = { seconds: 0, cut: 0, air: 0, dwell: 0, changes: 0, steps: {}, moves: 0 };
     if (!P || !Card || !text) return out;
     const parsed = typeof text === 'string' ? P.parse(text, { machineUnits: 'mm' }) : text;
-    const planner = new Card.Planner({ unit: cfg.unit, rampSpeed: cfg.rampSpeed, rampRate: cfg.rampRate });
+    const planner = new Card.Planner({ unit: cfg.unit, rampSpeed: cfg.rampSpeed, startSpeed: cfg.startSpeed, rampRate: cfg.rampRate });
     const k = planner.k;
     // the step each line belongs to, from where the export said each step starts
     const secs = (opts.sections || []).filter(s => s && s.step != null).slice().sort((a, b) => a.line - b.line);

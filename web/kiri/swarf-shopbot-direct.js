@@ -22,6 +22,7 @@
     unit: { x: 72.183661, y: 72.183661, z: 90.229567 },        // [VU] steps/mm
     move: { xy: 76.2, z: 25.4 }, jog: { xy: 100, z: 100 },      // [VS] mm/s
     rampSpeed: 10.16, rampRate: 5.08,                           // [VR]
+    startSpeed: 2.54,                                           // from rest and to rest: lower than the ramp speed, so a move does not knock the gantry
     spinUp: 3,                                                  // s after the spindle starts
     safeZ: 25.4                                                 // work mm, Run mode's SAFE_Z
   };
@@ -67,7 +68,7 @@
       this.cfg.jog = { xy: this.cfg.jog.xy, z: Math.min(this.cfg.jog.z, this.cfg.zJogMax) };
       this.state.kind = 'shopbot';
       this.state.note = 'not connected';
-      this.planner = new Planner({ unit: this.cfg.unit, rampSpeed: this.cfg.rampSpeed, rampRate: this.cfg.rampRate, maxFeed: 254 });   // 15240 mm/min, the machine's top
+      this.planner = new Planner({ unit: this.cfg.unit, rampSpeed: this.cfg.rampSpeed, startSpeed: this.cfg.startSpeed, rampRate: this.cfg.rampRate, maxFeed: 254 });   // 15240 mm/min, the machine's top
       this.origin = { x: 0, y: 0, z: 0 };
       this.steps = { x: 0, y: 0, z: 0 };
       this.outputs = 0;
