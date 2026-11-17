@@ -3054,6 +3054,8 @@ html[data-skin] #swarf-run .sr-jog .sr-zrow button.next, html[data-skin] #swarf-
   function close() {
     playStop();
     if (S.machine && S.machine.state.running) { tell('Stop the job before leaving control.', 'warn', true); return; }
+    // a card left open closes with control, so nothing behind it stays inert
+    if (el.sheet && el.sheet.classList.contains('on')) { S.plateWatch = null; S.mr1Watch = null; S.afterZero = null; el.sheet.classList.remove('on'); }
     el.root.classList.remove('open');
     const step = document.getElementById('swarf-step-run');
     if (step) step.classList.remove('swarf-step-on');
