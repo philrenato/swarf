@@ -482,6 +482,9 @@
       this.set({ moving: true });
       this.streamAt = performance.now();
       const p = this.planner;
+      // homing and the Z plate keep the plain ramps: their contact is placed by counting the card's
+      // ticks, and a seek starts and ends at the ramp speed as before; jogs and jobs start slow
+      if (p && p.m) p.m.startSpeed = this.homing ? p.m.rampSpeed : (this.cfg.startSpeed || p.m.rampSpeed);
       let end;
       try {
         end = await this.card.run(p.items(ops, start), {
