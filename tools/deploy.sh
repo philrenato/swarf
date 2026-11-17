@@ -144,10 +144,15 @@ CHECK
 echo "[5/6] commit web repo"
 cd "$WEB_REPO"
 # every path below exists after the copy step; a failed add stops the deploy
-git add swarf-app/lib/main/kiri.js swarf-app/lib/kiri/run/worker.js swarf-app/lib/kiri/run/minion.js swarf-app/index.css \
+# files the web repo ignores on purpose (dev-only tools) are left out of the add
+STAGE=()
+for f in swarf-app/lib/main/kiri.js swarf-app/lib/kiri/run/worker.js swarf-app/lib/kiri/run/minion.js swarf-app/index.css \
   swarf-app/swarf*.js swarf-app/swarf*.mjs swarf-app/vendor swarf-app/swarf*.css swarf-app/swarf-materials.json \
   swarf-app/swarf-icon-*.png swarf-app/manifest.json swarf-app/index.html \
-  swarf-app/license.md swarf-app/THIRD_PARTY_NOTICES.txt
+  swarf-app/license.md swarf-app/THIRD_PARTY_NOTICES.txt; do
+  git check-ignore -q "$f" || STAGE+=("$f")
+done
+git add "${STAGE[@]}"
 # NOTE: index.html is staged but NEVER copied from source. The deploy copy has
 # its own SEO metadata and RELATIVE css/font paths (moto/palette.css, not
 # /moto/palette.css) — copying source over it breaks every stylesheet on the
