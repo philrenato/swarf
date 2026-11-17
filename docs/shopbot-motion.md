@@ -9,6 +9,8 @@ web/kiri/swarf-shopbot-direct.js, `SHOP`). The numbers are the shop machine's.
 - **Start speed** (`startSpeed`, 2.54 mm/s): a move from rest starts there, and a move to rest
   ends there. A jump straight to the ramp speed knocks the gantry, which then rings; from 2.54,
   X ringing after a stop is about half. Costs about 0.9 s on a 250 mm jog.
+  Homing and the Z plate keep the plain ramps (start at the ramp speed): their contact is placed
+  by counting the card's ticks, and with the slow start homing landed 5.7 mm off its corner.
 - **Ramp speed** (`rampSpeed`, 10.16 mm/s): the speed through a right-angle corner or sharper.
   Gentler bends keep more speed; under 3° keeps full speed.
 - **Stop** (pause, stop, e-stop, a seek's contact): ramps down at kStop = 50.8 / rampRate
