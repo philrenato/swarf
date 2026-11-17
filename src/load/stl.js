@@ -263,10 +263,11 @@ export class STL {
     parse(data, scale) {
         let binData = this.convertToBinary(data);
         let len = binData.byteLength;
+        this.reason = undefined;
 
         // too short for a binary header: only text can hold a triangle here
         if (len < 84) {
-            return this.parseASCII(this.convertToString(data), scale);
+            return this.said(this.parseASCII(this.convertToString(data), scale), 'text');
         }
 
         let reader = new DataView(binData),
@@ -275,20 +276,36 @@ export class STL {
 
         // the stated count matches the size exactly: binary
         if (84 + stated * 50 === len) {
-            return this.parseBinary(binData, scale, stated);
+            return this.said(this.parseBinary(binData, scale, stated), 'binary');
         }
 
-        // otherwise text when its start holds no control or high bytes (a binary count or float
-        // always does), else binary with no more triangles than the file holds (a count of 0, as
-        // some writers leave it, reads all of them)
-        let bytes = new Uint8Array(binData), text = true;
-        for (let i = 0, end = Math.min(len, 4096); text && i < end; i++) {
-            let c = bytes[i];
-            if (c > 126 || (c < 32 && c !== 9 && c !== 10 && c !== 13)) text = false;
+        let kind = stlKind(new Uint8Array(binData, 0, Math.min(len, 65536)));
+        if (kind === 'utf16') {
+            this.reason = 'text saved as UTF-16: save it as UTF-8 text or binary';
+            return this.empty();
         }
-        return text
-            ? this.parseASCII(this.convertToString(data), scale)
-            : this.parseBinary(binData, scale, stated > 0 ? Math.min(stated, fit) : fit);
+        // binary reads no more triangles than the file holds (a count of 0, as some writers
+        // leave it, reads all of them)
+        return kind === 'text'
+            ? this.said(this.parseASCII(this.convertToString(data), scale), 'text')
+            : this.said(this.parseBinary(binData, scale, stated > 0 ? Math.min(stated, fit) : fit), 'binary');
+    }
+
+    // why a parse holds no triangle, kept on this.reason
+    said(vertices, kind) {
+        if (!stlHasTriangle(vertices)) {
+            this.reason = kind === 'text'
+                ? 'no whole triangle in this text STL'
+                : 'no triangle with real numbers in this binary STL';
+        }
+        return vertices;
+    }
+
+    empty() {
+        this.vertices = new Float32Array(0);
+        this.normals = new Float32Array(0);
+        this.colors = null;
+        return this.vertices;
     }
 
     parseAsync(data, scale) {
@@ -412,16 +429,13 @@ export class STL {
     }
 
     convertToString(buf) {
-        if (typeof buf !== "string") {
-            let array_buffer = new Uint8Array(buf);
-            let str = '';
-            for (let i = 0; i < buf.byteLength; i++) {
-                str += String.fromCharCode(array_buffer[i]);
-            }
-            return str;
-        } else {
-            return buf;
-        }
+        if (typeof buf === "string") return buf.charCodeAt(0) === 0xFEFF ? buf.slice(1) : buf;
+        // UTF-8 (ASCII is UTF-8): a solid name such as café reads as written; a BOM is dropped
+        let bytes = new Uint8Array(buf);
+        if (typeof TextDecoder !== 'undefined') return new TextDecoder('utf-8').decode(bytes);
+        let str = '';
+        for (let i = 0; i < bytes.length; i++) str += String.fromCharCode(bytes[i]);
+        return str;
     }
 
     convertToBinary(buf) {
@@ -437,13 +451,55 @@ export class STL {
     }
 }
 
+/**
+ * What the start of an STL that is not exactly binary-sized holds: 'text', 'binary' or 'utf16'.
+ * Text holds no NUL and no control byte but tab, line breaks and form feed; bytes over 126 are
+ * UTF-8 (a solid name such as café or a BOM). A binary count or float holds NULs or control
+ * bytes. Text that opens with solid and names a facet normal and a vertex is text even with a
+ * stray control byte. UTF-16 text is named so it can be said, not read as binary.
+ * @param {Uint8Array} b - the file's first bytes
+ */
+export function stlKind(b) {
+    if ((b[0] === 0xFF && b[1] === 0xFE) || (b[0] === 0xFE && b[1] === 0xFF)) return 'utf16';
+    let nul = 0, ctrl = 0, oddNul = 0, evenNul = 0;
+    for (let i = 0; i < b.length; i++) {
+        const c = b[i];
+        if (c === 0) { nul++; if (i & 1) oddNul++; else evenNul++; }
+        else if (c < 32 && c !== 9 && c !== 10 && c !== 12 && c !== 13) ctrl++;
+    }
+    if (!nul && !ctrl) return 'text';
+    // UTF-16 with no BOM: every other byte NUL, the others spelling solid
+    const half = b.length >> 1;
+    if (half >= 5 && Math.max(oddNul, evenNul) >= half * 0.9) {
+        let word = '';
+        for (let i = oddNul > evenNul ? 0 : 1; i < b.length && word.length < 64; i += 2) word += String.fromCharCode(b[i]);
+        if (/^\s*solid\b/i.test(word)) return 'utf16';
+    }
+    if (!nul) {
+        let head = '';
+        for (let i = 0; i < b.length; i++) head += String.fromCharCode(b[i]);
+        if (/^(\xEF\xBB\xBF)?\s*solid\b/i.test(head) && /\bfacet\s+normal\b[\s\S]*?\bvertex\s/i.test(head)) return 'text';
+    }
+    return 'binary';
+}
+
+/** at least one triangle whose nine numbers are all numbers */
+export function stlHasTriangle(v) {
+    if (!v || v.length < 9) return false;
+    for (let t = 0; t + 8 < v.length; t += 9) {
+        let ok = true;
+        for (let k = 0; k < 9 && ok; k++) ok = Number.isFinite(v[t + k]);
+        if (ok) return true;
+    }
+    return false;
+}
+
 /** how many millimeters one unit of each STL reading is */
 export const STL_UNITS = { mm: 1, in: 25.4, m: 1000 };
+export const STL_UNIT_NAMES = { mm: 'millimeters', in: 'inches', m: 'meters' };
 
 /**
- * The likely units of an STL's numbers (an STL says none): 'mm', 'in' or 'm'. A reading fits when
- * its footprint is on the bed and its longest side is at least 6 mm. Numbers all under 1 that fit
- * as meters are meters; else the reading that fits; both: the preferred one; neither: mm.
+ * The likely units of an STL's numbers (an STL says none): 'mm', 'in' or 'm'.
  * @param {Float32Array} v - vertex coordinates
  * @param {object} opt - { bedWidth, bedDepth, inch } (inch: inches are preferred when both fit)
  * @returns {string} 'mm', 'in' or 'm'
@@ -453,37 +509,63 @@ export function stlUnits(v, opt = {}) {
 }
 
 /**
- * stlUnits with how sure it is: { reading, guess, why }. why is 'one' (the only reading on the
- * bed), 'both' (mm and inches are both on the bed: the preferred one), 'small' (another reading is
- * on the bed but under 6 mm long) or 'none' (no reading is on the bed: mm). guess is every why but 'one'.
+ * stlUnits with how sure it is: { reading, guess, why, byPref, readings }.
+ * Only the part's size counts, never where its numbers sit, so a moved part reads the same.
+ * readings holds each reading's state: 'off' (its footprint is off the bed), 'small' (on the bed,
+ * longest side under 6 mm) or 'fits'. Meters are a reading only for a part under 1 unit long.
+ * The pick: meters when they fit; else mm or inches, whichever fits (both: the units switch's,
+ * byPref); else mm. why is 'one' (no other reading is on the bed), 'both' (another reading fits),
+ * 'small' (another is on the bed only under 6 mm) or 'none' (the pick does not fit either).
+ * guess is every why but 'one'.
  */
 export function stlUnitsWhy(v, opt = {}) {
-    let lo = [Infinity, Infinity, Infinity], hi = [-Infinity, -Infinity, -Infinity], most = 0;
+    let lo = [Infinity, Infinity, Infinity], hi = [-Infinity, -Infinity, -Infinity];
     for (let i = 0; i + 2 < v.length; i += 3) {
         for (let k = 0; k < 3; k++) {
             const x = v[i + k];
             if (!Number.isFinite(x)) continue;
             if (x < lo[k]) lo[k] = x;
             if (x > hi[k]) hi[k] = x;
-            if (Math.abs(x) > most) most = Math.abs(x);
         }
     }
     const s = [0, 1, 2].map(k => hi[k] - lo[k]);
-    if (!s.every(Number.isFinite)) return { reading: 'mm', guess: true, why: 'none' };
+    if (!s.every(Number.isFinite)) {
+        return { reading: 'mm', guess: true, why: 'none', byPref: false, readings: {} };
+    }
+    const long = Math.max(...s);
     const bw = opt.bedWidth || Infinity, bd = opt.bedDepth || Infinity;
-    const onBed = k => s[0] * k <= bw + 0.5 && s[1] * k <= bd + 0.5 && Math.max(...s) * k > 0;
-    const fits = k => onBed(k) && Math.max(...s) * k >= 6;
-    const readings = ['mm', 'in', ...(most < 1 ? ['m'] : [])];
-    const others = r => readings.filter(o => o !== r && onBed(STL_UNITS[o]));
-    const say = (reading, why) => ({ reading, guess: why !== 'one', why });
-    const pick = r => {
-        const rest = others(r);
-        if (!rest.length) return say(r, 'one');
-        return say(r, rest.some(o => fits(STL_UNITS[o])) ? 'both' : 'small');
-    };
-    if (most < 1 && fits(STL_UNITS.m)) return pick('m');
-    const mm = fits(1), inch = fits(STL_UNITS.in);
-    if (mm && inch) return say(opt.inch ? 'in' : 'mm', 'both');
-    if (mm || inch) return pick(inch ? 'in' : 'mm');
-    return say('mm', 'none');
+    const state = k => (s[0] * k > bw + 0.5 || s[1] * k > bd + 0.5) ? 'off' : long * k >= 6 ? 'fits' : 'small';
+    const readings = {};
+    for (const u of ['mm', 'in', ...(long < 1 ? ['m'] : [])]) readings[u] = state(STL_UNITS[u]);
+
+    let reading = 'mm', byPref = false;
+    if (readings.m === 'fits') reading = 'm';
+    else if (readings.mm === 'fits' && readings.in === 'fits') { reading = opt.inch ? 'in' : 'mm'; byPref = true; }
+    else if (readings.in === 'fits') reading = 'in';
+
+    const others = Object.keys(readings).filter(u => u !== reading).map(u => readings[u]);
+    const why = readings[reading] !== 'fits' ? 'none'
+        : others.includes('fits') ? 'both'
+        : others.includes('small') ? 'small' : 'one';
+    return { reading, guess: why !== 'one', why, byPref, readings };
+}
+
+/**
+ * The sentence for a stlUnitsWhy result: the reading picked, then each reading as it is.
+ * @param {object} r - stlUnitsWhy's result
+ * @returns {string}
+ */
+export function stlUnitsSay(r) {
+    const N = STL_UNIT_NAMES, head = `it came in as ${N[r.reading]}`;
+    if (r.why === 'one') return `${head}, the only reading that fits the bed.`;
+    const st = r.readings || {};
+    const as = state => ['mm', 'in', 'm'].filter(u => st[u] === state).map(u => N[u]);
+    const and = a => a.length < 3 ? a.join(' and ') : `${a.slice(0, -1).join(', ')} and ${a[a.length - 1]}`;
+    const bits = [];
+    const fit = as('fits'), small = as('small'), off = as('off');
+    if (fit.length) bits.push(`as ${and(fit)} it fits the bed`);
+    if (small.length) bits.push(`as ${and(small)} it is under 6 mm long`);
+    if (off.length) bits.push(`as ${and(off)} it is too big for the bed`);
+    if (r.byPref) bits.push('the units switch chose');
+    return `${head}. a guess: ${bits.join('; ') || 'its size is unknown'}. check the size.`;
 }

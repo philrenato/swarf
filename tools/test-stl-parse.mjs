@@ -43,6 +43,31 @@ assert.equal(one(['nan 0 0', '10 0 0', '0 10 0']).length, 0, 'a facet with nan i
 const two = Array.from(new STL().parse(enc(asc([['nan 0 0', '10 0 0', '0 10 0'], ['1 1 1', '2 2 2', '3 3 3']])), 1));
 assert.deepEqual(two, [1, 1, 1, 2, 2, 2, 3, 3, 3], 'the facet after a bad one is whole');
 
+// text is known by what it holds, not by a high byte: a UTF-8 solid name or a BOM is still text
+const body = asc([['1.5 2 3', '10 0 0', '0 10 0'], ['0 0 0', '-4 5 6', '7 8 9.25']]);
+const want = Array.from(new STL().parse(enc(body), 1));
+assert.equal(want.length, 18, 'two facets in plain ASCII');
+const named = n => Array.from(new STL().parse(enc(body.replace(/solid x/g, `solid ${n}`)), 1));
+assert.deepEqual(named('cafe'), want, 'solid cafe');
+assert.deepEqual(named('café'), want, 'a UTF-8 solid name: café');
+assert.deepEqual(named('部品'), want, 'a UTF-8 solid name: 部品');
+const withBom = s => new Uint8Array([0xEF, 0xBB, 0xBF, ...new Uint8Array(enc(s))]).buffer;
+assert.deepEqual(Array.from(new STL().parse(withBom(body), 1)), want, 'a UTF-8 BOM');
+assert.deepEqual(Array.from(new STL().parse(withBom(body.replace(/solid x/g, 'solid 部品')), 1)), want, 'a BOM and a UTF-8 name');
+// a binary header that starts with solid, even one naming a facet, is binary when its bytes say so
+const hdr = 'solid facet normal vertex 1 2 3 x';
+assert.deepEqual(Array.from(new STL().parse(bin(T, 2, 0, hdr), 1)), T.flat(), 'a solid header naming a facet, exact size');
+assert.deepEqual(Array.from(new STL().parse(bin(T, 0, 3, hdr), 1)), T.flat(), 'the same header, count 0 and trailing bytes');
+assert.deepEqual(Array.from(new STL().parse(bin(T, 2, 5, 'solid caf\xE9'), 1)), T.flat(), 'a binary header with a high byte and trailing bytes');
+// a file with nothing to read says why
+const reason = buf => { const p = new STL(); p.parse(buf, 1); return p.reason || ''; };
+assert.match(reason(enc('solid x\nendsolid x\n'.padEnd(200, ' '))), /no whole triangle in this text STL/, 'text with no facet says so');
+const u16 = s => { const b = new Uint8Array(2 + s.length * 2); b[0] = 0xFF; b[1] = 0xFE; for (let i = 0; i < s.length; i++) b[2 + i * 2] = s.charCodeAt(i); return b.buffer; };
+assert.match(reason(u16(body)), /UTF-16/, 'UTF-16 text with a BOM says so');
+assert.match(reason(u16(body).slice(2)), /UTF-16/, 'UTF-16 text with no BOM says so');
+assert.match(reason(bin([[NaN, 0, 0, 0, 0, 0, 0, 0, 0]], 1)), /no triangle with real numbers in this binary STL/, 'binary with no real triangle says so');
+{ const p = new STL(); p.parse(enc(body), 1); assert.equal(p.reason, undefined, 'a good file has no reason'); }
+
 // units: a ShopBot bed (2438.4 x 1219.2) and the MR-1's (about 300 x 200)
 const box = (x, y, z) => new Float32Array([0, 0, 0, x, 0, 0, x, y, z]);
 const SB = { bedWidth: 2438.4, bedDepth: 1219.2 }, MR = { bedWidth: 304.8, bedDepth: 203.2 };
