@@ -635,8 +635,9 @@ function exportGCodeDialog(gcode, sections, info, names) {
             gen3mf(zip => api.util.download(zip, `${$('print-filename').value}.3mf`));
         };
 
-        // present bambu print options when selected device is bambu
-        if (api.bambu) {
+        // present bambu print options when selected device is bambu; the hook
+        // drives the page's bambu-output panel, so a page without it skips the hook
+        if (api.bambu && $('bambu-output')) {
             api.bambu.prep_export(gen3mf, gcode, info, settings);
         }
 
