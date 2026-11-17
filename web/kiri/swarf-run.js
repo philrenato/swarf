@@ -27,10 +27,10 @@
   const STEPS = ['load', 'check', 'zero', 'trace', 'cut'];
   const STEP_SAYS = {
     load: 'Load: the toolpaths from cam (press control with a part and a step on the bed), or a file from other software.',
-    check: 'Check: swarf reads the file: millimeters, small enough for the machine, every line it can run. Where it lands on the table is checked once X Y is zeroed.',
+    check: 'Check: swarf reads the file: millimeters, small enough for the machine, every line it can run. Where it lands on the table is checked once X Y is zeroed and the table corner is known.',
     zero: 'Zero: jog the bit to your board\'s X 0, Y 0 and press zero x y; then zero z, or use the z plate.',
     get trace() { return `Trace: the bit runs the rectangle the cut fills, ${up()} up, router off. An air cut runs the whole file above the board. Both need a program and the zero.`; },
-    cut: 'Cut: after a trace, a short checklist, then the router starts.'
+    cut: 'Cut: a short checklist, then the router starts. A trace first is your choice.'
   };
   const CHANGE_Z = 50;          // a tool change lifts this far over the work, room for a wrench
   const Z_JOG_MAX = 1000;       // mm/min: Z jogs never faster, whatever the speed row says
@@ -75,6 +75,7 @@
       S.plateUsed ? 'the Z plate and its clip are put away' : null,
       /^the /.test(o.z) ? `Z zero is on ${o.z}` : `Z zero is ${o.z}`,
       'safety glasses on, dust collection on',
+      'the laptop is plugged in and stays open',
       'I will stay at the machine until it finishes'
     ].filter(Boolean);
   }
@@ -551,6 +552,11 @@ html[data-skin] #swarf-run .sr-jog .sr-zrow button.next, html[data-skin] #swarf-
   // the way in, in the student's units: "up to 1 in, over to X 0.47, Y 1.57" (r086 check S2)
   const wayWords = plan => window.SwarfRunPlan.entryWords(plan, inch() ? { len: v => prose(v, 0), at: v => +(v / 25.4).toFixed(2) } : { len: v => prose(v, 0) });
   const lens = (a, dp) => inch() ? a.map(v => len(v, dp).replace(/ in$/, '')).join(' × ') + ' in' : a.map(v => +(+v).toFixed(dp == null ? 1 : dp)).join(' × ') + ' mm';
+  // a feed in words, in cam's units: "1200 mm/min" or "47 in/min"
+  const rateWords = mmMin => inch() ? `${+(mmMin / 25.4).toFixed(1)} in/min` : `${Math.round(mmMin)} mm/min`;
+  // a span of two numbers in cam's units, no unit word: "0 to 120" or "0 to 4.72"
+  const spanWords = (a, b) => inch() ? `${+(a / 25.4).toFixed(2)} to ${+(b / 25.4).toFixed(2)}` : `${a.toFixed(0)} to ${b.toFixed(0)}`;
+  const unitWord = () => inch() ? 'in' : 'mm';
   // the "go to … above z 0" height: 5 mm, or 0.2 in
   const goZmm = () => inch() ? 5.08 : 5;
   const goZword = () => inch() ? '0.2 in' : '5 mm';
@@ -656,8 +662,10 @@ html[data-skin] #swarf-run .sr-jog .sr-zrow button.next, html[data-skin] #swarf-
       h('div', { class: 'sr-scrub' }, el.play, el.playRate, el.scrub, el.scrubLabel));
     el.view.addEventListener('dragover', e => { e.preventDefault(); el.view.classList.add('drag'); });
     el.view.addEventListener('dragleave', () => el.view.classList.remove('drag'));
-    el.view.addEventListener('drop', e => {
-      e.preventDefault(); el.view.classList.remove('drag');
+    // a file dropped anywhere on control is control's: cam's own window drop never sees it
+    el.root.addEventListener('dragover', e => { e.preventDefault(); e.stopPropagation(); });
+    el.root.addEventListener('drop', e => {
+      e.preventDefault(); e.stopPropagation(); el.view.classList.remove('drag');
       const f = e.dataTransfer.files && e.dataTransfer.files[0];
       if (f) readFile(f);
     });
@@ -1099,7 +1107,15 @@ html[data-skin] #swarf-run .sr-jog .sr-zrow button.next, html[data-skin] #swarf-
   };
 
   // ------------------------------------------------------------ program
+  // a job running, paused or stopped partway keeps its program: a new one would change what continue runs
+  function jobHeld() { const st = S.machine && S.machine.state; return !!(st && (st.running || st.paused)) || !!S.stoppedAt || !!S.toolChange; }
+  function refuseLoad() {
+    if (!jobHeld()) return false;
+    tell('Finish or end this job first: a new file now would change what continue runs.', 'warn');
+    return true;
+  }
   function readFile(f) {
+    if (refuseLoad()) return;
     const r = new FileReader();
     r.onload = () => loadProgram(f.name, String(r.result), 'file');
     r.readAsText(f);
@@ -1199,6 +1215,9 @@ html[data-skin] #swarf-run .sr-jog .sr-zrow button.next, html[data-skin] #swarf-
   }
 
   function loadProgram(name, text, source, extra) {
+    if (source !== 'cam' && refuseLoad()) return false;
+    // a file or a test cut chosen while cam still makes toolpaths: that request is over
+    if (source !== 'cam' && S.camBusy) { S.camBusy = false; S.camDone = null; clearTimeout(S.camTimer); }
     playStop();
     const before = S.prog ? { at: spotOf(), atz: originText().z, bit: S.zBit, src: S.prog.source } : null;
     // cam made the very same toolpaths again: keep the job where it is (a stop, a tool
@@ -1253,7 +1272,7 @@ html[data-skin] #swarf-run .sr-jog .sr-zrow button.next, html[data-skin] #swarf-
     let xy;
     if (near(b.min.x, w) && near(b.min.y, d)) xy = 'the front-left corner of your board';   // the poster's words (10-28)
     else if (near((b.min.x + b.max.x) / 2, w) && near((b.min.y + b.max.y) / 2, d)) xy = 'the center of your board';
-    else xy = `the point your file calls X 0, Y 0 (the cut spans X ${b.min.x.toFixed(0)} to ${b.max.x.toFixed(0)}, Y ${b.min.y.toFixed(0)} to ${b.max.y.toFixed(0)} mm)`;
+    else xy = `the point your file calls X 0, Y 0 (the cut spans X ${spanWords(b.min.x, b.max.x)}, Y ${spanWords(b.min.y, b.max.y)} ${unitWord()})`;
     // cuts reaching below zero from no higher than a safe height start on the board's top (083: plunges
     // now start at the 5 mm z clearance, past the old 2 mm test)
     const z = b.max.z <= 26 && b.min.z < 0 ? 'the top of your board' : b.min.z >= -0.5 ? 'the table under your board' : 'where your file puts Z 0';
@@ -1330,7 +1349,7 @@ html[data-skin] #swarf-run .sr-jog .sr-zrow button.next, html[data-skin] #swarf-
     if (b && c && S.zeroXY) {
       const T = tableSize(), ma = S.machine.mabs(), pos = S.machine.state.pos;
       const x0 = b.min.x + ma.x - pos.x - c.x, y0 = b.min.y + ma.y - pos.y - c.y, x1 = x0 + b.max.x - b.min.x, y1 = y0 + b.max.y - b.min.y;
-      if (x0 < -2 || y0 < -2 || x1 > T.x + 2 || y1 > T.y + 2) out.block.push(`From this zero the cut runs off the table (X ${x0.toFixed(0)} to ${x1.toFixed(0)}, Y ${y0.toFixed(0)} to ${y1.toFixed(0)} mm from its front-left corner). Zero somewhere else.`);
+      if (x0 < -2 || y0 < -2 || x1 > T.x + 2 || y1 > T.y + 2) out.block.push(`From this zero the cut runs off the table (X ${spanWords(x0, x1)}, Y ${spanWords(y0, y1)} ${unitWord()} from its front-left corner). Zero somewhere else.`);
     }
     // Z zero on the table, not the board (third review #5): every safe height would sit in the board
     if (window.SwarfRunPlan && window.SwarfRunPlan.validate(p).some(v => v.k === 'table-zero')) out.block.push('Every cut in this file is above Z 0, so it was made with Z zero on the table. swarf zeros Z on the top of your board: make the file again with Z zero on the top of the material (in VCarve: Job Setup, Z Zero, Material Surface).');
@@ -1343,10 +1362,10 @@ html[data-skin] #swarf-run .sr-jog .sr-zrow button.next, html[data-skin] #swarf-
     const T = 7372800 / 65536, U = { x: 72.183661, y: 72.183661, z: 90.229567 };
     const floorOf = m => { const L = Math.hypot(m.x - m.x0, m.y - m.y0, m.z - m.z0), st = Math.max(Math.abs(m.x - m.x0) * U.x, Math.abs(m.y - m.y0) * U.y, Math.abs(m.z - m.z0) * U.z); return st >= 1 ? T * L / st : 0; };
     const slow = !isMR1() && p.moves.find(m => !m.rapid && m.feed > 0 && m.feed < floorOf(m) * 1.02);
-    if (slow) out.block.push(`Line ${slow.line} asks for ${Math.round(slow.feed * 60)} mm/min, slower than the machine can step smoothly in that direction (${Math.ceil(floorOf(slow) * 60 * 1.02)} mm/min). It would run faster than asked. Raise that feed and make the toolpaths again.`);
+    if (slow) out.block.push(`Line ${slow.line} asks for ${rateWords(slow.feed * 60)}, slower than the machine can step smoothly in that direction (${rateWords(Math.ceil(floorOf(slow) * 60 * 1.02))}). It would run faster than asked. Raise that feed and make the toolpaths again.`);
     if (b) {
       const w = b.max.x - b.min.x, d = b.max.y - b.min.y;
-      if (w > L.x[1] - L.x[0] || d > L.y[1] - L.y[0]) out.block.push(`The cut is ${w.toFixed(0)} × ${d.toFixed(0)} mm, bigger than the table.`);
+      if (w > L.x[1] - L.x[0] || d > L.y[1] - L.y[0]) out.block.push(`The cut is ${lens([w, d], inch() ? 2 : 0)}, bigger than the table.`);
     }
     for (const w of p.warnings) if (!/units|inches|millimeters/.test(w.text)) out.warn.push((w.line ? `line ${w.line}: ` : '') + w.text);
     return out;
@@ -1473,7 +1492,8 @@ html[data-skin] #swarf-run .sr-jog .sr-zrow button.next, html[data-skin] #swarf-
       // the zero too can be skipped for a cut (Phil 11-16: "Got it means I am not cutting"): the cut
       // card then says it runs from the machine's own zero and asks for one more tick (askCut)
       { k: 'xy', label: 'X Y zeroed', opt: true, ok: !!S.zeroXY, todo: S.zeroHad && S.zeroHad.xy && S.zeroSetAt && !S.zx && sameSpot() ? 'press "use the zero you set" if the board has not moved, or jog over your X 0, Y 0 and press zero x y' : 'jog the bit over your X 0, Y 0 and press zero x y' },
-      { k: 'z', label: 'Z zeroed', opt: true, ok: !!S.zeroZ, todo: S.zeroHad && S.zeroHad.z && S.zeroSetAt && sameBit() ? 'press "use the zero you set", or zero Z again' : isGrbl() ? 'lower the bit onto paper and press zero z' : 'press z plate, or lower the bit onto paper and press zero z' },
+      // a new bit's Z is never the old one's: required while a bit change is pending
+      { k: 'z', label: 'Z zeroed', opt: !(S.toolChange || S.zStale), ok: !!S.zeroZ, todo: S.zeroHad && S.zeroHad.z && S.zeroSetAt && sameBit() ? 'press "use the zero you set", or zero Z again' : isGrbl() ? 'lower the bit onto paper and press zero z' : 'press z plate, or lower the bit onto paper and press zero z' },
       // the trace is the protocol, not physics (Phil 11-16: "you DO NOT HAVE TO TRACE OR AIRCUT"): cut
       // goes ahead without it, after one more tick on its card (askCut); the rest above never skip
       { k: 'trace', label: 'traced', opt: true, ok: !!S.traced, todo: 'press trace and watch it clear the clamps, or cut without it' }
@@ -1511,6 +1531,7 @@ html[data-skin] #swarf-run .sr-jog .sr-zrow button.next, html[data-skin] #swarf-
     for (const b of [el.btn.trace, el.btn.air, el.btn.cut]) if (b) b.classList.toggle('offline', offline);
     // a job on the machine (running or paused) keeps control: cam's steps look asleep (review 10-28 #20)
     document.body.classList.toggle('swarf-run-busy', !!running && S.open);
+    window.__swarfRunBusy = !!running || !!(st && st.paused) || !!S.stoppedAt || !!S.toolChange;
     // what trace, in the air and cut wait for, each one named; a waiting button still takes the
     // press and says it (Phil 10-28: "I can't figure out why it won't let me go to trace or in the air")
     const need = needs(st, ready);
@@ -1548,8 +1569,8 @@ html[data-skin] #swarf-run .sr-jog .sr-zrow button.next, html[data-skin] #swarf-
     if (el.keys) el.keys.textContent = running ? 'any key pauses   ·   emergency: the red e-stop on the floor' : `← → ↑ ↓  X Y   ·   ${zKeys}   ·   space stops${S.jogStep === 'cont' ? '   ·   continuous: no end stops, let go in time' : ''}`;   // Fable 3 #10
     // the links stand in for the button row, never beside it (deep review S14: two "a test cut" after a finish)
     const startShown = !S.prog || finished;
-    el.otherFile.style.display = S.prog && !startShown ? '' : 'none';
-    el.lessonLink.style.display = S.prog && !startShown ? '' : 'none';
+    el.otherFile.style.display = S.prog && !startShown && !jobHeld() ? '' : 'none';
+    el.lessonLink.style.display = S.prog && !startShown && !jobHeld() ? '' : 'none';
     el.fromCam.style.display = S.prog && S.prog.source === 'cam' ? '' : 'none';
     // the control that does the next thing is lit
     const first = need.find(n => !n.ok);
@@ -1718,7 +1739,7 @@ html[data-skin] #swarf-run .sr-jog .sr-zrow button.next, html[data-skin] #swarf-
     const circuit = h('p', { class: 'sr-circuit' });
     const touchBtn = sim ? h('button', { text: 'touch the plate to the bit', title: 'The simulator has no plate: this stands in for the touch', onclick: () => { proved = true; show(); } }) : null;
     const go = h('button', { class: 'go' });
-    const back = h('button', { text: 'cancel', onclick: () => { S.plateWatch = null; el.sheet.classList.remove('on'); refresh(); } });
+    const back = h('button', { text: 'cancel', onclick: () => { S.plateWatch = null; S.afterZero = null; el.sheet.classList.remove('on'); refresh(); } });
     const put = h('input', { type: 'checkbox' });
     const pic = plateView();
     // the board as measured, against the job (optional): the machine knows the top of the board and
@@ -1801,7 +1822,11 @@ html[data-skin] #swarf-run .sr-jog .sr-zrow button.next, html[data-skin] #swarf-
     });
     put.addEventListener('change', show);
     go.onclick = async () => {
-      if (zeroed) { S.plateUsed = false; el.sheet.classList.remove('on'); refresh(); if (S.boardWarn) { say(S.boardWarn, 'warn'); S.boardWarn = ''; } return; }
+      if (zeroed) {
+        S.plateUsed = false; el.sheet.classList.remove('on'); refresh(); if (S.boardWarn) { say(S.boardWarn, 'warn'); S.boardWarn = ''; }
+        if (S.afterZero) { const k = S.afterZero; S.afterZero = null; askCut(k); }
+        return;
+      }
       go.disabled = true; go.textContent = 'touching off…';
       S.plateWatch = null;
       el.sheet.classList.remove('on');
@@ -2053,7 +2078,7 @@ html[data-skin] #swarf-run .sr-jog .sr-zrow button.next, html[data-skin] #swarf-
   function onKey(e) {
     // a card on the sheet: only a click presses its buttons; Esc closes it (nothing is moving yet)
     if (S.open && el.sheet && el.sheet.classList.contains('on') && e.type === 'keydown' && !(S.machine && (S.machine.state.running || S.machine.homing))) {
-      if (e.key === 'Escape') { e.preventDefault(); S.plateWatch = null; S.mr1Watch = null; el.sheet.classList.remove('on'); refresh(); return; }
+      if (e.key === 'Escape') { e.preventDefault(); S.plateWatch = null; S.mr1Watch = null; S.afterZero = null; el.sheet.classList.remove('on'); if (S.prog) showPlan(null); refresh(); return; }
       const t = e.target;
       if ((e.key === ' ' || e.key === 'Enter') && t && t.tagName === 'BUTTON' && el.sheet.contains(t)) { e.preventDefault(); e.stopPropagation(); return; }
       if (t && t.tagName === 'INPUT') return;
@@ -2110,14 +2135,68 @@ html[data-skin] #swarf-run .sr-jog .sr-zrow button.next, html[data-skin] #swarf-
     if (!prog) return null;
     return S.machine.plan({ ...prog, kind, preview: false });
   }
+  // why the ShopBot's zero cannot be trusted, or ''
+  function zeroUnknown() {
+    if (!isDirect()) return '';
+    if (S.zeroLost) return 'the box restarted';
+    let saved = true;
+    try { saved = !!localStorage.getItem('swarf-shopbot-origin'); } catch (e) { /* private window: say nothing */ }
+    if (!saved) return 'no zero was ever set on this computer';
+    const now = spotOf();
+    if (S.zeroAt != null && now != null && S.zeroAt !== now) return 'this file is zeroed at another spot';
+    return '';
+  }
+  // the short way back to a zero, inside the cut card: jog, X Y here, then Z, then the cut card itself
+  function zeroBack(kind) {
+    const m = S.machine, o = originText();
+    el.card.innerHTML = '';
+    let step = 1;
+    const steps = [10, 1, 0.1].map(v => h('button', { text: len(v), class: v === step ? 'on' : '', onclick: e => { step = v; for (const b of steps) b.classList.toggle('on', b === e.currentTarget); } }));
+    const pad = h('div', { class: 'sr-backpad' }, ...[['x', -1, 'X−'], ['x', 1, 'X+'], ['y', -1, 'Y−'], ['y', 1, 'Y+'], ['z', 1, 'Z+'], ['z', -1, 'Z−']]
+      .map(([a, d, t]) => h('button', { text: t, onclick: () => { if (m && !m.busy()) m.jog(a, d * step); } })));
+    const back = h('button', { text: 'not yet', onclick: () => { S.afterZero = null; el.sheet.classList.remove('on'); refresh(); } });
+    const xy = !S.zeroXY;
+    const parts = [h('h2', { text: 'Zero first' }), h('p', { text: `swarf no longer trusts the zero: ${zeroUnknown() || 'it was not set'}.` })];
+    if (xy) {
+      parts.push(h('p', { text: `Jog the bit over ${o.xy}.` }), pad, h('div', { class: 'row' }, ...steps),
+        h('div', { class: 'row' }, back, h('button', { class: 'go', text: 'this spot is X 0 Y 0', onclick: async () => { if (m.busy()) return; await doZero('xy'); zeroBack(kind); } })));
+    } else {
+      parts.push(h('p', { text: /^the /.test(o.z) ? `Now Z: lower the bit onto ${o.z}.` : `Now Z: lower the bit to ${o.z}.` }), pad, h('div', { class: 'row' }, ...steps),
+        h('div', { class: 'row' }, back,
+          ...(m.zZero ? [h('button', { text: 'z plate', onclick: () => { S.afterZero = kind; plateWizard(); } })] : []),
+          h('button', { class: 'go', text: 'this is Z 0', onclick: async () => { if (m.busy()) return; await doZero('z'); askCut(kind); } })));
+    }
+    el.card.append(...parts);
+    el.sheet.classList.add('on');
+  }
   // the preview shows what will run: the plan's own moves, the way in drawn as travel
   function showPlan(plan) {
     const p = S.prog.parsed;
     if (plan) view.load({ ...p, moves: plan.moves, bounds: P.boundsOf(plan.moves) });
     else if (view.bounds !== p.bounds) view.load(p);
   }
+  // the screen (and with it the computer) stays awake while a job runs
+  async function keepAwake(on) {
+    try {
+      if (on && !S.wake && navigator.wakeLock) { S.wake = await navigator.wakeLock.request('screen'); S.wake.addEventListener('release', () => { S.wake = null; }); }
+      else if (!on && S.wake) { const w = S.wake; S.wake = null; await w.release(); }
+    } catch (e) { /* not allowed here: the checklist asks for a plugged-in, open laptop */ }
+  }
+  document.addEventListener('visibilitychange', () => { if (!document.hidden && S.machine && S.machine.state.running) keepAwake(true); });
+  // leaving the page mid-job asks first; leaving anyway stops the MR-1 (a hold, then a reset)
+  window.addEventListener('beforeunload', e => {
+    const st = S.machine && S.machine.state;
+    if (st && (st.running || st.spindle)) { e.preventDefault(); e.returnValue = ''; return ''; }
+  });
+  window.addEventListener('pagehide', () => {
+    const m = S.machine, st = m && m.state;
+    if (!st || !(st.running || st.spindle)) return;
+    if (isGrbl() && m.rt) { m.rt(0x21); m.rt(0x18); }
+    else if (m.stop) m.stop();
+  });
   function start(plan) {
     if (!plan || !S.machine) { say('Nothing to run there.', 'warn'); return; }
+    keepAwake(true);
     S.job = plan.kind;
     if (S.machine.setOverride) S.machine.setOverride(100);   // each job starts at its own feeds
     S.runMoves = plan.moves; S.runIdx = 0; S.userStopped = false;
@@ -2151,6 +2230,9 @@ html[data-skin] #swarf-run .sr-jog .sr-zrow button.next, html[data-skin] #swarf-
     const from = kind === 'from', test = kind === 'trace' || kind === 'air';
     const line = from ? Math.max(1, Math.round(+el.fromLine.value || 1)) : 0;
     el.card.innerHTML = '';
+    // the ShopBot's zero is swarf's own count: once it is lost, never set, or set for another spot,
+    // the cut card first takes the student back to a zero, then carries on to the cut
+    if (!test && isDirect() && zeroUnknown() && (!S.zeroXY || !S.zeroZ)) { zeroBack(from ? 'from' : 'cut'); return; }
     // a cut with no trace this zero: said at the top, and one more tick the student owns
     const untraced = !test && !S.traced;
     const unzeroed = !test && (!S.zeroXY || !S.zeroZ) ? [!S.zeroXY ? 'X Y' : '', !S.zeroZ ? 'Z' : ''].filter(Boolean).join(' and ') : '';
@@ -2451,6 +2533,9 @@ html[data-skin] #swarf-run .sr-jog .sr-zrow button.next, html[data-skin] #swarf-
   // ------------------------------------------------------------ the MR-1 (swarf-grbl.js)
   // the job's machine is the MR-1 (setup › machine)
   function isMR1() {
+    // a real machine connected decides; otherwise cam's machine
+    if (isGrbl() && S.machine.state.connected) return true;
+    if (isDirect() && S.machine.state.connected) return false;
     try { return /MR-1/i.test(window.kiri.api.conf.get().device.deviceName || ''); } catch (e) { return false; }
   }
   // the MR-1's working box for the file checks, from its machine profile (the board's own travel is checked on every plan)
@@ -2495,6 +2580,7 @@ html[data-skin] #swarf-run .sr-jog .sr-zrow button.next, html[data-skin] #swarf-
       if (ok) {
         if (S.estopHit) { S.estopHit = false; S.fault = null; S.hold = null; }
         S.connSession = (S.connSession || 0) + 1;
+        if (S.machine && !(S.machine instanceof G)) forgetJob();
         if (S.zeroXY || S.zeroZ) rememberZero();
         S.zeroXY = S.zeroZ = S.traced = false; S.zx = S.zy = false; S.g54ok = null; S.keptZero = null; S.grblHomed = false;
         if (S.unsub) S.unsub();
@@ -2672,6 +2758,8 @@ html[data-skin] #swarf-run .sr-jog .sr-zrow button.next, html[data-skin] #swarf-
         // connecting again after the e-stop is the student's say-so: its warnings go
         if (S.estopHit) { S.estopHit = false; S.fault = null; S.hold = null; }
         S.connSession = (S.connSession || 0) + 1;   // a table corner learned before this connection no longer counts
+        // coming from the simulator or the MR-1: their zero, trace and stopped line are not this box's
+        if (S.machine && !(S.machine instanceof D)) forgetJob();
         // the card keeps its count while powered; a count that moved while unplugged means a restart
         const was = S.lastSteps, now = d.steps;
         // up to two queued blocks (~300 ticks) still run after a drop; a restart moves the count far more
@@ -2809,13 +2897,14 @@ html[data-skin] #swarf-run .sr-jog .sr-zrow button.next, html[data-skin] #swarf-
     // all-clear checklist; the zero is offered back on reconnect
     if ((st.note || '') !== S.prevNote && /stopped by the (e-stop|remote stop)/.test(st.note || '')) { S.estopHit = true; S.discAt = Date.now(); S.discWhy = 'the e-stop'; S.hold = null; }
     S.prevNote = st.note || '';
+    if (S.lastRunning && !st.running) keepAwake(false);
     if (S.lastRunning && !st.running) {
       // only a real end of file is a finish: a stop, a hold or a dropped link keeps the line (Fable review 10-27)
       const finished = !S.userStopped && !st.stopHit && !st.lostMid && (st.kind === 'shopbot' || st.kind === 'grbl' ? st.done === true : /finished/.test(st.note));
       S.userStopped = false;
       // the MR-1 still connected after a job ended mid-file restarted (power, its e-stop, the cable)
       if (st.lostMid && !S.fault && isGrbl() && st.connected) S.fault = `the MR-1 restarted at line ${S.lastLine || 1} while it was running: it is not homed and its zero is unproven`;
-      if (st.lostMid && !S.fault) S.fault = `the USB link dropped at line ${S.lastLine || 1} while the machine was running`;
+      if (st.lostMid && !S.fault) S.fault = st.connected ? `the machine stopped at line ${S.lastLine || 1} mid-job (the computer paused or the stream ran dry)` : `the USB link dropped at line ${S.lastLine || 1} while the machine was running`;
       if (st.lostMid && (S.job === 'cut' || S.job === 'from')) {
         S.lostAt = S.stoppedAt = S.lastLine || 1;
         el.fromLine.value = String(S.stoppedAt);
@@ -3015,6 +3104,11 @@ html[data-skin] #swarf-run .sr-jog .sr-zrow button.next, html[data-skin] #swarf-
     else if (S.rowsUnit !== (inch() ? 'in' : 'mm')) { rateRows(); renderPlan(); }
     if (!nodes) { el.sheet.classList.remove('on'); refresh(); return; }
     el.card.innerHTML = ''; el.card.append(...nodes); el.sheet.classList.add('on');
+  }
+  // another machine connected: the zero, the trace, a stopped line and a kept zero were the other one's
+  function forgetJob() {
+    S.zeroXY = S.zeroZ = S.traced = false; S.zx = S.zy = false;
+    S.stoppedAt = 0; S.lostAt = 0; S.toolChange = null; S.keptZero = null; S.zStale = false; S.lastDone = null;
   }
   // a .swarf opened (swarf-file.js): the job control held is gone, and the reopened one is a new
   // job — no zero, no trace, no stop to go on from. The board's own zero is offered back, as for

@@ -855,7 +855,10 @@
     planCfg() {
       const r = this.cfg.rapid;
       const top = this.settings && this.wco ? this.box().z[1] - this.wco.z - 0.01 : Infinity;
-      return { safeZ: Math.min(this.cfg.safeZ, top), rapid: { ...r }, move: { ...r }, jog: { ...this.cfg.jog }, spinUp: this.cfg.spinUp, changeZ: Math.min(this.cfg.changeZ, top) };
+      // cutting feeds are held to the board's own top rates ($110-$112), not the jog speed
+      const s = this.settings || {}, xy = Math.min(s[110] || 0, s[111] || 0) / 60, z = (s[112] || 0) / 60;
+      const move = xy > 0 && z > 0 ? { xy, z } : { ...r };
+      return { safeZ: Math.min(this.cfg.safeZ, top), rapid: { ...r }, move, jog: { ...this.cfg.jog }, spinUp: this.cfg.spinUp, changeZ: Math.min(this.cfg.changeZ, top) };
     }
     // what a plan is for: this zero, on this link (a reconnect or a new zero makes a new plan)
     planCtx() {
