@@ -3,8 +3,9 @@
 //    each step up never lowers rpm, feed, plunge or step-down; nothing passes the machine's caps
 //    (spindleMax, 90% of feedMax for a raised feed, feedMaxZ); the MR-1's ceilings land on the
 //    formula's own numbers for a few bits; carbide reaches higher than HSS
-//  - in the page, on the MR-1: one control on the material row; max moves rpm, feed, plunge and
-//    step-down together on the step; a typed field holds after; a saved .swarf keeps the speed
+//  - in the page, on the MR-1: the speed on its own labelled row under the material, its numbers
+//    under it; max moves rpm, feed, plunge and step-down together on the step; a typed field is
+//    custom and holds through a speed change until "use the speed"; a saved .swarf keeps the speed
 //  - on the ShopBot, start is what it was
 //   node tools/probe_speed_ramp.mjs [url]        (NODE_ONLY=1: the node half, no browser)
 import puppeteer from 'puppeteer-core';
@@ -105,9 +106,10 @@ try {
 
   await setup('Langmuir.MR-1', 'aluminum_6061');
   check(await page.evaluate(() => window.__swarfMaterial.id) === 'aluminum_6061', 'aluminium on the MR-1');
-  const row = await page.evaluate(() => { const r = document.getElementById('swarf-material-row'), s = document.getElementById('swarf-speed-select'); return { inRow: !!(r && s && r.contains(s)), words: [...s.options].map(o => o.textContent), value: s.value, shown: !!s.offsetParent }; });
-  check(row.inRow && row.shown && row.value === '0', `one control on the material row, at start (${row.words.join(' · ')})`);
-  check(row.words.length === 5 && row.words[0] === 'start' && row.words[4] === 'max', 'start, three steps, max');
+  const row = await page.evaluate(() => { const r = document.getElementById('swarf-speed-row'), s = document.getElementById('swarf-speed-select'), l = document.getElementById(s.getAttribute('aria-labelledby')); return { own: !!(r && s && r.contains(s)) && !document.getElementById('swarf-material-row').contains(s), label: l && l.textContent, words: [...s.options].map(o => o.textContent), value: s.value, shown: !!s.offsetParent }; });
+  check(row.own && row.label === 'speed' && row.shown && row.value === '0', `the speed on its own labelled row, at start (${row.words.join(' · ')})`);
+  check(row.words.length === 5 && row.words[0] === 'start' && row.words[4] === 'max' && !row.words.some(w => /%/.test(w)), 'start, three steps toward max, max; no percent');
+  const numbers = () => page.evaluate(() => document.getElementById('swarf-speed-numbers').innerText);
   const s0 = await op();
   await pick(4);
   const s4 = await op();
@@ -118,11 +120,20 @@ try {
   check(s4.spindle <= 8000 && s4.rate <= 2286 && s4.plunge <= 1016, 'never above the MR-1');
   await pick(2);
   const s2 = await op();
-  check(s2.rate > s0.rate && s2.rate < s4.rate, `+50% sits between (${s0.rate} < ${s2.rate} < ${s4.rate} mm/min)`);
-  // a typed field holds after
+  check(s2.rate > s0.rate && s2.rate < s4.rate, `half way sits between (${s0.rate} < ${s2.rate} < ${s4.rate} mm/min)`);
+  const n2 = await numbers();
+  check(n2.includes(`${s2.spindle} rpm`) && n2.includes(`feed ${s2.rate} mm/min`) && n2.includes(`plunge ${s2.plunge} mm/min`) && /down a pass/.test(n2), `the numbers under the speed are the step's ("${n2}")`);
+  // a typed field is custom: it holds through a speed change, until "use the speed"
   await page.evaluate(() => { const a = window.kiri.api, o = a.conf.get().process.ops.find(o => o.type === 'outline'); o.rate = 333; a.conf.save(); a.event.settings(); });
   await wait(600);
   check((await op()).rate === 333, 'a feed typed after holds');
+  await pick(4);
+  check((await op()).rate === 333, 'a speed change keeps the typed feed');
+  check(/outline: custom/.test(await numbers()), `the speed line says the step is custom ("${await numbers()}")`);
+  const use = await page.$('#swarf-speed-numbers button');
+  if (use) { const bb = await use.boundingBox(); await page.mouse.click(bb.x + bb.width / 2, bb.y + bb.height / 2); }
+  await wait(600);
+  check((await op()).rate === s4.rate, `"use the speed" puts the speed's feed back (${(await op()).rate})`);
   // carbide, ticked beside the step's bit: carbide start and ceiling on every step with that bit
   await pick(0);
   const hssStart = await op();
@@ -205,7 +216,7 @@ try {
     setTimeout(() => res(null), 30000);
   }));
   console.log('    reopened:', JSON.stringify(back));
-  check(back && back.at0 === 0 && back.speed === 3 && back.shown === '3' && back.rate === kept.rate, `a saved .swarf keeps the speed (+75%) and the step's numbers`);
+  check(back && back.at0 === 0 && back.speed === 3 && back.shown === '3' && back.rate === kept.rate, `a saved .swarf keeps the speed (¾ to max) and the step's numbers`);
 } catch (e) {
   console.log('FAIL', e.message); bad.push(e.message);
 } finally {

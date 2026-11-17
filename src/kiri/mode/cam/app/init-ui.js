@@ -1443,6 +1443,7 @@ function stepLine(rec) {
         if (c) bits.push(c.n ? `${c.n} hole${c.n === 1 ? '' : 's'}${c.deep > 0 ? `, ${len(c.deep)} deep` : ''}` : 'no hole this bit fits');
     }
     if (rec.type === 'pocket') bits.push('down to the floor you pick');
+    if (self.__swarfOpCustom?.(rec)) bits.push('custom numbers');
     if (rec.rate > 0 && rec.type === 'outline' && !(process.camFullEngage >= 1)) {
         const band = /shopbot/i.test(device?.deviceName || '') ? 1500 : 0;
         const slow = rec.rate * (process.camFullEngage || 0.8), real = rec.rate >= band ? Math.max(slow, band) : slow;

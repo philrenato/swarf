@@ -554,8 +554,9 @@
     lim = lim || {};
     return derive(m, diamMm, Object.assign({}, lim, { feedMax: lim.feedMax > 0 ? lim.feedMax * 0.9 : 0 }), tool, { top: true });
   }
-  // the speed control's steps: how far from the safe start toward the ceiling
-  const SPEEDS = [{ f: 0, word: 'start' }, { f: 0.25, word: '+25%' }, { f: 0.5, word: '+50%' }, { f: 0.75, word: '+75%' }, { f: 1, word: 'max' }];
+  // the speed control's steps: how far from the safe start toward the ceiling, rpm, feed, plunge and
+  // step-down together (a quarter of the way is not a quarter more feed)
+  const SPEEDS = [{ f: 0, word: 'start' }, { f: 0.25, word: '¼ to max' }, { f: 0.5, word: '½ to max' }, { f: 0.75, word: '¾ to max' }, { f: 1, word: 'max' }];
   const speedLevel = v => Math.max(0, Math.min(SPEEDS.length - 1, Math.round(+v || 0)));
   // A step's numbers at a speed: the start (level 0) moved toward the ceiling, rpm, feed, plunge
   // and step-down together, each never past the machine's caps nor below the start
@@ -714,6 +715,40 @@
     if (type === 'texture' || type === 'pierce' || type === 'inlay' || type === 'vcarve') return { spindle: p.spindle, rate: p.feed, plunge: p.plunge, down: p.stepdown };
     return { spindle: p.spindle, rate: p.feed, plunge: p.plunge, down: p.stepdown, step: p.stepover };
   }
+  // what the steps' numbers come from now: the settings, the machine's limits, the speed
+  function feedCtx() {
+    let settings = null;
+    try { settings = window.kiri.api.conf.get(); } catch (e) { return null; }
+    if (!settings || !settings.process) return null;
+    const tools = settings.tools || [];
+    return {
+      settings, lim: deviceLimits(settings), level: speedLevel(settings.process.swarfSpeed),
+      devName: (settings.device && settings.device.deviceName) || '', findTool: id => tools.find(t => t.id == id)
+    };
+  }
+  // the stamp carries what the numbers came from (design review 10-28 #9): the material, the bit and its
+  // own diameter, the machine and its limits; the speed and what the bit is (cutter, flutes) join it only
+  // when not the start's, so a stamp from before them still matches
+  function stampOf(op, c, level) {
+    const tool = c.findTool(op.tool), dia = toolDiamMm(tool), lim = c.lim, sw = (tool && tool.swarf) || {};
+    const more = (level ? `:s${level}` : '') + (sw.cutter === 'carbide' ? ':carbide' : '') + (sw.flutes > 0 ? `:f${sw.flutes}` : '');
+    return `${current.id}:${op.tool}:${c.devName}:${(+dia || 0).toFixed(3)}:${lim ? [lim.spindleMin, lim.spindleMax, lim.feedMax, lim.feedMaxZ].join(',') + (lim.endFlutes ? `,${lim.endFlutes}` : '') : ''}${more}`;
+  }
+  const levelOf = stamp => +((/:s(\d+)/.exec(String(stamp || '')) || [])[1] || 0);
+  const noSpeed = stamp => String(stamp || '').replace(/:s\d+/, '');
+  // a step whose numbers differ from what its stamp's speed sets: typed over, custom
+  function opCustom(op, c) {
+    c = c || feedCtx();
+    if (!c || !current || !op || !OP_TYPES.includes(op.type) || !op.preset) return false;
+    const level = levelOf(op.preset);
+    if (op.preset !== stampOf(op, c, level)) return false;
+    const tool = c.findTool(op.tool), p = atSpeed(current, toolDiamMm(tool), c.lim, tool, level);
+    if (!p) return false;
+    const want = opValues(op.type, p);
+    const slack = k => Math.max(want[k] * 0.02, k === 'down' ? 0.05 : k === 'step' ? 0.005 : 1);
+    return Object.keys(want).some(k => want[k] > 0 && op[k] > 0 && Math.abs(op[k] - want[k]) > slack(k));
+  }
+  window.__swarfOpCustom = op => opCustom(op);
   let applying = false;
   function applyFeedsToOps() {
     // held while a .swarf opens (swarf-file.js): its steps come in with their own numbers
@@ -723,30 +758,23 @@
     const settings = api.conf.get();
     const proc = settings && settings.process;
     if (!proc) return;
-    const tools = settings.tools || [];
-    const lim = deviceLimits(settings);
-    const devName = (settings.device && settings.device.deviceName) || '';
-    const findTool = id => tools.find(t => t.id == id);
-    const level = speedLevel(proc.swarfSpeed);
+    const c = feedCtx();
+    const { lim, devName, findTool, level } = c;
     let changed = false, why = '';
     const replaced = [];
 
     for (const op of proc.ops || []) {
       if (!op || !OP_TYPES.includes(op.type)) continue;
-      // the stamp carries what the numbers came from (design review 10-28 #9): the tool's own
-      // diameter and the machine's limits, so editing either re-derives, not only a new id
-      const tool = findTool(op.tool), dia = toolDiamMm(tool);
-      // the speed and what the bit is (cutter, flutes) join it only when not the start's, so a stamp
-      // from before them still matches
-      const sw = (tool && tool.swarf) || {};
-      const more = (level ? `:s${level}` : '') + (sw.cutter === 'carbide' ? ':carbide' : '') + (sw.flutes > 0 ? `:f${sw.flutes}` : '');
-      const stamp = `${current.id}:${op.tool}:${devName}:${(+dia || 0).toFixed(3)}:${lim ? [lim.spindleMin, lim.spindleMax, lim.feedMax, lim.feedMaxZ].join(',') + (lim.endFlutes ? `,${lim.endFlutes}` : '') : ''}${more}`;
+      const tool = findTool(op.tool), dia = toolDiamMm(tool), sw = (tool && tool.swarf) || {};
+      const stamp = stampOf(op, c, level);
       if (op.preset === stamp) continue;
       // a stamp from before carries no geometry: take it as matching once, so a student's edits survive the upgrade
       if (op.preset === `${current.id}:${op.tool}:${devName}`) { op.preset = stamp; changed = true; continue; }
       const p = atSpeed(current, dia, lim, tool, level);
       if (!p) continue;
       const now = opValues(op.type, p);
+      // only the speed changed: a custom step keeps its own numbers (the speed line says so)
+      if (noSpeed(op.preset) === noSpeed(stamp) && opCustom(op, c)) { op.preset = stamp; changed = true; continue; }
       // (review 105 m2) this step had numbers of its own under the last material: they are replaced, by
       // design (the stamp rule above), and said. Only the material changed: its stamp says so.
       const [wasId, wasTool, wasDev] = String(op.preset || '').split(':');
@@ -767,11 +795,12 @@
       op.preset = stamp;
       changed = true;
     }
-    if (!changed) return;
+    if (!changed) return speedNumbers();
     applying = true;
     try { api.conf.save(); } catch (e) {}
     try { api.event.emit('cam.op.render'); } catch (e) {}
     applying = false;
+    speedNumbers();
     if (replaced.length) {
       const speed = v => window.SwarfLength && window.SwarfLength.unit() === 'in' ? `${+(v / 25.4).toFixed(1)} in/min` : `${Math.round(v)} mm/min`;
       const r = replaced[0];
@@ -921,24 +950,25 @@
     const select = document.createElement('select');
     select.id = 'swarf-material-select';
     select.title = 'what the board is made of: its look and starting speeds';
-    select.style.cssText = 'flex:1; font-size:13px; padding:6px 8px; background:rgba(0,0,0,0.55); border:1px solid var(--swarf-accent, #7a2a1a); color:#fff; border-radius:2px; font-family:"IBM Plex Mono",ui-monospace,monospace;';
+    select.style.cssText = 'flex:1 1 0; min-width:0; width:0; font-size:13px; padding:6px 8px; background:rgba(0,0,0,0.55); border:1px solid var(--swarf-accent, #7a2a1a); color:#fff; border-radius:2px; font-family:"IBM Plex Mono",ui-monospace,monospace;';
     fillOptions(select);
     select.addEventListener('change', () => setCurrent(select.value));
     row.appendChild(label);
     row.appendChild(select);
-    row.appendChild(speedSelect());
     // insert above the existing tool-library row if present, else at top
     const toolsRow = camops.querySelector('#swarf-tools-row');
     if (toolsRow) camops.insertBefore(row, toolsRow);
     else camops.insertBefore(row, camops.firstChild);
+    const speed = speedRow(label.style.cssText);
+    camops.insertBefore(speed, row.nextSibling);
     const origin = originRow(label.style.cssText);
-    camops.insertBefore(origin, row.nextSibling);
+    camops.insertBefore(origin, speed.nextSibling);
     camops.insertBefore(boardRow(label.style.cssText), origin);
   }
 
   // The speed: the steps start at the material's safe numbers and can be raised toward its ceiling
   // a step at a time. Kept in the process, so a saved project keeps it; the steps' own fields stay
-  // editable after (an edit holds until the material, a bit or the speed changes).
+  // editable after, and a step typed over is custom: a speed change leaves it as typed.
   function setSpeed(level) {
     const api = window.kiri && window.kiri.api;
     if (!api || !api.conf) return;
@@ -955,18 +985,72 @@
     let v = 0;
     try { v = speedLevel(window.kiri.api.conf.get().process.swarfSpeed); } catch (e) { /* no settings yet */ }
     sel.value = String(v);
+    speedNumbers();
   }
-  function speedSelect() {
+  // under the speed: what it sets on each bit's steps, and the steps typed over (custom)
+  function speedNumbers() {
+    const box = document.getElementById('swarf-speed-numbers');
+    if (!box) return;
+    box.textContent = '';
+    const api = window.kiri && window.kiri.api;
+    let settings = null;
+    try { settings = api.conf.get(); } catch (e) { /* no settings yet */ }
+    if (!settings || !current) return;
+    const proc = settings.process || {}, tools = settings.tools || [], lim = deviceLimits(settings), level = speedLevel(proc.swarfSpeed);
+    const L = window.SwarfLength, inch = !!(L && L.unit() === 'in');
+    const rate = v => inch ? `${+(v / 25.4).toFixed(1)} in/min` : `${Math.round(v)} mm/min`;
+    const len = v => L ? L.say(v) : `${+v.toFixed(2)} mm`;
+    const ops = (proc.ops || []).filter(o => o && OP_TYPES.includes(o.type));
+    const line = (...kids) => { const d = document.createElement('div'); d.append(...kids); box.appendChild(d); return d; };
+    if (!ops.length) { line('add a step to see what this sets'); return; }
+    const byTool = new Map();
+    for (const op of ops) {
+      if (opCustom(op)) {
+        const use = document.createElement('button');
+        use.type = 'button';
+        use.textContent = 'use the speed';
+        use.title = `set ${op.type} to this speed's numbers`;
+        use.addEventListener('click', () => { op.preset = ''; applyFeedsToOps(); try { api.conf.update_fields(); } catch (e) { /* no fields */ } });
+        line(`${op.type}: custom, kept as typed `, use).className = 'swarf-speed-custom';
+        continue;
+      }
+      const k = String(op.tool);
+      if (!byTool.has(k)) byTool.set(k, []);
+      byTool.get(k).push(op.type);
+    }
+    for (const [id, types] of byTool) {
+      const tool = tools.find(t => t.id == id);
+      const p = atSpeed(current, toolDiamMm(tool), lim, tool, level);
+      if (!p) continue;
+      const name = tool ? (tool.name || `bit ${tool.number}`) : 'bit';
+      line(`${types.join(', ')} · ${name}: ${p.spindle} rpm, feed ${rate(p.feed)}, plunge ${rate(p.plunge)}, ${len(p.stepdown)} down a pass`);
+    }
+  }
+  function speedRow(labelCss) {
+    const row = document.createElement('div');
+    row.id = 'swarf-speed-row';
+    row.style.cssText = 'display:flex; flex-wrap:wrap; gap:4px 8px; padding:4px 6px 6px; align-items:center;';
+    const label = document.createElement('span');
+    label.id = 'swarf-speed-label';
+    label.textContent = 'speed';
+    label.style.cssText = labelCss;
     const sel = document.createElement('select');
     sel.id = 'swarf-speed-select';
-    sel.title = 'speed: from the safe start up to the most the bit takes';
-    sel.setAttribute('aria-label', 'speed');
-    sel.style.cssText = 'flex:0 0 auto; font-size:13px; padding:6px 4px; background:rgba(0,0,0,0.55); border:1px solid var(--swarf-accent, #7a2a1a); color:#fff; border-radius:2px; font-family:"IBM Plex Mono",ui-monospace,monospace;';
+    sel.title = 'from the safe start toward max: rpm, feed, plunge and depth together';
+    sel.setAttribute('aria-labelledby', 'swarf-speed-label');
+    sel.setAttribute('aria-describedby', 'swarf-speed-numbers');
+    sel.style.cssText = 'flex:1 1 0; min-width:0; width:0; font-size:13px; padding:6px 8px; background:rgba(0,0,0,0.55); border:1px solid var(--swarf-accent, #7a2a1a); color:#fff; border-radius:2px; font-family:"IBM Plex Mono",ui-monospace,monospace;';
     SPEEDS.forEach((sp, i) => { const o = document.createElement('option'); o.value = String(i); o.textContent = sp.word; sel.appendChild(o); });
     sel.addEventListener('change', () => setSpeed(+sel.value));
+    const numbers = document.createElement('div');
+    numbers.id = 'swarf-speed-numbers';
+    numbers.setAttribute('aria-live', 'polite');
+    numbers.style.cssText = 'flex:1 0 100%; font-size:12px; line-height:1.4; opacity:0.85; overflow-wrap:anywhere;';
+    row.append(label, sel, numbers);
     setTimeout(paintSpeed, 0);
-    try { for (const ev of ['settings.load', 'settings.saved', 'device.selected']) window.kiri.api.event.on(ev, paintSpeed); } catch (e) { /* no events yet */ }
-    return sel;
+    try { for (const ev of ['settings.load', 'settings.saved', 'device.selected', 'cam.op.render', 'units.set']) window.kiri.api.event.on(ev, paintSpeed); } catch (e) { /* no events yet */ }
+    window.addEventListener('swarf.material.change', () => speedNumbers());
+    return row;
   }
   window.__swarfSpeed = { set: setSpeed, get: () => { try { return speedLevel(window.kiri.api.conf.get().process.swarfSpeed); } catch (e) { return 0; } } };
 
