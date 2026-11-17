@@ -9,6 +9,8 @@
 //   - mirror on a group of two flips it (once per group, not once per piece)
 //   - a delete in cam leaves the other parts where they were, and the undo history whole
 //   - leaving simulate says so (animate.end)
+//   - a part far bigger than any table (an STL 10 m across, an SVG circle of radius 1 km) is refused
+//     with a sentence, and the page stays alive
 //   node tools/probe_undo_import.mjs [url]
 import puppeteer from 'puppeteer-core';
 import { mkdtempSync } from 'node:fs';
@@ -183,6 +185,18 @@ try {
   });
   check(del && keep.same, `a delete leaves the others where they were (${JSON.stringify(keep.w1)} / ${JSON.stringify(keep.w2)})`);
   check(keep.back === 3, 'undo brings the part back');
+
+  // far bigger than any table: refused, said, and the page keeps working
+  await load([[stl(box(10000, 100, 10)), 'runway.stl']]);
+  check((await sizes()).length === 0, 'an STL 10 m across makes no part');
+  check(/runway\.stl is .* far bigger than any machine/.test(await alerts()), 'and says why');
+  await page.evaluate(() => { const a = window.kiri.api; a.platform.clear(); a.platform.load_files([new File(['<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><circle cx="0" cy="0" r="1000000"/></svg>'], 'moon.svg')]); });
+  await wait(1500);
+  await page.evaluate(() => [...document.querySelectorAll('button')].find(b => b.textContent === 'make parts')?.click());
+  await wait(2500);
+  check((await sizes()).length === 0, 'an SVG circle of radius 1 km makes no part');
+  check(/moon is .* far bigger than any machine/.test(await alerts()), 'and says why');
+  check(await page.evaluate(() => { const a = window.kiri.api; a.platform.load_svg('<svg xmlns="http://www.w3.org/2000/svg" width="50mm" height="50mm" viewBox="0 0 50 50"><rect width="50" height="50"/></svg>', 'after', { depth: 10, soup: true, dpi: 0 }); return a.widgets.all().length === 1; }), 'a part after it still comes in');
 
   // animate.end on leaving simulate
   const ended = await page.evaluate(() => { const a = window.kiri.api; let n = 0; a.event.on('animate.end', () => n++); a.view.set(4); a.view.set_arrange(); return n; });

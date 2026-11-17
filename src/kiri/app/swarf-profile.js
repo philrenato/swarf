@@ -60,10 +60,13 @@ function levels(t, { kind, size: s }) {
     return L;
 }
 
+// a length in words, in cam's units when the page has them
+const say = mm => globalThis.SwarfLength ? globalThis.SwarfLength.say(mm) : `${+(+mm).toFixed(2)} mm`;
+
 export function profileSolid(poly, t, edge) {
     const s = +edge.size;
-    if (!(s > 0)) return { error: 'The edge size must be more than 0 mm.' };
-    if (s > t + 1e-9) return { error: `A ${s} mm edge is taller than the ${t} mm part: make it ${t} mm or less.` };
+    if (!(s > 0)) return { error: 'The edge size must be more than 0.' };
+    if (s > t + 1e-9) return { error: `A ${say(s)} edge is taller than the ${say(t)} part: make it ${say(t)} or less.` };
     const ring = pp => pp.points.map(p => [p.x, p.y]);
     let outer = ring(poly);
     if (area(outer) < 0) outer.reverse();
@@ -72,7 +75,7 @@ export function profileSolid(poly, t, edge) {
     const L = levels(t, edge);
     const rings = L.map(([, d]) => loops.map(P => (d ? inset(P, d) : P)));
     const top = rings[rings.length - 1];
-    const tooBig = `A ${s} mm ${edge.kind === 'round' ? 'round' : 'chamfer'} is too big for this shape: its narrowest curve or gap would turn inside out. Try a smaller one.`;
+    const tooBig = `A ${say(s)} ${edge.kind === 'round' ? 'round' : 'chamfer'} is too big for this shape: its narrowest curve or gap would turn inside out. Try a smaller one.`;
     for (let li = 0; li < loops.length; li++) if (flipped(loops[li], top[li])) return { error: tooBig };
     // the top's holes must stay inside its outline, and apart
     for (let h = 1; h < top.length; h++) {

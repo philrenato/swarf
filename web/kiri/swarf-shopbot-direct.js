@@ -752,7 +752,7 @@
           this.planner.stop();
         }
       });
-      if (contact === null && !this.homeAbort) this.homeFail = `no ${what} within ${Math.round(travel)} mm`;
+      if (contact === null && !this.homeAbort) this.homeFail = `no ${what} within ${root.SwarfLength ? root.SwarfLength.prose(travel, null, 0) : Math.round(travel) + ' mm'}`;
       return contact;
     }
 

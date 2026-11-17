@@ -176,6 +176,8 @@
   // One move the card can make as asked, counted in the whole steps it will send (third review
   // #5): a feed under the card's slowest step for that move would run faster than asked. A move
   // of no whole steps does nothing and is fine. Returns why not, or ''.
+  // a feed in words, in cam's units when the page has them
+  function rate(mmMin) { return root.SwarfLength ? root.SwarfLength.rate(mmMin) : `${Math.round(mmMin)} mm/min`; }
   function segProblem(a, b, feed, cfg, rapid) {
     if (![b.x, b.y, b.z, feed].every(Number.isFinite)) return 'has a position or speed that is not a number';
     if (rapid || !cfg.unit || !cfg.tickHz) return '';
@@ -184,7 +186,7 @@
     const st = Math.max(d('x'), d('y'), d('z'));
     if (!st) return '';
     const L = Math.hypot(b.x - a.x, b.y - a.y, b.z - a.z);
-    return feed < (T * L / st) * 1.02 ? `is slower than the card can step (${Math.round(feed * 60)} mm/min)` : '';
+    return feed < (T * L / st) * 1.02 ? `is slower than the card can step (${rate(feed * 60)})` : '';
   }
 
   // A resume after a pause, as a plan of its own (third review #5): up where the bit stopped,

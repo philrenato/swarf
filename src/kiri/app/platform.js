@@ -1052,6 +1052,24 @@ function load_verts(group, vertices, filename) {
     return widget;
 }
 
+// a part far bigger than any table (a units mix-up, a typo in a radius) is refused before it is
+// made: its view, stock and toolpaths would take the page down. Returns why, or ''.
+function tooBig(list, name) {
+    const dev = current().device || {};
+    const top = Math.max(5000, 2 * Math.max(dev.bedWidth || 0, dev.bedDepth || 0));
+    const lo = [Infinity, Infinity, Infinity], hi = [-Infinity, -Infinity, -Infinity];
+    for (const v of list) for (let i = 0; i + 2 < v.length; i += 3) for (let k = 0; k < 3; k++) {
+        const x = v[i + k];
+        if (x < lo[k]) lo[k] = x;
+        if (x > hi[k]) hi[k] = x;
+    }
+    const side = [0, 1, 2].map(k => hi[k] > lo[k] ? hi[k] - lo[k] : 0);
+    if (side.every(d => d <= top)) return '';
+    const L = self.SwarfLength, say = v => L ? L.prose(v, null, 0) : `${Math.round(v)} mm`;
+    const size = side.every(Number.isFinite) ? ` is ${side.map(say).join(' × ')},` : '';
+    return `${name}${size} far bigger than any machine's table. Check the units it was saved in, or make it smaller where it was drawn.`;
+}
+
 /**
  * swarf: make parts from SVG text (the shape tool, and 2D files converted to SVG).
  * opt as the SVG import dialog's: { depth, resolution, segmin, soup, dpi }.
@@ -1110,6 +1128,8 @@ function load_svg_into(group, text, name, opt = {}) {
     let ind = 0;
     const solids = svg_solids(text, opt);
     if (solids.error) { made.error = solids.error; return made; }
+    const big = tooBig(solids, name);
+    if (big) { made.error = big; return made; }
     // a pixels-per-inch reading scales the parts (svg.js); the kept drawing is scaled with them
     if (opt.dpi > 0) text = svgTimes(text, 25.4 / opt.dpi);
     for (const v of solids) {
@@ -1242,6 +1262,12 @@ function load_files(files, group) {
                 const reading = stlReading(stl);
                 const k = STL_UNITS[reading];
                 if (k !== 1) for (let i = 0; i < stl.length; i++) stl[i] *= k;
+                const big = tooBig([stl], name);
+                if (big) {
+                    api.show.alert(big, 12);
+                    load_dec();
+                    return;
+                }
                 const sw = load_verts(group, stl, name);
                 load_dec();
                 setTimeout(() => stlUnitsCard(sw, name, reading), 300);
@@ -1260,6 +1286,12 @@ function load_files(files, group) {
                 const skipped = refused ? `${refused} face${refused > 1 ? 's' : ''} pointing at missing corners ${refused > 1 ? 'were' : 'was'} left out` : '';
                 if (!objs.length) {
                     api.show.alert(`${name}: nothing in this file to make a part from${skipped ? ` (${skipped})` : ''}`, 8);
+                    load_dec();
+                    return;
+                }
+                const big = tooBig(objs, name);
+                if (big) {
+                    api.show.alert(big, 12);
                     load_dec();
                     return;
                 }
@@ -1299,6 +1331,12 @@ function load_files(files, group) {
             }
             } else if (is3mf) {
                 let odon = function(models) {
+                    const big = tooBig(models.map(m => m.faces), name);
+                    if (big) {
+                        api.show.alert(big, 12);
+                        load_dec();
+                        return;
+                    }
                     let msg = api.show.alert('Adding Objects');
                     for (let model of models) {
                         load_verts(group, model.faces, model.name ? `${model.name}-${name}` : name);
@@ -1340,7 +1378,9 @@ function load_files(files, group) {
                         load_dec();
                         return;
                     }
-                    if (made.length === 0) {
+                    if (made.error) {
+                        api.show.alert(made.error, 12);
+                    } else if (made.length === 0) {
                         api.show.alert(open ? `${open} open line${open > 1 ? 's' : ''} and no closed shape: only closed shapes can be given a thickness` : 'no closed shapes found in that drawing: text must be turned into outlines first', 10);
                     } else if (open) {
                         api.show.alert(`${open} open line${open > 1 ? 's were' : ' was'} left out: only closed shapes can be given a thickness`, 10);
@@ -1361,7 +1401,8 @@ function load_files(files, group) {
                     if (r.open) api.show.alert(`${r.open} open line${r.open > 1 ? 's were' : ' was'} left out: only closed shapes can be given a thickness`, 10);
                     loadSVGDialog(opt => {
                         group = group || [];
-                        load_svg_into(group, r.svg, name.replace(/\.(ai|pdf)$/i, ''), opt);
+                        const made = load_svg_into(group, r.svg, name.replace(/\.(ai|pdf)$/i, ''), opt);
+                        if (made.error) api.show.alert(made.error, 12);
                         load_dec();
                     }, load_dec, svgSizeLine(r.svg));
                 }).catch(e => { api.show.alert(`could not read that drawing: ${e.message}`, 10); load_dec(); });
@@ -1370,6 +1411,12 @@ function load_files(files, group) {
                     group = group || [];
                     let dxf = file_load.DXF.parse(data.textDecode('utf-8'), opt);
                     let ind = 0;
+                    const big = tooBig(dxf, name);
+                    if (big) {
+                        api.show.alert(big, 12);
+                        load_dec();
+                        return;
+                    }
                     if (opt.dropped) {
                         api.show.alert(`${opt.dropped} open line${opt.dropped > 1 ? 's were' : ' was'} left out: only closed shapes can be given a thickness`, 10);
                     } else if (dxf.length === 0) {

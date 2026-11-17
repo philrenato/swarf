@@ -36,4 +36,6 @@ assert.equal(L.note('3/4', 'mm'), '3/4 is read as inches: 19.05 mm. For 3/4 of a
 assert.ok(/38\.1 mm/.test(L.note('1 1/2', 'mm'))); assert.ok(/38\.1 mm/.test(L.note('1-1/2', 'mm')));
 for (const t of ['3/4 mm', '3/4 in', '0.75', '19', '', 'abc', '3/0']) assert.equal(L.note(t, 'mm'), '', t);
 assert.equal(L.note('3/4', 'in'), '');
+// a feed in a sentence
+assert.equal(L.rate(1200, 'mm'), '1200 mm/min'); assert.equal(L.rate(1200, 'in'), '47.2 in/min'); assert.equal(L.rate(NaN, 'in'), '');
 console.log('length: ok');

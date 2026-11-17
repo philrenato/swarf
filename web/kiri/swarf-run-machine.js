@@ -100,7 +100,7 @@
         this.moveTo({ ...this.state.pos, z: far ? this.state.pos.z - P.travel : top }, speed);
         await this.idle();
         if (this.homeAbort) { ok = false; break; }
-        if (far) { ok = false; this.set({ note: `Z zero failed: no Z plate contact within ${P.travel} mm` }); break; }
+        if (far) { ok = false; this.set({ note: `Z zero failed: no Z plate contact within ${root.SwarfLength ? root.SwarfLength.prose(P.travel) : P.travel + ' mm'}` }); break; }
         // contact: this height is the plate's thickness above the board
         const shift = this.state.pos.z - P.thickness;
         this.boardZ -= shift;

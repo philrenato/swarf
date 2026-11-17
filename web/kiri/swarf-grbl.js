@@ -83,6 +83,8 @@
   }
 
   // a number as a short G-code word: three decimals at most, never -0 or an exponent
+  // a length in words, in cam's units when the page has them
+  function prose(mm) { return root.SwarfLength ? root.SwarfLength.prose(mm) : `${fmt(mm, 1)} mm`; }
   function fmt(v, dp = 3) { const n = +(+v).toFixed(dp); return (Object.is(n, -0) ? 0 : n).toString(); }
 
   // '<Idle|MPos:1.000,2.000,3.000|FS:0,0|Pn:XP|Ov:100,100,100|A:S|WCO:...|Q:1>' as its fields (board units)
@@ -728,13 +730,13 @@
       const from = this.jogAt || this.state.mpos;
       if (!from) return false;
       const t = this.clampAxis(axis, from[axis], from[axis] + dist);
-      if (Math.abs(t - from[axis]) < 0.0005) { this.set({ note: `${axis.toUpperCase()} is at the end of its travel (swarf keeps ${this.cfg.margin} mm from each end)` }); return false; }
+      if (Math.abs(t - from[axis]) < 0.0005) { this.set({ note: `${axis.toUpperCase()} is at the end of its travel (swarf keeps ${prose(this.cfg.margin)} from each end)` }); return false; }
       this.jogging = (this.jogging || 0) + 1;
       const r = await this.cmd(this.jogLine(axis, t, this.jogRate(axis)));
       this.jogging--;
       if (!r.ok) { if (r.error) this.set({ note: `jog refused: ${errorWords(r.error)} (error ${r.error})` }); return false; }
       this.jogAt = { ...from, [axis]: t };
-      if (Math.abs(t - (from[axis] + dist)) > 0.0005) this.set({ note: `${axis.toUpperCase()} stops short: swarf keeps ${this.cfg.margin} mm from the end of travel` });
+      if (Math.abs(t - (from[axis] + dist)) > 0.0005) this.set({ note: `${axis.toUpperCase()} stops short: swarf keeps ${prose(this.cfg.margin)} from the end of travel` });
       return true;
     }
     // Hold to move: short increments while held, each sent once the one before is queued, as
@@ -755,7 +757,7 @@
         if (!at) return;
         while (this.held === hold && this.link) {
           const t = this.clampAxis(axis, at[axis], at[axis] + dir * step);
-          if (Math.abs(t - at[axis]) < 0.0005) { this.set({ note: `${axis.toUpperCase()} is at the end of its travel (swarf keeps ${this.cfg.margin} mm from each end)` }); break; }
+          if (Math.abs(t - at[axis]) < 0.0005) { this.set({ note: `${axis.toUpperCase()} is at the end of its travel (swarf keeps ${prose(this.cfg.margin)} from each end)` }); break; }
           this.jogging = (this.jogging || 0) + 1;
           const r = await this.cmd(this.jogLine(axis, t, v));
           this.jogging--;
@@ -904,7 +906,7 @@
           const v = s.move[a] + w[a];
           // a number that is not one fails too (a damaged report's offset)
           if (!(Math.abs(this.clampAxis(a, f[a], v) - v) <= 0.0005))
-            return `line ${s.line || 0} goes past the machine's ${a.toUpperCase()} travel (${fmt(s.move[a], 1)} mm in work, ${fmt(v, 1)} on the machine)`;
+            return `line ${s.line || 0} goes past the machine's ${a.toUpperCase()} travel (${prose(s.move[a])} in work, ${prose(v)} on the machine)`;
         }
       }
       return '';

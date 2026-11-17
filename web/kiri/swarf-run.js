@@ -88,7 +88,7 @@
     job: null,           // what is running: 'trace' | 'air' | 'cut' | 'from' | 'preview'
     lastRunning: false, jogStep: 'cont', jogSpeed: 1000, contHeld: null, simRate: 10   // Phil at the machine, 11-05: hold to move, at 1000
   };  // a zero from before a reload: offered back once connected, if the card's count has not jumped
-  try { const z = JSON.parse(localStorage.getItem('swarf-run-zero')); if (z && z.had && z.at && z.steps) { S.zeroHad = z.had; S.zeroSetAt = z.at; S.lastSteps = z.steps; S.zeroAt = z.where; S.zBit = z.bit || undefined; } } catch (e) { /* none */ }
+  try { const z = JSON.parse(localStorage.getItem('swarf-run-zero')); if (z && z.had && z.at && z.steps && zeroFresh(z.at)) { S.zeroHad = z.had; S.zeroSetAt = z.at; S.lastSteps = z.steps; S.zeroAt = z.where; S.zBit = z.bit || undefined; } } catch (e) { /* none */ }
 
   const el = {};
   // the playhead's preview: how fast ▶ plays (× the program's own speed), and its clock
@@ -1491,9 +1491,9 @@ html[data-skin] #swarf-run .sr-jog .sr-zrow button.next, html[data-skin] #swarf-
       { k: 'file', label: 'file checked', ok: !!S.prog && !problems().block.length, todo: (S.prog ? problems().block[0] || 'fix the file' : 'load a file, or bring the toolpaths from cam').replace(/\.$/, '') },
       // the zero too can be skipped for a cut (Phil 11-16: "Got it means I am not cutting"): the cut
       // card then says it runs from the machine's own zero and asks for one more tick (askCut)
-      { k: 'xy', label: 'X Y zeroed', opt: true, ok: !!S.zeroXY, todo: S.zeroHad && S.zeroHad.xy && S.zeroSetAt && !S.zx && sameSpot() ? 'press "use the zero you set" if the board has not moved, or jog over your X 0, Y 0 and press zero x y' : 'jog the bit over your X 0, Y 0 and press zero x y' },
+      { k: 'xy', label: 'X Y zeroed', opt: true, ok: !!S.zeroXY, todo: S.zeroHad && S.zeroHad.xy && zeroFresh(S.zeroSetAt) && !S.zx && sameSpot() ? 'press "use the zero from" if the board has not moved, or jog over your X 0, Y 0 and press zero x y' : 'jog the bit over your X 0, Y 0 and press zero x y' },
       // a new bit's Z is never the old one's: required while a bit change is pending
-      { k: 'z', label: 'Z zeroed', opt: !(S.toolChange || S.zStale), ok: !!S.zeroZ, todo: S.zeroHad && S.zeroHad.z && S.zeroSetAt && sameBit() ? 'press "use the zero you set", or zero Z again' : isGrbl() ? 'lower the bit onto paper and press zero z' : 'press z plate, or lower the bit onto paper and press zero z' },
+      { k: 'z', label: 'Z zeroed', opt: !(S.toolChange || S.zStale), ok: !!S.zeroZ, todo: S.zeroHad && S.zeroHad.z && zeroFresh(S.zeroSetAt) && sameBit() ? 'press "use the zero from", or zero Z again' : isGrbl() ? 'lower the bit onto paper and press zero z' : 'press z plate, or lower the bit onto paper and press zero z' },
       // the trace is the protocol, not physics (Phil 11-16: "you DO NOT HAVE TO TRACE OR AIRCUT"): cut
       // goes ahead without it, after one more tick on its card (askCut); the rest above never skip
       { k: 'trace', label: 'traced', opt: true, ok: !!S.traced, todo: 'press trace and watch it clear the clamps, or cut without it' }
@@ -1566,7 +1566,7 @@ html[data-skin] #swarf-run .sr-jog .sr-zrow button.next, html[data-skin] #swarf-
     if (el.measure) el.measure.style.display = finished && S.prog && S.prog.source === 'lesson' ? '' : 'none';
     // Z's keys as the keyboard names them: fn + arrows on a Mac, Page Up / Page Down elsewhere (review 10-29)
     const zKeys = /Mac/i.test(navigator.platform || navigator.userAgent) ? 'fn ↑ ↓  Z' : 'PgUp PgDn  Z';
-    if (el.keys) el.keys.textContent = running ? 'any key pauses   ·   emergency: the red e-stop on the floor' : `← → ↑ ↓  X Y   ·   ${zKeys}   ·   space stops${S.jogStep === 'cont' ? '   ·   continuous: no end stops, let go in time' : ''}`;   // Fable 3 #10
+    if (el.keys) el.keys.textContent = running ? 'any key pauses   ·   emergency: the red e-stop on the floor' : `← → ↑ ↓  X Y   ·   ${zKeys}   ·   space stops${S.jogStep === 'cont' && !(S.machine && S.machine.limitsKnown && S.machine.limitsKnown()) ? '   ·   continuous: no end stops, let go in time' : ''}`;   // Fable 3 #10
     // the links stand in for the button row, never beside it (deep review S14: two "a test cut" after a finish)
     const startShown = !S.prog || finished;
     el.otherFile.style.display = S.prog && !startShown && !jobHeld() ? '' : 'none';
@@ -1582,7 +1582,7 @@ html[data-skin] #swarf-run .sr-jog .sr-zrow button.next, html[data-skin] #swarf-
     // but don't see it"); a saved zero only counts once kept ("use the zero you set")
     const okXY = !!(S.zeroXY && S.zeroSetAt), okZ = !!(S.zeroZ && S.zeroSetAt);
     el.goXY.disabled = !okXY || !!running; el.goZ.disabled = !okZ || !!running;
-    el.goXY.title = okXY ? 'Up, then over to X 0, Y 0' : 'Zero X Y first (or press "use the zero you set")';
+    el.goXY.title = okXY ? 'Up, then over to X 0, Y 0' : 'Zero X Y first (or press "use the zero from")';
     el.goZ.title = okZ ? `Down to ${goZword()} above Z 0, slowly` : 'Zero Z first (z plate, or zero z)';
     el.goZ.textContent = `go to ${goZword()} above z 0`;
     el.strip.classList.toggle('on', !!running && !(st && st.paused));
@@ -1604,13 +1604,13 @@ html[data-skin] #swarf-run .sr-jog .sr-zrow button.next, html[data-skin] #swarf-
     // button stands whenever some of the saved zero can come back (X Y, or Z unless a bit change made
     // it the old bit's); never halfway through zeroing X and Y by hand, never while a job runs
     const backXY = !!(S.zeroHad && S.zeroHad.xy && !S.zeroXY && sameSpot()), backZ = !!(S.zeroHad && S.zeroHad.z && !S.zeroZ && sameBit());
-    const offer = S.zeroSetAt && (backXY || backZ) && S.zx === S.zy && !running
+    const offer = zeroFresh(S.zeroSetAt) && (backXY || backZ) && S.zx === S.zy && !running
       && (!isDirect() || (S.machine.state && S.machine.state.connected))
       // the MR-1: only once homed on this connection, and only the half whose G54 the board still holds
       && (!isGrbl() || !!(st && st.connected && st.homed && S.g54ok && ((backXY && S.g54ok.xy) || (backZ && S.g54ok.z))));
     el.keepZero.style.display = offer ? '' : 'none';
-    if (offer && S.zeroReconnect) el.keepZero.textContent = `the board and the machine have not moved since ${S.discWhy || (S.discAt ? 'you disconnected' : 'the link dropped')}: use the zero from ${new Date(S.zeroSetAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}${S.discAt ? '' : ', then trace to check it'}`;
-    else if (offer) el.keepZero.textContent = `use the zero you set at ${new Date(S.zeroSetAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })} (${backXY && backZ ? 'X Y and Z' : backXY ? 'X Y' : 'Z'}): the board has not moved${zeroWords(backXY, backZ)}`;
+    if (offer && S.zeroReconnect) el.keepZero.textContent = `use the zero from ${zeroWhen(S.zeroSetAt)}? Only if the board and the machine have not moved since ${S.discWhy || (S.discAt ? 'you disconnected' : 'the link dropped')}${S.discAt ? '' : ', then trace to check it'}`;
+    else if (offer) el.keepZero.textContent = `use the zero from ${zeroWhen(S.zeroSetAt)} (${backXY && backZ ? 'X Y and Z' : backXY ? 'X Y' : 'Z'})? Only if this board has not moved since then${zeroWords(backXY, backZ)}`;
     // the plan's checks follow the zero (Fable review 3 #1: it said "fits the table" when it no longer did)
     const sig = S.prog ? problems().block.join('|') + `|${!!S.zeroXY}${!!S.zeroZ}${!!(S.keptZero && S.keptZero.xy)}${!!(S.keptZero && S.keptZero.z)}|${S.zeroAt}|${S.zBit ? (S.zBit.name || S.zBit.num) : ''}${!!(S.machine && S.machine.mabs && corner())}` : '';
     if (sig !== S.planSig) { S.planSig = sig; renderPlan(); }
@@ -1980,6 +1980,12 @@ html[data-skin] #swarf-run .sr-jog .sr-zrow button.next, html[data-skin] #swarf-
     return corner && center ? null : corner ? 'corner' : center ? 'center' : null;
   }
   // what the saved zero was, in words, so a press is a choice made knowing it (review 11-09)
+  // a saved zero is offered back for 12 hours; after that the board may be anyone's
+  function zeroFresh(at) { return !!at && Date.now() - at < 12 * 3600e3; }
+  // when a zero was set, with its day: the box may have been left on for the next student
+  function zeroWhen(at) {
+    return new Date(at).toLocaleString([], { weekday: 'short', hour: 'numeric', minute: '2-digit' });
+  }
   function zeroWords(xy, z) {
     const w = [];
     if (xy && S.zeroAt) w.push(`X Y at the ${S.zeroAt === 'corner' ? 'front-left corner' : 'center'} of the board`);
@@ -2368,7 +2374,7 @@ html[data-skin] #swarf-run .sr-jog .sr-zrow button.next, html[data-skin] #swarf-
       el.card.innerHTML = '';
       el.card.append(h('h2', { text: 'The table\'s corners' }));
       if (!c) {
-        el.card.append(h('p', { text: 'swarf does not know where the table is yet (this machine has no home switches). Jog the bit right over the front-left corner of the table, the corner nearest you on the left, then press below. It holds until the machine is switched off.' }));
+        el.card.append(h('p', { text: 'swarf does not know where the table is yet (this machine has no home switches). Jog the bit right over the front-left corner of the table, the corner nearest you on the left, then press below. swarf forgets it when the page reloads or the machine reconnects.' }));
       } else {
         const p = m.mabs();
         el.card.append(h('p', { text: `Front-left corner learned ${new Date(c.at).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}. The bit is ${len(p.x - c.x)} right of it and ${len(p.y - c.y)} back. The table is ${lens([T.x, T.y], 0)}.` }));
@@ -2610,7 +2616,7 @@ html[data-skin] #swarf-run .sr-jog .sr-zrow button.next, html[data-skin] #swarf-
     }
     S.grblHomed = homed;
   }
-  // the G54 zero the MR-1 was given, kept beside the board's own so "use the zero you set" can check it
+  // the G54 zero the MR-1 was given, kept beside the board's own so "use the zero from" can check it
   const G54_KEY = 'swarf-grbl-zero';
   function saveG54() {
     const g = S.machine && S.machine.offsets && S.machine.offsets.G54;
@@ -2632,10 +2638,10 @@ html[data-skin] #swarf-run .sr-jog .sr-zrow button.next, html[data-skin] #swarf-
       const g = o && o.G54, near = a => !!g && Math.abs(g[a] - z.g54[a]) <= 0.01;
       S.g54ok = { xy: near('x') && near('y'), z: near('z') };
       // after a reload the zero's record comes from beside the board's
-      if (!S.zeroHad && z.had) { S.zeroHad = z.had; S.zeroSetAt = z.at; S.zeroAt = z.where == null ? undefined : z.where; S.zBit = z.bit || undefined; }
+      if (!S.zeroHad && z.had && zeroFresh(z.at)) { S.zeroHad = z.had; S.zeroSetAt = z.at; S.zeroAt = z.where == null ? undefined : z.where; S.zBit = z.bit || undefined; }
     }
-    const back = S.g54ok && S.zeroHad && ((S.zeroHad.xy && S.g54ok.xy) || (S.zeroHad.z && S.g54ok.z));
-    tell(back ? 'Homed. The zero you set is still on the MR-1: press "use the zero you set" if the board has not moved, or zero again.' : 'Homed. Now jog the bit over your X 0, Y 0 and press zero x y.');
+    const back = zeroFresh(S.zeroSetAt) && S.g54ok && S.zeroHad && ((S.zeroHad.xy && S.g54ok.xy) || (S.zeroHad.z && S.g54ok.z));
+    tell(back ? `Homed. The zero from ${zeroWhen(S.zeroSetAt)} is still on the MR-1: press "use the zero from" if the board has not moved, or zero again.` : 'Homed. Now jog the bit over your X 0, Y 0 and press zero x y.');
     refresh();
   }
   // The MR-1's machine check: what the board reports, read only. Its inputs light live, so each

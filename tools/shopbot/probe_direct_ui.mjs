@@ -360,7 +360,15 @@ try {
     // 10-29 (Phil: "just confirm that 0 is right"): the zero is offered back, not thrown away
     await new Promise(r => setTimeout(r, 500));
     const kz = await page.evaluate(() => { const b = document.querySelector('#swarf-run .sr-keepzero'); return b && getComputedStyle(b).display !== 'none' ? b.textContent : ''; });
-    check(/since you disconnected: use the zero from/.test(kz), `after a reconnect swarf asks to keep the zero ("${kz.slice(0, 70)}")`);
+    check(/^use the zero from \w{3} .*\? Only if .* since you disconnected/.test(kz), `after a reconnect swarf asks to keep the zero ("${kz.slice(0, 70)}")`);
+    // a zero set more than 12 hours ago is not offered (the box may have been left on for the next student)
+    const keepShown = () => page.evaluate(() => { const b = document.querySelector('#swarf-run .sr-keepzero'); return !!b && getComputedStyle(b).display !== 'none'; });
+    const setAt = await page.evaluate(() => { const S = window.__swarfRun.state, was = S.zeroSetAt; S.zeroSetAt = Date.now() - 13 * 3600e3; window.__swarfRun.tell('checking'); return was; });
+    await new Promise(r => setTimeout(r, 5400));
+    const oldShown = await keepShown();
+    await page.evaluate(was => { window.__swarfRun.state.zeroSetAt = was; window.__swarfRun.tell('back'); }, setAt);
+    await new Promise(r => setTimeout(r, 5400));
+    check(kz && !oldShown && await keepShown(), `a zero from 13 hours ago is not offered; one from today is (old ${oldShown})`);
     if (kz) { await page.evaluate(() => document.querySelector('#swarf-run .sr-keepzero').click()); await new Promise(r => setTimeout(r, 300)); }
     check(await page.evaluate(() => window.__swarfRun.state.zeroXY && window.__swarfRun.state.zeroZ), 'one press keeps it');
   }
@@ -409,7 +417,7 @@ try {
     if (kz2) await page.evaluate(() => document.querySelector('#swarf-run .sr-keepzero').click());
     await new Promise(r => setTimeout(r, 200));
     const kept = await page.evaluate(() => ({ xy: window.__swarfRun.state.zeroXY, z: window.__swarfRun.state.zeroZ }));
-    check((!kz2 || /use the zero you set at .* \(X Y and Z\)/.test(kz2)) && kept.xy && kept.z, `a new file: the zero is kept, at once or with one press ("${kz2.slice(0, 60)}", ${JSON.stringify(kept)})`);
+    check((!kz2 || /use the zero from \w{3} .* \(X Y and Z\)\?/.test(kz2)) && kept.xy && kept.z, `a new file: the zero is kept, at once or with one press ("${kz2.slice(0, 60)}", ${JSON.stringify(kept)})`);
     for (const t of ['zero x y', 'zero z']) {
       await page.evaluate(t => { const b = [...document.querySelectorAll('button')].find(b => b.textContent.trim() === t); if (b) b.click(); }, t);
       await new Promise(r => setTimeout(r, 300));

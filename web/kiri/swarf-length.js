@@ -15,6 +15,7 @@
  *                                tape measure reads; under 1/8 the nearest 32nd), under a 64th in
  *                                thousandths ("0.012 in");
  *                                in mm to dp places (default 1), as the sentences always said it
+ *   SwarfLength.rate(mmMin)      a feed in a sentence: "1200 mm/min" or "47.2 in/min"
  *
  * Everything inside swarf stays in millimeters; only the cards' words and fields change.
  */
@@ -104,6 +105,13 @@
     return `${frac(n / d) || 0} in`;
   }
 
+  // a feed in a sentence: "1200 mm/min" or "47.2 in/min"
+  function rate(mmMin, u) {
+    if (!Number.isFinite(+mmMin)) return '';
+    if ((u || unit()) !== 'in') return `${Math.round(mmMin)} mm/min`;
+    return `${+(mmMin / IN).toFixed(1)} in/min`;
+  }
+
   // a bare fraction typed while the units are mm is read as inches (parse, above). Two readings of
   // the same text are both plausible, so say which one was taken (review 11-13 #5): '' when there is
   // nothing to say (inches, a unit typed, a decimal)
@@ -115,7 +123,7 @@
     return `${s} is read as inches: ${+mm.toFixed(2)} mm. For ${s} of a millimeter type ${+(mm / IN).toFixed(3)} or ${s} mm.`;
   }
 
-  const api = { unit, parse, show, field, say, prose, note, IN };
+  const api = { unit, parse, show, field, say, prose, rate, note, IN };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else {
     root.SwarfLength = api;
