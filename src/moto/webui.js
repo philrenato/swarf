@@ -145,6 +145,9 @@ const $C = (clazz, add, del) => {
     return el;
 };
 
+// a string from outside (a file name, a name read from a file) as text inside HTML or an attribute
+const esc = (text) => String(text ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
+
 const estop = (evt) => {
     evt.stopPropagation();
     evt.preventDefault();
@@ -167,6 +170,7 @@ export {
     $c,
     $C,
     h,
+    esc,
     estop
 }
 
@@ -177,5 +181,6 @@ export default {
     $c,
     $C,
     h,
+    esc,
     estop
 }

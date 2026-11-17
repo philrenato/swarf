@@ -2,7 +2,7 @@
 // file, and ASCII numbers written .5 or nan; and its units are guessed, meters included
 //   node tools/test-stl-parse.mjs
 import assert from 'node:assert/strict';
-import { STL, stlUnits } from '../src/load/stl.js';
+import { STL, stlUnits, stlUnitsWhy } from '../src/load/stl.js';
 
 const T = [[0, 0, 0, 10, 0, 0, 0, 10, 0], [0, 0, 0, 0, 10, 0, 0, 0, 10]];
 function bin(tris, count, extra = 0, header = '') {
@@ -55,4 +55,14 @@ assert.equal(stlUnits(box(3, 2, 0.5), SB, ), 'in', 'numbers over 1 are never met
 assert.equal(stlUnits(box(6, 4, 1), { ...SB, inch: true }), 'in', 'both fit: inches when the units switch says inches');
 assert.equal(stlUnits(box(6, 4, 1), SB), 'mm', 'both fit: mm when it says mm');
 assert.equal(stlUnits(new Float32Array(0), SB), 'mm', 'nothing: mm');
+// how sure: a guess whenever another reading is on the bed too
+const why = (v, o) => { const r = stlUnitsWhy(v, o); return `${r.reading} ${r.guess ? 'guess' : 'sure'} ${r.why}`; };
+assert.equal(why(box(300, 200, 19), SB), 'mm sure one', 'a 300 mm part: only mm is on the bed');
+assert.equal(why(box(6, 4, 1), SB), 'mm guess both', 'both on the bed: a guess');
+assert.equal(why(box(6, 4, 1), { ...SB, inch: true }), 'in guess both', 'both on the bed, inches set: a guess');
+assert.equal(why(box(4, 3, 0.75), SB), 'in guess small', 'under 6 mm as mm: inches, a guess');
+assert.equal(why(box(5, 5, 2), SB), 'in guess small', 'a 5 mm washer reads as inches: the card says it is a guess');
+assert.equal(why(box(120, 80, 20), { ...SB, inch: true }), 'mm sure one', '120 x 80: as inches it is off the bed');
+assert.equal(why(box(0.3, 0.2, 0.019), SB), 'm guess both', 'meters, and as inches it would fit too');
+assert.equal(why(box(5000, 4000, 10), SB), 'mm guess none', 'on the bed no way: mm, a guess');
 console.log('stl parse ok');

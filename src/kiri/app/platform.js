@@ -1,12 +1,12 @@
 /** Copyright Stewart Allen <sa@grid.space> -- All Rights Reserved */
 
-import { $, h } from '../../moto/webui.js';
+import { $, h, esc } from '../../moto/webui.js';
 import { ajax, js2o } from '../core/utils.js';
 import { api } from './api.js';
 import { MODES, VIEWS } from './consts.js';
 import { colorSchemeRegistry } from './color/schemes.js';
 import { load as file_load } from '../../load/file.js';
-import { stlUnits, STL_UNITS } from '../../load/stl.js';
+import { stlUnitsWhy, STL_UNITS } from '../../load/stl.js';
 import { load_url as url_load } from '../../load/url.js';
 import { newBounds } from '../../geo/bounds.js';
 import { Packer } from './pack.js';
@@ -846,7 +846,7 @@ function changed() {
                     type: "checkbox",
                     class: "swarf-cut-tick",
                     id: `w-cut-${w.id}`,
-                    title: (w.meta.disabled ? `${file} is left out of this run: tick it to cut it` : `${file} is cut in this run: untick to leave it out`).replace(/"/g, '&quot;'),
+                    title: esc(w.meta.disabled ? `${file} is left out of this run: tick it to cut it` : `${file} is cut in this run: untick to leave it out`),
                     _checked: !w.meta.disabled,
                     onclick(ev) {
                         ev.stopPropagation();
@@ -854,10 +854,10 @@ function changed() {
                     }
                 }),
                 h.button({
-                    _: fsho,
+                    _: esc(fsho),
                     id: `ws-${w.id}`,
                     class: w.meta.disabled ? "grow name leftout" : "grow name",
-                    title: file,
+                    title: esc(file),
                     // onmouseenter() {
                     //     color = w.getColor();
                     //     w.setColor(0x0088ff, null, false);
@@ -1259,7 +1259,7 @@ function load_files(files, group) {
                     load_dec();
                     return;
                 }
-                const reading = stlReading(stl);
+                const read = stlReading(stl), reading = read.reading;
                 const k = STL_UNITS[reading];
                 if (k !== 1) for (let i = 0; i < stl.length; i++) stl[i] *= k;
                 const big = tooBig([stl], name);
@@ -1270,7 +1270,7 @@ function load_files(files, group) {
                 }
                 const sw = load_verts(group, stl, name);
                 load_dec();
-                setTimeout(() => stlUnitsCard(sw, name, reading), 300);
+                setTimeout(() => stlUnitsCard(sw, name, read), 300);
                 // swarf (Phil 11-16): an STL of several solids arrives as one part: say how to
                 // make each its own (right-click › separate the parts)
                 setTimeout(() => {
@@ -1620,10 +1620,10 @@ function loadSVGDialog(doit, cancel = () => {}, size = '') {
 // Z up came in on its edge with no way back. This card says the part's size in shop units and which
 // face is up, and its toggle turns the part in place: Z up is a quarter turn about X from Y up
 // ((x,-z,y) back to (x,y,z)). Each flip is one undo. The part stays as it is when the card closes.
-// the reading of an STL's numbers ('mm', 'in' or 'm') for this machine's bed (stl.js stlUnits)
+// the reading of an STL's numbers ('mm', 'in' or 'm') for this machine's bed, and how sure (stl.js stlUnitsWhy)
 function stlReading(v) {
     const dev = current().device || {};
-    return stlUnits(v, { bedWidth: dev.bedWidth, bedDepth: dev.bedDepth, inch: api.view.unit_scale() === 25.4 });
+    return stlUnitsWhy(v, { bedWidth: dev.bedWidth, bedDepth: dev.bedDepth, inch: api.view.unit_scale() === 25.4 });
 }
 
 // at least one triangle whose nine numbers are all numbers
@@ -1638,73 +1638,76 @@ function stlHasTriangle(v) {
 }
 const STL_NAMES = { mm: 'millimeters', in: 'inches', m: 'meters' };
 
-// what the STL was read as, its size both ways, and one press to switch (an undo step)
+// what each STL was read as, whether that is a guess, its size each way, and one press to switch
+// that file (an undo step); every STL of one drop on one card
+const STL_GUESS = {
+    both: 'a guess: it fits the bed in millimeters and in inches, so the units switch chose. check the size.',
+    small: 'a guess: read another way it is under 6 mm long. check the size.',
+    none: 'a guess: it fits the bed no way. check the size.'
+};
 let stlWaiting = [], stlWaitT = 0;
-function stlUnitsCard(w, name, reading) {
+function stlUnitsCard(w, name, read) {
     if (!w) return;
-    stlWaiting.push({ w, name, reading });
+    stlWaiting.push({ w, name, now: read.reading, why: read.why });
     if (!stlWaitT) stlWaitT = setTimeout(stlUnitsFlush, 0);
 }
 function stlUnitsFlush() {
     stlWaitT = 0;
     if (api.modal && api.modal.visible && api.modal.visible()) { stlWaitT = setTimeout(stlUnitsFlush, 400); return; }
-    const live = stlWaiting.filter(r => api.widgets.all().includes(r.w));
-    if (!live.length || !api.modal) { stlWaiting = []; return; }
-    // one card per reading: files read differently are switched apart
-    const list = live.filter(r => r.reading === live[0].reading);
-    stlWaiting = live.filter(r => r.reading !== live[0].reading);
-    if (stlWaiting.length) stlWaitT = setTimeout(stlUnitsFlush, 400);
+    const list = stlWaiting.filter(r => api.widgets.all().includes(r.w));
+    stlWaiting = [];
+    if (!list.length || !api.modal) return;
     const rnd = Date.now().toString(36);
     const L = self.SwarfLength, say = v => L ? L.say(v) : `${+v.toFixed(1)} mm`;
     const size = (w, k) => { const b = w.getBoundingBox(), s = b.getSize(new THREE.Vector3()).multiplyScalar(k); return `${say(s.x)} × ${say(s.y)} × ${say(s.z)}`; };
-    let now = list[0].reading;
-    const who = list.length > 1 ? `${list.length} files` : list[0].name;
-    // its size as each reading: the part is now read as `now`
-    const as = to => size(list[0].w, STL_UNITS[to] / STL_UNITS[now]);
+    const many = list.length > 1;
     const host = $('mod-any');
     host.innerHTML = [
         `<div class="image-convert-dialog f-col a-center swarf-import swarf-stl-units">`,
-        `  <h3 class="image-convert-title">${who}: which units</h3>`,
-        `  <p class="image-convert-copy t-just">an STL has no units. it came in as ${STL_NAMES[now]}.</p>`,
-        `  <div class="f-row t-right image-convert-fields"><table>`,
-        `  <tr><th>read as</th><td>`,
-        `    <label><input type="radio" name="stl-u-${rnd}" id="stl-mm-${rnd}" value="mm"> millimeters: <span id="stl-mms-${rnd}"></span></label><br>`,
-        `    <label><input type="radio" name="stl-u-${rnd}" id="stl-in-${rnd}" value="in"> inches: <span id="stl-ins-${rnd}"></span></label><br>`,
-        `    <label><input type="radio" name="stl-u-${rnd}" id="stl-m-${rnd}" value="m"> meters: <span id="stl-ms-${rnd}"></span></label>`,
-        `  </td></tr>`,
-        `  </table></div>`,
+        `  <h3 class="image-convert-title">${many ? `${list.length} files` : esc(list[0].name)}: which units</h3>`,
+        `  <p class="image-convert-copy t-just">an STL has no units: check each size.</p>`,
+        `  <div class="swarf-stl-files">`,
+        ...list.map((r, i) => [
+            `  <div class="swarf-stl-file" id="stl-f${i}-${rnd}">`,
+            many ? `    <h4>${esc(r.name)}</h4>` : '',
+            `    <p class="image-convert-copy t-just">it came in as ${STL_NAMES[r.now]}${r.why === 'one' ? ', the only reading that fits the bed.' : `. ${STL_GUESS[r.why]}`}</p>`,
+            ...['mm', 'in', 'm'].map(u => `    <label><input type="radio" name="stl-u${i}-${rnd}" value="${u}"> ${STL_NAMES[u]}: <span data-u="${u}"></span></label><br>`),
+            `  </div>`
+        ].join('')),
+        `  </div>`,
         `  <div class="f-row j-end image-convert-actions"><button id="stl-ok-${rnd}">done</button></div>`,
         `</div>`
     ].join('');
-    const rm = $(`stl-mm-${rnd}`), ri = $(`stl-in-${rnd}`), rme = $(`stl-m-${rnd}`);
-    const show = () => {
-        if (!rm || !rm.isConnected) return;
-        rm.checked = now === 'mm'; ri.checked = now === 'in'; rme.checked = now === 'm';
-        $(`stl-mms-${rnd}`).textContent = as('mm'); $(`stl-ins-${rnd}`).textContent = as('in'); $(`stl-ms-${rnd}`).textContent = as('m');
-    };
-    const apply = to => {
-        const k = STL_UNITS[to] / STL_UNITS[now];
-        for (const r of list) if (api.widgets.all().includes(r.w)) r.w.scale(k, k, k);
-        now = to;
-        update_bounds();
-        if (api.selection && api.selection.update_info) api.selection.update_info();
-        api.space.auto_save();
-        space.update();
+    list.forEach((r, i) => {
+        const box = $(`stl-f${i}-${rnd}`);
+        const radios = [...box.querySelectorAll('input')];
+        const show = () => {
+            if (!box.isConnected) return;
+            for (const x of radios) x.checked = x.value === r.now;
+            for (const sp of box.querySelectorAll('span[data-u]')) sp.textContent = size(r.w, STL_UNITS[sp.dataset.u] / STL_UNITS[r.now]);
+        };
+        const apply = to => {
+            const k = STL_UNITS[to] / STL_UNITS[r.now];
+            if (api.widgets.all().includes(r.w)) r.w.scale(k, k, k);
+            r.now = to;
+            update_bounds();
+            if (api.selection && api.selection.update_info) api.selection.update_info();
+            api.space.auto_save();
+            space.update();
+            show();
+        };
+        const set = to => {
+            if (to === r.now) return show();
+            const from = r.now;
+            apply(to);
+            if (api.doit && api.doit.push) api.doit.push(() => apply(from), () => apply(to), {
+                undo: `${r.name} read as ${STL_NAMES[from]} again`, redo: `${r.name} read as ${STL_NAMES[to]} again`
+            });
+        };
+        for (const x of radios) x.onchange = () => x.checked && set(x.value);
         show();
-    };
-    const set = (to, push) => {
-        if (to === now) return show();
-        const from = now;
-        apply(to);
-        if (push && api.doit && api.doit.push) api.doit.push(() => apply(from), () => apply(to), {
-            undo: `read as ${STL_NAMES[from]} again`, redo: `read as ${STL_NAMES[to]} again`
-        });
-    };
-    rm.onchange = () => rm.checked && set('mm', true);
-    ri.onchange = () => ri.checked && set('in', true);
-    rme.onchange = () => rme.checked && set('m', true);
+    });
     $(`stl-ok-${rnd}`).onclick = () => api.modal.hide();
-    show();
     api.modal.show('any');
 }
 

@@ -3,9 +3,11 @@
 //   - a 120 x 80 x 20 box with swarf in inches: read as mm (as inches it would be 3 m across)
 //   - a 2 x 3 x 0.75 box with swarf in mm: read as inches (as mm it is under 1 mm thick)
 //   - the card switches the reading (x 25.4), undo puts it back
+//   - when both readings fit the card says it is a guess; several files: each its own size and switch
+//   - a file name with < > " ' & is text on the card and in objects, through the real file input too
 //   node tools/probe_stl_units.mjs [url]
 import puppeteer from 'puppeteer-core';
-import { mkdtempSync } from 'node:fs';
+import { mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { CHROME } from './chrome-path.mjs';
@@ -52,6 +54,49 @@ try {
   await load(box(2, 3, 0.75), 'block.stl');
   check(JSON.stringify(await size()) === '[50.8,76.2,19.05]', `mm set, a 2 x 3 x 0.75 box comes in as inches (${await size()})`);
   check(/came in as inches/.test(await card()), 'the card says it came in as inches');
+  await closeCard();
+
+  // both fit: a guess, said so
+  await load(box(6, 4, 1), 'both.stl');
+  check(/a guess/.test(await card()) && /units switch/.test(await card()), `both fit: the card says it is a guess ("${(await card()).replace(/\s+/g, ' ').slice(0, 160)}")`);
+  await closeCard();
+  await load(box(300, 200, 19), 'sure.stl');
+  check(!/a guess/.test(await card()) && /only reading/.test(await card()), 'only mm fits: not a guess');
+  await closeCard();
+
+  // two files: each its size, each its own switch
+  await page.evaluate((a, b) => { const k = window.kiri.api; k.platform.clear(); k.platform.load_files([new File([a], 'big.stl'), new File([b], 'small.stl')]); }, box(300, 200, 19), box(6, 4, 1));
+  await wait(2500);
+  const per = await page.evaluate(() => [...document.querySelectorAll('.swarf-stl-units .swarf-stl-file')].map(f => ({ name: f.querySelector('h4')?.textContent, text: f.innerText })));
+  check(per.length === 2 && per[0].name === 'big.stl' && per[1].name === 'small.stl', `one block per file (${JSON.stringify(per.map(p => p.name))})`);
+  check(per.length === 2 && /300/.test(per[0].text) && /6(\.0)? ×/.test(per[1].text), 'each block says its own size');
+  const sizesAll = () => page.evaluate(() => window.kiri.api.widgets.all().map(w => { const s = w.getBoundingBox().getSize(new window.THREE.Vector3()); return +s.x.toFixed(2); }).sort((a, b) => a - b));
+  const before2 = await sizesAll();
+  // a real click on the second file's inches
+  const inBtn = await page.$$('.swarf-stl-units .swarf-stl-file');
+  if (inBtn[1]) { const r = await inBtn[1].$('input[value="in"]'); const bb = await r.boundingBox(); await page.mouse.click(bb.x + bb.width / 2, bb.y + bb.height / 2); }
+  await wait(800);
+  const after2 = await sizesAll();
+  check(JSON.stringify(before2) === '[6,300]' && JSON.stringify(after2) === '[152.4,300]', `only the second file switched (${before2} → ${after2})`);
+  await closeCard();
+
+  // names with markup: text on the card and in objects, from the real file input
+  const NAME = `<b id="evil">x</b> & "q" 'a'.stl`;
+  const dir = mkdtempSync(join(tmpdir(), 'swarf-stl-name-'));
+  const path = join(dir, NAME);
+  writeFileSync(path, box(300, 200, 19));
+  await page.evaluate(() => window.kiri.api.platform.clear());
+  const input = await page.$('#load-file');
+  await input.uploadFile(path);
+  await wait(2500);
+  const named = await page.evaluate(() => ({
+    evil: !!document.getElementById('evil'),
+    title: document.querySelector('.swarf-stl-units .image-convert-title')?.textContent || '',
+    rows: [...document.querySelectorAll('#ws-widgets button.name')].map(b => b.textContent)
+  }));
+  check(!named.evil, 'no element made from the file name');
+  check(named.title.startsWith('<b id="evil">x</b> & "q" \'a\''), `the card shows the name as written ("${named.title}")`);
+  check(named.rows.some(t => t.includes('<b id="evil">x</b> & "q"')), `objects shows the name as written (${JSON.stringify(named.rows)})`);
   await closeCard();
   check(!errors.length, `no page errors (${errors.slice(0, 3).join(' | ')})`);
 } finally {

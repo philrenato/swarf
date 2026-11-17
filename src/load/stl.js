@@ -449,6 +449,15 @@ export const STL_UNITS = { mm: 1, in: 25.4, m: 1000 };
  * @returns {string} 'mm', 'in' or 'm'
  */
 export function stlUnits(v, opt = {}) {
+    return stlUnitsWhy(v, opt).reading;
+}
+
+/**
+ * stlUnits with how sure it is: { reading, guess, why }. why is 'one' (the only reading on the
+ * bed), 'both' (mm and inches are both on the bed: the preferred one), 'small' (another reading is
+ * on the bed but under 6 mm long) or 'none' (no reading is on the bed: mm). guess is every why but 'one'.
+ */
+export function stlUnitsWhy(v, opt = {}) {
     let lo = [Infinity, Infinity, Infinity], hi = [-Infinity, -Infinity, -Infinity], most = 0;
     for (let i = 0; i + 2 < v.length; i += 3) {
         for (let k = 0; k < 3; k++) {
@@ -460,11 +469,21 @@ export function stlUnits(v, opt = {}) {
         }
     }
     const s = [0, 1, 2].map(k => hi[k] - lo[k]);
-    if (!s.every(Number.isFinite)) return 'mm';
+    if (!s.every(Number.isFinite)) return { reading: 'mm', guess: true, why: 'none' };
     const bw = opt.bedWidth || Infinity, bd = opt.bedDepth || Infinity;
-    const fits = k => s[0] * k <= bw + 0.5 && s[1] * k <= bd + 0.5 && Math.max(...s) * k >= 6;
-    if (most < 1 && fits(STL_UNITS.m)) return 'm';
+    const onBed = k => s[0] * k <= bw + 0.5 && s[1] * k <= bd + 0.5 && Math.max(...s) * k > 0;
+    const fits = k => onBed(k) && Math.max(...s) * k >= 6;
+    const readings = ['mm', 'in', ...(most < 1 ? ['m'] : [])];
+    const others = r => readings.filter(o => o !== r && onBed(STL_UNITS[o]));
+    const say = (reading, why) => ({ reading, guess: why !== 'one', why });
+    const pick = r => {
+        const rest = others(r);
+        if (!rest.length) return say(r, 'one');
+        return say(r, rest.some(o => fits(STL_UNITS[o])) ? 'both' : 'small');
+    };
+    if (most < 1 && fits(STL_UNITS.m)) return pick('m');
     const mm = fits(1), inch = fits(STL_UNITS.in);
-    if (mm && inch) return opt.inch ? 'in' : 'mm';
-    return inch ? 'in' : 'mm';
+    if (mm && inch) return say(opt.inch ? 'in' : 'mm', 'both');
+    if (mm || inch) return pick(inch ? 'in' : 'mm');
+    return say('mm', 'none');
 }

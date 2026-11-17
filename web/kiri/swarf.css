@@ -1667,6 +1667,12 @@ body:not(.swarf-expert) #speeds { display: none !important; }
   padding: 1px 0 !important;
 }
 
+/* an STL drop: each file's reading on its own, the list scrolling in a short window */
+#mod-any .swarf-stl-files { width: 100%; max-height: calc(100vh - 220px); overflow-y: auto; display: flex; flex-direction: column; gap: 10px; }
+#mod-any .swarf-stl-file h4 { margin: 0; font-weight: 600; overflow-wrap: anywhere; }
+#mod-any .swarf-stl-file label { line-height: 1.7; }
+#mod-any .swarf-stl-units .image-convert-title { overflow-wrap: anywhere; max-width: 420px; }
+
 /* --- Workspace Export & other generic confirm modals (#mod-any) --- */
 #mod-any .confirm { padding-top: 8px !important; }
 #mod-any .confirm > div { padding-top: 6px !important; }

@@ -1,6 +1,6 @@
 /** Copyright Stewart Allen <sa@grid.space> -- All Rights Reserved */
 
-import { $, h } from '../../moto/webui.js';
+import { $, h, esc } from '../../moto/webui.js';
 import { api } from './api.js';
 import { conf } from './conf/defaults.js';
 import { space } from '../../moto/space.js';
@@ -346,7 +346,7 @@ function renderDevices(devices) {
         showDevices();
     };
     ui.devices.rename.onclick = function() {
-        api.uc.prompt(`Rename "${selected}`, selected).then(newname => {
+        api.uc.prompt(`rename ${esc(selected)}`, selected).then(newname => {
             if (newname) {
                 updateDeviceName(newname);
                 setconf.save();
@@ -381,7 +381,7 @@ function renderDevices(devices) {
 
     h.bind(api.ui.modeProfile, slist.map(profile => {
         return h.option({
-            _: profile,
+            _: esc(profile),
             selected: profile === cproc ? 1 : undefined,
             onclick() { console.log({ select: profile })}
         });
@@ -410,9 +410,9 @@ function updateDeviceSelector(devices, selector, selected) {
             return;
         }
         if (loc) {
-            list_mdev.push(h.option(device));
+            list_mdev.push(h.option(esc(device)));
         } else {
-            list_cdev.push(h.option(device));
+            list_cdev.push(h.option(esc(device)));
         }
     });
 
