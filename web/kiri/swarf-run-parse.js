@@ -424,8 +424,8 @@
 
   // Air cut: the whole program lifted so its deepest point sits `clear` mm
   // above zero, spindle never started.
-  // an air cut runs at 75 % of the file's feeds (Phil 11-09: at the cutting speed it was resonant on the
-  // ShopBot); swarf-shopbot-direct.js starts its live slider at the same 75
+  // an air cut runs at 75 % of the file's feeds: the program carries the rate, and each driver applies it
+  // to the program's feed moves (the ShopBot's live slider starts there, the MR-1's lines are sent at it)
   const AIR_RATE = 0.75;
   function airProgram(parsed, clear, name, safeZ) {
     const b = boundsOf(parsed.moves);

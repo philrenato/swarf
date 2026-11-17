@@ -48,6 +48,20 @@ const sbp = ["SA", "C9", "C6", "PAUSE 0.05", "J3,0,0,5", "M3,10,0,-1", "M3,10,10
   assert.ok(outs.includes(9), 'router went on: outputs 1 and 4 (the shop\'s router-on, 10-29)');
   assert.equal(card.state.outs & 1, 0, 'spindle off at the end');
 }
+{ // air cut: the ShopBot starts the plan's 75 % on its feed moves, a cut at 100 %
+  const { m, P, R } = await machine();
+  const parsed = P.parse(sbp);
+  const air = m.plan({ ...P.airProgram(parsed, 5, 't', 25.4), kind: 'air', preview: false });
+  assert.equal(air.rate, 0.75, 'the air plan carries its rate');
+  m.zero('xyz');
+  m.run(R.arm(air));
+  assert.equal(m.planner.rate, 0.75, 'the card planner runs the feed moves at 75 %');
+  assert.equal(m.state.rate, 75, 'the slider starts at 75');
+  await done(m);
+  const cut = m.plan({ name: 't', moves: parsed.moves, sbp, source: parsed, spindle: true, kind: 'cut', preview: false });
+  assert.equal(cut.rate, 1);
+  console.log('air: planner rate', 0.75, '| cut plan rate', cut.rate);
+}
 { // trace: never touches outputs, runs through the tool change
   const { m, card, outs, P } = await machine();
   const parsed = P.parse(sbp);

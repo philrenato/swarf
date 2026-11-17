@@ -14,6 +14,7 @@
  *   plan.steps      [{ move: {x, y, z}, feed, line, work?, phase }, { router: true|false, line },
  *                    { out: n, on, line }, { dwell: s, line }, { rpm, line }]   in order (a router step
  *                    carries the speed in force, rpm, when the file named one)
+ *   plan.rate       the share of the file's feeds its program moves run at (an air cut's 0.75; else 1)
  *   plan.hold       the tool change or pause that ends it early, or null
  *   plan.moves      the moves as segments (x0..z) for the preview
  *   plan.problems   why it must not run ([] when it may)
@@ -118,7 +119,7 @@
     const segs = [];
     let p = { ...pos };
     for (const s of steps) if (s.move) { segs.push({ x0: p.x, y0: p.y, z0: p.z, ...s.move, rapid: s.phase !== 'program' || !!(s.work && s.work.rapid), feed: s.feed, line: s.line, phase: s.phase }); p = s.move; }
-    return seal({ kind: prog.kind || (live ? 'cut' : 'test'), name: prog.name, live, from: { ...pos }, steps, hold, moves: segs, problems, ctx: ctx || null, armed: false });
+    return seal({ kind: prog.kind || (live ? 'cut' : 'test'), name: prog.name, live, rate: prog.rate > 0 ? prog.rate : 1, from: { ...pos }, steps, hold, moves: segs, problems, ctx: ctx || null, armed: false });
   }
 
   function isSwitch(ev) { return ev.kind === 'spindle-on' || ev.kind === 'spindle-off' || (ev.kind === 'output' && ev.value[0] === 1); }
@@ -137,7 +138,7 @@
   function fingerprint(plan) {
     let h = 2166136261 >>> 0;
     const add = v => { const s = typeof v === 'number' ? v.toFixed(4) : JSON.stringify(v === undefined ? null : v); for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619) >>> 0; } };
-    add(plan.kind); add(plan.name); add(plan.live); add(plan.from.x); add(plan.from.y); add(plan.from.z); add(plan.ctx); add(plan.hold);
+    add(plan.kind); add(plan.name); add(plan.live); add(plan.rate); add(plan.from.x); add(plan.from.y); add(plan.from.z); add(plan.ctx); add(plan.hold);
     for (const s of plan.steps) {
       if (s.move) { add('m'); add(s.move.x); add(s.move.y); add(s.move.z); add(s.feed); add(s.line); add(s.phase); add(!!(s.work && s.work.rapid)); }
       else { add(s.router); add(s.out); add(s.on); add(s.dwell); add(s.restore); add(s.rpm); add(s.line); }
@@ -213,7 +214,7 @@
     const segs = [];
     let p = { ...at };
     for (const s of steps) if (s.move) { segs.push({ x0: p.x, y0: p.y, z0: p.z, ...s.move, rapid: s.phase !== 'program' || !!(s.work && s.work.rapid), feed: s.feed, line: s.line, phase: s.phase }); p = s.move; }
-    return seal({ kind: 'resume', name: plan.name, live: plan.live, from: { ...at }, steps, hold: plan.hold, moves: segs, problems, ctx: plan.ctx, armed: false, resumes: plan.id });
+    return seal({ kind: 'resume', name: plan.name, live: plan.live, rate: plan.rate, from: { ...at }, steps, hold: plan.hold, moves: segs, problems, ctx: plan.ctx, armed: false, resumes: plan.id });
   }
 
   // the way in, in words, for the cards: "up to 25 mm, the router on, over to X 12, Y 40, down to Z -1.5"

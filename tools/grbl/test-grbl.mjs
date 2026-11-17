@@ -178,6 +178,27 @@ const log = (...a) => console.log('  ', ...a);
     log('speeds: M3S6000 → X10 → S3000 → X20 sent in order; restart at S4000; S9000 refused; continue from 9 at S3000');
   }
 
+  // an air cut on the MR-1: every program feed goes out at 75 %, rapids stay G0, the spindle never starts
+  {
+    const file = 'G21\nG90\nM3 S6000\nG0 Z5\nG0 X0 Y0\nG1 Z-1 F300\nG1 X10 F600\nG1 X20\nG0 Z5\nM5\nM30\n';
+    await m.fresh();
+    const cut = job(m, file), air = job(m, file, 'air');
+    assert.equal(cut.rate, 1, 'a cut runs at the file\'s feeds');
+    assert.equal(air.rate, 0.75, 'an air plan carries its rate');
+    const feeds = p => m.linesOf(p).filter(l => l.line >= 6 && /^G1[XYZ]/.test(l.text)).map(l => +/F([\d.]+)/.exec(l.text)[1]);
+    assert.deepEqual(feeds(cut), [300, 600, 600], `cut feeds: ${feeds(cut)}`);
+    assert.deepEqual(feeds(air), [225, 450, 450], `air feeds at 75 %: ${feeds(air)}`);
+    const al = m.linesOf(air).map(l => l.text);
+    assert.ok(!al.some(t => /^M3/.test(t)), 'no spindle on an air cut');
+    const mark = stub.state.received.length;
+    assert.ok(m.run(R.arm(air)), m.state.note);
+    assert.equal(m.state.rate, 75, 'the time left counts at 75 %');
+    await until(() => !m.state.running, 30000, 'air cut to finish');
+    const got = tail(stub, mark).filter(t => /^G1[XYZ]/.test(t)).map(t => +/F([\d.]+)/.exec(t)[1]);
+    assert.deepEqual(got.slice(-3), [225, 450, 450], `the board got the file's moves at 225 and 450 (the way in as planned): ${got}`);
+    log('air cut: F600 → F450, F300 → F225 at the board, spindle off');
+  }
+
   // the plan refuses a job past the travel
   {
     const far = 'G21\nG90\nM3 S6000\nG0 Z5\nG1 Z-1 F300\nG1 X600 F1200\nM5\n';

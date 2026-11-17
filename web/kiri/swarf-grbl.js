@@ -933,11 +933,13 @@
       const out = PREAMBLE.map(text => ({ text, line: 0 }));
       // each start runs at the speed the file set there; a new S while it runs is sent as it comes
       const speed = v => Math.min(this.cfg.rpmMax, Math.round(v || plan.rpm || 0));
+      // the program's feed moves at the plan's rate (an air cut's 75 %); the way in and out as planned
+      const rate = plan.rate > 0 ? plan.rate : 1;
       for (const s of plan.steps) {
         if (s.move) {
           const m = s.move, xyz = `X${fmt(m.x)}Y${fmt(m.y)}Z${fmt(m.z)}`;
           if (s.work && s.work.rapid) out.push({ text: `G0${xyz}`, line: s.line });
-          else out.push({ text: `G1${xyz}F${fmt(s.feed * 60, 1)}`, line: s.line });
+          else out.push({ text: `G1${xyz}F${fmt(s.feed * 60 * (s.phase === 'program' ? rate : 1), 1)}`, line: s.line });
         } else if (s.router === true) out.push({ text: `M3S${speed(s.rpm)}`, line: s.line });
         else if (s.rpm > 0) out.push({ text: `S${speed(s.rpm)}`, line: s.line });
         else if (s.router === false) { out.push({ text: 'S0', line: s.line }, { text: 'G4P1', line: s.line }, { text: 'M5', line: s.line }); }
@@ -954,7 +956,7 @@
       const long = lines.find(l => clean(l.text).length >= LINE_MAX);
       if (long) { this.set({ note: `not run: line ${long.line} is longer than the board takes` }); return false; }
       const job = this.job = { plan, lines, acked: 0, ended: false };
-      this.set({ running: true, paused: false, preview: false, line: 0, spindle: false, stopHit: false, resumeLine: 0, done: false, lostMid: false, toolChange: false, coasting: false, alarm: 0, note: 'running' });
+      this.set({ running: true, paused: false, preview: false, line: 0, spindle: false, stopHit: false, resumeLine: 0, done: false, lostMid: false, toolChange: false, coasting: false, alarm: 0, rate: Math.round((plan.rate > 0 ? plan.rate : 1) * 100), note: 'running' });
       this.cue('move');
       this.go(job);
       return true;

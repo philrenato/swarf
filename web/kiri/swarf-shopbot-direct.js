@@ -831,10 +831,9 @@
       const why = this.refuse(plan);
       if (why) { this.set({ note: why }); return; }
       const ops = this.opsOf(plan, this.outputs);
-      // each job starts at its own feeds; an air cut at 75 % (Phil 11-09: the cutting speed in the air
-      // was resonant on the ShopBot; the slider still runs 50-400 %). The same 75 % as the air .sbp
-      // (swarf-run-parse.js AIR_RATE).
-      const airStart = plan.kind === 'air' ? 75 : 100;
+      // each job starts at its own feeds; an air cut at the plan's rate (swarf-run-parse.js AIR_RATE),
+      // which its slider then moves between 50 and 400 %
+      const airStart = plan.kind === 'air' ? Math.round((plan.rate > 0 ? plan.rate : 1) * 100) : 100;
       this.planner.rate = airStart / 100;
       this.state.rate = airStart;
       this.holdAt = plan.hold;
