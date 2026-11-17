@@ -239,7 +239,7 @@
 .sr-card { width: min(520px, 92vw); background: var(--swarf-bg-2, #13100f); border: 1px solid var(--swarf-accent, #d02020); border-radius: 14px; padding: 18px 20px; box-sizing: border-box; max-height: calc(100% - 24px); overflow-y: auto; overscroll-behavior: contain; }
 /* a card taller than the window scrolls; its last row of buttons stays in view at the bottom */
 .sr-card > .row:last-child { position: sticky; bottom: 0; z-index: 1; margin: 14px -20px -18px; padding: 10px 20px 18px; background: var(--swarf-bg-2, #13100f); }
-.sr-card h2 .sr-mach { font-size: 13px; font-weight: 400; color: var(--swarf-text-2, #8a857c); white-space: nowrap; }
+.sr-card .sr-mach { font-size: 12px; margin: 0 0 2px; color: var(--swarf-text-2, #8a857c); }
 .sr-card:focus { outline: none; }
 .sr-card h2 { margin: 0 0 6px; font-size: 18px; }
 .sr-card p { margin: 0 0 12px; color: var(--swarf-text-2, #8a857c); line-height: 1.5; }
@@ -2095,12 +2095,11 @@ html[data-skin] #swarf-run .sr-jog .sr-zrow button.next, html[data-skin] #swarf-
   }
   function sheetLabel() {
     const h2 = el.card.querySelector('h2');
-    if (h2) {
-      h2.id = 'sr-sheet-title';
-      const name = machineName();
-      if (!h2.querySelector('.sr-mach') && !h2.textContent.includes(name)) h2.append(h('small', { class: 'sr-mach', text: ` · ${name}` }));
-      el.card.setAttribute('aria-labelledby', h2.id);
-    } else el.card.removeAttribute('aria-labelledby');
+    let mach = el.card.querySelector('.sr-mach');
+    if (!mach) { mach = h('div', { class: 'sr-mach', id: 'sr-sheet-mach' }); el.card.prepend(mach); }
+    mach.textContent = machineName();
+    if (h2) h2.id = 'sr-sheet-title';
+    el.card.setAttribute('aria-labelledby', h2 ? `${mach.id} ${h2.id}` : mach.id);
     const ps = [...el.card.querySelectorAll('p')];
     ps.forEach((p, i) => { p.id = `sr-sheet-p${i}`; });
     if (ps.length) el.card.setAttribute('aria-describedby', ps.map(p => p.id).join(' ')); else el.card.removeAttribute('aria-describedby');
