@@ -65,13 +65,14 @@
   function checklist(line) {
     const t = fileTools(), o = originText();
     const ev = S.prog ? S.prog.parsed.events : [];
-    const at = k => line ? ev.filter(e => e.kind === k && e.line < line && (k !== 'rpm' || e.value > 0)).pop() : null;
-    const bit = (at('tool-name') || {}).value || t.names[0], rpm = (at('rpm') || {}).value || t.rpm[0];
+    // the speed in force at the line, S0 included (a stopped spindle is named, not an earlier speed)
+    const at = k => line ? ev.filter(e => e.kind === k && e.line < line && (k !== 'rpm' || e.value >= 0)).pop() : null;
+    const bit = (at('tool-name') || {}).value || t.names[0], rpm = at('rpm') ? at('rpm').value : t.rpm[0];
     return [
       'your board lies flat, screwed or clamped down, and the bit clears every screw and clamp',
       inchItem(),
       bit ? `the bit in the ${spindleWord()} is the ${bit} this file ${line ? `uses at line ${line}` : 'was made for'}` : `the bit in the ${spindleWord()} is the one this file was made for`,
-      rpm ? (isMR1() ? `the spindle will run at ${rpm.toLocaleString()} rpm: swarf sets it from the file` : `the router is set to ${dialFor(rpm)}: swarf only switches it on and off`) : null,
+      rpm === 0 && isMR1() ? 'the spindle speed at this line is 0 (S0): it does not turn' : rpm ? (isMR1() ? `the spindle will run at ${rpm.toLocaleString()} rpm: swarf sets it from the file` : `the router is set to ${dialFor(rpm)}: swarf only switches it on and off`) : null,
       S.plateUsed ? 'the Z plate and its clip are put away' : null,
       /^the /.test(o.z) ? `Z zero is on ${o.z}` : `Z zero is ${o.z}`,
       isMR1() ? 'safety glasses on' : 'safety glasses on, dust collection on',
