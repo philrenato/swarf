@@ -170,7 +170,7 @@ html[data-skin="glass"] #panel-right .set2-group summary.set-header::before { co
 html[data-skin="glass"] #panel-left .set-header::before { color: #aaabac !important; }
 html[data-skin="glass"] .set-header { background-image: none !important; }
 html[data-skin="glass"] #swarf-material-row { background: transparent !important; border-bottom: 1px solid rgba(255, 255, 255,.7) !important; }
-html[data-skin="glass"] #swarf-origin-row span, html[data-skin="glass"] #swarf-material-row span { color: #6f757b !important; letter-spacing: 0 !important; text-transform: none !important; font-size: 13px !important; }
+html[data-skin="glass"] #swarf-origin-row span, html[data-skin="glass"] #swarf-material-row span, html[data-skin="glass"] #swarf-speed-row > span { color: #6f757b !important; letter-spacing: 0 !important; text-transform: none !important; font-size: 13px !important; }
 
 /* ---- buttons: wet jelly ---- */
 html[data-skin="glass"] button, html[data-skin="glass"] #op-add-list > div, html[data-skin="glass"] #panel-right #oplist > div,
@@ -335,7 +335,7 @@ html[data-skin="glass"] .swarf-concern strong { color: #7d5820 !important; }
 html[data-skin="glass"] #swarf-run .sr-plate-view .sr-plate-note { background: rgba(255,255,255,.85); padding: 1px 6px; border-radius: 6px; color: #3e3f41; }
 html[data-skin="glass"] #swarf-draw kbd { color: #2f3031 !important; background: rgba(255,255,255,.9) !important; }
 html[data-skin="glass"] #swarf-start small, html[data-skin="glass"] #swarf-watermark, html[data-skin="glass"] #ver { color: #48494b !important; }
-html[data-skin="glass"] #swarf-material-row span, html[data-skin="glass"] #swarf-origin-row > span, html[data-skin="glass"] .swarf-step-run label, html[data-skin="glass"] .swarf-step-run i { color: #2f3135 !important; }
+html[data-skin="glass"] #swarf-material-row span, html[data-skin="glass"] #swarf-origin-row > span, html[data-skin="glass"] #swarf-speed-row > span, html[data-skin="glass"] .swarf-step-run label, html[data-skin="glass"] .swarf-step-run i { color: #2f3135 !important; }
 html[data-skin="glass"] .swarf-skin-head label, html[data-skin="glass"] .top-menu-drop .swarf-skin-head label { color: #48494b !important; }
 html[data-skin="glass"] #layer-animate #swarf-sim-machine.on, html[data-skin="glass"] #layer-animate #swarf-sim-bed.on, html[data-skin="glass"] #layer-animate #swarf-sim-machine.on *, html[data-skin="glass"] #layer-animate #swarf-sim-bed.on * { color: #fff !important; }
 html[data-skin="glass"] #swarf-watermark { opacity: 1 !important; color: #48494b !important; }
@@ -381,3 +381,5 @@ html[data-skin="glass"] #swarf-watermark:hover { color: #212223 !important; }  /
 /* the draw and tex tabs, when on, sit on the accent: white words, as swarf.css means them (the map made them the skin's ink, black on graphite, look_legibility 11-13) */
 html[data-skin="glass"] #mode-tools > span#swarf-step-draw.swarf-step-on label, html[data-skin="glass"] #mode-tools > span#swarf-step-draw.swarf-step-on i, html[data-skin="glass"] #mode-tools > span#swarf-step-draw.swarf-step-on svg,
 html[data-skin="glass"] #mode-tools > span#swarf-step-tex.swarf-step-on label, html[data-skin="glass"] #mode-tools > span#swarf-step-tex.swarf-step-on i, html[data-skin="glass"] #mode-tools > span#swarf-step-tex.swarf-step-on svg { color: #fff !important; fill: #fff !important; }
+/* the control card's buttons, kept in view when the card scrolls */
+html[data-skin="glass"] #swarf-run .sr-card > .row:last-child { background: rgba(250, 250, 251, .96) !important; }

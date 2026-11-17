@@ -19,7 +19,7 @@ simulate, then cut.
   fix; a saved machine file carries the concerns still open, and control shows them.
 - **Inches or millimeters**, fractions included.
 - **Simulate** before you cut.
-- **Two machines:** ShopBot (default) and Langmuir MR-1, which runs from an exported file.
+- **Two machines:** ShopBot (default) and Langmuir MR-1. Control drives both from the browser: the ShopBot over USB, the MR-1 over its GRBL board (Web Serial).
 - **Skins:** wet plastic (default), classic, swarf.
 
 ## Running locally and forking

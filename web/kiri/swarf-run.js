@@ -29,8 +29,8 @@
     load: 'Load: the toolpaths from cam (press control with a part and a step on the bed), or a file from other software.',
     check: 'Check: swarf reads the file: millimeters, small enough for the machine, every line it can run. Where it lands on the table is checked once X Y is zeroed and the table corner is known.',
     zero: 'Zero: jog the bit to your board\'s X 0, Y 0 and press zero x y; then zero z, or use the z plate.',
-    get trace() { return `Trace: the bit runs the rectangle the cut fills, ${up()} up, router off. An air cut runs the whole file above the board. Both need a program and the zero.`; },
-    cut: 'Cut: a short checklist, then the router starts. A trace first is your choice.'
+    get trace() { return `Trace: the bit runs the rectangle the cut fills, ${up()} up, ${spindleWord()} off. An air cut runs the whole file above the board. Both need a program and the zero.`; },
+    get cut() { return `Cut: a short checklist, then the ${spindleWord()} starts. A trace first is your choice.`; }
   };
   const CHANGE_Z = 50;          // a tool change lifts this far over the work, room for a wrench
   const Z_JOG_MAX = 1000;       // mm/min: Z jogs never faster, whatever the speed row says
@@ -70,11 +70,11 @@
     return [
       'your board lies flat, screwed or clamped down, and the bit clears every screw and clamp',
       inchItem(),
-      bit ? `the bit in the router is the ${bit} this file ${line ? `uses at line ${line}` : 'was made for'}` : 'the bit in the router is the one this file was made for',
+      bit ? `the bit in the ${spindleWord()} is the ${bit} this file ${line ? `uses at line ${line}` : 'was made for'}` : `the bit in the ${spindleWord()} is the one this file was made for`,
       rpm ? (isMR1() ? `the spindle will run at ${rpm.toLocaleString()} rpm: swarf sets it from the file` : `the router is set to ${dialFor(rpm)}: swarf only switches it on and off`) : null,
       S.plateUsed ? 'the Z plate and its clip are put away' : null,
       /^the /.test(o.z) ? `Z zero is on ${o.z}` : `Z zero is ${o.z}`,
-      'safety glasses on, dust collection on',
+      isMR1() ? 'safety glasses on' : 'safety glasses on, dust collection on',
       'the laptop is plugged in and stays open',
       'I will stay at the machine until it finishes'
     ].filter(Boolean);
@@ -236,7 +236,11 @@
 .sr-sim button.on { border-color: var(--swarf-amber, #c08a3a); color: var(--swarf-amber, #c08a3a); }
 .sr-sheet { position: absolute; inset: 0; background: rgba(0,0,0,.6); display: none; place-items: center; z-index: 5; }
 .sr-sheet.on { display: grid; }
-.sr-card { width: min(520px, 92vw); background: var(--swarf-bg-2, #13100f); border: 1px solid var(--swarf-accent, #d02020); border-radius: 14px; padding: 18px 20px; }
+.sr-card { width: min(520px, 92vw); background: var(--swarf-bg-2, #13100f); border: 1px solid var(--swarf-accent, #d02020); border-radius: 14px; padding: 18px 20px; box-sizing: border-box; max-height: calc(100% - 24px); overflow-y: auto; overscroll-behavior: contain; }
+/* a card taller than the window scrolls; its last row of buttons stays in view at the bottom */
+.sr-card > .row:last-child { position: sticky; bottom: 0; z-index: 1; margin: 14px -20px -18px; padding: 10px 20px 18px; background: var(--swarf-bg-2, #13100f); }
+.sr-card h2 .sr-mach { font-size: 13px; font-weight: 400; color: var(--swarf-text-2, #8a857c); white-space: nowrap; }
+.sr-card:focus { outline: none; }
 .sr-card h2 { margin: 0 0 6px; font-size: 18px; }
 .sr-card p { margin: 0 0 12px; color: var(--swarf-text-2, #8a857c); line-height: 1.5; }
 .sr-card label { display: flex; gap: 10px; align-items: flex-start; padding: 7px 0; cursor: pointer; line-height: 1.4; }
@@ -845,9 +849,10 @@ html[data-skin] #swarf-run .sr-jog .sr-zrow button.next, html[data-skin] #swarf-
     el.veil.querySelector('.sr-veilcard p').after(el.veilWay);
     root.append(el.veil);
     el.sheet = h('div', { class: 'sr-sheet' });
-    el.card = h('div', { class: 'sr-card' });
+    el.card = h('div', { class: 'sr-card', role: 'dialog', 'aria-modal': 'true', tabindex: '-1' });
     el.sheet.append(el.card);
     root.append(el.sheet);
+    sheetModal();
 
     // inside #app (position: fixed makes it a stacking context): out here, control covered the menus whatever their z-index
     (document.getElementById("app") || document.body).append(root);
@@ -1152,7 +1157,7 @@ html[data-skin] #swarf-run .sr-jog .sr-zrow button.next, html[data-skin] #swarf-
         // one file per bit (the MR-1): run as one program that stops at each bit change
         const bits = out && out.swarfBitFiles;
         if (bits && bits.length > 1) { loadProgram(base + '.nc', P.joinBitFiles(bits), 'cam'); return; }
-        loadProgram(base + '.sbp', text, 'cam');
+        loadProgram(base + (isMR1() ? '.nc' : '.sbp'), text, 'cam');
       });
     } catch (e) {
       done('There are no toolpaths yet. Press toolpaths and add a step, then press control.');
@@ -1543,9 +1548,9 @@ html[data-skin] #swarf-run .sr-jog .sr-zrow button.next, html[data-skin] #swarf-
       b.dataset.why = list.length ? `${word} needs: ${list.join(', then ')}.` : '';
       b.title = list.length ? b.dataset.why : title;
     };
-    wait(el.btn.trace, testWhy, 'Trace', `Run the rectangle the cut fills, ${up()} up, router off`);
-    wait(el.btn.air, testWhy, 'An air cut', 'Run the whole file above your board, router off');
-    wait(el.btn.cut, cutWhy, 'Cut', 'Cut the file: the router starts');
+    wait(el.btn.trace, testWhy, 'Trace', `Run the rectangle the cut fills, ${up()} up, ${spindleWord()} off`);
+    wait(el.btn.air, testWhy, 'An air cut', `Run the whole file above your board, ${spindleWord()} off`);
+    wait(el.btn.cut, cutWhy, 'Cut', `Cut the file: the ${spindleWord()} starts`);
     el.fromBtn.disabled = running || cutWhy.length > 0;
     el.fromBtn.title = cutWhy.length ? `Continue needs: ${cutWhy.join(', then ')}.` : `Up to ${up()}, over, then cut from this line on`;
     el.need.innerHTML = '';
@@ -1629,7 +1634,7 @@ html[data-skin] #swarf-run .sr-jog .sr-zrow button.next, html[data-skin] #swarf-
     if (st && st.dialog) return say(`The file asks: ${st.dialog.caption || st.dialog.message}`, 'warn');
     if (st && st.running) {
       const total = S.prog ? S.prog.parsed.lines : 0;
-      const what = { trace: `Tracing the rectangle the cut fills, ${up()} up, router off`, air: 'Running an air cut, router off', cut: 'Cutting', from: 'Cutting', preview: 'Previewing' }[S.job] || 'Running';
+      const what = { trace: `Tracing the rectangle the cut fills, ${up()} up, ${spindleWord()} off`, air: `Running an air cut, ${spindleWord()} off`, cut: 'Cutting', from: 'Cutting', preview: 'Previewing' }[S.job] || 'Running';
       const left = timeLeft();
       const where = left ? `, about ${mins(left)} left` : '';
       if (isGrbl()) {
@@ -1661,7 +1666,7 @@ html[data-skin] #swarf-run .sr-jog .sr-zrow button.next, html[data-skin] #swarf-
         if (/top/.test(o.z) && isGrbl()) return say(`Now Z, on ${o.z}: lower the bit with step 1, then 0.1, onto a sheet of paper until it just drags. Then press zero z.`);
         if (/top/.test(o.z)) return say(`Now Z, on ${o.z}: press z plate and the bit finds the board itself with the touch plate. Or lower it with step 0.1 onto a sheet of paper until it just drags, then press zero z.`);
         return say(`Lower the bit to ${o.z}: step 1 to get close, then 0.1, with a sheet of paper under the bit until it just drags. Then press zero z.`);
-      case 'trace': return say(`Press trace. The bit runs the rectangle your cut fills, ${up()} up, router off. Check it clears every screw and clamp and stays over your board.`);
+      case 'trace': return say(`Press trace. The bit runs the rectangle your cut fills, ${up()} up, ${spindleWord()} off. Check it clears every screw and clamp and stays over your board.`);
       case 'cut':
         if (S.lostAt) return say(`The USB link dropped at line ${S.lostAt}. If the machine is still moving or the router still turns, press the floor e-stop. Plug in, press connect, then continue from line ${S.lostAt}.`, 'bad');
         if (S.stoppedAt && st && st.resumeLine === S.stoppedAt) return say(`${st.note[0].toUpperCase()}${st.note.slice(1)}. The router is off and the bit is up.`, 'warn');
@@ -2077,16 +2082,81 @@ html[data-skin] #swarf-run .sr-jog .sr-zrow button.next, html[data-skin] #swarf-
     if (S.contHeld === b) { S.contHeld = null; S.machine.jogRelease(); }
   }
 
+  // The sheet is a modal dialog: named by its heading (with the machine), described by its paragraphs,
+  // focus on its safe button when it opens, Tab kept inside, the page behind it inert, and focus back
+  // where it was when it closes.
+  const SAFE_WORDS = /^(not yet|cancel|back|close|done|got it)$/i;
+  let sheetWas = null, sheetInert = [];
+  const shown = x => !x.disabled && x.getClientRects().length > 0;
+  function sheetFocusables() { return [...el.card.querySelectorAll('button, input, select, textarea, summary, a[href], [tabindex]:not([tabindex="-1"])')].filter(shown); }
+  function sheetSafe() {
+    const bs = [...el.card.querySelectorAll('button')].filter(shown);
+    return bs.find(b => SAFE_WORDS.test(b.textContent.trim())) || bs.find(b => !b.classList.contains('go')) || null;
+  }
+  function sheetLabel() {
+    const h2 = el.card.querySelector('h2');
+    if (h2) {
+      h2.id = 'sr-sheet-title';
+      const name = machineName();
+      if (!h2.querySelector('.sr-mach') && !h2.textContent.includes(name)) h2.append(h('small', { class: 'sr-mach', text: ` · ${name}` }));
+      el.card.setAttribute('aria-labelledby', h2.id);
+    } else el.card.removeAttribute('aria-labelledby');
+    const ps = [...el.card.querySelectorAll('p')];
+    ps.forEach((p, i) => { p.id = `sr-sheet-p${i}`; });
+    if (ps.length) el.card.setAttribute('aria-describedby', ps.map(p => p.id).join(' ')); else el.card.removeAttribute('aria-describedby');
+  }
+  function sheetFocus() {
+    if (el.card.contains(document.activeElement)) return;
+    (sheetSafe() || el.card).focus({ preventScroll: true });
+  }
+  function sheetOpen() {
+    sheetWas = document.activeElement && document.activeElement !== document.body ? document.activeElement : null;
+    sheetInert = [];
+    for (let n = el.sheet; n && n.parentElement && n !== document.body; n = n.parentElement)
+      for (const sib of n.parentElement.children) if (sib !== n && !sib.inert && sib.tagName !== 'DIALOG' && sib.tagName !== 'SCRIPT') { sib.inert = true; sheetInert.push(sib); }
+    sheetLabel();
+    sheetFocus();
+  }
+  function sheetClose() {
+    for (const n of sheetInert) n.inert = false;
+    sheetInert = [];
+    const back = sheetWas;
+    sheetWas = null;
+    if (back && back.isConnected && !back.disabled && back.getClientRects().length) back.focus({ preventScroll: true });
+  }
+  function sheetModal() {
+    let open = false;
+    new MutationObserver(() => {
+      const on = el.sheet.classList.contains('on');
+      if (on && !open) { open = true; sheetOpen(); }
+      else if (!on && open) { open = false; sheetClose(); }
+    }).observe(el.sheet, { attributes: true, attributeFilter: ['class'] });
+    // a card that changes while open (the zero steps, a plate step): named again, focus kept inside
+    new MutationObserver(() => { if (open) { sheetLabel(); sheetFocus(); } }).observe(el.card, { childList: true });
+  }
+  // Tab and Shift-Tab go round the card's own controls
+  function sheetTab(e) {
+    const f = sheetFocusables();
+    if (!f.length) { e.preventDefault(); el.card.focus(); return; }
+    const i = f.indexOf(document.activeElement);
+    const next = e.shiftKey ? (i <= 0 ? f[f.length - 1] : f[i - 1]) : (i < 0 || i === f.length - 1 ? f[0] : f[i + 1]);
+    e.preventDefault();
+    next.focus();
+  }
+
   // Keys (ShopBot keypad layout): arrows X/Y, Page Up/Down Z, by the step setting
   // ('hold' moves while the key is down). Space or Esc stops, always.
   const JOG_KEYS = { ArrowRight: ['x', 1, '+X'], ArrowLeft: ['x', -1, '−X'], ArrowUp: ['y', 1, '+Y'], ArrowDown: ['y', -1, '−Y'], PageUp: ['z', 1, '+Z'], PageDown: ['z', -1, '−Z'] };
   function padButton(label) { return el.jog.querySelector(`.sr-pad button[data-axis="${label}"]`); }
   function onKey(e) {
-    // a card on the sheet: only a click presses its buttons; Esc closes it (nothing is moving yet)
+    // a card on the sheet: Tab stays in it, Enter or Space presses the focused button (a motion
+    // button stays disabled until its ticks are done), Esc closes it (nothing is moving yet)
+    if (S.open && el.sheet && el.sheet.classList.contains('on') && e.type === 'keydown' && e.key === 'Tab') { sheetTab(e); return; }
     if (S.open && el.sheet && el.sheet.classList.contains('on') && e.type === 'keydown' && !(S.machine && (S.machine.state.running || S.machine.homing))) {
       if (e.key === 'Escape') { e.preventDefault(); S.plateWatch = null; S.mr1Watch = null; S.afterZero = null; el.sheet.classList.remove('on'); if (S.prog) showPlan(null); refresh(); return; }
       const t = e.target;
-      if ((e.key === ' ' || e.key === 'Enter') && t && t.tagName === 'BUTTON' && el.sheet.contains(t)) { e.preventDefault(); e.stopPropagation(); return; }
+      // a jog under way (the zero steps' pad): Space stops it, as everywhere
+      if ((e.key === ' ' || e.key === 'Enter') && t && el.card.contains(t) && !(e.key === ' ' && S.machine && (S.machine.state.moving || S.contHeld))) { e.stopPropagation(); return; }
       if (t && t.tagName === 'INPUT') return;
       // no jogging under a card: the plan it shows was made from where the bit is (torture test 10-29)
       if (JOG_KEYS[e.key]) { e.preventDefault(); e.stopPropagation(); return; }
@@ -2248,13 +2318,14 @@ html[data-skin] #swarf-run .sr-jog .sr-zrow button.next, html[data-skin] #swarf-
     const checks = items.map(t => h('input', { type: 'checkbox' }));
     const b = P.cutBounds(S.prog.parsed);
     const size = b ? lens([b.max.x - b.min.x, b.max.y - b.min.y], 0) : '';
-    const words = {
-      trace: { h: 'Trace the border', go: 'trace', p: `The machine is about to move: up to ${up(1)} over Z 0, then around the ${size} box the cut fills, router off. Watch that it stays over your board and clears every screw and clamp; clamps inside the cut are not checked. Check each one:` },
-      air: { h: `Run ${S.prog.name} as an air cut`, go: 'air cut', p: `The machine is about to move. The whole file runs ${prose(AIR_CLEAR)} above its highest point, router off, at three quarters of the cutting speed (a slider changes it as it runs), about ${mins(S.prog.parsed.seconds / 0.75)}. It is not a clamp check: watch the path before you cut. Check each one:` },
-      from: { h: `Continue from line ${line}`, go: `continue from line ${line}`, p: `The machine is about to move and the router to start. The bit goes up to ${up(1)}, over to where that line starts, starts the router, then cuts the rest of the file. Check each one:` },
-      cut: { h: `Cut ${S.prog.name}`, go: 'cut', p: `The machine is about to move and the router to start. The file runs to the end, about ${mins(S.prog.parsed.seconds)}. Check each one:` }
-    }[from ? 'from' : test ? kind : 'cut'];
+    const tool = spindleWord();
     const plan = makePlan(from ? 'from' : test ? kind : 'cut', line);
+    const words = {
+      trace: { h: 'Trace the border', go: 'trace', p: `The machine is about to move: up to ${up(1)} over Z 0, then around the ${size} box the cut fills, ${tool} off. Watch that it stays over your board and clears every screw and clamp; clamps inside the cut are not checked. Check each one:` },
+      air: { h: `Run ${S.prog.name} as an air cut`, go: 'air cut', p: `The machine is about to move. The whole file runs ${prose(AIR_CLEAR)} above its highest point, ${tool} off, at three quarters of the cutting speed${isDirect() ? ' (a slider changes it as it runs)' : ''}, about ${mins(S.prog.parsed.seconds / ((plan && plan.rate) || 0.75))}. It is not a clamp check: watch the path before you cut. Check each one:` },
+      from: { h: `Continue from line ${line}`, go: `continue from line ${line}`, p: `The machine is about to move and the ${tool} to start. The bit goes up to ${up(1)}, over to where that line starts, starts the ${tool}, then cuts the rest of the file. Check each one:` },
+      cut: { h: `Cut ${S.prog.name}`, go: 'cut', p: `The machine is about to move and the ${tool} to start. The file runs to the end, about ${mins(S.prog.parsed.seconds)}. Check each one:` }
+    }[from ? 'from' : test ? kind : 'cut'];
     const go = h('button', { class: 'go', text: unzeroed ? (from ? `${words.go} anyway` : 'cut anyway') : untraced ? `${words.go} without a trace` : words.go, disabled: '' });
     const bad = !plan ? 'There is nothing to run there.' : plan.problems.length ? `It can't run: ${plan.problems[0]}.` : '';
     const update = () => { go.disabled = !!bad || !checks.every(c => c.checked); };
@@ -2293,8 +2364,7 @@ html[data-skin] #swarf-run .sr-jog .sr-zrow button.next, html[data-skin] #swarf-
     const no = h('button', { text: 'not yet', onclick: () => el.sheet.classList.remove('on') });
     el.card.append(h('h2', { text: title }), h('p', { text }), h('p', { text: isMR1() ? 'Hands clear of the gantry, a hand near the MR-1\'s e-stop. Once it moves, space or Esc stops it.' : 'Hands clear of the gantry, a foot near the floor e-stop. Once it moves, space or Esc stops it.' }),
       h('div', { class: 'row' }, no, ok));
-    el.sheet.classList.add('on');
-    no.focus();   // a stray key never starts the machine (Interfacing review 10-28 #1)
+    el.sheet.classList.add('on');   // focus goes to not yet: a stray key never starts the machine
   }
 
   // A fault is latched (the follow-up review's fault state): after the e-stop, a lost link mid-job
@@ -2538,6 +2608,9 @@ html[data-skin] #swarf-run .sr-jog .sr-zrow button.next, html[data-skin] #swarf-
 
   // ------------------------------------------------------------ the MR-1 (swarf-grbl.js)
   // the job's machine is the MR-1 (setup › machine)
+  // what turns the bit, and the machine, in the cards' words
+  function spindleWord() { return isMR1() ? 'spindle' : 'router'; }
+  function machineName() { return isMR1() ? 'MR-1' : 'ShopBot'; }
   function isMR1() {
     // a real machine connected decides; otherwise cam's machine
     if (isGrbl() && S.machine.state.connected) return true;
