@@ -401,6 +401,13 @@ function setup_keybd_nav() {
     const helpReset = $('swarf-reset-profile');
     if (helpReset) helpReset.onclick = (ev) => {
         ev.stopPropagation();
+        // a reload mid-job would leave the machine running blind
+        const R = window.__swarfRun;
+        if (window.__swarfRunBusy === true || (R && R.state && R.state.machine && R.state.machine.state && R.state.machine.state.running)) {
+            document.body.click();
+            api.show.alert('A job is running in control. Let it finish, or stop it, then start over.', 8);
+            return;
+        }
         // (whole-app review r086 F10) asked in swarf's own card, not the browser's
         document.body.click();
         const pre = ["<div class='f-col a-center swarf-shape'><h3>Start swarf over?</h3>",
@@ -957,6 +964,17 @@ function setup_keybd_nav() {
         // the tex card is built when tex opens
         new MutationObserver(() => moreBelow(document.getElementById('tx-card'))).observe(document.body, { attributes: true, attributeFilter: ['class'] });
 
+        // a part's mesh box, measured again only when its vertices change (a drag only moves track.pos)
+        const boxes = new WeakMap();
+        const geoBox = w => {
+            const g = w.mesh.geometry, at = g.attributes.position, had = boxes.get(g);
+            if (had && had.at === at && had.version === at.version) return had.box;
+            g.computeBoundingBox();
+            const box = g.boundingBox.clone();
+            boxes.set(g, { at, version: at.version, box });
+            return box;
+        };
+
         // rule engine: pull current settings + ops, evaluate each rule, render warnings
         const tabsOpened = new Set();
         function evaluate() {
@@ -977,6 +995,10 @@ function setup_keybd_nav() {
                     // op.tool holds a tool id; the library stores imperial
                     // tools in inches, and every op field here is mm.
                     const tool = tools.find(t => t.id == op.tool);
+                    if (!tool && op.tool != null && op.tool !== '' && tools.length) warnings.push({
+                        title: `the ${op.type} step's bit is missing`,
+                        body: 'its bit is no longer in the bit library, so the file would cut with another bit.',
+                        hint: 'pick a bit for this step' });
                     const td = tool
                         ? (tool.flute_diam || 0) * (tool.metric ? 1 : 25.4)
                         : 3.175;
@@ -1084,8 +1106,7 @@ function setup_keybd_nav() {
                 const mach = (dev.deviceName || 'machine').replace(/\./g, ' ').replace(/^(\w+) Basic$/, '$1');
                 const soft = /shopbot/i.test(dev.deviceName || '');
                 for (const w of api.widgets.all()) {
-                    const g = w.mesh.geometry; g.computeBoundingBox();
-                    const b = g.boundingBox, p = w.track.pos, name = api.platform.part_name(w);
+                    const b = geoBox(w), p = w.track.pos, name = api.platform.part_name(w);
                     const sx = b.max.x - b.min.x, sy = b.max.y - b.min.y, sz = b.max.z - b.min.z;
                     if (bw && bd && (sx > bw + 0.5 || sy > bd + 0.5)) warnings.push({
                         title: `${name} is bigger than the ${mach}'s bed`,
@@ -1096,7 +1117,7 @@ function setup_keybd_nav() {
                         // lands clear of every other part (a slide onto another part is not always right)
                         const into = (lo, hi, half) => lo < -half ? -half - lo : hi > half ? half - hi : 0;
                         const dx = into(p.x + b.min.x, p.x + b.max.x, bw / 2), dy = into(p.y + b.min.y, p.y + b.max.y, bd / 2);
-                        const box = w => { const g = w.mesh.geometry; g.computeBoundingBox(); const q = g.boundingBox, s = w.track.pos; return [s.x + q.min.x, s.y + q.min.y, s.x + q.max.x, s.y + q.max.y]; };
+                        const box = w => { const q = geoBox(w), s = w.track.pos; return [s.x + q.min.x, s.y + q.min.y, s.x + q.max.x, s.y + q.max.y]; };
                         const to = [p.x + b.min.x + dx, p.y + b.min.y + dy, p.x + b.max.x + dx, p.y + b.max.y + dy];
                         const clear = (w.group || [w]).length <= 1 && !api.widgets.all().some(o => o !== w && !o.track.synth && (([x0, y0, x1, y1]) => x0 < to[2] - 0.01 && x1 > to[0] + 0.01 && y0 < to[3] - 0.01 && y1 > to[1] + 0.01)(box(o)));
                         warnings.push({
@@ -1333,8 +1354,12 @@ function setup_keybd_nav() {
         // re-evaluate on settings + op changes
         // conf.save emits settings.saved on every op add/edit; the material
         // system emits cam.op.render after a re-derive
-        ['settings','settings.saved','cam.op.render','widget.add','widget.delete','device.selected','selection.move','selection.scale','selection.drag','slice.end','units.set']
+        ['settings','settings.saved','cam.op.render','widget.add','widget.delete','device.selected','selection.scale','selection.rotate','widget.mirror','platform.layout','slice.end','units.set','mouse.drag.done']
             .forEach(ev => api.event.on(ev, evaluate));
+        // moves come once per pointer event while dragging: checked at most once a frame, and again when the drag ends
+        let moveRq = 0;
+        const evaluateSoon = () => { if (!moveRq) moveRq = requestAnimationFrame(() => { moveRq = 0; evaluate(); }); };
+        ['selection.move','selection.drag'].forEach(ev => api.event.on(ev, evaluateSoon));
         window.addEventListener('swarf.material.change', evaluate);
     })();
 
@@ -1383,10 +1408,10 @@ function setup_keybd_nav() {
             { kind:'shop', name:'protection', body:'safety glasses and hearing protection on, dust collection on, hair and sleeves back.', tags:'safety glasses hearing dust kcad' },
             { kind:'shop', name:'the floor e-stop', body:'the red button on the floor, pressed with your foot. in an emergency, step on it and keep clear until everything has stopped.', tags:'e-stop emergency stop floor foot kcad' },
             { kind:'shop', name:'hours', body:'the ShopBot runs when the woodshop is open; check its hours.', tags:'hours woodshop open kcad' },
-            { kind:'run', name:'control', body:'drives the ShopBot from swarf over its USB cable, in Chrome or Edge only. jog, zero, trace, air cut, cut. only shows when the ShopBot is the machine; the MR-1 uses export. the top row says what the buttons move: the practice simulator, the ShopBot, or no machine. the jog panel says the next thing to do.', tags:'control shopbot usb run machine chrome edge' },
-            { kind:'run', name:'trace / air cut / cut', body:'each one opens a checklist first. trace runs the bit around the rectangle the cut fills, raised, router off; an air cut runs the whole file above the board; cut starts the router. trace and air cut are there to check first, not required: cut without a trace asks for one more tick, that you checked the clamps and the zero yourself. cut with X Y or Z not zeroed in swarf says the file runs from the zero the machine already has and asks for a tick too (cut anyway). a waiting button says what it still needs. a file that feeds the bit into the board with the router off is refused, whichever software made it: export it again.', tags:'trace air cut run checklist rectangle router off refused blocked' },
-            { kind:'run', name:'jog', body:'opens on continuous at 1000 mm/min (40 in/min): hold an arrow or a button and it moves until you let go; no end stops on this machine, so let go in time. pick a step and each press moves that far. go-to buttons and home ask first. space or esc stops; while a job runs, any key pauses it.', tags:'jog move step continuous hold speed keys arrows' },
-            { kind:'run', name:'table corners', body:"no home switches on this machine: put the bit over the table's front-left corner once and swarf learns it until the machine is switched off. then zero at, or go to, the front-left or front-right corner.", tags:'table corner absolute zero front left right' },
+            { kind:'run', name:'control', body:'drives the ShopBot or the MR-1 from swarf over its USB cable, in Chrome or Edge only. jog, zero, trace, air cut, cut. the top row says what the buttons move: the practice simulator, the machine, or no machine. the jog panel says the next thing to do.', tags:'control shopbot usb run machine chrome edge' },
+            { kind:'run', name:'trace / air cut / cut', body:'each one opens a checklist first. trace runs the bit around the rectangle the cut fills, raised, router off; an air cut runs the whole file above the board; cut starts the router. trace and air cut are there to check first, not required: cut without a trace asks for one more tick, that you checked the clamps and the zero yourself. cut with X Y or Z not zeroed in swarf says the file runs from the zero the machine already has and asks for a tick too (cut anyway). a waiting button says what it still needs. zero is needed once, and again only when swarf says it was lost. a file that feeds the bit into the board with the router off is refused, whichever software made it: export it again.', tags:'trace air cut run checklist rectangle router off refused blocked' },
+            { kind:'run', name:'jog', body:'opens on continuous at 1000 mm/min (40 in/min): hold an arrow or a button and it moves until you let go; the ShopBot has no end stops, so let go in time. pick a step and each press moves that far. go-to buttons and home ask first. space or esc stops; while a job runs, any key pauses it.', tags:'jog move step continuous hold speed keys arrows' },
+            { kind:'run', name:'table corners', body:"the ShopBot has no home switches: put the bit over the table's front-left corner once and swarf learns it until the page reloads or the machine reconnects. then zero at, or go to, the front-left or front-right corner.", tags:'table corner absolute zero front left right' },
             { kind:'run', name:'board thickness', body:"after the z plate touches, its card asks (if you like) for your board's thickness as you measured it with calipers. the machine cannot tell: it knows the top of the board, not the spoilboard. more than 1 mm from the job's thickness and the card says what follows: the cut stops short of going through, or goes into the spoilboard. it never stops you and never moves the machine.", tags:'board thickness measured calipers spoilboard stops short too thick too thin check job plate' },
             { kind:'run', name:'z plate', body:'finds the top of the board by touching the bit to a metal plate. put the plate and its clip away before you cut.', tags:'z plate touch off zero height' },
             { kind:'run', name:'router', body:'Porter-Cable 7518. swarf only switches it on and off; set its speed on its dial, 1 (10,000 rpm) to 5 (21,000).', tags:'router spindle porter cable dial rpm' },

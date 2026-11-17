@@ -582,7 +582,11 @@ export function opRender() {
                         return;
                     }
                     if (f === 'tool') {
-                        for (const t of tools) {
+                        // a V-bit clears no floor: its stepover and first ring are figured for a flat
+                        // bit, so pocket and rough steps do not offer it (the step's own bit still shows)
+                        const clears = ['pocket', 'rough', 'area'].includes(rec.type);
+                        const vbit = t => t.type === 'tapermill' || t.type === 'taperball';
+                        for (const t of tools.filter(t => !(clears && vbit(t)) || t.id === rec.tool)) {
                             const o = document.createElement('option');
                             o.value = t.id;
                             o.textContent = t.name || `#${t.number}`;
@@ -1054,14 +1058,28 @@ export function init() {
         "selection.rotate"
     ], () => {
         if (!env.isCamMode) return;
+        // only the parts turned or resized lose their picked holes. A pick with every hole ticked
+        // is the step's own choice again (each hole the bit fits); one with holes left out drills
+        // nothing on that part until they are picked again, and says so
+        const moved = api.selection.widgets(true);
+        const lost = [];
         for (let op of env.current.process.ops) {
             if (op.type === 'trace' && !env.flipping) {
                 op.areas = {};
             }
-            else if (op.type === 'drill' && !env.flipping) {
-                op.drills = {};
+            else if (op.type === 'drill' && !env.flipping && op.drills) {
+                for (const w of moved) {
+                    const pick = op.drills[w.id];
+                    if (!pick || !pick.length) continue;
+                    if (pick.every(d => d.selected)) delete op.drills[w.id];
+                    else {
+                        op.drills[w.id] = [];
+                        lost.push(api.platform.part_name ? api.platform.part_name(w) : (w.meta.file || 'a part'));
+                    }
+                }
             }
         }
+        if (lost.length) api.show.alert(`The drill step drills nothing on ${[...new Set(lost)].join(', ')} now: it was turned or resized. Pick its holes again.`, 10);
     });
 
     // invalidate tabs when scaleds

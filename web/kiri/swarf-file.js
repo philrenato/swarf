@@ -209,7 +209,22 @@
     // the parts' legacy annotations (Kiri's import moves them onto the parts) and the units
     out.widget = clone(file.widget || {});
     if (file.controller && file.controller.units) out.controller.units = file.controller.units === 'in' ? 'in' : 'mm';
-    return { settings: out, notes };
+    return { settings: out, notes, remap };
+  }
+
+  // the parts' own bit numbers follow the bits mergeSettings renumbered: each TEX mark's fill bit
+  // (texture, v-carve, pierce, inlay steps take it from there, and DRAW's carving reads it too).
+  // `work` is the file's encoded parts; changed in place. Returns how many marks were re-pointed.
+  function remapMarks(work, remap) {
+    let n = 0;
+    if (!remap || !Object.keys(remap).length || !Array.isArray(work)) return n;
+    for (const w of work) {
+      const tex = w && w.meta && Array.isArray(w.meta.tex) ? w.meta.tex : [];
+      for (const m of tex) {
+        if (m && m.fill && m.fill.tool !== undefined && remap[m.fill.tool] !== undefined) { m.fill.tool = remap[m.fill.tool]; n++; }
+      }
+    }
+    return n;
   }
 
   // a .kmz's settings, for Kiri:Moto: swarf's own steps (TEX's) left out. Changes `set` in place
@@ -235,14 +250,15 @@
   }
 
   // a short fingerprint of a project, to know whether the bed holds what was last saved or opened
-  function fingerprint(parts, proc, material) {
-    const s = JSON.stringify(canon({ parts, ops: (proc && proc.ops) || [], op2: (proc && proc.op2) || [], material: material || null }));
+  // (more: the rest of what a save keeps, such as the whole process, the bits and the machine)
+  function fingerprint(parts, proc, material, more) {
+    const s = JSON.stringify(canon({ parts, ops: (proc && proc.ops) || [], op2: (proc && proc.op2) || [], material: material || null, ...(more ? { more } : {}) }));
     let h = 5381;
     for (let i = 0; i < s.length; i++) h = ((h << 5) + h + s.charCodeAt(i)) | 0;
     return `${s.length}:${(h >>> 0).toString(36)}`;
   }
 
-  const core = { FORMAT, VERSION, PROJECT_KEYS, LOCAL_KEYS, NEVER_KEYS, NEVER_RE, KIRI_OPS, manifest, checkManifest, projectLocal, readLocal, swarfJson, zeroKeys, mergeSettings, kmzSafe, usedTools, restamp, fingerprint, same };
+  const core = { FORMAT, VERSION, PROJECT_KEYS, LOCAL_KEYS, NEVER_KEYS, NEVER_RE, KIRI_OPS, manifest, checkManifest, projectLocal, readLocal, swarfJson, zeroKeys, mergeSettings, remapMarks, kmzSafe, usedTools, restamp, fingerprint, same };
   if (typeof module !== 'undefined' && module.exports) { module.exports = core; return; }
   if (typeof window === 'undefined') { root.SwarfFileCore = core; return; }
 
@@ -261,9 +277,14 @@
 
   function current() {
     const a = api();
-    const parts = a.widgets.all().map(w => ({ id: w.id, pos: w.track && w.track.pos, meta: w.meta, anno: w.anno, n: w.vertices ? w.vertices.length : 0 }));
+    // each part where it sits, its size, turn and mirror; the board, the depth, every bit and the machine
+    const parts = a.widgets.all().map(w => {
+      const t = w.track || {};
+      return { id: w.id, pos: t.pos, scale: t.scale, rot: t.rot, mirror: !!t.mirror, meta: w.meta, anno: w.anno, n: (w.meta && w.meta.vertices) || 0 };
+    });
     const mat = window.__swarfMaterial && window.__swarfMaterial.id;
-    return fingerprint(parts, a.conf.get().process, mat);
+    const set = a.conf.get();
+    return fingerprint(parts, set.process, mat, { process: set.process, tools: set.tools, device: set.device && set.device.deviceName, units: set.controller && set.controller.units });
   }
   const remember = () => { try { localStorage.setItem(SAVED, current()); } catch (e) { /* private window */ } };
   function unsaved() {
@@ -408,6 +429,7 @@
     leaveModes(false);
     try { if (window.__swarfRun && window.__swarfRun.forget) window.__swarfRun.forget(); } catch (e) { /* control not loaded */ }
     const merged = mergeSettings(a.conf.get(), ws.settings, { name, builtin: n => !!(a.devices && a.devices.builtin && a.devices.builtin(n)) });
+    remapMarks(ws.work, merged.remap);
     // the material is the file's before its steps come in, so no step's numbers are made again
     window.__swarfMaterialHold = true;
     const local = readLocal(sj.local);

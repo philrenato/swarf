@@ -6,6 +6,7 @@ import { api } from './api.js';
 import { MODES, VIEWS } from './consts.js';
 import { colorSchemeRegistry } from './color/schemes.js';
 import { load as file_load } from '../../load/file.js';
+import { stlUnits, STL_UNITS } from '../../load/stl.js';
 import { load_url as url_load } from '../../load/url.js';
 import { newBounds } from '../../geo/bounds.js';
 import { Packer } from './pack.js';
@@ -411,8 +412,9 @@ function select(widget, shift, recurse = true) {
             platform.select(widget, false, recurse);
         }
     } else {
-        // prevent selection in slice view
-        if (!widget.isVisible()) {
+        // prevent selection in slice view, and of a part no longer on the bed (a pick remembered
+        // from before it was deleted)
+        if (!widget.isVisible() || !api.widgets.all().includes(widget)) {
             return;
         }
         if (!shift) {
@@ -459,6 +461,9 @@ function deselect(widget, recurse = true) {
         api.widgets.each(function(widget) {
             platform.deselect(widget);
         });
+        // and any pick of a part no longer on the bed (it has no group left to turn or move)
+        const bed = api.widgets.all();
+        for (const w of selection.widgets()) if (!bed.includes(w)) selection.remove(w);
         return;
     }
 
@@ -747,8 +752,9 @@ function platformDelete(widget, defer) {
 function delete_post() {
     api.view.update_slider_max();
     platform.update_bounds();
-    // swarf: an undo of copies puts the bed back as it was, it does not pack it again
-    const keep = api.doit.telling && api.doit.telling();
+    // swarf: a delete leaves the other parts where they were put (and the undo history whole);
+    // an undo of copies puts the bed back as it was, it does not pack it again
+    const keep = get_mode() === MODES.CAM || (api.doit.telling && api.doit.telling());
     if (get_mode() !== MODES.FDM && !keep) {
         platform.layout();
     }
@@ -1104,6 +1110,8 @@ function load_svg_into(group, text, name, opt = {}) {
     let ind = 0;
     const solids = svg_solids(text, opt);
     if (solids.error) { made.error = solids.error; return made; }
+    // a pixels-per-inch reading scales the parts (svg.js); the kept drawing is scaled with them
+    if (opt.dpi > 0) text = svgTimes(text, 25.4 / opt.dpi);
     for (const v of solids) {
         faceOut(v);
         const b = [Infinity, Infinity, -Infinity, -Infinity];
@@ -1222,11 +1230,18 @@ function load_files(files, group) {
                 api.feature.on_add_stl(data, file);
                 load_dec();
             } else if (isstl) {
-                // an STL has no units: read as mm, then as inches only if that is the reading that
-                // fits the bed (both fit: the units switch decides); the card says which and switches
-                const stl = new file_load.STL().parse(data, 1);
+                // an STL has no units: read as mm, as meters or inches when that is the reading that
+                // fits the bed (mm and inches both fit: the units switch decides); the card says which and switches
+                let stl;
+                try { stl = new file_load.STL().parse(data, 1); } catch (e) { stl = null; }
+                if (!stlHasTriangle(stl)) {
+                    api.show.alert(`${name}: nothing in this file to make a part from`, 8);
+                    load_dec();
+                    return;
+                }
                 const reading = stlReading(stl);
-                if (reading === 'in') for (let i = 0; i < stl.length; i++) stl[i] *= 25.4;
+                const k = STL_UNITS[reading];
+                if (k !== 1) for (let i = 0; i < stl.length; i++) stl[i] *= k;
                 const sw = load_verts(group, stl, name);
                 load_dec();
                 setTimeout(() => stlUnitsCard(sw, name, reading), 300);
@@ -1339,7 +1354,9 @@ function load_files(files, group) {
                     group = group || [];
                     let dxf = file_load.DXF.parse(data.textDecode('utf-8'), opt);
                     let ind = 0;
-                    if (dxf.length === 0) {
+                    if (opt.dropped) {
+                        api.show.alert(`${opt.dropped} open line${opt.dropped > 1 ? 's were' : ' was'} left out: only closed shapes can be given a thickness`, 10);
+                    } else if (dxf.length === 0) {
                         api.show.alert(`DXF contains no supported entities`, 10);
                     }
                     for (let v of dxf) {
@@ -1423,8 +1440,40 @@ function svgInMM(text) {
         const doc = new DOMParser().parseFromString(text, 'image/svg+xml'), root = doc.documentElement;
         if (root.nodeName !== 'svg' || doc.querySelector('parsererror')) return text;
         const m = /^\s*([\d.]+)\s*(in|mm|cm|pt|pc)\s*$/.exec(root.getAttribute('width') || '');
-        const vb = (root.getAttribute('viewBox') || '').trim().split(/[\s,]+/).map(Number);
-        if (!m || vb.length !== 4 || !(vb[2] > 0) || !(vb[3] > 0) || !(+m[1] > 0)) return text;
+        let vb = (root.getAttribute('viewBox') || '').trim().split(/[\s,]+/).map(Number);
+        const hasVB = vb.length === 4 && vb[2] > 0 && vb[3] > 0;
+        if (!m) {
+            // no real units (none, px, or a viewBox alone): the part is made at one unit to the mm,
+            // so the kept drawing says the same: its size in mm, one viewBox unit to the mm
+            if (!hasVB) {
+                const num = a => { const r = /^\s*([\d.]+)\s*(px)?\s*$/.exec(root.getAttribute(a) || ''); return r ? +r[1] : 0; };
+                const W = num('width'), H = num('height');
+                if (W > 0 && H > 0) vb = [0, 0, W, H];
+                else {
+                    let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+                    for (const poly of file_load.SVG.parse(text, { flat: true, soup: false })) for (const p of poly.points) {
+                        x0 = Math.min(x0, p.x); x1 = Math.max(x1, p.x);
+                        y0 = Math.min(y0, -p.y); y1 = Math.max(y1, -p.y);
+                    }
+                    if (!(x1 > x0) || !(y1 > y0)) return text;
+                    vb = [x0, y0, x1 - x0, y1 - y0];
+                }
+            }
+            // the viewBox's corner moved to 0, 0 for both readers alike
+            if (vb[0] || vb[1]) {
+                const g = doc.createElementNS('http://www.w3.org/2000/svg', 'g');
+                g.setAttribute('transform', `translate(${-vb[0]} ${-vb[1]})`);
+                while (root.firstChild) g.appendChild(root.firstChild);
+                root.appendChild(g);
+            }
+            root.setAttribute('viewBox', `0 0 ${vb[2]} ${vb[3]}`);
+            root.setAttribute('width', `${vb[2]}mm`);
+            root.setAttribute('height', `${vb[3]}mm`);
+            // the size card still says the file itself had no real units
+            root.setAttribute('data-swarf-units', 'none');
+            return new XMLSerializer().serializeToString(doc);
+        }
+        if (!hasVB || !(+m[1] > 0)) return text;
         const wide = +m[1] * SVG_UNITS[m[2]], unit = wide / vb[2], tall = vb[3] * unit;
         if (m[2] === 'mm' && Math.abs(unit - 1) < 1e-6) return text;
         const g = doc.createElementNS('http://www.w3.org/2000/svg', 'g');
@@ -1434,6 +1483,21 @@ function svgInMM(text) {
         root.setAttribute('width', `${wide}mm`);
         root.setAttribute('height', `${tall}mm`);
         root.setAttribute('viewBox', `0 0 ${wide} ${tall}`);
+        return new XMLSerializer().serializeToString(doc);
+    } catch (e) { return text; }
+}
+
+// an SVG in mm (svgInMM) drawn k times larger: its width and height grow, its viewBox stays
+function svgTimes(text, k) {
+    try {
+        if (!(k > 0) || k === 1) return text;
+        const doc = new DOMParser().parseFromString(text, 'image/svg+xml'), root = doc.documentElement;
+        if (root.nodeName !== 'svg' || doc.querySelector('parsererror')) return text;
+        for (const a of ['width', 'height']) {
+            const r = /^\s*([\d.]+)\s*mm\s*$/.exec(root.getAttribute(a) || '');
+            if (!r) return text;
+            root.setAttribute(a, `${+r[1] * k}mm`);
+        }
         return new XMLSerializer().serializeToString(doc);
     } catch (e) { return text; }
 }
@@ -1449,7 +1513,7 @@ function svgSizeLine(text) {
         if (!(x1 > x0)) return '';
         const L = self.SwarfLength, say = v => L ? L.say(v) : `${+v.toFixed(1)} mm`;
         const root = new DOMParser().parseFromString(text, 'image/svg+xml').documentElement;
-        const real = /(in|mm|cm|pt|pc)\s*$/.test(root.getAttribute('width') || '');
+        const real = /(in|mm|cm|pt|pc)\s*$/.test(root.getAttribute('width') || '') && root.getAttribute('data-swarf-units') !== 'none';
         return `It comes in at ${say(x1 - x0)} × ${say(y1 - y0)}.${real ? '' : ' It has no real units, so one unit reads as 1 mm: if that is wrong, set finer settings › pixels per inch, or type the size on the part afterward.'}`;
     } catch (e) { return ''; }
 }
@@ -1493,20 +1557,23 @@ function loadSVGDialog(doit, cancel = () => {}, size = '') {
 // Z up came in on its edge with no way back. This card says the part's size in shop units and which
 // face is up, and its toggle turns the part in place: Z up is a quarter turn about X from Y up
 // ((x,-z,y) back to (x,y,z)). Each flip is one undo. The part stays as it is when the card closes.
-// the reading of an STL's numbers: 'mm' or 'in'. A reading fits when its footprint is on the bed and
-// it is a size a part can be (its longest side at least 6 mm); one that fits wins, both: the units
-// switch, neither: mm
+// the reading of an STL's numbers ('mm', 'in' or 'm') for this machine's bed (stl.js stlUnits)
 function stlReading(v) {
-    let lo = [Infinity, Infinity, Infinity], hi = [-Infinity, -Infinity, -Infinity];
-    for (let i = 0; i + 2 < v.length; i += 3) for (let k = 0; k < 3; k++) { const x = v[i + k]; if (x < lo[k]) lo[k] = x; if (x > hi[k]) hi[k] = x; }
-    const s = [0, 1, 2].map(k => hi[k] - lo[k]);
-    if (!s.every(Number.isFinite)) return 'mm';
-    const dev = current().device || {}, bw = dev.bedWidth || Infinity, bd = dev.bedDepth || Infinity;
-    const fits = k => s[0] * k <= bw + 0.5 && s[1] * k <= bd + 0.5 && Math.max(...s) * k >= 6;
-    const mm = fits(1), inch = fits(25.4);
-    if (mm && inch) return api.view.unit_scale() === 25.4 ? 'in' : 'mm';
-    return inch ? 'in' : 'mm';
+    const dev = current().device || {};
+    return stlUnits(v, { bedWidth: dev.bedWidth, bedDepth: dev.bedDepth, inch: api.view.unit_scale() === 25.4 });
 }
+
+// at least one triangle whose nine numbers are all numbers
+function stlHasTriangle(v) {
+    if (!v || v.length < 9) return false;
+    for (let t = 0; t + 8 < v.length; t += 9) {
+        let ok = true;
+        for (let k = 0; k < 9 && ok; k++) ok = Number.isFinite(v[t + k]);
+        if (ok) return true;
+    }
+    return false;
+}
+const STL_NAMES = { mm: 'millimeters', in: 'inches', m: 'meters' };
 
 // what the STL was read as, its size both ways, and one press to switch (an undo step)
 let stlWaiting = [], stlWaitT = 0;
@@ -1529,30 +1596,31 @@ function stlUnitsFlush() {
     const size = (w, k) => { const b = w.getBoundingBox(), s = b.getSize(new THREE.Vector3()).multiplyScalar(k); return `${say(s.x)} × ${say(s.y)} × ${say(s.z)}`; };
     let now = list[0].reading;
     const who = list.length > 1 ? `${list.length} files` : list[0].name;
-    // sizes as each reading: the part is now read as `now`
-    const asMM = () => size(list[0].w, now === 'in' ? 1 / 25.4 : 1), asIn = () => size(list[0].w, now === 'in' ? 1 : 25.4);
+    // its size as each reading: the part is now read as `now`
+    const as = to => size(list[0].w, STL_UNITS[to] / STL_UNITS[now]);
     const host = $('mod-any');
     host.innerHTML = [
         `<div class="image-convert-dialog f-col a-center swarf-import swarf-stl-units">`,
         `  <h3 class="image-convert-title">${who}: which units</h3>`,
-        `  <p class="image-convert-copy t-just">an STL has no units. it came in as ${now === 'in' ? 'inches' : 'millimeters'}.</p>`,
+        `  <p class="image-convert-copy t-just">an STL has no units. it came in as ${STL_NAMES[now]}.</p>`,
         `  <div class="f-row t-right image-convert-fields"><table>`,
         `  <tr><th>read as</th><td>`,
         `    <label><input type="radio" name="stl-u-${rnd}" id="stl-mm-${rnd}" value="mm"> millimeters: <span id="stl-mms-${rnd}"></span></label><br>`,
-        `    <label><input type="radio" name="stl-u-${rnd}" id="stl-in-${rnd}" value="in"> inches: <span id="stl-ins-${rnd}"></span></label>`,
+        `    <label><input type="radio" name="stl-u-${rnd}" id="stl-in-${rnd}" value="in"> inches: <span id="stl-ins-${rnd}"></span></label><br>`,
+        `    <label><input type="radio" name="stl-u-${rnd}" id="stl-m-${rnd}" value="m"> meters: <span id="stl-ms-${rnd}"></span></label>`,
         `  </td></tr>`,
         `  </table></div>`,
         `  <div class="f-row j-end image-convert-actions"><button id="stl-ok-${rnd}">done</button></div>`,
         `</div>`
     ].join('');
-    const rm = $(`stl-mm-${rnd}`), ri = $(`stl-in-${rnd}`);
+    const rm = $(`stl-mm-${rnd}`), ri = $(`stl-in-${rnd}`), rme = $(`stl-m-${rnd}`);
     const show = () => {
         if (!rm || !rm.isConnected) return;
-        rm.checked = now === 'mm'; ri.checked = now === 'in';
-        $(`stl-mms-${rnd}`).textContent = asMM(); $(`stl-ins-${rnd}`).textContent = asIn();
+        rm.checked = now === 'mm'; ri.checked = now === 'in'; rme.checked = now === 'm';
+        $(`stl-mms-${rnd}`).textContent = as('mm'); $(`stl-ins-${rnd}`).textContent = as('in'); $(`stl-ms-${rnd}`).textContent = as('m');
     };
     const apply = to => {
-        const k = to === 'in' ? 25.4 : 1 / 25.4;
+        const k = STL_UNITS[to] / STL_UNITS[now];
         for (const r of list) if (api.widgets.all().includes(r.w)) r.w.scale(k, k, k);
         now = to;
         update_bounds();
@@ -1566,11 +1634,12 @@ function stlUnitsFlush() {
         const from = now;
         apply(to);
         if (push && api.doit && api.doit.push) api.doit.push(() => apply(from), () => apply(to), {
-            undo: `read as ${from === 'in' ? 'inches' : 'millimeters'} again`, redo: `read as ${to === 'in' ? 'inches' : 'millimeters'} again`
+            undo: `read as ${STL_NAMES[from]} again`, redo: `read as ${STL_NAMES[to]} again`
         });
     };
     rm.onchange = () => rm.checked && set('mm', true);
     ri.onchange = () => ri.checked && set('in', true);
+    rme.onchange = () => rme.checked && set('m', true);
     $(`stl-ok-${rnd}`).onclick = () => api.modal.hide();
     show();
     api.modal.show('any');

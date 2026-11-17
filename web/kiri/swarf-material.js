@@ -978,10 +978,19 @@
     const p = api.conf.get().process;
     const on = !!(p.swarfBoardOn && p.swarfBoardX > 0 && p.swarfBoardY > 0 && p.swarfBoardZ > 0);
     if (on) {
-      if (!p.swarfBoardSet) p.swarfBoardAnchor = p.camZAnchor || 'middle';
+      if (!p.swarfBoardSet) {
+        p.swarfBoardAnchor = p.camZAnchor || 'middle';
+        p.swarfBoardStock = JSON.stringify({ offset: p.camStockOffset, x: p.camStockX, y: p.camStockY, z: p.camStockZ });
+      }
       Object.assign(p, { camStockOffset: false, camStockX: p.swarfBoardX, camStockY: p.swarfBoardY, camStockZ: p.swarfBoardZ, camZAnchor: 'bottom', swarfBoardSet: true });
     } else if (p.swarfBoardSet) {
-      Object.assign(p, { camStockOffset: true, camStockX: 0, camStockY: 0, camStockZ: 0, camZAnchor: p.swarfBoardAnchor || 'middle', swarfBoardSet: false, swarfBoardAnchor: '' });
+      // the stock as it was before the board; the parts' own size when that is not known
+      let was = null;
+      try { was = p.swarfBoardStock ? JSON.parse(p.swarfBoardStock) : null; } catch (e) { was = null; }
+      const num = v => Number.isFinite(+v) && +v >= 0 ? +v : 0;
+      const stock = was ? { camStockOffset: was.offset !== false, camStockX: num(was.x), camStockY: num(was.y), camStockZ: num(was.z) }
+        : { camStockOffset: true, camStockX: 0, camStockY: 0, camStockZ: 0 };
+      Object.assign(p, stock, { camZAnchor: p.swarfBoardAnchor || 'middle', swarfBoardSet: false, swarfBoardAnchor: '', swarfBoardStock: '' });
     }
     try { api.conf.update_fields(p); } catch (e) { /* fields not built */ }
     api.conf.save();
@@ -1054,7 +1063,7 @@
     // a loaded project or another machine brings its own board: shown, and Kiri's stock set to match
     try { for (const ev of ['settings.load', 'settings.saved', 'device.selected']) api.event.on(ev, show); } catch (e) {}
     try { api.event.on('settings.load', () => setTimeout(() => { const p = api.conf.get().process; if (p.swarfBoardOn || p.swarfBoardSet) applyBoard(); }, 0)); } catch (e) {}
-    try { api.event.on('units', show); } catch (e) {}
+    try { api.event.on('units.set', show); } catch (e) {}
     return row;
   }
 

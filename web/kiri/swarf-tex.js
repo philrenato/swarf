@@ -119,9 +119,10 @@
     const g = w.mesh.geometry;
     g.computeBoundingBox();
     const b = g.boundingBox;
-    // on its side: the face now on top, from the mesh (Phil 11-02: "wherever I am trying to paint is
-    // the new top of that object")
-    if (w.meta && w.meta.tilted) { const loops = topFace(w); if (loops.length) return { loops, drawn: false, face: true }; }
+    // no drawing, or on its side: the face now on top, from the mesh (what is painted is that top);
+    // its box only when the mesh has no flat top
+    const loops = topFace(w);
+    if (loops.length) return { loops, drawn: false, face: true };
     return { loops: [[[b.min.x, b.min.y], [b.max.x, b.min.y], [b.max.x, b.max.y], [b.min.x, b.max.y]]], drawn: false };
   }
   // the mesh's highest flat face, as outline loops in the part's frame: the facing-up triangles at the
@@ -223,7 +224,8 @@
     unknownFills = 0;
     for (const w of a.widgets.all()) {
       if (w.track && w.track.synth) continue;
-      const { loops, drawn } = localLoops(w);
+      const { loops, drawn: fromDrawing, face } = localLoops(w);
+      const drawn = fromDrawing || !!face;      // its outline is known (a drawing or its top face)
       const pos = [w.track.pos.x, w.track.pos.y];
       const b = [Infinity, Infinity, -Infinity, -Infinity];
       for (const L of loops) for (const q of L) { b[0] = Math.min(b[0], q[0]); b[1] = Math.min(b[1], q[1]); b[2] = Math.max(b[2], q[0]); b[3] = Math.max(b[3], q[1]); }

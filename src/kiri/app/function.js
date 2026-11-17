@@ -215,11 +215,13 @@ function prepareSlices(callback, scale = 1, offset = 0) {
                 show.progress(0);
                 client.restart();
                 event.emit('slice.error', error);
+                // a preview or export waiting on this slice fails with it
+                if (callback) event.emit('preview.error', error);
                 setTimeout(view.set_arrange, 1);
             }
             if (errored) {
-                // terminate slicing
-                sliceDone();
+                // stop here: the worker was restarted, so nothing is sliced and nothing waits on it
+                return;
             } else {
                 // start next widget slice
                 sliceNext();

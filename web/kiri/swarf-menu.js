@@ -94,7 +94,8 @@
   function partItems(w) {
     const a = api(), sel = a.selection.widgets ? a.selection.widgets() : [];
     // a part already among the picked ones: the rows act on all of them; else on this one alone
-    if (!sel.includes(w)) a.platform.select(w, false);
+    // (a group picks its members with shift held, so the old pick is let go first)
+    if (!sel.includes(w)) { a.platform.deselect(); a.platform.select(w, false); }
     const list = a.selection.widgets ? a.selection.widgets() : [w];
     const who = list.length > 1 ? `${list.length} parts` : nameOf(w);
     const out = list.every(p => p.meta && p.meta.disabled);

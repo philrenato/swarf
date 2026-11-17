@@ -33,6 +33,7 @@ let viewMode = VIEWS.ARRANGE;
  */
 function setViewMode(mode) {
     const isCAM = settings.mode() === 'CAM';
+    const wasAnimate = viewMode === VIEWS.ANIMATE;
     viewMode = mode;
     platform.deselect();
     selection.update_info();
@@ -83,6 +84,8 @@ function setViewMode(mode) {
             return;
     }
     api.event.emit('view.set', mode);
+    // leaving simulate ends it: what runs while it plays (the sky, chips, the trail) stops
+    if (wasAnimate && mode !== VIEWS.ANIMATE) api.event.emit('animate.end', mode);
     DOC.activeElement.blur();
 }
 

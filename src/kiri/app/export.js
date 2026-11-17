@@ -60,7 +60,7 @@ export function exportFile(options) {
 /**
  * Export gcode for FDM or CAM modes.
  * Calls worker to generate gcode, then presents dialog or invokes callback.
- * @param {function} callback - Optional callback(gcode_string, output_info)
+ * @param {function} callback - Optional callback(gcode_string, output_info), or callback(null, error)
  * @param {string} mode - Current mode ('FDM' or 'CAM')
  * @param {string[]} names - Widget filenames for export naming
  */
@@ -94,6 +94,9 @@ function callExport(callback, mode, names) {
         if (output) output.swarfBitFiles = bits.files();
         if (error) {
             api.show.alert(error, 5);
+            api.event.emit('export.error', error);
+            // code waiting for the file hears why there is none
+            if (callback) callback(null, error);
         } else if (callback) {
             callback(gcode.join('\r\n'), output);
         } else {

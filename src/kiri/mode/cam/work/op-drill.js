@@ -23,7 +23,7 @@ class OpDrill extends CamOp {
 
         // swarf: with no holes picked on this part, the step drills the round holes the bit fits
         // (review 105 B0c: a student who drew circles got an empty step)
-        const allDrills = drills[widget.id] ?? this.found(drillToolDiam);
+        const allDrills = drills[widget.id] ?? this.found(drillToolDiam, drillTool.pointLength());
         if (allDrills.length === 0) return;
 
         updateToolDiams(drillToolDiam);
@@ -66,13 +66,13 @@ class OpDrill extends CamOp {
         });
     }
 
-    // the holes this bit drills, from the top of the board down to the board's bottom or a blind
-    // hole's floor, where an outline ends too (no spoilboard allowance)
-    found(bit) {
+    // the holes this bit drills, from the top of the board down to a blind hole's floor, or for a
+    // hole through, to the board's bottom and on by the bit's point, so its full width goes through
+    found(bit, point = 0) {
         const { widget, workarea } = this.state;
         const { holes, zmax } = roundHoles(widget.getGeoVertices({ unroll: true, translate: true }));
         return holes.filter(h => holeFit(h.d, bit) === 'fits').map(h => {
-            const bottom = h.floor === null ? workarea.bottom_z : Math.max(workarea.bottom_z, workarea.top_part - (zmax - h.floor));
+            const bottom = h.floor === null ? workarea.bottom_z - point : Math.max(workarea.bottom_z, workarea.top_part - (zmax - h.floor));
             return { x: h.x, y: h.y, z: workarea.top_z, depth: workarea.top_z - bottom, selected: true, found: true };
         });
     }

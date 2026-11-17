@@ -7,7 +7,7 @@
 # macOS sed, and it pushes that repo. Set SWARF_WEB_REPO=/path/to/your/site.
 #
 # What this does (in order):
-#   1. esbuild prod mode rebuild  → src/pack/kiri-main.js + kiri-work.js
+#   1. esbuild prod mode rebuild  → src/pack/kiri-main.js + kiri-work.js + kiri-pool.js
 #   2. copy prod bundles          → philrenato-web/swarf-app/lib/...
 #   3. rewrite 4 absolute/relative paths to /swarf-app/ (relative ../lib, rooted /wasm and /obj
 #      paths all have to point under /swarf-app/ or the worker and wasm 404)
@@ -47,6 +47,10 @@ npm run webpack-src prod
 echo "[2/5] copy bundles + swarf assets → $WEB_APP/"
 cp src/pack/kiri-main.js "$WEB_APP/lib/main/kiri.js"
 cp src/pack/kiri-work.js "$WEB_APP/lib/kiri/run/worker.js"
+# the worker starts its helpers from ./minion.js; they run the same toolpath code, so they ship with it
+cp src/pack/kiri-pool.js "$WEB_APP/lib/kiri/run/minion.js"
+# the stylesheet sits at the site's root, beside moto/, not one folder down as in the source
+sed 's|\.\./moto/|moto/|g' web/kiri/index.css > "$WEB_APP/index.css"
 # swarf overlay scripts + stylesheet live at /swarf-app/ root (flattened from
 # /kiri/). Sync any that changed — fast and harmless when they're already current.
 for f in web/kiri/swarf*.js web/kiri/swarf*.mjs web/kiri/swarf*.css web/kiri/swarf-materials.json \
@@ -78,7 +82,8 @@ echo "[3/5] rewrite worker + wasm + asset paths to /swarf-app/ absolutes"
 sed -i '' 's|"\.\./lib/kiri/run/worker\.js"|"/swarf-app/lib/kiri/run/worker.js"|g' "$WEB_APP/lib/main/kiri.js"
 sed -i '' 's|"\.\./wasm/manifold\.wasm"|"/swarf-app/lib/kiri/wasm/manifold.wasm"|g' "$WEB_APP/lib/main/kiri.js"
 sed -i '' 's|"\.\./wasm/manifold\.wasm"|"/swarf-app/lib/kiri/wasm/manifold.wasm"|g' "$WEB_APP/lib/kiri/run/worker.js"
-sed -i '' 's|"/wasm/kiri-geo\.wasm"|"/swarf-app/lib/kiri/wasm/kiri-geo.wasm"|g' "$WEB_APP/lib/kiri/run/worker.js"
+sed -i '' 's|"/wasm/kiri-geo\.wasm"|"/swarf-app/lib/kiri/wasm/kiri-geo.wasm"|g' "$WEB_APP/lib/kiri/run/worker.js" "$WEB_APP/lib/kiri/run/minion.js"
+sed -i '' 's|"\.\./wasm/manifold\.wasm"|"/swarf-app/lib/kiri/wasm/manifold.wasm"|g' "$WEB_APP/lib/kiri/run/minion.js"
 # seed/sample STL paths (fatal — init_input waits on platform.load_stl's
 # callback; a 404 here leaves the callback unfired, init hangs, curtain
 # never lifts. We learned this the hard way with /obj/cube.stl).
@@ -87,7 +92,7 @@ sed -i '' 's|"/obj/|"/swarf-app/obj/|g' "$WEB_APP/lib/main/kiri.js"
 
 # Hard-fail if any of the broken forms remain — catches bundler changes that
 # introduce new path shapes we haven't taught the script about yet.
-bad=$(grep -oE '"\.\./lib/[^"]*\.js"|"\.\./wasm/[^"]*\.wasm"|"/wasm/[^"]*\.wasm"|"/obj/[^"]*"|'"'"'/obj/[^'"'"']*'"'"'' "$WEB_APP/lib/main/kiri.js" "$WEB_APP/lib/kiri/run/worker.js" || true)
+bad=$(grep -oE '"\.\./lib/[^"]*\.js"|"\.\./wasm/[^"]*\.wasm"|"/wasm/[^"]*\.wasm"|"/obj/[^"]*"|'"'"'/obj/[^'"'"']*'"'"'' "$WEB_APP/lib/main/kiri.js" "$WEB_APP/lib/kiri/run/worker.js" "$WEB_APP/lib/kiri/run/minion.js" || true)
 if [[ -n "$bad" ]]; then
   echo "[3/5] FAIL — broken paths remain after rewrite. Investigate before shipping:"
   echo "$bad"
@@ -107,20 +112,54 @@ if [[ -n "$remaining" ]]; then
 fi
 echo "      ok — cache version: $STAMP"
 
+# every file the page loads (its scripts and stylesheets, and the offline cache's list) that comes from
+# web/kiri must be on the site as the source has it (after the rewrites above): a file left out of the
+# copy keeps an old build live with nothing said
+node - "$WEB_APP" "$STAMP" <<'CHECK'
+const fs = require('fs'), path = require('path');
+const [site, stamp] = process.argv.slice(2);
+const html = fs.readFileSync(path.join(site, 'index.html'), 'utf8');
+const sw = fs.readFileSync('web/kiri/swarf-sw.js', 'utf8');
+const refs = new Set();
+for (const m of html.matchAll(/(?:src|href)="([^"#?]+)(?:\?[^"]*)?"/g)) refs.add(m[1]);
+const eager = sw.slice(sw.indexOf('EAGER_URLS = ['), sw.indexOf('];', sw.indexOf('EAGER_URLS = [')));
+for (const m of eager.matchAll(/'([^']+)'/g)) refs.add(m[1]);
+const skip = new Set(['index.html', 'license.md', 'THIRD_PARTY_NOTICES.txt']);
+const bad = [];
+for (const r of refs) {
+  if (/^(https?:|\/|\.\.?$|data:)/.test(r) || skip.has(r)) continue;
+  const src = path.join('web/kiri', r);
+  if (!fs.existsSync(src) || fs.statSync(src).isDirectory()) continue;
+  const dst = path.join(site, r);
+  if (!fs.existsSync(dst)) { bad.push(`missing on the site: ${r}`); continue; }
+  let want = fs.readFileSync(src, 'utf8');
+  if (r === 'index.css') want = want.replace(/\.\.\/moto\//g, 'moto/');
+  want = want.split('__SWARF_DEPLOY_STAMP__').join(stamp).split('__SWARF_BUILD__').join(stamp);
+  if (fs.readFileSync(dst, 'utf8') !== want) bad.push(`differs from its source: ${r}`);
+}
+if (bad.length) { console.error('[4/6] FAIL — the site would serve files the deploy did not copy:\n  ' + bad.join('\n  ')); process.exit(1); }
+console.log(`      ok — ${refs.size} files the page loads match their source`);
+CHECK
+
 echo "[5/6] commit web repo"
 cd "$WEB_REPO"
-git add swarf-app/lib/main/kiri.js swarf-app/lib/kiri/run/worker.js \
+# every path below exists after the copy step; a failed add stops the deploy
+git add swarf-app/lib/main/kiri.js swarf-app/lib/kiri/run/worker.js swarf-app/lib/kiri/run/minion.js swarf-app/index.css \
   swarf-app/swarf*.js swarf-app/swarf*.mjs swarf-app/vendor swarf-app/swarf*.css swarf-app/swarf-materials.json \
   swarf-app/swarf-icon-*.png swarf-app/manifest.json swarf-app/index.html \
-  swarf-app/license.md swarf-app/THIRD_PARTY_NOTICES.txt 2>/dev/null || true
+  swarf-app/license.md swarf-app/THIRD_PARTY_NOTICES.txt
 # NOTE: index.html is staged but NEVER copied from source. The deploy copy has
 # its own SEO metadata and RELATIVE css/font paths (moto/palette.css, not
 # /moto/palette.css) — copying source over it breaks every stylesheet on the
 # live site. Edit the deploy copy directly, or teach this script a targeted
 # patch, but do not add it to the copy loop above.
-git -c commit.gpgsign=false commit -m "$MSG
+if git diff --cached --quiet; then
+  echo "      nothing to commit"
+else
+  git -c commit.gpgsign=false commit -m "$MSG
 
-Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>" || echo "      nothing to commit"
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
+fi
 
 echo "[6/6] push web repo → renato.design/swarf-app/"
 git push

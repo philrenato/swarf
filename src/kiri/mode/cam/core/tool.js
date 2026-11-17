@@ -100,6 +100,20 @@ class Tool {
         return 0.5 * this.fluteDiameter() * Math.sin(drillAngleRad);
     }
 
+    /**
+     * how far the bit's point reaches below the height where it cuts its full width: a drill's
+     * 118 degree point, a ball's radius, a taper's cone. 0 for a flat end mill. In workspace units.
+     *
+     * @return {number} the point's length.
+     */
+    pointLength() {
+        const d = this.fluteDiameter() || 0;
+        if (this.isDrill()) return (d / 2) / Math.tan(59 * DEG2RAD);
+        if (this.isBallMill()) return d / 2;
+        if (this.hasTaper()) return Math.max(0, this.fluteLength() || 0);
+        return 0;
+    }
+
     shaftDiameter() {
         return this.unitScale() * this.tool.shaft_diam;
     }

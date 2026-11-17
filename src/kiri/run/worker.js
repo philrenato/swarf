@@ -481,7 +481,7 @@ const dispatch = {
         widget.settings = settings;
         widget.clearSlices();
 
-        driver.slice(settings, widget, (update, msg, alert) => {
+        const slicing = driver.slice(settings, widget, (update, msg, alert) => {
             now = time();
             // on alert
             if (alert) send.data({ alert });
@@ -508,6 +508,8 @@ const dispatch = {
             send.done({done: true});
             widget.points = undefined;
         });
+        // a throw inside an async slice still answers, so the client never waits on it
+        if (slicing && slicing.catch) slicing.catch(e => send.done({ error: String(e && e.message || e) }));
     },
 
     slicePost(data, send) {
@@ -549,7 +551,7 @@ const dispatch = {
 
             send.data({ progress: 1, message: "transfer" });
             send.done({ done: true, minSpeed, maxSpeed });
-        });
+        }).catch(e => send.done({ error: String(e && e.message || e) }));
     },
 
     export(data, send) {

@@ -25,7 +25,8 @@ function updateTool(ev) {
  * @param {function} fn - Function(widget) to execute for each group
  */
 function for_groups(fn) {
-    let groups = widgets(true).map(w => w.group).uniq();
+    // (a part taken off the bed has an empty group: nothing to act on)
+    let groups = widgets(true).map(w => w.group).filter(g => g && g.length).uniq();
     for (let group of groups) {
         fn(group[0]);
     }
@@ -206,7 +207,9 @@ function duplicate() {
     if (!api.view.is_arrange()) {
         return;
     }
-    for_widgets(widget => {
+    const made = [];
+    // one undo takes the copies away again; the steps before it stay undoable
+    api.doit.quietly(() => for_widgets(widget => {
         const bb = widget.mesh.getBoundingBox();
         const op = widget.track.pos;
         // swarf r45 (review 10-28b #4): 12 mm to the right, the layout's gap, and no re-pack,
@@ -215,7 +218,13 @@ function duplicate() {
         nw.move(op.x + bb.max.x - bb.min.x + 12, op.y, op.z, true);
         api.platform.add(nw, false, true);      // the copy is the one picked
         api.event.emit("widget.duplicate", nw, widget);
-    });
+        made.push(nw);
+    }));
+    if (made.length) {
+        const n = made.length;
+        api.doit.made(made, { undo: `Took back the ${n === 1 ? 'copy' : `${n} copies`}.`, redo: `The ${n === 1 ? 'copy is' : `${n} copies are`} back.` });
+        api.space.auto_save();
+    }
 }
 
 /**
@@ -306,9 +315,27 @@ function mirror() {
     if (!api.view.is_arrange()) {
         return;
     }
-    for_widgets(widget => {
-        widget.mirror();
-    });
+    // Widget.mirror flips its whole group about the group's centre (its members share one place),
+    // so once per group: a word reads backwards as a word, and a group of two is not flipped back
+    const groups = new Set();
+    const onBed = api.widgets.all();
+    for_widgets(widget => { if (onBed.includes(widget) && widget.group && widget.group.length) groups.add(widget.group); });
+    for (const g of groups) {
+        // members placed apart (not sharing one place) trade places about the group's centre too
+        const apart = g.some(w => w.track.pos.x !== g[0].track.pos.x);
+        let cx = 0;
+        if (apart) {
+            let x0 = Infinity, x1 = -Infinity;
+            for (const w of g) {
+                const b = w.getBoundingBox();
+                x0 = Math.min(x0, w.track.pos.x + b.min.x); x1 = Math.max(x1, w.track.pos.x + b.max.x);
+            }
+            cx = (x0 + x1) / 2;
+        }
+        g[0].mirror();
+        if (apart) for (const w of g) w._move(2 * cx - w.track.pos.x, w.track.pos.y, w.track.pos.z, true);
+    }
+    api.platform.update_bounds();
     space.update();
     api.space.auto_save();
 }
@@ -538,7 +565,9 @@ function pieces(w) {
  */
 function separable(w) {
     if (!w || !api.view.is_arrange()) return null;
-    if (w.group && w.group.length > 1) return 'group';
+    // ungrouping moves each mesh within its part: a drawing and carved words move with it
+    // (followMesh), marks and the rotary axis would not
+    if (w.group && w.group.length > 1) return w.group.some(p => (p.meta.tex && p.meta.tex.length) || p.track.indexed) ? null : 'group';
     const m = w.meta || {};
     if (m.svg || m.drawn || m.engrave || (m.tex && m.tex.length) || w.track.indexed) return null;
     const known = counted(w);
@@ -558,29 +587,48 @@ function separate(w) {
     const name = String(w.meta.file || 'the part');
     if (how === 'group') {
         const members = w.group.slice();
-        const split = () => {
-            Widget.Groups.split(members);
-            // each member's mesh was placed about the group's centre: centred on itself, it turns,
-            // mirrors and scales about itself, and its box is its own
-            for (const m of members) {
-                const g = m.mesh.geometry;
-                g.computeBoundingBox();
-                const b = g.boundingBox, dx = (b.min.x + b.max.x) / 2, dy = (b.min.y + b.max.y) / 2;
-                m.moveMesh(dx, dy, 0);
-                m._move(dx, dy, 0);
-                m.group.centered = true;
-            }
+        // a member whose place moved by d had its mesh moved by -d within it: its drawing
+        // (meta.t), carved words and original curves sit in the mesh frame and move the same way
+        const followMesh = fn => {
+            const was = members.map(m => ({ x: m.track.pos.x, y: m.track.pos.y }));
+            fn();
+            members.forEach((m, i) => {
+                const dx = m.track.pos.x - was[i].x, dy = m.track.pos.y - was[i].y;
+                if (!(dx || dy)) return;
+                const meta = m.meta || {};
+                if (meta.t) meta.t = [meta.t[0] - dx, meta.t[1] - dy];
+                for (const k of ['engrave', 'orig']) {
+                    if (Array.isArray(meta[k])) for (const L of meta[k]) {
+                        if (L && L.crv && L.crv.ctrlPts) L.crv.ctrlPts = L.crv.ctrlPts.map(([x, y, z, wt]) => [x - dx, y - dy, z, wt]);
+                    }
+                }
+            });
+        };
+        const after = lead => {
             api.platform.deselect();
-            api.platform.select(w, false);
+            api.platform.select(lead, false);
             api.platform.update_bounds();
             api.space.auto_save();
         };
+        const split = () => {
+            followMesh(() => {
+                Widget.Groups.split(members);
+                // each member's mesh was placed about the group's centre: centred on itself, it turns,
+                // mirrors and scales about itself, and its box is its own
+                for (const m of members) {
+                    const g = m.mesh.geometry;
+                    g.computeBoundingBox();
+                    const b = g.boundingBox, dx = (b.min.x + b.max.x) / 2, dy = (b.min.y + b.max.y) / 2;
+                    m.moveMesh(dx, dy, 0);
+                    m._move(dx, dy, 0);
+                    m.group.centered = true;
+                }
+            });
+            after(w);
+        };
         const join = () => {
-            Widget.Groups.merge(members);
-            api.platform.deselect();
-            api.platform.select(members[0], false);
-            api.platform.update_bounds();
-            api.space.auto_save();
+            followMesh(() => Widget.Groups.merge(members));
+            after(members[0]);
         };
         split();
         api.doit.push(join, split, {

@@ -632,6 +632,7 @@ export const conf = {
                 swarfBoardZ: 0,
                 swarfBoardSet: false,      // the board set Kiri's stock: only then does turning it off put it back
                 swarfBoardAnchor: "",
+                swarfBoardStock: "",       // the stock as it was before the board set it (JSON), put back when it turns off
                 // swarf: how far the steps' numbers sit from the material's safe start toward its
                 // ceiling, in quarters: 0 start, 4 the ceiling (swarf-material.js speed)
                 swarfSpeed: 0,
