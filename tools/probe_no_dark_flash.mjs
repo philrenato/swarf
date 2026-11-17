@@ -111,7 +111,9 @@ try {
       await wait(700);
       const f = await end();
       const nested = framed ? await page.evaluate(nestedFrames, scope) : [];
-      check(opened !== false && f.n > 5, `${skin}: ${what} opens (${f.n} frames)`);
+      // the card must really be on screen, or the frame checks below see nothing and pass
+      const shown = await page.evaluate(sc => [...document.querySelectorAll(sc)].some(e => e.offsetParent && e.getBoundingClientRect().height > 20), scope);
+      check(opened !== false && shown && f.n > 5, `${skin}: ${what} opens and shows (${f.n} frames${shown ? '' : ', not on screen'})`);
       check(!f.list.length, `${skin}: ${what}, no dark fill in any frame${f.list.length ? ': ' + f.list.slice(0, 3).join('; ') : ''}`);
       if (framed) check(!nested.length, `${skin}: ${what}, one frame${nested.length ? ': ' + nested.join('; ') : ''}`);
       if (close) await close();
@@ -133,11 +135,14 @@ try {
       const c = document.querySelector('#oplist .swarf-params-open .swarf-op-chevron');
       if (!c) return null;
       const n = s => (s.match(/[\d.]+/g) || []).map(Number);
-      const cs = getComputedStyle(c), fg = n(cs.color), bg = n(cs.backgroundColor);
+      const cs = getComputedStyle(c), fg = n(cs.color);
+      // a gradient fill (wet plastic) has no background colour: read its first colour stop
+      const grad = cs.backgroundImage && cs.backgroundImage !== 'none' ? (cs.backgroundImage.match(/rgba?\([^)]*\)/) || [])[0] : null;
+      const bg = n(grad || cs.backgroundColor);
       const L = v => { v /= 255; return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4); };
       const lum = x => 0.2126 * L(x[0]) + 0.7152 * L(x[1]) + 0.0722 * L(x[2]);
       const a = lum(fg), b = lum(bg);
-      return { ratio: +((Math.max(a, b) + 0.05) / (Math.min(a, b) + 0.05)).toFixed(2), fg: cs.color, bg: cs.backgroundColor, alpha: bg.length > 3 ? bg[3] : 1 };
+      return { ratio: +((Math.max(a, b) + 0.05) / (Math.min(a, b) + 0.05)).toFixed(2), fg: cs.color, bg: grad || cs.backgroundColor, alpha: bg.length > 3 ? bg[3] : 1, grad: !!grad };
     });
     check(badge && (badge.alpha < 0.5 || badge.ratio >= 4.5), `${skin}: the "editing" badge reads (${JSON.stringify(badge)})`);
     const bits = await page.evaluate(() => { const b = document.getElementById('swarf-open-tools'), l = b && b.closest('.swarf-add-op-label'); return !!(l && l.textContent.includes('add a step') && b.offsetParent); });

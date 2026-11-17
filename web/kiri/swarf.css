@@ -401,6 +401,14 @@ select:focus, input:focus { outline: none; border-color: var(--swarf-accent); }
 /* the skin list's heading is a label, not a row: it does not light */
 html #menubar .top-menu-drop .content > div.swarf-skin-head:hover { background: none !important; box-shadow: none !important; cursor: default; }
 html #menubar .top-menu > span.swarf-open .top-menu-drop .content > div.swarf-skin-head:hover label { color: var(--swarf-text-2) !important; }
+/* the light skins colour every hovered row's label white: their heading keeps its own dark text */
+html[data-skin="glass"] #menubar .top-menu > span.swarf-open .top-menu-drop .content > div.swarf-skin-head:hover label { color: #292a2b !important; }
+html[data-skin="classic"] #menubar .top-menu > span.swarf-open .top-menu-drop .content > div.swarf-skin-head:hover label { color: #000 !important; }
+/* advanced, when on, sits on the accent fill: its words go light in every skin */
+html[data-skin] #menubar .top-menu-drop .content > div#swarf-expert-toggle.selected,
+html[data-skin] #menubar .top-menu-drop .content > div#swarf-expert-toggle.selected label,
+html[data-skin] #menubar .top-menu-drop .content > div#swarf-expert-toggle.selected i,
+html[data-skin] #menubar .top-menu-drop .content > div#swarf-expert-toggle.selected sup { color: #fff !important; }
 /* a lit row's shortcut takes the row's light text */
 html #menubar .top-menu > span.swarf-open .top-menu-drop .content > div:hover .swarf-key { color: inherit !important; }
 
@@ -1673,7 +1681,7 @@ body:not(.swarf-expert) #speeds { display: none !important; }
 
 /* an STL drop: each file's reading on its own, the list scrolling in a short window */
 #mod-any .swarf-stl-files { width: 100%; max-height: calc(100vh - 220px); overflow-y: auto; display: flex; flex-direction: column; gap: 10px; }
-#mod-any .swarf-stl-file { flex-direction: column; align-items: flex-start; gap: 2px; }
+#mod-any .swarf-stl-file { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; }
 #mod-any .swarf-stl-file br { display: none; }
 #mod-any .swarf-stl-file .image-convert-copy { margin: 0 0 4px; }
 #mod-any .swarf-stl-file h4 { margin: 0; font-weight: 600; overflow-wrap: anywhere; }
