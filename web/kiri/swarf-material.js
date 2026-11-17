@@ -1009,19 +1009,24 @@
         use.textContent = 'use the speed';
         use.title = `set ${op.type} to this speed's numbers`;
         use.addEventListener('click', () => { op.preset = ''; applyFeedsToOps(); try { api.conf.update_fields(); } catch (e) { /* no fields */ } });
-        line(`${op.type}: custom, kept as typed `, use).className = 'swarf-speed-custom';
+        // the step's own numbers: a drill's rate is its plunge (opValues)
+        const own = op.type === 'drill' ? `plunge ${rate(op.rate)}` : `feed ${rate(op.rate)}`;
+        line(`${op.type}: custom, ${op.spindle} rpm, ${own} `, use).className = 'swarf-speed-custom';
         continue;
       }
-      const k = String(op.tool);
+      // a drill only plunges: its own line, without a horizontal feed
+      const k = `${op.tool}:${op.type === 'drill' ? 'drill' : 'cut'}`;
       if (!byTool.has(k)) byTool.set(k, []);
       byTool.get(k).push(op.type);
     }
-    for (const [id, types] of byTool) {
+    for (const [k, types] of byTool) {
+      const [id, kind] = k.split(':');
       const tool = tools.find(t => t.id == id);
       const p = atSpeed(current, toolDiamMm(tool), lim, tool, level);
       if (!p) continue;
       const name = tool ? (tool.name || `bit ${tool.number}`) : 'bit';
-      line(`${types.join(', ')} · ${name}: ${p.spindle} rpm, feed ${rate(p.feed)}, plunge ${rate(p.plunge)}, ${len(p.stepdown)} down a pass`);
+      if (kind === 'drill') line(`${types.join(', ')} · ${name}: ${p.spindle} rpm, plunge ${rate(p.plunge)}`);
+      else line(`${types.join(', ')} · ${name}: ${p.spindle} rpm, preset feed ${rate(p.feed)}, plunge ${rate(p.plunge)}, ${len(p.stepdown)} down a pass`);
     }
   }
   function speedRow(labelCss) {

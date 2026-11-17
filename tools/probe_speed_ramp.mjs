@@ -122,14 +122,14 @@ try {
   const s2 = await op();
   check(s2.rate > s0.rate && s2.rate < s4.rate, `half way sits between (${s0.rate} < ${s2.rate} < ${s4.rate} mm/min)`);
   const n2 = await numbers();
-  check(n2.includes(`${s2.spindle} rpm`) && n2.includes(`feed ${s2.rate} mm/min`) && n2.includes(`plunge ${s2.plunge} mm/min`) && /down a pass/.test(n2), `the numbers under the speed are the step's ("${n2}")`);
+  check(n2.includes(`${s2.spindle} rpm`) && n2.includes(`preset feed ${s2.rate} mm/min`) && n2.includes(`plunge ${s2.plunge} mm/min`) && /down a pass/.test(n2), `the numbers under the speed are the step's ("${n2}")`);
   // a typed field is custom: it holds through a speed change, until "use the speed"
   await page.evaluate(() => { const a = window.kiri.api, o = a.conf.get().process.ops.find(o => o.type === 'outline'); o.rate = 333; a.conf.save(); a.event.settings(); });
   await wait(600);
   check((await op()).rate === 333, 'a feed typed after holds');
   await pick(4);
   check((await op()).rate === 333, 'a speed change keeps the typed feed');
-  check(/outline: custom/.test(await numbers()), `the speed line says the step is custom ("${await numbers()}")`);
+  check(/outline: custom, \d+ rpm, feed 333 mm\/min/.test(await numbers()), `the speed line says the step is custom, with its own numbers ("${await numbers()}")`);
   const use = await page.$('#swarf-speed-numbers button');
   if (use) { const bb = await use.boundingBox(); await page.mouse.click(bb.x + bb.width / 2, bb.y + bb.height / 2); }
   await wait(600);

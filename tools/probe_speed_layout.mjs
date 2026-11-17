@@ -99,7 +99,7 @@ try {
   const r4 = await rate();
   check(v === '4' && r4 > r0, `a typed "m" picks max and the step follows (${r0} → ${r4} mm/min)`);
   const words = await page.evaluate(() => document.getElementById('swarf-speed-numbers').innerText);
-  check(new RegExp(`feed ${r4} mm/min`).test(words), `the line under it says the feed it set ("${words}")`);
+  check(new RegExp(`preset feed ${r4} mm/min`).test(words), `the line under it says the preset feed it set ("${words}")`);
 } catch (e) {
   check(false, e.message);
 } finally {

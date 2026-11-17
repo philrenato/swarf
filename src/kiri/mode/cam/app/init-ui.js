@@ -1447,7 +1447,7 @@ function stepLine(rec) {
     if (rec.rate > 0 && rec.type === 'outline' && !(process.camFullEngage >= 1)) {
         const band = /shopbot/i.test(device?.deviceName || '') ? 1500 : 0;
         const slow = rec.rate * (process.camFullEngage || 0.8), real = rec.rate >= band ? Math.max(slow, band) : slow;
-        if (real < rec.rate - 0.5) bits.push(`full-width pass at ${inch ? `${Math.round(real / 25.4)} in/min` : `${Math.round(real)} mm/min`}`);
+        if (real < rec.rate - 0.5) bits.push(`full-width pass slowed to ${inch ? `${Math.round(real / 25.4)} in/min` : `${Math.round(real)} mm/min`}`);
     }
     return bits.join(' · ');
 }
