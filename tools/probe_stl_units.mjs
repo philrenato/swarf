@@ -69,7 +69,7 @@ try {
   await wait(2500);
   const per = await page.evaluate(() => [...document.querySelectorAll('.swarf-stl-units .swarf-stl-file')].map(f => ({ name: f.querySelector('h4')?.textContent, text: f.innerText })));
   check(per.length === 2 && per[0].name === 'big.stl' && per[1].name === 'small.stl', `one block per file (${JSON.stringify(per.map(p => p.name))})`);
-  check(per.length === 2 && /300/.test(per[0].text) && /6(\.0)? ×/.test(per[1].text), 'each block says its own size');
+  check(per.length === 2 && /millimeters: 300 mm × 200 mm/.test(per[0].text) && /millimeters: 6 mm × 4 mm/.test(per[1].text), `each block says its own size (${per.map(p => p.text.replace(/\s+/g, ' ')).join(' | ')})`);
   const sizesAll = () => page.evaluate(() => window.kiri.api.widgets.all().map(w => { const s = w.getBoundingBox().getSize(new window.THREE.Vector3()); return +s.x.toFixed(2); }).sort((a, b) => a - b));
   const before2 = await sizesAll();
   // a real click on the second file's inches
@@ -81,7 +81,7 @@ try {
   await closeCard();
 
   // names with markup: text on the card and in objects, from the real file input
-  const NAME = `<b id="evil">x</b> & "q" 'a'.stl`;
+  const NAME = `<img id="evil" src="x"> & "q" 'a'.stl`;
   const dir = mkdtempSync(join(tmpdir(), 'swarf-stl-name-'));
   const path = join(dir, NAME);
   writeFileSync(path, box(300, 200, 19));
@@ -95,8 +95,8 @@ try {
     rows: [...document.querySelectorAll('#ws-widgets button.name')].map(b => b.textContent)
   }));
   check(!named.evil, 'no element made from the file name');
-  check(named.title.startsWith('<b id="evil">x</b> & "q" \'a\''), `the card shows the name as written ("${named.title}")`);
-  check(named.rows.some(t => t.includes('<b id="evil">x</b> & "q"')), `objects shows the name as written (${JSON.stringify(named.rows)})`);
+  check(named.title.startsWith('<img id="evil" src="x"> & "q" \'a\''), `the card shows the name as written ("${named.title}")`);
+  check(named.rows.some(t => t.includes('<img id="evil" src="x"> & "q"')), `objects shows the name as written (${JSON.stringify(named.rows)})`);
   await closeCard();
   check(!errors.length, `no page errors (${errors.slice(0, 3).join(' | ')})`);
 } finally {

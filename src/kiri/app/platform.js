@@ -1213,6 +1213,7 @@ function edge_problem(text, opt = {}) {
 function load_files(files, group) {
     platform.group();
     let loading = files.length;
+    stlLoading += [...files].filter(f => /\.stl$/i.test(f.name)).length;
     for (let file of files) {
         const name = file.name,
             reader = new FileReader(),
@@ -1235,6 +1236,7 @@ function load_files(files, group) {
         reader.file = file;
         reader.onloadend = function(e) {
             const data = e.target.result;
+            if (isstl) stlLoading = Math.max(0, stlLoading - 1);
             function load_dec() {
                 if (--loading === 0) {
                     platform.group_done(isgcode);
@@ -1270,7 +1272,8 @@ function load_files(files, group) {
                 }
                 const sw = load_verts(group, stl, name);
                 load_dec();
-                setTimeout(() => stlUnitsCard(sw, name, read), 300);
+                stlCardsDue++;
+                setTimeout(() => { stlCardsDue--; stlUnitsCard(sw, name, read); }, 300);
                 // swarf (Phil 11-16): an STL of several solids arrives as one part: say how to
                 // make each its own (right-click › separate the parts)
                 setTimeout(() => {
@@ -1645,15 +1648,17 @@ const STL_GUESS = {
     small: 'a guess: read another way it is under 6 mm long. check the size.',
     none: 'a guess: it fits the bed no way. check the size.'
 };
-let stlWaiting = [], stlWaitT = 0;
+// STLs of a drop still being read: the card waits for them (a few seconds at most)
+let stlWaiting = [], stlWaitT = 0, stlLoading = 0, stlCardsDue = 0, stlWaitSince = 0;
 function stlUnitsCard(w, name, read) {
     if (!w) return;
     stlWaiting.push({ w, name, now: read.reading, why: read.why });
-    if (!stlWaitT) stlWaitT = setTimeout(stlUnitsFlush, 0);
+    if (!stlWaitT) { stlWaitSince = Date.now(); stlWaitT = setTimeout(stlUnitsFlush, 0); }
 }
 function stlUnitsFlush() {
     stlWaitT = 0;
     if (api.modal && api.modal.visible && api.modal.visible()) { stlWaitT = setTimeout(stlUnitsFlush, 400); return; }
+    if ((stlLoading > 0 || stlCardsDue > 0) && Date.now() - stlWaitSince < 5000) { stlWaitT = setTimeout(stlUnitsFlush, 150); return; }
     const list = stlWaiting.filter(r => api.widgets.all().includes(r.w));
     stlWaiting = [];
     if (!list.length || !api.modal) return;
