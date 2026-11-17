@@ -1681,6 +1681,12 @@ html[data-skin] #swarf-run .sr-card {
     background: var(--swarf-bg-2, rgb(var(--sk-n0) / calc(1 * var(--sk-a-n0, 1))));
     border: 1px solid var(--swarf-accent, rgb(var(--sk-acc) / calc(1 * var(--sk-a-acc, 1))))
 }
+html[data-skin] #swarf-run .sr-card > .row:last-child {
+    background: var(--swarf-bg-2, rgb(var(--sk-n0) / calc(1 * var(--sk-a-n0, 1))))
+}
+html[data-skin] #swarf-run .sr-card h2 .sr-mach {
+    color: var(--swarf-text-2, rgb(var(--sk-n6) / calc(1 * var(--sk-a-n6, 1))))
+}
 html[data-skin] #swarf-run .sr-card p {
     color: var(--swarf-text-2, rgb(var(--sk-n6) / calc(1 * var(--sk-a-n6, 1))))
 }
