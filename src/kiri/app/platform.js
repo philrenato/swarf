@@ -6,7 +6,7 @@ import { api } from './api.js';
 import { MODES, VIEWS } from './consts.js';
 import { colorSchemeRegistry } from './color/schemes.js';
 import { load as file_load } from '../../load/file.js';
-import { stlUnitsWhy, STL_UNITS } from '../../load/stl.js';
+import { stlUnitsWhy, stlUnitsSay, stlHasTriangle, STL_UNITS, STL_UNIT_NAMES as STL_NAMES } from '../../load/stl.js';
 import { load_url as url_load } from '../../load/url.js';
 import { newBounds } from '../../geo/bounds.js';
 import { Packer } from './pack.js';
@@ -1254,10 +1254,10 @@ function load_files(files, group) {
             } else if (isstl) {
                 // an STL has no units: read as mm, as meters or inches when that is the reading that
                 // fits the bed (mm and inches both fit: the units switch decides); the card says which and switches
-                let stl;
-                try { stl = new file_load.STL().parse(data, 1); } catch (e) { stl = null; }
+                let stl, parser = new file_load.STL();
+                try { stl = parser.parse(data, 1); } catch (e) { stl = null; }
                 if (!stlHasTriangle(stl)) {
-                    api.show.alert(`${name}: nothing in this file to make a part from`, 8);
+                    api.show.alert(`${name}: nothing in this file to make a part from${parser.reason ? ` (${parser.reason})` : ''}`, 8);
                     load_dec();
                     return;
                 }
@@ -1629,30 +1629,13 @@ function stlReading(v) {
     return stlUnitsWhy(v, { bedWidth: dev.bedWidth, bedDepth: dev.bedDepth, inch: api.view.unit_scale() === 25.4 });
 }
 
-// at least one triangle whose nine numbers are all numbers
-function stlHasTriangle(v) {
-    if (!v || v.length < 9) return false;
-    for (let t = 0; t + 8 < v.length; t += 9) {
-        let ok = true;
-        for (let k = 0; k < 9 && ok; k++) ok = Number.isFinite(v[t + k]);
-        if (ok) return true;
-    }
-    return false;
-}
-const STL_NAMES = { mm: 'millimeters', in: 'inches', m: 'meters' };
-
 // what each STL was read as, whether that is a guess, its size each way, and one press to switch
 // that file (an undo step); every STL of one drop on one card
-const STL_GUESS = {
-    both: 'a guess: it fits the bed in millimeters and in inches, so the units switch chose. check the size.',
-    small: 'a guess: read another way it is under 6 mm long. check the size.',
-    none: 'a guess: it fits the bed no way. check the size.'
-};
 // STLs of a drop still being read: the card waits for them (a few seconds at most)
 let stlWaiting = [], stlWaitT = 0, stlLoading = 0, stlCardsDue = 0, stlWaitSince = 0;
 function stlUnitsCard(w, name, read) {
     if (!w) return;
-    stlWaiting.push({ w, name, now: read.reading, why: read.why });
+    stlWaiting.push({ w, name, now: read.reading, read });
     if (!stlWaitT) { stlWaitSince = Date.now(); stlWaitT = setTimeout(stlUnitsFlush, 0); }
 }
 function stlUnitsFlush() {
@@ -1675,7 +1658,7 @@ function stlUnitsFlush() {
         ...list.map((r, i) => [
             `  <div class="swarf-stl-file" id="stl-f${i}-${rnd}">`,
             many ? `    <h4>${esc(r.name)}</h4>` : '',
-            `    <p class="image-convert-copy t-just">it came in as ${STL_NAMES[r.now]}${r.why === 'one' ? ', the only reading that fits the bed.' : `. ${STL_GUESS[r.why]}`}</p>`,
+            `    <p class="image-convert-copy t-just">${esc(stlUnitsSay(r.read))}</p>`,
             ...['mm', 'in', 'm'].map(u => `    <label><input type="radio" name="stl-u${i}-${rnd}" value="${u}"> ${STL_NAMES[u]}: <span data-u="${u}"></span></label><br>`),
             `  </div>`
         ].join('')),
