@@ -13,7 +13,14 @@
  *     cfg    { safeZ, rapid: {xy, z}, move: {xy, z}, jog: {z}, spinUp, changeZ, unit, tickHz }
  *   plan.steps      [{ move: {x, y, z}, feed, line, work?, phase }, { router: true|false, line },
  *                    { out: n, on, line }, { dwell: s, line }, { rpm, line }]   in order (a router step
- *                    carries the speed in force, rpm, when the file named one)
+ *                    carries the speed in force, rpm, when the file named one; S0 is a speed of 0,
+ *                    never the same as no S at all)
+ *
+ *   One line's events act in this order: its S, then its switches (M3/M5, C6/C7, SO 1) and tool
+ *   number, then its motion, then a pause (M0/M1) after the motion. A speed of 0 with
+ *   cfg.spindleSpeed (a spindle the controller turns at the S it is sent) is the spindle
+ *   stopped: a cut below the board then is refused, and a later speed above 0 waits cfg.spinUp
+ *   before the next move.
  *   plan.rate       the share of the file's feeds its program moves run at (an air cut's 0.75; else 1)
  *   plan.hold       the tool change or pause that ends it early, or null
  *   plan.moves      the moves as segments (x0..z) for the preview
@@ -41,14 +48,25 @@
     if (!src) problems.push('there is no checked file behind these moves');
     else for (const v of validate(src)) problems.push(v.text);
     // the events are the program's own (a trace or an air cut writes its own file); the source is only checked
-    // a speed on a line goes before that line's switch (M3 S8000: the router starts at 8000)
-    const events = (prog.events || (prog.sbp && P ? (prog.source ? P.parse(prog.sbp, { machineUnits: 'mm' }) : src).events : src ? src.events : [])).slice().sort((a, b) => a.line - b.line || (b.kind === 'rpm') - (a.kind === 'rpm'));
-    let router = false, e = 0, moved = false, hold = null, rpm = 0;
-    const say = (on, line) => { if (on !== router) { router = on; steps.push({ router: on, line: line || 0, ...(on && rpm ? { rpm } : {}) }); if (on) steps.push({ dwell: cfg.spinUp, line: line || 0 }); } };
+    // one line's events in the order they act: speed, then switches, then whatever follows the motion
+    const events = (prog.events || (prog.sbp && P ? (prog.source ? P.parse(prog.sbp, { machineUnits: 'mm' }) : src).events : src ? src.events : [])).slice().sort((a, b) => a.line - b.line || rank(a) - rank(b));
+    // rpm: the speed in force, null while the file has named none
+    let router = false, e = 0, moved = false, hold = null, rpm = null;
+    const say = (on, line) => { if (on !== router) { router = on; steps.push({ router: on, line: line || 0, ...(on && rpm !== null ? { rpm } : {}) }); if (on) steps.push({ dwell: cfg.spinUp, line: line || 0 }); } };
     const move = (t, feed, line, phase, work) => steps.push({ move: { x: t.x, y: t.y, z: t.z }, feed, line: line || 0, phase, ...(work ? { work } : {}) });
     const event = ev => {
       const k = ev.kind;
-      if (live && k === 'rpm' && ev.value > 0) { if (ev.value !== rpm) { rpm = ev.value; if (router) steps.push({ rpm, line: ev.line }); } }
+      if (k === 'rpm') {
+        // the parser refuses a speed below 0; anything not a number is no speed at all
+        if (!live || !Number.isFinite(ev.value) || ev.value < 0 || ev.value === rpm) return;
+        const was = rpm;
+        rpm = ev.value;
+        if (router) {
+          steps.push({ rpm, line: ev.line });
+          // from a standstill (S0) up to speed: the same wait as a start
+          if (cfg.spindleSpeed && was === 0 && rpm > 0) steps.push({ dwell: cfg.spinUp, line: ev.line });
+        }
+      }
       else if (live && k === 'spindle-on') say(true, ev.line);
       else if (live && k === 'spindle-off') say(false, ev.line);
       else if (live && k === 'output' && ev.value[0] === 1) say(ev.value[1] === 1, ev.line);
@@ -80,9 +98,14 @@
         at = { x: m.x, y: m.y, z: Math.max(at.z, m.z) };
         continue;
       }
-      if (!started) { if (live && prog.spindle !== false) say(true, m.line); started = true; }
-      // a router switch on the move's own line (G1 Z-1 F300 M3) acts before the move
-      while (e < events.length && (events[e].line < m.line || (events[e].line === m.line && isSwitch(events[e])))) event(events[e++]);
+      if (!started) {
+        // a continue: the speed in force where it starts (carried in just before its first line) goes with the start
+        while (e < events.length && events[e].line < m.line && events[e].kind === 'rpm') event(events[e++]);
+        if (live && prog.spindle !== false) say(true, m.line);
+        started = true;
+      }
+      // the move's own line's speed and switches (G1 X10 M5 S0, G1 Z-1 F300 M3 S8000) act before the move
+      while (e < events.length && (events[e].line < m.line || (events[e].line === m.line && preMotion(events[e])))) event(events[e++]);
       if (hold) break;
       let feed = m.rapid ? (m.z !== m.z0 && m.x === m.x0 && m.y === m.y0 ? cfg.rapid.z : cfg.rapid.xy) : (m.feed || cfg.move.xy);
       if (!m.rapid) {
@@ -91,8 +114,11 @@
         feed = Math.min(feed, cfg.move.xy);
         if (dz > 1e-9 && L > 0) feed = Math.min(feed, cfg.move.z * L / dz);
       }
-      // a cut never feeds into the board with the router off
-      if (live && !router && !m.rapid && Math.min(m.z, m.z0) < -0.05 && !problems.some(t => /router off/.test(t))) problems.push(`line ${m.line} feeds into the board with the router off`);
+      // a cut never feeds into the board with the router off, or with the spindle at S0
+      if (live && !m.rapid && Math.min(m.z, m.z0) < -0.05 && !problems.some(t => /router off|spindle stopped/.test(t))) {
+        if (!router) problems.push(`line ${m.line} feeds into the board with the router off`);
+        else if (cfg.spindleSpeed && rpm === 0) problems.push(`line ${m.line} feeds into the board with the spindle stopped (S0)`);
+      }
       move(m, feed, m.line, m.lead ? 'entry' : 'program', m);
       at = { x: m.x, y: m.y, z: m.z };
       moved = true;
@@ -123,6 +149,10 @@
   }
 
   function isSwitch(ev) { return ev.kind === 'spindle-on' || ev.kind === 'spindle-off' || (ev.kind === 'output' && ev.value[0] === 1); }
+  // what acts before the motion on its own line; a pause (M0/M1) acts after it, and a tool change
+  // with motion on one line is refused by the reader
+  function preMotion(ev) { return ev.kind === 'rpm' || isSwitch(ev) || ev.kind === 'tool' || ev.kind === 'tool-name'; }
+  function rank(ev) { return ev.kind === 'rpm' ? 0 : preMotion(ev) ? 1 : 2; }
 
   // a copy of the plan's data (no shared objects with whoever made it), frozen all the way down,
   // with its fingerprint (third review #4)
@@ -163,7 +193,7 @@
     const out = [];
     if (!src) return [{ k: 'none', text: 'there is no file' }];
     if (src.units && src.units !== 'mm' && src.units !== 'in') out.push({ k: 'units', text: `the file's units (${src.units}) are not inches or millimeters` });
-    for (const u of src.unsupported || []) out.push({ k: 'unsupported', line: u.line, text: `line ${u.line} is something swarf can't carry out exactly ("${String(u.text).slice(0, 40)}")` });
+    for (const u of src.unsupported || []) out.push({ k: 'unsupported', line: u.line, text: `line ${u.line} is something swarf can't carry out exactly ("${String(u.text).slice(0, 40)}"${u.why ? `: ${u.why}` : ''})` });
     // swarf zeros Z on the board's top: a file whose cuts all sit above Z 0 was zeroed on the table
     // (or on a spoil board), and every safe height in it would sit inside the board (third review #5)
     const cuts = (src.moves || []).filter(m => !m.rapid);
@@ -218,13 +248,14 @@
   }
 
   // the way in, in words, for the cards: "up to 25 mm, the router on, over to X 12, Y 40, down to Z -1.5"
-  // (opt.len: a height in words, opt.at: a coordinate's number, both in the student's units; r086 check S2)
+  // (opt.len: a height in words, opt.at: a coordinate's number, both in the student's units; r086 check S2;
+  // opt.tool: what turns the bit on this machine, "router" or "spindle")
   function entryWords(plan, opt) {
-    const len = (opt && opt.len) || (v => `${v.toFixed(0)} mm`), at = (opt && opt.at) || (v => v.toFixed(0));
+    const len = (opt && opt.len) || (v => `${v.toFixed(0)} mm`), at = (opt && opt.at) || (v => v.toFixed(0)), tool = (opt && opt.tool) || 'router';
     const out = [];
     let p = plan.from || { x: 0, y: 0, z: 0 };
     for (const s of plan.steps) {
-      if (s.router === true) { out.push('the router on'); continue; }
+      if (s.router === true) { out.push(`the ${tool} on`); continue; }
       if (!s.move) continue;
       if (s.phase !== 'entry') break;
       const m = s.move;

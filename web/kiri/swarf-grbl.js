@@ -324,14 +324,34 @@
     // ---------------------------------------------------------------- lines in flight
     // A line queued for the board; resolves { ok, error, lines } when its ok or error comes back,
     // or { flushed } when a reset, an alarm or a lost link drops it. Lines are counted against the
-    // board's 128-byte buffer: one goes out only while the bytes in flight plus it stay under 128.
+    // board's receive buffer (128 bytes, or the smaller size $I reports): one goes out only while the
+    // bytes in flight plus it stay under that size, so no line longer than lineMax() is queued.
     enqueue(raw, meta) {
       const text = clean(raw);
-      if (text.length >= LINE_MAX) return Promise.resolve({ ok: false, refused: `a line of ${text.length} characters (the board takes at most ${LINE_MAX - 1})` });
+      const why = this.lineWhy(text);
+      if (why) return Promise.resolve({ ok: false, refused: why });
       return new Promise(resolve => { this.waiting.push({ text, len: text.length + 1, resolve, collect: [], meta }); this.pump(); });
     }
+    // the most characters one line may have: under the line buffer, and with its newline under the
+    // receive buffer (a line goes out only while the bytes in flight plus it stay under rx)
+    lineMax() { return Math.min(LINE_MAX - 1, this.rx - 2); }
+    // why the board cannot take this line, or ''
+    lineWhy(text) {
+      const max = this.lineMax();
+      return text.length > max ? `a line of ${text.length} characters (the board takes at most ${max})` : '';
+    }
+    // the first of these lines the board cannot take, in words, or ''
+    tooLong(lines) {
+      for (const l of lines) { const why = this.lineWhy(clean(l.text)); if (why) return `line ${l.line || 0} is too long for the board: ${why}`; }
+      return '';
+    }
     pump() {
-      while (this.link && this.waiting.length && this.inflight + this.waiting[0].len < this.rx) {
+      // a line that can never fit (the buffer got smaller after it was queued) is refused, never left
+      // at the head where it would hold up everything behind it
+      while (this.waiting.length) {
+        const why = this.lineWhy(this.waiting[0].text);
+        if (why) { const e = this.waiting.shift(); e.resolve({ ok: false, refused: why, lines: e.collect }); continue; }
+        if (!this.link || this.inflight + this.waiting[0].len >= this.rx) break;
         const e = this.waiting.shift();
         this.inflight += e.len;
         this.maxInflight = Math.max(this.maxInflight, this.inflight);
@@ -860,7 +880,8 @@
       // cutting feeds are held to the board's own top rates ($110-$112), not the jog speed
       const s = this.settings || {}, xy = Math.min(s[110] || 0, s[111] || 0) / 60, z = (s[112] || 0) / 60;
       const move = xy > 0 && z > 0 ? { xy, z } : { ...r };
-      return { safeZ: Math.min(this.cfg.safeZ, top), rapid: { ...r }, move, jog: { ...this.cfg.jog }, spinUp: this.cfg.spinUp, changeZ: Math.min(this.cfg.changeZ, top) };
+      // spindleSpeed: the board turns the spindle at the S it is sent, so S0 is the spindle stopped
+      return { safeZ: Math.min(this.cfg.safeZ, top), rapid: { ...r }, move, jog: { ...this.cfg.jog }, spinUp: this.cfg.spinUp, changeZ: Math.min(this.cfg.changeZ, top), spindleSpeed: true };
     }
     // what a plan is for: this zero, on this link (a reconnect or a new zero makes a new plan)
     planCtx() {
@@ -868,14 +889,15 @@
       return { machine: 'grbl', link: this.linkNo, g54: [fmt(g.x, 2), fmt(g.y, 2), fmt(g.z, 2)] };
     }
     // the spindle speed the job runs at: the whole file's last S before the job's first move (a
-    // continue from line N starts mid-file), else its first S
+    // continue from line N starts mid-file), else its first S; S0 is 0, no S at all is null
     rpmOf(prog) {
       const P = root.SwarfRunParse;
       const src = prog.source || (prog.sbp && P ? P.parse(prog.sbp, { machineUnits: 'mm' }) : null);
-      const ev = ((src && src.events) || prog.events || []).filter(e => e.kind === 'rpm' && e.value > 0);
+      const ev = ((src && src.events) || prog.events || []).filter(e => e.kind === 'rpm' && Number.isFinite(e.value) && e.value >= 0);
       const first = (prog.moves || []).find(m => !m.liftFirst);
       const before = first ? ev.filter(e => e.line <= first.line).pop() : null;
-      return (before || ev[0] || {}).value || 0;
+      const at = before || ev[0];
+      return at ? at.value : null;
     }
     plan(prog) {
       const R = root.SwarfRunPlan;
@@ -885,13 +907,16 @@
       const env = this.envelope(p);
       if (env) extra.push(env);
       if (p.steps.some(s => s.router === true)) {
-        if (!(rpm > 0)) extra.push('the file names no spindle speed (an S word)');
+        if (rpm === null) extra.push('the file names no spindle speed (an S word)');
         else if (rpm > this.cfg.rpmMax) extra.push(`the file's spindle speed (${rpm}) is over this machine's ${this.cfg.rpmMax}`);
       }
       const fast = p.steps.find(s => s.rpm > this.cfg.rpmMax);
       if (fast) extra.push(`line ${fast.line}'s spindle speed (${fast.rpm}) is over this machine's ${this.cfg.rpmMax}`);
       const outs = p.steps.find(s => s.out);
       if (outs) extra.push(`line ${outs.line} switches output ${outs.out}, which this machine does not have`);
+      // every line it would send fits the board's buffer, checked before it can be confirmed
+      const long = this.tooLong(this.linesOf(Object.assign({}, p, { rpm })));
+      if (long) extra.push(long);
       // the fingerprint covers the steps; the speed and these problems ride beside them
       return Object.freeze(Object.assign({}, p, { rpm, problems: Object.freeze(p.problems.concat(extra)) }));
     }
@@ -932,7 +957,8 @@
     linesOf(plan) {
       const out = PREAMBLE.map(text => ({ text, line: 0 }));
       // each start runs at the speed the file set there; a new S while it runs is sent as it comes
-      const speed = v => Math.min(this.cfg.rpmMax, Math.round(v || plan.rpm || 0));
+      // (a step's own speed, 0 included; a start with none uses the job's speed)
+      const speed = v => Math.min(this.cfg.rpmMax, Math.round(Number.isFinite(v) ? v : (plan.rpm || 0)));
       // the program's feed moves at the plan's rate (an air cut's 75 %); the way in and out as planned
       const rate = plan.rate > 0 ? plan.rate : 1;
       for (const s of plan.steps) {
@@ -941,7 +967,7 @@
           if (s.work && s.work.rapid) out.push({ text: `G0${xyz}`, line: s.line });
           else out.push({ text: `G1${xyz}F${fmt(s.feed * 60 * (s.phase === 'program' ? rate : 1), 1)}`, line: s.line });
         } else if (s.router === true) out.push({ text: `M3S${speed(s.rpm)}`, line: s.line });
-        else if (s.rpm > 0) out.push({ text: `S${speed(s.rpm)}`, line: s.line });
+        else if (Number.isFinite(s.rpm) && s.rpm >= 0) out.push({ text: `S${speed(s.rpm)}`, line: s.line });
         else if (s.router === false) { out.push({ text: 'S0', line: s.line }, { text: 'G4P1', line: s.line }, { text: 'M5', line: s.line }); }
         else if (s.dwell > 0) out.push({ text: `G4P${fmt(s.dwell)}`, line: s.line });
       }
@@ -953,8 +979,8 @@
       const why = this.refuse(plan);
       if (why) { this.set({ note: why }); return false; }
       const lines = this.linesOf(plan);
-      const long = lines.find(l => clean(l.text).length >= LINE_MAX);
-      if (long) { this.set({ note: `not run: line ${long.line} is longer than the board takes` }); return false; }
+      const long = this.tooLong(lines);
+      if (long) { this.set({ note: `${long}: not run` }); return false; }
       const job = this.job = { plan, lines, acked: 0, ended: false };
       this.set({ running: true, paused: false, preview: false, line: 0, spindle: false, stopHit: false, resumeLine: 0, done: false, lostMid: false, toolChange: false, coasting: false, alarm: 0, rate: Math.round((plan.rate > 0 ? plan.rate : 1) * 100), note: 'running' });
       this.cue('move');
@@ -967,6 +993,7 @@
         if (job.ended) return r;
         if (r.ok) { job.acked++; if (l.line > 0 && this.job === job) this.set({ line: l.line }); }
         else if (r.error) this.failed(job, l, r.error);
+        else if (r.refused && !job.ended) { job.ended = true; this.stopNow(`stopped at line ${l.line || this.state.line}: ${r.refused}`); }
         return r;
       }));
       const all = await Promise.all(results);

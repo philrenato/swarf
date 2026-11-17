@@ -554,7 +554,8 @@ html[data-skin] #swarf-run .sr-jog .sr-zrow button.next, html[data-skin] #swarf-
   // the lift before any move over the work (SAFE_Z): "25 mm" (with "(1 in)" where the line said it), or "1 in"
   const up = paren => inch() ? '1 in' : paren ? '25 mm (1 in)' : '25 mm';
   // the way in, in the student's units: "up to 1 in, over to X 0.47, Y 1.57" (r086 check S2)
-  const wayWords = plan => window.SwarfRunPlan.entryWords(plan, inch() ? { len: v => prose(v, 0), at: v => +(v / 25.4).toFixed(2) } : { len: v => prose(v, 0) });
+  // (the router or the spindle, named as this machine names it)
+  const wayWords = plan => window.SwarfRunPlan.entryWords(plan, inch() ? { len: v => prose(v, 0), at: v => +(v / 25.4).toFixed(2), tool: spindleWord() } : { len: v => prose(v, 0), tool: spindleWord() });
   const lens = (a, dp) => inch() ? a.map(v => len(v, dp).replace(/ in$/, '')).join(' × ') + ' in' : a.map(v => +(+v).toFixed(dp == null ? 1 : dp)).join(' × ') + ' mm';
   // a feed in words, in cam's units: "1200 mm/min" or "47 in/min"
   const rateWords = mmMin => inch() ? `${+(mmMin / 25.4).toFixed(1)} in/min` : `${Math.round(mmMin)} mm/min`;

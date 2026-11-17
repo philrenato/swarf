@@ -210,10 +210,10 @@
         }
         case 'SA': st.abs = true; break;
         case 'SR': st.abs = false; break;
-        case 'TR': event(n, 'rpm', val(p[0])); break;
+        case 'TR': if (val(p[0]) < 0) { out.unsupported.push({ line: n, text: s, why: 'a spindle speed below zero' }); break; } event(n, 'rpm', val(p[0])); break;
         case 'PAUSE': event(n, 'pause', val(p[0])); break;
         case 'SO': event(n, 'output', [val(p[0]), val(p[1])]); break;
-        case 'TS': event(n, 'rpm', val(p[0])); break;
+        case 'TS': if (val(p[0]) < 0) { out.unsupported.push({ line: n, text: s, why: 'a spindle speed below zero' }); break; } event(n, 'rpm', val(p[0])); break;
         case 'VS': {
           // VS move XY, move Z, …, jog XY, jog Z: the speeds a file sets for itself
           const a = val(p[0]), b = val(p[1]), c = val(p[4]), d = val(p[5]);
@@ -264,6 +264,11 @@
       if (![...gs, ...ms, ...Object.values(words)].every(Number.isFinite)) { out.unsupported.push({ line: n, text: U.trim(), why: 'a number too big to be real' }); return; }
       // a feed is a speed above zero
       if (words.F !== undefined && !(words.F > 0)) { out.unsupported.push({ line: n, text: U.trim(), why: 'a feed rate of zero or less' }); return; }
+      // a spindle speed is 0 or more (S0 stops the spindle; no S keeps the speed in force)
+      if (words.S !== undefined && words.S < 0) { out.unsupported.push({ line: n, text: U.trim(), why: 'a spindle speed below zero' }); return; }
+      // a tool change acts before the line's motion: the move would run with the next bit
+      // before the change card; such a line is refused, not reordered
+      if (ms.includes(6) && ('X' in words || 'Y' in words || 'Z' in words)) { out.unsupported.push({ line: n, text: U.trim(), why: 'a tool change and a move on one line' }); return; }
       // an allowlist, not a blacklist (design review 10-28 #2): a G or M code swarf does not
       // carry out exactly (G92 offsets, G18/G19 planes, G41/42 compensation, canned cycles,
       // G93 feed modes …) makes the whole line unreadable, which blocks the run
@@ -368,7 +373,7 @@
       const m0 = moves[0], top = Math.max(o.safeZ, m0.z0 + dz);
       out.push(`JZ,${f3(top)}`, `J2,${f3(m0.x0)},${f3(m0.y0)}`);
     }
-    if (o.spindle) { if (o.rpm) out.push(`TR,${Math.round(o.rpm)}`); out.push('C6', 'PAUSE 2'); }
+    if (o.spindle) { if (Number.isFinite(o.rpm) && o.rpm >= 0) out.push(`TR,${Math.round(o.rpm)}`); out.push('C6', 'PAUSE 2'); }
     let ms = null, js = null, last = null;
     for (const m of moves) {
       if (!last || Math.hypot(last.x - m.x0, last.y - m.y0, last.z - m.z0) > 1e-6) {
@@ -473,14 +478,16 @@
     // a file that never switches the router before line N runs with it on, as the whole file
     // does (torture test 10-29: from line N cut with the router off); a switch-off before N keeps it off
     const spindleOn = on ? on.kind === 'spindle-on' : true;
-    const sbp = movesToSbp(moves, { name: `${name} from line ${line}`, spindle: spindleOn, rpm: rpm && rpm.value, safeZ });
+    const sbp = movesToSbp(moves, { name: `${name} from line ${line}`, spindle: spindleOn, rpm: rpm ? rpm.value : undefined, safeZ });
     // the original file's own events from line N on: the written file numbers its lines
     // afresh, the moves keep the original numbers (review 10-27)
     // the machine as the file left it at that line (the follow-up review: reconstruct the modal
     // state or refuse): every other output's last switch before the line is made again on the way in
     const outs = new Map();
     for (const e of parsed.events) if (e.line < line && e.kind === 'output' && e.value[0] >= 2) outs.set(e.value[0], e);
-    const events = [...[...outs.values()].map(e => ({ ...e, line: line - 0.5 })), ...parsed.events.filter(e => e.line >= line)];
+    // and the speed in force there (S0 included), so the start runs at it
+    const carried = [...outs.values()].concat(rpm ? [rpm] : []);
+    const events = [...carried.map(e => ({ ...e, line: line - 0.5 })), ...parsed.events.filter(e => e.line >= line)];
     // a continue is a cut: the router starts at the way in if it was on at line N, and the file's own
     // switches from line N on (C6 after a tool change) turn it on and off
     return { name: `${name} (from line ${line})`, moves, sbp, events, source: parsed, spindle: spindleOn, cut: true };
