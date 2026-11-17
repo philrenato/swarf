@@ -40,6 +40,18 @@ try {
   let c = await card();
   check(c && c.h === 'Zero first' && /never set/.test(c.text), `never set: "${c && c.h}" ${c && c.text.slice(0, 90)}`);
   check(c && c.buttons.includes('X+') && c.buttons.includes('this spot is X 0 Y 0'), 'with a jog pad and the X Y button');
+  // a dialog, on its safe button; in a 1024 x 600 window (and at 150 % zoom) its last buttons stay in view and on top
+  const dlg = await page.evaluate(() => { const c = document.querySelector('#swarf-run .sr-card'); return { role: c.getAttribute('role'), modal: c.getAttribute('aria-modal'), name: c.getAttribute('aria-labelledby').split(' ').map(id => document.getElementById(id).textContent).join(' '), focus: document.activeElement && document.activeElement.textContent }; });
+  check(dlg.role === 'dialog' && dlg.modal === 'true' && /ShopBot/.test(dlg.name) && /Zero first/.test(dlg.name) && dlg.focus === 'not yet', `zero first is a dialog named "${dlg.name}", focus on "${dlg.focus}"`);
+  for (const [W, H] of [[1024, 600], [683, 400]]) {
+    await page.setViewport({ width: W, height: H }); await wait(300);
+    const fit = await page.evaluate(() => {
+      const c = document.querySelector('#swarf-run .sr-sheet.on .sr-card'), cr = c.getBoundingClientRect();
+      return { card: [Math.round(cr.top), Math.round(cr.bottom)], buttons: [...c.querySelectorAll('.row:last-child button')].map(b => { const r = b.getBoundingClientRect(), hit = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2); return { t: b.textContent, on: hit === b || b.contains(hit), inside: r.bottom <= Math.min(cr.bottom, innerHeight) + 0.5 }; }) };
+    });
+    check(fit.card[0] >= 0 && fit.card[1] <= H && fit.buttons.length >= 2 && fit.buttons.every(b => b.on && b.inside), `zero first at ${W} x ${H}: card ${fit.card}, buttons ${JSON.stringify(fit.buttons)}`);
+  }
+  await page.setViewport({ width: 1440, height: 900 }); await wait(300);
   await press('X+'); await idle();
   check(await page.evaluate(() => Math.abs(window.__swarfRun.state.machine.state.pos.x) > 0.5), 'the pad jogs');
   await press('this spot is X 0 Y 0'); await idle(); await wait(200);

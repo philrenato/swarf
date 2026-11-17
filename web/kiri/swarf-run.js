@@ -236,7 +236,7 @@
 .sr-sim button.on { border-color: var(--swarf-amber, #c08a3a); color: var(--swarf-amber, #c08a3a); }
 .sr-sheet { position: absolute; inset: 0; background: rgba(0,0,0,.6); display: none; place-items: center; z-index: 5; }
 .sr-sheet.on { display: grid; }
-.sr-card { width: min(520px, 92vw); background: var(--swarf-bg-2, #13100f); border: 1px solid var(--swarf-accent, #d02020); border-radius: 14px; padding: 18px 20px; box-sizing: border-box; max-height: calc(100% - 24px); overflow-y: auto; overscroll-behavior: contain; }
+.sr-card { width: min(520px, 92vw); background: var(--swarf-bg-2, #13100f); border: 1px solid var(--swarf-accent, #d02020); border-radius: 14px; padding: 18px 20px; box-sizing: border-box; max-height: calc(100% - 24px); overflow-y: auto; overscroll-behavior: contain; scroll-padding-bottom: 84px; }
 /* a card taller than the window scrolls; its last row of buttons stays in view at the bottom */
 .sr-card > .row:last-child { position: sticky; bottom: 0; z-index: 1; margin: 14px -20px -18px; padding: 10px 20px 18px; background: var(--swarf-bg-2, #13100f); }
 .sr-card .sr-mach { font-size: 12px; margin: 0 0 2px; color: var(--swarf-text-2, #8a857c); }
