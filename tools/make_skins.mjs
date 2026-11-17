@@ -90,6 +90,45 @@ function remap(prop, value) {
   return parts.map((p, i) => i % 2 ? p : p.replace(COLOR, c => tokenFor(c, ctx))).join('');
 }
 
+// Text on a solid accent fill. The neutral ramp turns over in a pale skin (the red sky's light text
+// becomes dark), but the accent fill stays a deep color there, so light text on it would turn dark
+// on dark. Such text reads the skin's --sk-on-acc instead.
+const ON_ACCENT = 'rgb(var(--sk-on-acc, 255 255 255))';
+const ACCENT_ROLES = new Set(['acc-dim', 'acc', 'acc-hi', 'info', 'violet']);
+function onAccent(rule) {
+  let fill = false;
+  ownDecls(rule).filter(d => /^background(-color)?$/i.test(d.prop)).forEach(d => {
+    const v = d.value.trim();
+    if (/^var\(--swarf-accent/.test(v)) { fill = true; return; }
+    COLOR.lastIndex = 0;
+    const m = v.match(COLOR);
+    const c = m && parse(m[0]);
+    if (c && c[3] >= 0.5 && ACCENT_ROLES.has(role(c, ''))) fill = true;
+  });
+  return fill;
+}
+function isLightText(value) {
+  const v = value.trim();
+  if (/^var\(--swarf-text/.test(v)) return true;
+  COLOR.lastIndex = 0;
+  const m = v.match(COLOR);
+  const c = m && parse(m[0]);
+  return !!c && /^n[5-9]$/.test(role(c, ''));
+}
+
+// A rule's own declarations, not those of the rules nested in it (Kiri's dark theme nests its
+// rules inside :root[data-theme="dark"]: walked whole, the root block took every one of them).
+function ownDecls(rule) { return (rule.nodes || []).filter(n => n.type === 'decl'); }
+// A nested rule's selector as the browser reads it: each parent selector before each of its own,
+// or in place of its &. Flattened bare, a dark-theme rule lost the specificity its parent gave it,
+// and the light default after it in the file won (white panels mapped to near-black).
+function fullSelector(rule) {
+  if (!rule.parent || rule.parent.type !== 'rule') return rule.selector;
+  const outer = fullSelector(rule.parent).split(',').map(x => x.trim());
+  const inner = rule.selector.split(',').map(x => x.trim());
+  return outer.flatMap(o => inner.map(i => i.includes('&') ? i.replace(/&/g, o) : `${o} ${i}`)).join(', ');
+}
+
 function scope(sel) {
   return sel.split(',').map(s => {
     s = s.trim();
@@ -110,18 +149,27 @@ for (const src of SOURCES) {
     if (rule.parent && rule.parent.type === 'atrule' && /keyframes/i.test(rule.parent.name)) return;
     // a rule that names data-skin was written for the skins as it stands (the router-on warning stays
     // red in every skin): mapped through a palette it turned graphite, and came later in the load
-    if (/data-skin/.test(rule.selector)) return;
+    const selector = fullSelector(rule);
+    if (/data-skin/.test(selector)) return;
     const decls = [];
-    rule.walkDecls(d => {
-      const v = remap(d.prop.toLowerCase(), d.value);
+    const filled = onAccent(rule);
+    ownDecls(rule).forEach(d => {
+      const prop = d.prop.toLowerCase();
+      // light text on an accent fill keeps the skin's own on-accent color, not the inverted ramp
+      if (filled && prop === 'color' && isLightText(d.value)) {
+        decls.push(postcss.decl({ prop: d.prop, value: ON_ACCENT, important: d.important }));
+        return;
+      }
+      const v = remap(prop, d.value);
       if (v) decls.push(postcss.decl({ prop: d.prop, value: v, important: d.important }));
     });
     if (!decls.length) return;
-    const r = postcss.rule({ selector: scope(prefix(rule.selector)) });
+    const r = postcss.rule({ selector: scope(prefix(selector)) });
     r.append(decls);
     count += decls.length;
-    // keep @media / @supports wrappers
+    // keep @media / @supports wrappers (a nested rule's parents are rules first)
     let p = rule.parent, node = r;
+    while (p && p.type === 'rule') p = p.parent;
     while (p && p.type === 'atrule') { const w = postcss.atRule({ name: p.name, params: p.params }); w.append(node); node = w; p = p.parent; }
     acc.append(node);
   });

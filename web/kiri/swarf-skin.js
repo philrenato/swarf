@@ -29,6 +29,20 @@
   // ?skin=glass in the address opens in that skin (and keeps it)
   try { const q = new URLSearchParams(location.search).get('skin'); if (SKINS.some(k => k.id === q)) current = q; } catch (e) { /* no URL */ }
 
+  // Every skin is drawn from Kiri's dark palette (the color map reads the red-sky look, which sits
+  // on it), and the platform sets that palette once the machine is chosen. The page's own head
+  // script starts on the light one, which a skin maps to near-black: menus and cards painted dark
+  // until the platform came up. So the palette is the dark one from the first paint, and stays so
+  // under a skin whatever sets it later (Kiri's dark mode row lives on in the swarf skin only).
+  function darkPalette() {
+    if (root.getAttribute('data-theme') !== 'dark') root.setAttribute('data-theme', 'dark');
+  }
+  darkPalette();
+  try {
+    new MutationObserver(() => { if (root.hasAttribute('data-skin')) darkPalette(); })
+      .observe(root, { attributes: true, attributeFilter: ['data-theme', 'data-skin'] });
+  } catch (e) { /* old browser */ }
+
   function stamp() {
     if (current === 'swarf') root.removeAttribute('data-skin');
     else root.setAttribute('data-skin', current);
