@@ -568,9 +568,11 @@ function orderClosest(array, fn, from) {
 }
 
 /**
- * Wrapper for earcut triangulation that handles higher-dimensional data
- * Automatically selects the two dimensions with greatest delta for triangulation,
- * then maps results back to original dimensionality
+ * Wrapper for earcut triangulation that handles 3D data.
+ * A 3D polygon is laid flat along its own normal (Newell's method, from the outer
+ * ring) before earcut, so a face at any slant keeps its triangles, and each
+ * triangle winds as the polygon does. When earcut cannot cover the face (a
+ * twisted or self-crossing ring) a fan from the first corner is used instead.
  * @param {number[]} array - Flat array of coordinates (length = numPoints * dims)
  * @param {number[]} [holes] - Hole indices for polygon with holes
  * @param {number} [dims=2] - Number of dimensions per point (2 or 3)
@@ -578,47 +580,13 @@ function orderClosest(array, fn, from) {
  * @returns {number[]} Triangulated vertex array or indices
  */
 function triangulate(array, holes, dims, pos) {
-    let narray;
-    let info;
-    if (dims === 2) {
-        narray = array;
+    let ec;
+    if (dims === 2 || !dims) {
+        dims = 2;
+        ec = earcut(array, holes, 2);
     } else {
-        let min = new Array(dims).fill(Infinity);
-        let max = new Array(dims).fill(-Infinity);
-        for (let i = 0, l = array.length; i < l;) {
-            for (let j = 0, av; j < dims; j++) {
-                av = array[i++];
-                min[j] = Math.min(min[j], av);
-                max[j] = Math.max(max[j], av);
-            }
-        }
-        let delta = new Array(dims);
-        for (let i = 0; i < dims; i++) {
-            delta[i] = max[i] - min[i];
-        }
-        let dmax = 0,
-            d1, d2;
-        for (let i = 0; i < dims; i++) {
-            if (delta[i] > dmax) {
-                dmax = delta[i];
-                d1 = i;
-            }
-        }
-        info = { d1, d2, dmax, delta: delta.slice() };
-        delta[d1] = dmax = 0;
-        for (let i = 0; i < dims; i++) {
-            if (delta[i] > dmax) {
-                dmax = delta[i];
-                d2 = i;
-            }
-        }
-        narray = new Array((array.length / dims) * 2);
-        for (let i = 0, j = 0; i < array.length; i += dims) {
-            narray[j++] = array[i + d1];
-            narray[j++] = array[i + d2];
-        }
+        ec = triangulate3(array, holes, dims);
     }
-    let ec = earcut(narray, holes, 2);
     if (pos) {
         return ec;
     }
@@ -629,10 +597,60 @@ function triangulate(array, holes, dims, pos) {
             oa[e++] = array[ai + j];
         }
     }
-    if (oa.length === 0) {
-        console.log('debug_triangulate', {array, oa, info});
-    }
     return oa;
+}
+
+function triangulate3(array, holes, dims) {
+    const count = Math.floor(array.length / dims);
+    const ring = holes && holes.length ? holes[0] : count;
+    const fan = () => {
+        const out = [];
+        for (let i = 1; i + 1 < ring; i++) out.push(0, i, i + 1);
+        return out;
+    };
+    if (ring < 3) return [];
+    let nx = 0, ny = 0, nz = 0;
+    for (let i = 0; i < ring; i++) {
+        const a = i * dims, b = ((i + 1) % ring) * dims;
+        nx += (array[a + 1] - array[b + 1]) * (array[a + 2] + array[b + 2]);
+        ny += (array[a + 2] - array[b + 2]) * (array[a] + array[b]);
+        nz += (array[a] - array[b]) * (array[a + 1] + array[b + 1]);
+    }
+    const len = Math.hypot(nx, ny, nz);
+    if (!(len > 0)) return holes && holes.length ? [] : fan();
+    nx /= len; ny /= len; nz /= len;
+    // u and v span the face's plane, with u x v along the normal
+    const ax = Math.abs(nx), ay = Math.abs(ny), az = Math.abs(nz);
+    const e = ax <= ay && ax <= az ? [1, 0, 0] : ay <= az ? [0, 1, 0] : [0, 0, 1];
+    let ux = ny * e[2] - nz * e[1], uy = nz * e[0] - nx * e[2], uz = nx * e[1] - ny * e[0];
+    const ul = Math.hypot(ux, uy, uz);
+    ux /= ul; uy /= ul; uz /= ul;
+    const vx = ny * uz - nz * uy, vy = nz * ux - nx * uz, vz = nx * uy - ny * ux;
+    const flat = new Array(count * 2);
+    for (let i = 0, j = 0; i < count; i++) {
+        const x = array[i * dims], y = array[i * dims + 1], z = array[i * dims + 2];
+        flat[j++] = x * ux + y * uy + z * uz;
+        flat[j++] = x * vx + y * vy + z * vz;
+    }
+    const ec = earcut(flat, holes, 2);
+    const area2 = (a, b, c) =>
+        (flat[b * 2] - flat[a * 2]) * (flat[c * 2 + 1] - flat[a * 2 + 1]) -
+        (flat[c * 2] - flat[a * 2]) * (flat[b * 2 + 1] - flat[a * 2 + 1]);
+    let covered = 0;
+    for (let i = 0; i < ec.length; i += 3) {
+        const s = area2(ec[i], ec[i + 1], ec[i + 2]);
+        if (s < 0) {
+            const t = ec[i + 1];
+            ec[i + 1] = ec[i + 2];
+            ec[i + 2] = t;
+        }
+        covered += Math.abs(s);
+    }
+    if (!(holes && holes.length)) {
+        // the ring's own area, twice over, in the plane: |Newell normal|
+        if (covered < len * (1 - 1e-6)) return fan();
+    }
+    return ec;
 }
 
 /**

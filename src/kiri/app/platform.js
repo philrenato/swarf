@@ -1254,7 +1254,16 @@ function load_files(files, group) {
                     } catch (e) { /* no count: no sentence */ }
                 }, 400);
             } else if (isobj) {
-                const objs = file_load.OBJ.parse(data.textDecode('utf-8'));
+                let objs;
+                try { objs = file_load.OBJ.parse(data.textDecode('utf-8')); } catch (e) { objs = []; }
+                const refused = objs.refused || 0;
+                const skipped = refused ? `${refused} face${refused > 1 ? 's' : ''} pointing at missing corners ${refused > 1 ? 'were' : 'was'} left out` : '';
+                if (!objs.length) {
+                    api.show.alert(`${name}: nothing in this file to make a part from${skipped ? ` (${skipped})` : ''}`, 8);
+                    load_dec();
+                    return;
+                }
+                if (skipped) api.show.alert(`${name}: ${skipped}`, 10);
                 const ondn = function() {
                     const made = [];
                     for (let obj of objs) {
@@ -1323,7 +1332,14 @@ function load_files(files, group) {
                 loadSVGDialog(opt => {
                     group = group || [];
                     // the part is "bracket", not "bracket.svg" (review 10-30 C6: TEX said "kerfs on bracket.svg-1")
-                    const made = load_svg_into(group, text, name.replace(/\.svg$/i, ''), opt);
+                    let made;
+                    try {
+                        made = load_svg_into(group, text, name.replace(/\.svg$/i, ''), opt);
+                    } catch (e) {
+                        api.show.alert(`could not read that drawing: ${e.message}`, 10);
+                        load_dec();
+                        return;
+                    }
                     if (made.length === 0) {
                         api.show.alert(open ? `${open} open line${open > 1 ? 's' : ''} and no closed shape: only closed shapes can be given a thickness` : 'no closed shapes found in that drawing: text must be turned into outlines first', 10);
                     } else if (open) {
