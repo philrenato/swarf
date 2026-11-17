@@ -1,6 +1,6 @@
 // Moves from rest start, and moves to rest end, at the start speed (2.54 mm/s on the shop machine),
-// not at the ramp speed: a jump straight to 10.16 mm/s knocked the gantry, which then rang
-// (measured 11-17: X ringing after a stop about halved). Corners keep the ramp speed.
+// not at the ramp speed: a jump straight to 10.16 mm/s knocks the gantry, which then rings
+// (on the shop machine, X ringing after a stop is about half with 2.54). Corners keep the ramp speed.
 import assert from 'node:assert/strict';
 import { createRequire } from 'node:module';
 const { Planner, TICK_HZ } = createRequire(import.meta.url)('../../web/kiri/swarf-shopbot-card.js');
@@ -46,13 +46,14 @@ const near = (a, b, tol) => Math.abs(a - b) <= tol;
   const slowest = Math.min(...around.map(s => s.v));
   assert.ok(slowest >= 9.5, `the corner slows to the ramp speed, not lower (${slowest.toFixed(2)})`);
 }
-// a stop still comes down quickly, now to the start speed
+// a stop comes down as quickly as before: a slow seek stopped at contact ends at once
 {
-  const p = new Planner({ unit, rampSpeed: 10.16, startSpeed: 2.54, rampRate: 5.08 });
-  const sp = speeds(p, [{ x: 2000, y: 0, z: 0, feed: 100, line: 1 }], 1000);
-  const coast = sp[sp.length - 1].mm - 1000;
-  assert.ok(coast < 12, `a stop ramps down within about 10 mm (${coast.toFixed(1)})`);
-  assert.ok(sp[sp.length - 1].v <= 2.8, `and ends at the start speed (${sp[sp.length - 1].v.toFixed(2)})`);
+  for (const [feed, stopAt] of [[100, 1000], [6.35, 20], [12.7, 20]]) {
+    const coastOf = sp0 => sp0[sp0.length - 1].mm - stopAt;
+    const a = coastOf(speeds(new Planner({ unit, rampSpeed: 10.16, rampRate: 5.08 }), [{ x: 0, y: 0, z: 0 }].slice(0, 0).concat([{ x: 2000, y: 0, z: 0, feed, line: 1 }]), stopAt));
+    const b = coastOf(speeds(new Planner({ unit, rampSpeed: 10.16, startSpeed: 2.54, rampRate: 5.08 }), [{ x: 2000, y: 0, z: 0, feed, line: 1 }], stopAt));
+    assert.ok(Math.abs(a - b) < 0.05, `a stop at ${feed} mm/s coasts as before (${a.toFixed(2)} vs ${b.toFixed(2)} mm)`);
+  }
 }
 // the extra time per jog stays small: about a second for a 250 mm jog
 {

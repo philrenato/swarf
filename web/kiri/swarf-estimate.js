@@ -7,7 +7,7 @@
  * gives it (swarf-run-plan.js: the machine's own XY and Z limits, rapids at the jog speed), and each
  * run of moves between two switches is timed with the card's own speed profile
  * (swarf-shopbot-card.js Planner.profile: speed rises 3 mm/s per mm, slows by angle at bends, comes
- * to the ramp speed at every switch). Distance over feed alone came out short on rasters and
+ * to the start speed at every switch). Distance over feed alone came out short on rasters and
  * textures, where the bit spends its time speeding up and slowing down.
  *
  *   const e = SwarfEstimate.of(text, { sections: [{ step, line }] })

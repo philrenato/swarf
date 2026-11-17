@@ -257,11 +257,12 @@
    * `rate` of travel), from the ramp speed v0 up to the move's feed.
    * Corners slow toward v0 by angle; a straight continuation keeps speed.
    * A move from rest starts, and a move to rest ends, at the start speed (lower than v0: a jump
-   * straight to v0 knocks the gantry, which then rings).
+   * straight to v0 knocks the gantry, which then rings). A stop (pause, stop, e-stop, a seek's
+   * contact) still ends at v0, at once.
    *
    *   const p = new Planner(machine)
    *   p.items(moves, startSteps)   -> iterator of item bytes
-   *   p.stop() / p.hold()          -> ramp down at the next tick it plans
+   *   p.stop()                     -> ramp down at the next tick it plans
    * machine: { unit: {x,y,z} steps/mm, rampSpeed mm/s, startSpeed mm/s (default rampSpeed), rampRate mm,
    *            maxTickHz, minTickHz, invert: direction bits to flip (X 1, Y 2, Z 4) }
    */
@@ -309,7 +310,7 @@
         const d = { x: mv.x - prev.x, y: mv.y - prev.y, z: mv.z - prev.z };
         const len = Math.hypot(d.x, d.y, d.z);
         if (len < 1e-9) { prev = mv; continue; }
-        segs.push({ mv, from: prev, len, dir: { x: d.x / len, y: d.y / len, z: d.z / len }, feed: feedOf(mv) });   // below the ramp speed a move runs at its own feed, unramped
+        segs.push({ mv, from: prev, len, dir: { x: d.x / len, y: d.y / len, z: d.z / len }, feed: feedOf(mv) });   // below the start speed a move runs at its own feed, unramped
         prev = mv;
       }
       for (let i = 0; i < segs.length; i++) {
@@ -345,7 +346,7 @@
     /**
      * Item bytes for `ops` from `start` (mm). An op is a move {x,y,z mm, feed
      * mm/s, line}, an output change {out: 12-bit word, line}, or a dwell
-     * {dwell: seconds, line}. Motion comes to the ramp speed at every
+     * {dwell: seconds, line}. Motion comes to the start speed at every
      * non-move op.
      */
     // The reset happens when items() is called, not when the stream is first read:
@@ -434,7 +435,8 @@
             // segment, so curves made of short segments never came down to a stop)
             this.vHalt = Math.max(0, Math.min(this.vHalt === null ? v : this.vHalt, v) - this.kStop * mmPerTick);
             v = this.vHalt;
-            if (v <= vs) { this.at = { steps: cur, line: ln, op: s.mv }; yield END; return true; }
+            // a stop ends at the ramp speed, as quickly as before: a seek must not push on past contact
+            if (v <= v0) { this.at = { steps: cur, line: ln, op: s.mv }; yield END; return true; }
           }
           let r = this.reloadFor(v / mmPerTick);
           // ramp in 0.5% steps. (10-29: 0.1% steps were tried against a buzz; recordings at constant
