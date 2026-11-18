@@ -147,6 +147,7 @@ try {
   console.log('     over the board at machine', over.map(v => v.toFixed(3)).join(', '));
 
   // zero x y, zero z (paper)
+  await until('!m.busy() && !st.moving', 5000, 'still after the jogs');   // a zero pressed mid-move is refused (and says so)
   check(await btn('zero x y'), 'zero x y');
   await until('S.zeroXY && !m.busy()', 5000, 'X Y zeroed');
   check(await btn('zero z'), 'zero z');

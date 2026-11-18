@@ -1,7 +1,7 @@
-// Control on the direct ShopBot (fake WebUSB box), the zero swarf no longer trusts: on a computer that
-// never set one, after a box restart, and for a file zeroed at another spot, the cut card leads back to a
-// zero (jog, X Y here, Z) and then carries on to the cut. A trusted zero keeps cut one press. A pending bit
-// change makes Z required. A readout click left unchanged sets nothing.
+// Control on the direct ShopBot (fake WebUSB box): the zero never stops trace, air cut or cut (Phil 11-18:
+// "If I hit trace, let me trace. ALWAYS"). On a computer that never set one, after a box restart and with a
+// bit change pending, each press opens its own card at once; the cut card says the zero is not set, with no
+// extra tick for it. A readout click left unchanged sets nothing.
 //   node tools/shopbot/probe_zero_back.mjs [url]
 import puppeteer from 'puppeteer-core';
 import { readFileSync, mkdtempSync } from 'node:fs';
@@ -29,63 +29,39 @@ try {
   const sbp = ["'UNITS:MM", 'SA', 'C6', 'J3,0,0,5', 'M3,0,0,-1', 'M3,40,0,-1', 'M3,40,30,-1', 'J3,40,30,5', 'C7', 'END'].join('\n');
   await page.evaluate(t => window.__swarfRun.loadProgram('t.sbp', t, 'file'), sbp);
   await wait(500);
+  let c;
   const card = () => page.evaluate(() => { const c = document.querySelector('#swarf-run .sr-sheet.on .sr-card'); return c ? { h: (c.querySelector('h2') || {}).textContent || '', text: c.textContent, buttons: [...c.querySelectorAll('button')].map(b => b.textContent) } : null; });
   const press = t => page.evaluate(t => { const b = [...document.querySelectorAll('#swarf-run .sr-sheet.on button')].find(b => b.textContent === t); if (b) b.click(); return !!b; }, t);
   const idle = () => page.waitForFunction(() => !window.__swarfRun.state.machine.busy(), { timeout: 10000 }).then(() => wait(200));
   const cut = () => page.evaluate(() => document.querySelector('#swarf-run button.cut').click());
   const shut = () => page.evaluate(() => document.querySelector('#swarf-run .sr-sheet').classList.remove('on'));
 
-  // 1. a computer that never set a zero: the cut card leads back to one
-  await cut(); await wait(300);
-  let c = await card();
-  check(c && c.h === 'Zero first' && /no zero was ever set/.test(c.text), `never set: "${c && c.h}" ${c && c.text.slice(0, 90)}`);
-  check(c && c.buttons.includes('X+') && c.buttons.includes('this spot is X 0 Y 0'), 'with a jog pad and the X Y button');
-  // a dialog, on its safe button; in a 1024 x 600 window (and at 150 % zoom) its last buttons stay in view and on top
-  const dlg = await page.evaluate(() => { const c = document.querySelector('#swarf-run .sr-card'); return { role: c.getAttribute('role'), modal: c.getAttribute('aria-modal'), name: c.getAttribute('aria-labelledby').split(' ').map(id => document.getElementById(id).textContent).join(' '), focus: document.activeElement && document.activeElement.textContent }; });
-  check(dlg.role === 'dialog' && dlg.modal === 'true' && /ShopBot/.test(dlg.name) && /Zero first/.test(dlg.name) && dlg.focus === 'not yet', `zero first is a dialog named "${dlg.name}", focus on "${dlg.focus}"`);
-  // 683 x 400 is that screen at 150 %: narrower than 820 px, so the student has pressed "show the
-  // interface anyway" on the narrow-window wall
-  await page.evaluate(() => localStorage.setItem('swarf_phone_mode', 'off'));
-  for (const [W, H] of [[1024, 600], [683, 400]]) {
-    await page.setViewport({ width: W, height: H }); await wait(300);
-    const fit = await page.evaluate(() => {
-      const c = document.querySelector('#swarf-run .sr-sheet.on .sr-card'), cr = c.getBoundingClientRect();
-      return { card: [Math.round(cr.top), Math.round(cr.bottom)], buttons: [...c.querySelectorAll('.row:last-child button')].map(b => { const r = b.getBoundingClientRect(), hit = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2); return { t: b.textContent, on: hit === b || b.contains(hit), inside: r.bottom <= Math.min(cr.bottom, innerHeight) + 0.5 }; }) };
-    });
-    check(fit.card[0] >= 0 && fit.card[1] <= H && fit.buttons.length >= 2 && fit.buttons.every(b => b.on && b.inside), `zero first at ${W} x ${H}: card ${fit.card}, buttons ${JSON.stringify(fit.buttons)}`);
-  }
-  await page.setViewport({ width: 1440, height: 900 }); await wait(300);
-  await page.evaluate(() => localStorage.removeItem('swarf_phone_mode'));
-  await press('X+'); await idle();
-  check(await page.evaluate(() => Math.abs(window.__swarfRun.state.machine.state.pos.x) > 0.5), 'the pad jogs');
-  await press('this spot is X 0 Y 0'); await idle(); await wait(200);
-  c = await card();
-  check(c && /Now Z/.test(c.text) && c.buttons.includes('this is Z 0') && c.buttons.includes('z plate'), `then Z: ${c && c.buttons}`);
-  await press('Z−'); await idle();
-  await press('this is Z 0'); await idle(); await wait(300);
-  c = await card();
-  check(c && /^Cut t\.sbp/.test(c.h), `then the cut card itself: "${c && c.h}"`);
-  check(c && c.buttons.some(b => /cut/.test(b)) && !c.buttons.some(b => /anyway/.test(b)), `no "anyway": ${c && c.buttons}`);
-  await shut();
-
-  // 2. the zero trusted: cut is one press to its checklist
-  await cut(); await wait(300);
-  c = await card();
-  check(c && /^Cut t\.sbp/.test(c.h), `trusted zero: straight to "${c && c.h}"`);
-  await shut();
-
-  // 3. the box restarted: back to the way back
+  const pressRun = k => page.evaluate(k => document.querySelector(`#swarf-run button.${k}`).click(), k);
+  const opens = async (k, head, what) => {
+    await shut(); await wait(200);
+    await pressRun(k); await wait(300);
+    const c = await card();
+    check(c && head.test(c.h) && !/Zero first|Before you can/.test(c.h), `${what}: ${k} opens "${c && c.h}"`);
+    return c;
+  };
+  // 1. a computer that never set a zero: trace, air cut and cut each open their own card
+  c = await opens('trace', /^Trace/, 'never zeroed');
+  check(c && /zero\sis\sset\son\sthe\smachine/.test(c.text), 'the trace card asks to confirm the zero too');
+  await opens('air', /air/i, 'never zeroed');
+  c = await opens('cut', /^Cut t\.sbp/, 'never zeroed');
+  check(c && /not zeroed in swarf/.test(c.text) && /zero\sis\sset\son\sthe\smachine/.test(c.text), 'the cut card says the zero is not set, and asks the student to confirm it');
+  const waits = await page.evaluate(() => ['trace', 'air', 'cut'].map(k => document.querySelector(`#swarf-run button.${k}`).classList.contains('wait')));
+  check(waits.every(w => !w), `no run button waits on the zero (${waits})`);
+  // 2. the box restarted
   await page.evaluate(() => { const S = window.__swarfRun.state; S.zeroLost = true; S.zeroXY = S.zeroZ = false; S.zx = S.zy = false; });
-  await cut(); await wait(300);
-  c = await card();
-  check(c && c.h === 'Zero first' && /restarted/.test(c.text), `after a restart: ${c && c.text.slice(0, 80)}`);
-  await press('not yet'); await wait(200);
-
-  // 4. a pending bit change: Z is required, so cut waits and names it
+  await opens('trace', /^Trace/, 'after a restart');
+  await opens('cut', /^Cut t\.sbp/, 'after a restart');
+  await shut();
+  // 4. a pending bit change: cut does not wait for Z
   await page.evaluate(() => { const S = window.__swarfRun.state; S.zeroLost = false; S.zeroXY = S.zx = S.zy = true; S.zeroZ = false; S.toolChange = 'Tool change at line 5.'; S.zStale = true; window.__swarfRun.tell('x'); });
   await wait(5400);   // the told line steps aside and control refreshes
   const wt = await page.evaluate(() => { const b = document.querySelector('#swarf-run button.cut'); return { wait: b.classList.contains('wait'), why: b.dataset.why }; });
-  check(wt.wait && /zero z/i.test(wt.why), `bit change: cut waits for Z (${wt.why})`);
+  check(!wt.wait, `bit change: cut does not wait for Z (${wt.why || 'no wait'})`);
 
   // 5. a readout opened and left unchanged sets nothing
   const z0 = await page.evaluate(() => window.__swarfRun.state.zeroZ);
