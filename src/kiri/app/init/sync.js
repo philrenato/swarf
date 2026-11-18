@@ -1196,8 +1196,8 @@ function setup_keybd_nav() {
                         }
                         if (outer && a.outerTabs === 0) warnings.push({
                             title: `${name} is cut free with no tabs`,
-                            body: `the ${outl.some(o => o.type === 'outline') ? 'outline' : 'rough'} cuts all the way down around it, so on the last pass the part comes loose. The spinning bit can grab it and throw it.`,
-                            hint: 'tabs › auto tabs holds it to the board, or screw it down where the bit does not go',
+                            body: `the ${outl.some(o => o.type === 'outline') ? 'outline' : 'rough'} cuts all the way around it: on the last pass it comes loose and the bit can throw it.`,
+                            hint: 'tabs › auto tabs holds it, or screw it down clear of the bit',
                             fix: 'tabs', arg: [w.id] });
                         const loose = holes ? a.loose.filter(h => h.tabs === 0) : [];
                         if (loose.length) {

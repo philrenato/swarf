@@ -61,7 +61,7 @@ try {
   await page.click('#swarf-run .sr-actions .cut'); await wait(300);
   let t = await sheet();
   // 120 (Phil 11-16): no zero and no trace no longer hold a cut back: its card says so and asks for a tick each
-  check(/not zeroed in swarf/.test(t) && /No trace this time/.test(t) && /cut anyway/.test(t), `a cut with no zero and no trace: its card says both, "cut anyway" ("${t.slice(0, 90)}…")`);
+  check(/not zeroed in swarf/.test(t) && /No trace this time/.test(t) && /cut without a trace/.test(t), `a cut with no zero and no trace: its card says both, "cut without a trace" ("${t.slice(0, 90)}…")`);
   await shut();
   const press = txt => page.evaluate(txt => [...document.querySelectorAll('#swarf-run button')].find(b => b.textContent.trim() === txt && b.offsetParent).click(), txt);
   // the plate card shows the plate model, posed for the circuit check

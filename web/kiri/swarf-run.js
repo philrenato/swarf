@@ -75,15 +75,15 @@
     const at = k => line ? ev.filter(e => e.kind === k && e.line < line && (k !== 'rpm' || e.value >= 0)).pop() : null;
     const bit = bitNamed(line), rpm = at('rpm') ? at('rpm').value : t.rpm[0];
     return [
-      'your board lies flat, screwed or clamped down, and the bit clears every screw and clamp',
+      'your board is flat and held down; the bit clears every screw and clamp',
       inchItem(),
       bit ? `the bit in the ${spindleWord()} is the ${bit} this file ${line ? `uses at line ${line}` : 'was made for'}` : `the bit in the ${spindleWord()} is the one this file was made for`,
-      rpm === 0 && isMR1() ? 'the spindle speed at this line is 0 (S0): it does not turn' : rpm ? (isMR1() ? `the spindle will run at ${rpm.toLocaleString()} rpm: swarf sets it from the file` : `the router is set to ${dialFor(rpm)}: swarf only switches it on and off`) : null,
+      rpm === 0 && isMR1() ? 'the spindle speed at this line is 0 (S0): it does not turn' : rpm ? (isMR1() ? `the spindle will run at ${rpm.toLocaleString()} rpm: swarf sets it from the file` : `the router dial is on ${dialFor(rpm)}: swarf only turns it on and off`) : null,
       S.plateUsed ? 'the Z plate and its clip are put away' : null,
       /^the /.test(o.z) ? `Z zero is on ${o.z}` : `Z zero is ${o.z}`,
       isMR1() ? 'safety glasses on' : 'safety glasses on, dust collection on',
       'the laptop is plugged in and stays open',
-      'I will stay at the machine until it finishes'
+      'I stay at the machine until it ends'
     ].filter(Boolean);
   }
 
@@ -502,7 +502,7 @@ body.swarf-run-open { filter: none !important; }
 #swarf-run .sr-board-size input { width: 76px; text-align: right; }
 #swarf-run .sr-board-size small { font-size: 11px; color: var(--c-dim, #8a857c); }
 #swarf-run .sr-board-size > span { padding-top: 6px; color: var(--c-dim, #8a857c); }
-#swarf-run .sr-plate-view { position: relative; width: 100%; aspect-ratio: 460 / 200; margin: 0 0 8px; }
+#swarf-run .sr-plate-view { position: relative; width: min(100%, 52vh); aspect-ratio: 460 / 200; margin: 0 auto 8px; }
 #swarf-run .sr-plate-view canvas { width: 100%; height: 100%; display: block; }
 #swarf-run .sr-plate-view span { position: absolute; transform: translate(-50%, -130%); font-size: 11px; white-space: nowrap; pointer-events: none;
   color: var(--c-text, #d8d2c6); background: var(--swarf-bg-2, rgba(19,16,15,.8)); padding: 1px 6px; border-radius: 6px; }
@@ -1332,7 +1332,7 @@ html[data-skin] #swarf-run .sr-jog .sr-zrow button.next, html[data-skin] #swarf-
         if (w.track.synth || w.meta.disabled) continue;
         const name = a.platform.part_name ? a.platform.part_name(w) : (w.meta && w.meta.file || 'a part').replace(/\.[^.]+$/, '');
         const r = audit(w);
-        if (outer && r.outerTabs === 0) out.push(`${name} is cut free with no tabs: it comes loose on the last pass and the bit can throw it. Add tabs in cam (tabs › auto tabs), or screw it down where the bit does not go.`);
+        if (outer && r.outerTabs === 0) out.push(`${name} is cut free with no tabs: the bit can throw it on the last pass. Add tabs in cam (tabs › auto tabs) or screw it down clear of the bit.`);
         const loose = holes ? r.loose.filter(h => h.tabs === 0).length : 0;
         if (loose) out.push(`${loose} piece${loose === 1 ? '' : 's'} inside ${name} ${loose === 1 ? 'is' : 'are'} cut free with no tab and can fly. Add tabs in cam, or screw ${loose === 1 ? 'it' : 'each one'} to the spoilboard where the bit does not go. Never reach in while the router turns.`);
       }
@@ -1459,7 +1459,7 @@ html[data-skin] #swarf-run .sr-jog .sr-zrow button.next, html[data-skin] #swarf-
     el.facts.title = 'Where the bit\'s center goes: half a bit outside an outline';
     const pr = problems();
     if (!pr.block.length) add(`${p.unitsGuessed ? '? units not named, read as millimeters' : p.units === 'in' ? '✓ inches, turned into millimeters' : '✓ millimeters'} · ✓ small enough for the machine · ✓ ${p.moves.length} moves read`, 'ok');
-    if (b && S.prog.source === 'cam') add('the size above is the bit\'s path: an outline runs half a bit outside the part, so the part itself is smaller. Leave the part as it is.');
+    if (b && S.prog.source === 'cam') add('the size above is the bit\'s path: an outline runs half a bit outside the part, so leave the part as it is.');
     // where it lands is a second check, and it needs the table's corner and an X Y zero (review 11-13 #1)
     if (b && !pr.block.some(x => /runs off the table|bigger than the table/.test(x))) {
       const known = !!(S.machine && S.machine.mabs && corner());
@@ -1699,17 +1699,17 @@ html[data-skin] #swarf-run .sr-jog .sr-zrow button.next, html[data-skin] #swarf-
         if (S.zeroLost) return say('The box lost its position while it was unplugged. Zero X Y and Z again before you go on.', 'warn');
         // the step names follow the units: the jog's steps are 0.01 / 0.1 / 1 / 2 in, or 0.1 / 1 / 10 mm
         const [stepNear, stepFine] = inch() ? ['0.1', '0.01'] : ['1', '0.1'];
-        if (!S.zeroXY) return say(`Jog the bit over ${o.xy}, then press zero x y. Hold an arrow to get close, then pick a step of ${stepNear} for the last of it.`);
-        if (/top/.test(o.z) && isGrbl()) return say(`Now Z, on ${o.z}: lower the bit with step ${stepNear}, then ${stepFine}, onto a sheet of paper until it just drags. Then press zero z.`);
-        if (/top/.test(o.z)) return say(`Now Z, on ${o.z}: press z plate and the bit finds the board itself with the touch plate. Or lower it with step ${stepFine} onto a sheet of paper until it just drags, then press zero z.`);
-        return say(`Lower the bit to ${o.z}: step 1 to get close, then 0.1, with a sheet of paper under the bit until it just drags. Then press zero z.`);
-      case 'trace': return say(`Press trace. The bit runs the rectangle your cut fills, ${up()} up, ${spindleWord()} off. Check it clears every screw and clamp and stays over your board.`);
+        if (!S.zeroXY) return say(`Jog the bit over ${o.xy}, then press zero x y. Hold an arrow to get close, then use step ${stepNear}.`);
+        if (/top/.test(o.z) && isGrbl()) return say(`Now Z, on ${o.z}: lower the bit (step ${stepNear}, then ${stepFine}) onto paper until it just drags, then press zero z.`);
+        if (/top/.test(o.z)) return say(`Now Z, on ${o.z}: press z plate. Or lower the bit (step ${stepFine}) onto paper until it just drags, then press zero z.`);
+        return say(`Lower the bit to ${o.z} (step 1, then 0.1) onto paper until it just drags, then press zero z.`);
+      case 'trace': return say(`Press trace: the bit runs around your cut, ${up()} up, ${spindleWord()} off. Watch it clear every screw and clamp.`);
       case 'cut':
         if (S.lostAt) return say(`The USB link dropped at line ${S.lostAt}. If the machine is still moving or the router still turns, press the floor e-stop. Plug in, press connect, then continue from line ${S.lostAt}.`, 'bad');
         if (S.stoppedAt && st && st.resumeLine === S.stoppedAt) return say(`${st.note[0].toUpperCase()}${st.note.slice(1)}. The router is off and the bit is up.`, 'warn');
         if (S.stoppedAt) return say(`Stopped at line ${S.stoppedAt}. To finish, press continue from line ${S.stoppedAt}; to start over, press cut.`, 'warn');
         if ((S.lastDone === 'cut' || S.lastDone === 'from') && st && st.coasting) return say((window.SwarfSafetyWords || {}).coasting || 'Finished. Keep your hands clear until the bit has stopped turning.', 'warn');
-        return say(S.lastDone === 'cut' || S.lastDone === 'from' ? ((window.SwarfSafetyWords || {}).finished || 'Finished. Wait until the bit has stopped turning.') : 'Ready. Press cut. You will confirm a short checklist first.');
+        return say(S.lastDone === 'cut' || S.lastDone === 'from' ? ((window.SwarfSafetyWords || {}).finished || 'Finished. Wait until the bit has stopped turning.') : 'Ready. Press cut; a short checklist comes first.');
     }
   }
 
@@ -1770,8 +1770,8 @@ html[data-skin] #swarf-run .sr-jog .sr-zrow button.next, html[data-skin] #swarf-
     const proved = sim || !!(m.plateCfg && m.plateCfg.confirmed);
     let zeroed = false;
     const checks = [
-      ['over', `The bit is over your board, less than ${len((m.plateCfg && m.plateCfg.travel) || 60, 0)} above the plate (its search distance).`],
-      ['clip', 'The ground clip is on the black Allen screw in the side of the router\'s housing, its wire clear of the bit.'],
+      ['over', `The bit is over your board, less than ${len((m.plateCfg && m.plateCfg.travel) || 60, 0)} above the plate.`],
+      ['clip', 'The ground clip is on the black Allen screw on the router\'s side, its wire clear of the bit.'],
       ['under', 'The plate lies flat on the board, right under the bit. Hands clear.']
     ];
     const boxes = {};
@@ -1862,8 +1862,8 @@ html[data-skin] #swarf-run .sr-jog .sr-zrow button.next, html[data-skin] #swarf-
       el.sheet.classList.add('on'); show(); refresh();
     };
     body.append(h('h2', { text: 'Zero Z with the plate' }),
-      h('div', { class: 'sr-plate-t' }, h('span', { text: 'plate thickness' }), thick, h('span', { text: `${inch() ? 'in' : 'mm'}: measure your plate with calipers` })),
-      h('div', { class: 'sr-plate-t' }, h('span', { text: 'search down' }), reach, h('span', { text: `${inch() ? 'in' : 'mm'}: how far the bit comes down looking for the plate` })));
+      h('div', { class: 'sr-plate-t' }, h('span', { text: 'plate thickness' }), thick, h('span', { text: `${inch() ? 'in' : 'mm'}, from calipers` })),
+      h('div', { class: 'sr-plate-t' }, h('span', { text: 'search down' }), reach, h('span', { text: `${inch() ? 'in' : 'mm'}: how far down it looks` })));
     for (const [k, t] of checks) {
       boxes[k] = h('input', { type: 'checkbox' });
       boxes[k].addEventListener('change', show);
@@ -2276,7 +2276,7 @@ html[data-skin] #swarf-run .sr-jog .sr-zrow button.next, html[data-skin] #swarf-
   function testChecklist() {
     const o = originText();
     return [
-      'your board lies flat, screwed or clamped down, and the bit clears every screw and clamp',
+      'your board is flat and held down; the bit clears every screw and clamp',
       inchItem(),
       /^the /.test(o.z) ? `Z zero is on ${o.z}` : `Z zero is ${o.z}`,
       isMR1() ? 'hands clear of the gantry, a hand near the MR-1\'s e-stop' : 'hands clear of the gantry, a foot near the floor e-stop'
@@ -2299,17 +2299,17 @@ html[data-skin] #swarf-run .sr-jog .sr-zrow button.next, html[data-skin] #swarf-
     const unzeroed = (!S.zeroXY || !S.zeroZ) ? [!S.zeroXY ? 'X Y' : '', !S.zeroZ ? 'Z' : ''].filter(Boolean).join(' and ') : '';
     const items = (test ? testChecklist() : checklist(from ? line : 0)).concat(
       unzeroed ? [`My ${unzeroed} zero is set on the machine`] : [],
-      untraced ? ['no trace this time: I checked myself that the bit clears every clamp and the zero is right'] : []);
+      untraced ? ['no trace: I checked the bit clears every clamp and the zero is right'] : []);
     const checks = items.map(t => h('input', { type: 'checkbox' }));
     const b = P.cutBounds(S.prog.parsed);
     const size = b ? lens([b.max.x - b.min.x, b.max.y - b.min.y], 0) : '';
     const tool = spindleWord();
     const plan = makePlan(from ? 'from' : test ? kind : 'cut', line);
     const words = {
-      trace: { h: 'Trace the border', go: 'trace', p: `The machine is about to move: up to ${up(1)} over Z 0, then around the ${size} box the cut fills, ${tool} off. Watch that it stays over your board and clears every screw and clamp; clamps inside the cut are not checked. Check each one:` },
-      air: { h: `Run ${S.prog.name} as an air cut`, go: 'air cut', p: `The machine is about to move. The whole file runs ${prose(AIR_CLEAR)} above its highest point, ${tool} off, at three quarters of the cutting speed${isDirect() ? ' (a slider changes it as it runs)' : ''}, about ${mins(S.prog.parsed.seconds / ((plan && plan.rate) || 0.75))}. It is not a clamp check: watch the path before you cut. Check each one:` },
-      from: { h: `Continue from line ${line}`, go: `continue from line ${line}`, p: `The machine is about to move and the ${tool} to start. The bit goes up to ${up(1)}, over to where that line starts, starts the ${tool}, then cuts the rest of the file. Check each one:` },
-      cut: { h: `Cut ${S.prog.name}`, go: 'cut', p: `The machine is about to move and the ${tool} to start. Check each one:` }
+      trace: { h: 'Trace the border', go: 'trace', p: `The machine is about to move: up to ${up(1)} over Z 0, then around the ${size} box the cut fills, ${tool} off. Watch it stay over your board and clear every screw and clamp (clamps inside the cut are not checked).` },
+      air: { h: `Run ${S.prog.name} as an air cut`, go: 'air cut', p: `The machine is about to move: the whole file ${prose(AIR_CLEAR)} above its highest point, ${tool} off, at 3/4 cutting speed${isDirect() ? ' (a slider changes it)' : ''}, about ${mins(S.prog.parsed.seconds / ((plan && plan.rate) || 0.75))}. It is not a clamp check: watch the path.` },
+      from: { h: `Continue from line ${line}`, go: `continue from line ${line}`, p: `The machine is about to move and the ${tool} to start: up to ${up(1)}, over to where that line starts, ${tool} on, then the rest of the file.` },
+      cut: { h: `Cut ${S.prog.name}`, go: 'cut', p: `The machine is about to move and the ${tool} to start.` }
     }[from ? 'from' : test ? kind : 'cut'];
     const go = h('button', { class: 'go', text: untraced ? `${words.go} without a trace` : words.go, disabled: '' });
     const bad = !plan ? 'There is nothing to run there.' : plan.problems.length ? `It can't run: ${plan.problems[0]}.` : '';
@@ -2327,8 +2327,8 @@ html[data-skin] #swarf-run .sr-jog .sr-zrow button.next, html[data-skin] #swarf-
     el.card.append(h('h2', { text: words.h }), h('p', { class: 'sr-sum', text: sum }),
       ...(bad ? [h('p', { class: 'sr-way bad', text: bad })] : []),
       ...(unzeroed ? [h('p', { class: 'sr-way bad', text: `${unzeroed} not zeroed in swarf: it runs from the machine's zero.` })] : []),
-      ...(untraced ? [h('p', { class: 'sr-way bad', text: 'No trace this time: clamps inside the cut and the zero are unproven. Trace first if you are not sure.' })] : []),
-      ...(open ? [h('p', { class: 'sr-way', text: `${open === 1 ? 'One concern' : `${open} concerns`} still open, listed under the file.` })] : []),
+      ...(untraced ? [h('p', { class: 'sr-way bad', text: 'No trace this time: clamps and zero unchecked. Trace first if unsure.' })] : []),
+      ...(open ? [h('p', { class: 'sr-way', text: `${open === 1 ? 'One concern' : `${open} concerns`} still open.` })] : []),
       h('p', { text: words.p }),
       ...(way ? [h('p', { class: 'sr-way', text: `First: ${way}.` })] : []),
       ...items.map((t, i) => h('label', {}, checks[i], h('span', { text: t }))),
