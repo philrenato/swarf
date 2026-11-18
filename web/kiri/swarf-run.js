@@ -245,7 +245,9 @@
 .sr-sheet.on { display: grid; }
 .sr-card { width: min(520px, 92vw); background: var(--swarf-bg-2, #13100f); border: 1px solid var(--swarf-accent, #d02020); border-radius: 14px; padding: 18px 20px; box-sizing: border-box; max-height: calc(100% - 24px); overflow-y: auto; overscroll-behavior: contain; scroll-padding-bottom: 60px; }
 /* a card taller than the window scrolls; its last row of buttons stays in view at the bottom */
-.sr-card > .row:last-child { position: sticky; bottom: 0; z-index: 1; margin: 10px -20px -18px; padding: 8px 20px 10px; background: var(--swarf-bg-2, #13100f); }
+/* sticky insets count from inside the card's padding: a card ending in its button row drops its bottom padding, so the row sits on the card's edge with nothing showing under it */
+.sr-card:has(> .row:last-child) { padding-bottom: 0; }
+.sr-card > .row:last-child { position: sticky; bottom: 0; z-index: 1; margin: 10px -20px 0; padding: 8px 20px 12px; background: var(--swarf-bg-2, #13100f); }
 .sr-card .sr-mach { font-size: 12px; margin: 0 0 2px; color: var(--swarf-text-2, #8a857c); }
 .sr-card:focus { outline: none; }
 .sr-card h2 { margin: 0 0 6px; font-size: 18px; }
