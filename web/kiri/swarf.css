@@ -482,7 +482,7 @@ input[type="range"] { accent-color: var(--swarf-accent-hi); }
    via a body-level class toggled by the click handler in sync.js. */
 body.swarf-menu-open #panel-right,
 body.swarf-menu-open #swarf-right-rail { z-index: -1 !important; pointer-events: none; }
-body.swarf-menu-open #swarf-concerns, body.swarf-menu-open #swarf-start { z-index: -1 !important; pointer-events: none; }
+body.swarf-menu-open #swarf-concerns, body.swarf-menu-open #swarf-start, body.swarf-menu-open #swarf-size, body.swarf-menu-open #install-swarf, body.swarf-menu-open #ver { z-index: -1 !important; pointer-events: none; }
 
 /* Workflow step buttons (top toolbar) */
 .swarf-step {
@@ -2733,7 +2733,7 @@ body:has(#swarf-help-float:not([hidden])) #swarf-concerns { z-index: 80 !importa
 .swarf-concern-fix { display: inline-block; margin-right: 6px; vertical-align: top; }
 .swarf-concern-fix + .swarf-concern-help { margin-top: 5px; }
 /* a short window: a menu, the right-click menu and a dialog never run past its foot; they scroll */
-#menubar .top-menu-drop { max-height: calc(100vh - 48px); overflow-y: auto; }
+#menubar .top-menu-drop .content { max-height: calc(100vh - 60px); overflow-y: auto; overflow-x: hidden; }
 .swarf-ctx { max-height: calc(100vh - 16px); overflow-y: auto; }
 #dialog { max-height: calc(100vh - 116px); overflow-y: auto; }
 @media (max-height: 560px) { #dialog { top: 8px !important; max-height: calc(100vh - 16px); } }
