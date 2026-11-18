@@ -3,16 +3,21 @@
 //   - a 120 x 80 x 20 box with swarf in inches: read as mm (as inches it would be 3 m across)
 //   - a 2 x 3 x 0.75 box with swarf in mm: read as inches (as mm it is under 1 mm thick)
 //   - the card switches the reading (x 25.4), undo puts it back
-//   - when both readings fit the card says it is a guess; several files: each its own size and switch
+//   - when both readings fit the card says it is a guess and asks: done is off and Esc, the close box
+//     and another modal leave the card up until a reading is pressed (the shown one counts)
+//   - a sure file asks nothing; a mixed drop asks only for its unsure files; undo still steps back
+//   - several files: each its own size and switch
+//   SHOTS=dir saves the asking card before and after the pick
 //   - a file name with < > " ' & is text on the card and in objects, through the real file input too
 //   node tools/probe_stl_units.mjs [url]
 import puppeteer from 'puppeteer-core';
-import { mkdtempSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, writeFileSync, mkdirSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { CHROME } from './chrome-path.mjs';
 const PAGE = process.argv[2] || 'http://localhost:8080/kiri/';
 const wait = ms => new Promise(r => setTimeout(r, ms));
+const SHOTS = process.env.SHOTS || '';
 const errors = [], bad = [];
 const check = (ok, what) => { console.log(ok ? 'ok  ' : 'FAIL', what); if (!ok) bad.push(what); };
 const box = (x, y, z) => {
@@ -35,12 +40,17 @@ try {
   const size = () => page.evaluate(() => { const w = window.kiri.api.widgets.all()[0]; const s = w.getBoundingBox().getSize(new window.THREE.Vector3()); return [s.x, s.y, s.z].map(v => +v.toFixed(2)); });
   const card = () => page.evaluate(() => { const c = document.querySelector('.swarf-stl-units'); return c && c.offsetParent ? c.innerText : ''; });
   const closeCard = () => page.evaluate(() => [...document.querySelectorAll('.swarf-stl-units button')].find(b => b.textContent === 'done')?.click()).then(() => wait(400));
+  const doneOff = () => page.evaluate(() => [...document.querySelectorAll('.swarf-stl-units button')].find(b => b.textContent === 'done')?.disabled);
+  const up = () => page.evaluate(() => { const c = document.querySelector('.swarf-stl-units'); return !!(c && c.offsetParent) && window.kiri.api.modal.visible(); });
+  const asks = () => page.evaluate(() => [...document.querySelectorAll('.swarf-stl-units .swarf-stl-file')].map(f => f.classList.contains('swarf-stl-ask')));
+  const shot = async name => { if (!SHOTS) return; mkdirSync(SHOTS, { recursive: true }); const el = await page.$('.swarf-stl-units'); await (el || page).screenshot({ path: join(SHOTS, name) }); };
 
   await units('in');
   await load(box(120, 80, 20), 'frame.stl');
   check(JSON.stringify(await size()) === '[120,80,20]', `inches set, a 120 x 80 x 20 box comes in as mm (${await size()})`);
   const c1 = await card();
   check(/which units/.test(c1) && /came in as millimeters/.test(c1), `the card says it came in as millimeters ("${c1.replace(/\s+/g, ' ').slice(0, 120)}")`);
+  check((await doneOff()) === false && JSON.stringify(await asks()) === '[false]', 'a sure file asks nothing: done is on');
   // switch to inches and back by undo
   await page.evaluate(() => document.querySelector('.swarf-stl-units input[value="in"]').click());
   await wait(800);
@@ -56,12 +66,57 @@ try {
   check(/came in as inches/.test(await card()), 'the card says it came in as inches');
   await closeCard();
 
-  // both fit: a guess, said so
+  // both fit: a guess, said so, and asked
   await load(box(6, 4, 1), 'both.stl');
   check(/a guess/.test(await card()) && /units switch/.test(await card()), `both fit: the card says it is a guess ("${(await card()).replace(/\s+/g, ' ').slice(0, 160)}")`);
+  check(/which units\?/.test(await card()) && /pick one/.test(await card()), 'both fit: the card asks which units');
+  check((await doneOff()) === true && JSON.stringify(await asks()) === '[true]', 'unsure: done is off until a pick');
+  check(JSON.stringify(await size()) === '[6,4,1]', `unsure: the part is in at the switch's reading meanwhile (${await size()})`);
+  await shot('stl-unsure-before.png');
+  await page.keyboard.press('Escape');
+  await wait(500);
+  check(await up(), 'unsure: Esc leaves the card up');
+  await page.evaluate(() => document.getElementById('mod-x')?.click());
+  await wait(500);
+  check(await up(), 'unsure: the close box leaves the card up');
+  await page.evaluate(() => window.kiri.api.modal.hide());
+  await wait(500);
+  check(await up(), 'unsure: a hide from code leaves the card up');
+  await page.evaluate(() => window.kiri.api.modal.show('prefs'));
+  await wait(500);
+  check(await up() && await page.evaluate(() => !window.kiri.api.modal.is('prefs')), 'unsure: another modal does not replace the card');
   await closeCard();
+  check(await up(), 'unsure: done pressed while off does nothing');
+  // the reading shown counts once pressed (a real click on its label)
+  { const lab = await page.$('.swarf-stl-units input[value="mm"]'); const bb = await lab.boundingBox(); await page.mouse.click(bb.x + bb.width / 2, bb.y + bb.height / 2); }
+  await wait(500);
+  check((await doneOff()) === false && JSON.stringify(await asks()) === '[false]', 'the shown reading pressed: picked, done on');
+  check(JSON.stringify(await size()) === '[6,4,1]', `picking the shown reading keeps the size (${await size()})`);
+  await shot('stl-unsure-after.png');
+  await closeCard();
+  check(!(await up()), 'picked: done closes the card');
+
+  // unsure, the other reading picked: scaled, done on, and undo steps back after the card
+  await load(box(6, 4, 1), 'both2.stl');
+  check((await doneOff()) === true, 'unsure again: done off');
+  await page.evaluate(() => document.querySelector('.swarf-stl-units input[value="in"]').click());
+  await wait(800);
+  check((await doneOff()) === false && JSON.stringify(await size()) === '[152.4,101.6,25.4]', `inches picked: x 25.4, done on (${await size()})`);
+  await closeCard();
+  check(!(await up()), 'inches picked: done closes the card');
+  await page.evaluate(() => window.kiri.api.doit.undo());
+  await wait(800);
+  check(JSON.stringify(await size()) === '[6,4,1]', `undo after the pick: back to mm (${await size()})`);
+  // with the card gone, Esc and other modals work again
+  await page.evaluate(() => window.kiri.api.modal.show('prefs'));
+  await wait(500);
+  const prefsUp = await page.evaluate(() => window.kiri.api.modal.is('prefs'));
+  await page.keyboard.press('Escape');
+  await wait(500);
+  check(prefsUp && !(await page.evaluate(() => window.kiri.api.modal.visible())), 'after the pick the hold is gone: another modal shows and Esc closes it');
   await load(box(300, 200, 19), 'sure.stl');
   check(!/a guess/.test(await card()) && /only reading/.test(await card()), 'only mm fits: not a guess');
+  check((await doneOff()) === false && !/pick/.test(await card()), 'only mm fits: nothing asked, done on');
   await closeCard();
 
   // two files: each its size, each its own switch
@@ -70,6 +125,12 @@ try {
   const per = await page.evaluate(() => [...document.querySelectorAll('.swarf-stl-units .swarf-stl-file')].map(f => ({ name: f.querySelector('h4')?.textContent, text: f.innerText })));
   check(per.length === 2 && per[0].name === 'big.stl' && per[1].name === 'small.stl', `one block per file (${JSON.stringify(per.map(p => p.name))})`);
   check(per.length === 2 && /millimeters: 300 mm × 200 mm/.test(per[0].text) && /millimeters: 6 mm × 4 mm/.test(per[1].text), `each block says its own size (${per.map(p => p.text.replace(/\s+/g, ' ')).join(' | ')})`);
+  check(JSON.stringify(await asks()) === '[false,true]' && (await doneOff()) === true, `mixed drop: only the unsure file asks, done off (${JSON.stringify(await asks())})`);
+  check(!/pick one/.test(per[0].text) && /\? pick one/.test(per[1].text), 'mixed drop: the unsure block is marked "? pick one", the sure one is not');
+  await shot('stl-mixed-before.png');
+  await page.keyboard.press('Escape');
+  await wait(500);
+  check(await up(), 'mixed drop: Esc leaves the card up');
   const sizesAll = () => page.evaluate(() => window.kiri.api.widgets.all().map(w => { const s = w.getBoundingBox().getSize(new window.THREE.Vector3()); return +s.x.toFixed(2); }).sort((a, b) => a - b));
   const before2 = await sizesAll();
   // a real click on the second file's inches
@@ -78,6 +139,8 @@ try {
   await wait(800);
   const after2 = await sizesAll();
   check(JSON.stringify(before2) === '[6,300]' && JSON.stringify(after2) === '[152.4,300]', `only the second file switched (${before2} → ${after2})`);
+  check((await doneOff()) === false && JSON.stringify(await asks()) === '[false,false]', 'mixed drop: the unsure file picked, done on');
+  await shot('stl-mixed-after.png');
   await closeCard();
 
   // names with markup: text on the card and in objects, from the real file input
