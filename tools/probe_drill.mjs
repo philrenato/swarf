@@ -61,6 +61,8 @@ try {
   // "add a step" stays in sight under the list, not cut off by the panel
   const inSight = () => page.evaluate(() => [...document.querySelectorAll('#op-add-list > div')].filter(d => d.offsetParent).map(d => { const r = d.getBoundingClientRect(), hit = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2); return [d.textContent.trim(), hit === d]; }));
   const openRows = () => page.evaluate(() => [...document.querySelectorAll('#oplist .draggable.has-params')].map((r, i) => r.classList.contains('swarf-params-open') ? i : -1).filter(i => i >= 0));
+  // the open step's chevron is not covered or scrolled away, so the step being edited is in view too
+  const openSeen = () => page.evaluate(() => { const c = document.querySelector('#oplist .swarf-params-open .swarf-op-chevron'); if (!c) return false; const r = c.getBoundingClientRect(), hit = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2); return !!hit && c.contains(hit); });
   const chevron = i => page.evaluate(i => document.querySelectorAll('#oplist .draggable.has-params .swarf-op-chevron')[i].click(), i).then(() => wait(400));
   await part(board(120, 80, [[30, 40, 6]]), 'board', 19);
   for (const t of ['pocket', 'drill', 'outline']) await add(t);
@@ -70,10 +72,12 @@ try {
   check((await openRows()).join() === '1', `opening the second folds the first (${await openRows()})`);
   let sight = await inSight();
   check(sight.length === 5 && sight.every(s => s[1]), `all five steps in sight with the second step open (${JSON.stringify(sight)})`);
+  check(await openSeen(), 'the open second step is in view as well');
   await page.evaluate(() => { for (const c of document.querySelectorAll('#oplist .swarf-op-chevron')) c.click(); }); await wait(500);
   check((await openRows()).join() === '2', `opening each in turn leaves only the last open (${await openRows()})`);
   sight = await inSight();
   check(sight.length === 5 && sight.every(s => s[1]), `all five steps in sight with the third step open (${JSON.stringify(sight)})`);
+  check(await openSeen(), 'the open third step is in view as well');
   await chevron(0);
   check((await openRows()).join() === '0', `one click reopens the first (${await openRows()})`);
   await page.evaluate(() => window.kiri.api.event.emit('cam.op.render')); await wait(500);

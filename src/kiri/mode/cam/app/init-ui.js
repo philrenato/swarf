@@ -379,6 +379,15 @@ export function opRender() {
             if (o !== el) o.classList.remove('swarf-params-open');
         }
         el.classList.add('swarf-params-open');
+        // the open step's fields can still push "add a step" below the panel's scrolled bottom:
+        // scroll the panel that holds both down by that much, but never past the open step's own top
+        const add = $('op-add-list');
+        let pane = add && add.parentElement;
+        while (pane && !(/(auto|scroll)/.test(getComputedStyle(pane).overflowY) && pane.scrollHeight > pane.clientHeight)) pane = pane.parentElement;
+        if (!pane || !add) return;
+        const p = pane.getBoundingClientRect(), below = add.getBoundingClientRect().bottom - p.bottom;
+        const room = el.getBoundingClientRect().top - p.top;
+        if (below > 0 && room > 0) pane.scrollTop += Math.min(below, room);
     }
     let mark = Date.now();
     let html = [];
