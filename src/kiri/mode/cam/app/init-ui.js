@@ -364,8 +364,22 @@ export function opRender() {
         return;
     }
     oplist = oplist.filter(rec => !Array.isArray(rec));
-    // swarf: a re-render (material re-derive, op edit) keeps open drawers open
-    const wasOpen = new Set([...document.querySelectorAll('.swarf-params-open')].map(el => el.rec));
+    // swarf: a re-render (material re-derive, op edit) keeps the open step open. One step is open at
+    // a time, so the steps above "add a step" never push it out of the panel; if more than one is
+    // found open, the last one stays open
+    const wasOpen = [...document.querySelectorAll('#oplist .swarf-params-open')].map(el => el.rec).pop();
+    // opening a step folds whichever other step was open; clicking the open one folds it
+    function openOnly(el) {
+        if (!el) return;
+        if (el.classList.contains('swarf-params-open')) {
+            el.classList.remove('swarf-params-open');
+            return;
+        }
+        for (const o of document.querySelectorAll('#oplist .swarf-params-open')) {
+            if (o !== el) o.classList.remove('swarf-params-open');
+        }
+        el.classList.add('swarf-params-open');
+    }
     let mark = Date.now();
     let html = [];
     let bind = {};
@@ -646,7 +660,7 @@ export function opRender() {
                 chevEl.addEventListener('click', ev => {
                     ev.stopPropagation();
                     ev.preventDefault();
-                    $(id).classList.toggle('swarf-params-open');
+                    openOnly($(id));
                 });
                 // swarf r5: also toggle from clicking the op label itself so
                 // Phil doesn't have to aim at a small chevron.
@@ -655,7 +669,7 @@ export function opRender() {
                     labelEl.addEventListener('click', ev => {
                         ev.stopPropagation();
                         ev.preventDefault();
-                        $(id).classList.toggle('swarf-params-open');
+                        openOnly($(id));
                     });
                 }
             }
@@ -663,7 +677,7 @@ export function opRender() {
             indexing = false;
         }
         let el = $(id);
-        if (wasOpen.has(rec)) el.classList.add('swarf-params-open');
+        if (wasOpen === rec) el.classList.add('swarf-params-open');
         if (!env.isIndexed && type === 'lathe') {
             rec.disabled = true;
         }
