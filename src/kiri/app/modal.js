@@ -10,6 +10,7 @@ class ModalControl {
     #onShow;
     #onHide;
     #showing;
+    #held;
     #initialized = false;
 
     /**
@@ -51,6 +52,29 @@ class ModalControl {
     }
 
     /**
+     * Keep the showing modal up until it is answered: while keep() returns true, hide() and
+     * show() of another modal are refused and refused() is called (to point at what is owed).
+     * hold() with no arguments lets go.
+     * @param {Function} [keep] - true while the modal must stay
+     * @param {Function} [refused] - called on each refused hide or show
+     */
+    hold(keep, refused) {
+        modal.#held = keep ? { keep, refused } : undefined;
+    }
+
+    /**
+     * True when a hold refuses this hide or show (and tells the holder)
+     * @returns {boolean}
+     */
+    #holding() {
+        const h = modal.#held;
+        if (!h) return false;
+        if (!modal.visible() || !h.keep()) { modal.#held = undefined; return false; }
+        try { h.refused?.(); } catch (e) { /* the refusal stands */ }
+        return true;
+    }
+
+    /**
      * Show a specific modal with animation
      * @param {string} which - Name of the modal to show
      */
@@ -59,6 +83,10 @@ class ModalControl {
             style = mod.style,
             visible = modal.visible(),
             info = { pct: 0 };
+
+        if (which !== modal.#showing && modal.#holding()) {
+            return;
+        }
 
         // if the dialog needs it, it will re-add it
         document.body.classList.remove('devel');
@@ -93,7 +121,7 @@ class ModalControl {
      * Hide the modal with animation
      */
     hide() {
-        if (!modal.visible()) {
+        if (!modal.visible() || modal.#holding()) {
             return;
         }
 

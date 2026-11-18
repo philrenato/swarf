@@ -1630,7 +1630,9 @@ function stlReading(v) {
 }
 
 // what each STL was read as, whether that is a guess, its size each way, and one press to switch
-// that file (an undo step); every STL of one drop on one card
+// that file (an undo step); every STL of one drop on one card. A guessed file comes in at the
+// guess but must be picked (the guess counts once pressed): until each is, done is off and the
+// card stays up (the modal hold refuses Esc, the close box and any other modal)
 // STLs of a drop still being read: the card waits for them (a few seconds at most)
 let stlWaiting = [], stlWaitT = 0, stlLoading = 0, stlCardsDue = 0, stlWaitSince = 0;
 function stlUnitsCard(w, name, read) {
@@ -1649,15 +1651,18 @@ function stlUnitsFlush() {
     const L = self.SwarfLength, say = v => L ? L.say(v) : `${+v.toFixed(1)} mm`;
     const size = (w, k) => { const b = w.getBoundingBox(), s = b.getSize(new THREE.Vector3()).multiplyScalar(k); return `${say(s.x)} × ${say(s.y)} × ${say(s.z)}`; };
     const many = list.length > 1;
+    for (const r of list) r.picked = !r.read.guess;
+    const asks = list.filter(r => !r.picked).length;
     const host = $('mod-any');
     host.innerHTML = [
         `<div class="image-convert-dialog f-col a-center swarf-import swarf-stl-units">`,
-        `  <h3 class="image-convert-title">${many ? `${list.length} files` : esc(list[0].name)}: which units</h3>`,
-        `  <p class="image-convert-copy t-just">an STL has no units: check each size.</p>`,
+        `  <h3 class="image-convert-title">${many ? `${list.length} files` : esc(list[0].name)}: which units?</h3>`,
+        `  <p class="image-convert-copy t-just">an STL has no units: ${asks ? (many ? 'pick one where asked' : 'pick one') : 'check each size'}.</p>`,
         `  <div class="swarf-stl-files">`,
         ...list.map((r, i) => [
-            `  <div class="swarf-stl-file" id="stl-f${i}-${rnd}">`,
+            `  <div class="swarf-stl-file${r.picked ? '' : ' swarf-stl-ask'}" id="stl-f${i}-${rnd}">`,
             many ? `    <h4>${esc(r.name)}</h4>` : '',
+            r.picked || !many ? '' : `    <p class="swarf-stl-askline">? pick one</p>`,
             `    <p class="image-convert-copy t-just">${esc(stlUnitsSay(r.read))}</p>`,
             ...['mm', 'in', 'm'].map(u => `    <label><input type="radio" name="stl-u${i}-${rnd}" value="${u}"> ${STL_NAMES[u]}: <span data-u="${u}"></span></label><br>`),
             `  </div>`
@@ -1666,8 +1671,21 @@ function stlUnitsFlush() {
         `  <div class="f-row j-end image-convert-actions"><button id="stl-ok-${rnd}">done</button></div>`,
         `</div>`
     ].join('');
+    const ok = $(`stl-ok-${rnd}`);
+    const owed = () => list.filter(r => !r.picked && api.widgets.all().includes(r.w));
+    const ready = () => {
+        ok.disabled = owed().length > 0;
+        ok.title = ok.disabled ? 'pick units for each file marked ?' : '';
+    };
     list.forEach((r, i) => {
         const box = $(`stl-f${i}-${rnd}`);
+        const pick = () => {
+            if (r.picked) return;
+            r.picked = true;
+            box.classList.remove('swarf-stl-ask', 'swarf-stl-nudge');
+            box.querySelector('.swarf-stl-askline')?.remove();
+            ready();
+        };
         const radios = [...box.querySelectorAll('input')];
         const show = () => {
             if (!box.isConnected) return;
@@ -1692,11 +1710,22 @@ function stlUnitsFlush() {
                 undo: `${r.name} read as ${STL_NAMES[from]} again`, redo: `${r.name} read as ${STL_NAMES[to]} again`
             });
         };
-        for (const x of radios) x.onchange = () => x.checked && set(x.value);
+        // click, not change: pressing the reading already shown is a pick too
+        for (const x of radios) x.onclick = () => { if (x.checked) { pick(); set(x.value); } };
         show();
     });
-    $(`stl-ok-${rnd}`).onclick = () => api.modal.hide();
+    ready();
+    ok.onclick = () => { if (!owed().length) { api.modal.hold(); api.modal.hide(); } };
     api.modal.show('any');
+    if (owed().length) api.modal.hold(() => owed().length > 0, () => {
+        for (const [i, r] of list.entries()) {
+            const box = $(`stl-f${i}-${rnd}`);
+            if (!box || r.picked) continue;
+            box.classList.remove('swarf-stl-nudge');
+            void box.offsetWidth;
+            box.classList.add('swarf-stl-nudge');
+        }
+    });
 }
 
 const OBJ_TURN = { z: -Math.PI / 2, y: Math.PI / 2 };   // from the other reading to this one

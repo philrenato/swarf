@@ -1687,6 +1687,12 @@ body:not(.swarf-expert) #speeds { display: none !important; }
 #mod-any .swarf-stl-file h4 { margin: 0; font-weight: 600; overflow-wrap: anywhere; }
 #mod-any .swarf-stl-file label { line-height: 1.7; }
 #mod-any .swarf-stl-units .image-convert-title { overflow-wrap: anywhere; max-width: 420px; }
+#mod-any .swarf-stl-file.swarf-stl-ask { border-left: 2px dashed var(--swarf-amber); padding-left: 8px; }
+#mod-any .swarf-stl-file.swarf-stl-ask input:checked { opacity: .4; }
+#mod-any .swarf-stl-askline { margin: 0; color: var(--swarf-amber); font-weight: 600; }
+#mod-any .swarf-stl-file.swarf-stl-nudge { animation: swarf-stl-nudge .35s ease-in-out 2; }
+@keyframes swarf-stl-nudge { 0%, 100% { transform: none; } 30% { transform: translateX(-4px); } 70% { transform: translateX(4px); } }
+#mod-any .swarf-stl-units button:disabled { opacity: .45; cursor: not-allowed; }
 
 /* --- Workspace Export & other generic confirm modals (#mod-any) --- */
 #mod-any .confirm { padding-top: 8px !important; }
