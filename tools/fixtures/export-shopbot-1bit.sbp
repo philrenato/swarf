@@ -4,7 +4,7 @@ IF %(25)=0 THEN GOTO UNIT_ERROR    'a ShopBot set to inches refuses the file ins
 CN, 90               'Set program to absolute coordinate mode
 '
 C7                   'Spindle off for tool change
-&Tool =4        'Load end 1/4
+&Tool =1        'Load end 1/4
 C9                   'Change tool
 G0 Z5.0700 F6000
 TR,14000

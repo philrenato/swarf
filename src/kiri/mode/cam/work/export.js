@@ -232,7 +232,11 @@ export function cam_export(print, online) {
                 append();
                 online({ bit: { order: toolChanges + 1, number: consts.tool, name: consts.tool_name } });
             } else if (!laserOp && (spro.camToolInit || toolChanges > 0)) {
-                filterEmit(cmdToolChange, { ...consts, spindle: newSpindle });
+                // swarf: a ShopBot file names each bit by its order in the file (1, 2, 3 …), not by the
+                // library number: ShopBot 3's tool-change routine (C9) reads numbers above 20 as a
+                // second head or a drill, and the shop's bits sit at 21-26 in the library
+                const sbTool = cmdToolChange.some(l => /&Tool\s*=/i.test(l));
+                filterEmit(cmdToolChange, { ...consts, spindle: newSpindle, ...(sbTool ? { tool: Math.min(20, toolChanges + 1) } : {}) });
             }
             toolChanges++;
         }
