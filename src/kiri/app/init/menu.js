@@ -165,7 +165,7 @@ function content(actions) {
                     hr(),
                     menuItem(actions, {
                         id: 'file-import', text: 'import a drawing or model…', title: 'SVG, DXF, AI, PDF, STL or OBJ: it joins the bed', iconClass: 'fas fa-file-upload', children:
-                            input({ id: 'load-file', type: 'file', name: 'loadme', style: 'display:none', accept: '.swarf,.km,.kmz,.stl,.obj,.svg,.dxf,.ai,.pdf,.png,.jpg,.jpeg,.gcode,.nc' })
+                            input({ id: 'load-file', type: 'file', name: 'loadme', style: 'display:none', accept: '.swarf,.km,.kmz,.stl,.obj,.svg,.dxf,.ai,.pdf,.gcode,.nc' })
                     }),
                     // swarf: the whole project, to open again here or on another computer (web/kiri/swarf-file.js)
                     menuItem(actions, { id: 'swarf-file-open', text: 'open project (.swarf)…', title: 'open a .swarf: it replaces what is on the bed', iconClass: 'fas fa-folder-open', onclick(ev) {

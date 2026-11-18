@@ -1225,7 +1225,7 @@ function load_files(files, group) {
             isdxf = lower.endsWith(".dxf"),
             isai = lower.endsWith(".ai") || lower.endsWith(".pdf"),
             ispng = lower.endsWith(".png"),
-            isjpg = lower.endsWith(".jpg"),
+            isjpg = lower.endsWith(".jpg") || lower.endsWith(".jpeg") || lower.endsWith(".heic") || lower.endsWith(".webp"),
             iskmz = lower.endsWith(".kmz"),
             isswarf = lower.endsWith(".swarf"),
             isini = lower.endsWith(".ini"),
@@ -1447,10 +1447,11 @@ function load_files(files, group) {
             }
             else if (iskmz) api.settings.import_zip(data, true);
             else if (isset) api.settings.import(data.textDecode('utf-8'), true);
-            else if (ispng) api.image.dialog(data, name);
-            else if (isjpg) api.image.convert(data, name);
+            // swarf: a picture is not a cut. The image-to-relief path stretched it over the whole bed
+            // and could hang on a phone photo; tracing it into lines is the way in
+            else if (ispng || isjpg) { api.show.alert(`${name} is a picture: swarf cuts lines. Trace it into an SVG first (Inkscape: Path › Trace Bitmap), then import that.`, 12); load_dec(); }
             else if (isini) api.settings.import_prusa(data.textDecode('utf-8'));
-            else api.show.alert(`Unsupported file: ${reader.file.name}`);
+            else { api.show.alert(`Unsupported file: ${reader.file.name}`); load_dec(); }
         };
         reader.readAsArrayBuffer(reader.file);
     }
