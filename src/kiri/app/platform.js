@@ -1052,14 +1052,14 @@ function load_verts(group, vertices, filename) {
     return widget;
 }
 
-// a part far bigger than any table (a units mix-up, a typo in a radius) is refused before it is
-// made: its view, stock and toolpaths would take the page down. Returns why, or ''.
 // the largest side (mm) a drawing or model may have
 function tableTop() {
     const dev = current().device || {};
     return Math.max(5000, 2 * Math.max(dev.bedWidth || 0, dev.bedDepth || 0));
 }
 
+// a part far bigger than any table (a units mix-up, a typo in a radius) is refused before it is
+// made: its view, stock and toolpaths would take the page down. Returns why, or ''.
 function tooBig(list, name) {
     const top = tableTop();
     const lo = [Infinity, Infinity, Infinity], hi = [-Infinity, -Infinity, -Infinity];
