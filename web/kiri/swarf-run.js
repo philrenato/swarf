@@ -1625,8 +1625,11 @@ html[data-skin] #swarf-run .sr-jog .sr-zrow button.next, html[data-skin] #swarf-
     el.strip.classList.toggle('on', !!running && !(st && st.paused));
     el.btn.trace.classList.toggle('next', now === 'trace' && !running);
     el.btn.pause.disabled = !running;
-    for (const k of ['trace', 'air', 'cut']) el.btn[k].style.display = running ? 'none' : '';
-    for (const k of ['pause', 'stop']) el.btn[k].style.display = running ? '' : 'none';
+    // stop shows whenever anything moves (a jog, a go-to, homing, a plate seek), not only a job
+    const moving = !running && !!((st && st.moving) || (S.machine && S.machine.homing) || S.contHeld);
+    for (const k of ['trace', 'air', 'cut']) el.btn[k].style.display = running || moving ? 'none' : '';
+    el.btn.pause.style.display = running ? '' : 'none';
+    el.btn.stop.style.display = running || moving ? '' : 'none';
     el.btn.pause.textContent = st && st.paused ? 'resume' : 'pause';
     el.btn.stop.disabled = !st;
     el.fromCam.disabled = !!running;
@@ -2205,6 +2208,10 @@ html[data-skin] #swarf-run .sr-jog .sr-zrow button.next, html[data-skin] #swarf-
     if (S.open && e.type === 'keydown' && S.machine && S.machine.state.routerTest) { e.preventDefault(); e.stopPropagation(); S.machine.routerTest(false); return; }
     if (S.open && e.type === 'keydown' && S.machine && S.machine.homing) { e.preventDefault(); S.machine.stop(); return; }   // a plate or home seek: any key stops it
     if (!S.open || !S.machine || e.metaKey || e.ctrlKey || e.altKey) return;
+    // Space or Esc stops motion even with the cursor in a text field (typing a space only counts at rest)
+    if (e.type === 'keydown' && (e.key === ' ' || e.key === 'Escape') && (S.machine.state.running || S.machine.state.moving || S.contHeld)) {
+      e.preventDefault(); S.userStopped = true; S.contHeld = null; S.machine.stop(); return;
+    }
     const t = e.target;
     if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable)) return;
     if (e.type === 'keydown' && (e.key === ' ' || e.key === 'Escape')) {

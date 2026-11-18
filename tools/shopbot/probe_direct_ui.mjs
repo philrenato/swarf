@@ -173,6 +173,29 @@ try {
     const dy = (await card())[1] - y0;
     check(stopped && dy > 72 * 2 && dy < 72 * 15, `hold ↑ then ${how}: stopped=${stopped}, Y +${(dy / 72.18).toFixed(1)} mm`);
   }
+  // a held jog shows the on-screen stop, and the stop button ends it
+  {
+    await page.keyboard.down('ArrowUp');
+    await new Promise(r => setTimeout(r, 500));
+    const shown = await page.evaluate(() => { const b = document.querySelector('#swarf-run .sr-actions .stop'); return !!b && b.style.display !== 'none' && b.offsetParent !== null && !b.disabled; });
+    await page.evaluate(() => document.querySelector('#swarf-run .sr-actions .stop').click());
+    const stopped = await page.waitForFunction(() => !window.__swarfRun.state.machine.busy(), { timeout: 5000 }).then(() => true, () => false);
+    await page.keyboard.up('ArrowUp');
+    await new Promise(r => setTimeout(r, 300));
+    const hidden = await page.evaluate(() => document.querySelector('#swarf-run .sr-actions .stop').style.display === 'none');
+    check(shown && stopped && hidden, `a held jog shows stop (${shown}), stop ends it (${stopped}), and it hides at rest (${hidden})`);
+  }
+  // Space stops motion even with the cursor in a text field
+  {
+    await page.keyboard.down('ArrowUp');
+    await new Promise(r => setTimeout(r, 400));
+    const inField = await page.evaluate(() => { const i = document.createElement('input'); i.id = '__probeField'; document.querySelector('#swarf-run').append(i); i.focus(); return document.activeElement === i; });
+    await page.keyboard.press(' ');
+    const stopped = await page.waitForFunction(() => !window.__swarfRun.state.machine.busy(), { timeout: 3000 }).then(() => true, () => false);
+    await page.keyboard.up('ArrowUp');
+    await page.evaluate(() => document.getElementById('__probeField')?.remove());
+    check(inField && stopped, `Space in a text field stops the jog (${inField}, ${stopped})`);
+  }
   await page.evaluate(() => { window.__stub.state.realtime = false; });
   // in inches the step, speed and readout are inches (Phil 10-30: "when in inches the jog panel is still in mm")
   await page.evaluate(() => { const s = window.kiri.api.ui.units; s.value = 'in'; s.onchange(); window.__swarfRun.close(); window.__swarfRun.open(); });
