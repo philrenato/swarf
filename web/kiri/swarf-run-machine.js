@@ -191,22 +191,26 @@
     }
     // the machine's own position (the real box's step count, in mm): work position + this offset
     mabs() { const o = this.wOff || (this.wOff = { x: 0, y: 0, z: 0 }), p = this.state.pos; return { x: p.x + o.x, y: p.y + o.y, z: p.z + o.z }; }
+    // true when set; false while moving (nothing changes, and the caller must not mark the axis zeroed)
     zero(axes) {
-      if (this.busy()) return;
+      if (this.busy()) { this.set({ note: 'not now: the machine is still moving. Wait until it stops' }); return false; }
       const pos = { ...this.state.pos };
       if (axes.includes('z')) this.boardZ -= pos.z;          // the board stays where it is; its Z number moves
       this.mabs();
       for (const a of axes) { this.wOff[a] += pos[a]; pos[a] = 0; }
       this.set({ pos, note: `zeroed ${axes.toUpperCase()}` });
+      return true;
     }
     // type a position: here becomes v on that axis (the real driver's VA, review 10-28b #23)
     setWork(axis, v) {
-      if (this.busy() || !isFinite(v)) return;
+      if (!isFinite(v)) return false;
+      if (this.busy()) { this.set({ note: 'not now: the machine is still moving. Wait until it stops' }); return false; }
       const pos = { ...this.state.pos };
       if (axis === 'z') this.boardZ += v - pos.z;
       this.mabs(); this.wOff[axis] += pos[axis] - v;
       pos[axis] = v;
       this.set({ pos, note: `${axis.toUpperCase()} set to ${v}` });
+      return true;
     }
     home() {
       if (this.busy()) return;

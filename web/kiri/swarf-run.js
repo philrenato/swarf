@@ -1726,8 +1726,9 @@ html[data-skin] #swarf-run .sr-jog .sr-zrow button.next, html[data-skin] #swarf-
       if (!(await S.machine.zero(axes))) { tell(`Not zeroed: ${S.machine.state.note}.`, 'warn'); refresh(); return; }
       freshZero(axes);
     } else {
+      // a zero pressed while the machine still moves sets nothing: say so, and mark nothing zeroed
+      if (S.machine.zero(axes) === false) { tell(`Not zeroed: ${S.machine.state.note}.`, 'warn'); refresh(); return; }
       freshZero(axes);
-      S.machine.zero(axes);
     }
     if (axes.includes('x') && axes.includes('y')) S.zeroXY = true;
     else if (axes === 'x') S.zx = true;
@@ -2087,7 +2088,7 @@ html[data-skin] #swarf-run .sr-jog .sr-zrow button.next, html[data-skin] #swarf-
       // only a typed value sets the axis: opening the field and leaving it unchanged sets nothing
       if (ok && isFinite(v) && inp.value.trim() !== opened.trim()) {
         if (isGrbl()) { if (!(await m.setWork(a, v))) { tell(`Not set: ${m.state.note}.`, 'warn'); refresh(); return; } }
-        else m.setWork(a, v);
+        else if (m.setWork(a, v) === false) { tell(`Not set: ${m.state.note}.`, 'warn'); refresh(); return; }
         // a typed position sets that axis like zero does (and a new trace, unless it is Z after a tool change)
         freshZero(a);
         if (a === 'x') S.zx = true; else if (a === 'y') S.zy = true; else { S.zeroZ = true; S.zStale = false; markZBit(); }
@@ -2503,7 +2504,7 @@ html[data-skin] #swarf-run .sr-jog .sr-zrow button.next, html[data-skin] #swarf-
   // zero at a corner without moving: here becomes (machine − corner) on each axis
   function zeroAtCorner(cx, cy) {
     const m = S.machine, p = m.mabs();
-    m.setWork('x', p.x - cx); m.setWork('y', p.y - cy);
+    if (m.setWork('x', p.x - cx) === false || m.setWork('y', p.y - cy) === false) { tell(`Not zeroed: ${m.state.note}.`, 'warn'); refresh(); return; }
     freshZero('xy'); S.zx = S.zy = S.zeroXY = true; markXYAt(); S.zeroSetAt = Date.now(); S.zeroFor = progKey(); S.zeroLost = false; S.traced = false;
     refresh();
   }

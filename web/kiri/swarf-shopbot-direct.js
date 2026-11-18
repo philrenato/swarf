@@ -557,10 +557,12 @@
 
     // Type a work position: this spot becomes `v` on `axis`.
     setWork(axis, v) {
-      if (this.busy() || !isFinite(v)) return;
+      if (!isFinite(v)) return false;
+      if (this.busy()) { this.set({ note: 'not now: the machine is still moving. Wait until it stops' }); return false; }
       this.origin[axis] = this.steps[axis] - v * this.cfg.unit[axis];
       try { localStorage.setItem(ORIGIN_KEY, JSON.stringify(this.origin)); } catch (e) { /* private window */ }
       this.set({ pos: this.work(this.steps), note: `${axis.toUpperCase()} set to ${v}` });
+      return true;
     }
 
     jogHold(axis, dir) {
@@ -585,11 +587,14 @@
       this.move(path, q => { const z = q.z !== last.z && q.x === last.x && q.y === last.y; last = q; return z ? this.cfg.jog.z : this.cfg.jog.xy; });
     }
 
+    // true when set; false while moving: the card's step count is not final until the motion ends,
+    // and the caller must not mark the axis zeroed
     zero(axes) {
-      if (this.busy()) return;
+      if (this.busy()) { this.set({ note: 'not now: the machine is still moving. Wait until it stops' }); return false; }
       for (const a of axes) this.origin[a] = this.steps[a];
       try { localStorage.setItem(ORIGIN_KEY, JSON.stringify(this.origin)); } catch (e) { /* private window */ }
       this.set({ pos: this.work(this.steps), note: `zeroed ${axes.toUpperCase()}` });
+      return true;
     }
 
     // Input n (1-12): 1-8 = the first input byte's bits 0-7 (lo), 9-12 = the second's bits 0-3 (hi).
