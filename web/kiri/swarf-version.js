@@ -12,22 +12,28 @@
  * re-loads that same saved state rather than discarding anything.
  */
 (function () {
-    // single source of truth for the version string — the About panel
-    // (src/kiri/app/help.js) reads this too, via window.SWARF_VERSION,
-    // instead of carrying its own separate hardcoded copy that can drift
-    // (it had silently said "v00000-007" since the very first fork audit).
+    // single source of truth for the version string: the About panel (src/kiri/app/help.js) reads it
     window.SWARF_VERSION = 'v00000-130';
     window.SWARF_BUILD = '__SWARF_BUILD__';   // stamped by the deploy, as is every machine-control file
 
     const ver = document.createElement('div');
     ver.id = 'ver';
-    ver.title = 'tap to update to the latest build (clears the cache & reloads)';
+    ver.title = `tap to update to the latest build (build ${window.SWARF_BUILD})`;
     ver.textContent = window.SWARF_VERSION + ' ↻';
     document.body.appendChild(ver);
 
     ver.addEventListener('click', async () => {
         const old = ver.textContent;
         ver.textContent = 'updating…';
+        // offline the caches are the only copy of swarf here: check the network before clearing them
+        try {
+            const r = await fetch('swarf-version.js?check=' + Date.now(), { cache: 'no-store' });
+            if (!r.ok) throw new Error(r.status);
+        } catch (e) {
+            ver.textContent = 'offline: try again when connected';
+            setTimeout(() => { ver.textContent = old; }, 4000);
+            return;
+        }
         try {
             if ('serviceWorker' in navigator) {
                 const regs = await navigator.serviceWorker.getRegistrations();
