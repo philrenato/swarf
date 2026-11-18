@@ -60,7 +60,11 @@ try {
   // alerts said, kept to read back
   await page.evaluate(() => { const a = window.kiri.api, was = a.show.alert; window.__said = []; a.show.alert = function (t) { window.__said.push(String(t)); return was.apply(this, arguments); }; });
   // every STL now opens a units card: it is closed as a student would, with done
-  const shut = () => page.evaluate(() => [...document.querySelectorAll('.swarf-stl-units button')].find(b => b.textContent === 'done')?.click()).then(() => wait(300));
+  // an unsure file must be picked before done: press the reading it came in at
+  const shut = () => page.evaluate(() => {
+    for (const r of document.querySelectorAll('.swarf-stl-units .swarf-stl-ask input:checked')) r.click();
+    [...document.querySelectorAll('.swarf-stl-units button')].find(b => b.textContent === 'done')?.click();
+  }).then(() => wait(300));
   const load = (text, name) => page.evaluate((text, name) => { const a = window.kiri.api; a.platform.clear(); window.__said = []; a.platform.load_files([new File([text], name)]); }, text, name).then(() => wait(2500)).then(shut);
   const parts = () => page.evaluate(() => window.kiri.api.widgets.all().map(w => {
     const b = new window.THREE.Box3().setFromObject(w.mesh);

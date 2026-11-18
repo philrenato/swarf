@@ -64,7 +64,13 @@ try {
   await load(box(2, 3, 0.75), 'block.stl');
   check(JSON.stringify(await size()) === '[50.8,76.2,19.05]', `mm set, a 2 x 3 x 0.75 box comes in as inches (${await size()})`);
   check(/came in as inches/.test(await card()), 'the card says it came in as inches');
+  // as mm it is on the bed but under 6 mm: still a guess, so it asks too
+  check((await doneOff()) === true && /pick one/.test(await card()), 'inches over a tiny mm reading: a guess, asked');
+  await page.evaluate(() => document.querySelector('.swarf-stl-units input[value="in"]').click());
+  await wait(500);
+  check((await doneOff()) === false && JSON.stringify(await size()) === '[50.8,76.2,19.05]', `the shown inches pressed: done on, size kept (${await size()})`);
   await closeCard();
+  check(!(await up()), 'picked: the card closes');
 
   // both fit: a guess, said so, and asked
   await load(box(6, 4, 1), 'both.stl');

@@ -1657,7 +1657,7 @@ function stlUnitsFlush() {
     host.innerHTML = [
         `<div class="image-convert-dialog f-col a-center swarf-import swarf-stl-units">`,
         `  <h3 class="image-convert-title">${many ? `${list.length} files` : esc(list[0].name)}: which units?</h3>`,
-        `  <p class="image-convert-copy t-just">an STL has no units: ${asks ? (many ? 'pick for each file marked ?' : 'pick one') : 'check each size'}.</p>`,
+        `  <p class="image-convert-copy t-just">an STL has no units: ${asks ? (many ? 'pick one where asked' : 'pick one') : 'check each size'}.</p>`,
         `  <div class="swarf-stl-files">`,
         ...list.map((r, i) => [
             `  <div class="swarf-stl-file${r.picked ? '' : ' swarf-stl-ask'}" id="stl-f${i}-${rnd}">`,
