@@ -22,6 +22,15 @@
   function build() {
     card = document.createElement('div');
     card.id = 'swarf-size';
+    // the side panels stop above this card, however tall it wraps (--swarf-size-h, read by swarf.css)
+    const room = () => {
+      const r = card.getBoundingClientRect();
+      const h = card.classList.contains('on') && r.height ? Math.max(0, innerHeight - r.top) : 0;
+      document.documentElement.style.setProperty('--swarf-size-h', `${Math.round(h)}px`);
+    };
+    if (window.ResizeObserver) new ResizeObserver(room).observe(card);
+    new MutationObserver(room).observe(card, { attributes: true, attributeFilter: ['class'] });
+    window.addEventListener('resize', room);
     card.innerHTML = '<span class="lbl">size</span>';
     for (const [a, word] of AX) {
       const inp = document.createElement('input');
