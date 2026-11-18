@@ -46,6 +46,9 @@
       return Math.min(hi, Math.max(lo, v));
     }
   }
+  // A target `to` kept inside [lo, hi] for a move starting at `from`: a start already outside may
+  // come back in but never goes further out, and the clamp never turns a move around.
+  function keep([lo, hi], from, to) { return Math.min(Math.max(hi, from), Math.max(Math.min(lo, from), to)); }
 
   // ---------------------------------------------------------------- sim
   class SimMachine extends Base {
@@ -165,10 +168,15 @@
 
     busy() { return this.state.running || this.queue.length > 0; }
 
+    // LIMITS are machine travel: a work position is held to them through the work offset
+    clamp(axis, v, from = this.target()[axis]) {
+      const o = (this.wOff || { x: 0, y: 0, z: 0 })[axis];
+      return keep(LIMITS[axis], from + o, v + o) - o;
+    }
     jog(axis, dist) {
       if (this.state.running) return;
       const p = { ...this.target() };
-      p[axis] = this.clamp(axis, p[axis] + dist);
+      p[axis] = this.clamp(axis, p[axis] + dist, p[axis]);
       this.moveTo(p, axis === 'z' ? this.jogSpeed.z : this.jogSpeed.xy);
     }
     target() { const q = this.queue[this.queue.length - 1]; return q ? { x: q.x, y: q.y, z: q.z } : this.state.pos; }
@@ -176,7 +184,7 @@
       if (this.state.running) return;
       this.queue = [];
       const p = { ...this.state.pos };
-      p[axis] = LIMITS[axis][dir > 0 ? 1 : 0];
+      p[axis] = this.clamp(axis, p[axis] + dir * 1e6, p[axis]);
       this.moveTo(p, axis === 'z' ? this.jogSpeed.z : this.jogSpeed.xy);
     }
     jogRelease() { if (!this.state.running) this.queue = []; }
@@ -184,8 +192,8 @@
       if (this.state.running) return;
       const p = { ...this.target() };
       if (t.z !== undefined && t.z > p.z) { p.z = t.z; this.moveTo({ ...p }, this.jogSpeed.z); }
-      if (t.x !== undefined) p.x = t.x;
-      if (t.y !== undefined) p.y = t.y;
+      if (t.x !== undefined) p.x = this.clamp('x', t.x, p.x);
+      if (t.y !== undefined) p.y = this.clamp('y', t.y, p.y);
       this.moveTo({ ...p }, this.jogSpeed.xy);
       if (t.z !== undefined && t.z < p.z) { p.z = t.z; this.moveTo({ ...p }, this.jogSpeed.z); }
     }
@@ -254,5 +262,5 @@
     answer() { this.set({ dialog: null }); }
   }
 
-  root.SwarfRunMachine = { Base, SimMachine, LIMITS };
+  root.SwarfRunMachine = { Base, SimMachine, LIMITS, keep };
 })(window);

@@ -70,6 +70,9 @@
       this.state.note = 'not connected';
       this.planner = new Planner({ unit: this.cfg.unit, rampSpeed: this.cfg.rampSpeed, startSpeed: this.cfg.startSpeed, rampRate: this.cfg.rampRate, maxFeed: 254 });   // 15240 mm/min, the machine's top
       this.origin = { x: 0, y: 0, z: 0 };
+      // where homing put machine X 0, Y 0, in the card's steps; null until homed on this link.
+      // Never saved: the card's count starts again at power-up, and a zero moves `origin`, not this.
+      this.homeOrigin = null;
       this.steps = { x: 0, y: 0, z: 0 };
       this.outputs = 0;
       this.job = null;        // { ops, resumeAt } while a program runs
@@ -136,6 +139,7 @@
       this.planner.m.invert = this.invertMask();
       this.steps[axis] = -this.steps[axis];
       this.origin[axis] = this.steps[axis];
+      if (axis !== 'z') this.homeOrigin = null;
       try { localStorage.setItem(FLIP_KEY, JSON.stringify(this.flip)); localStorage.setItem(ORIGIN_KEY, JSON.stringify(this.origin)); } catch (e) { /* private window */ }
       this.set({ pos: this.work(this.steps), flip: { ...this.flip }, note: `${axis.toUpperCase()} runs the other way now; ${axis.toUpperCase()} is zero here` });
     }
@@ -322,6 +326,7 @@
       }
       if (ShopBotLink.worked) ShopBotLink.worked(link);
       this.linkNo = (this.linkNo || 0) + 1;     // a plan made on an earlier link will not run on this one
+      this.homeOrigin = null;                   // the box may have restarted: its count is no longer the homed one
       this.set({ connected: true, routerUnknown: false, estopped: false, note: 'ShopBot connected over USB' });   // every output was sent off above
       this.poll();
       return true;
@@ -340,6 +345,7 @@
       this.link = null; this.card = null;
       try { await link.close(); } catch (e) { /* unplugged already */ }
       this.estopPending = false; this.remoteStop = false; this.estopping = false;
+      this.homeOrigin = null;
       this.set({ connected: false, running: false, moving: false, spindle: false, routerUnknown: !off, estopped: true,
         note: `stopped by the e-stop (input ${this.stopCfg().input}): swarf let go of the machine` });
     }
@@ -357,6 +363,7 @@
       link.onClose = null;
       this.link = null; this.card = null;
       try { await link.close(); } catch (e) { /* unplugged already */ }
+      this.homeOrigin = null;
       this.set({ connected: false, spindle: false, routerUnknown: false, note: 'disconnected: the box is free for another program' });
       return true;
     }
@@ -371,6 +378,7 @@
       // best known position: what the planner had sent (the card is at most the queued blocks behind)
       if (this.card && this.card.streaming && this.planner.st) this.steps = { ...this.planner.st.cur };
       this.job = null; this.holdAt = null;
+      this.homeOrigin = null;
       // a router test ends with the link (torture test 10-29: it stayed "on" and busy after a reconnect)
       clearTimeout(this.routerTimer);
       const testing = this.routerTesting;
@@ -547,10 +555,19 @@
       this.move([t], () => axis === 'z' ? this.cfg.jog.z : this.cfg.jog.xy);
     }
 
-    // Travel limits mean something only once the machine has homed on its switches.
-    // The shop machine has none (10-27): no clamp, and a held jog runs until release.
-    limitsKnown() { const s = this.homeCfg && this.homeCfg.set; return !!(s && s.x && s.y); }
-    clamp(axis, v) { return this.limitsKnown() ? super.clamp(axis, v) : v; }
+    // Travel limits mean something only once the machine has homed on its switches on this link:
+    // until then no clamp, and a held jog runs until release.
+    limitsKnown() { const s = this.homeCfg && this.homeCfg.set; return !!(s && s.x && s.y && this.homeOrigin); }
+    // A work target held to the travel. X and Y are checked in machine mm from the homed corner
+    // (LIMITS are the table's travel), whatever zero the student set since; Z has no home sensor,
+    // so it keeps LIMITS.z around its work zero. From the current position: a clamp never turns a move around.
+    clamp(axis, v) {
+      if (!this.limitsKnown()) return v;
+      const w = this.state.pos[axis];
+      if (axis === 'z') return M.keep(M.LIMITS.z, w, v);
+      const off = (this.origin[axis] - this.homeOrigin[axis]) / this.cfg.unit[axis];   // machine = work + off
+      return M.keep(M.LIMITS[axis], w + off, v + off) - off;
+    }
 
     // the machine's own position: the card's step count since power-up, in mm
     mabs() { const u = this.cfg.unit; return { x: this.steps.x / u.x, y: this.steps.y / u.y, z: this.steps.z / u.z }; }
@@ -568,7 +585,7 @@
     jogHold(axis, dir) {
       if (this.busy()) return;
       const t = { ...this.state.pos };
-      t[axis] = this.limitsKnown() ? M.LIMITS[axis][dir > 0 ? 1 : 0] : t[axis] + dir * 5000;
+      t[axis] = this.limitsKnown() ? this.clamp(axis, t[axis] + dir * 1e6) : t[axis] + dir * 5000;
       const hold = this.jogHeld = (this.jogHeld || 0) + 1;
       this.move([t], () => axis === 'z' ? this.cfg.jog.z : this.cfg.jog.xy, () => this.jogHeld === hold);
     }
@@ -578,6 +595,8 @@
     goTo(t) {
       if (this.busy()) return;
       const p = { ...this.state.pos }, path = [];
+      t = { ...t };
+      for (const a of ['x', 'y', 'z']) if (t[a] !== undefined) t[a] = this.clamp(a, t[a]);
       if (t.z !== undefined && t.z > p.z) { p.z = t.z; path.push({ ...p }); }
       if (t.x !== undefined) p.x = t.x;
       if (t.y !== undefined) p.y = t.y;
@@ -652,6 +671,7 @@
           this.origin[a] = Math.round(c - H.offset[a] * u[a]);
         }
         if (!this.homeAbort && !this.homeFail) {
+          this.homeOrigin = { x: this.origin.x, y: this.origin.y };
           try { localStorage.setItem(ORIGIN_KEY, JSON.stringify(this.origin)); } catch (e) { /* private window */ }
           this.set({ pos: this.work(this.steps) });
           await this.stack([Object.assign(this.machine({ x: 0, y: 0, z: this.state.pos.z }), { feed: this.cfg.jog.xy, line: 0 })]);
