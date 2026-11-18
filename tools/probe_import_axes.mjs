@@ -65,7 +65,7 @@ try {
     await closeCard();
     await page.evaluate((text, name) => { const a = window.kiri.api; for (const w of a.widgets.all()) a.platform.delete(w); a.platform.load_files([new File([text], name)]); }, text, name);
     await wait(1200);
-    if (thick) await page.evaluate(t => { const i = [...document.querySelectorAll('input[id^="dxf-depth-"]')].pop(); if (i) { i.value = String(t); i.dispatchEvent(new Event('input', { bubbles: true })); } const b = [...document.querySelectorAll('button')].find(b => b.textContent.trim() === 'make parts' && b.offsetParent); b && b.click(); }, thick);
+    if (thick) await page.evaluate(t => { const i = [...document.querySelectorAll('#svg-depth')].pop(); if (i) { i.value = String(t); i.dispatchEvent(new Event('input', { bubbles: true })); } const b = [...document.querySelectorAll('button')].find(b => b.textContent.trim() === 'make parts' && b.offsetParent); b && b.click(); }, thick);
     await wait(2000);
     return page.evaluate(() => window.kiri.api.widgets.all().map(w => { const b = w.getBoundingBox(); return { name: w.meta.file, size: [b.max.x - b.min.x, b.max.y - b.min.y, b.max.z - b.min.z].map(v => +v.toFixed(2)), zmin: +b.min.z.toFixed(2) }; }));
   }
@@ -74,7 +74,7 @@ try {
   check(d.length === 1, `DXF: one part, the spline and the polyline joined (${d.length})`);
   check(d[0] && Math.abs(d[0].size[0] - 100) < 0.5 && d[0].size[1] > 50 + 10 && d[0].size[1] < 50 + 12, `DXF: 100 wide, 50 + the bow deep (${d[0] && d[0].size.slice(0, 2)})`);
   check(d[0] && Math.abs(d[0].size[2] - 12) < 0.05 && Math.abs(d[0].zmin) < 0.05, `DXF: the typed 12 mm thick, on the bed (${d[0] && d[0].size[2]} thick from Z ${d[0] && d[0].zmin})`);
-  check(d[0] && d[0].name === 'rhino-board.dxf', `DXF: one piece keeps the file's name ("${d[0] && d[0].name}")`);
+  check(d[0] && d[0].name === 'rhino-board', `DXF: one piece keeps the file's name, less .dxf ("${d[0] && d[0].name}")`);
   const o = await load(obj, 'rhino-box.obj');
   console.log('  obj:', JSON.stringify(o));
   check(o.length === 1 && Math.abs(o[0].size[0] - 100) < 0.05 && Math.abs(o[0].size[1] - 60) < 0.05 && Math.abs(o[0].size[2] - 10) < 0.05, `OBJ (Y up): lies flat, 100 x 60 x 10 (${o[0] && o[0].size})`);

@@ -1,8 +1,8 @@
-// 2D drawings in: an Illustrator .ai, a .pdf and an .svg (made by Unreason's writers,
+// 2D drawings in: an Illustrator .ai, a .pdf, a .dxf and an .svg (made by Unreason's writers,
 // tools/fixtures-2d) import through cam's file input as two parts at true size
 // (a 100 mm circle and a 60 x 40 rectangle), each keeping its drawing; the "make parts"
 // dialog shows once per file (it came back after an SVG's parts, 085); and for .ai and
-// .pdf the open line is reported and left out.   node tools/probe_2d_import.mjs [url]
+// .pdf and .dxf the open line is reported and left out.   node tools/probe_2d_import.mjs [url]
 import puppeteer from 'puppeteer-core';
 import { fileURLToPath } from 'node:url';
 import { CHROME } from './chrome-path.mjs';
@@ -14,7 +14,7 @@ const browser = await puppeteer.launch({ executablePath: CHROME, headless: 'new'
 const errors = [], bad = [];
 const check = (ok, what) => { console.log(ok ? 'ok  ' : 'FAIL', what); if (!ok) bad.push(what); };
 try {
-  for (const file of ['two-shapes.ai', 'two-shapes.pdf', 'two-shapes.svg']) {
+  for (const file of ['two-shapes.ai', 'two-shapes.pdf', 'two-shapes.dxf', 'two-shapes.svg']) {
     const page = await browser.newPage();
     await page.setViewport({ width: 1440, height: 900 });
     page.on('pageerror', e => errors.push(`${file}: ${e.message}`));
