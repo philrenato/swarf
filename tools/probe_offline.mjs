@@ -41,7 +41,7 @@ let browser;
 try {
     await serve();
     browser = await puppeteer.launch({
-        executablePath: CHROME, headless: 'new', userDataDir: profile,
+        executablePath: CHROME, headless: 'new', userDataDir: profile, protocolTimeout: 300000,
         args: ['--enable-webgl', '--use-gl=angle', '--enable-unsafe-swiftshader', '--disable-dev-shm-usage'],
     });
     const page = await browser.newPage();
@@ -60,7 +60,7 @@ try {
         window.Worker.prototype = W.prototype;
     });
     const settle = async () => {
-        await page.waitForFunction(() => window.crossOriginIsolated && navigator.serviceWorker.controller && window.__engine.length, { timeout: 90000 });
+        await page.waitForFunction(() => window.crossOriginIsolated && navigator.serviceWorker.controller && window.__engine.length, { timeout: 90000, polling: 500 });
         await sleep(1500);
     };
     const cacheState = () => page.evaluate(async () => {
