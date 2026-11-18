@@ -1000,7 +1000,8 @@
     const rate = v => inch ? `${+(v / 25.4).toFixed(1)} in/min` : `${Math.round(v)} mm/min`;
     const len = v => L ? L.say(v) : `${+v.toFixed(2)} mm`;
     const ops = (proc.ops || []).filter(o => o && OP_TYPES.includes(o.type));
-    const line = (...kids) => { const d = document.createElement('div'); d.append(...kids); box.appendChild(d); return d; };
+    // a line of text each (the page's base style makes every div a flex row: lines sat side by side)
+    const line = (...kids) => { const d = document.createElement('div'); d.style.display = 'block'; d.append(...kids); box.appendChild(d); return d; };
     if (!ops.length) { line('add a step to see what this sets'); return; }
     const byTool = new Map();
     for (const op of ops) {
@@ -1008,6 +1009,7 @@
         const use = document.createElement('button');
         use.type = 'button';
         use.textContent = 'use the speed';
+        use.style.cssText = 'display:inline-block; margin:2px 0 2px 4px; vertical-align:baseline;';
         use.title = `set ${op.type} to this speed's numbers`;
         use.addEventListener('click', () => { op.preset = ''; applyFeedsToOps(); try { api.conf.update_fields(); } catch (e) { /* no fields */ } });
         // the step's own numbers: a drill's rate is its plunge (opValues)
@@ -1049,7 +1051,7 @@
     const numbers = document.createElement('div');
     numbers.id = 'swarf-speed-numbers';
     numbers.setAttribute('aria-live', 'polite');
-    numbers.style.cssText = 'flex:1 0 100%; font-size:12px; line-height:1.4; opacity:0.85; overflow-wrap:anywhere;';
+    numbers.style.cssText = 'display:block; flex:1 0 100%; font-size:12px; line-height:1.4; opacity:0.85; overflow-wrap:anywhere;';
     row.append(label, sel, numbers);
     setTimeout(paintSpeed, 0);
     try { for (const ev of ['settings.load', 'settings.saved', 'device.selected', 'cam.op.render', 'units.set']) window.kiri.api.event.on(ev, paintSpeed); } catch (e) { /* no events yet */ }

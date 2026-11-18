@@ -100,6 +100,19 @@ try {
   check(v === '4' && r4 > r0, `a typed "m" picks max and the step follows (${r0} → ${r4} mm/min)`);
   const words = await page.evaluate(() => document.getElementById('swarf-speed-numbers').innerText);
   check(new RegExp(`preset feed ${r4} mm/min`).test(words), `the line under it says the preset feed it set ("${words}")`);
+  // a custom step and a preset step: one line each, full width, stacked (the base style made every
+  // div a flex row: on a 14" screen the custom line went one word per row beside a tall button)
+  const stack = await page.evaluate(() => {
+    const api = window.kiri.api, proc = api.conf.get().process, tool = (api.conf.get().tools || [])[0];
+    proc.ops = [{ type: 'rough', tool: tool.id, spindle: 1, rate: 1, plunge: 1, down: 1 }, { type: 'outline', tool: tool.id, spindle: 1, rate: 1, plunge: 1, down: 1 }];
+    window.__swarfSpeed.set(1);
+    proc.ops[0].spindle = 14000; proc.ops[0].rate = 2280;
+    window.dispatchEvent(new Event('swarf.material.change'));
+    const box = document.getElementById('swarf-speed-numbers'), r = e => e.getBoundingClientRect();
+    const [a, b] = box.children, btn = box.querySelector('button');
+    return { n: box.children.length, custom: !!btn, full: !!a && !!b && r(a).width > r(box).width - 2 && r(b).width > r(box).width - 2, below: !!b && r(b).top >= r(a).bottom - 1, btnH: btn ? Math.round(r(btn).height) : 0 };
+  });
+  check(stack.n === 2 && stack.custom && stack.full && stack.below && stack.btnH < 40, `a custom line and a preset line stack, full width (${JSON.stringify(stack)})`);
 } catch (e) {
   check(false, e.message);
 } finally {
