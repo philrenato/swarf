@@ -61,7 +61,7 @@ const snapshot = page => page.evaluate(() => {
   const a = window.kiri.api, s = a.conf.get();
   const used = new Set([...(s.process.ops || []), ...(s.process.op2 || [])].map(o => o.tool));
   return {
-    parts: a.widgets.all().map(w => ({ id: w.id, file: w.meta.file, pos: w.track.pos, verts: w.vertices ? w.vertices.length : 0, // the drawing and marks, not when it was last stamped (a background save can restamp it between)
+    parts: a.widgets.all().map(w => ({ id: w.id, file: w.meta.file, pos: w.track.pos, verts: w.getGeoVertices ? w.getGeoVertices().length : 0, // the drawing and marks, not when it was last stamped (a background save can restamp it between)
       meta: JSON.stringify({ ...w.meta, saved: undefined }), anno: JSON.stringify(w.anno) })).sort((p, q) => (p.id < q.id ? -1 : 1)),
     ops: JSON.stringify(s.process.ops), op2: JSON.stringify(s.process.op2 || []),
     stock: JSON.stringify(Object.fromEntries(Object.entries(s.process).filter(([k]) => /^camStock|^camOrigin|^camZ/.test(k)))),
