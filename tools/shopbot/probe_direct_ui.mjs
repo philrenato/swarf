@@ -119,6 +119,9 @@ try {
   await page.screenshot({ path: `${OUT}/0-check-done.png` });
   await page.evaluate(() => [...document.querySelectorAll('#swarf-run .sr-card .row button')].find(b => b.textContent === 'done').click());
   check(await page.evaluate(() => !document.querySelector('#swarf-run .sr-sheet.on') && localStorage.getItem('swarf-shopbot-checked') === '1'), 'done closes the card and remembers');
+  // sensors set but not homed on this link: no clamp, and the page says so
+  const preHome = await page.evaluate(() => ({ known: window.__swarfRun.state.machine.limitsKnown(), text: document.querySelector('#swarf-run .sr-mpos').textContent }));
+  check(!preHome.known && /no end stops/.test(preHome.text), `before homing: limits unknown ("${preHome.text}")`);
   // home: sensors 500 / 400 steps toward -X / -Y from here
   const at = await page.evaluate(() => {
     const st = window.__stub.state;
@@ -134,6 +137,8 @@ try {
   check(homed.note.startsWith('homed') && Math.abs(homed.card[0] - (at[0] + 12.7 * u)) <= 20 && Math.abs(homed.card[1] - (at[1] + 12.7 * u)) <= 20 && homed.dro[0] === '0.000',
     `home: ${homed.note}; card ${homed.card} vs expected ~${Math.round(at[0] + 12.7 * u)},${Math.round(at[1] + 12.7 * u)}; DRO ${homed.dro.join(' ')}`);
   await page.screenshot({ path: `${OUT}/0-homed.png` });
+  const postHome = await page.evaluate(() => ({ known: window.__swarfRun.state.machine.limitsKnown(), text: document.querySelector('#swarf-run .sr-mpos').textContent }));
+  check(postHome.known && /limits on/.test(postHome.text), `homed: limits on ("${postHome.text}")`);
   await page.evaluate(() => { window.__stub.state.switches = []; });
   await page.evaluate(() => window.__swarfRun.state.machine.zero('xyz'));
   await page.screenshot({ path: `${OUT}/1-connected.png` });
