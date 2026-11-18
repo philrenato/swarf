@@ -10,7 +10,7 @@
     "spindleMin": 250,
     "feedMax": 2540,
     "feedMaxZ": 1016,
-    "endmillFlutes": 4,
+    "endmillFlutes": 2,
     "gcodePre": [
         "G21 ; millimeters",
         "G90 ; absolute positions",

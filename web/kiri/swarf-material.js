@@ -580,6 +580,7 @@
   }
   window.__swarfCeiling = ceiling;
   window.__swarfAtSpeed = atSpeed;
+  window.__swarfLimits = s => deviceLimits(s);
   window.__swarfSpeeds = SPEEDS;
   // a material's record by id (the test cuts take plywood's: 10-29, one speed rule everywhere)
   // ---- bits: the list (review 105 F17) ----

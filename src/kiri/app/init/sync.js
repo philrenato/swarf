@@ -1048,6 +1048,24 @@ function setup_keybd_nav() {
                             hint: 'split into shallower passes for safer cutting'
                         });
                     }
+                    // a feed far outside what this bit takes in this material, from swarf's own speed
+                    // range (safest to fastest), judged as chip a tooth when the step names its rpm:
+                    // too fast breaks the bit, too slow rubs and burns
+                    const atS = window.__swarfAtSpeed, limOf = window.__swarfLimits;
+                    if (mat0 && atS && limOf && tool && td > 0 && op.feed > 0 && op.type !== 'drill') {
+                        const lim = limOf(api.conf.get()), lo = atS(mat0, td, lim, tool, 0), hi = atS(mat0, td, lim, tool, 99);
+                        const chip = (f, n) => n > 0 ? f / n : f;
+                        const mine = chip(op.feed, op.spindle), slow = lo && chip(lo.feed, op.spindle > 0 ? lo.spindle : 0), fast = hi && chip(hi.feed, op.spindle > 0 ? hi.spindle : 0);
+                        const unit = v => `${Math.round(v)} mm/min`;
+                        if (fast > 0 && mine > fast * 1.6) warnings.push({
+                            title: `${op.type} feed is fast for this bit`,
+                            body: `${unit(op.feed)} on ${tool.name || 'this bit'} in ${mat0.name || 'this material'}: swarf's fastest is about ${unit(hi.feed)}${op.spindle > 0 ? ` at ${hi.spindle} rpm` : ''}. The bit can break.`,
+                            hint: 'use the speed row, or type a slower feed' });
+                        else if (slow > 0 && mine < slow * 0.4) warnings.push({
+                            title: `${op.type} feed is slow for this bit`,
+                            body: `${unit(op.feed)} on ${tool.name || 'this bit'} in ${mat0.name || 'this material'}: swarf starts at about ${unit(lo.feed)}. Too slow rubs and burns.`,
+                            hint: 'use the speed row, or type a faster feed' });
+                    }
                     // deeper a pass than the flutes reach: the shank rubs and the bit breaks (any machine)
                     const fluteLen = tool && tool.flute_len > 0 ? tool.flute_len * (tool.metric ? 1 : 25.4) : 0;
                     if (op.down && fluteLen && op.down > fluteLen + 0.01) {

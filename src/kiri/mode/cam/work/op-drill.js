@@ -45,9 +45,12 @@ class OpDrill extends CamOp {
             // honor zBottom when set
             if (zBottom) drill.zBottom = Math.max(zBottom, drill.zBottom);
 
-            // for thru holes, follow z thru when set
-            if (op.thru > 0 && !op.mark && !drill.found) {
-                drill.zBottom -= op.thru;
+            // swarf: a picked hole that reaches the board's bottom goes on by the bit's point, as a found
+            // hole does, so its full width goes through; a blind one stops at its floor. The old fixed
+            // 5 mm past the bottom drilled into the spoilboard, or into the MR-1's plate
+            const wa = state.workarea;
+            if (op.thru > 0 && !op.mark && !drill.found && wa && drill.zBottom <= wa.bottom_z + 0.01) {
+                drill.zBottom = wa.bottom_z - drillTool.pointLength();
             }
 
             const poly = newPolygon()
