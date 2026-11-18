@@ -1327,7 +1327,7 @@ html[data-skin] #swarf-run .sr-jog .sr-zrow button.next, html[data-skin] #swarf-
       const outl = (proc.ops || []).filter(o => o && (o.type === 'outline' || o.type === 'rough') && !o.disabled);
       if (!outl.length || proc.camZBottom > 0 || proc.camStockIndexed) return out;
       // a rough down to the part's bottom frees it as an outline does (Phil 10-29: a rough-only circle)
-      const outer = outl.some(o => o.type === 'rough' || !o.inside), holes = outl.some(o => !o.omitthru && !o.omitvoid);
+      const outer = outl.some(o => !o.inside), holes = outl.some(o => !o.omitthru && !o.omitvoid);
       for (const w of a.widgets.all()) {
         if (w.track.synth || w.meta.disabled) continue;
         const name = a.platform.part_name ? a.platform.part_name(w) : (w.meta && w.meta.file || 'a part').replace(/\.[^.]+$/, '');

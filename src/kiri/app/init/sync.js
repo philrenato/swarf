@@ -1183,7 +1183,7 @@ function setup_keybd_nav() {
                 const audit = window.__swarfAutoTabs && window.__swarfAutoTabs.audit;
                 if (outl.length && through && audit) {
                     // a rough down to the part's bottom frees it as an outline does (Phil 10-29: a rough-only circle)
-                    const outer = outl.some(o => o.type === 'rough' || !o.inside), holes = outl.some(o => !o.omitthru && !o.omitvoid);
+                    const outer = outl.some(o => !o.inside), holes = outl.some(o => !o.omitthru && !o.omitvoid);
                     for (const w of api.widgets.all()) {
                         if (w.track.synth) continue;
                         const name = api.platform.part_name(w);

@@ -197,12 +197,11 @@ export async function cam_slice(settings, widget, onupdate, ondone) {
         return error('no processes specified');
     }
 
-    // swarf: ensure rough ops use cutout mode (outside trace at each Z)
-    // with no stock padding. Stock = part bounds.
+    // swarf: a rough never clears the whole stock (stock = part bounds). It traces the outside at
+    // each Z unless the step says inside only, which keeps it within the part's outline.
     for (const op of proc.ops) {
         if (op && op.type === 'rough') {
             op.all = false;
-            op.inside = false;
         }
     }
 
