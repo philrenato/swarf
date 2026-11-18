@@ -198,18 +198,19 @@
 
     <p class="swarf-kicker">
       <span class="swarf-loading-text">warming up the workshop<span class="swarf-dots" id="swarf-dots">.</span></span>
-      <span class="swarf-stuck">something is jammed — usually a stale service worker or old stored state from a prior session. Reset clears it and tries again.</span>
+      <span class="swarf-stuck">still loading. If it stays stuck, reload swarf: your parts and steps stay.</span>
     </p>
 
     <div class="swarf-pill-row swarf-stuck">
-      <button type="button" id="swarf-hard-reset" class="swarf-pill primary">Reset swarf</button>
+      <button type="button" id="swarf-hard-reset" class="swarf-pill primary">reload swarf</button>
+      <button type="button" id="swarf-wipe-reset" class="swarf-pill">start over (deletes your parts)</button>
       <a href="https://renato.design" class="swarf-pill" target="_blank" rel="noopener">back to renato.design</a>
     </div>
 
     <div id="swarf-reset-status" class="swarf-status"></div>
 
     <p class="swarf-footnote">
-      swarf is a browser-first CNC interface. It needs service workers + SharedArrayBuffer, which most browsers allow by default but some private / incognito modes do not. If reset doesn't bring it back, add <a href="?reset=1">?reset=1</a> to the URL and reload.
+      swarf is a browser-first CNC interface. It needs service workers + SharedArrayBuffer, which most browsers allow by default but some private / incognito modes do not. If reload doesn't bring it back, add <a href="?reset=1">?reset=1</a> to the URL and reload.
     </p>
 
     <script>
@@ -227,13 +228,19 @@
         if (el) el.textContent = s || '';
       }
 
-      async function hardReset(){
-        setStatus('clearing localStorage…');
-        try {
-          Object.keys(localStorage).forEach(function(k){
-            if (k === 'ws-settings' || k.indexOf('swarf.') === 0) localStorage.removeItem(k);
-          });
-        } catch(e){}
+      // reload keeps the student's work (parts, steps, settings) and clears only the service worker
+      // and caches; wipe also deletes the saved workspace. Offline, nothing is cleared: the caches are
+      // the only copy of swarf on this computer until the network is back.
+      async function hardReset(wipe){
+        if (navigator.onLine === false) { setStatus('offline: connect to the internet, then reload.'); return false; }
+        if (wipe) {
+          setStatus('clearing settings…');
+          try {
+            Object.keys(localStorage).forEach(function(k){
+              if (k === 'ws-settings' || k.indexOf('swarf.') === 0) localStorage.removeItem(k);
+            });
+          } catch(e){}
+        }
         setStatus('unregistering service workers…');
         try {
           if (navigator.serviceWorker && navigator.serviceWorker.getRegistrations) {
@@ -248,8 +255,8 @@
             await Promise.all(keys.map(function(k){ return caches.delete(k).catch(function(){}); }));
           }
         } catch(e){}
-        setStatus('deleting database…');
-        try {
+        if (wipe) setStatus('deleting saved parts…');
+        if (wipe) try {
           await new Promise(function(resolve){
             try {
               var req = indexedDB.deleteDatabase('kiri');
@@ -272,8 +279,13 @@
       var btn = document.getElementById('swarf-hard-reset');
       if (btn) btn.addEventListener('click', function(){
         btn.disabled = true;
-        btn.textContent = 'resetting…';
-        hardReset();
+        hardReset(false).then(function(ok){ if (ok === false) btn.disabled = false; });
+      });
+      var wipeBtn = document.getElementById('swarf-wipe-reset');
+      if (wipeBtn) wipeBtn.addEventListener('click', function(){
+        if (!confirm('Start over? This deletes every part and step saved in this browser.')) return;
+        wipeBtn.disabled = true;
+        hardReset(true).then(function(ok){ if (ok === false) wipeBtn.disabled = false; });
       });
 
       // URL-based auto-reset: ?reset=1 runs hardReset immediately on load.
@@ -284,18 +296,19 @@
           var c = document.getElementById('curtain');
           if (c) c.classList.add('is-stuck');
           clearInterval(ticker);
-          hardReset();
+          hardReset(false);
         });
         return;
       }
 
-      // after 5s, if the curtain is still up, switch to stuck state.
+      // after 30 s, if the curtain is still up, offer the reload (a slow laptop on school wifi can
+      // take more than a few seconds to load the engine).
       setTimeout(function(){
         var c = document.getElementById('curtain');
         if (!c || c.style.display === 'none') return;
         c.classList.add('is-stuck');
         clearInterval(ticker);
-      }, 5000);
+      }, 30000);
     })();
     </script>
     </div>
