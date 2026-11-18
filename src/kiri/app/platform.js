@@ -1616,7 +1616,7 @@ function loadSVGDialog(doit, cancel = () => {}, size = '', ppi = 0) {
         "  <details style='width:320px'><summary>finer settings</summary><table>",
         "  <tr><th title='more points follow a curve more closely; 0.5 is accepted'>points per mm on a curve</th><td><input id='svg-arcs' value='1' size='3'></td></tr>",
         "  <tr><th title='so a small circle stays round'>fewest points on a curve</th><td><input id='svg-marc' value='10' size='3'></td></tr>",
-        `  <tr><th title='only for a drawing with no real units; 0 reads one unit as 1 mm'>pixels per inch</th><td><input id='svg-dpi' value='${ppi}' size='3'></td></tr>`,
+        `  <tr><th title='a drawing with no units: 0 reads 1 unit as 1 mm'>pixels per inch</th><td><input id='svg-dpi' value='${ppi}' size='3'></td></tr>`,
         "  </table></details>",
         "</div>"
     ]};
