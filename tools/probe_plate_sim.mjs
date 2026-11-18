@@ -1,7 +1,7 @@
 // Z plate in the simulator (Phil 10-27: "auto z depth with the touch off tool.
 // Like the SB software has, but more tightly integrated"). After zero x y the
 // z plate button is the next thing to press; the card's touch off stays shut
-// until the three checks are ticked and the plate has touched the bit; touch
+// until the three checks are ticked (no touch step); touch
 // off finds the board's real top (after a wrong Z zero made by hand) and leaves
 // the bit 25.4 mm above it; the card then asks for the plate back; the plate
 // thickness typed in the card is kept.
@@ -55,14 +55,13 @@ try {
   await btn('z plate');
   await page.waitForFunction(() => document.querySelector('#swarf-run .sr-sheet.on .sr-plate'), { timeout: 5000 });
   const go = () => page.evaluate(() => { const g = document.querySelector('#swarf-run .sr-sheet.on .go'); return { t: g.textContent, d: g.disabled }; });
-  // a plate 6.35 thick (typed), the checks, then the stand-in touch
+  // a plate 6.35 thick (typed), then the checks
   await page.evaluate(() => { const i = document.querySelector('#swarf-run .sr-plate-t input'); i.value = '6.35'; i.dispatchEvent(new Event('change')); });
   const g0 = await go();
   await page.evaluate(() => { for (const c of [...document.querySelectorAll('#swarf-run .sr-plate input[type=checkbox]')].slice(0, 3)) c.click(); });
-  const g1 = await go();
-  await btn('touch the plate to the bit');
   const g2 = await go();
-  check(g0.d && g1.d && !g2.d && g2.t === 'touch off', `touch off opens only after the checks and the touch (${g0.d}, ${g1.d}, ${g2.d})`);
+  const noTouch = await page.evaluate(() => ![...document.querySelectorAll('#swarf-run .sr-sheet.on button')].some(b => /touch the plate/.test(b.textContent)));
+  check(g0.d && !g2.d && g2.t === 'touch off' && noTouch, `touch off opens with the three checks, no touch step (${g0.d}, ${g2.d}, ${noTouch})`);
   await page.screenshot({ path: `${OUT}-card.png` });
   await page.evaluate(() => document.querySelector('#swarf-run .sr-sheet.on .go').click());
   await page.waitForFunction(() => /^Z zeroed/.test(window.__swarfRun.state.machine.state.note), { timeout: 30000 });

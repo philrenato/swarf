@@ -52,6 +52,22 @@
     try { a.selection.update_bounds(); a.platform.update_bounds(); a.space.auto_save(); a.selection.update_info(); window.moto.space.update(); } catch (e) { /* no workspace */ }
   }
 
+  // a part standing up (Phil 11-18: the common case is a file whose XY came in vertical): taller than
+  // its narrower side on the bed. Laid flat by a quarter turn that puts its thinnest side up, and that
+  // way is its flat from then on (an import's own way up is not a flat to go back to).
+  function standing(w) {
+    const b = w.getBoundingBox ? w.getBoundingBox() : null;
+    if (!b) return false;
+    const dx = b.max.x - b.min.x, dy = b.max.y - b.min.y, dz = b.max.z - b.min.z;
+    return dz > Math.min(dx, dy) * 1.01 + 0.01;
+  }
+  function layDown(w) {
+    const b = w.getBoundingBox();
+    if (b.max.x - b.min.x < b.max.y - b.min.y) turn(0, Math.PI / 2, 0); else turn(Math.PI / 2, 0, 0);
+    for (const p of (w.group && w.group.length ? w.group : [w])) if (p.meta) { p.meta.rflat = p.meta.rq; delete p.meta.tilted; }
+    try { api().space.auto_save(); } catch (e) { /* no workspace */ }
+  }
+
   // onto its long edge: the turn is about the part's longer side on the bed, so a plank stands on
   // its long edge, not on its end
   function standOnEdge(w) {
@@ -100,13 +116,17 @@
     const who = list.length > 1 ? `${list.length} parts` : nameOf(w);
     const out = list.every(p => p.meta && p.meta.disabled);
     const tilted = list.some(p => p.meta && p.meta.tilted);
+    const upright = !tilted && list.length === 1 && standing(w);
     const items = [
+      // first: the common case is a part that came in standing up
+      tilted
+        ? { label: 'lay it flat', title: 'back the way it last lay flat', run: () => { for (const p of list) if (p.meta && p.meta.tilted) layFlat(p); said(`${who} lies flat again.`); } }
+        : upright
+          ? { label: 'lay it flat', title: 'a quarter turn onto its widest side', run: () => { layDown(w); said(`${who} lies flat.`); } }
+          : { label: 'stand it on its side', title: 'a quarter turn onto its long edge: to cut into that edge', run: () => { standOnEdge(w); said(`${who} stands on its long edge. Lay it flat from here again.`); } },
       { label: 'turn left 90°', title: 'a quarter turn counterclockwise, seen from above', run: () => { turn(0, 0, Math.PI / 2); said(`Turned ${who} a quarter left.`); } },
       { label: 'turn right 90°', title: 'a quarter turn clockwise, seen from above', run: () => { turn(0, 0, -Math.PI / 2); said(`Turned ${who} a quarter right.`); } },
       { label: 'turn it over', title: 'upside down, its bottom on top: to cut its other side', run: () => { turn(0, Math.PI, 0); said(`Turned ${who} over: its other side is on top.`); } },
-      tilted
-        ? { label: 'lay it flat', title: 'back the way it last lay flat', run: () => { for (const p of list) if (p.meta && p.meta.tilted) layFlat(p); said(`${who} lies flat again.`); } }
-        : { label: 'stand it on its side', title: 'a quarter turn onto its long edge: to cut into that edge', run: () => { standOnEdge(w); said(`${who} stands on its long edge. Lay it flat from here again.`); } },
       { label: 'mirror', title: 'flipped left to right', run: () => { a.selection.mirror(); said(`Mirrored ${who}.`); } },
       { label: 'duplicate', title: 'a copy beside it', run: () => a.selection.duplicate() },
       { label: 'copies…', title: 'rows and columns of it, with a gap', run: () => window.__swarfSize && window.__swarfSize.copies() },

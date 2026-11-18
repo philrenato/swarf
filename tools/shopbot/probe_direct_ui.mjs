@@ -224,19 +224,13 @@ try {
   const sheetGo = () => page.evaluate(() => { const g = document.querySelector('#swarf-run .sr-sheet.on .go'); const t = g.textContent; g.click(); return t; });
   const goState = () => page.evaluate(() => { const g = document.querySelector('#swarf-run .sr-sheet.on .go'); return { t: g.textContent, d: g.disabled }; });
   await new Promise(r => setTimeout(r, 600));   // one poll: the plate reads open before the guide starts
-  // a first touch-off: the plate's input not yet known (a fresh browser)
-  await page.evaluate(() => { const m = window.__swarfRun.state.machine; m.plateCfg.confirmed = false; });
+  // the plate card: three checks and no touch step (Phil 11-18: never a step)
   await page.evaluate(() => [...document.querySelectorAll('#swarf-run button')].find(b => b.textContent === 'z plate').click());
   const shut0 = await goState();
   await page.evaluate(() => { for (const c of [...document.querySelectorAll('#swarf-run .sr-sheet.on .sr-plate input[type=checkbox]')].slice(0, 3)) c.click(); });
-  const shut1 = await goState();
-  const circ = await page.evaluate(() => document.querySelector('#swarf-run .sr-circuit').textContent);
-  check(shut0.d && shut1.d && shut1.t === 'touch off' && /Touch the plate to the bit/.test(circ), `plate card: touch off shut until the checks (${shut0.d}) and the circuit (${shut1.d}): "${circ}"`);
-  await page.evaluate(() => { const w = window.__stub.state.switches[0]; w.at0 = w.at; w.at = window.__stub.state.pos[2] + 5; });   // the hand touches the plate to the bit
-  await new Promise(r => setTimeout(r, 900));
-  await page.evaluate(() => { const w = window.__stub.state.switches[0]; w.at = w.at0; });                                        // and takes it away
-  await page.waitForFunction(() => { const g = document.querySelector('#swarf-run .sr-sheet.on .go'); return g && !g.disabled && /works/.test(document.querySelector('#swarf-run .sr-circuit').textContent); }, { timeout: 5000 })
-    .then(() => check(true, 'plate card: the touch proved the circuit, touch off opens'), () => check(false, 'plate card: the touch proved the circuit, touch off opens'));
+  const open1 = await goState();
+  const touchStep = await page.evaluate(() => !!document.querySelector('#swarf-run .sr-sheet.on .sr-circuit'));
+  check(shut0.d && !open1.d && open1.t === 'touch off' && !touchStep, `plate card: touch off shut until the checks (${shut0.d}), then open (${!open1.d}), no touch step (${!touchStep})`);
   await sheetGo();
   await page.waitForFunction(() => /^Z ze/.test(window.__swarfRun.state.machine.state.note), { timeout: 30000 });
   await page.waitForFunction(() => /put\saway/.test(document.querySelector('#swarf-run .sr-sheet.on .sr-plate')?.textContent || ''), { timeout: 5000 });

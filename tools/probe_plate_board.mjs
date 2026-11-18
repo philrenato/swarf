@@ -33,7 +33,6 @@ try {
   const toTheCard = async () => {
     await btn('zero x y'); await wait(200);
     await btn('z plate'); await wait(400);
-    await btn('touch the plate to the bit'); await wait(100);
     await page.evaluate(() => { for (const c of document.querySelectorAll('.sr-plate label input[type=checkbox]')) if (!c.checked) c.click(); }); await wait(100);
     await btn('touch off');
     await page.waitForFunction(() => /Z is zero on top/.test(document.querySelector('.sr-plate')?.textContent || ''), { timeout: 30000 });

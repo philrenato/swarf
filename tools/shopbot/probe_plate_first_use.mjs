@@ -1,6 +1,7 @@
-// The Z plate on a browser that has never seen this machine (no machine setup, nothing saved):
-// touch off says why it is shut, says so when no touch is seen, proves the circuit from a touch,
-// shows a refusal on the card, then zeroes Z.
+// The Z plate on a browser that has never seen this machine (no machine setup, nothing saved): the
+// shop's plate is known, so the card has the three checks and no touch step; touch off says why it
+// is shut, keeps a refusal on the card, then zeroes Z. A plate not known (its input clashed with the
+// e-stop's) sends the teacher to machine setup: still no touch step.
 //   node probe_plate_first_use.mjs [url]
 import puppeteer from 'puppeteer-core';
 import { readFileSync, mkdirSync } from 'node:fs';
@@ -66,18 +67,12 @@ try {
   await wait(300);
   await page.evaluate(() => { for (const c of [...document.querySelectorAll('#swarf-run .sr-sheet.on .sr-plate input[type=checkbox]')].slice(0, 3)) c.click(); });
   let s = await S();
-  check(s.go.d && /sees the plate touch the bit/.test(s.why), `touch off shut, and the card says why: "${s.why}"`);
-  await wait(9500);
+  const circShown = await page.evaluate(() => { const c = document.querySelector('#swarf-run .sr-sheet.on .sr-circuit'); return !!c && getComputedStyle(c).display !== 'none'; });
+  check(s.confirmed && !circShown && !s.go.d && !s.why, `a fresh browser: no touch step, touch off opens with the three checks (${JSON.stringify(s.go)})`);
+  await page.evaluate(() => document.querySelector('#swarf-run .sr-sheet.on .sr-plate input[type=checkbox]').click());
   s = await S();
-  check(/has not seen the plate touch the bit/.test(s.why) && /clip/.test(s.why), `no touch for a while: the card says check the clip and wire ("${s.why}")`);
-  await page.evaluate(() => { const w = window.__stub.state.switches[0]; w.at0 = w.at; w.at = window.__stub.state.pos[2] + 5; });
-  await wait(900);
-  s = await S();
-  check(/touch seen/.test(s.circ) && !s.why, `touching: "${s.circ}", no warning`);
-  await page.evaluate(() => { const w = window.__stub.state.switches[0]; w.at = w.at0; });
-  await wait(900);
-  s = await S();
-  check(s.confirmed && !s.go.d && /circuit works/.test(s.circ), `let go: circuit proved, touch off open (${JSON.stringify(s.go)})`);
+  check(s.go.d && /three boxes/.test(s.why), `a box unticked: touch off shut, and the card says why ("${s.why}")`);
+  await page.evaluate(() => document.querySelector('#swarf-run .sr-sheet.on .sr-plate input[type=checkbox]').click());
   await page.evaluate(() => { window.__swarfRun.state.machine.state.routerUnknown = true; document.querySelector('#swarf-run .sr-sheet.on .go').click(); });
   await wait(1500);
   s = await S();
@@ -87,6 +82,16 @@ try {
   await wait(500);
   s = await S();
   check(/^Z zeroed/.test(s.note) && s.sheet && !s.why, `then touch off zeroes Z: "${s.note}"`);
+  // a plate not known on this computer: touch off shut, the card says machine setup, no touch step
+  await page.evaluate(() => { const c = document.querySelector('#swarf-run .sr-sheet.on input[type=checkbox]'); if (c) c.click(); const g = document.querySelector('#swarf-run .sr-sheet.on .go'); if (g) g.click(); });
+  await wait(300);
+  await page.evaluate(() => { const m = window.__swarfRun.state.machine; m.plateCfg.confirmed = false; });
+  await page.evaluate(() => [...document.querySelectorAll('#swarf-run button')].find(b => b.textContent === 'z plate').click());
+  await wait(300);
+  await page.evaluate(() => { for (const c of [...document.querySelectorAll('#swarf-run .sr-sheet.on .sr-plate input[type=checkbox]')].slice(0, 3)) c.click(); });
+  s = await S();
+  const touchAsk = await page.evaluate(() => /touch the plate to the bit/i.test(document.querySelector('#swarf-run .sr-sheet.on')?.textContent || ''));
+  check(s.go.d && /machine setup/.test(s.why) && !touchAsk, `a plate not known: touch off shut, the card says machine setup, never a touch ("${s.why}")`);
 } catch (e) { check(false, 'probe ran: ' + e.message); } finally { await browser.close(); }
 console.log(problems.length ? problems.slice(0, 5) : '');
 console.log(fail ? `plate first use: ${fail} failed` : 'plate first use: ok');

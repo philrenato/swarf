@@ -55,7 +55,9 @@
   // travel: swarf stops after 60 mm (search down on the plate card raises it). The guide
   // starts the bit 25-50 mm over the board and proves the clip circuit first, so a seek
   // that still misses contact ends at most ~35 mm below the board's top, not 230.
-  const PLATE = { input: 1, hit: 1, thickness: 3.0734, fast: 12.7, slow: 6.35, lift: 25.4, travel: 60, confirmed: false };
+  // A fresh browser takes the shop's plate as known (Phil 11-18: a student never has to touch the plate
+// to the bit on purpose); machine setup still sets another box's plate.
+const PLATE = { input: 1, hit: 1, thickness: 3.0734, fast: 12.7, slow: 6.35, lift: 25.4, travel: 60, confirmed: true };
 
   class DirectMachine extends M.Base {
     constructor(cfg = {}) {
@@ -119,6 +121,8 @@
       if (!num(P.travel, v => v >= 10 && v <= 150)) P.travel = PLATE.travel;          // setPlateTravel's
       for (const k of ['fast', 'slow', 'lift']) if (!num(P[k], v => v > 0)) P[k] = PLATE[k];
       if (typeof P.confirmed !== 'boolean') P.confirmed = false;
+      // the shop's own plate (input 1, contact reads 1) is known even where an earlier build saved it unproved
+      if (P.input === PLATE.input && P.hit === PLATE.hit && !this.plateClash()) P.confirmed = true;
     }
 
     // the saved plate input is one the e-stop or a home sensor uses
@@ -723,7 +727,7 @@
       if (this.state.routerUnknown) { this.set({ note: UNKNOWN }); return false; }
       const P = this.plateCfg, u = this.cfg.unit.z;
       if (this.plateClash()) { P.confirmed = false; this.savePlate(); }
-      if (!P.confirmed) { this.set({ note: 'set the Z plate in "check the machine" first' }); return false; }
+      if (!P.confirmed) { this.set({ note: 'the Z plate is not set on this computer: a teacher sets it in machine setup' }); return false; }
       this.read(await this.card.status());
       if (this.level(this.state.inputs, P.input) === P.hit) { this.set({ note: 'the plate already reads contact: lift the bit off the plate, then zero again' }); return false; }
       this.homing = true;

@@ -46,7 +46,7 @@ try {
   await rightClick(at.x, at.y);
   const r1 = await rows();
   console.log('   part rows:', r1.join(' · '));
-  check(['turn left 90°', 'turn right 90°', 'turn it over', 'stand it on its side', 'mirror', 'duplicate', 'leave it out of this run', 'delete'].every(l => r1.includes(l)), 'a right-click on the part lists its rows');
+  check(['stand it on its side', 'turn left 90°', 'turn right 90°', 'turn it over', 'mirror', 'duplicate', 'leave it out of this run', 'delete'].every(l => r1.includes(l)), 'a right-click on the part lists its rows');
   check(await page.evaluate(() => window.kiri.api.selection.widgets().length === 1), 'and picks it');
   check(await page.evaluate(() => document.activeElement && document.activeElement.closest('.swarf-ctx') !== null), 'the first row has the keyboard');
   await page.screenshot({ path: `${OUT}-part.png` });
@@ -68,6 +68,19 @@ try {
   await press('lay it flat');
   const s4 = await size();
   check(!s4.tilted && Math.abs(s4.z - s0.z) < 0.5, `lay it flat: flat again, ${s4.z} mm thick`);
+  // a part that came in standing up (its file's XY vertical): its own way up is no flat to go back to
+  await page.evaluate(() => { const a = window.kiri.api, w = a.widgets.all()[0]; a.selection.rotate(Math.PI / 2, 0, 0); w.meta.rflat = w.meta.rq; delete w.meta.tilted; });
+  const s4b = await size();
+  const at4 = await page.evaluate(() => { const THREE = window.THREE, w = window.kiri.api.widgets.all()[0], { camera, renderer } = window.moto.space.internals(); const b = new THREE.Box3().setFromObject(w.mesh), c = b.getCenter(new THREE.Vector3()).project(camera), r = renderer.domElement.getBoundingClientRect(); return { x: r.left + (c.x + 1) / 2 * r.width, y: r.top + (1 - c.y) / 2 * r.height }; });
+  await rightClick(at4.x, at4.y);
+  const r4 = await rows();
+  check(!s4b.tilted && s4b.z > s0.z + 1 && r4[0] === 'lay it flat' && !r4.includes('stand it on its side'), `a part that came in standing: lay it flat comes first (${s4b.z} mm high; ${r4.slice(0, 2)})`);
+  await press('lay it flat');
+  const s4c = await size();
+  check(!s4c.tilted && Math.abs(s4c.z - s0.z) < 0.5, `laid flat: ${s4c.z} mm thick, as it was`);
+  await rightClick(at4.x, at4.y);
+  check((await rows()).includes('stand it on its side'), 'flat now: the row offers stand it on its side again');
+  await page.keyboard.press('Escape');
   await rightClick(at3.x, at3.y); await press('leave it out of this run');
   const s5 = await size();
   const tick = await page.evaluate(() => { const b = document.querySelector('#ws-widgets input[type=checkbox], .swarf-obj-cut, #objects input[type=checkbox]'); return b ? b.checked : null; });

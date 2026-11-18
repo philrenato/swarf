@@ -1763,13 +1763,13 @@ html[data-skin] #swarf-run .sr-jog .sr-zrow button.next, html[data-skin] #swarf-
     if (!m || !m.zZero || m.state.running || (isDirect() && !m.state.connected)) return;
     playStop();
     const sim = !isDirect();
-    // the plate's input once proved is kept (machine setup, or the first touch): after that the card
-    // has no touch step (Phil 10-29: "I don't want/like that"). The plate already reading contact is
-    // still refused before the bit moves, and the descent stops after its travel.
-    // a saved plate input that is the e-stop's (or a home sensor's) is no plate: prove it again
+    // no touch step, ever (Phil 10-29, again 11-18): the shop's plate is known from the start, and
+    // machine setup sets another box's. The plate already reading contact is still refused before the
+    // bit moves, and the descent stops after its travel. A saved plate input that is the e-stop's (or a
+    // home sensor's) is no plate: the card sends the teacher to machine setup.
     if (!sim && m.plateClash && m.plateClash() && m.plateCfg.confirmed) { m.plateCfg.confirmed = false; m.savePlate(); }
-    const known = !sim && !!(m.plateCfg && m.plateCfg.confirmed);
-    let base = null, seen = null, proved = known, zeroed = false;
+    const proved = sim || !!(m.plateCfg && m.plateCfg.confirmed);
+    let zeroed = false;
     const checks = [
       ['over', `The bit is over your board, less than ${len((m.plateCfg && m.plateCfg.travel) || 60, 0)} above the plate (its search distance).`],
       ['clip', 'The ground clip is on the black Allen screw in the side of the router\'s housing, its wire clear of the bit.'],
@@ -1780,13 +1780,9 @@ html[data-skin] #swarf-run .sr-jog .sr-zrow button.next, html[data-skin] #swarf-
     // (review r086 F4) the plate's numbers in cam's units; a bare number typed is in them too
     const plateShow = mm => window.SwarfLength ? SwarfLength.show(mm) : String(+(+mm).toFixed(3));
     const thick = h('input', { type: 'text', inputmode: 'decimal', value: plateShow(m.plateCfg.thickness), title: `Your plate's thickness, from calipers: Z zero is this far below` });
-    const circuit = h('p', { class: 'sr-circuit' });
     // why touch off is shut, in words on the card (a shut button with only a tooltip read as
     // "touch off does nothing" on a first use)
     const why = h('p', { class: 'sr-why' });
-    const opened = Date.now();
-    let anyChange = false;
-    const touchBtn = sim ? h('button', { text: 'touch the plate to the bit', title: 'The simulator has no plate: this stands in for the touch', onclick: () => { proved = true; show(); } }) : null;
     const go = h('button', { class: 'go' });
     const back = h('button', { text: 'cancel', onclick: () => { S.plateWatch = null; S.afterZero = null; el.sheet.classList.remove('on'); refresh(); } });
     const put = h('input', { type: 'checkbox' });
@@ -1804,7 +1800,7 @@ html[data-skin] #swarf-run .sr-jog .sr-zrow button.next, html[data-skin] #swarf-
     });
     const show = () => {
       const all = checks.every(([k]) => boxes[k].checked);
-      if (pic) pic.pose(zeroed ? 'away' : proved ? 'flat' : 'test');
+      if (pic) pic.pose(zeroed ? 'away' : 'flat');
       if (zeroed) {
         why.textContent = ''; why.style.display = 'none';
         body.innerHTML = '';
@@ -1817,49 +1813,14 @@ html[data-skin] #swarf-run .sr-jog .sr-zrow button.next, html[data-skin] #swarf-
         go.title = go.disabled ? "Tick 'the plate and the clip are put away' first" : 'Close the card: Z is set';
         return;
       }
-      circuit.textContent = proved
-        ? '✓ the circuit works'
-        : seen ? 'touch seen: now take the plate away'
-        : sim ? 'Touch the plate to the bit, to prove the circuit.' : 'Touch the plate to the bit and hold it there a second, then take it away.';
-      circuit.classList.toggle('ok', proved);
-      circuit.style.display = known ? 'none' : '';
-      if (touchBtn) touchBtn.style.display = proved ? 'none' : '';
       go.textContent = 'touch off';
       go.disabled = !(all && proved);
-      const quiet = !proved && !sim && !anyChange && Date.now() - opened > 8000;
       why.textContent = !go.disabled ? ''
-        : !proved ? (seen ? '' : quiet
-          ? 'swarf has not seen the plate touch the bit. Check the clip is on the router and the plate\'s wire is plugged into the box, then touch the plate to the bit again.'
-          : 'Touch off opens once swarf sees the plate touch the bit.')
+        : !proved ? 'The Z plate isn\'t set on this computer: a teacher sets it in machine setup (hold the button).'
         : 'Touch off opens once the three boxes are ticked.';
       why.style.display = why.textContent ? '' : 'none';
-      go.title = go.disabled ? (proved ? 'Tick the three checks first' : 'Prove the circuit first: touch the plate to the bit') : `The bit comes down slowly, touches, lifts, touches again and lifts ${up()}. Any key stops it.`;
+      go.title = go.disabled ? why.textContent : `The bit comes down slowly, touches, lifts, touches again and lifts ${up()}. Any key stops it.`;
     };
-    // the inputs as they stand with the clip on: a touch changes exactly one of them
-    const watch = st => {
-      if (!st.inputs || proved) return;
-      // (11-16, a first touch-off on another Mac never lit touch off) the card can open before the
-      // box has sent its inputs: the first reading after it opens is the one a touch changes
-      if (!base) { base = { ...st.inputs }; return; }
-      // once the plate's input is set in machine setup, only that input counts (design review 10-28 #8)
-      const only = m.plateCfg && m.plateCfg.confirmed ? m.plateCfg.input : 0;
-      // the e-stop's input is never the plate: a press or a flicker there was saved as the plate's input
-      const stopIn = m.stopCfg ? m.stopCfg().input : 0;
-      for (let n = 1; n <= 12; n++) {
-        if (only && n !== only) continue;
-        if (n === stopIn) continue;
-        const was = m.level(base, n), now = m.level(st.inputs, n);
-        if (now !== was) anyChange = true;
-        if (now !== was && !seen) { seen = { input: n, hit: now }; show(); }
-        if (seen && n === seen.input && now === was) {      // touched and let go: the circuit works
-          S.plateWatch = null;                              // first: setPlate's state update calls back in here
-          m.setPlate(seen.input, seen.hit);
-          proved = true; show();
-          return;
-        }
-      }
-    };
-    if (!sim && !known) { base = m.state.inputs ? { ...m.state.inputs } : null; S.plateWatch = watch; m.wantInputs = () => !!S.plateWatch; }
     thick.addEventListener('keydown', e => e.stopPropagation());
     // how far the bit searches down for the plate (Phil 10-29: 60 mm by default, raise it by hand)
     // (Phil 11-01) shown as every length field is (SwarfLength.show), so the number read back is the
@@ -1908,16 +1869,11 @@ html[data-skin] #swarf-run .sr-jog .sr-zrow button.next, html[data-skin] #swarf-
       boxes[k] = h('input', { type: 'checkbox' });
       boxes[k].addEventListener('change', show);
       body.append(h('label', {}, boxes[k], h('span', { text: t })));
-      if (k === 'clip') body.append(circuit, ...(touchBtn ? [touchBtn] : []));
     }
     el.card.innerHTML = '';
     el.card.append(...(pic ? [pic.el] : []), body, why, h('div', { class: 'row' }, back, go));
     show();
     el.sheet.classList.add('on');
-    // until the circuit is proved, the card re-reads itself so "not seen" can say so
-    if (!proved) {
-      const tick = setInterval(() => { if (proved || zeroed || !body.isConnected) { clearInterval(tick); return; } show(); }, 1000);
-    }
   }
 
   // A measured board against this job (optional, on the plate card). The job's thickness is known for
