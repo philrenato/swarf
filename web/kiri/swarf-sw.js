@@ -85,8 +85,9 @@ self.addEventListener('activate', (e) => {
 
 // every same-origin file is network-first and the cache is the fallback: a stale cache served
 // first made a fix take two reloads to show and mixed two builds' scripts and CSS. The network
-// gets SwarfSW.TIMEOUT_MS to answer before a cached copy is used. Precached files are never
-// rewritten at run time, so the offline copy stays one build; other files are kept as used.
+// gets SwarfSW.TIMEOUT_MS to answer before a cached copy is used. Precached files are not
+// rewritten at run time (only put back if missing), so the offline copy stays one build; other
+// files are kept as used.
 function isNavigation(req) {
     return req.mode === 'navigate' || (req.headers.get('accept') || '').includes('text/html');
 }
@@ -115,8 +116,10 @@ self.addEventListener('fetch', (e) => {
     if (sameOrigin) {
         const nav = isNavigation(req);
         const key = cacheKey(req.url);
-        // a query other than the build stamp (a connectivity check) is never kept
-        const keep = !PRECACHE_KEYS.has(key) && !new URL(key).search;
+        // a query other than the build stamp (a connectivity check) is never kept; a precached
+        // file is written only into a hole (its cache was cleared: the version stamp's update)
+        const precached = PRECACHE_KEYS.has(key);
+        const keep = precached || !new URL(key).search;
         e.respondWith((async () => {
             const out = await networkFirst({
                 network: () => fetch(req, { cache: noStore(req.url, nav) ? 'no-store' : 'no-cache' }),
@@ -131,7 +134,10 @@ self.addEventListener('fetch', (e) => {
             if (out.store && keep) {
                 // clone in the same tick: once the body streams to the page a deferred clone throws
                 const forCache = patched.clone();
-                e.waitUntil(caches.open(CACHE_NAME).then((c) => c.put(key, forCache)));
+                e.waitUntil(caches.open(CACHE_NAME).then(async (c) => {
+                    if (precached && await c.match(key)) return;
+                    await c.put(key, forCache);
+                }));
             }
             return patched;
         })());

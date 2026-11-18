@@ -108,12 +108,12 @@ assert.equal(o.response, moved); assert.equal(o.store, false);
 assert.equal(W.TIMEOUT_MS, 4000);
 
 // the worker: install fails when any file fails (nothing swallowed), the old caches go only once the
-// new one is whole, and precached files are never rewritten at run time
+// new one is whole, and precached files are not rewritten at run time (only put back when missing)
 const sw = readFileSync(new URL('../web/kiri/swarf-sw.js', import.meta.url), 'utf8');
 assert.ok(sw.includes("importScripts('swarf-sw-core.js')"));
 assert.ok(sw.includes('[/*__SWARF_PRECACHE__*/]'), 'the deploy writes the file list here');
 assert.ok(!/\.catch\(\s*\(\)\s*=>\s*\{\s*\}\s*\)/.test(sw.slice(sw.indexOf('async function precache'), sw.indexOf('async function complete'))), 'precache swallows no failure');
 assert.ok(/throw new Error\(`precache/.test(sw) && /throw err;/.test(sw));
 assert.ok(/if \(await complete\(CACHE_NAME\)\)/.test(sw), 'old caches are deleted only after the new one is complete');
-assert.ok(/const keep = !PRECACHE_KEYS\.has\(key\)/.test(sw));
+assert.ok(/if \(precached && await c\.match\(key\)\) return;/.test(sw), 'a precached file is only put back when missing');
 console.log('sw-core: ok');
