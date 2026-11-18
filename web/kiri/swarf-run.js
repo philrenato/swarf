@@ -1697,9 +1697,11 @@ html[data-skin] #swarf-run .sr-jog .sr-zrow button.next, html[data-skin] #swarf-
         // two lines at 1280 in every skin (r093 UX W4): the status never pushes the page down
         if (S.toolChange) return say(`${S.toolChange} The router is off (leave its own switch on), the bit ${len(CHANGE_Z, 0)} up. Once it has stopped turning, change it, zero Z, then continue from line ${S.stoppedAt}.`, 'warn');
         if (S.zeroLost) return say('The box lost its position while it was unplugged. Zero X Y and Z again before you go on.', 'warn');
-        if (!S.zeroXY) return say(`Jog the bit over ${o.xy}, then press zero x y. Hold an arrow to get close, then pick a step of 1 for the last of it.`);
-        if (/top/.test(o.z) && isGrbl()) return say(`Now Z, on ${o.z}: lower the bit with step 1, then 0.1, onto a sheet of paper until it just drags. Then press zero z.`);
-        if (/top/.test(o.z)) return say(`Now Z, on ${o.z}: press z plate and the bit finds the board itself with the touch plate. Or lower it with step 0.1 onto a sheet of paper until it just drags, then press zero z.`);
+        // the step names follow the units: the jog's steps are 0.01 / 0.1 / 1 / 2 in, or 0.1 / 1 / 10 mm
+        const [stepNear, stepFine] = inch() ? ['0.1', '0.01'] : ['1', '0.1'];
+        if (!S.zeroXY) return say(`Jog the bit over ${o.xy}, then press zero x y. Hold an arrow to get close, then pick a step of ${stepNear} for the last of it.`);
+        if (/top/.test(o.z) && isGrbl()) return say(`Now Z, on ${o.z}: lower the bit with step ${stepNear}, then ${stepFine}, onto a sheet of paper until it just drags. Then press zero z.`);
+        if (/top/.test(o.z)) return say(`Now Z, on ${o.z}: press z plate and the bit finds the board itself with the touch plate. Or lower it with step ${stepFine} onto a sheet of paper until it just drags, then press zero z.`);
         return say(`Lower the bit to ${o.z}: step 1 to get close, then 0.1, with a sheet of paper under the bit until it just drags. Then press zero z.`);
       case 'trace': return say(`Press trace. The bit runs the rectangle your cut fills, ${up()} up, ${spindleWord()} off. Check it clears every screw and clamp and stays over your board.`);
       case 'cut':
