@@ -1389,7 +1389,7 @@ function load_files(files, group) {
                         api.show.alert(`${open} open line${open > 1 ? 's were' : ' was'} left out: only closed shapes can be given a thickness`, 10);
                     }
                     load_dec();
-                }, load_dec, svgSizeLine(text));
+                }, load_dec, svgSizeLine(text, svgAssumedPPI(text)), svgAssumedPPI(text));
             } else if (isai) {
                 // swarf r36: Illustrator / PDF drawings through Unreason's reader (web/kiri/swarf-vector.mjs),
                 // as SVG in mm into the same thickness dialog as an SVG
@@ -1569,8 +1569,18 @@ function svgTimes(text, k) {
     } catch (e) { return text; }
 }
 
+// an SVG with no real units is read as the program that wrote it meant: 96 units to the inch (the web's
+// pixel), or 72 when Adobe Illustrator wrote it. 0 when the file has real units
+function svgAssumedPPI(text) {
+    try {
+        const root = new DOMParser().parseFromString(text, 'image/svg+xml').documentElement;
+        if (root.getAttribute('data-swarf-units') !== 'none') return 0;
+        return /Adobe Illustrator/i.test(text.slice(0, 2000)) ? 72 : 96;
+    } catch (e) { return 0; }
+}
+
 // the card says what size the drawing comes in, before the parts are made
-function svgSizeLine(text) {
+function svgSizeLine(text, ppi = 0) {
     try {
         let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
         for (const poly of file_load.SVG.parse(text, { flat: true, soup: false })) for (const p of poly.points) {
@@ -1578,14 +1588,16 @@ function svgSizeLine(text) {
             y0 = Math.min(y0, p.y); y1 = Math.max(y1, p.y);
         }
         if (!(x1 > x0)) return '';
-        const L = self.SwarfLength, say = v => L ? L.say(v) : `${+v.toFixed(1)} mm`;
+        const k = ppi > 0 ? 25.4 / ppi : 1;
+        const L = self.SwarfLength, say = v => L ? L.say(v * k) : `${+(v * k).toFixed(1)} mm`;
         const root = new DOMParser().parseFromString(text, 'image/svg+xml').documentElement;
         const real = /(in|mm|cm|pt|pc)\s*$/.test(root.getAttribute('width') || '') && root.getAttribute('data-swarf-units') !== 'none';
-        return `It comes in at ${say(x1 - x0)} × ${say(y1 - y0)}.${real ? '' : ' It has no real units, so one unit reads as 1 mm: if that is wrong, set finer settings › pixels per inch, or type the size on the part afterward.'}`;
+        const how = ppi === 72 ? '72 to the inch, as Illustrator means' : `${ppi || 96} to the inch, as most programs mean`;
+        return `It comes in at ${say(x1 - x0)} × ${say(y1 - y0)}.${real ? '' : ` It has no real units, so swarf reads ${how}: if that is wrong, change finer settings › pixels per inch.`}`;
     } catch (e) { return ''; }
 }
 
-function loadSVGDialog(doit, cancel = () => {}, size = '') {
+function loadSVGDialog(doit, cancel = () => {}, size = '', ppi = 0) {
     // swarf: the dialog speaks SHAPE's words (review 10-28b #7), and starts at
     // the last thickness SHAPE used, so a drawing and a shape come out alike
     const t = lastThickness();
@@ -1604,7 +1616,7 @@ function loadSVGDialog(doit, cancel = () => {}, size = '') {
         "  <details style='width:320px'><summary>finer settings</summary><table>",
         "  <tr><th title='more points follow a curve more closely; 0.5 is accepted'>points per mm on a curve</th><td><input id='svg-arcs' value='1' size='3'></td></tr>",
         "  <tr><th title='so a small circle stays round'>fewest points on a curve</th><td><input id='svg-marc' value='10' size='3'></td></tr>",
-        "  <tr><th title='only for a drawing measured in pixels; 0 reads mm'>pixels per inch</th><td><input id='svg-dpi' value='0' size='3'></td></tr>",
+        `  <tr><th title='only for a drawing with no real units; 0 reads one unit as 1 mm'>pixels per inch</th><td><input id='svg-dpi' value='${ppi}' size='3'></td></tr>`,
         "  </table></details>",
         "</div>"
     ]};

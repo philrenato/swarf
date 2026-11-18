@@ -19,7 +19,9 @@ const CASES = [
   ['mm width, tenth-mm viewBox, offset', '<svg xmlns="http://www.w3.org/2000/svg" width="100mm" height="50mm" viewBox="10 10 1000 500"><path d="M10 10H1010V510H10Z"/></svg>', 100, 50, true],
   ['mm width, mm viewBox', '<svg xmlns="http://www.w3.org/2000/svg" width="100mm" height="50mm" viewBox="0 0 100 50">' + rect(100, 50) + '</svg>', 100, 50, true],
   ['points, point viewBox', '<svg xmlns="http://www.w3.org/2000/svg" width="72pt" height="36pt" viewBox="0 0 72 36">' + rect(72, 36) + '</svg>', 25.4, 12.7, true],
-  ['no units', '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 60">' + rect(120, 60) + '</svg>', 120, 60, false],
+  // no real units: read as the program meant, 96 to the inch (72 when Illustrator wrote it)
+  ['no units (96 to the inch)', '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 60">' + rect(120, 60) + '</svg>', 120 * 25.4 / 96, 60 * 25.4 / 96, false],
+  ['no units, Illustrator (72 to the inch)', '<?xml version="1.0"?><!-- Generator: Adobe Illustrator 28.0.0, SVG Export Plug-In --><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 288 144">' + rect(288, 144) + '</svg>', 101.6, 50.8, false],
 ];
 const browser = await puppeteer.launch({ executablePath: CHROME, headless: 'new', userDataDir: mkdtempSync(join(tmpdir(), 'swarf-svgp-')), args: ['--window-size=1440,900'] });
 try {

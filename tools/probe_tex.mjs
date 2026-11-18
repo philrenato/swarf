@@ -159,7 +159,8 @@ try {
     const b = [Infinity, Infinity, -Infinity, -Infinity];
     for (let j = 0; j < g.ny; j++) for (let i = 0; i < g.nx; i++) if (g.data[j * g.nx + i]) { const x = g.x0 + (i + 0.5) * g.res + p.x, y = g.y0 + (j + 0.5) * g.res + p.y; b[0] = Math.min(b[0], x); b[1] = Math.min(b[1], y); b[2] = Math.max(b[2], x); b[3] = Math.max(b[3], y); }
     const s = window.kiri.api.conf.get(), stock = s.stock || {};
-    return { b, bed: [p.x, p.y], tool: s.tools.find(t => t.id === s.process.ops[0].tool).number };
+    // a ShopBot file numbers its bits by order (&Tool =1, 2 …): the texture step is first, so its bit is 1
+    return { b, bed: [p.x, p.y], tool: 1 };
   });
   let { pv, gc } = await paths(page);
   check(pv === 'preview.end' && gc.length > 100, `toolpaths and a file (${pv}, ${gc.length} bytes)`);

@@ -189,9 +189,10 @@ try {
   check(stepShows === true, 'and the tick by the step shows it');
   await tickStep(false);
 
-  // on the MR-1 an unmarked end mill counts as 4-flute: twice the 2-flute feed at the same chip
-  const f4 = atSpeed(byId('aluminum_6061'), 6.35, MR1, tools.find(t => t.id === 1000), 0), f2 = atSpeed(byId('aluminum_6061'), 6.35, { ...MR1, endFlutes: 0 }, tools.find(t => t.id === 1000), 0);
-  check(hssStart.rate === f4.feed && f4.feed > f2.feed, `MR-1 end mills start as 4-flute (F${f4.feed}; 2-flute F${f2.feed})`);
+  // on the MR-1 an unmarked end mill counts as 2-flute (the lower feed when a bit doesn't say); a bit
+  // marked 4-flute gets twice the feed at the same chip
+  const f2 = atSpeed(byId('aluminum_6061'), 6.35, MR1, tools.find(t => t.id === 1000), 0), f4 = atSpeed(byId('aluminum_6061'), 6.35, MR1, { ...tools.find(t => t.id === 1000), swarf: { ...(tools.find(t => t.id === 1000).swarf || {}), flutes: 4 } }, 0);
+  check(hssStart.rate === f2.feed && f4.feed > f2.feed, `MR-1 end mills start as 2-flute when unmarked (F${f2.feed}; marked 4-flute F${f4.feed})`);
 
   // the speed is the job's: saved in the process and back from a .swarf
   await pick(3);
