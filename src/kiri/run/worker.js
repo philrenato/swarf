@@ -154,8 +154,13 @@ const minwork = {
             let seq = miniseq++;
             qrec.work.seq = seq;
             minifns[seq] = (data) => {
-                qrec.ondone(data);
                 minions.push(minion);
+                // a helper that failed: the page restarts the engine and says why (its caller would wait forever)
+                if (data && data.error) {
+                    dispatch.send({ seq: 0, task: 'minion.error', done: true, data: data.error });
+                    return;
+                }
+                qrec.ondone(data);
                 minwork.kick();
             };
             minion.postMessage(qrec.work, qrec.direct);

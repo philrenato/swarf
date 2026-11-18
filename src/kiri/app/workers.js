@@ -17,6 +17,7 @@ let debug = self.debug === true,
     worker = null,
     minions = false,
     restarting = false,
+    failure = null,
     workpath,
     poolpath;
 
@@ -135,7 +136,7 @@ export const client = {
         for (let key in running) {
             let rec = running[key];
             if (rec.fn) {
-                rec.fn({error: "cancelled operation"});
+                rec.fn({error: failure || "cancelled operation"});
             }
         }
 
@@ -144,6 +145,13 @@ export const client = {
         worker = client.newWorker();
 
         client.onmessage = worker.onmessage = (e) => {
+            // a toolpath helper failed: every waiting request fails with the reason, the engine restarts
+            if (e.data && e.data.task === 'minion.error') {
+                failure = `swarf couldn't make the toolpaths (${e.data.data}). Press the button again; if it fails again, save the project and reload.`;
+                client.restart();
+                failure = null;
+                return;
+            }
             let now = time(),
                 reply = e.data,
                 record = running[reply.seq],

@@ -41,6 +41,8 @@ self.onmessage = function(msg) {
         (funcs[cmd] || funcs.invalid)(data, data.seq, cmd);
     } catch (error) {
         log('MINION.dispatch.error', error);
+        // reply so the work waiting on this never hangs: the engine fails the toolpaths with the reason
+        if (data && data.seq !== undefined) reply({ seq: data.seq, error: String((error && error.message) || error) });
     }
 };
 
