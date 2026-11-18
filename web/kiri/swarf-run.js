@@ -1849,11 +1849,23 @@ html[data-skin] #swarf-run .sr-jog .sr-zrow button.next, html[data-skin] #swarf-
       go.disabled = true; go.textContent = 'touching off…';
       S.plateWatch = null;
       el.sheet.classList.remove('on');
-      const ok = await m.zZero();
+      // no movement within 5 s of the press: say so on the card and stop, rather than wait silently
+      const z0 = m.steps ? m.steps.z : null;
+      let stuck = false;
+      const guard = z0 == null ? null : setTimeout(() => {
+        if (m.steps.z !== z0 || zeroed) return;
+        stuck = true;
+        try { m.stop && m.stop(); } catch (e) { /* not moving */ }
+      }, 5000);
+      let ok = false;
+      try { ok = await m.zZero(); } catch (e) { m.state.note = `Z zero failed: ${e.message || e}`; }
+      clearTimeout(guard);
+      if (stuck && !ok) m.state.note = `touch off sent the move, but Z did not move in 5 s (${m.state.note || 'no answer from the machine'}). Check the e-stop is released and the USB cable, then try again.`;
       if (!ok) {
         // the reason on the card itself, not only in the log behind it (a first use read a refusal as
         // "touch off does nothing")
         show(); why.textContent = m.state.note || 'Z was not zeroed.'; why.style.display = '';
+        tell(why.textContent, 'warn');
         el.sheet.classList.add('on'); refresh(); return;
       }
       freshZero('z'); S.zeroZ = true; S.zStale = false; markZBit(); S.zeroSetAt = Date.now(); S.zeroFor = progKey(); S.plateUsed = true;

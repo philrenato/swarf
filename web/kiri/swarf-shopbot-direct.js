@@ -723,7 +723,26 @@ const PLATE = { input: 1, hit: 1, thickness: 3.0734, fast: 12.7, slow: 6.35, lif
     // lift to safe height. Short blocks on both plunges: an ack every few
     // steps stops the bit soon after contact. Resolves true when zeroed.
     async zZero() {
-      if (this.busy()) return false;
+      // a move or test still finishing: wait for it a moment, then say what holds it
+      for (let i = 0; i < 30 && this.busy(); i++) await new Promise(r => setTimeout(r, 100));
+      if (this.busy()) { this.set({ note: `touch off can't start: ${this.busyWhy()}` }); return false; }
+      try { return await this.zZeroNow(); } catch (e) {
+        this.homing = false;
+        this.set({ moving: false, note: `Z zero failed: ${e.message || e}` });
+        return false;
+      }
+    }
+    // what busy() is waiting on, in words
+    busyWhy() {
+      if (!this.card) return 'the ShopBot is not connected';
+      if (this.card.streaming) return 'the machine is still finishing a move';
+      if (this.state.running) return 'a job is running';
+      if (this.testing) return 'the machine check is still running';
+      if (this.homing) return 'homing or a Z zero is still running';
+      if (this.routerTesting) return 'the router test is on: press it again to stop it';
+      return 'the machine is busy';
+    }
+    async zZeroNow() {
       if (this.state.routerUnknown) { this.set({ note: UNKNOWN }); return false; }
       const P = this.plateCfg, u = this.cfg.unit.z;
       if (this.plateClash()) { P.confirmed = false; this.savePlate(); }

@@ -73,6 +73,18 @@ try {
   s = await S();
   check(s.go.d && /three boxes/.test(s.why), `a box unticked: touch off shut, and the card says why ("${s.why}")`);
   await page.evaluate(() => document.querySelector('#swarf-run .sr-sheet.on .sr-plate input[type=checkbox]').click());
+  // the machine still busy: touch off waits a moment, then names what holds it on the card
+  await page.evaluate(() => { window.__swarfRun.state.machine.routerTesting = true; document.querySelector('#swarf-run .sr-sheet.on .go').click(); });
+  await wait(3800);
+  s = await S();
+  check(s.sheet && /router test is on/.test(s.why), `busy: the card says what holds touch off ("${s.why}")`);
+  await page.evaluate(() => { window.__swarfRun.state.machine.routerTesting = false; });
+  // the box not answering a read: the error lands on the card
+  await page.evaluate(() => { const m = window.__swarfRun.state.machine; m.__status = m.card.status; m.card.status = () => Promise.reject(new Error('the box did not answer')); document.querySelector('#swarf-run .sr-sheet.on .go').click(); });
+  await wait(1500);
+  s = await S();
+  check(s.sheet && /did not answer/.test(s.why), `a read that fails: the card says so ("${s.why}")`);
+  await page.evaluate(() => { const m = window.__swarfRun.state.machine; m.card.status = m.__status; });
   await page.evaluate(() => { window.__swarfRun.state.machine.state.routerUnknown = true; document.querySelector('#swarf-run .sr-sheet.on .go').click(); });
   await wait(1500);
   s = await S();
