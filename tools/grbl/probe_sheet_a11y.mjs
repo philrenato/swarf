@@ -93,7 +93,9 @@ try {
   // over the board, zeroed on the board, then swarf told nothing is zeroed or traced: the longest cut card
   await page.evaluate(() => [...document.querySelectorAll('#swarf-run .sr-modes')[0].querySelectorAll('button')].find(b => b.textContent === '50').click());
   for (const l of ['+X', '+X', '−Y', '−Y', '−Z']) { await page.click(`#swarf-run .sr-pad button[data-axis="${l}"]`); await wait(100); await until('!m.busy() && st.grbl === "Idle"', 10000); await wait(200); }
-  check(await click('zero x y'), 'zero x y'); await until('S.zeroXY && !m.busy()', 5000);
+  // the stub can still report Jog for a status poll after the last jog ends, and zero refuses then: press again
+  for (let i = 0; i < 6 && !(await S('S.zeroXY')); i++) { await click('zero x y'); await wait(1000); }
+  check(await S('S.zeroXY'), 'zero x y'); await until('S.zeroXY && !m.busy()', 5000);
   check(await click('zero z'), 'zero z'); await until('S.zeroZ && !m.busy()', 5000);
   const long = 'a-cutting-board-with-a-long-name-for-the-shop-wall-left-side-final-v3.nc';
   const text = await S('S.prog.text');
