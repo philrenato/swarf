@@ -49,4 +49,14 @@ assert.ok(finite(big), 'with numbers for corners');
 // an ordinary circle still has as many points as before
 const small = parse(svg('<circle cx="60" cy="40" r="30"/>'), { ...opt(), flat: true });
 assert.ok(small[0].points.length >= 300, `a 30 mm circle keeps its points (${small[0].points.length})`);
+// a path drawn without "z" whose ends don't meet is an open line, never closed into a part
+const openPath = parse(svg('<path d="M10 10 L50 10 L50 50" fill="none" stroke="#000"/>'), { ...opt(), flat: true });
+assert.ok(openPath.length === 1 && openPath[0].open, 'an open path stays an open line');
+const openArc = parse(svg('<path d="M10 50 A40 40 0 0 1 90 50" fill="none" stroke="#000"/>'), { ...opt(), flat: true });
+assert.ok(openArc.length === 1 && openArc[0].open, 'an open arc stays an open line');
+assert.equal(parse(svg('<path d="M10 10 L50 10 L50 50" fill="none" stroke="#000"/>'), opt()).length, 0, 'an open path makes no part');
+const closedZ = parse(svg('<path d="M10 10 L50 10 L50 50 z"/>'), { ...opt(), flat: true });
+assert.ok(closedZ.length === 1 && !closedZ[0].open, 'a path closed with z is a closed outline');
+const meets = parse(svg('<path d="M10 10 L50 10 L50 50 L10 10"/>'), { ...opt(), flat: true });
+assert.ok(meets.length === 1 && !meets[0].open, 'a path whose ends meet is closed without z');
 console.log('svg parse ok');

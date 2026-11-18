@@ -55,8 +55,12 @@ export function parse(text, opt = { }) {
                 continue;
             }
             let poly = newPolygon().addPoints(points.map(p => newPoint(p.x, -p.y, 0))).clean();
+            const a0 = points[0], a1 = points[points.length - 1];
+            const meets = poly.appearsClosed() || Math.hypot(a0.x - a1.x, a0.y - a1.y) < 1e-6;
             if (poly.appearsClosed()) poly.points.pop();
-            if (type === 'polyline') poly.setOpen(true);
+            // a path drawn without "z" whose ends don't meet is an open line, as a polyline is: it is
+            // left out of the parts (and counted as such), never closed by a straight chord
+            if (type === 'polyline' || (type === 'path' && !sub.autoClose && !meets)) poly.setOpen(true);
             poly._svg = { width, miter };
             polys.push(poly);
             if (scale !== 1) {
@@ -65,9 +69,11 @@ export function parse(text, opt = { }) {
         }
     }
 
-    const sub = fromSoup ? polygons.nest(polys) : polys;
+    // open lines make no part (the import counts them as left out); the flat outline keeps them
+    const usable = justPoly ? polys : polys.filter(p => !p.open);
+    const sub = fromSoup ? polygons.nest(usable) : usable;
     const nest = sub.filter(p => {
-        for (let pc of polys) {
+        for (let pc of usable) {
             if (pc === p) {
                 return true;
             } else {
