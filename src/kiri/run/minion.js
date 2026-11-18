@@ -27,6 +27,8 @@ const cfil = clib.PolyFillType;
 
 let cache = self.cache = {};
 let name = "unknown";
+// the deploy writes the same build here as in the worker that starts this helper
+const BUILD = "__SWARF_BUILD__";
 
 // catch clipper alerts and convert to console messages
 self.alert = function(o) {
@@ -71,6 +73,7 @@ const funcs = self.minion = {
     label(data, seq) {
         name = data.name;
         self.kiri_minion = { name, cache, log };
+        reply({ build: BUILD });
     },
 
     config(data) {

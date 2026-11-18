@@ -22,6 +22,32 @@
     ver.textContent = window.SWARF_VERSION + ' ↻';
     document.body.appendChild(ver);
 
+    // the CAM engine (worker and helpers) says which build it is as it starts. A deploy that
+    // landed while this page loaded can leave an older page with a newer engine: reload once,
+    // early, to get one build. Later, or a second time, only say so (and machine connect waits,
+    // as for the machine-control files: swarf-run.js buildsAgree).
+    const stamped = (b) => typeof b === 'string' && b && !b.startsWith('__');
+    function engineBuild(info) {
+        const want = window.SWARF_BUILD;
+        if (!stamped(want) || !info) return;
+        const other = [info.engine, info.minion].find((b) => stamped(b) && b !== want);
+        if (!other) return;
+        window.SWARF_BUILDS = Object.assign(window.SWARF_BUILDS || {}, { 'CAM engine': other });
+        let last = 0;
+        try { last = +sessionStorage.getItem('swarf-build-reload') || 0; } catch (e) { last = Date.now(); }
+        const early = performance.now() < 30000;
+        if (early && Date.now() - last > 60000) {
+            try { sessionStorage.setItem('swarf-build-reload', String(Date.now())); } catch (e) { return; }
+            ver.textContent = 'swarf was updated while this page loaded: reloading once to match';
+            setTimeout(() => window.location.reload(), 1500);
+            return;
+        }
+        ver.textContent = 'two swarf builds on this page: tap here to reload';
+    }
+    window.swarfEngineBuild = engineBuild;
+    (window.SWARF_ENGINE_SEEN || []).forEach(engineBuild);
+    window.SWARF_ENGINE_SEEN = [];
+
     ver.addEventListener('click', async () => {
         const old = ver.textContent;
         ver.textContent = 'updating…';
