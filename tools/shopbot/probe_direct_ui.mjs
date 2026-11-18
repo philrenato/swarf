@@ -186,8 +186,8 @@ try {
     await page.evaluate(() => document.querySelector('#swarf-run .sr-actions .stop').click());
     const stopped = await page.waitForFunction(() => !window.__swarfRun.state.machine.busy(), { timeout: 5000 }).then(() => true, () => false);
     await page.keyboard.up('ArrowUp');
-    await new Promise(r => setTimeout(r, 300));
-    const hidden = await page.evaluate(() => document.querySelector('#swarf-run .sr-actions .stop').style.display === 'none');
+    // the stop ramps down after the click: at rest within a few seconds
+    const hidden = await page.waitForFunction(() => document.querySelector('#swarf-run .sr-actions .stop').style.display === 'none', { timeout: 3000 }).then(() => true, () => false);
     check(shown && stopped && hidden, `a held jog shows stop (${shown}), stop ends it (${stopped}), and it hides at rest (${hidden})`);
   }
   // Space stops motion even with the cursor in a text field

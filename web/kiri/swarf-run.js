@@ -264,6 +264,7 @@
 .sr-card label span { flex: 1; min-width: 0; white-space: normal; overflow-wrap: anywhere; }
 .sr-plate .sr-circuit { margin: 2px 0 4px 28px; color: var(--swarf-text-2, #8a857c); font-size: 13px; }
 .sr-plate .sr-circuit.ok { color: var(--swarf-text, #d8d2c6); }
+.sr-card .sr-why { margin: 8px 0 0; color: var(--swarf-warn, #d9a441); font-size: 13px; line-height: 1.35; }
 .sr-plate > button { margin: 0 0 6px 28px; border-radius: 8px; padding: 6px 10px; background: var(--swarf-bg-3, #1c1817); border: 1px solid #4f4642; }
 .sr-zrow button.next { border-color: #f2ede4; color: #fff; }
 .sr-chk { display: grid; grid-template-columns: 28px auto 1fr auto auto; gap: 8px; align-items: center; padding: 5px 0; }
@@ -1780,6 +1781,11 @@ html[data-skin] #swarf-run .sr-jog .sr-zrow button.next, html[data-skin] #swarf-
     const plateShow = mm => window.SwarfLength ? SwarfLength.show(mm) : String(+(+mm).toFixed(3));
     const thick = h('input', { type: 'text', inputmode: 'decimal', value: plateShow(m.plateCfg.thickness), title: `Your plate's thickness, from calipers: Z zero is this far below` });
     const circuit = h('p', { class: 'sr-circuit' });
+    // why touch off is shut, in words on the card (a shut button with only a tooltip read as
+    // "touch off does nothing" on a first use)
+    const why = h('p', { class: 'sr-why' });
+    const opened = Date.now();
+    let anyChange = false;
     const touchBtn = sim ? h('button', { text: 'touch the plate to the bit', title: 'The simulator has no plate: this stands in for the touch', onclick: () => { proved = true; show(); } }) : null;
     const go = h('button', { class: 'go' });
     const back = h('button', { text: 'cancel', onclick: () => { S.plateWatch = null; S.afterZero = null; el.sheet.classList.remove('on'); refresh(); } });
@@ -1800,6 +1806,7 @@ html[data-skin] #swarf-run .sr-jog .sr-zrow button.next, html[data-skin] #swarf-
       const all = checks.every(([k]) => boxes[k].checked);
       if (pic) pic.pose(zeroed ? 'away' : proved ? 'flat' : 'test');
       if (zeroed) {
+        why.textContent = ''; why.style.display = 'none';
         body.innerHTML = '';
         body.append(h('h2', { text: 'Z is zero on top of your board' }),
           h('p', { text: 'Put the plate back where it lives and unclip the ground clip, so neither is near the bit when it cuts.' }),
@@ -1812,12 +1819,20 @@ html[data-skin] #swarf-run .sr-jog .sr-zrow button.next, html[data-skin] #swarf-
       }
       circuit.textContent = proved
         ? '✓ the circuit works'
+        : seen ? 'touch seen: now take the plate away'
         : sim ? 'Touch the plate to the bit, to prove the circuit.' : 'Touch the plate to the bit and hold it there a second, then take it away.';
       circuit.classList.toggle('ok', proved);
       circuit.style.display = known ? 'none' : '';
       if (touchBtn) touchBtn.style.display = proved ? 'none' : '';
       go.textContent = 'touch off';
       go.disabled = !(all && proved);
+      const quiet = !proved && !sim && !anyChange && Date.now() - opened > 8000;
+      why.textContent = !go.disabled ? ''
+        : !proved ? (seen ? '' : quiet
+          ? 'swarf has not seen the plate touch the bit. Check the clip is on the router and the plate\'s wire is plugged into the box, then touch the plate to the bit again.'
+          : 'Touch off opens once swarf sees the plate touch the bit.')
+        : 'Touch off opens once the three boxes are ticked.';
+      why.style.display = why.textContent ? '' : 'none';
       go.title = go.disabled ? (proved ? 'Tick the three checks first' : 'Prove the circuit first: touch the plate to the bit') : `The bit comes down slowly, touches, lifts, touches again and lifts ${up()}. Any key stops it.`;
     };
     // the inputs as they stand with the clip on: a touch changes exactly one of them
@@ -1834,7 +1849,8 @@ html[data-skin] #swarf-run .sr-jog .sr-zrow button.next, html[data-skin] #swarf-
         if (only && n !== only) continue;
         if (n === stopIn) continue;
         const was = m.level(base, n), now = m.level(st.inputs, n);
-        if (now !== was && !seen) { seen = { input: n, hit: now }; circuit.textContent = 'touch seen: now take the plate away'; }
+        if (now !== was) anyChange = true;
+        if (now !== was && !seen) { seen = { input: n, hit: now }; show(); }
         if (seen && n === seen.input && now === was) {      // touched and let go: the circuit works
           S.plateWatch = null;                              // first: setPlate's state update calls back in here
           m.setPlate(seen.input, seen.hit);
@@ -1874,7 +1890,12 @@ html[data-skin] #swarf-run .sr-jog .sr-zrow button.next, html[data-skin] #swarf-
       S.plateWatch = null;
       el.sheet.classList.remove('on');
       const ok = await m.zZero();
-      if (!ok) { refresh(); return; }     // the sentence carries the reason; the card stays shut
+      if (!ok) {
+        // the reason on the card itself, not only in the log behind it (a first use read a refusal as
+        // "touch off does nothing")
+        show(); why.textContent = m.state.note || 'Z was not zeroed.'; why.style.display = '';
+        el.sheet.classList.add('on'); refresh(); return;
+      }
       freshZero('z'); S.zeroZ = true; S.zStale = false; markZBit(); S.zeroSetAt = Date.now(); S.zeroFor = progKey(); S.plateUsed = true;
       if (S.toolChange) S.toolChange = null; else S.traced = false;
       zeroed = true;
@@ -1890,9 +1911,13 @@ html[data-skin] #swarf-run .sr-jog .sr-zrow button.next, html[data-skin] #swarf-
       if (k === 'clip') body.append(circuit, ...(touchBtn ? [touchBtn] : []));
     }
     el.card.innerHTML = '';
-    el.card.append(...(pic ? [pic.el] : []), body, h('div', { class: 'row' }, back, go));
+    el.card.append(...(pic ? [pic.el] : []), body, why, h('div', { class: 'row' }, back, go));
     show();
     el.sheet.classList.add('on');
+    // until the circuit is proved, the card re-reads itself so "not seen" can say so
+    if (!proved) {
+      const tick = setInterval(() => { if (proved || zeroed || !body.isConnected) { clearInterval(tick); return; } show(); }, 1000);
+    }
   }
 
   // A measured board against this job (optional, on the plate card). The job's thickness is known for
