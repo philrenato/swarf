@@ -27,12 +27,13 @@ import { createRequire } from 'node:module';
 const window_show = mm => createRequire(import.meta.url)('../web/kiri/swarf-length.js').field(mm, 'in');
 const setField = (page, id, v) => page.evaluate((id, v) => { const i = document.getElementById(id); i.value = v; i.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true })); }, id, v);
 const setSelect = (page, id, v) => page.evaluate((id, v) => { const s = document.getElementById(id); s.value = v; s.dispatchEvent(new Event('change', { bubbles: true })); }, id, v);
-// every move's end point, with the tool it was cut by: X Y Z carried modally, tool from each change
+// every move's end point, with the bit it was cut by: X Y Z carried modally, the bit named by each
+// change's comment (&Tool =2   'Load end 1/8): a file numbers its bits by order, so the name is the key
 function moves(gc) {
   const out = []; let X = 0, Y = 0, Z = 0, tool = 0;
   for (const line of gc.split('\n')) {
-    const t = /&Tool\s*=\s*(\d+)/.exec(line);
-    if (t) { tool = +t[1]; continue; }
+    const t = /&Tool\s*=\s*\d+\s*'\s*Load\s+(.+?)\s*$/.exec(line);
+    if (t) { tool = t[1]; continue; }
     const m = /^G([01])\b(.*)/.exec(line.trim());
     if (!m) continue;
     const g = (k) => { const r = new RegExp(k + '(-?[\\d.]+)').exec(m[2]); return r ? +r[1] : null; };
@@ -159,8 +160,7 @@ try {
     const b = [Infinity, Infinity, -Infinity, -Infinity];
     for (let j = 0; j < g.ny; j++) for (let i = 0; i < g.nx; i++) if (g.data[j * g.nx + i]) { const x = g.x0 + (i + 0.5) * g.res + p.x, y = g.y0 + (j + 0.5) * g.res + p.y; b[0] = Math.min(b[0], x); b[1] = Math.min(b[1], y); b[2] = Math.max(b[2], x); b[3] = Math.max(b[3], y); }
     const s = window.kiri.api.conf.get(), stock = s.stock || {};
-    // a ShopBot file numbers its bits by order (&Tool =1, 2 …): the texture step is first, so its bit is 1
-    return { b, bed: [p.x, p.y], tool: 1 };
+    return { b, bed: [p.x, p.y], tool: s.tools.find(t => t.id === s.process.ops[0].tool).name };
   });
   let { pv, gc } = await paths(page);
   check(pv === 'preview.end' && gc.length > 100, `toolpaths and a file (${pv}, ${gc.length} bytes)`);
@@ -335,7 +335,7 @@ try {
   check(tabs.n > 0 && tabs.inside === 0, `auto tabs keep out of the pierced area (${tabs.n} tabs, ${tabs.inside} near it: ${JSON.stringify(tabs.tabs)})`);
   // the file: the kerfs cut right through, inside the mark
   ({ pv, gc } = await paths(page));
-  const pt = await page.evaluate(() => { const s = window.kiri.api.conf.get(), op = s.process.ops.find(o => o.type === 'pierce'); return s.tools.find(t => t.id === op.tool).number; });
+  const pt = await page.evaluate(() => { const s = window.kiri.api.conf.get(), op = s.process.ops.find(o => o.type === 'pierce'); return s.tools.find(t => t.id === op.tool).name; });
   const PM = moves(gc).filter(q => q.tool === pt && q.cut && q.z < -0.05);
   const pxs = PM.map(q => q.x), pys = PM.map(q => q.y), pspan = [Math.max(...pxs) - Math.min(...pxs), Math.max(...pys) - Math.min(...pys)], plo = Math.min(...PM.map(q => q.z));
   check(pv === 'preview.end' && PM.length > 10 && plo <= -18.99 && plo >= -19.02 && pspan[0] <= 50 && pspan[1] <= 56, `the file cuts the kerfs right through (to Z ${plo}), inside the mark (${pspan.map(v => v.toFixed(1)).join(' x ')} within 50 x 56)`);
@@ -361,7 +361,7 @@ try {
 
   // POINTS (H): the texture mark's edge as points; its rightmost dragged 10 mm right, the paint and
   // the file's texture follow it there
-  const ttool = await page.evaluate(() => { const s = window.kiri.api.conf.get(), op = s.process.ops.find(o => o.type === 'texture'); return s.tools.find(t => t.id === op.tool).number; });
+  const ttool = await page.evaluate(() => { const s = window.kiri.api.conf.get(), op = s.process.ops.find(o => o.type === 'texture'); return s.tools.find(t => t.id === op.tool).name; });
   const spanOf = gc => { const T0 = moves(gc).filter(q => q.tool === ttool && q.cut && q.z < -0.05), xs = T0.map(q => q.x); return { n: T0.length, w: Math.max(...xs) - Math.min(...xs), x1: Math.max(...xs) }; };
   const before = spanOf(gc);
   await page.click('#swarf-step-tex');
@@ -437,7 +437,7 @@ try {
   check(/is cut from rectangle 1/.test(hd.say), `make it a hole: DRAW cuts it from the part ("${hd.say}")`);
   await page.click('#sd-done'); await wait(1500);
   ({ pv, gc } = await paths(page));
-  const otool = await page.evaluate(() => { const s = window.kiri.api.conf.get(), op = s.process.ops.find(o => o.type === 'outline'); return s.tools.find(t => t.id === op.tool).number; });
+  const otool = await page.evaluate(() => { const s = window.kiri.api.conf.get(), op = s.process.ops.find(o => o.type === 'outline'); return s.tools.find(t => t.id === op.tool).name; });
   const deep = moves(gc).filter(q => q.tool === otool && q.cut && q.z <= -18.9);
   // the hole's own cut: the outline's through-cut points well inside the part's outer cut
   const ob = [Math.min(...deep.map(q => q.x)), Math.min(...deep.map(q => q.y)), Math.max(...deep.map(q => q.x)), Math.max(...deep.map(q => q.y))];
