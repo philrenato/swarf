@@ -706,8 +706,12 @@ const dispatch = {
     zip(data, send) {
         let { files } = data;
         let zip = new JSZip();
-        for (let file of files) {
-            zip.file(file.name, file.data);
+        try {
+            for (let file of files) {
+                zip.file(file.name, file.data);
+            }
+        } catch (error) {
+            return send.done({ error: String(error && error.message || error) });
         }
         zip.generateAsync({
             type: "uint8array",
@@ -718,6 +722,8 @@ const dispatch = {
             send.data(progress);
         }).then(output => {
             send.done(output);
+        }).catch(error => {
+            send.done({ error: String(error && error.message || error) });
         });
     },
 

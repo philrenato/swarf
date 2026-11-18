@@ -209,14 +209,18 @@ try {
   const buf = readFileSync(file);
   const zip = await JSZip.loadAsync(buf);
   const names = Object.keys(zip.files).sort();
-  check(names.join() === 'manifest.json,swarf.json,workspace.json', `the zip: ${names}`);
+  const partFiles = names.filter(n => /^parts\/.+\.f32$/.test(n));
+  check(names.filter(n => !partFiles.includes(n) && !zip.files[n].dir).join() === 'manifest.json,swarf.json,workspace.json' && partFiles.length === 2, `the zip: ${names}`);
   const man = JSON.parse(await zip.files['manifest.json'].async('string')), sj = JSON.parse(await zip.files['swarf.json'].async('string')), wsText = await zip.files['workspace.json'].async('string');
-  check(man.format === 'swarf' && man.version === 1 && /^v\d/.test(man.app) && man.units === 'in' && !isNaN(Date.parse(man.saved)), `manifest ${JSON.stringify(man)}`);
+  check(man.format === 'swarf' && man.version === F.VERSION && /^v\d/.test(man.app) && man.units === 'in' && !isNaN(Date.parse(man.saved)), `manifest ${JSON.stringify(man)}`);
   check(F.checkManifest(man, man.app).ok, 'its manifest reads');
   check(sj.material === 'mdf' && sj.units === 'in' && sj.local['swarf.material.current'] === 'mdf' && Object.keys(sj.local).every(k => F.PROJECT_KEYS[k]), `swarf.json: ${JSON.stringify(sj)}`);
   const zeroHit = [...F.NEVER_KEYS].filter(k => wsText.includes(k) || JSON.stringify(sj).includes(k));
   check(!zeroHit.length && !F.zeroKeys(sj).length && !/"zeroXY"|"zeroSetAt"|"zeroHad"/.test(wsText), `no machine zero or position in the file (${zeroHit})`);
-  check(JSON.parse(wsText).work.length === 2, 'workspace.json has both parts with their meshes');
+  { const work = JSON.parse(wsText).work, back = await F.readZip(buf, JSZip);
+    const verts = Object.fromEntries(a1.parts.map(p => [p.id, p.verts]));
+    check(work.length === 2 && work.every(w => !('geo' in w) && partFiles.includes(w.geof32)) && back.workspace.work.every(w => w.geo instanceof Float32Array && w.geo.length > 0 && w.geo.length % 9 === 0 && [verts[w.id], verts[w.id] * 3].includes(w.geo.length)),
+      `workspace.json names both parts' vertex files, and they hold every vertex (${back.workspace.work.map(w => w.geo.length).join(', ')})`); }
   const kmz = await download(page, async () => {
     await page.evaluate(() => document.getElementById('app-export').click());
     await page.waitForFunction(() => [...document.querySelectorAll('#dialog button')].some(b => /^ok$/i.test(b.textContent.trim()) && b.offsetParent), { timeout: 8000 });

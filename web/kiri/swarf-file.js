@@ -4,15 +4,19 @@
  * by drag and drop"). file › save project (.swarf), or ⌘S; open it with file › import, by
  * dropping it on the bed, or by double-clicking it when swarf is installed.
  *
- * A .swarf is a zip of three files:
- *   manifest.json   { format: 'swarf', version: 1, app, build, saved, units }
- *   workspace.json  Kiri's own workspace export, meshes included (the same as a .kmz holds):
+ * A .swarf is a zip of three files and one binary file per part:
+ *   manifest.json   { format: 'swarf', version: 2, app, build, saved, units }
+ *   workspace.json  Kiri's own workspace export (the same as a .kmz holds, less the meshes):
  *                   every part with its place and its whole meta and anno, carried as they are —
  *                   DRAW's drawing (meta.svg, xf, c0, t, edge, engrave), TEX's marks (meta.tex),
  *                   tabs (anno.tab, anno.tabset: auto, pinned, by hand, and whatever a later
  *                   swarf adds there) — and the settings: steps in order with their numbers,
  *                   board (stock), bits (tool library), machine, units
  *   swarf.json      what swarf keeps outside Kiri's settings: the PROJECT keys below
+ *   parts/<id>.f32  each part's vertices, little-endian float32 (x, y, z per corner, 3 corners a
+ *                   triangle); its workspace.json entry names it in geof32 and has no geo. A version 1
+ *                   file has each part's vertices in workspace.json as a JSON number array (geo,
+ *                   json: true): it opens as before. LIMIT caps the sizes, the same at save and open.
  *
  * A .kmz stays Kiri's (file › save for Kiri:Moto): it opens in Kiri:Moto, less the steps Kiri
  * does not have (TEX's texture and pierce). .swarf keeps everything.
@@ -37,7 +41,7 @@
  */
 (function (root) {
   'use strict';
-  const FORMAT = 'swarf', VERSION = 1, MODE = 'CAM';
+  const FORMAT = 'swarf', VERSION = 2, MODE = 'CAM';
   // the swarf keys that are the project's, and what each is (the only ones a file writes or reads)
   const PROJECT_KEYS = {
     'swarf.material.current': 'material',
@@ -258,7 +262,91 @@
     return `${s.length}:${(h >>> 0).toString(36)}`;
   }
 
-  const core = { FORMAT, VERSION, PROJECT_KEYS, LOCAL_KEYS, NEVER_KEYS, NEVER_RE, KIRI_OPS, manifest, checkManifest, projectLocal, readLocal, swarfJson, zeroKeys, mergeSettings, remapMarks, kmzSafe, usedTools, restamp, fingerprint, same };
+  // ── sizes: one limit for save and open ──
+  // bytes each entry may unpack to; mesh is all parts' vertex bytes together (12 bytes a corner,
+  // 36 a triangle). workspace.json is the cap a version 1 file (meshes as JSON) also meets.
+  const LIMIT = { 'manifest.json': 1 << 16, 'swarf.json': 1 << 22, 'workspace.json': 1 << 28, mesh: 1 << 28 };
+  const TRI_BYTES = 36;
+  const maxTriangles = () => Math.floor(LIMIT.mesh / TRI_BYTES);
+  const PART_RE = /^parts\/[\w.-]+\.f32$/;
+  const LE = new Uint8Array(new Uint16Array([1]).buffer)[0] === 1;
+  const millions = n => (n >= 1e6 ? `${(n / 1e6).toFixed(1).replace(/\.0$/, '')} million` : String(n));
+  const couldNot = e => `Couldn't save: ${String((e && e.message) || e || 'something went wrong').replace(/\.$/, '')}. Your parts are still here.`;
+  const tooBig = tri => `This project is too big to save: its parts have ${millions(tri)} triangles, and a project holds at most ${millions(maxTriangles())}. Use a simpler mesh (fewer triangles), then save.`;
+
+  // a Float32Array as little-endian bytes (a view of the same memory on a little-endian computer)
+  function f32bytes(f) {
+    if (LE) return new Uint8Array(f.buffer, f.byteOffset, f.byteLength);
+    const out = new Uint8Array(f.byteLength), dv = new DataView(out.buffer);
+    for (let i = 0; i < f.length; i++) dv.setFloat32(i * 4, f[i], true);
+    return out;
+  }
+  // little-endian bytes back to a Float32Array (copied when the bytes are not 4-aligned)
+  function bytesf32(u) {
+    if (u.byteLength % 4) throw new Error('a part in it is damaged');
+    if (LE) return u.byteOffset % 4 ? new Float32Array(u.slice().buffer) : new Float32Array(u.buffer, u.byteOffset, u.byteLength / 4);
+    const out = new Float32Array(u.byteLength / 4), dv = new DataView(u.buffer, u.byteOffset, u.byteLength);
+    for (let i = 0; i < out.length; i++) out[i] = dv.getFloat32(i * 4, true);
+    return out;
+  }
+
+  // a workspace export (its work[] geo a Float32Array or a number array) to the zip's entries:
+  // { ok, files: [{ name, data }], triangles } or { ok: false, say } when it is over LIMIT
+  function pack(ws, extra = []) {
+    const work = (ws && ws.work) || [];
+    let bytes = 0;
+    for (const w of work) if (w && w.geo) bytes += w.geo.length * 4;
+    const triangles = Math.round(bytes / TRI_BYTES);
+    if (bytes > LIMIT.mesh) return { ok: false, say: tooBig(triangles), triangles };
+    const parts = [], used = new Set();
+    const out = { ...ws, work: work.map((w, i) => {
+      if (!w || !w.geo) return w;
+      let base = String(w.id || `part-${i}`).replace(/[^\w.-]+/g, '-') || `part-${i}`, name = `parts/${base}.f32`;
+      for (let k = 2; used.has(name); k++) name = `parts/${base}-${k}.f32`;
+      used.add(name);
+      const f = w.geo instanceof Float32Array ? w.geo : new Float32Array(w.geo);
+      parts.push({ name, data: f32bytes(f) });
+      const { geo, ...rest } = w;
+      return { ...rest, json: false, geof32: name };
+    }) };
+    const text = JSON.stringify(out);
+    if (text.length > LIMIT['workspace.json']) return { ok: false, say: `This project is too big to save: its drawings and settings come to ${Math.round(text.length / 1048576)} MB, more than a project holds.`, triangles };
+    return { ok: true, triangles, files: [...extra, { name: 'workspace.json', data: text }, ...parts] };
+  }
+
+  // a .swarf's bytes to { manifest, workspace, swarf }, each part's vertices a Float32Array
+  function readZip(data, JSZip) {
+    const Z = JSZip || (typeof window !== 'undefined' && window.JSZip);
+    if (!Z) return Promise.reject(new Error('the zip reader is not loaded'));
+    return new Z().loadAsync(data).then(zip => {
+      // sizes checked before inflating: a tiny file that unpacks to gigabytes would take the tab
+      const size = f => (f && f._data && f._data.uncompressedSize) || 0;
+      const over = (what, n) => new Error(`its ${what} unpacks to ${Math.round(n / 1048576)} MB, more than a project holds`);
+      const get = n => {
+        const f = zip.files[n];
+        if (!f) return Promise.resolve(null);
+        if (size(f) > LIMIT[n]) return Promise.reject(over(n, size(f)));
+        return f.async('string').then(t => JSON.parse(t));
+      };
+      let mesh = 0;
+      for (const n of Object.keys(zip.files)) if (PART_RE.test(n)) mesh += size(zip.files[n]);
+      if (mesh > LIMIT.mesh) return Promise.reject(new Error(`its parts have ${millions(Math.round(mesh / TRI_BYTES))} triangles, more than a project holds (${millions(maxTriangles())})`));
+      return Promise.all([get('manifest.json'), get('workspace.json'), get('swarf.json')]).then(([manifest, workspace, swarf]) => {
+        const work = (workspace && Array.isArray(workspace.work)) ? workspace.work : [];
+        return Promise.all(work.map(w => {
+          if (!w || !w.geof32) return w;
+          const f = PART_RE.test(w.geof32) && zip.files[w.geof32];
+          if (!f) throw new Error(`a part's mesh (${w.geof32}) is missing from it`);
+          return f.async('uint8array').then(u => { const { geof32, ...rest } = w; return { ...rest, json: false, geo: bytesf32(u) }; });
+        })).then(list => {
+          if (workspace && Array.isArray(workspace.work)) workspace.work = list;
+          return { manifest, workspace, swarf };
+        });
+      });
+    });
+  }
+
+  const core = { FORMAT, VERSION, PROJECT_KEYS, LOCAL_KEYS, NEVER_KEYS, NEVER_RE, KIRI_OPS, manifest, checkManifest, projectLocal, readLocal, swarfJson, zeroKeys, mergeSettings, remapMarks, kmzSafe, usedTools, restamp, fingerprint, same, LIMIT, maxTriangles, tooBig, couldNot, pack, readZip };
   if (typeof module !== 'undefined' && module.exports) { module.exports = core; return; }
   if (typeof window === 'undefined') { root.SwarfFileCore = core; return; }
 
@@ -347,26 +435,39 @@
     return ask.then(name => {
       if (!name) return false;
       name = String(name).replace(/\.swarf$/i, '').replace(/[\\/:*?"<>|]+/g, '-');
-      const ws = a.conf.export({ work: true, clear: true });
+      // each part's vertices stay a Float32Array and go in as bytes (pack), not JSON numbers
+      const ws = a.conf.export({ work: true, clear: true, binary: true });
       const local = projectLocal(k => localStorage.getItem(k));
       const mat = window.__swarfMaterial && window.__swarfMaterial.id;
       const sj = swarfJson({ local, material: mat, units: units(), expert: document.body.classList.contains('swarf-expert'), app: app() });
       const man = manifest({ app: app(), build: window.SWARF_BUILD || '', units: units() });
+      const packed = pack(ws, [
+        { name: 'manifest.json', data: JSON.stringify(man, null, 1) },
+        { name: 'swarf.json', data: JSON.stringify(sj, null, 1) },
+      ]);
+      if (!packed.ok) { say(packed.say, 14); return false; }
       return new Promise(resolve => {
-        a.client.zip([
-          { name: 'manifest.json', data: JSON.stringify(man, null, 1) },
-          { name: 'workspace.json', data: JSON.stringify(ws) },
-          { name: 'swarf.json', data: JSON.stringify(sj, null, 1) },
-        ], progress => { a.show.progress(progress.percent / 100, 'saving the project'); }, output => {
-          a.show.progress(0);
-          a.util.download(output, `${name}.swarf`);
-          project = name;
-          remember();
-          say(`Saved ${name}.swarf: ${a.widgets.all().length} part${a.widgets.all().length === 1 ? '' : 's'} and ${stepCount()} step${stepCount() === 1 ? '' : 's'}. Drop it on swarf's bed, on this computer or another, to carry on.`, 8);
-          resolve(true);
-        });
+        const fail = e => {
+          try { a.show.progress(0); } catch (x) { /* no progress bar */ }
+          console.warn('swarf save', e);
+          say(couldNot(e), 12);
+          resolve(false);
+        };
+        try {
+          a.client.zip(packed.files, progress => { a.show.progress(progress.percent / 100, 'saving the project'); }, output => {
+            if (!output || output.error) return fail(output && output.error);
+            try {
+              a.show.progress(0);
+              a.util.download(output, `${name}.swarf`);
+            } catch (e) { return fail(e); }
+            project = name;
+            remember();
+            say(`Saved ${name}.swarf: ${a.widgets.all().length} part${a.widgets.all().length === 1 ? '' : 's'} and ${stepCount()} step${stepCount() === 1 ? '' : 's'}. Drop it on swarf's bed, on this computer or another, to carry on.`, 8);
+            resolve(true);
+          });
+        } catch (e) { fail(e); }
       });
-    });
+    }).catch(e => { console.warn('swarf save', e); say(couldNot(e), 12); return false; });
   }
 
   function confirmReplace(name) {
@@ -378,24 +479,6 @@
     return a.uc.confirm(undefined, { 'open it': 'open', 'save mine first': 'save', cancel: false }, undefined, { pre }).then(v => {
       if (v === 'save') return save().then(ok => ok);
       return v === 'open';
-    });
-  }
-
-  function readZip(data, JSZip) {
-    const Z = JSZip || window.JSZip;
-    if (!Z) return Promise.reject(new Error('the zip reader is not loaded'));
-    return new Z().loadAsync(data).then(zip => {
-      // a ceiling before inflating (deep review 10-31 S2): a tiny file that unpacks to gigabytes
-      // would take the tab, and the work on the bed, with it
-      const CAP = { 'manifest.json': 1 << 16, 'swarf.json': 1 << 22, 'workspace.json': 1 << 28 };
-      const get = n => {
-        const f = zip.files[n];
-        if (!f) return Promise.resolve(null);
-        const size = f._data && f._data.uncompressedSize;
-        if (size > CAP[n]) return Promise.reject(new Error(`its ${n} unpacks to ${Math.round(size / 1048576)} MB, more than a project holds`));
-        return f.async('string').then(t => JSON.parse(t));
-      };
-      return Promise.all([get('manifest.json'), get('workspace.json'), get('swarf.json')]).then(([manifest, workspace, swarf]) => ({ manifest, workspace, swarf }));
     });
   }
 
@@ -505,11 +588,32 @@
     save();
   }, true);
 
+  // the browser keeps the parts between visits (IndexedDB); ask it once not to clear them when
+  // the disk runs low
+  try {
+    const S = navigator.storage;
+    if (S && S.persisted && S.persist) S.persisted().then(yes => (yes ? true : S.persist())).catch(() => {});
+  } catch (e) { /* no storage manager */ }
+  // a part the browser could not keep (widget.js, kiri.store.failed): say so, and offer the file;
+  // asked again only after a quiet spell, so a run of failed writes is one question
+  let storeAsked = 0;
+  window.addEventListener('kiri.store.failed', ev => {
+    const a = api();
+    if (!a || !a.uc || Date.now() - storeAsked < 120000) return;
+    storeAsked = Date.now();
+    const why = /quota/i.test((ev.detail && ev.detail.error) || '') ? 'This browser is out of room' : 'This browser could not keep your parts';
+    const pre = ["<div class='f-col a-center swarf-shape'><h3>Your work is not kept</h3>",
+      `<p class='swarf-shape-why' style='color:inherit;max-width:340px'>${why}: if this page closes, the parts on the bed are lost. Save the project as a .swarf file to keep them.</p></div>`];
+    try {
+      a.uc.confirm(undefined, { 'save project': 'save', later: false }, undefined, { pre }).then(v => { if (v === 'save') save(); });
+    } catch (e) { say(`${why}. Save the project (⌘S) to keep your parts.`, 12); }
+  });
+
   // file › new: TEX and DRAW shut with nothing kept, control forgets its job, the next save asks for a name
   function fresh() {
     leaveModes(false);
     try { if (window.__swarfRun && window.__swarfRun.forget) window.__swarfRun.forget(); } catch (e) { /* control not loaded */ }
     project = null;
   }
-  window.SwarfFile = Object.assign({ save, open, unsaved, remember, readZip, projectName, fresh }, core);
+  window.SwarfFile = Object.assign({ save, open, unsaved, remember, projectName, fresh }, core);
 })(typeof window !== 'undefined' ? window : globalThis);

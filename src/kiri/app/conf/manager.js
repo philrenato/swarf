@@ -527,7 +527,8 @@ function settingsExport(opts = {}) {
     const widgets = api.widgets.all();
     const note = opts.node || undefined;
     const shot = opts.work || opts.screen ? space.screenshot() : undefined;
-    const work = opts.work ? codec.encode(widgets,{_json_:true}) : undefined;
+    // opts.binary keeps each part's vertices a Float32Array (the caller stores the bytes)
+    const work = opts.work ? codec.encode(widgets,{_json_:!opts.binary}) : undefined;
     const view = opts.work ? space.view.save() : undefined;
     const setn = Object.clone(opts.engine ?? settings);
     // stuff in legacy annotations for re-import

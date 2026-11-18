@@ -12,13 +12,13 @@ const ok = (c, what) => { assert.ok(c, what); n++; };
 
 // ── the manifest ──
 const m = F.manifest({ app: 'v00000-085', build: 'b1', units: 'in', saved: '2026-10-30T00:00:00.000Z' });
-assert.deepEqual(m, { format: 'swarf', version: 1, app: 'v00000-085', build: 'b1', saved: '2026-10-30T00:00:00.000Z', units: 'in' }); n++;
+assert.deepEqual(m, { format: 'swarf', version: 2, app: 'v00000-085', build: 'b1', saved: '2026-10-30T00:00:00.000Z', units: 'in' }); n++;
 ok(F.manifest({ units: 'cm' }).units === 'mm', 'units are mm or in');
 ok(F.checkManifest(m, 'v00000-085').ok && !F.checkManifest(m).newer, 'this version opens');
 ok(!F.checkManifest(null).ok && /not a swarf project/.test(F.checkManifest(null).say), 'no manifest: not a project');
 ok(!F.checkManifest({ format: 'kiri', version: 1 }).ok, 'another format: refused');
 ok(!F.checkManifest({ format: 'swarf' }).ok, 'no version: refused');
-const newer = F.checkManifest({ format: 'swarf', version: 2, app: 'v00000-200' }, 'v00000-085');
+const newer = F.checkManifest({ format: 'swarf', version: F.VERSION + 1, app: 'v00000-200' }, 'v00000-085');
 ok(newer.ok && newer.newer && /newer swarf \(v00000-200\)/.test(newer.say) && /opened what it can/.test(newer.say), `a newer file opens, and says so plainly: ${newer.say}`);
 
 // ── the split: every swarf localStorage key in the code is on one side ──
@@ -154,5 +154,73 @@ ok(F.fingerprint([{ id: 'a', pos: { x: 1 } }], { ops: [] }, 'mdf') !== F.fingerp
 }
 ok(F.restamp('a:1:Dev:Name:with:colons:6.350:1,2', 7, 'New') === 'a:7:New:6.350:1,2', 'a stamp with colons in the machine name');
 ok(F.restamp('old-style-stamp', 7, 'New') === 'old-style-stamp', 'a stamp it cannot read stays');
+
+// ── meshes as bytes: parts/<id>.f32, read back exactly; version 1 files (JSON numbers) still open ──
+{
+  const JSZip = createRequire(import.meta.url)(root + 'node_modules/jszip');
+  const zipOf = files => { const z = new JSZip(); for (const f of files) z.file(f.name, f.data); return z.generateAsync({ type: 'uint8array', compression: 'DEFLATE', compressionOptions: { level: 6 } }); };
+  const man = name => ({ name: 'manifest.json', data: JSON.stringify(F.manifest({ app: name })) });
+  const tri = k => { const f = new Float32Array(k * 9); for (let i = 0; i < f.length; i++) f[i] = Math.fround(Math.sin(i * 0.37) * 300 + i * 1e-3); return f; };
+  const settings = { process: { ops: [{ type: 'outline' }] }, tools: [], controller: { units: 'mm' } };
+
+  const fa = tri(5), fb = [0.1, 0.2, 0.3, 1, 2, 3, -4.5, 5.25, 1e-7];
+  const ws = { settings, work: [{ type: 100, id: 'w a/1', json: false, geo: fa, meta: { file: 'a' } }, { type: 100, id: 'w a/1', json: true, geo: fb, meta: { file: 'b' } }] };
+  const p = F.pack(ws, [man('t')]);
+  ok(p.ok && p.triangles === 6, `pack: ${p.triangles} triangles`);
+  const names = p.files.map(f => f.name);
+  ok(names.join() === 'manifest.json,workspace.json,parts/w-a-1.f32,parts/w-a-1-2.f32', `entries: ${names}`);
+  const wj = JSON.parse(p.files[1].data);
+  ok(wj.work.every(w => !('geo' in w) && w.json === false && /^parts\//.test(w.geof32)), 'workspace.json names each part\'s bytes, no numbers in it');
+  ok(ws.work[0].geo === fa && ws.work[1].geo === fb, 'pack leaves the export as it was');
+  const back = await F.readZip(await zipOf(p.files), JSZip);
+  const g0 = back.workspace.work[0].geo, g1 = back.workspace.work[1].geo;
+  ok(g0 instanceof Float32Array && g0.length === fa.length && g0.every((v, i) => Object.is(v, fa[i])), 'binary round trip: the same vertices, bit for bit');
+  ok(g1 instanceof Float32Array && g1.every((v, i) => v === Math.fround(fb[i])), 'a JSON-number part is stored as float32 too');
+  ok(back.workspace.work.every(w => w.json === false && !('geof32' in w)) && back.workspace.work[0].meta.file === 'a', 'read back as Kiri\'s decoder takes a typed array');
+  ok(F.checkManifest(back.manifest).ok && !F.checkManifest(back.manifest).newer, 'this version reads its own files');
+
+  // a version 1 project: workspace.json with JSON number arrays, opened unchanged
+  const old = { settings, work: [{ type: 100, id: 'old', json: true, geo: Array.from(fa), meta: { file: 'old' }, anno: { tab: [] } }] };
+  const oldZip = await zipOf([{ name: 'manifest.json', data: JSON.stringify({ format: 'swarf', version: 1, app: 'v00000-130', build: '', saved: '2026-01-01T00:00:00.000Z', units: 'mm' }) },
+    { name: 'workspace.json', data: JSON.stringify(old) }, { name: 'swarf.json', data: JSON.stringify({ format: 'swarf', version: 1, local: {} }) }]);
+  const ob = await F.readZip(oldZip, JSZip);
+  const ochk = F.checkManifest(ob.manifest, 'v00000-132');
+  ok(ochk.ok && !ochk.newer, 'a version 1 file opens without a "newer" note');
+  ok(JSON.stringify(ob.workspace) === JSON.stringify(old) && ob.swarf.version === 1, 'a version 1 file reads exactly as written (json: true, geo numbers)');
+
+  // a missing part file: a plain refusal
+  const torn = await zipOf(p.files.filter(f => f.name !== 'parts/w-a-1-2.f32'));
+  const tornErr = await F.readZip(torn, JSZip).then(() => '', e => e.message);
+  ok(/mesh \(parts\/w-a-1-2\.f32\) is missing/.test(tornErr), `a missing part says so (${tornErr})`);
+
+  // one limit, at save and at open
+  const save0 = F.LIMIT.mesh;
+  const huge = { settings, work: [{ type: 100, id: 'scan', json: true, geo: { length: (F.maxTriangles() + 1) * 9 } }] };
+  const hp = F.pack(huge);
+  ok(!hp.ok && hp.say === F.tooBig(F.maxTriangles() + 1) && !hp.files, `too big refuses at save, before writing: "${hp.say}"`);
+  ok(/too big to save/.test(hp.say) && /million triangles/.test(hp.say) && /simpler mesh/.test(hp.say), 'and says it plainly');
+  F.LIMIT.mesh = 36 * 5;                 // 5 triangles: the 6-triangle project above is over it
+  ok(!F.pack(ws).ok, 'the same limit, lowered: save refuses');
+  const openErr = await F.readZip(await zipOf(p.files), JSZip).then(() => '', e => e.message);
+  ok(/its parts have 6 triangles, more than a project holds \(5\)/.test(openErr), `and open refuses the same project (${openErr})`);
+  F.LIMIT.mesh = save0;
+  ok(F.maxTriangles() > 7e6, `a project holds ${F.maxTriangles()} triangles`);
+  ok(F.couldNot(new Error('Array buffer allocation failed')) === "Couldn't save: Array buffer allocation failed. Your parts are still here.", 'a failed save says why');
+
+  // a big scan saves and reopens (2 M triangles, 1 M if this node is short of memory)
+  for (const k of [2e6, 1e6]) {
+    let big;
+    try { big = new Float32Array(k * 9); } catch (e) { continue; }
+    for (let i = 0; i < big.length; i++) big[i] = (i % 9973) * 0.125 - (i % 7);
+    const t0 = Date.now();
+    const bp = F.pack({ settings, work: [{ type: 100, id: 'scan', json: false, geo: big }] }, [man('t')]);
+    const bz = await zipOf(bp.files);
+    const bb = await F.readZip(bz, JSZip);
+    const g = bb.workspace.work[0].geo;
+    ok(bp.ok && g.length === big.length && Buffer.compare(Buffer.from(g.buffer, g.byteOffset, g.byteLength), Buffer.from(big.buffer)) === 0,
+      `${k / 1e6} M triangles save and reopen identical (${Math.round(bz.length / 1048576)} MB file, ${Date.now() - t0} ms)`);
+    break;
+  }
+}
 
 console.log(`swarf file: ok (${n} checks)`);
