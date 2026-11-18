@@ -560,7 +560,7 @@ function describe(plans) {
     if (skipped) line += ` ${skipped} tab${skipped === 1 ? '' : 's'} did not fit: add ${skipped === 1 ? 'it' : 'them'} by hand with + where the part needs holding.`;
     if (plans.some(p => !p.rule.pinned.height && p.rule.height < p.rule.heightFloor - 0.01)) line += ` The board is thin, so the tabs are only ${say(r.height)} tall (under the usual ${say(r.heightFloor)}): check they hold.`;
     if (!n && !pinned) line = 'No straight enough edge for a tab here: place them by hand with +.';
-    else line += ' Check every part and cutout before you cut. Click a tab to move, resize or delete it; undo takes them back.';
+    else line += ' Check each part before you cut; click a tab to move or delete it.';
     return line;
 }
 
@@ -735,7 +735,7 @@ export function autoTabRow() {
     const what = document.createElement('div');
     what.className = 'swarf-autotabs-what';
     what.textContent = 'Tabs hold the part to the board until the cut ends; cut them off after.';
-    const go = button('swarf-autotabs-go', 'auto tabs', 'put a starting set of tabs on the selected part, sized for its material, bit, thickness and machine; then click a tab to move, resize or delete it (undo takes them back)', () => autoPlace());
+    const go = button('swarf-autotabs-go', 'auto tabs', 'tabs sized for the material, bit and board; click one to move it', () => { autoPlace(); if (els.say && els.say.textContent) els.say.scrollIntoView({ block: 'nearest' }); });
     const density = slider('swarf-autotabs-density', 'how many', 'fewer', 'more', 'fewer or more tabs around each part');
     const scale = slider('swarf-autotabs-scale', 'size', 'smaller', 'larger', 'smaller or larger tabs: longer and taller');
     for (const [s, key] of [[density, 'density'], [scale, 'scale']]) {

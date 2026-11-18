@@ -482,7 +482,7 @@ input[type="range"] { accent-color: var(--swarf-accent-hi); }
    via a body-level class toggled by the click handler in sync.js. */
 body.swarf-menu-open #panel-right,
 body.swarf-menu-open #swarf-right-rail { z-index: -1 !important; pointer-events: none; }
-body.swarf-menu-open #swarf-concerns  { z-index: -1 !important; pointer-events: none; }
+body.swarf-menu-open #swarf-concerns, body.swarf-menu-open #swarf-start, body.swarf-menu-open #swarf-size, body.swarf-menu-open #install-swarf, body.swarf-menu-open #ver { z-index: -1 !important; pointer-events: none; }
 
 /* Workflow step buttons (top toolbar) */
 .swarf-step {
@@ -2655,7 +2655,7 @@ body.swarf-menu-open #swarf-bits { z-index: -1 !important; pointer-events: none;
 /* help floats beside the work (Interfacing #2, Phil 11-13): a non-modal card, dragged by its bar,
    under the menus (90) and dialogs (300), over control (60) and the step cards (80); the bed takes clicks */
 #swarf-help-float { position: fixed; left: 336px; top: 96px; z-index: 85; display: flex; flex-direction: column;
-  width: min(380px, calc(100vw - 16px)); max-height: min(72vh, calc(100vh - 16px)); box-sizing: border-box;
+  width: min(380px, calc(100vw - 16px)); max-height: min(72vh, calc(100vh - 112px)); box-sizing: border-box;
   background: var(--swarf-bg-2); color: var(--swarf-text); border: 1px solid var(--swarf-line-2); border-left: 2px solid var(--swarf-accent);
   box-shadow: 0 8px 24px rgba(0,0,0,.35); font-family: "IBM Plex Mono", ui-monospace, monospace; }
 #swarf-help-float[hidden] { display: none !important; }
@@ -2688,3 +2688,67 @@ html[data-skin="classic"] #swarf-help-float, html[data-skin="classic"] #swarf-he
 #ft-move .buttons { grid-column: 1 / -1; }
 /* the move, turn and size panels belong to the bed: not over control, draw or tex */
 body.swarf-run-open .selection-panel, body.swarf-draw-open .selection-panel { display: none !important; }
+
+/* ===== small and scaled screens (13" and 14" laptops at their scaled sizes, 1024 x 600, zoom) ===== */
+/* the step row keeps clear of the mm / in switch: tighter, nudged right, then words only */
+@media (max-width: 1180px) {
+  #mode-tools { left: calc(50% + 44px) !important; }
+  html[data-skin] body #mode-tools > span, #mode-tools > span { padding: 6px 9px !important; }
+}
+@media (max-width: 860px) {
+  html[data-skin] body #mode-tools > span, #mode-tools > span { padding: 5px 7px !important; font-size: 12px !important; }
+  html[data-skin] body #mode-tools svg, #mode-tools svg, #mode-tools > span > i { display: none !important; }
+}
+/* help, while it is open, sits over the concerns pill rather than under it */
+body:has(#swarf-help-float:not([hidden])) #swarf-concerns { z-index: 80 !important; }
+/* TEX's card on a short window: wider, the swatches two rows of seven, rows closer, so the basic
+   card (time, depth, bit, path) fits without scrolling at 1280 x 720 */
+#swarf-draw.sd-tex .sd-card:has(.tx-compact) { width: 340px; max-height: calc(100vh - 168px); }
+#swarf-draw.sd-tex .tx-sws.tx-compact { grid-template-columns: repeat(7, 1fr); }
+#swarf-draw.sd-tex .sd-card:has(.tx-compact) .sd-row { margin: 3px 0; }
+#swarf-draw.sd-tex .sd-card:has(.tx-compact) .tx-more > summary { margin: 4px 0; }
+/* a short window (1024 x 600 and less): the steps panel scrolls as one, so an open step's card is
+   never squeezed into a window of its own a few rows tall */
+@media (max-height: 660px) {
+  body:has(#swarf-size.on) #panel-right #oplist { max-height: none; min-height: 0; }
+}
+/* a window under 1100 wide: the size card spans it, lifted clear of the install and version chips;
+   the steps panel ends above it (one row of size card from 900 wide, two rows under) */
+@media (max-width: 1100px) {
+  #swarf-size { bottom: 34px; }
+  body:has(#swarf-size.on) #panel-right { max-height: calc(100vh - 252px); }
+  body:has(#swarf-size.on) #swarf-right-rail { max-height: calc(100vh - 244px); }
+}
+@media (max-width: 1100px) and (min-width: 900px) {
+  body:has(#swarf-size.on) #panel-right { max-height: calc(100vh - 206px); }
+}
+/* narrower still: the concerns pill goes up to the menu bar's free end, its list opening down,
+   so it never sits on the size card or the rail; the rail ends above the two-row size card */
+@media (max-width: 899px) {
+  #swarf-concerns { top: 4px !important; bottom: auto !important; right: 12px; }
+  #swarf-concerns-body { top: 36px; bottom: auto; max-height: calc(100vh - 60px); width: min(360px, calc(100vw - 24px)); }
+  body:has(#swarf-size.on) #swarf-right-rail { max-height: calc(100vh - 256px); }
+}
+/* a concern's fix and its help sit side by side, one row */
+.swarf-concern-fix { display: inline-block; margin-right: 6px; vertical-align: top; }
+.swarf-concern-fix + .swarf-concern-help { margin-top: 5px; }
+/* a short window: a menu, the right-click menu and a dialog never run past its foot; they scroll */
+#menubar .top-menu-drop .content { max-height: calc(100vh - 60px); overflow-y: auto; overflow-x: hidden; }
+.swarf-ctx { max-height: calc(100vh - 16px); overflow-y: auto; }
+#dialog { max-height: calc(100vh - 116px); overflow-y: auto; }
+@media (max-height: 560px) { #dialog { top: 8px !important; max-height: calc(100vh - 16px); } }
+/* DRAW's and TEX's tool bar wraps to two rows under 1000 wide, the card below it */
+@media (max-width: 1000px) and (min-width: 641px) {
+  #swarf-draw .sd-bar { min-width: 0; left: 12px; right: 12px; transform: none; flex-wrap: wrap; justify-content: center; }
+  #swarf-draw .sd-card { top: 112px; }
+  #swarf-draw.sd-tex .sd-card, #swarf-draw.sd-tex .sd-card:has(.tx-compact) { max-height: calc(100vh - 222px); }
+}
+/* DRAW's card scrolls rather than running under the window's foot */
+#swarf-draw:not(.sd-tex) .sd-card { max-height: calc(100vh - 150px); overflow-y: auto; box-sizing: border-box; }
+@media (max-width: 1000px) and (min-width: 641px) { #swarf-draw:not(.sd-tex) .sd-card { max-height: calc(100vh - 192px); } }
+/* a short window: the start card centres under the step row, never over it */
+@media (max-height: 560px) { #swarf-start:not(.compact) { top: calc(50% + 46px); max-height: calc(100vh - 100px); overflow-y: auto; } }
+/* the board's three fields share the row with on and ×, at the narrow panel too */
+#swarf-board-row input { min-width: 0 !important; padding-left: 3px !important; padding-right: 3px !important; }
+#swarf-board-row > button:not(:first-of-type) { padding: 4px 5px !important; min-width: 0 !important; }
+@media (max-width: 1280px) { #swarf-board-row input { font-size: 11px !important; } }

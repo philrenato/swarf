@@ -1462,18 +1462,18 @@ function stepLine(rec) {
         const passes = rec.down > 0 ? Math.ceil((thick + 0.01) / rec.down) : 1;
         bits.push(`${len(thick)} deep, ${passes} pass${passes === 1 ? '' : 'es'}`);
     }
-    if (rec.type === 'outline' && rec.leave > 0) bits.push(`leaves ${len(rec.leave)}${rec.lastpass ? '' : ', no last pass: stays oversize'}`);
-    if (rec.type === 'outline' && rec.lastpass) bits.push('last pass at the whole depth');
+    if (rec.type === 'outline' && rec.leave > 0) bits.push(`leaves ${len(rec.leave)}${rec.lastpass ? '' : ', no last pass: stays big'}`);
+    if (rec.type === 'outline' && rec.lastpass) bits.push('last pass full depth');
     if (rec.type === 'drill') {
         const c = drillCount(rec);
         if (c) bits.push(c.n ? `${c.n} hole${c.n === 1 ? '' : 's'}${c.deep > 0 ? `, ${len(c.deep)} deep` : ''}` : 'no hole this bit fits');
     }
     if (rec.type === 'pocket') bits.push('down to the floor you pick');
-    if (self.__swarfOpCustom?.(rec)) bits.push('custom numbers');
+    if (self.__swarfOpCustom?.(rec)) bits.push('custom');
     if (rec.rate > 0 && rec.type === 'outline' && !(process.camFullEngage >= 1)) {
         const band = /shopbot/i.test(device?.deviceName || '') ? 1500 : 0;
         const slow = rec.rate * (process.camFullEngage || 0.8), real = rec.rate >= band ? Math.max(slow, band) : slow;
-        if (real < rec.rate - 0.5) bits.push(`full-width pass slowed to ${inch ? `${Math.round(real / 25.4)} in/min` : `${Math.round(real)} mm/min`}`);
+        if (real < rec.rate - 0.5) bits.push(`full-width pass at ${inch ? `${Math.round(real / 25.4)} in/min` : `${Math.round(real)} mm/min`}`);
     }
     return bits.join(' · ');
 }

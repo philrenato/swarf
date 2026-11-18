@@ -129,7 +129,7 @@ try {
       return out;
     });
     check(r.card[0] >= 0 && r.card[1] <= H, `${W} x ${H} (${z}): the card inside the window ${r.card} ${r.scroll ? '(it scrolls)' : ''}`);
-    check(r.buttons.length >= 4 && r.buttons.every(b => b.on && b.inside), `${W} x ${H}: not yet and cut anyway in view and on top ${JSON.stringify(r.buttons)}`);
+    check(r.buttons.length >= 4 && r.buttons.every(b => b.on && b.inside), `${W} x ${H}: not yet and cut in view and on top ${JSON.stringify(r.buttons)}`);
     check(r.ticks.length === labels.length && r.ticks.every(t => t.on && t.inside), `${W} x ${H}: every tick reachable ${JSON.stringify(r.ticks.filter(t => !t.on || !t.inside))}`);
     await page.screenshot({ path: join(OUT, `cut-card-${W}x${H}.png`) });
   }
@@ -149,7 +149,7 @@ try {
   // tick every box with Space, the go button waits until the last, then Enter on it cuts
   await openCut();
   const go = () => page.evaluate(() => document.querySelector('#swarf-run .sr-sheet.on .go').disabled);
-  check(await go(), 'cut anyway is disabled before the ticks');
+  check(await go(), 'cut is disabled before the ticks');
   let ticked = 0;
   for (let i = 0; i < 40 && ticked < labels.length; i++) {
     await page.keyboard.press('Tab');
@@ -157,11 +157,11 @@ try {
     if (!a.inCard) { check(false, 'Tab left the card'); break; }
     if (a.type === 'checkbox' && !a.checked) { await page.keyboard.press('Space'); ticked++; }
   }
-  check(ticked === labels.length && !(await go()), `every box ticked with Space (${ticked}), cut anyway enabled`);
-  for (let i = 0; i < 20 && !/anyway/.test((await active()).text); i++) await page.keyboard.press('Tab');
-  check(/anyway/.test((await active()).text), 'Tab reaches cut anyway');
+  check(ticked === labels.length && !(await go()), `every box ticked with Space (${ticked}), cut enabled`);
+  for (let i = 0; i < 20 && !/without a trace/.test((await active()).text); i++) await page.keyboard.press('Tab');
+  check(/without a trace/.test((await active()).text), 'Tab reaches cut without a trace');
   await page.keyboard.press('Enter');
-  await until('st.running', 5000).then(() => check(true, 'Enter on the focused cut anyway starts the cut'), () => check(false, 'Enter on cut anyway did nothing'));
+  await until('st.running', 5000).then(() => check(true, 'Enter on the focused cut without a trace starts the cut'), () => check(false, 'Enter on cut without a trace did nothing'));
   await page.evaluate(() => window.__swarfRun.state.machine.stop());
   await until('!st.running', 20000);
 } catch (e) {

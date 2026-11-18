@@ -997,7 +997,8 @@
     if (!settings || !current) return;
     const proc = settings.process || {}, tools = settings.tools || [], lim = deviceLimits(settings), level = speedLevel(proc.swarfSpeed);
     const L = window.SwarfLength, inch = !!(L && L.unit() === 'in');
-    const rate = v => inch ? `${+(v / 25.4).toFixed(1)} in/min` : `${Math.round(v)} mm/min`;
+    const num = v => inch ? `${+(v / 25.4).toFixed(1)}` : `${Math.round(v)}`;
+    const rate = v => `${num(v)} ${inch ? 'in/min' : 'mm/min'}`;
     const len = v => L ? L.say(v) : `${+v.toFixed(2)} mm`;
     const ops = (proc.ops || []).filter(o => o && OP_TYPES.includes(o.type));
     // a line of text each (the page's base style makes every div a flex row: lines sat side by side)
@@ -1014,7 +1015,7 @@
         use.addEventListener('click', () => { op.preset = ''; applyFeedsToOps(); try { api.conf.update_fields(); } catch (e) { /* no fields */ } });
         // the step's own numbers: a drill's rate is its plunge (opValues)
         const own = op.type === 'drill' ? `plunge ${rate(op.rate)}` : `feed ${rate(op.rate)}`;
-        line(`${op.type}: custom, ${op.spindle} rpm, ${own} `, use).className = 'swarf-speed-custom';
+        line(`${op.type}: custom · ${op.spindle} rpm · ${own} `, use).className = 'swarf-speed-custom';
         continue;
       }
       // a drill only plunges: its own line, without a horizontal feed
@@ -1028,8 +1029,8 @@
       const p = atSpeed(current, toolDiamMm(tool), lim, tool, level);
       if (!p) continue;
       const name = tool ? (tool.name || `bit ${tool.number}`) : 'bit';
-      if (kind === 'drill') line(`${types.join(', ')} · ${name}: ${p.spindle} rpm, plunge ${rate(p.plunge)}`);
-      else line(`${types.join(', ')} · ${name}: ${p.spindle} rpm, preset feed ${rate(p.feed)}, plunge ${rate(p.plunge)}, ${len(p.stepdown)} down a pass`);
+      if (kind === 'drill') line(`${types.join(', ')} · ${name}: ${p.spindle} rpm · plunge ${rate(p.plunge)}`);
+      else line(`${types.join(', ')} · ${name}: ${p.spindle} rpm · feed ${num(p.feed)} · plunge ${rate(p.plunge)} · ${len(p.stepdown)} a pass`);
     }
   }
   function speedRow(labelCss) {
@@ -1097,7 +1098,7 @@
     const L = window.SwarfLength;
     const row = document.createElement('div');
     row.id = 'swarf-board-row';
-    row.style.cssText = 'display:flex; flex-wrap:wrap; gap:6px; padding:4px 6px 6px; align-items:center;';
+    row.style.cssText = 'display:flex; flex-wrap:wrap; gap:4px; padding:4px 6px 6px; align-items:center;';
     const label = document.createElement('span');
     label.textContent = 'board';
     label.style.cssText = labelCss;
@@ -1110,7 +1111,7 @@
     const mk = (k, title) => {
       const i = document.createElement('input');
       i.type = 'text'; i.inputMode = 'decimal'; i.dataset.len = '1'; i.title = title;
-      i.style.cssText = 'width:0; flex:1; min-width:3.2em; font-size:12px; padding:4px 5px;';
+      i.style.cssText = 'width:0; flex:1; min-width:0; font-size:12px; padding:4px;';
       i.addEventListener('keydown', e => e.stopPropagation());
       i.addEventListener('change', () => {
         const p = api.conf.get().process, mm = L ? L.parse(i.value) : parseFloat(i.value);
@@ -1144,7 +1145,8 @@
       const p = api && api.conf.get().process || {};
       const has = p.swarfBoardX > 0 && p.swarfBoardY > 0 && p.swarfBoardZ > 0;
       add.style.display = has ? 'none' : '';
-      for (const e of [fields, onoff, del]) e.style.display = has ? '' : 'none';
+      for (const e of [onoff, del]) e.style.display = has ? '' : 'none';
+      fields.style.display = has ? 'flex' : 'none';   // its own row of three: never a block that wraps the thickness under
       const v = mm => L ? L.field(mm) : String(+(+mm).toFixed(2));
       if (has) { fx.value = v(p.swarfBoardX); fy.value = v(p.swarfBoardY); fz.value = v(p.swarfBoardZ); }
       onoff.textContent = p.swarfBoardOn ? 'on' : 'off';

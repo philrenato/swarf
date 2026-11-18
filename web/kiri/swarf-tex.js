@@ -855,11 +855,11 @@
       const finRow0 = selRow('finish', 'tx-finish', [...Object.entries(C.FINISH_WORDS), ...(f.stepover > 0 ? [['custom', `custom: ${LEN.say(f.stepover)} apart`]] : [])], f.stepover > 0 ? 'custom' : (f.finish || 'standard'), 'how close the passes run: smoother takes longer; ridged and bold leave the passes showing as part of the look');
       // always there (a row that came with a raster path moved every row under it): idle off a raster
       const finRow = rasters ? finRow0 : finRow0.replace('<select id="tx-finish"', '<select id="tx-finish" disabled title="finish sets raster spacing; this path follows the lines"');
-      if (!compact) h += pathRow + finRow;
+      h += compact ? pathRow : pathRow + finRow;
       // the pattern's finer points: folded, open in advanced mode
       const more = S.more ?? document.body.classList.contains('swarf-expert');
       h += `<details class="tx-more"${more ? ' open' : ''}><summary>more</summary>`;
-      if (compact) h += pathRow + finRow;
+      if (compact) h += finRow;
       for (const q of P.params) if (!q.basic && q.k !== 'depth') h += paramRow(q, pr[q.k]);
       h += numRow('scale', 'tx-scale', r3((f.scale || 1) * 100), '%', 'the pattern larger or smaller', sl('tx-scale', 25, 400, 5, r3((f.scale || 1) * 100), 'scale'));
       h += lenRow('floor', 'tx-floor', f.floor || 0, 'the whole mark sunk this deep first, the texture on its floor (0 for none)', sl('tx-floor', 0, 8, 0.1, f.floor || 0));

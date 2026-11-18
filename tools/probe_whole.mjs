@@ -194,7 +194,7 @@ for (const [W, H] of SIZES) for (const skin of ['glass', 'classic', 'swarf']) {
     // the plate card
     await page.evaluate(() => { const r = window.__swarfRun; r.state.zeroXY = true; });
     const plate = await page.evaluate(async () => { const b = [...document.querySelectorAll('#swarf-run button')].find(b => b.textContent.trim() === 'z plate'); if (b) { b.disabled = false; b.click(); } await new Promise(r => setTimeout(r, 600)); const s = document.querySelector('#swarf-run .sr-plate'); return s ? [...s.querySelectorAll('.sr-plate-t, label')].map(e => e.textContent.replace(/\s+/g, ' ').trim()).join(' | ') : ''; });
-    check(plate && !/\bmm\b/.test(plate) && /in: measure/.test(plate), `the plate card in inches ("${plate.slice(0, 160)}")`);
+    check(plate && !/\bmm\b/.test(plate) && /in, from calipers/.test(plate), `the plate card in inches ("${plate.slice(0, 160)}")`);
     await page.keyboard.press('Escape'); await wait(300);
     await page.evaluate(() => window.__swarfRun.close()); await wait(300);
     await units(page, 'mm');
