@@ -79,6 +79,8 @@ try {
     await page.evaluate(t => { const a = window.kiri.api; a.platform.clear(); a.platform.load_files([new File([t], 'block.stl')]); }, stl(2, 3, 0.75));
     await wait(2500);
     await shot('stl-units');
+    // an unsure file must be picked before done: press the reading it came in at
+    await page.evaluate(() => { for (const r of document.querySelectorAll('.swarf-stl-units .swarf-stl-ask input:checked')) r.click(); });
     await page.evaluate(() => [...document.querySelectorAll('.swarf-stl-units button')].find(b => b.textContent === 'done')?.click());
     await wait(400);
 
