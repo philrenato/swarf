@@ -100,14 +100,15 @@ class Files {
         }
 
         pdb.put(`file-${name}`, vertices)
-            .then(() => {
+            .then(ok => {
+                if (ok === false) throw { error: 'not stored' };
                 store.files[name] = {
                     vertices: vertices.length / 3,
                     updated: new Date().getTime()
                 };
                 return pdb.put('files', store.files);
             })
-            .then(ondone)
+            .then(ok => ondone(ok === false ? { error: 'not stored' } : undefined))
             .catch(ondone);
     };
 

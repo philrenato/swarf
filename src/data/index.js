@@ -247,20 +247,26 @@ SP.put = function(key, value, callback, store = this.current) {
         return this.queue.push(['put', key, value, callback, store]);
     }
     try {
-        let req = this.db
-            .transaction(store, "readwrite")
-            .objectStore(store).put(value, key);
-        if (callback) {
-            req.onsuccess = function(event) { callback(true) };
-            req.onerror = function(event) { callback(false) };
-        }
+        // the write is kept only once its transaction completes: a full disk (QuotaExceededError)
+        // aborts the transaction after the request itself has succeeded
+        let tx = this.db.transaction(store, "readwrite");
+        let req = tx.objectStore(store).put(value, key);
+        let told = false;
+        let tell = (ok, error) => {
+            if (told) return;
+            told = true;
+            if (callback) callback(ok, error);
+        };
+        tx.oncomplete = () => tell(true);
+        tx.onabort = () => tell(false, tx.error || req.error || new Error('the write was stopped'));
+        tx.onerror = () => tell(false, tx.error || req.error);
     } catch (e) {
         if (e.name === 'InvalidStateError') {
             console.log({ putRetry: key });
             return this.queue.push(['put', key, value, callback, store]);
         }
         console.log(e.name, e);
-        if (callback) callback(false);
+        if (callback) callback(false, e);
     }
 };
 

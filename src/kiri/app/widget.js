@@ -11,6 +11,17 @@ const solid_opacity = 1.0;
 function catalog() { return self.kiri_catalog };
 function index() { return self.kiri_catalog.index }
 
+// a part this browser could not keep (storage full or blocked): the page is told, once per
+// failure, so it can offer another way to keep the work
+function storeFailed(what, error) {
+    console.warn('not stored', what, error);
+    try {
+        self.dispatchEvent(new CustomEvent('kiri.store.failed', {
+            detail: { what, error: String(error && (error.name || error.message || error.error) || error || '') }
+        }));
+    } catch (e) { /* no window */ }
+}
+
 /**
  * UI-enhanced Widget subclass for main thread
  * Adds rendering, persistence, and visual state management
@@ -84,7 +95,8 @@ class Widget extends WidgetCore {
         const vertices = widget.getGeoVertices({ unroll: true }).slice();
         widget.meta.file = filename;
         widget.meta.save = mark;
-        catalog().putFile(filename, vertices, () => {
+        catalog().putFile(filename, vertices, error => {
+            if (error) return storeFailed(filename, error);
             console.log("saved mesh ["+(vertices.length/3)+"] time ["+(Date.now()-mark)+"]");
         });
         return this;
@@ -109,9 +121,13 @@ class Widget extends WidgetCore {
             group: this.group.id,
             meta: this.meta,
             track: widget.track
-        }, result => {
-            widget.meta.saved = Date.now();
-            if (ondone) ondone();
+        }, (ok, error) => {
+            if (ok) {
+                widget.meta.saved = Date.now();
+            } else {
+                storeFailed(widget.id, error);
+            }
+            if (ondone) ondone(ok);
         });
     }
 
