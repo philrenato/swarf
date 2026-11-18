@@ -24,6 +24,8 @@ const DRAG = {}, FDM = {}, LASER = {}, SLA = {}, WEDM = {}, WJET = {};
 
 const { time } = util;
 const POOLPATH = "./minion.js";
+// the deploy writes one build into the worker, its helpers and the page; the page compares them
+const BUILD = "__SWARF_BUILD__";
 
 let drivers = {
         DRAG,
@@ -76,7 +78,8 @@ self.get_raster_gpu = async function({ mode, resolution, rotationStep }) {
         mode,
         resolution,
         rotationStep,
-        workerName: "/lib/gpu/raster-worker.js",
+        // relative to this worker file, so it holds wherever the app is served from
+        workerName: "../../gpu/raster-worker.js",
         quiet: true,
         debug: false,
     });
@@ -86,6 +89,13 @@ self.get_raster_gpu = async function({ mode, resolution, rotationStep }) {
 
 function minhandler(msg) {
     let data = msg.data;
+    // a helper says which build it is (once, as it starts): a different one goes to the page
+    if (data && data.build !== undefined && data.seq === undefined) {
+        if (data.build !== BUILD) {
+            dispatch.send({ seq: 0, task: 'engine.build', done: true, data: { engine: BUILD, minion: data.build } });
+        }
+        return;
+    }
     let seq = data.seq;
     let fn = minifns[seq];
     if (!fn) {
@@ -811,6 +821,8 @@ dispatch.onmessage = self.onmessage = async function(e) {
         console.log({worker_unhandled: e, msg, fn: dispatch[msg.task]});
     }
 };
+
+dispatch.send({ seq: 0, task: 'engine.build', done: true, data: { engine: BUILD } });
 
 const worker = self.kiri_worker = {
     cache: wcache,

@@ -152,6 +152,12 @@ export const client = {
                 failure = null;
                 return;
             }
+            // the engine's build: the page compares it with its own (swarf-version.js)
+            if (e.data && e.data.task === 'engine.build') {
+                if (self.swarfEngineBuild) self.swarfEngineBuild(e.data.data);
+                else (self.SWARF_ENGINE_SEEN = self.SWARF_ENGINE_SEEN || []).push(e.data.data);
+                return;
+            }
             let now = time(),
                 reply = e.data,
                 record = running[reply.seq],

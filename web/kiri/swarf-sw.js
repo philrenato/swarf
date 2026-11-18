@@ -9,93 +9,29 @@
  *    Pages, a lab's `python3 -m http.server`) that can't set real HTTP
  *    headers. Without this, Contour and other minion-backed CAM ops fall
  *    back to a slower non-SAB path.
- * 2. An offline fallback: once loaded, swarf's own UI layer and the CAM
- *    engine keep working with no network at all.
+ * 2. An offline fallback: once installed, swarf's own UI layer and the CAM
+ *    engine keep working with no network at all. The install takes every
+ *    file the page and engine load (PRECACHE, written by the deploy) or none.
  *
- * CACHE_STAMP is rewritten by tools/deploy.sh on every deploy. Bumping it
- * is what invalidates the previous cache — a browser tab left open for
- * weeks should still pick up a new release instead of serving a stale
- * engine forever.
+ * CACHE_STAMP is rewritten by tools/deploy.sh on every deploy, so each
+ * deploy installs as a new worker with its own cache; the previous cache is
+ * deleted only after the new one holds every file. The request rules
+ * (timeout, what may be cached) are in swarf-sw-core.js.
  */
 const CACHE_STAMP = '__SWARF_DEPLOY_STAMP__'; // replaced by tools/deploy.sh
 const CACHE_NAME = `swarf-shell-${CACHE_STAMP}`;
 
-// small and worth having offline-ready the instant the service worker
-// installs. The CAM engine bundle, wasm, and sample STLs are much
-// larger (~10MB) and get cached lazily instead, the first time they're
-// actually requested — see the fetch handler below.
-const EAGER_URLS = [
-    '.',
-    'index.html',
-    'index.css',
-    'manifest.json',
-    'swarf.css',
-    'vendor/font/ibm-plex-mono-400.woff2',
-    'vendor/font/ibm-plex-mono-600.woff2',
-    'vendor/font/renato-symbols-400.woff2',
-    'vendor/font/renato-symbols-600.woff2',
-    'font/css/all.min.css',
-    'font/webfonts/fa-solid-900.woff2',
-    'font/webfonts/fa-regular-400.woff2',
-    'swarf-skin.js',
-    'swarf-skin-map.css',
-    'swarf-skin-glass.css',
-    'swarf-skin-classic.css',
-    'swarf-phone.js',
-    'swarf-sky.js',
-    'swarf-phase.js',
-    'swarf-material.js',
-    'swarf-grid-fade.js',
-    'swarf-chips.js',
-    'swarf-sim-bar.js',
-    'swarf-lightstream.js',
-    'swarf-run-parse.js',
-    'swarf-run-plan.js',
-    'swarf-sound.js',
-    'swarf-run-machine.js',
-    'swarf-grbl.js',
-    'swarf-shopbot-usb.js',
-    'swarf-shopbot-card.js',
-    'swarf-estimate.js',
-    'swarf-menu.js',
-    'swarf-shopbot-direct.js',
-    'swarf-run.js',
-    'swarf-plate-model.js',
-    'swarf-prefs.js',
-    'swarf-modes.js',
-    'swarf-lessons.js',
-    'swarf-safety-words.js',
-    'swarf-tutorial.js',
-    'swarf-length.js',
-    'swarf-a11y.js',
-    'swarf-draw-geom.mjs',
-    'swarf-board.js',
-    'swarf-tex.js',
-    'swarf-file.js',
-    'swarf-tex-core.mjs',
-    'swarf-tex-worker.mjs',
-    'swarf-draw.js',
-    'swarf-shape.js',
-    'swarf-size.js',
-    'swarf-start.js',
-    'swarf-version.js',
-    'swarf-install.js',
-    'swarf-bedname.js',
-    'swarf-place.js',
-    'swarf-vector.mjs',
-    'swarf-sim-machine.js',
-    'swarf-shopbot-model.js',
-    'swarf-mr1-model.js',
-    'vendor/unreason/arrangement.mjs',
-    'vendor/unreason/trim.mjs',
-    'vendor/unreason/exchange-2d.mjs',
-    'vendor/unreason/exchange-2d-read.mjs',
-    'swarf-icon-64.png',
-    'swarf-icon-128.png',
-    'swarf-icon-144.png',
-    'swarf-icon-256.png',
-    'swarf-icon-512.png',
-];
+importScripts('swarf-sw-core.js');
+const { cacheKey, storable, noStore, networkFirst } = self.SwarfSW;
+
+// every file the page and the CAM engine load, written in by tools/deploy.sh
+// (tools/precache-list.mjs builds it from the deployed site). The install fetches all of
+// them and fails if any one fails, so a half-filled cache never replaces a whole one.
+// Unstamped (a dev server) the list is empty and files are kept as they are first used.
+const PRECACHE = [/*__SWARF_PRECACHE__*/];
+
+const SCOPE = self.registration.scope;
+const PRECACHE_KEYS = new Set(PRECACHE.map((u) => cacheKey(new URL(u, SCOPE).href)));
 
 function withCOI(resp) {
     if (!resp || resp.status === 0 || resp.type === 'opaque') return resp;
@@ -105,38 +41,63 @@ function withCOI(resp) {
     return new Response(resp.body, { status: resp.status, statusText: resp.statusText, headers });
 }
 
+async function precache() {
+    const cache = await caches.open(CACHE_NAME);
+    try {
+        await Promise.all(PRECACHE.map(async (u) => {
+            const url = new URL(u, SCOPE).href;
+            const r = await fetch(url, { cache: 'reload' });
+            const nav = cacheKey(url) === cacheKey(SCOPE) || /\.html$/.test(new URL(url).pathname);
+            if (!storable(r, { url, destination: '', navigate: nav })) {
+                throw new Error(`precache ${u}: ${r.status} ${r.headers.get('content-type') || ''}${r.redirected ? ' redirected' : ''}`);
+            }
+            await cache.put(cacheKey(url), withCOI(r));
+        }));
+    } catch (err) {
+        // the previous cache stays the offline copy; this worker is not installed
+        await caches.delete(CACHE_NAME);
+        throw err;
+    }
+}
+
+async function complete(name) {
+    if (!PRECACHE_KEYS.size) return true;
+    const cache = await caches.open(name);
+    const have = new Set((await cache.keys()).map((r) => r.url));
+    for (const k of PRECACHE_KEYS) if (!have.has(k)) return false;
+    return true;
+}
+
 self.addEventListener('install', (e) => {
-    self.skipWaiting();
-    e.waitUntil(
-        caches.open(CACHE_NAME).then((cache) =>
-            Promise.all(EAGER_URLS.map((url) =>
-                fetch(url, { cache: 'reload' })
-                    .then((r) => r.ok && cache.put(url, withCOI(r)))
-                    .catch(() => {})
-            ))
-        )
-    );
+    e.waitUntil(precache().then(() => self.skipWaiting()));
 });
 
 self.addEventListener('activate', (e) => {
-    e.waitUntil(
-        caches.keys()
-            .then((keys) => Promise.all(
-                keys.filter((k) => k.startsWith('swarf-shell-') && k !== CACHE_NAME).map((k) => caches.delete(k))
-            ))
-            .then(() => self.clients.claim())
-    );
+    e.waitUntil((async () => {
+        // older caches go only once this one holds every file
+        if (await complete(CACHE_NAME)) {
+            const keys = await caches.keys();
+            await Promise.all(keys.filter((k) => k.startsWith('swarf-shell-') && k !== CACHE_NAME).map((k) => caches.delete(k)));
+        }
+        await self.clients.claim();
+    })());
 });
 
-// every same-origin file is network-first; the cache is only the offline fallback. A stale
-// cache served first made a fix take two reloads to show, and (10-28) mixed the old build's
-// scripts with the new build's CSS on the first launch after a deploy. The page and the shell
-// files skip the HTTP cache ('no-store'); the rest revalidate ('no-cache': an unchanged file
-// is a cheap 304). Only other origins are cache-first, below.
-const EAGER_URL_SET = new Set(EAGER_URLS.map((u) => new URL(u, self.registration.scope).href));
-
+// every same-origin file is network-first and the cache is the fallback: a stale cache served
+// first made a fix take two reloads to show and mixed two builds' scripts and CSS. The network
+// gets SwarfSW.TIMEOUT_MS to answer before a cached copy is used. Precached files are never
+// rewritten at run time, so the offline copy stays one build; other files are kept as used.
 function isNavigation(req) {
     return req.mode === 'navigate' || (req.headers.get('accept') || '').includes('text/html');
+}
+
+async function fromCache(req, nav) {
+    const key = cacheKey(req.url);
+    const own = await caches.open(CACHE_NAME);
+    const hit = (await own.match(key)) || (await caches.match(key));
+    if (hit || !nav) return hit;
+    // the page at any address in the app (?reset=1, index.html): the cached page
+    return (await own.match(cacheKey(SCOPE))) || (await caches.match(cacheKey(SCOPE)));
 }
 
 self.addEventListener('fetch', (e) => {
@@ -150,27 +111,29 @@ self.addEventListener('fetch', (e) => {
         if (url.origin !== self.location.origin) return;
     }
     const sameOrigin = url.origin === self.location.origin;
-    const isShell = isNavigation(req) || EAGER_URL_SET.has(req.url);
 
     if (sameOrigin) {
+        const nav = isNavigation(req);
+        const key = cacheKey(req.url);
+        // a query other than the build stamp (a connectivity check) is never kept
+        const keep = !PRECACHE_KEYS.has(key) && !new URL(key).search;
         e.respondWith((async () => {
-            try {
-                const resp = await fetch(req, { cache: isShell ? 'no-store' : 'no-cache' });
-                if (resp && resp.ok) {
-                    const patched = withCOI(resp);
-                    // clone in the same tick: once the body streams to the page a deferred clone throws
-                    const forCache = patched.clone();
-                    e.waitUntil(caches.open(CACHE_NAME).then((c) => c.put(req, forCache)));
-                    return patched;
-                }
-                return withCOI(resp);
-            } catch (err) {
-                const cached = await caches.match(req);
-                if (cached) return cached;
-                return new Response('swarf is offline and this was never cached', {
-                    status: 503, statusText: 'offline'
-                });
+            const out = await networkFirst({
+                network: () => fetch(req, { cache: noStore(req.url, nav) ? 'no-store' : 'no-cache' }),
+                cached: () => fromCache(req, nav),
+                good: (r) => storable(r, { url: req.url, destination: req.destination, navigate: nav }),
+            });
+            if (!out.response) {
+                return new Response('swarf is offline and this was never cached', { status: 503, statusText: 'offline' });
             }
+            if (out.from === 'cache') return out.response;
+            const patched = withCOI(out.response);
+            if (out.store && keep) {
+                // clone in the same tick: once the body streams to the page a deferred clone throws
+                const forCache = patched.clone();
+                e.waitUntil(caches.open(CACHE_NAME).then((c) => c.put(key, forCache)));
+            }
+            return patched;
         })());
         return;
     }

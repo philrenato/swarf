@@ -12,7 +12,9 @@
 #   3. rewrite 4 absolute/relative paths to /swarf-app/ (relative ../lib, rooted /wasm and /obj
 #      paths all have to point under /swarf-app/ or the worker and wasm 404)
 #   4. stamp swarf-sw.js's cache version so this deploy invalidates the
-#      previous offline cache instead of a lab tab serving a stale engine
+#      previous offline cache instead of a lab tab serving a stale engine; stamp the
+#      build into the engine files and their URLs (?b=); write the offline file list
+#      (tools/precache-list.mjs) into swarf-sw.js
 #   5. stage + commit the WEB repo only — commit the source repo yourself
 #   6. push only the web repo (live site); leaves the source commit local
 #      unless you add --push-src.
@@ -49,6 +51,9 @@ cp src/pack/kiri-main.js "$WEB_APP/lib/main/kiri.js"
 cp src/pack/kiri-work.js "$WEB_APP/lib/kiri/run/worker.js"
 # the worker starts its helpers from ./minion.js; they run the same toolpath code, so they ship with it
 cp src/pack/kiri-pool.js "$WEB_APP/lib/kiri/run/minion.js"
+# the GPU raster helper the worker starts (../../gpu/ from it); src/gpu links it from @gridspace/raster-path (MIT)
+mkdir -p "$WEB_APP/lib/gpu"
+cp -L src/gpu/raster-worker.js "$WEB_APP/lib/gpu/raster-worker.js"
 # the stylesheet sits at the site's root, beside moto/, not one folder down as in the source
 sed 's|\.\./moto/|moto/|g' web/kiri/index.css > "$WEB_APP/index.css"
 # swarf overlay scripts + stylesheet live at /swarf-app/ root (flattened from
@@ -92,7 +97,8 @@ sed -i '' 's|"/obj/|"/swarf-app/obj/|g' "$WEB_APP/lib/main/kiri.js"
 
 # Hard-fail if any of the broken forms remain — catches bundler changes that
 # introduce new path shapes we haven't taught the script about yet.
-bad=$(grep -oE '"\.\./lib/[^"]*\.js"|"\.\./wasm/[^"]*\.wasm"|"/wasm/[^"]*\.wasm"|"/obj/[^"]*"|'"'"'/obj/[^'"'"']*'"'"'' "$WEB_APP/lib/main/kiri.js" "$WEB_APP/lib/kiri/run/worker.js" "$WEB_APP/lib/kiri/run/minion.js" || true)
+# "/lib/..." is rooted at the site, not the app: it 404s under /swarf-app/
+bad=$(grep -oE '"\.\./lib/[^"]*\.js"|"\.\./wasm/[^"]*\.wasm"|"/wasm/[^"]*\.wasm"|"/lib/[^"]*"|'"'"'/lib/[^'"'"']*'"'"'|"/obj/[^"]*"|'"'"'/obj/[^'"'"']*'"'"'' "$WEB_APP/lib/main/kiri.js" "$WEB_APP/lib/kiri/run/worker.js" "$WEB_APP/lib/kiri/run/minion.js" || true)
 if [[ -n "$bad" ]]; then
   echo "[3/5] FAIL — broken paths remain after rewrite. Investigate before shipping:"
   echo "$bad"
@@ -112,19 +118,59 @@ if [[ -n "$remaining" ]]; then
 fi
 echo "      ok — cache version: $STAMP"
 
+# the CAM engine carries the build too (it reports it; the page reloads once on a mismatch), and the
+# page asks for its files by build (?b=), so an open tab never pairs a cached copy of one with another
+ENGINE_FILES=("$WEB_APP/lib/main/kiri.js" "$WEB_APP/lib/kiri/run/worker.js" "$WEB_APP/lib/kiri/run/minion.js")
+sed -i '' "s|__SWARF_BUILD__|$STAMP|g" "$WEB_APP/lib/kiri/run/worker.js" "$WEB_APP/lib/kiri/run/minion.js"
+sed -i '' "s|\"/swarf-app/lib/kiri/run/worker\\.js\"|\"/swarf-app/lib/kiri/run/worker.js?b=$STAMP\"|g" "$WEB_APP/lib/main/kiri.js"
+sed -i '' "s|\"\\./minion\\.js\"|\"./minion.js?b=$STAMP\"|g" "$WEB_APP/lib/kiri/run/worker.js"
+sed -i '' "s|\"\\.\\./\\.\\./gpu/raster-worker\\.js\"|\"../../gpu/raster-worker.js?b=$STAMP\"|g" "$WEB_APP/lib/kiri/run/worker.js"
+sed -i '' -E "s#\"(/swarf-app/lib/kiri/wasm/[a-z-]+\\.wasm)\"#\"\\1?b=$STAMP\"#g" "${ENGINE_FILES[@]}"
+for want in "lib/main/kiri.js:/swarf-app/lib/kiri/run/worker.js?b=$STAMP" \
+            "lib/kiri/run/worker.js:./minion.js?b=$STAMP" \
+            "lib/kiri/run/worker.js:../../gpu/raster-worker.js?b=$STAMP" \
+            "lib/kiri/run/worker.js:/swarf-app/lib/kiri/wasm/kiri-geo.wasm?b=$STAMP" \
+            "lib/kiri/run/minion.js:/swarf-app/lib/kiri/wasm/kiri-geo.wasm?b=$STAMP" \
+            "lib/kiri/run/worker.js:\"$STAMP\"" \
+            "lib/kiri/run/minion.js:\"$STAMP\""; do
+  if ! grep -qF "${want#*:}" "$WEB_APP/${want%%:*}"; then
+    echo "[4/6] FAIL — ${want%%:*} lacks ${want#*:}: the engine would not carry this build"
+    exit 1
+  fi
+done
+if grep -lF '__SWARF_BUILD__' "${ENGINE_FILES[@]}"; then
+  echo "[4/6] FAIL — a build placeholder is left in the engine files above"
+  exit 1
+fi
+echo "      ok — engine files carry the build"
+
+# the offline cache's list: every file the page and the engine load, read from the site as it now is
+PRECACHE="$(mktemp -t swarf-precache)"
+if ! node tools/precache-list.mjs "$WEB_APP" /swarf-app/ > "$PRECACHE"; then
+  echo "[4/6] FAIL — the offline file list could not be built (above)"
+  rm -f "$PRECACHE"; exit 1
+fi
+node - "$WEB_APP/swarf-sw.js" "$PRECACHE" <<'LIST'
+const fs = require('fs'), [sw, listFile] = process.argv.slice(2);
+const list = JSON.parse(fs.readFileSync(listFile, 'utf8'));
+const text = fs.readFileSync(sw, 'utf8');
+if (!text.includes('[/*__SWARF_PRECACHE__*/]')) { console.error('[4/6] FAIL — swarf-sw.js has no PRECACHE placeholder'); process.exit(1); }
+fs.writeFileSync(sw, text.replace('[/*__SWARF_PRECACHE__*/]', JSON.stringify(list)));
+console.log(`      ok — offline cache lists ${list.length} files`);
+LIST
+
 # every file the page loads (its scripts and stylesheets, and the offline cache's list) that comes from
 # web/kiri must be on the site as the source has it (after the rewrites above): a file left out of the
 # copy keeps an old build live with nothing said
 REFS="$(mktemp -t swarf-refs)"
-node - "$WEB_APP" "$STAMP" "$REFS" <<'CHECK'
+node - "$WEB_APP" "$STAMP" "$REFS" "$PRECACHE" <<'CHECK'
 const fs = require('fs'), path = require('path');
-const [site, stamp, refsOut] = process.argv.slice(2);
+const [site, stamp, refsOut, precacheFile] = process.argv.slice(2);
 const html = fs.readFileSync(path.join(site, 'index.html'), 'utf8');
-const sw = fs.readFileSync('web/kiri/swarf-sw.js', 'utf8');
-const refs = new Set();
+const precache = JSON.parse(fs.readFileSync(precacheFile, 'utf8'));
+const refs = new Set(['swarf-sw.js', 'swarf-sw-core.js']);
 for (const m of html.matchAll(/(?:src|href)="([^"#?]+)(?:\?[^"]*)?"/g)) refs.add(m[1]);
-const eager = sw.slice(sw.indexOf('EAGER_URLS = ['), sw.indexOf('];', sw.indexOf('EAGER_URLS = [')));
-for (const m of eager.matchAll(/'([^']+)'/g)) refs.add(m[1]);
+for (const u of precache) refs.add(u.replace(/[?#].*$/, ''));
 const skip = new Set(['index.html', 'license.md', 'THIRD_PARTY_NOTICES.txt']);
 const bad = [];
 for (const r of refs) {
@@ -136,6 +182,7 @@ for (const r of refs) {
   let want = fs.readFileSync(src, 'utf8');
   if (r === 'index.css') want = want.replace(/\.\.\/moto\//g, 'moto/');
   want = want.split('__SWARF_DEPLOY_STAMP__').join(stamp).split('__SWARF_BUILD__').join(stamp);
+  if (r === 'swarf-sw.js') want = want.replace('[/*__SWARF_PRECACHE__*/]', JSON.stringify(precache));
   if (fs.readFileSync(dst, 'utf8') !== want) bad.push(`differs from its source: ${r}`);
 }
 if (bad.length) { console.error('[4/6] FAIL — the site would serve files the deploy did not copy:\n  ' + bad.join('\n  ')); process.exit(1); }
@@ -148,7 +195,7 @@ cd "$WEB_REPO"
 # every path below exists after the copy step; a failed add stops the deploy
 # files the web repo ignores on purpose (dev-only tools) are left out of the add
 STAGE=()
-for f in swarf-app/lib/main/kiri.js swarf-app/lib/kiri/run/worker.js swarf-app/lib/kiri/run/minion.js swarf-app/index.css \
+for f in swarf-app/lib/main/kiri.js swarf-app/lib/kiri/run/worker.js swarf-app/lib/kiri/run/minion.js swarf-app/lib/gpu/raster-worker.js swarf-app/index.css \
   swarf-app/swarf*.js swarf-app/swarf*.mjs swarf-app/vendor swarf-app/swarf*.css swarf-app/swarf-materials.json \
   swarf-app/swarf-icon-*.png swarf-app/manifest.json swarf-app/index.html \
   swarf-app/license.md swarf-app/THIRD_PARTY_NOTICES.txt; do
@@ -160,7 +207,7 @@ for f in swarf-app/lib/main/kiri.js swarf-app/lib/kiri/run/worker.js swarf-app/l
     STAGE+=("$f")
   fi
 done
-rm -f "$REFS"
+rm -f "$REFS" "$PRECACHE"
 git add "${STAGE[@]}"
 # NOTE: index.html is staged but NEVER copied from source. The deploy copy has
 # its own SEO metadata and RELATIVE css/font paths (moto/palette.css, not

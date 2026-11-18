@@ -64,6 +64,7 @@ const E = [
   ['earcut', ver('earcut'), 'ISC', lic('earcut')],
   ['manifold-3d', ver('manifold-3d'), 'Apache-2.0', lic('manifold-3d')],
   ['tween.js', ver('@tweenjs/tween.js'), 'MIT', lic('@tweenjs/tween.js')],
+  ['@gridspace/raster-path (GPU toolpath rasterizer: in the CAM worker, and lib/gpu/raster-worker.js)', ver('@gridspace/raster-path'), 'MIT', lic('@gridspace/raster-path')],
   ['base64-js', ver('base64-js'), 'MIT', lic('base64-js')],
   ['@tracespace/parser (gerber)', ver('@tracespace/parser'), 'MIT', lic('@tracespace/parser')],
   ['quickjs-emscripten (QuickJS by Fabrice Bellard and Charlie Gordon)', ver('quickjs-emscripten'), 'MIT', lic('quickjs-emscripten')],
