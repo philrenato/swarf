@@ -558,7 +558,10 @@ export function opRender() {
                 surfaceDone();
                 traceDone();
                 tabDone();
-                opDel(rec);
+                // a step whose hand-drawn texture marks go with it asks first: the marks can't come back
+                const marked = rec.texmark && api.widgets.all().some(w => Array.isArray(w.meta && w.meta.tex) && w.meta.tex.some(m => m.id === rec.texmark));
+                if (!marked) return opDel(rec);
+                api.uc.confirm('Delete this step? Its tex marks go with it.', { 'keep it': false, 'delete': true }).then(yes => { if (yes) opDel(rec); });
             };
             const drawerEl = $(`${id}-p`);
             const chevEl = $(`${id}-c`);

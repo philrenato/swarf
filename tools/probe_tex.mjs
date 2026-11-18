@@ -279,6 +279,16 @@ try {
   check(said.some(t => /cut through/.test(t)), `concerns say a texture deeper than the board (${said[0] && said[0].slice(0, 90)}…)`);
   // the step taken away in cam: its mark goes with it, said, and does not come back
   await page.evaluate(() => { const row = [...document.querySelectorAll('#oplist > div')].find(r => /^texture/.test(r.querySelector('.label')?.textContent || '')); row?.querySelector('.del')?.dispatchEvent(new MouseEvent('mousedown', { bubbles: true })); });
+  await wait(500);
+  // a step with marks asks first: "keep it" leaves both, "delete" takes both
+  const asked = await page.evaluate(() => { const d = document.getElementById('dialog'); return !!(d && d.open && /tex marks go with it/.test(d.textContent)); });
+  await page.evaluate(() => [...document.querySelectorAll('#dialog button')].find(b => b.textContent.trim() === 'keep it')?.click());
+  await wait(400);
+  const kept = await page.evaluate(() => window.kiri.api.conf.get().process.ops.some(o => o.type === 'texture') && window.kiri.api.widgets.all().some(w => (w.meta.tex || []).length));
+  check(asked && kept, `deleting a step with marks asks first, and keep it keeps both (${asked}, ${kept})`);
+  await page.evaluate(() => { const row = [...document.querySelectorAll('#oplist > div')].find(r => /^texture/.test(r.querySelector('.label')?.textContent || '')); row?.querySelector('.del')?.dispatchEvent(new MouseEvent('mousedown', { bubbles: true })); });
+  await wait(500);
+  await page.evaluate(() => [...document.querySelectorAll('#dialog button')].find(b => b.textContent.trim() === 'delete')?.click());
   await wait(600);
   const gone = await page.evaluate(() => ({ marks: window.kiri.api.widgets.all().map(w => (w.meta.tex || []).length), ops: window.kiri.api.conf.get().process.ops.map(o => o.type), say: document.getElementById('alert-text')?.textContent || document.body.innerText.match(/The mark on [^\n]*/)?.[0] || '' }));
   check(gone.marks.every(n => n === 0) && !gone.ops.includes('texture') && /gone with its step/.test(gone.say), `a texture step taken away in cam takes its mark, and says so (${JSON.stringify(gone)})`);
