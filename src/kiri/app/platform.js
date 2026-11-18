@@ -1052,11 +1052,16 @@ function load_verts(group, vertices, filename) {
     return widget;
 }
 
+// the largest side (mm) a drawing or model may have
+function tableTop() {
+    const dev = current().device || {};
+    return Math.max(5000, 2 * Math.max(dev.bedWidth || 0, dev.bedDepth || 0));
+}
+
 // a part far bigger than any table (a units mix-up, a typo in a radius) is refused before it is
 // made: its view, stock and toolpaths would take the page down. Returns why, or ''.
 function tooBig(list, name) {
-    const dev = current().device || {};
-    const top = Math.max(5000, 2 * Math.max(dev.bedWidth || 0, dev.bedDepth || 0));
+    const top = tableTop();
     const lo = [Infinity, Infinity, Infinity], hi = [-Infinity, -Infinity, -Infinity];
     for (const v of list) for (let i = 0; i + 2 < v.length; i += 3) for (let k = 0; k < 3; k++) {
         const x = v[i + k];
@@ -1410,33 +1415,43 @@ function load_files(files, group) {
                     }, load_dec, svgSizeLine(r.svg));
                 }).catch(e => { api.show.alert(`could not read that drawing: ${e.message}`, 10); load_dec(); });
             } else if (isdxf) {
-                loadDXFDialog(opt => {
-                    group = group || [];
-                    let dxf = file_load.DXF.parse(data.textDecode('utf-8'), opt);
-                    let ind = 0;
-                    const big = tooBig(dxf, name);
-                    if (big) {
-                        api.show.alert(big, 12);
+                // read by Unreason's DXF reader (web/kiri/swarf-vector.mjs) as an SVG in mm of its
+                // closed shapes, into the same thickness dialog as an SVG
+                const V = window.SwarfVector;
+                if (!V) { api.show.alert('the drawing reader is still loading: try again', 6); load_dec(); return; }
+                const base = name.replace(/\.dxf$/i, ''), bytes = new Uint8Array(data), maxMM = tableTop();
+                const refuse = r => { api.show.alert(tooBig([[0, 0, 0, r.big[0], r.big[1], 0]], name), 12); load_dec(); };
+                V.toSVG(name, bytes, { maxMM }).then(r => {
+                    if (r.big) return refuse(r);
+                    dxfLeftOut(r);
+                    if (!r.svg) {
+                        api.show.alert(r.open ? `${r.open} open line${r.open > 1 ? 's' : ''} and no closed shape: only closed shapes can be given a thickness` : 'no shapes found in that drawing', 10);
                         load_dec();
                         return;
                     }
-                    if (opt.dropped) {
-                        api.show.alert(`${opt.dropped} open line${opt.dropped > 1 ? 's were' : ' was'} left out: only closed shapes can be given a thickness`, 10);
-                    } else if (dxf.length === 0) {
-                        api.show.alert(`DXF contains no supported entities`, 10);
-                    }
-                    for (let v of dxf) {
-                        // swarf: one piece keeps the file's name (it read "test.dxf-1")
-                        load_verts(group, dxf[ind++], dxf.length > 1 ? `${name}-${ind}` : name);
-                    }
-                    // swarf 115a (review 11-13 #6): curves drawn at several heights were all pressed
-                    // onto Z 0; say so, and how thick the board is (a flat drawing at any height says nothing)
-                    if (dxf.length && opt.heights > 1) {
-                        const L = self.SwarfLength, say = v => L ? L.say(v) : `${+v.toFixed(2)} mm`;
-                        api.show.alert(`drawn at ${opt.heights} heights: projected flat onto the board, ${say(opt.depth)} thick`, 10);
-                    }
-                    load_dec();
-                }, load_dec);
+                    if (r.open) api.show.alert(`${r.open} open line${r.open > 1 ? 's were' : ' was'} left out: only closed shapes can be given a thickness`, 10);
+                    // a file that does not say its units: the card asks, and says the size each way
+                    const w = r.box[2] - r.box[0], h = r.box[3] - r.box[1];
+                    const units = r.fileUnits ? null : { start: r.units || 'mm', size: u => dxfSizeLine(w, h, (u === 'inch' ? 25.4 : 1) / (r.units === 'inch' ? 25.4 : 1), true) };
+                    loadSVGDialog(async opt => {
+                        try {
+                            group = group || [];
+                            let got = r;
+                            if (units && opt.units && opt.units !== units.start) got = await V.toSVG(name, bytes, { units: opt.units, maxMM });
+                            if (got.big) return refuse(got);
+                            const made = load_svg_into(group, got.svg, base, opt);
+                            if (made.error) api.show.alert(made.error, 12);
+                            // curves drawn at several heights were all pressed onto Z 0: say so, and how thick
+                            else if (made.length && got.heights > 1) {
+                                const L = self.SwarfLength, say = v => L ? L.say(v) : `${+v.toFixed(2)} mm`;
+                                api.show.alert(`drawn at ${got.heights} heights: projected flat onto the board, ${say(opt.depth)} thick`, 10);
+                            }
+                        } catch (e) {
+                            api.show.alert(`could not read that drawing: ${e.message}`, 10);
+                        }
+                        load_dec();
+                    }, load_dec, units ? units.size(units.start) : dxfSizeLine(w, h, 1, false), 0, units);
+                }).catch(e => { api.show.alert(`could not read that drawing: ${e.message}`, 10); load_dec(); });
             }
             // swarf: a whole project (web/kiri/swarf-file.js)
             else if (isswarf) {
@@ -1597,7 +1612,22 @@ function svgSizeLine(text, ppi = 0) {
     } catch (e) { return ''; }
 }
 
-function loadSVGDialog(doit, cancel = () => {}, size = '', ppi = 0) {
+// what a DXF reading left out that is not a line: text, pictures and other objects
+function dxfLeftOut(r) {
+    const n = (k, one, many) => `${k} ${k > 1 ? many : one}`;
+    if (r.text) api.show.alert(`${n(r.text, 'text object', 'text objects')} left out: turn text into outlines`, 10);
+    if (r.images) api.show.alert(`${n(r.images, 'picture', 'pictures')} left out: only lines and curves are read`, 10);
+    if (r.other) api.show.alert(`${n(r.other, 'other object', 'other objects')} left out (${r.otherKinds.join(', ').toLowerCase()})`, 10);
+}
+
+// a DXF's size on the card; k scales it to the units picked
+function dxfSizeLine(w, h, k, ask) {
+    const L = self.SwarfLength, say = v => L ? L.say(v * k) : `${+(v * k).toFixed(1)} mm`;
+    return `It comes in at ${say(w)} × ${say(h)}.${ask ? ' The file does not say its units: pick them below.' : ''}`;
+}
+
+// units (a DXF that does not say its own): { start: 'mm' | 'inch', size: u => the size line in those units }
+function loadSVGDialog(doit, cancel = () => {}, size = '', ppi = 0, units = null) {
     // swarf: the dialog speaks SHAPE's words (review 10-28b #7), and starts at
     // the last thickness SHAPE used, so a drawing and a shape come out alike
     const t = lastThickness();
@@ -1611,6 +1641,7 @@ function loadSVGDialog(doit, cancel = () => {}, size = '', ppi = 0) {
         ...(size ? [`  <p class='t-just swarf-import-size' style='width:320px;line-height:1.5em;margin-top:0'>${size}</p>`] : []),
         "  <div class='f-row t-right'><table>",
         `  <tr><th>thickness</th><td><input id='svg-depth' value='${depthShow(t)}' size='6' inputmode='text'> ${depthUnit()}</td></tr>`,
+        ...(units ? [`  <tr><th title='change it if parts are 25× off'>units</th><td><select id='svg-units'>${['mm', 'inch'].map(u => `<option value='${u}'${u === units.start ? ' selected' : ''}>${u === 'mm' ? 'millimeters' : 'inches'}</option>`).join('')}</select></td></tr>`] : []),
         "  <tr><th title='an outline inside another is cut out of it, as a hole'>holes stay holes</th><td><input id='svg-nest' value='1' type='checkbox' checked></td></tr>",
         "  </table></div>",
         "  <details style='width:320px'><summary>finer settings</summary><table>",
@@ -1620,7 +1651,11 @@ function loadSVGDialog(doit, cancel = () => {}, size = '', ppi = 0) {
         "  </table></details>",
         "</div>"
     ]};
-    api.uc.confirm(undefined, {'make parts':true, cancel:false}, undefined, opt).then((ok) => {
+    const asked = api.uc.confirm(undefined, {'make parts':true, cancel:false}, undefined, opt);
+    // the dialog is written by now: the size line follows the units picked
+    const pick = units && $('svg-units'), sizeLine = document.querySelector('#dialog .swarf-import-size');
+    if (pick && sizeLine) pick.onchange = () => { sizeLine.textContent = units.size(pick.value); };
+    asked.then((ok) => {
         if (!ok) return cancel();
         let depth = depthRead($('svg-depth').value);
         if (!(depth > 0)) return cancel();
@@ -1628,7 +1663,7 @@ function loadSVGDialog(doit, cancel = () => {}, size = '', ppi = 0) {
         let marc = Math.max(1, parseInt($('svg-marc').value));
         let sdpi = Math.max(0, parseInt($('svg-dpi').value));
         let soup = $('svg-nest').checked;
-        ok && doit({ soup, resolution: arcs, segmin: marc, depth, dpi: sdpi });
+        ok && doit({ soup, resolution: arcs, segmin: marc, depth, dpi: sdpi, units: pick ? pick.value : undefined });
     });
 }
 
@@ -1820,72 +1855,6 @@ function objUpFlush() {
     rz.onchange = () => rz.checked && set('z', true);
     $(`obj-up-ok-${rnd}`).onclick = () => api.modal.hide();
     api.modal.show('any');
-}
-
-/**
- * Show dialog to configure DXF import settings.
- * Prompts for extrusion depth, arc segment size, and nesting.
- * @param {Function} doit - Callback with options: {soup, depth, segmentSize, minSegments}
- * @private
- */
-function loadDXFDialog(doit, cancel = () => {}) {
-    const rnd = Date.now().toString(36);
-    const host = $('mod-any');
-    host.innerHTML = [
-        `<div class="image-convert-dialog f-col a-center swarf-import">`,
-        `  <h3 class="image-convert-title">make parts from a drawing</h3>`,
-        `  <p class="image-convert-copy t-just">`,
-        `  Each closed outline becomes a part, this thick.`,
-        `  </p>`,
-        `  <div class="f-row t-right image-convert-fields"><table>`,
-        `  <tr><th>thickness</th><td><input id="dxf-depth-${rnd}" value="${depthShow(lastThickness())}" size="6" inputmode="text"> ${depthUnit()}</td></tr>`,
-        `  <tr><th title="most drawings name their units; change it if parts are 25× off">units</th><td><select id="dxf-units-${rnd}"><option value="auto" selected>as the file says</option><option value="mm">millimeters</option><option value="inch">inches</option></select></td></tr>`,
-        `  <tr><th title="an outline inside another is cut out of it, as a hole">holes stay holes</th><td><input id="dxf-nest-${rnd}" type="checkbox" checked></td></tr>`,
-        `  </table></div>`,
-        `  <details class="image-convert-fields"><summary>finer settings</summary><table>`,
-        `  <tr><th title="shorter pieces follow a curve more closely">length of each piece of a curve</th><td><input id="dxf-seg-${rnd}" value="1" size="3"> mm</td></tr>`,
-        `  <tr><th title="so a small circle stays round">fewest pieces on a curve</th><td><input id="dxf-min-${rnd}" value="4" size="3"></td></tr>`,
-        `  </table></details>`,
-        `  <div class="f-row j-end image-convert-actions">`,
-        `    <button id="dxf-convert-ok-${rnd}">make parts</button>`,
-        `    <button id="dxf-convert-cancel-${rnd}">cancel</button>`,
-        `  </div>`,
-        `</div>`
-    ].join('');
-
-    const units = $(`dxf-units-${rnd}`);
-    const depth = $(`dxf-depth-${rnd}`);
-    const segmentSize = $(`dxf-seg-${rnd}`);
-    const minSegments = $(`dxf-min-${rnd}`);
-    const nest = $(`dxf-nest-${rnd}`);
-    const okBtn = $(`dxf-convert-ok-${rnd}`);
-    const cancelBtn = $(`dxf-convert-cancel-${rnd}`);
-
-    // swarf: cancel, Esc or a click outside ends the load as it began (never "loading" for good)
-    let settled = false;
-    const quit = () => { if (settled) return; settled = true; cancel(); };
-    okBtn.onclick = () => {
-        const d = depthRead(depth.value);
-        settled = true;
-        api.modal.hide();
-        if (!(d > 0)) return cancel();
-        setTimeout(() => {
-            doit({
-                soup: nest.checked,
-                depth: d,
-                segmentSize: Math.max(0.01, parseFloat(segmentSize.value)),
-                minSegments: Math.max(3, parseInt(minSegments.value)),
-                units: units.value
-            });
-        }, 50);
-    };
-    cancelBtn.onclick = () => { api.modal.hide(); quit(); };
-    depth.onkeypress = (ev) => {
-        if (ev.key === 'Enter' || ev.charCode === 13) okBtn.click();
-    };
-    api.modal.show('any');
-    setTimeout(() => depth.focus(), 0);
-    const watch = setInterval(() => { if (settled) return clearInterval(watch); if (!api.modal.visible()) { clearInterval(watch); quit(); } }, 400);
 }
 
 /**
