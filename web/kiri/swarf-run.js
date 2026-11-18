@@ -62,12 +62,18 @@
     const i = v => +(v / 25.4).toFixed(3);
     return `this file is in inches: its cut is ${i(w)} × ${i(d)} in (${w.toFixed(1)} × ${d.toFixed(1)} mm), ${i(z)} in (${z.toFixed(1)} mm) deep, and that is your part`;
   }
+  // the bit the file names, as it writes it: at a continue's line, the one in effect there
+  function bitNamed(line) {
+    const ev = S.prog ? S.prog.parsed.events : [];
+    const at = line ? ev.filter(e => e.kind === 'tool-name' && e.line < line).pop() : null;
+    return (at || {}).value || fileTools().names[0];
+  }
   function checklist(line) {
     const t = fileTools(), o = originText();
     const ev = S.prog ? S.prog.parsed.events : [];
     // the speed in force at the line, S0 included (a stopped spindle is named, not an earlier speed)
     const at = k => line ? ev.filter(e => e.kind === k && e.line < line && (k !== 'rpm' || e.value >= 0)).pop() : null;
-    const bit = (at('tool-name') || {}).value || t.names[0], rpm = at('rpm') ? at('rpm').value : t.rpm[0];
+    const bit = bitNamed(line), rpm = at('rpm') ? at('rpm').value : t.rpm[0];
     return [
       'your board lies flat, screwed or clamped down, and the bit clears every screw and clamp',
       inchItem(),
@@ -237,17 +243,18 @@
 .sr-sim button.on { border-color: var(--swarf-amber, #c08a3a); color: var(--swarf-amber, #c08a3a); }
 .sr-sheet { position: absolute; inset: 0; background: rgba(0,0,0,.6); display: none; place-items: center; z-index: 5; }
 .sr-sheet.on { display: grid; }
-.sr-card { width: min(520px, 92vw); background: var(--swarf-bg-2, #13100f); border: 1px solid var(--swarf-accent, #d02020); border-radius: 14px; padding: 18px 20px; box-sizing: border-box; max-height: calc(100% - 24px); overflow-y: auto; overscroll-behavior: contain; scroll-padding-bottom: 84px; }
+.sr-card { width: min(520px, 92vw); background: var(--swarf-bg-2, #13100f); border: 1px solid var(--swarf-accent, #d02020); border-radius: 14px; padding: 18px 20px; box-sizing: border-box; max-height: calc(100% - 24px); overflow-y: auto; overscroll-behavior: contain; scroll-padding-bottom: 60px; }
 /* a card taller than the window scrolls; its last row of buttons stays in view at the bottom */
-.sr-card > .row:last-child { position: sticky; bottom: 0; z-index: 1; margin: 14px -20px -18px; padding: 10px 20px 18px; background: var(--swarf-bg-2, #13100f); }
+.sr-card > .row:last-child { position: sticky; bottom: 0; z-index: 1; margin: 10px -20px -18px; padding: 8px 20px 10px; background: var(--swarf-bg-2, #13100f); }
 .sr-card .sr-mach { font-size: 12px; margin: 0 0 2px; color: var(--swarf-text-2, #8a857c); }
 .sr-card:focus { outline: none; }
 .sr-card h2 { margin: 0 0 6px; font-size: 18px; }
+.sr-card p.sr-sum { margin: 0 0 10px; overflow-wrap: anywhere; }
 .sr-card p { margin: 0 0 12px; color: var(--swarf-text-2, #8a857c); line-height: 1.5; }
 .sr-card label { display: flex; gap: 10px; align-items: flex-start; padding: 7px 0; cursor: pointer; line-height: 1.4; }
 .sr-card input { accent-color: var(--swarf-accent, #d02020); width: 18px; height: 18px; margin: 0; flex: none; }
 .sr-card .row { display: flex; gap: 8px; justify-content: flex-end; margin-top: 14px; }
-.sr-card .row button { border-radius: 10px; padding: 10px 16px; background: var(--swarf-bg-3, #1c1817); border: 1px solid var(--swarf-line-2, #3a1e18); }
+.sr-card .row button { border-radius: 10px; padding: 7px 14px; background: var(--swarf-bg-3, #1c1817); border: 1px solid var(--swarf-line-2, #3a1e18); }
 .sr-card .row .go { background: var(--swarf-accent, #d02020); border-color: var(--swarf-accent, #d02020); color: #fff; font-weight: 600; }
 .sr-card .row .go:disabled { opacity: .4; cursor: default; }
 .sr-plate .sr-plate-t { display: flex; align-items: center; gap: 8px; margin: 4px 0 10px; color: var(--swarf-text-2, #8a857c); font-size: 13px; }
@@ -2346,7 +2353,7 @@ html[data-skin] #swarf-run .sr-jog .sr-zrow button.next, html[data-skin] #swarf-
       trace: { h: 'Trace the border', go: 'trace', p: `The machine is about to move: up to ${up(1)} over Z 0, then around the ${size} box the cut fills, ${tool} off. Watch that it stays over your board and clears every screw and clamp; clamps inside the cut are not checked. Check each one:` },
       air: { h: `Run ${S.prog.name} as an air cut`, go: 'air cut', p: `The machine is about to move. The whole file runs ${prose(AIR_CLEAR)} above its highest point, ${tool} off, at three quarters of the cutting speed${isDirect() ? ' (a slider changes it as it runs)' : ''}, about ${mins(S.prog.parsed.seconds / ((plan && plan.rate) || 0.75))}. It is not a clamp check: watch the path before you cut. Check each one:` },
       from: { h: `Continue from line ${line}`, go: `continue from line ${line}`, p: `The machine is about to move and the ${tool} to start. The bit goes up to ${up(1)}, over to where that line starts, starts the ${tool}, then cuts the rest of the file. Check each one:` },
-      cut: { h: `Cut ${S.prog.name}`, go: 'cut', p: `The machine is about to move and the ${tool} to start. The file runs to the end, about ${mins(S.prog.parsed.seconds)}. Check each one:` }
+      cut: { h: `Cut ${S.prog.name}`, go: 'cut', p: `The machine is about to move and the ${tool} to start. Check each one:` }
     }[from ? 'from' : test ? kind : 'cut'];
     const go = h('button', { class: 'go', text: unzeroed ? (from ? `${words.go} anyway` : 'cut anyway') : untraced ? `${words.go} without a trace` : words.go, disabled: '' });
     const bad = !plan ? 'There is nothing to run there.' : plan.problems.length ? `It can't run: ${plan.problems[0]}.` : '';
@@ -2355,11 +2362,19 @@ html[data-skin] #swarf-run .sr-jog .sr-zrow button.next, html[data-skin] #swarf-
     // the way in, from where the bit is now: the same moves the machine will make
     const way = plan && window.SwarfRunPlan ? wayWords(plan) : '';
     const back = () => { el.sheet.classList.remove('on'); showPlan(null); };
-    el.card.append(h('h2', { text: words.h }), h('p', { text: words.p }),
-      ...(way ? [h('p', { class: 'sr-way', text: `First: ${way}.` })] : []),
+    // summary first: file, bit, and whether the zero was set here or carried over (an assumption)
+    const kz = S.keptZero, kxy = !!(kz && kz.xy && S.zeroXY), kzz = !!(kz && kz.z && S.zeroZ);
+    const zeroSaid = !S.zeroXY || !S.zeroZ ? 'zero unknown' : kxy || kzz ? `earlier ${kxy && kzz ? '' : kxy ? 'X Y ' : 'Z '}zero, assumed` : 'zero set';
+    const sum = [S.prog.name, bitNamed(from ? line : 0), zeroSaid, !from && !test ? `about ${mins(S.prog.parsed.seconds)}` : ''].filter(Boolean).join(' · ');
+    // then only what is unusual; the plan's open warnings counted, not repeated (the inch note has its own tick)
+    const open = test ? 0 : problems().warn.filter(w => !/^Written in inches/.test(w)).length;
+    el.card.append(h('h2', { text: words.h }), h('p', { class: 'sr-sum', text: sum }),
       ...(bad ? [h('p', { class: 'sr-way bad', text: bad })] : []),
       ...(unzeroed ? [h('p', { class: 'sr-way bad', text: `${unzeroed} not zeroed in swarf: the file runs from wherever the machine's own zero is now.` })] : []),
       ...(untraced ? [h('p', { class: 'sr-way bad', text: 'No trace this time: clamps inside the cut and the zero are unproven. Trace first if you are not sure.' })] : []),
+      ...(open ? [h('p', { class: 'sr-way', text: `${open === 1 ? 'One concern' : `${open} concerns`} still open, listed under the file.` })] : []),
+      h('p', { text: words.p }),
+      ...(way ? [h('p', { class: 'sr-way', text: `First: ${way}.` })] : []),
       ...items.map((t, i) => h('label', {}, checks[i], h('span', { text: t }))),
       h('div', { class: 'row' }, h('button', { text: 'not yet', onclick: back }), go));
     // the student's ticks arm this plan, and only it; a plan made before the bit moved will not run
