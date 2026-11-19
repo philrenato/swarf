@@ -117,7 +117,7 @@ self.addEventListener('fetch', (e) => {
         const nav = isNavigation(req);
         const key = cacheKey(req.url);
         // a query other than the build stamp (a connectivity check) is never kept; a precached
-        // file is written only into a hole (its cache was cleared: the version stamp's update)
+        // file is written only into a hole (its cache was cleared)
         const precached = PRECACHE_KEYS.has(key);
         const keep = precached || !new URL(key).search;
         e.respondWith((async () => {

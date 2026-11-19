@@ -243,6 +243,7 @@ html[data-skin="classic"] #swarf-size .lbl, html[data-skin="classic"] #swarf-siz
 html[data-skin="classic"] #swarf-tabcard .lbl, html[data-skin="classic"] #swarf-tabcard .mm, html[data-skin="classic"] #swarf-tabcard .kind, html[data-skin="classic"] #swarf-tabcard .note, html[data-skin="classic"] #swarf-tabcard .ax small { color: #000 !important; }
 
 /* ---- the corner things: the system tray ---- */
+html[data-skin="classic"] #ver { font-size: 11px !important; letter-spacing: .04em !important; }
 html[data-skin="classic"] #ver, html[data-skin="classic"] #swarf-concerns-tab {
   background: #c0c0c0 !important; color: #000 !important; border: 0 !important; border-radius: 0 !important; box-shadow: var(--c-in) !important;
 }
@@ -385,3 +386,4 @@ html[data-skin="classic"] #swarf-run .sr-target.sim { border-color: #fff; }
 html[data-skin="classic"] #swarf-run .sr-target.live { border-color: #8fd3a8; }
 /* the control card's buttons, kept in view when the card scrolls */
 html[data-skin="classic"] #swarf-run .sr-card > .row:last-child { background: #c0c0c0 !important; }
+html[data-skin="classic"] #swarf-run .sr-card.swarf-more > .row:last-child::before { color: #000 !important; font-style: italic; }

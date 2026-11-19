@@ -8,7 +8,7 @@
 // A fresh browser profile in the system temp folder; nothing is downloaded.
 import puppeteer from 'puppeteer-core';
 import { spawn } from 'node:child_process';
-import { mkdtempSync, rmSync, readFileSync, writeFileSync, renameSync } from 'node:fs';
+import { mkdtempSync, rmSync, readFileSync, writeFileSync as writeRaw, renameSync, utimesSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { CHROME } from './chrome-path.mjs';
@@ -18,6 +18,10 @@ if (!siteDir) { console.error('usage: node tools/probe_offline.mjs <site folder>
 const PORT = +(portArg || 8791);
 const APP = `http://127.0.0.1:${PORT}/swarf-app/`;
 const app = path.join(siteDir, 'swarf-app');
+// the test server dates files to the second: each write gets a later time than the last, or the
+// browser's revalidation is told "not modified" and keeps an older copy
+let stampT = Math.floor(Date.now() / 1000) + 10;
+const writeFileSync = (f, text) => { writeRaw(f, text); stampT += 2; utimesSync(f, stampT, stampT); };
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const results = [];
 const check = (name, ok, info) => { results.push({ name, ok: !!ok, info }); console.log(`${ok ? 'PASS' : 'FAIL'} ${name}${info !== undefined ? ' ' + JSON.stringify(info) : ''}`); };
@@ -60,7 +64,7 @@ try {
         window.Worker.prototype = W.prototype;
     });
     const settle = async () => {
-        await page.waitForFunction(() => window.crossOriginIsolated && navigator.serviceWorker.controller && window.__engine.length, { timeout: 90000, polling: 500 });
+        await page.waitForFunction(() => window.crossOriginIsolated && navigator.serviceWorker.controller && window.__engine.length && window.SWARF_BUILD && document.getElementById('ver') && window.kiri, { timeout: 90000, polling: 500 });
         await sleep(1500);
     };
     const cacheState = () => page.evaluate(async () => {
@@ -78,6 +82,17 @@ try {
     const eng = await page.evaluate(() => ({ e: window.__engine, b: window.SWARF_BUILD, url: window.__workerUrl, builds: window.SWARF_BUILDS }));
     check('engine reports the page\'s build, asked for by build', eng.e[0] && eng.e[0].engine === eng.b && eng.url.includes(`?b=${eng.b}`) && !(eng.builds || {})['CAM engine'], eng);
 
+    // 1b. the version stamp's update with no newer build: a real button, by keyboard; every cache stays whole
+    await page.evaluate(async () => { await (await caches.open('other-app-test')).put('/unrelated', new Response('keep')); });
+    const btn = await page.evaluate(() => { const v = document.getElementById('ver'); return { tag: v.tagName, label: v.getAttribute('aria-label') }; });
+    check('version stamp is a button with a name', btn.tag === 'BUTTON' && /check for an update/.test(btn.label || ''), btn);
+    await Promise.all([page.waitForNavigation({ waitUntil: 'domcontentloaded', timeout: 60000 }), page.evaluate(() => document.getElementById('ver').click())]);
+    await settle();
+    const caches1b = await cacheState();
+    check('same-build update: the offline copy stays whole, other caches untouched',
+        caches1b[`swarf-shell-${stamp}`] === caches1[`swarf-shell-${stamp}`] && caches1b['other-app-test'] === 1, { caches: caches1b });
+    await page.evaluate(async () => { await caches.delete('other-app-test'); });
+
     // 2. a new deploy whose install cannot fetch one file
     const gone = path.join(app, 'swarf-materials.json');
     renameSync(gone, gone + '.away');
@@ -90,6 +105,12 @@ try {
         return await new Promise((res) => { w.addEventListener('statechange', () => { if (w.state === 'redundant' || w.state === 'activated') res(w.state); }); setTimeout(() => res('timeout ' + w.state), 30000); });
     });
     const caches2 = await cacheState();
+    // the same failed install, from the version stamp: it says so and keeps this build
+    writeFileSync(swFile, swText.replace(`'${stamp}'`, `'${stamp}-next2'`));
+    await page.evaluate(() => document.getElementById('ver').click());
+    const said = await page.waitForFunction(() => /could not finish/.test(document.getElementById('ver').textContent), { timeout: 60000, polling: 300 }).then(() => true, () => false);
+    const caches2b = await cacheState();
+    check('failed install from the stamp: a plain note, no reload, complete cache kept', said && caches2b[`swarf-shell-${stamp}`] === caches1[`swarf-shell-${stamp}`] && !caches2b[`swarf-shell-${stamp}-next2`], { said, caches: caches2b });
     check('failed install: new worker discarded, complete cache kept', upd === 'redundant' && caches2[`swarf-shell-${stamp}`] === caches1[`swarf-shell-${stamp}`] && !caches2[`swarf-shell-${stamp}-next`], { upd, caches: caches2 });
     renameSync(gone + '.away', gone);
     writeFileSync(swFile, swText);
@@ -113,9 +134,19 @@ try {
     // 4. offline: the server stops and the browser goes offline
     await stop();
     await page.setOfflineMode(true);
+    // every listed file answers from the offline copy (no-store: not the browser's HTTP cache)
+    const lost = await page.evaluate(async (list) => {
+        const bad = [];
+        for (const f of list) {
+            try { const r = await fetch(new URL(f, location.href).href, { cache: 'no-store' }); if (!r.ok) bad.push(`${f} ${r.status}`); } catch (e) { bad.push(`${f} ${e.message}`); }
+        }
+        return bad;
+    }, listed);
+    check('offline: every listed file answers from the offline copy', lost.length === 0, lost.slice(0, 8));
     errors.length = 0;
     await page.reload({ waitUntil: 'domcontentloaded', timeout: 60000 });
     await settle();
+    await page.waitForFunction(() => window.__engine && window.__engine.length, { timeout: 60000, polling: 500 }).catch(() => {});
     const off = await page.evaluate(() => ({
         isolated: window.crossOriginIsolated, engine: window.__engine, ver: (document.getElementById('ver') || {}).textContent,
         kiri: !!(window.kiri && window.kiri.api), styled: getComputedStyle(document.body).fontFamily,
@@ -134,3 +165,4 @@ try {
 const failed = results.filter((r) => !r.ok).length;
 console.log(failed ? `offline probe: ${failed} failed` : 'offline probe: ok');
 process.exit(failed ? 1 : 0);
+

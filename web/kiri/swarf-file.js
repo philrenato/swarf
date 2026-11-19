@@ -314,6 +314,18 @@
     return { ok: true, triangles, files: [...extra, { name: 'workspace.json', data: text }, ...parts] };
   }
 
+  // every part's mesh is whole triangles of real numbers, checked before anything on the bed
+  // changes: a damaged part refuses the whole file and the parts there now stay
+  function checkParts(work) {
+    for (const w of work || []) {
+      if (!w || !('geo' in w)) continue;
+      const g = w.geo, n = g && g.length;
+      if (!(n > 0) || n % 9) return 'a part in it is damaged: its mesh is not whole triangles';
+      for (let i = 0; i < n; i++) if (!Number.isFinite(g[i])) return 'a part in it is damaged: its mesh has a point that is not a number';
+    }
+    return '';
+  }
+
   // a .swarf's bytes to { manifest, workspace, swarf }, each part's vertices a Float32Array
   function readZip(data, JSZip) {
     const Z = JSZip || (typeof window !== 'undefined' && window.JSZip);
@@ -339,6 +351,8 @@
           if (!f) throw new Error(`a part's mesh (${w.geof32}) is missing from it`);
           return f.async('uint8array').then(u => { const { geof32, ...rest } = w; return { ...rest, json: false, geo: bytesf32(u) }; });
         })).then(list => {
+          const bad = checkParts(list);
+          if (bad) throw new Error(bad);
           if (workspace && Array.isArray(workspace.work)) workspace.work = list;
           return { manifest, workspace, swarf };
         });
@@ -346,7 +360,7 @@
     });
   }
 
-  const core = { FORMAT, VERSION, PROJECT_KEYS, LOCAL_KEYS, NEVER_KEYS, NEVER_RE, KIRI_OPS, manifest, checkManifest, projectLocal, readLocal, swarfJson, zeroKeys, mergeSettings, remapMarks, kmzSafe, usedTools, restamp, fingerprint, same, LIMIT, maxTriangles, tooBig, couldNot, pack, readZip };
+  const core = { FORMAT, VERSION, PROJECT_KEYS, LOCAL_KEYS, NEVER_KEYS, NEVER_RE, KIRI_OPS, manifest, checkManifest, projectLocal, readLocal, swarfJson, zeroKeys, mergeSettings, remapMarks, kmzSafe, usedTools, restamp, fingerprint, same, LIMIT, maxTriangles, tooBig, couldNot, pack, readZip, checkParts };
   if (typeof module !== 'undefined' && module.exports) { module.exports = core; return; }
   if (typeof window === 'undefined') { root.SwarfFileCore = core; return; }
 
@@ -426,6 +440,7 @@
   }
 
   // file › save project (.swarf). opt.name skips the name card (the probe).
+  let saves = 0;
   function save(opt = {}) {
     const a = api();
     if (!a || !a.client || !a.client.zip) return Promise.resolve(false);
@@ -437,6 +452,8 @@
       name = String(name).replace(/\.swarf$/i, '').replace(/[\\/:*?"<>|]+/g, '-');
       // each part's vertices stay a Float32Array and go in as bytes (pack), not JSON numbers
       const ws = a.conf.export({ work: true, clear: true, binary: true });
+      // what this file holds: edits made while it is written stay unsaved
+      const fp = current(), nParts = a.widgets.all().length, nSteps = stepCount(), seq = ++saves;
       const local = projectLocal(k => localStorage.getItem(k));
       const mat = window.__swarfMaterial && window.__swarfMaterial.id;
       const sj = swarfJson({ local, material: mat, units: units(), expert: document.body.classList.contains('swarf-expert'), app: app() });
@@ -461,8 +478,9 @@
               a.util.download(output, `${name}.swarf`);
             } catch (e) { return fail(e); }
             project = name;
-            remember();
-            say(`Saved ${name}.swarf: ${a.widgets.all().length} part${a.widgets.all().length === 1 ? '' : 's'} and ${stepCount()} step${stepCount() === 1 ? '' : 's'}. Drop it on swarf's bed, on this computer or another, to carry on.`, 8);
+            // an older save finishing after a newer one does not stand for the bed
+            if (seq === saves) { try { localStorage.setItem(SAVED, fp); } catch (e) { /* private window */ } }
+            say(`Saved ${name}.swarf: ${nParts} part${nParts === 1 ? '' : 's'} and ${nSteps} step${nSteps === 1 ? '' : 's'}. Drop it on swarf's bed, on this computer or another, to carry on.`, 8);
             resolve(true);
           });
         } catch (e) { fail(e); }

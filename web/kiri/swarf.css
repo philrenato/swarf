@@ -1913,6 +1913,8 @@ body.swarf-phone > *:not(#swarf-phone-wall) { display: none !important; }
   backdrop-filter: blur(4px);
   -webkit-backdrop-filter: blur(4px);
 }
+button#ver { margin: 0; line-height: normal; font-weight: normal; text-align: left; appearance: none; -webkit-appearance: none; min-height: 0; min-width: 0; }
+#ver:focus-visible { outline: 2px solid var(--swarf-accent-hi, #e0a060); outline-offset: 2px; opacity: 1; }
 #ver:hover {
   color: var(--swarf-accent-hi);
   opacity: 1;

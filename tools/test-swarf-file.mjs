@@ -193,6 +193,18 @@ ok(F.restamp('old-style-stamp', 7, 'New') === 'old-style-stamp', 'a stamp it can
   const tornErr = await F.readZip(torn, JSZip).then(() => '', e => e.message);
   ok(/mesh \(parts\/w-a-1-2\.f32\) is missing/.test(tornErr), `a missing part says so (${tornErr})`);
 
+  // a damaged part refuses the file before anything on the bed changes
+  for (const [label, geo] of [['one number', new Float32Array([7])], ['two numbers', new Float32Array([1, 2])], ['a torn triangle', new Float32Array(12)],
+    ['no points', new Float32Array(0)], ['NaN', Object.assign(tri(2), { 4: NaN })], ['Infinity', Object.assign(tri(2), { 7: Infinity })]]) {
+    const bp = F.pack({ settings, work: [{ type: 100, id: 'bad', json: false, geo }] }, [man('t')]);
+    const err = await F.readZip(await zipOf(bp.files), JSZip).then(() => '', e => e.message);
+    ok(/a part in it is damaged/.test(err), `${label}: refused (${err})`);
+  }
+  const nullV1 = await zipOf([{ name: 'workspace.json', data: JSON.stringify({ settings, work: [{ type: 100, id: 'o', json: true, geo: [0, 0, 0, 1, null, 0, 0, 1, 0] }] }) }]);
+  ok(/damaged/.test(await F.readZip(nullV1, JSZip).then(() => '', e => e.message)), 'a version 1 part with a null point: refused');
+  ok(F.checkParts(back.workspace.work) === '' && F.checkParts(ob.workspace.work) === '', 'good parts, binary and version 1, pass');
+  ok(F.checkParts([{ type: 100, id: 'd' }]) === '', 'a part with no mesh field (a drawing) is not judged here');
+
   // one limit, at save and at open
   const save0 = F.LIMIT.mesh;
   const huge = { settings, work: [{ type: 100, id: 'scan', json: true, geo: { length: (F.maxTriangles() + 1) * 9 } }] };

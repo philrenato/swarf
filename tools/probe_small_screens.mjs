@@ -55,9 +55,19 @@ const MEASURE = () => {
     if (e.tagName === 'BUTTON' || e.getAttribute('role') === 'button') {
       const lh = parseFloat(cs.lineHeight) || parseFloat(cs.fontSize) * 1.25;
       const pad = parseFloat(cs.paddingTop) + parseFloat(cs.paddingBottom) + parseFloat(cs.borderTopWidth) + parseFloat(cs.borderBottomWidth);
-      const rg = document.createRange(), tops = new Set(); rg.selectNodeContents(e);
-      for (const q of rg.getClientRects()) if (q.width > 1 && q.height > 4) tops.add(Math.round(q.top / Math.max(8, lh * 0.8)));
-      if (tops.size > 2 && r.height - pad > lh * 2.4) out.push(`button ${tops.size} lines tall: ${name(e)} [${Math.round(r.width)}×${Math.round(r.height)}]`);
+      // lines of text, counted from the text's own boxes (not the boxes of the elements inside)
+      // and merged when they start within half a line of each other
+      const rg = document.createRange(), tops = [];
+      const tw = document.createTreeWalker(e, NodeFilter.SHOW_TEXT);
+      for (let n = tw.nextNode(); n; n = tw.nextNode()) {
+        if (!n.textContent.trim()) continue;
+        rg.selectNodeContents(n);
+        for (const q of rg.getClientRects()) if (q.width > 1 && q.height > 4) tops.push(q.top);
+      }
+      tops.sort((x, y) => x - y);
+      let lines = 0, last = -1e9;
+      for (const t of tops) if (t - last > lh * 0.5) { lines++; last = t; }
+      if (lines > 2 && r.height - pad > lh * 2.4) out.push(`button ${lines} lines tall: ${name(e)} [${Math.round(r.width)}×${Math.round(r.height)}]`);
     }
     // a control another one sits on (a full-window cover, a card's backdrop, is not counted)
     if (/^(BUTTON|INPUT|SELECT)$/.test(e.tagName) || e.classList.contains('swarf-step')) {

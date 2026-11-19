@@ -248,6 +248,8 @@
 /* sticky insets count from inside the card's padding: a card ending in its button row drops its bottom padding, so the row sits on the card's edge with nothing showing under it */
 .sr-card:has(> .row:last-child) { padding-bottom: 0; }
 .sr-card > .row:last-child { position: sticky; bottom: 0; z-index: 1; margin: 10px -20px 0; padding: 8px 20px 12px; background: var(--swarf-bg-2, #13100f); }
+.sr-card.swarf-more > .row:last-child { box-shadow: 0 -10px 12px -6px rgba(0,0,0,.35); }
+.sr-card.swarf-more > .row:last-child::before { content: 'scroll: more below \\25BE'; margin-right: auto; align-self: center; font-size: 12px; color: var(--swarf-warn, #d9a441); white-space: nowrap; }
 .sr-card .sr-mach { font-size: 12px; margin: 0 0 2px; color: var(--swarf-text-2, #8a857c); }
 .sr-card:focus { outline: none; }
 .sr-card h2 { margin: 0 0 6px; font-size: 18px; }
@@ -865,6 +867,17 @@ html[data-skin] #swarf-run .sr-jog .sr-zrow button.next, html[data-skin] #swarf-
     el.card = h('div', { class: 'sr-card', role: 'dialog', 'aria-modal': 'true', tabindex: '-1' });
     el.sheet.append(el.card);
     root.append(el.sheet);
+    // a card taller than the window says so in its button row while there is more below (a ticked
+    // list under the buttons on a small screen)
+    {
+      let rq = 0;
+      const more = () => { rq = 0; el.card.classList.toggle('swarf-more', el.card.scrollHeight - el.card.clientHeight - el.card.scrollTop > 6); };
+      const soon = () => { if (!rq) rq = requestAnimationFrame(more); };
+      el.card.addEventListener('scroll', soon, { passive: true });
+      window.addEventListener('resize', soon);
+      if (window.ResizeObserver) new ResizeObserver(soon).observe(el.card);
+      new MutationObserver(soon).observe(el.card, { childList: true, subtree: true, characterData: true, attributes: true, attributeFilter: ['open'] });
+    }
     sheetModal();
 
     // inside #app (position: fixed makes it a stacking context): out here, control covered the menus whatever their z-index
