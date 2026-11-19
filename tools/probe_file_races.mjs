@@ -71,19 +71,39 @@ try {
     newer(); await s2;
     const afterNewer = SwarfFile.unsaved();
     older(); await s1;
-    return { afterNewer, afterOlder: SwarfFile.unsaved() };
+    return { afterNewer, afterOlder: SwarfFile.unsaved(), name: SwarfFile.projectName() };
   });
   check(r2.afterNewer === false && r2.afterOlder === false, 'the newer save marks the bed saved; the older finishing later does not undo it', r2);
+  check(r2.name === 'two', 'and the project keeps the newer name (the export is named after it)', r2);
+
+  // 2b. a save still being written when file › new makes another bed: it names nothing and marks nothing
+  const r2b = await p.evaluate(async () => {
+    const s = SwarfFile.save({ name: 'stale' });
+    for (let i = 0; i < 100 && !window.__held.length; i++) await new Promise(r => setTimeout(r, 50));
+    SwarfFile.fresh();
+    localStorage.setItem('swarf-file-saved', 'before');
+    window.__held.shift()(); await s;
+    return { name: SwarfFile.projectName(), mark: localStorage.getItem('swarf-file-saved') };
+  });
+  check(r2b.name === null && r2b.mark === 'before', 'a save that finishes after file › new: no name, no saved mark', r2b);
+  await p.evaluate(() => SwarfFile.save({ name: 'race' }).then(() => {}) && null);
+  await p.evaluate(async () => { for (let i = 0; i < 100 && !window.__held.length; i++) await new Promise(r => setTimeout(r, 50)); window.__held.shift()(); await new Promise(r => setTimeout(r, 200)); });
 
   await p.evaluate(() => { const a = kiri.api; a.client.zip = window.__zip; a.util.download = window.__dl; });
 
   // 3. damaged parts
-  for (const kind of ['one', 'torn', 'nan']) {
+  for (const kind of ['one', 'torn', 'nan', 'nogeo', 'null', 'decode']) {
     const r3 = await p.evaluate(async (kind) => {
       const a = kiri.api;
       const ws = a.conf.export({ work: true, clear: true, binary: true });
       const g = ws.work[0].geo;
-      ws.work[0].geo = kind === 'one' ? new Float32Array([7]) : kind === 'torn' ? g.slice(0, g.length - 4) : Object.assign(g.slice(), { 5: NaN });
+      ws.settings = JSON.parse(JSON.stringify(ws.settings)); ws.settings.process.camStockX = 777; ws.settings.process.ops = [];
+      if (kind === 'nogeo') delete ws.work[0].geo;
+      else if (kind === 'null') ws.work.push(null);
+      else if (kind !== 'decode') ws.work[0].geo = kind === 'one' ? new Float32Array([7]) : kind === 'torn' ? g.slice(0, g.length - 4) : Object.assign(g.slice(), { 5: NaN });
+      // a file that passes every check and still fails inside Kiri's import, after it cleared the bed
+      if (kind === 'decode') { const add = a.platform.add; let once = true; a.platform.add = function () { if (once) { once = false; a.platform.add = add; throw new Error('a part could not be added'); } return add.apply(this, arguments); }; }
+      const ops0 = JSON.stringify((a.conf.get().process.ops || []).map(o => o.type)), stock0 = JSON.stringify(a.conf.get().process.camStockX), name0 = SwarfFile.projectName();
       const packed = SwarfFile.pack(ws, [{ name: 'manifest.json', data: JSON.stringify(SwarfFile.manifest({ app: window.SWARF_VERSION, build: '', units: 'mm' })) }, { name: 'swarf.json', data: '{}' }]);
       const zip = new JSZip();
       for (const f of packed.files) zip.file(f.name, f.data);
@@ -91,13 +111,18 @@ try {
       const before = a.widgets.all().map(w => ({ id: w.id, n: w.getGeoVertices().length, x: w.track.pos.x }));
       SwarfFile.remember();
       const mark = localStorage.getItem('swarf-file-saved');
+      // the damaged file carries other settings: they must not stay behind
       const opened = await SwarfFile.open(data, `broken-${kind}.swarf`, JSZip);
       await new Promise(r => setTimeout(r, 900));
+      const settingsKept = JSON.stringify((a.conf.get().process.ops || []).map(o => o.type)) === ops0 && JSON.stringify(a.conf.get().process.camStockX) === stock0;
+      const nameKept = SwarfFile.projectName() === name0;
       const after = a.widgets.all().map(w => ({ id: w.id, n: w.getGeoVertices().length, x: w.track.pos.x }));
       const said = [...document.querySelectorAll('#app-messages, .alert, [id*=alert]')].map(e => e.innerText).join(' ') || document.body.innerText;
-      return { opened, same: JSON.stringify(before) === JSON.stringify(after), markKept: localStorage.getItem('swarf-file-saved') === mark, damaged: /a part in it is damaged/.test(said), before, after };
+      return { opened, same: JSON.stringify(before) === JSON.stringify(after), markKept: localStorage.getItem('swarf-file-saved') === mark, settingsKept, nameKept,
+        damaged: kind === 'decode' ? /could not be added.*as they were/.test(said) : /a part in it is damaged|list of parts is damaged/.test(said), before, after };
     }, kind);
-    check(r3.opened === false && r3.same && r3.markKept && r3.damaged, `damaged part (${kind}): refused, says so, the bed unchanged`, { opened: r3.opened, same: r3.same, markKept: r3.markKept, damaged: r3.damaged });
+    check(r3.opened === false && r3.same && r3.markKept && r3.settingsKept && r3.nameKept && r3.damaged, `damaged part (${kind}): refused, says so; parts, places, steps, name and saved mark as they were`,
+      { opened: r3.opened, same: r3.same, markKept: r3.markKept, settingsKept: r3.settingsKept, nameKept: r3.nameKept, damaged: r3.damaged, after: r3.after });
   }
 
   // 4. the version stamp (update) is a button: Tab reaches it, Enter and Space press it

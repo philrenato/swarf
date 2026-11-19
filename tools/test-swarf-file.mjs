@@ -203,7 +203,14 @@ ok(F.restamp('old-style-stamp', 7, 'New') === 'old-style-stamp', 'a stamp it can
   const nullV1 = await zipOf([{ name: 'workspace.json', data: JSON.stringify({ settings, work: [{ type: 100, id: 'o', json: true, geo: [0, 0, 0, 1, null, 0, 0, 1, 0] }] }) }]);
   ok(/damaged/.test(await F.readZip(nullV1, JSZip).then(() => '', e => e.message)), 'a version 1 part with a null point: refused');
   ok(F.checkParts(back.workspace.work) === '' && F.checkParts(ob.workspace.work) === '', 'good parts, binary and version 1, pass');
-  ok(F.checkParts([{ type: 100, id: 'd' }]) === '', 'a part with no mesh field (a drawing) is not judged here');
+  ok(/mesh is missing/.test(F.checkParts([{ type: 100, id: 'd' }])), 'a part with no mesh at all: refused (Kiri writes geo for every part)');
+  ok(/not a part/.test(F.checkParts([null])) && /not a part/.test(F.checkParts([7])) && /not a part/.test(F.checkParts([{ type: 'camera', geo: tri(1) }])), 'null, a number, an unknown record: refused');
+  ok(/list of parts is damaged/.test(F.checkParts({ 0: {} })) && F.checkParts(undefined) === '' && F.checkParts([]) === '', 'work not a list: refused; none: nothing to judge');
+  ok(F.checkParts([{ type: 'widget', geo: Array.from(tri(1)) }]) === '', 'a really old part (type "widget", numbers) passes');
+  for (const [label, work] of [['no mesh', [{ type: 100, id: 'x', json: false, meta: {} }]], ['a null part', [null]], ['work an object', { a: 1 }]]) {
+    const z = await zipOf([man('t'), { name: 'workspace.json', data: JSON.stringify({ settings, work }) }]);
+    ok(/damaged/.test(await F.readZip(z, JSZip).then(() => '', e => e.message)), `${label}: the file is refused at read`);
+  }
 
   // one limit, at save and at open
   const save0 = F.LIMIT.mesh;

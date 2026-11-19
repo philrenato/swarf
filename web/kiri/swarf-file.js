@@ -317,8 +317,11 @@
   // every part's mesh is whole triangles of real numbers, checked before anything on the bed
   // changes: a damaged part refuses the whole file and the parts there now stay
   function checkParts(work) {
-    for (const w of work || []) {
-      if (!w || !('geo' in w)) continue;
+    if (work === undefined || work === null) return '';
+    if (!Array.isArray(work)) return 'its list of parts is damaged';
+    for (const w of work) {
+      if (!w || typeof w !== 'object' || (w.type !== 100 && w.type !== 'widget')) return 'a part in it is damaged: it is not a part swarf knows';
+      if (!('geo' in w)) return 'a part in it is damaged: its mesh is missing';
       const g = w.geo, n = g && g.length;
       if (!(n > 0) || n % 9) return 'a part in it is damaged: its mesh is not whole triangles';
       for (let i = 0; i < n; i++) if (!Number.isFinite(g[i])) return 'a part in it is damaged: its mesh has a point that is not a number';
@@ -344,7 +347,9 @@
       for (const n of Object.keys(zip.files)) if (PART_RE.test(n)) mesh += size(zip.files[n]);
       if (mesh > LIMIT.mesh) return Promise.reject(new Error(`its parts have ${millions(Math.round(mesh / TRI_BYTES))} triangles, more than a project holds (${millions(maxTriangles())})`));
       return Promise.all([get('manifest.json'), get('workspace.json'), get('swarf.json')]).then(([manifest, workspace, swarf]) => {
-        const work = (workspace && Array.isArray(workspace.work)) ? workspace.work : [];
+        const raw = workspace ? workspace.work : undefined;
+        if (raw !== undefined && raw !== null && !Array.isArray(raw)) throw new Error(checkParts(raw));
+        const work = Array.isArray(raw) ? raw : [];
         return Promise.all(work.map(w => {
           if (!w || !w.geof32) return w;
           const f = PART_RE.test(w.geof32) && zip.files[w.geof32];
@@ -441,6 +446,8 @@
 
   // file › save project (.swarf). opt.name skips the name card (the probe).
   let saves = 0;
+  // which bed this is: opening a project or file › new makes another
+  let bedGen = 0;
   function save(opt = {}) {
     const a = api();
     if (!a || !a.client || !a.client.zip) return Promise.resolve(false);
@@ -453,7 +460,7 @@
       // each part's vertices stay a Float32Array and go in as bytes (pack), not JSON numbers
       const ws = a.conf.export({ work: true, clear: true, binary: true });
       // what this file holds: edits made while it is written stay unsaved
-      const fp = current(), nParts = a.widgets.all().length, nSteps = stepCount(), seq = ++saves;
+      const fp = current(), nParts = a.widgets.all().length, nSteps = stepCount(), seq = ++saves, gen = bedGen;
       const local = projectLocal(k => localStorage.getItem(k));
       const mat = window.__swarfMaterial && window.__swarfMaterial.id;
       const sj = swarfJson({ local, material: mat, units: units(), expert: document.body.classList.contains('swarf-expert'), app: app() });
@@ -477,9 +484,12 @@
               a.show.progress(0);
               a.util.download(output, `${name}.swarf`);
             } catch (e) { return fail(e); }
-            project = name;
-            // an older save finishing after a newer one does not stand for the bed
-            if (seq === saves) { try { localStorage.setItem(SAVED, fp); } catch (e) { /* private window */ } }
+            // an older save finishing after a newer one, or after another project took the bed, does
+            // not stand for the bed: neither its name nor its saved mark
+            if (seq === saves && gen === bedGen) {
+              project = name;
+              try { localStorage.setItem(SAVED, fp); } catch (e) { /* private window */ }
+            }
             say(`Saved ${name}.swarf: ${nParts} part${nParts === 1 ? '' : 's'} and ${nSteps} step${nSteps === 1 ? '' : 's'}. Drop it on swarf's bed, on this computer or another, to carry on.`, 8);
             resolve(true);
           });
@@ -534,6 +544,20 @@
     // the material is the file's before its steps come in, so no step's numbers are made again
     window.__swarfMaterialHold = true;
     const local = readLocal(sj.local);
+    // what the bed, its settings and these keys were, to put back if the import fails part way
+    // (Kiri clears the bed and keeps the file's settings before it reads the first part)
+    let back = null;
+    try { back = a.conf.export({ work: true, clear: true, binary: true }); } catch (e) { /* nothing to keep */ }
+    const wasLocal = {}, wasExpert = document.body.classList.contains('swarf-expert');
+    for (const k of Object.keys(local)) { try { wasLocal[k] = localStorage.getItem(k); } catch (e) { /* private window */ } }
+    const putBack = () => {
+      for (const [k, v] of Object.entries(wasLocal)) { try { if (v === null) localStorage.removeItem(k); else localStorage.setItem(k, v); } catch (e) { /* private window */ } }
+      document.body.classList.toggle('swarf-expert', wasExpert);
+      const t = $('swarf-expert-toggle'); if (t) t.classList.toggle('selected', wasExpert);
+      if (!back) return false;
+      try { a.conf.import({ settings: back.settings, work: back.work || [], view: back.view, version: back.version, time: back.time }, false); return true; }
+      catch (e) { console.warn('swarf open: putting the bed back', e); return false; }
+    };
     for (const [k, v] of Object.entries(local)) { try { localStorage.setItem(k, v); } catch (e) { /* private window */ } }
     const expert = local['swarf-expert'] === '1' || (local['swarf-expert'] === undefined && !!sj.expert);
     document.body.classList.toggle('swarf-expert', expert);
@@ -549,7 +573,12 @@
       // a file Kiri cannot take (a bad part) lets go of the holds, or feeds stay frozen till a reload
       // (deep review 10-31 M3); the throw rejects, and open() says swarf could not open it
       try { a.conf.import({ settings: merged.settings, work: ws.work || [], view: ws.view, version: ws.version, time: ws.time || Date.now() }, false); }
-      catch (e) { window.__swarfMaterialHold = false; window.__swarfRestoring = false; throw e; }
+      catch (e) {
+        const ok = putBack();
+        window.__swarfMaterialHold = false;
+        setTimeout(() => { window.__swarfRestoring = false; }, ok ? 400 : 0);
+        throw new Error(`${e && e.message ? e.message : e}. ${ok ? 'The parts on the bed are as they were.' : 'Reopen your last saved .swarf to get your parts back.'}`);
+      }
       // Kiri adds the parts in a batch (150 ms); then the material, the tab card, the camera
       setTimeout(() => {
         const want = sj.material || local['swarf.material.current'];
@@ -567,6 +596,7 @@
         try { if (a.reveal) a.reveal(); } catch (e) { /* no view */ }
         remember();
         window.__swarfRestoring = false;
+        bedGen++;
         project = String(name).replace(/\.swarf$/i, '');
         const n = a.widgets.all().length, ops = stepCount();
         say([`Opened ${name}: ${n} part${n === 1 ? '' : 's'}, ${ops} step${ops === 1 ? '' : 's'}.`, ...notes].join(' '), notes.length ? 14 : 6);
@@ -632,6 +662,7 @@
     leaveModes(false);
     try { if (window.__swarfRun && window.__swarfRun.forget) window.__swarfRun.forget(); } catch (e) { /* control not loaded */ }
     project = null;
+    bedGen++;
   }
   window.SwarfFile = Object.assign({ save, open, unsaved, remember, projectName, fresh }, core);
 })(typeof window !== 'undefined' ? window : globalThis);
