@@ -1,0 +1,243 @@
+// Toolpath torture: many parts (the shape library's, SVGs with holes and islands, STLs from disk and
+// generated reliefs) x steps (outline in and out, rough, pocket, contour, drill) x bits (1/16 to 1/2,
+// ball, V) x tabs (none, auto, auto at most). Each case makes its toolpaths and its file, and the
+// file is read the way control reads it:
+//   made: no error, in time; the file has moves; no NaN
+//   no rapid sideways below the top of the board; the router never off in the wood
+//   no deeper than the board and a little (2 mm), no higher than 60 mm
+//   the cut no wider than the part and two bits (the bit's path around a sharp corner) and a little
+//   an outline or rough that frees the part: reaches the bottom; with tabs it lifts at least once per tab
+// A case whose part a bit cannot cut (a 2 mm wall, a 1/2 in bit in an 8 mm circle) must still make a
+// file or say why; a hang, an error or a dangerous file fails.
+//   node tools/probe_toolpath_torture.mjs [url] [filter]     (STL=path,... adds files; OUT=dir keeps files)
+import puppeteer from 'puppeteer-core';
+import { mkdtempSync, mkdirSync, writeFileSync, existsSync, rmSync } from 'node:fs';
+import { createRequire } from 'node:module';
+import { tmpdir, homedir } from 'node:os';
+import { join } from 'node:path';
+import { CHROME } from './chrome-path.mjs';
+const P = createRequire(import.meta.url)('../web/kiri/swarf-run-parse.js');
+const PAGE = process.argv[2] || 'http://localhost:8080/kiri/';
+const FILTER = process.argv[3] ? new RegExp(process.argv[3]) : null;
+const OUT = process.env.OUT || '';
+const wait = ms => new Promise(r => setTimeout(r, ms));
+const bad = [], rows = [], errors = [];
+const check = (ok, what, info) => { if (!ok) { console.log('FAIL', what, info !== undefined ? JSON.stringify(info) : ''); bad.push(what); } return ok; };
+
+// ---- parts -------------------------------------------------------------------------------------
+const tmp = mkdtempSync(join(tmpdir(), 'swarf-torture-'));
+const circ = (x, y, d) => `M${x - d / 2} ${y}a${d / 2} ${d / 2} 0 1 0 ${d} 0a${d / 2} ${d / 2} 0 1 0 ${-d} 0Z`;
+const svgDoc = (w, h, d) => `<svg xmlns="http://www.w3.org/2000/svg" width="${w}mm" height="${h}mm" viewBox="0 0 ${w} ${h}"><path fill-rule="evenodd" d="${d}"/></svg>`;
+// a plate with a grid of holes (drill, pocket, loose pieces)
+const holes = (() => { let d = 'M0 0H160V100H0Z'; for (let i = 0; i < 6; i++) for (let j = 0; j < 3; j++) d += circ(20 + i * 24, 22 + j * 28, [6.35, 10, 16][j]); return svgDoc(160, 100, d); })();
+// a frame with an island in its hole (the island is a part of its own, cut free)
+const nested = svgDoc(140, 140, 'M0 0H140V140H0ZM20 20V120H120V20Z' + 'M45 45H95V95H45Z');
+// a comb: fingers 3, 6 and 9 mm wide with 3, 6, 9 mm gaps (narrower than some bits)
+const comb = (() => { let d = 'M0 0H120V20H0Z'; let x = 2; for (const w of [3, 6, 9, 3, 6, 9]) { d += `M${x} 20H${x + w}V70H${x}Z`; x += w * 2 + 4; } return svgDoc(120, 70, d); })();
+
+// a binary STL from triangles
+function stl(tris) {
+  const b = Buffer.alloc(84 + tris.length * 50); b.writeUInt32LE(tris.length, 80);
+  tris.forEach((t, i) => { const o = 84 + i * 50 + 12; t.forEach((v, k) => b.writeFloatLE(v, o + k * 4)); });
+  return b;
+}
+// a closed heightfield solid: z = f(x, y) on top, flat bottom, walls
+function relief(w, h, nx, ny, f) {
+  const T = [], X = i => i * w / nx, Y = j => j * h / ny, Z = (i, j) => f(X(i), Y(j));
+  for (let i = 0; i < nx; i++) for (let j = 0; j < ny; j++) {
+    const a = [X(i), Y(j), Z(i, j)], b = [X(i + 1), Y(j), Z(i + 1, j)], c = [X(i + 1), Y(j + 1), Z(i + 1, j + 1)], d = [X(i), Y(j + 1), Z(i, j + 1)];
+    T.push([...a, ...b, ...c], [...a, ...c, ...d]);
+    const A = [X(i), Y(j), 0], B = [X(i + 1), Y(j), 0], C = [X(i + 1), Y(j + 1), 0], D = [X(i), Y(j + 1), 0];
+    T.push([...A, ...C, ...B], [...A, ...D, ...C]);
+  }
+  const wall = (p, q, zp, zq) => { T.push([...p, 0, ...q, 0, ...q, zq], [...p, 0, ...q, zq, ...p, zp]); };
+  for (let i = 0; i < nx; i++) { wall([X(i + 1), 0], [X(i), 0], Z(i + 1, 0), Z(i, 0)); wall([X(i), h], [X(i + 1), h], Z(i, ny), Z(i + 1, ny)); }
+  for (let j = 0; j < ny; j++) { wall([0, Y(j)], [0, Y(j + 1)], Z(0, j), Z(0, j + 1)); wall([w, Y(j + 1)], [w, Y(j)], Z(nx, j + 1), Z(nx, j)); }
+  return stl(T);
+}
+const gen = {
+  'waves-relief.stl': relief(120, 80, 120, 80, (x, y) => 8 + 4 * Math.sin(x / 7) * Math.cos(y / 9)),
+  'dome.stl': relief(90, 90, 90, 90, (x, y) => { const r = Math.hypot(x - 45, y - 45); return 3 + (r < 40 ? Math.sqrt(40 * 40 - r * r) / 2 : 0); }),
+};
+for (const [n, b] of Object.entries(gen)) writeFileSync(join(tmp, n), b);
+const H = homedir();
+const disk = [
+  ...Object.keys(gen).map(n => join(tmp, n)),
+  `${H}/Documents/claude/swarf/swarf-local/swarf-app/obj/pocket-test.stl`,
+  `${H}/Documents/antigravity/torc/quality/production-envelope/stls/trial-03-custom-signet.stl`,
+  `${H}/Documents/claude/openvcad_eval/fixtures/whole_insole.stl`,
+  `${H}/Desktop/Deform09.stl`,
+  ...(process.env.STL ? process.env.STL.split(',') : []),
+].filter(p => existsSync(p));
+
+// ---- cases -------------------------------------------------------------------------------------
+const T = { e116: 1002, e18: 1001, e14: 1000, e12: 1010, b18: 1004, b14: 1018, v90: 1105, drill14: 1006 };
+const cases = [];
+const add = (name, part, ops, o = {}) => cases.push({ name, part, ops, tabs: o.tabs || 'none', thick: o.thick, device: o.device || 'ShopBot.Basic', material: o.material || 'plywood', expectFree: o.expectFree ?? ops.some(q => (q.type === 'outline' && !q.inside) || q.type === 'rough') });
+const shapes = {
+  ring: ['ring', { d: 85.6, di: 70 }], star: ['star', { d: 100, p: 5, i: 44 }], rounded: ['rounded', { w: 150, h: 100, r: 10 }],
+  tiny: ['circle', { d: 8 }], slot: ['slot', { w: 60, h: 5 }], big: ['rect', { w: 1200, h: 600 }], tri: ['polygon', { d: 40, n: 3 }],
+  thinring: ['ring', { d: 50, di: 46 }],
+};
+for (const [k, [kind, v]] of Object.entries(shapes)) {
+  const part = { shape: kind, v };
+  for (const bit of ['e116', 'e18', 'e14', 'e12']) add(`${k} outline ${bit}`, part, [{ type: 'outline', tool: T[bit] }], { tabs: bit === 'e14' ? 'auto' : 'none' });
+  for (const tabs of ['none', 'auto', 'most']) add(`${k} rough e14 tabs:${tabs}`, part, [{ type: 'rough', tool: T.e14 }], { tabs });
+  add(`${k} outline inside e18 + outline e14 tabs`, part, [{ type: 'outline', tool: T.e18, inside: true }, { type: 'outline', tool: T.e14 }], { tabs: 'auto' });
+  add(`${k} outline v90`, part, [{ type: 'outline', tool: T.v90 }]);
+  add(`${k} outline b14 thin 6mm`, part, [{ type: 'outline', tool: T.b14 }], { thick: 6, tabs: 'auto' });
+}
+// edges shaped on the shape card (points between the top and the bottom: the tabs go on the silhouette)
+for (const edge of ['chamfer', 'round']) for (const [k, kind, v] of [['rounded', 'rounded', { w: 150, h: 100, r: 10 }], ['ring', 'ring', { d: 85.6, di: 50 }], ['star', 'star', { d: 100, p: 5, i: 60 }]]) {
+  add(`${k} ${edge} edge outline e14 tabs`, { shape: kind, v, edge: { kind: edge, size: 4 } }, [{ type: 'outline', tool: T.e14 }], { tabs: 'auto' });
+  add(`${k} ${edge} edge rough e12 tabs:most`, { shape: kind, v, edge: { kind: edge, size: 4 } }, [{ type: 'rough', tool: T.e12 }], { tabs: 'most' });
+}
+add('ring rough e14 tabs:auto mr1 aluminum', { shape: 'ring', v: { d: 85.6, di: 70 } }, [{ type: 'rough', tool: T.e18 }], { tabs: 'auto', device: 'Langmuir.MR-1', material: 'aluminum', thick: 6 });
+for (const [k, svg] of Object.entries({ holes, nested, comb })) {
+  add(`${k} outline e14 tabs`, { svg }, [{ type: 'outline', tool: T.e14 }], { tabs: 'auto' });
+  add(`${k} outline e14 tabs:most`, { svg }, [{ type: 'outline', tool: T.e14 }], { tabs: 'most' });
+  add(`${k} rough e18 tabs`, { svg }, [{ type: 'rough', tool: T.e18 }], { tabs: 'auto' });
+  add(`${k} pocket e18`, { svg }, [{ type: 'pocket', tool: T.e18 }], { expectFree: false });
+  add(`${k} drill + outline`, { svg }, [{ type: 'drill', tool: T.drill14 }, { type: 'outline', tool: T.e14 }], { tabs: 'auto' });
+  add(`${k} outline e116 tabs`, { svg }, [{ type: 'outline', tool: T.e116 }], { tabs: 'auto' });
+}
+for (const f of disk) {
+  const n = f.split('/').pop();
+  add(`${n} rough e14 + contour b18`, { stl: f }, [{ type: 'rough', tool: T.e14 }, { type: 'contour', tool: T.b18 }], { tabs: 'auto' });
+  add(`${n} contour b14`, { stl: f }, [{ type: 'contour', tool: T.b14 }], { expectFree: false });
+  add(`${n} rough e12 tabs:most`, { stl: f }, [{ type: 'rough', tool: T.e12 }], { tabs: 'most' });
+  add(`${n} outline e18`, { stl: f }, [{ type: 'outline', tool: T.e18 }], { tabs: 'auto' });
+}
+
+// ---- run ---------------------------------------------------------------------------------------
+let browser, page;
+async function boot() {
+  if (browser) await browser.close().catch(() => {});
+  browser = await puppeteer.launch({ executablePath: CHROME, headless: 'new', userDataDir: mkdtempSync(join(tmp, 'profile-')), protocolTimeout: 900000, args: ['--window-size=1440,900'] });
+  page = await browser.newPage(); await page.setViewport({ width: 1440, height: 900 });
+  page.on('pageerror', e => errors.push(e.message));
+  await page.goto(PAGE, { waitUntil: 'domcontentloaded', timeout: 60000 });
+  await page.waitForFunction(() => !!(window.kiri?.api?.platform?.load_svg && window.__swarfAutoTabs && window.__swarfShape && document.getElementById('swarf-material-select')), { timeout: 90000, polling: 250 });
+  await wait(1500);
+}
+const within = (p, ms, what) => Promise.race([p, wait(ms).then(() => { throw new Error(`${what}: no answer in ${ms / 1000} s`); })]);
+
+async function runCase(c) {
+  const t0 = Date.now();
+  errors.length = 0;
+  await page.evaluate(() => { const a = kiri.api; a.platform.clear(); a.conf.get().process.ops = []; a.conf.save(); });
+  await page.evaluate(d => kiri.api.devices.select(d), c.device); await wait(700);
+  await page.evaluate(m => { const s = document.getElementById('swarf-material-select'); if ([...s.options].some(o => o.value === m)) { s.value = m; s.dispatchEvent(new Event('change', { bubbles: true })); } }, c.material); await wait(250);
+  const thick = c.thick || 19.05;
+  if (c.part.stl) {
+    const input = await page.$('#load-file');
+    await input.uploadFile(c.part.stl);
+    await page.waitForFunction(() => kiri.api.widgets.all().length >= 1 || document.querySelector('.swarf-stl-units'), { timeout: 180000, polling: 300 });
+    await wait(800);
+    await page.evaluate(() => [...document.querySelectorAll('.swarf-stl-units button')].find(b => b.textContent === 'done')?.click());
+    await page.waitForFunction(() => kiri.api.widgets.all().length >= 1, { timeout: 180000, polling: 300 });
+  } else {
+    await page.evaluate((part, t) => {
+      const a = kiri.api, svg = part.svg || window.__swarfShape.svgFor(part.shape, part.v);
+      a.platform.load_svg(svg, part.shape || 'part', { depth: t, resolution: 2, segmin: 48, soup: true, dpi: 0, place: true, ...(part.edge ? { edge: part.edge } : {}) });
+    }, c.part, thick);
+    await page.waitForFunction(() => kiri.api.widgets.all().length >= 1, { timeout: 30000, polling: 200 });
+  }
+  await wait(900);
+  const setup = await page.evaluate((ops, tabs) => {
+    const a = kiri.api, s = a.conf.get();
+    s.process.ops = [];
+    for (const q of ops) {
+      [...document.getElementById('op-add-list').children].find(e => e.innerText.trim().toLowerCase() === q.type)?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+      const op = s.process.ops.filter(o => o.type === q.type).pop();
+      if (!op) continue;
+      op.tool = q.tool;
+      if (q.inside != null) op.inside = q.inside;
+    }
+    for (const w of a.widgets.all()) a.platform.select(w, true);
+    if (tabs !== 'none') {
+      window.__swarfAutoTabs.set({ density: tabs === 'most' ? 2 : 0, scale: 0, pin: {} });
+      window.__swarfAutoTabs.place();
+    }
+    a.conf.save(); a.event.emit('cam.op.render');
+    const ws = a.widgets.all();
+    const bb = ws.map(w => w.getBoundingBox());
+    const box = { x: Math.max(...bb.map(b => b.max.x)) - Math.min(...bb.map(b => b.min.x)), y: Math.max(...bb.map(b => b.max.y)) - Math.min(...bb.map(b => b.min.y)), z: Math.max(...bb.map(b => b.max.z)) - Math.min(...bb.map(b => b.min.z)) };
+    const tabN = ws.reduce((n, w) => n + (a.widgets.annotate(w.id).tab || []).length, 0);
+    const tools = s.tools;
+    const dia = Math.max(...s.process.ops.filter(o => o.tool).map(o => { const t = tools.find(t => t.id === o.tool); return t ? (t.metric ? t.flute_diam : t.flute_diam * 25.4) : 0; }));
+    return { parts: ws.length, box, tabs: tabN, ops: s.process.ops.filter(o => o.type !== '|').map(o => o.type), dia, stockZ: s.process.camStockZ };
+  }, c.ops, c.tabs);
+  await wait(700);
+  await page.evaluate(() => { window.__tortureDone = null; const e = kiri.api.event; e.on('preview.end', () => window.__tortureDone = window.__tortureDone || 'ok'); e.on('preview.error', x => window.__tortureDone = 'error ' + x); document.getElementById('act-paths')?.click(); });
+  let made;
+  try { await page.waitForFunction(() => !!window.__tortureDone, { timeout: 420000, polling: 500 }); made = await page.evaluate(() => window.__tortureDone); }
+  catch (e) { made = 'timeout: no toolpaths in 420 s'; }
+  let text = '';
+  if (made === 'ok') {
+    try { text = await within(page.evaluate(() => new Promise(res => kiri.api.function.export(g => res(typeof g === 'string' ? g : (g?.gcode || String(g)))))), 240000, 'export'); }
+    catch (e) { made = e.message; }
+  }
+  const said = await page.evaluate(() => [...document.querySelectorAll('.alert, #app-messages')].map(e => e.innerText).join(' ').slice(0, 300)).catch(() => '');
+  const concerns = await page.evaluate(() => (window.__swarfConcernsNow?.() || []).map(c => `${c.title}: ${c.body}`)).catch(() => []);
+  const r = { name: c.name, secs: Math.round((Date.now() - t0) / 1000), made, said, ...setup };
+  if (OUT && text) { mkdirSync(OUT, { recursive: true }); writeFileSync(join(OUT, c.name.replace(/[^\w.-]+/g, '_') + '.sbp'), text); }
+  const ok = [];
+  ok.push(check(made === 'ok', `${c.name}: toolpaths made`, { made, said }));
+  if (made === 'ok') {
+    const p = P.parse(text), cuts = p.moves.filter(m => !m.rapid);
+    r.lines = text.split('\n').length;
+    let lo = Infinity, hi = -Infinity; for (const m of p.moves) { if (m.z < lo) lo = m.z; if (m.z > hi) hi = m.z; }
+    r.minZ = +lo.toFixed(2); r.maxZ = +hi.toFixed(2);
+    const cb = P.cutBounds(p);
+    r.cut = cb ? { x: +(cb.max.x - cb.min.x).toFixed(1), y: +(cb.max.y - cb.min.y).toFixed(1) } : null;
+    const board = Math.max(setup.box.z, c.thick || 0);
+    // a step with nothing to cut (a pocket with no floor picked) says so in concerns
+    const saysEmpty = concerns.some(t => /nothing to clear|cuts nothing/.test(t));
+    r.concerns = concerns;
+    ok.push(check(cuts.length > 0 || saysEmpty, `${c.name}: the file cuts, or concerns say why not`, { lines: r.lines, concerns }));
+    ok.push(check(!/NaN|undefined|Infinity/.test(text), `${c.name}: no NaN in the file`));
+    const dive = P.rapidAcross(p), off = P.routerOffCut(p);
+    ok.push(check(!dive, `${c.name}: no rapid sideways below the top`, dive));
+    ok.push(check(!off, `${c.name}: router on whenever the bit is in the wood`, off));
+    ok.push(check(r.minZ >= -(board + 2.01), `${c.name}: no deeper than the board (${board.toFixed(1)}) + 2`, r.minZ));
+    ok.push(check(r.maxZ <= 60, `${c.name}: no higher than 60 mm`, r.maxZ));
+    if (cb) ok.push(check(r.cut.x <= setup.box.x + 2 * setup.dia + 2.5 && r.cut.y <= setup.box.y + 2 * setup.dia + 2.5, `${c.name}: the cut no wider than the part and two bits (a sharp corner's miter)`, { cut: r.cut, box: setup.box, dia: setup.dia }));
+    if (c.expectFree && cb && cuts.length) {
+      // the part's bottom: deepest cut within 0.5 mm of the board's bottom (or through)
+      ok.push(check(r.minZ <= -(board - 0.5), `${c.name}: cuts down to the bottom of the part`, { minZ: r.minZ, board }));
+      if (setup.tabs > 0) {
+        // the deepest pass lifts over the tabs: rises from the floor without a rapid, once per tab at least
+        // the floor of the sideways cuts (a drill's plunge goes deeper, by its point)
+        let floor = Infinity; for (const m of cuts) if (Math.hypot(m.x - m.x0, m.y - m.y0) > 0.05) floor = Math.min(floor, m.z, m.z0); let up = 0, low = false;
+        for (const m of p.moves) { if (m.rapid) { low = false; continue; } if (m.z <= floor + 0.05) low = true; else if (low && m.z > floor + 0.5) { up++; low = false; } }
+        r.lifts = up;
+        ok.push(check(up >= Math.min(setup.tabs, 1), `${c.name}: the last pass lifts over its tabs`, { lifts: up, tabs: setup.tabs }));
+      }
+    }
+  }
+  ok.push(check(errors.length === 0, `${c.name}: no page errors`, errors.slice(0, 3)));
+  r.pass = ok.every(Boolean);
+  rows.push(r);
+  console.log(`${r.pass ? 'ok  ' : 'FAIL'} ${c.name.padEnd(48)} ${String(r.secs).padStart(4)}s parts ${setup.parts} tabs ${setup.tabs} z ${r.minZ}..${r.maxZ} cut ${r.cut ? r.cut.x + 'x' + r.cut.y : '-'} box ${setup.box.x.toFixed(0)}x${setup.box.y.toFixed(0)}x${setup.box.z.toFixed(1)}${r.lifts != null ? ' lifts ' + r.lifts : ''}`);
+  return r.made;
+}
+
+try {
+  await boot();
+  const list = cases.filter(c => !FILTER || FILTER.test(c.name));
+  console.log(`${list.length} cases`);
+  for (const c of list) {
+    let made;
+    try { made = await runCase(c); }
+    catch (e) { check(false, `${c.name}: case ran: ${e.message}`); made = 'crash'; }
+    // a hang or crash: start again from a fresh page, so one case does not fail the rest
+    if (made !== 'ok' && made !== undefined && !/^error/.test(made)) await boot();
+  }
+} finally {
+  if (browser) await browser.close().catch(() => {});
+  writeFileSync(join(process.env.SUMMARY_DIR || tmp, 'torture-summary.json'), JSON.stringify(rows, null, 1));
+  console.log(`summary: ${join(process.env.SUMMARY_DIR || tmp, 'torture-summary.json')}`);
+}
+console.log(bad.length ? `toolpath torture: ${bad.length} FAIL in ${rows.filter(r => !r.pass).length} of ${rows.length} cases` : `toolpath torture: ok (${rows.length} cases)`);
+process.exit(bad.length ? 1 : 0);

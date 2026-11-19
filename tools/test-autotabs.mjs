@@ -4,7 +4,7 @@
 // big hole, a small part, an L, plates with a 40 mm and a 12 mm hole): every tab on the outline, clear of
 // corners, facing away from the material, spread by length.
 // Run: node tools/test-autotabs.mjs
-import { tabRule, planTabs, sliceLoops, tabRecord, area, inside, loopInfo, nearestOnLoops, edgeOf, recordAt, rotAngle, overlaps, turnSpots, scaleSpots, mirrorSpots } from '../src/kiri/mode/cam/app/autotab-rule.js';
+import { tabRule, planTabs, sliceLoops, silhouetteLoops, tabRecord, area, inside, loopInfo, nearestOnLoops, edgeOf, recordAt, rotAngle, overlaps, turnSpots, scaleSpots, mirrorSpots } from '../src/kiri/mode/cam/app/autotab-rule.js';
 
 const bad = [];
 const check = (ok, what) => { console.log(ok ? 'ok  ' : 'FAIL', what); if (!ok) bad.push(what); };
@@ -191,6 +191,29 @@ check(rec.auto === true && rec.dim.y === ply.width && rec.dim.z === ply.height &
     && Math.abs(Math.hypot(rec.pos.x - t0.x, rec.pos.y - t0.y) - ply.depth / 2) < 1e-9,
     'a record is { pos, dim {depth, width, height}, rot about Z to the edge normal, id, auto }, half a depth out');
 check(area(rect(0, 0, 1, 1)) > 0, 'area sign');
+
+// a part whose sides are not straight: a dome on a small foot (an STL's arch). The slice near the
+// bottom is the foot; the outline cuts around the dome's widest, so the tabs belong there.
+{
+    const tri = [];
+    const N = 48, R = 40, foot = 10, H = 20;
+    const ring = (r, z) => Array.from({ length: N }, (_, i) => [r * Math.cos(i * 2 * Math.PI / N), r * Math.sin(i * 2 * Math.PI / N), z]);
+    const rings = [ring(foot, 0), ring(R, 5), ring(R * 0.7, 12), ring(R * 0.3, 18)];
+    for (let k = 0; k + 1 < rings.length; k++) for (let i = 0; i < N; i++) {
+        const a = rings[k][i], b = rings[k][(i + 1) % N], c = rings[k + 1][(i + 1) % N], d = rings[k + 1][i];
+        tri.push(...a, ...b, ...c, ...a, ...c, ...d);
+    }
+    for (let i = 0; i < N; i++) { tri.push(0, 0, 0, ...rings[0][(i + 1) % N], ...rings[0][i]); tri.push(0, 0, H, ...rings[3][i], ...rings[3][(i + 1) % N]); }
+    const pos = Float32Array.from(tri);
+    const low = sliceLoops(pos, 1), sil = silhouetteLoops(pos);
+    const span = L => Math.max(...L.map(p => p.x)) - Math.min(...L.map(p => p.x));
+    check(low.length === 1 && span(low[0]) < R, `the slice near the bottom is much narrower than the dome (${low[0] && span(low[0]).toFixed(1)} mm across)`);
+    check(sil.length === 1 && Math.abs(span(sil[0]) - 2 * R) < 1.5 && Math.abs(Math.abs(area(sil[0])) - Math.PI * R * R) / (Math.PI * R * R) < 0.04,
+        `the silhouette is the dome's widest: ${sil[0] && span(sil[0]).toFixed(1)} mm across, ${sil[0] && Math.abs(area(sil[0])).toFixed(0)} mm²`);
+    const plan = planTabs(sil, tabRule({ materialId: 'plywood', bitMm: 6.35, thicknessMm: H, deviceName: 'ShopBot.Basic' }));
+    check(plan.tabs.length >= 3 && plan.tabs.every(t => Math.abs(Math.hypot(t.x, t.y) - R) < 2), `tabs on the silhouette (${plan.tabs.map(t => Math.hypot(t.x, t.y).toFixed(1)).join(', ')})`);
+}
+
 
 if (bad.length) { console.log(`\n${bad.length} FAILED`); process.exit(1); }
 console.log('\nall auto-tab checks passed');

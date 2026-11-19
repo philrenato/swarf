@@ -512,8 +512,8 @@ for (const [id, P] of Object.entries(T.PATTERNS)) {
 //     solid/pocket fills and surfaces to the 1/4 in ball; the finish moves the raster's stepover both ways;
 //     memphis density thins the glyphs
 {
-  ok(T.suggestBit('memphis') === 'v90' && T.suggestBit('memphis', { fill: 'solid' }) === 'ball14' && T.suggestBit('knurl') === 'v90'
-    && T.suggestBit('motif', { fill: 'pocket' }) === 'ball14' && T.suggestBit('quilt') === 'ball14' && T.newFill('memphis').tool === 'v90', 'each pattern\'s own default bit');
+  ok(T.suggestBit('memphis') === 'v90' && T.suggestBit('memphis', { fill: 'solid' }) === 'v90' && T.suggestBit('knurl') === 'v90'
+    && T.suggestBit('motif', { fill: 'pocket' }) === 'ball18' && T.suggestBit('morse') === 'ball18' && T.suggestBit('dashdot') === 'ball18' && T.suggestBit('ribs') === 'ball14' && T.suggestBit('quilt') === 'ball14' && T.newFill('memphis').tool === 'v90', 'each pattern\'s own default bit');
   const g = T.newGrid(0, 0, 40, 40, 0.5); T.paintWhere(g, () => true, 1);
   const so = fin => T.markToolpath({ id: 'f', region: g, xf: T.IDENTITY.slice(), fill: T.newFill('waves', { finish: fin }) }, { res: 0.5 }).stepover;
   const [a, b, c] = ['fine', 'standard', 'bold'].map(so);

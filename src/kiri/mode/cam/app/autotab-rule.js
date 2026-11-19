@@ -207,6 +207,92 @@ function simplify(pts) {
     return out;
 }
 
+/**
+ * The part seen from above: the outline an outline step cuts around, for a part whose sides are not
+ * straight (an arch, a dome). Every triangle's footprint drawn on a grid of `res` mm, the grid's edge
+ * traced and straightened. Holes come out only where they go right through. Any mesh, closed or not.
+ */
+export function silhouetteLoops(pos, res = 0) {
+    let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+    for (let i = 0; i < pos.length; i += 3) { x0 = Math.min(x0, pos[i]); x1 = Math.max(x1, pos[i]); y0 = Math.min(y0, pos[i + 1]); y1 = Math.max(y1, pos[i + 1]); }
+    if (!(x1 > x0 && y1 > y0)) return [];
+    res = res > 0 ? res : Math.max(0.2, Math.sqrt((x1 - x0) * (y1 - y0) / 1.5e6));
+    x0 -= res; y0 -= res;
+    const nx = Math.ceil((x1 - x0) / res) + 2, ny = Math.ceil((y1 - y0) / res) + 2, g = new Uint8Array(nx * ny);
+    const mark = (x, y) => { const i = Math.floor((x - x0) / res), j = Math.floor((y - y0) / res); if (i >= 0 && j >= 0 && i < nx && j < ny) g[j * nx + i] = 1; };
+    for (let t = 0; t + 8 < pos.length; t += 9) {
+        const ax = pos[t], ay = pos[t + 1], bx = pos[t + 3], by = pos[t + 4], cx = pos[t + 6], cy = pos[t + 7];
+        const d = (by - cy) * (ax - cx) + (cx - bx) * (ay - cy);
+        mark(ax, ay); mark(bx, by); mark(cx, cy);
+        if (Math.abs(d) < 1e-12) continue;      // edge-on (a wall): its neighbours cover it
+        const i0 = Math.max(0, Math.floor((Math.min(ax, bx, cx) - x0) / res)), i1 = Math.min(nx - 1, Math.floor((Math.max(ax, bx, cx) - x0) / res));
+        const j0 = Math.max(0, Math.floor((Math.min(ay, by, cy) - y0) / res)), j1 = Math.min(ny - 1, Math.floor((Math.max(ay, by, cy) - y0) / res));
+        for (let j = j0; j <= j1; j++) for (let i = i0; i <= i1; i++) {
+            const px = x0 + (i + 0.5) * res, py = y0 + (j + 0.5) * res;
+            const l1 = ((by - cy) * (px - cx) + (cx - bx) * (py - cy)) / d, l2 = ((cy - ay) * (px - cx) + (ax - cx) * (py - cy)) / d;
+            if (l1 >= -1e-9 && l2 >= -1e-9 && l1 + l2 <= 1 + 1e-9) g[j * nx + i] = 1;
+        }
+    }
+    // the grid's edge, cell side by cell side, the part on the left; corners to mm
+    const at = (i, j) => (i >= 0 && j >= 0 && i < nx && j < ny ? g[j * nx + i] : 0);
+    const next = new Map(), key = (i, j) => i * 1048576 + j;
+    const add = (a, b) => { const k = key(a[0], a[1]); const l = next.get(k); if (l) l.push(b); else next.set(k, [b]); };
+    for (let j = 0; j < ny; j++) for (let i = 0; i < nx; i++) {
+        if (!at(i, j)) continue;
+        if (!at(i, j - 1)) add([i, j], [i + 1, j]);
+        if (!at(i + 1, j)) add([i + 1, j], [i + 1, j + 1]);
+        if (!at(i, j + 1)) add([i + 1, j + 1], [i, j + 1]);
+        if (!at(i - 1, j)) add([i, j + 1], [i, j]);
+    }
+    const loops = [];
+    for (const [k0, list] of next) {
+        while (list.length) {
+            const start = [Math.floor(k0 / 1048576), k0 % 1048576], L = [start];
+            let cur = list.pop();
+            for (let guard = 0; guard < 4e6; guard++) {
+                if (cur[0] === start[0] && cur[1] === start[1]) break;
+                L.push(cur);
+                const l = next.get(key(cur[0], cur[1]));
+                if (!l || !l.length) break;
+                cur = l.pop();
+            }
+            if (L.length < 4) continue;
+            // the midpoints of the cell sides, the grid's steps smoothed out (a running mean over a few
+            // cells: a real corner rounds by about a cell), then straightened within half a cell
+            const M = L.map((q, i) => { const r = L[(i + 1) % L.length]; return { x: x0 + (q[0] + r[0]) / 2 * res, y: y0 + (q[1] + r[1]) / 2 * res }; });
+            const k = M.length > 24 ? 3 : 0, P = M.map((_, i) => {
+                let x = 0, y = 0;
+                for (let d = -k; d <= k; d++) { const q = M[(i + d + M.length) % M.length]; x += q.x; y += q.y; }
+                return { x: x / (2 * k + 1), y: y / (2 * k + 1) };
+            });
+            const S = straighten(P, res * 0.5);
+            if (S.length >= 3 && Math.abs(area(S)) > res * res * 4) loops.push(simplify(S));
+        }
+    }
+    return loops.filter(l => l.length >= 3);
+}
+
+// a closed polyline with fewer points, none further than tol from the original (Douglas-Peucker,
+// split at the point furthest from the first)
+function straighten(P, tol) {
+    if (P.length < 8) return P;
+    let far = 0, fd = -1;
+    for (let i = 1; i < P.length; i++) { const d = Math.hypot(P[i].x - P[0].x, P[i].y - P[0].y); if (d > fd) { fd = d; far = i; } }
+    const dp = (pts) => {
+        const keep = new Uint8Array(pts.length); keep[0] = keep[pts.length - 1] = 1;
+        const stack = [[0, pts.length - 1]];
+        while (stack.length) {
+            const [a, b] = stack.pop(), A = pts[a], B = pts[b], dx = B.x - A.x, dy = B.y - A.y, L = Math.hypot(dx, dy) || 1;
+            let m = -1, md = tol;
+            for (let i = a + 1; i < b; i++) { const d = Math.abs((pts[i].x - A.x) * dy - (pts[i].y - A.y) * dx) / L; if (d > md) { md = d; m = i; } }
+            if (m > 0) { keep[m] = 1; stack.push([a, m], [m, b]); }
+        }
+        return pts.filter((p, i) => keep[i]);
+    };
+    const one = dp(P.slice(0, far + 1)), two = dp(P.slice(far).concat([P[0]]));
+    return one.concat(two.slice(1, -1));
+}
+
 export function area(loop) {
     let a = 0;
     for (let i = 0; i < loop.length; i++) {

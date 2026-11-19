@@ -31,7 +31,7 @@ import { api } from '../../../app/api.js';
 import { env } from './init-ui.js';
 import { addWidgetTab, clearTabs, restoreTabs } from './cl-tab.js';
 import { roundHoles, flatsOf, holeFit } from './round-holes.js';
-import { tabRule, planTabs, sliceLoops, tabRecord, holeMinFor, inside, edgeOf, nearestOnLoops, recordAt, turnSpots, mirrorSpots, scaleSpots } from './autotab-rule.js';
+import { tabRule, planTabs, sliceLoops, silhouetteLoops, tabRecord, holeMinFor, inside, edgeOf, nearestOnLoops, recordAt, turnSpots, mirrorSpots, scaleSpots } from './autotab-rule.js';
 import { space as SPACE } from '../../../../moto/space.js';
 
 const STORE = 'swarf.autotabs';
@@ -124,7 +124,17 @@ export function partLoops(widget, height) {
     let zmin = Infinity;
     for (let i = 2; i < pos.length; i += 3) zmin = Math.min(zmin, pos[i]);
     const T = (widget.track.box && widget.track.box.d) || height;
-    return sliceLoops(pos, zmin + Math.min(height / 2, T / 2));
+    const base = () => sliceLoops(pos, zmin + Math.min(height / 2, T / 2));
+    // a part with straight sides (every point at its top or its bottom): that slice is its outline.
+    // Any other (an STL with an arch, a dome, a carved edge): the outline cuts around its silhouette,
+    // so the tabs go there.
+    let zmax = -Infinity, between = false;
+    for (let i = 2; i < pos.length; i += 3) zmax = Math.max(zmax, pos[i]);
+    const tol = Math.max(1e-4, (zmax - zmin) * 1e-4);
+    for (let i = 2; i < pos.length && !between; i += 3) between = pos[i] > zmin + tol && pos[i] < zmax - tol;
+    if (!between) return base();
+    const sil = silhouetteLoops(pos);
+    return sil.length ? sil : base();
 }
 
 /** Where TEX pierces the part (a kerf or a hole would cut a tab away): avoid(x, y, r), or null. */

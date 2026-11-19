@@ -1545,7 +1545,7 @@ export function analyze(tex, toolIn, o = {}) {
     if (tool.type === 'v' && o.strategy === 'centerline') {
       const need = (W / 2) / tool.tanHalf;
       notes.push(`V-carve: to be ${L1(W)} wide the ${tool.name} cuts ${L2(Math.min(need, maxDepth))} deep (design says ${L1(dp)}) with a V bottom.`);
-      if (need > maxDepth) warnings.push(`To be ${L1(W)} wide the ${tool.name} would need ${L2(need)} of depth; max depth stops it at ${L1(maxDepth)}, so grooves come out ${L1(2 * maxDepth * tool.tanHalf)} wide.`);
+      if (need > maxDepth + 1e-6) warnings.push(`To be ${L1(W)} wide the ${tool.name} would need ${L2(need)} of depth; max depth stops it at ${L1(maxDepth)}, so grooves come out ${L1(2 * maxDepth * tool.tanHalf)} wide.`);
     }
   } else if (tex.kind === 'surface') {
     const F = tex.feature;
@@ -1745,12 +1745,24 @@ export function newFill(pattern = 'waves', over = {}) {
 // pattern recognizable). Measured against the design on a 60 mm square (cut vs designed surface):
 // the 1/4 in ball holds every surface and dot pattern at a correlation of 0.92 or more in a few
 // minutes; line patterns (knurl, step & repeat, memphis as lines) come out exact and faster with a
-// 90° V along their centerlines. A pocketed or solid fill needs the ball's raster.
+// 90° V along their centerlines. A pocketed or solid fill is rastered, with a bit that fits its lines.
 export function suggestBit(pattern, params = {}) {
   if (pattern === 'knurl') return 'v90';
   if ((pattern === 'motif' && params.fill !== 'pocket') || (pattern === 'memphis' && params.fill !== 'solid')) return 'v90';
+  // memphis filled solid keeps its 2.4 mm lines: no ball cuts them that narrow, a 90° V rasters
+  // them to their depth (11-19: 1.1 mm of relief against 0.4 with the 1/4 in ball)
+  if (pattern === 'memphis') return 'v90';
+  // a pocketed repeat's shapes are small: the 1/8 in ball reaches twice as deep into them as the 1/4
+  if (pattern === 'motif') return 'ball18';
   // reaction's stripes and spots are about Detail wide: under 9 mm the 1/8 in ball keeps them crisp
   if (pattern === 'reaction' && (params.size ?? 7) < 9) return 'ball18';
+  // grooves narrower than the 1/4 in ball cuts at their depth (morse's 3.2 mm marks, dash-dot's 4 mm):
+  // the 1/8 in ball, which cuts them to depth
+  const pat = PATTERNS[pattern];
+  if (pat) {
+    const b = pat.build({ ...defaults(pattern), ...params });
+    if (b && b.strokeWidth > 0 && makeTool('ball14').widthAt(b.depth) > b.strokeWidth * 1.03) return 'ball18';
+  }
   return 'ball14';
 }
 
