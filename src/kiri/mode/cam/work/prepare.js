@@ -400,6 +400,13 @@ function prepare_open(widget, settings, print, firstPoint, update) {
             }
             print.addOutput(layerOut, point, power, speed, tool, { type: 'laser' });
         } else {
+            // swarf: a move sideways below the top of the board goes at the cut's feed, never at
+            // rapid speed (a pocket's travel from ring to ring, or over a tab, stays in the wood)
+            if (!emit && point && printPoint && !camStockIndexed && type !== 'lerp'
+                && Math.min(point.z, printPoint.z) < stockZ - 0.05 && printPoint.distTo2D(point) > 0.05) {
+                emit = 1;
+                speed = feedRate;
+            }
             print.addOutput(layerOut, point, emit, speed, tool, { type, center });
         }
         printPoint = (point ?? printPoint).clone();
@@ -884,6 +891,11 @@ function prepare_open(widget, settings, print, firstPoint, update) {
     function polyEmit(poly, index, engage = false) {
         let arcing = camArcEnabled && !contouring;
         let points = poly.points;
+
+        // swarf: a loop with no length (tabs can leave one in a ring's pocket) has nothing to cut
+        if (!points || points.length < 2) {
+            return getWidgetPrintPoint();
+        }
 
         if (poly.isClosed()) {
             // only look for the cloests starting point for closed loops

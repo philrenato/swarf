@@ -756,7 +756,7 @@ export function autoTabRow() {
         fields[f.key] = r.input;
         grid.append(r.wrap);
     }
-    const auto = button('swarf-autotabs-auto', 'all automatic', 'empty every field: each number goes back to the automatic one', () => {
+    const auto = button('swarf-autotabs-auto', 'reset defaults', 'empty every field: each number goes back to its default', () => {
         cur.pin = {};
         cur.density = cur.scale = 0;
         edited();

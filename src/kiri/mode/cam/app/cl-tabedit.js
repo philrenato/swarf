@@ -304,7 +304,7 @@ export function tabAuto() {
     anno.tab = anno.tab.filter(r => r.id !== rec.id);
     autoReplan(p.widget);
     SPACE.update();
-    tabUndo(before, 'tab back to automatic');
+    tabUndo(before, 'tab reset to defaults');
     return true;
 }
 
@@ -357,7 +357,7 @@ function buildCard() {
         card.append(b);
         return b;
     };
-    els.auto = act('swarf-tab-auto', 'back to automatic', 'let auto tabs place and size this one again', tabAuto);
+    els.auto = act('swarf-tab-auto', 'reset defaults', 'let auto tabs place and size this one again', tabAuto);
     act('swarf-tab-del', 'delete', 'take this tab away (or press Delete); an auto tab leaves the place empty', tabDelete);
     els.note = Object.assign(document.createElement('span'), { className: 'note' });
     els.note.setAttribute('aria-live', 'polite');
