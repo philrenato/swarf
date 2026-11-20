@@ -960,6 +960,34 @@
   window.__swarfSetMaterial = id => { setCurrent(id); const sel = document.getElementById('swarf-material-select'); if (sel && current) sel.value = current.id; return current && current.id; };
   window.__swarfApplyFeeds = () => applyFeedsToOps();
 
+  // a material picked by hand is taken back by undo: the material, and the steps' numbers it changed
+  function setByHand(id) {
+    const api = window.kiri && window.kiri.api;
+    const was = current;
+    const snap = () => { const p = api.conf.get().process || {}; return JSON.stringify({ ops: p.ops || [], ease: p.camEaseDown, angle: p.camEaseAngle }); };
+    const before = api && api.conf ? snap() : null;
+    setCurrent(id);
+    const now = current;
+    if (!before || !was || !now || was === now || !api.doit || !api.doit.push) return;
+    const after = snap();
+    const put = (m, json) => {
+      setCurrent(m.id);
+      const o = JSON.parse(json), p = api.conf.get().process;
+      (p.ops || []).forEach((rec, i) => {
+        const r = o.ops[i];
+        if (!r || Array.isArray(rec) || r.type !== rec.type) return;
+        for (const k of Object.keys(rec)) if (!k.startsWith('_') && !(k in r)) delete rec[k];
+        Object.assign(rec, r);
+      });
+      p.camEaseDown = o.ease; p.camEaseAngle = o.angle;
+      try { api.conf.save(); api.conf.update_fields(); } catch (e) {}
+      const sel = document.getElementById('swarf-material-select');
+      if (sel) sel.value = m.id;
+      api.event.emit('cam.op.render');
+    };
+    api.doit.push(() => put(was, before), () => put(now, after), { undo: `material: back to ${was.name || was.id}`, redo: `material: ${now.name || now.id}` });
+  }
+
   function injectDropdown() {
     const camops = document.getElementById('camops');
     if (!camops || camops.querySelector('#swarf-material-row')) return;
@@ -974,7 +1002,7 @@
     select.title = 'what the board is made of: its look and starting speeds';
     select.style.cssText = 'flex:1 1 0; min-width:0; width:0; font-size:13px; padding:6px 8px; background:rgba(0,0,0,0.55); border:1px solid var(--swarf-accent, #7a2a1a); color:#fff; border-radius:2px; font-family:"IBM Plex Mono",ui-monospace,monospace;';
     fillOptions(select);
-    select.addEventListener('change', () => setCurrent(select.value));
+    select.addEventListener('change', () => setByHand(select.value));
     row.appendChild(label);
     row.appendChild(select);
     // insert above the steps

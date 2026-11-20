@@ -320,6 +320,14 @@ function mirror() {
     const groups = new Set();
     const onBed = api.widgets.all();
     for_widgets(widget => { if (onBed.includes(widget) && widget.group && widget.group.length) groups.add(widget.group); });
+    if (!groups.size) return;
+    // a mirror is its own undo: the same flip again puts every part back
+    const list = [...groups];
+    flipGroups(list);
+    api.doit.push(() => flipGroups(list), () => flipGroups(list), { undo: 'mirror: undone', redo: 'mirror: back' });
+}
+
+function flipGroups(groups) {
     for (const g of groups) {
         // members placed apart (not sharing one place) trade places about the group's centre too
         const apart = g.some(w => w.track.pos.x !== g[0].track.pos.x);

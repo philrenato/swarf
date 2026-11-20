@@ -840,7 +840,7 @@ html[data-skin] .swarf-toggle-chips { display: none !important; }
   border: 1px solid var(--swarf-line);
   background: var(--swarf-bg-3);
   color: var(--swarf-text);
-  text-transform: lowercase;
+  text-transform: none; /* the step names are lowercase already; a label keeps the student's own words */
   letter-spacing: 0.04em;
   font-size: 12px;
   cursor: pointer;
@@ -2759,3 +2759,8 @@ body:has(#swarf-help-float:not([hidden])) #swarf-concerns { z-index: 80 !importa
 /* the steps panel and the right column end above the size card, whatever its height */
 html body:has(#swarf-size.on) #panel-right { max-height: calc(100vh - 96px - var(--swarf-size-h, 110px) - 8px); }
 html body:has(#swarf-size.on) #swarf-right-rail { max-height: calc(100vh - 96px - var(--swarf-size-h, 110px) - 8px); }
+
+/* simulate: the right rail's drawers fold to their headers so the part plays in the clear;
+   each comes back as it was when simulate ends */
+body:has(#layer-animate:not(.hide)) #swarf-right-rail .set2-group > details > :not(summary),
+body:has(#layer-animate:not(.hide)) #swarf-right-rail .set2-group > .set-header ~ * { display: none !important; }

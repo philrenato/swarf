@@ -23,8 +23,10 @@
   const LONG_MS = 500, SLOP = 8;
   let menu = null, press = null, longT = 0;
 
-  const nameOf = w => (w && w.meta && w.meta.file) || 'the part';
+  // the part's name as the objects list says it (no .stl on the end)
+  const nameOf = w => { const a = api(); return w && a && a.platform && a.platform.part_name ? a.platform.part_name(w) : (w && w.meta && String(w.meta.file || '').replace(/\.[a-z0-9]{2,4}$/i, '')) || 'the part'; };
   const busy = () => ['swarf-draw-open', 'swarf-tex-open', 'swarf-run-open'].some(c => document.body.classList.contains(c));
+  const CLEAR_SAY = 'Press clear to change the parts.';
   const said = t => { const a = api(); try { a.event.alerts(true); a.show.alert(t, 5); } catch (e) { /* no alerts */ } };
 
   // the part under the pointer, by the view's own camera
@@ -190,7 +192,9 @@
     close();
     const a = api();
     if (!a || busy()) return false;
-    // parts are changed while arranging; simulate has the player; else the bed's rows
+    // parts are changed while arranging; simulate has the player; else the bed's rows. A part
+    // under the toolpaths cannot be changed there: say how to get back to it
+    if (w && !a.view.is_arrange() && a.view.get && a.view.get() !== 4) { said(CLEAR_SAY); return true; }
     const spec = a.view.get && a.view.get() === 4 ? simItems() : w && a.view.is_arrange() ? partItems(w) : bedItems();
     if (!spec.items.length) return false;
     menu = document.createElement('div');
@@ -225,6 +229,15 @@
       const go = { ArrowDown: i + 1, ArrowUp: i - 1, Home: 0, End: bs.length - 1 }[e.key];
       if (go !== undefined) { bs[(go + bs.length) % bs.length].focus(); e.preventDefault(); e.stopPropagation(); }
       else if (e.key === 'Tab') close();
+      return;
+    }
+    // Delete under the toolpaths: the parts cannot change there (keyboard.js deletes picked parts only)
+    if (e.key === 'Delete' || e.key === 'Backspace') {
+      const a = api(), t = e.target;
+      if (!a || !a.view || a.view.is_arrange() || busy() || (a.modal && a.modal.visible && a.modal.visible())) return;
+      if (t && t.closest && t.closest('input, textarea, select, [contenteditable]')) return;
+      const sel = a.selection && a.selection.widgets ? a.selection.widgets() : [];
+      if (!sel.length && a.widgets.all().length) said(CLEAR_SAY);
       return;
     }
     // Shift+F10 or the menu key: the picked parts' menu, at the middle of the view

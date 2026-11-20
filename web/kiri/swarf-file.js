@@ -53,7 +53,7 @@
     'swarf-skin', 'swarf-sound', 'swarf_phone_mode', 'swarf.chips', 'swarf.lightstream', 'swarf.paths', 'swarf-run-ghost', 'swarf-sim-bed-still',
     'swarf-markup-toolbar-pos', 'swarf-markup-toolbar-collapsed', 'swarf-draw-thick', 'swarf-draw-engrave',
     'swarf-tex-brush', 'swarf-tex-fill', 'swarf-shape-last', 'swarf-size-keep', 'swarf-lesson-board', 'swarf-test-results',
-    'swarf-shopbot-link', 'swarf-shopbot-anyport', 'swarf-origin-front-left', 'swarf-file-saved', 'swarf.help.pos', 'swarf-build-reload',
+    'swarf-shopbot-link', 'swarf-shopbot-anyport', 'swarf-origin-front-left', 'swarf-file-saved', 'swarf.help.pos', 'swarf-build-reload', 'swarf-coi-reload',
   ];
   // the machine's zero and where it is: never in a file, never taken from one
   const NEVER_KEYS = [
@@ -212,7 +212,11 @@
     for (const p of [proc, out.sproc[MODE][pname]]) for (const k of Object.keys(p)) if (/^cam.*Tool$/.test(k) && remap[p[k]] !== undefined) p[k] = remap[p[k]];
     // the parts' legacy annotations (Kiri's import moves them onto the parts) and the units
     out.widget = clone(file.widget || {});
-    if (file.controller && file.controller.units) out.controller.units = file.controller.units === 'in' ? 'in' : 'mm';
+    if (file.controller && file.controller.units) {
+      const was = (local && local.controller && local.controller.units) === 'in' ? 'in' : 'mm';
+      out.controller.units = file.controller.units === 'in' ? 'in' : 'mm';
+      if (out.controller.units !== was) notes.push(`Units are now ${out.controller.units === 'in' ? 'inches' : 'mm'}, as the file was saved.`);
+    }
     return { settings: out, notes, remap };
   }
 
@@ -596,6 +600,8 @@
         try { if (a.reveal) a.reveal(); } catch (e) { /* no view */ }
         remember();
         window.__swarfRestoring = false;
+        // undo starts with this project: the parts it replaced are not kept
+        try { if (a.doit && a.doit.clear) a.doit.clear(); } catch (e) { /* no undo */ }
         bedGen++;
         project = String(name).replace(/\.swarf$/i, '');
         const n = a.widgets.all().length, ops = stepCount();
@@ -663,6 +669,30 @@
     try { if (window.__swarfRun && window.__swarfRun.forget) window.__swarfRun.forget(); } catch (e) { /* control not loaded */ }
     project = null;
     bedGen++;
+    // the old job's undo goes with it (its parts are not kept for a ⌘Z)
+    try { const a = api(); if (a && a.doit && a.doit.clear) a.doit.clear(); } catch (e) { /* no undo */ }
   }
-  window.SwarfFile = Object.assign({ save, open, unsaved, remember, projectName, fresh }, core);
+
+  // a big job holds a lot of memory, and the browser can drop the page past about 2 GB: said once,
+  // in time to save first
+  const HEAVY = 1.5 * 1024 * 1024 * 1024;
+  let heavySaid = false;
+  function heavy() {
+    const m = performance && performance.memory;
+    if (heavySaid || !m || !(m.usedJSHeapSize > HEAVY)) return false;
+    heavySaid = true;
+    say('swarf is using a lot of memory: save, then reload.', 12);
+    return true;
+  }
+  setInterval(heavy, 15000);
+  {
+    let tries = 0;
+    const t = setInterval(() => {
+      const a = api();
+      if (!(a && a.event) && ++tries < 200) return;
+      clearInterval(t);
+      if (a && a.event) for (const ev of ['preview.end', 'widget.add', 'widget.delete']) a.event.on(ev, () => setTimeout(heavy, 500));
+    }, 150);
+  }
+  window.SwarfFile = Object.assign({ save, open, unsaved, remember, projectName, fresh, heavy }, core);
 })(typeof window !== 'undefined' ? window : globalThis);

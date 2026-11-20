@@ -32,7 +32,8 @@ function safeExec(fn, name) {
 
 async function checkReady() {
     if (document.readyState === 'complete') {
-        let bootctrl = navigator.serviceWorker.controller;
+        // swarf: no service worker at all (a page not served over https or localhost) still boots
+        let bootctrl = navigator.serviceWorker?.controller;
         console.log(`kiri | boot ctrl | ` + (bootctrl ? true : false));
         kiri.api = api;
         self.$ = api.web.$;

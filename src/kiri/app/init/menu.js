@@ -193,7 +193,7 @@ function content(actions) {
             // (face down, face left, merge, isolate) wait in advanced
             topMenu(actions, {
                 text: 'edit', lk: 'ed_menu', items: [
-                    menuItem(actions, { id: 'swarf-edit-undo', text: 'undo', title: 'take back the last change to the parts, tabs or steps (⌘Z)', iconClass: 'fas fa-rotate-left', children: span({ class: 'swarf-key', _: '⌘Z' }), onclick(ev) { ev && ev.stopPropagation && ev.stopPropagation(); document.body.click(); api.doit.undo(); } }),
+                    menuItem(actions, { id: 'swarf-edit-undo', text: 'undo', title: 'take back the last change to parts, tabs, steps or material (⌘Z)', iconClass: 'fas fa-rotate-left', children: span({ class: 'swarf-key', _: '⌘Z' }), onclick(ev) { ev && ev.stopPropagation && ev.stopPropagation(); document.body.click(); api.doit.undo(); } }),
                     menuItem(actions, { id: 'swarf-edit-redo', text: 'redo', title: 'put back what undo took (⇧⌘Z)', iconClass: 'fas fa-rotate-right', children: span({ class: 'swarf-key', _: '⇧⌘Z' }), onclick(ev) { ev && ev.stopPropagation && ev.stopPropagation(); document.body.click(); api.doit.redo(); } }),
                     hr(),
                     menuItem(actions, { id: 'context-duplicate', lk: 'rc_dupl', text: 'duplicate', title: 'a copy of the picked part, beside it', iconClass: 'fas fa-copy' }),

@@ -11,6 +11,11 @@
 
   const body = document.body;
 
+  // a new browser has nothing to reset (below): marked now, before Kiri's first settings are
+  // written. On a first visit the page loads again for the service worker before the hook runs,
+  // and the next page would find those settings and reset and reload a third time.
+  try { if (!localStorage.getItem('swarf.r14.profile-reset-v8') && !localStorage.getItem('ws-settings')) localStorage.setItem('swarf.r14.profile-reset-v8', '1'); } catch (e) { /* private window */ }
+
   // ---- working-state fog speedup ----------------------------------------
   // Hook via api.event when available (Kiri exposes it on window.kiri after boot).
   // Polling wait until kiri.api is wired, then subscribe.

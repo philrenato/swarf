@@ -293,6 +293,18 @@ export const opAdd = (rec) => {
         }
         api.conf.save();
         opRender();
+        // swarf: an added step is taken back by undo (not the end-of-chain marker Kiri adds itself)
+        if (rec.type !== '|' && api.doit.push && !(api.doit.quiet && api.doit.quiet())) {
+            const pos = oplist.indexOf(rec);
+            const put = (on) => {
+                const ops = env.current.process.ops, at = ops.indexOf(rec);
+                if (on && at < 0) ops.splice(Math.min(pos, ops.length), 0, rec);
+                if (!on && at >= 0) ops.splice(at, 1);
+                api.conf.save();
+                opRender();
+            };
+            api.doit.push(() => put(false), () => put(true), { undo: `${rec.type} step: taken back`, redo: `${rec.type} step: back` });
+        }
     }
 };
 
@@ -332,6 +344,23 @@ function opDelByHand(rec) {
         const T = window.__swarfTex;
         if (marks.length && T && T.syncSteps) T.syncSteps(api, true);
     }, () => opDel(rec), { undo: 'delete step: undone', redo: 'step deleted again' });
+}
+
+// swarf: a field typed on a step card is taken back by undo: the step's values as they were
+function stepEdit(rec, fn) {
+    const snap = () => JSON.stringify(rec, (k, v) => (k.startsWith('_') ? undefined : v));
+    const before = snap();
+    fn();
+    const after = snap();
+    if (before === after || !api.doit.push) return;
+    const put = json => {
+        const o = JSON.parse(json);
+        for (const k of Object.keys(rec)) if (!k.startsWith('_') && !(k in o)) delete rec[k];
+        Object.assign(rec, o);
+        api.conf.save();
+        api.event.emit('cam.op.render');
+    };
+    api.doit.push(() => put(before), () => put(after), { undo: `${rec.type} step: undone`, redo: `${rec.type} step: back` });
 }
 
 // swarf: the step card's numbers in the student's unit. Ops keep mm, mm/min and
@@ -624,11 +653,11 @@ export function opRender() {
                         return;
                     }
                     if (f === 'pattern') {
-                        inp.addEventListener('change', () => {
+                        inp.addEventListener('change', () => stepEdit(rec, () => {
                             rec.pattern = inp.value;
                             api.conf.save();
                             api.event.emit('cam.op.render');
-                        });
+                        }));
                         for (const ev of ['mousedown', 'click']) inp.addEventListener(ev, e => e.stopPropagation());
                         return;
                     }
@@ -671,7 +700,7 @@ export function opRender() {
                         if (rec[f] !== undefined && rec[f] !== null) inp.value = opShow(f, rec[f]);
                         inp.addEventListener('keydown', ev => { if (ev.key === 'Enter') inp.blur(); });
                     }
-                    inp.addEventListener('change', () => {
+                    inp.addEventListener('change', () => stepEdit(rec, () => {
                         if (f === 'tool') {
                             // a select yields a string; tool ids are numbers and
                             // every strict lookup (sync.js, anim-2d.js, the
@@ -712,7 +741,7 @@ export function opRender() {
                             inp.value = opShow(f, rec[f]);
                         }
                         api.conf.save();
-                    });
+                    }));
                     inp.addEventListener('mousedown', ev => ev.stopPropagation());
                     inp.addEventListener('click', ev => ev.stopPropagation());
                 });

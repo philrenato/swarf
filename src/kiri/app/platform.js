@@ -880,6 +880,22 @@ function changed() {
  * see-through, out of the toolpaths, the stock and its zero. Kept with the part (meta.disabled).
  */
 function set_cut(widgets, on) {
+    // undone part by part (some may have been in this run, some out); a step that changes
+    // parts with its own undo (TEX's plugs) runs quietly and pushes nothing here
+    const was = widgets.filter(w => w && w.meta).map(w => [w, !w.meta.disabled]);
+    cutSet(widgets, on);
+    if (!was.length || (api.doit.quiet && api.doit.quiet()) || !api.doit.push) return;
+    const name = was.length === 1 ? partName(was[0][0]) : `${was.length} parts`;
+    const back = () => {
+        for (const c of [true, false]) { const ws = was.filter(r => r[1] === c).map(r => r[0]); if (ws.length) cutSet(ws, c); }
+    };
+    api.doit.push(back, () => cutSet(was.map(r => r[0]), on), {
+        undo: on ? `${name}: left out again` : `${name}: back in this run`,
+        redo: on ? `${name}: back in this run` : `${name}: left out of this run`,
+    });
+}
+
+function cutSet(widgets, on) {
     const scheme = getColorScheme();
     // the toolpaths shown were for the parts as they were: back to the parts (not while a simulation plays)
     const { view } = api;
@@ -1033,7 +1049,9 @@ function layout() {
 
     platform.update_origin();
     space.update();
-    api.event.emit('platform.layout');
+    // swarf: true when the parts were packed again (undo's moves no longer hold); the early
+    // returns above moved nothing
+    api.event.emit('platform.layout', true);
 }
 
 /**
