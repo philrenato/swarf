@@ -1,6 +1,6 @@
 // The board's thickness at the plate (review 105 fix order 4). The machine knows the top of the board, not the
-// spoilboard, so the card takes a calipered number, optional. Over 1 mm from the job's thickness it warns in a
-// sentence, what would follow. It never blocks, and nothing it does moves the machine.
+// spoilboard, so the card takes a calipered number, optional. Over 0.2 mm from the job's thickness it says so
+// plainly, and what would follow (the outline goes 0.3 mm through by default). It never blocks, and nothing it does moves the machine.
 //   node tools/probe_plate_board.mjs [url]
 import puppeteer from 'puppeteer-core';
 import { mkdtempSync } from 'node:fs';
@@ -54,21 +54,21 @@ try {
   const go = () => page.evaluate(() => [...document.querySelectorAll('.sr-card .row .go')].find(b => b.offsetParent));
   let s = await say();
   check(!s || !s.text, 'empty says nothing');
+  await typed('12.8');
+  s = await say();
+  check(s && !s.warn && /within 0\.2 mm/.test(s.text), `12.8 against 12.7: no warning: "${s?.text}"`);
   await typed('13');
   s = await say();
-  check(s && !s.warn && /within 1 mm/.test(s.text), `13 against 12.7: no warning: "${s?.text}"`);
+  check(s && s.warn && /0\.3 mm thicker/.test(s.text) && /still goes through/.test(s.text), `13 differs by 0.3, said plainly; the 0.3 through still cuts it free: "${s?.text}"`);
   await typed('13.6');
   s = await say();
-  check(s && !s.warn, `13.6 is within 1 mm: "${s?.text}"`);
-  await typed('14');
-  s = await say();
-  check(s && s.warn && /short/.test(s.text), `14: over 1 mm: "${s?.text}"`);
+  check(s && s.warn && /0\.9 mm thicker/.test(s.text) && /short/.test(s.text), `13.6: the cut stops short: "${s?.text}"`);
   await typed('19');
   s = await say();
-  check(s && s.warn && /stop 6\.\d+ mm short/.test(s.text), `19 is thicker: the cut stops short: "${s?.text}"`);
+  check(s && s.warn && /stop 5\.9\d* mm short/.test(s.text), `19 is thicker: the cut stops short: "${s?.text}"`);
   await typed('6');
   s = await say();
-  check(s && s.warn && /6\.\d+ mm into the spoilboard/.test(s.text), `6 is thinner: into the spoilboard: "${s?.text}"`);
+  check(s && s.warn && /thinner/.test(s.text) && /7\.0\d* mm into the spoilboard/.test(s.text), `6 is thinner: into the spoilboard: "${s?.text}"`);
   await typed('3/4');
   s = await say();
   check(s && s.warn && /19\.05 mm/.test(s.text), `3/4 is read as a length: "${s?.text}"`);

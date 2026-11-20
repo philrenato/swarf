@@ -25,6 +25,34 @@ function hasIndexing() {
     return env.isIndexed;
 }
 
+// swarf: the library's plain flat 1/4 in, a new step's bit until one is picked
+const PLAIN_QUARTER = 1000;
+// on the ShopBot a new step starts on the shop's 1/4 in up-cut (its feeds are the shop's own) where it
+// would have started on the plain 1/4. Other machines keep their own default.
+export function shopDefaultBit(toolId, settings = api.conf.get()) {
+    if (toolId != PLAIN_QUARTER || !/shopbot/i.test(settings.device?.deviceName || '')) return toolId;
+    const up = (settings.tools || []).find(t => t.swarf && t.swarf.part === '52-910');
+    return up ? up.id : toolId;
+}
+
+// on the ShopBot the bit list opens on the shop's own bits (those with the shop's numbers), "in the
+// shop", then the rest, "other"
+export function groupBits(select, settings = api.conf.get()) {
+    if (!select || !/shopbot/i.test(settings.device?.deviceName || '')) return;
+    const shop = new Set((settings.tools || []).filter(t => t.swarf && t.swarf.shop).map(t => String(t.id)));
+    const opts = [...select.options];
+    if (!shop.size || !opts.some(o => shop.has(o.value))) return;
+    const value = select.value;
+    const mine = document.createElement('optgroup'), rest = document.createElement('optgroup');
+    mine.label = 'in the shop';
+    rest.label = 'other';
+    for (const o of opts) (shop.has(o.value) ? mine : rest).appendChild(o);
+    select.innerHTML = '';
+    select.appendChild(mine);
+    if (rest.children.length) select.appendChild(rest);
+    select.value = value;
+}
+
 function hasSpindle() {
     return env.current.device.spindleMax > 0;
 }
@@ -98,6 +126,7 @@ export function createPopOp(type, map) {
                 }
             }
             api.util.rec2ui(rec, op.inputs);
+            groupBits(op.inputs.tool);
             op.hideshow();
         },
         using: (rec) => {
@@ -134,6 +163,7 @@ export function createPopOp(type, map) {
                     ? env.current.process[src.replace('~', '')]
                     : src;
             }
+            if (rec.tool !== undefined) rec.tool = shopDefaultBit(rec.tool);
             return rec;
         },
         hideshow: () => {
@@ -369,6 +399,7 @@ export function createPopOps() {
         wide: 'camOutlineWide',
         leave: 'camOutlineLeave',
         lastpass: 'camOutlineLastPass',
+        thru: 'camOutlineThru',
         ov_topz: 0,
         ov_botz: 0,
     }).inputs = {
@@ -396,6 +427,7 @@ export function createPopOps() {
         plunge: UC.newInput(LANG.cc_plng_s, { title: LANG.cc_plng_l, convert: toInt, units }),
         exp_end: UC.endExpand(),
         exp: UC.newExpand("top & bottom", ov_hover),
+        thru: UC.newInput('through', { title: 'how far a cut-out goes into the spoilboard, up to 2 mm', convert: toFloat, units, bound: UC.bound(0, 2), show: () => !env.poppedRec.inside || env.poppedRec.outside }),
         ov_topz: UC.newInput(LANG.ou_ztop_s, ov_topz),
         ov_botz: UC.newInput(LANG.ou_zbot_s, ov_botz),
         exp_end: UC.endExpand(),

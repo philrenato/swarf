@@ -60,6 +60,9 @@ const end = w => ({ type: 'endmill', metric: true, flute_diam: w, shaft_diam: w,
 const two = (w, id) => ({ ...end(w), swarf: { flutes: id === 'mild_steel' ? 4 : 2 } });
 const top = (id, w, cutter) => ceiling(byId(id), w, MR1, { ...two(w, id), swarf: { ...two(w, id).swarf, cutter } });
 const near = (v, want, tol) => Math.abs(v - want) <= tol;
+// an outline's step runs full width: the material's feed at 0.8 (camFullEngage), on the ShopBot never under
+// 1500 when the feed was above it (swarf-material.js fullWidth)
+const full = (feed, shopbot) => { const slow = Math.round(feed * 0.8 / 10) * 10, band = shopbot ? 1500 : 0; return feed >= band ? Math.max(slow, band) : slow; };
 for (const [id, w, cutter, S, F, Dn] of [['aluminum_6061', 6.35, 'hss', 4500, 460, 1.6], ['aluminum_6061', 6.35, 'carbide', 8000, 1020, 3.2], ['aluminum_6061', 12.7, 'carbide', 7500, 1910, 1.2],
   ['mild_steel', 12.7, 'hss', 650, 180, 1.3], ['hdpe', 12.7, 'hss', 6250, 2290, 6.3], ['hardwood', 3.175, 'hss', 8000, 1020, 1.6]]) {
   const c = top(id, w, cutter);
@@ -102,7 +105,7 @@ try {
   await setup('ShopBot.Basic', 'hardwood');
   const sb = await op();
   const sbWant = derive(byId('hardwood'), 6.35, devs.find(d => d.shopbot), tools.find(t => t.id === 1000));
-  check(sb.spindle === sbWant.spindle && sb.rate === sbWant.feed && sb.down === sbWant.stepdown, `ShopBot at start: the step's numbers are today's (${JSON.stringify(sb)})`);
+  check(sb.spindle === sbWant.spindle && sb.rate === full(sbWant.feed, true) && sb.down === sbWant.stepdown, `ShopBot at start: the step's numbers are today's (${JSON.stringify(sb)})`);
 
   await setup('Langmuir.MR-1', 'aluminum_6061');
   check(await page.evaluate(() => window.__swarfMaterial.id) === 'aluminum_6061', 'aluminium on the MR-1');
@@ -116,7 +119,7 @@ try {
   const want = atSpeed(byId('aluminum_6061'), 6.35, devs.find(d => !d.shopbot), tools.find(t => t.id === 1000), 4);
   console.log('    aluminium 1/4 in on the MR-1: start', JSON.stringify(s0), 'max', JSON.stringify(s4));
   check(s4.spindle > s0.spindle && s4.rate > s0.rate && s4.plunge >= s0.plunge && s4.down > s0.down, 'max moves rpm, feed, plunge and step-down together');
-  check(s4.spindle === want.spindle && s4.rate === want.feed && s4.down === want.stepdown, 'the step takes the ceiling the formula gives');
+  check(s4.spindle === want.spindle && s4.rate === full(want.feed) && s4.down === want.stepdown, 'the step takes the ceiling the formula gives');
   check(s4.spindle <= 8000 && s4.rate <= 2286 && s4.plunge <= 1016, 'never above the MR-1');
   await pick(2);
   const s2 = await op();
@@ -153,7 +156,7 @@ try {
   const wantCb = atSpeed(byId('aluminum_6061'), 6.35, MR1, { ...tools.find(t => t.id === 1000), swarf: { cutter: 'carbide' } }, 0);
   console.log('    aluminium 1/4 in start: HSS', JSON.stringify(hssStart), 'carbide', JSON.stringify(cbStart));
   check(toolCarb && cbStart.spindle > hssStart.spindle && cbStart.rate > hssStart.rate, 'ticked: the bit is carbide and the step starts faster');
-  check(cbStart.spindle === wantCb.spindle && cbStart.rate === wantCb.feed && cbStart.spindle <= 8000 && cbStart.rate <= 2540, `the carbide start is the formula's, under the machine (S${cbStart.spindle} F${cbStart.rate})`);
+  check(cbStart.spindle === wantCb.spindle && cbStart.rate === full(wantCb.feed) && cbStart.spindle <= 8000 && cbStart.rate <= 2540, `the carbide start is the formula's, under the machine (S${cbStart.spindle} F${cbStart.rate})`);
   await pick(4);
   const cbMax = await op();
   check(cbMax.rate > s4.rate, `the carbide ceiling is higher than HSS (${s4.rate} → ${cbMax.rate} mm/min)`);
@@ -192,7 +195,7 @@ try {
   // on the MR-1 an unmarked end mill counts as 2-flute (the lower feed when a bit doesn't say); a bit
   // marked 4-flute gets twice the feed at the same chip
   const f2 = atSpeed(byId('aluminum_6061'), 6.35, MR1, tools.find(t => t.id === 1000), 0), f4 = atSpeed(byId('aluminum_6061'), 6.35, MR1, { ...tools.find(t => t.id === 1000), swarf: { ...(tools.find(t => t.id === 1000).swarf || {}), flutes: 4 } }, 0);
-  check(hssStart.rate === f2.feed && f4.feed > f2.feed, `MR-1 end mills start as 2-flute when unmarked (F${f2.feed}; marked 4-flute F${f4.feed})`);
+  check(hssStart.rate === full(f2.feed) && f4.feed > f2.feed, `MR-1 end mills start as 2-flute when unmarked (F${f2.feed}; marked 4-flute F${f4.feed})`);
 
   // the speed is the job's: saved in the process and back from a .swarf
   await pick(3);

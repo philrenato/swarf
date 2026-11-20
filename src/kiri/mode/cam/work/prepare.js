@@ -240,6 +240,9 @@ function prepare_open(widget, settings, print, firstPoint, update) {
         }
     }
 
+    // swarf: a pocket's first loop at each depth slows to camFullEngage, unless its feed already allows for it
+    let slowEngage = true;
+
     // swarf: the ShopBot's motors run rough under ~25 mm/s. A cut set above that never slows
     // into it for a ramp or full engagement; a cut set slower is left as it is.
     function aboveRoughBand(rate) {
@@ -762,8 +765,10 @@ function prepare_open(widget, settings, print, firstPoint, update) {
      * @param {boolean} cutdir true=CW false=CCW
      * @param {boolean} depthFirst prioritize cut depth in pockets by nesting
      */
-    function pocket({ slices, cutdir, depthFirst, outline, progress }) {
+    function pocket({ slices, cutdir, depthFirst, outline, progress, engage = true }) {
         let total = 0;
+        // swarf: false when the step's feed is already its full-width speed (an outline's card)
+        slowEngage = engage;
         let depthData = [];
 
         for (let slice of slices) {
@@ -832,7 +837,7 @@ function prepare_open(widget, settings, print, firstPoint, update) {
                 let output = [];
                 setTravelBoundary(tops.tool_shadow);
                 emit_flat([ poly ], output);
-                let engage = true;
+                let engage = slowEngage;
                 for (let poly of output) {
                     polyEmit(poly, CLOSEST_TO_PP, engage);
                     engage = false;

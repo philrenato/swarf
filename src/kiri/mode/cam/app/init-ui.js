@@ -4,7 +4,7 @@ import { $ } from '../../../../moto/webui.js';
 import { api } from '../../../app/api.js';
 import { animate as anim_2d, animate_clear as anim_2d_clear } from './anim-2d.js';
 import { animate2 as anim_3d, animate_clear2 as anim_3d_clear } from './anim-3d.js';
-import { createPopOps } from './cl-ops.js';
+import { createPopOps, groupBits } from './cl-ops.js';
 import { helicalOn, helicalDone } from './cl-helical.js';
 import { holeSelOn, selectHolesDone, clearHolesRec } from './cl-hole.js';
 import { load } from '../../../../load/file.js';
@@ -662,6 +662,7 @@ export function opRender() {
                             if (t.id === rec.tool) o.selected = true;
                             inp.appendChild(o);
                         }
+                        groupBits(inp);
                     } else if (inp.type !== 'checkbox') {
                         // a step saved before leave existed leaves none
                         if (f === 'leave' && rec.leave == null) inp.value = opShow(f, 0);
@@ -1474,8 +1475,8 @@ function animate() {
     api.view.set_animate();
 }
 
-// swarf: the line under a step: its bit, how deep it goes and in how many passes, and the speed its
-// full-width pass really runs at when that is not the number on the card (prepare.js polyEmit)
+// swarf: the line under a step: its bit, how deep it goes and in how many passes, and how far a
+// cut-out goes into the spoilboard (op-outline.js)
 function toolWidth(rec) {
     const t = (api.conf.get().tools || []).find(t => t.id == rec.tool);
     return t ? t.flute_diam * (t.metric ? 1 : 25.4) : Infinity;
@@ -1504,8 +1505,9 @@ function stepLine(rec) {
     const parts = api.widgets.all().filter(w => !w.track.synth && !w.meta.disabled);
     const thick = Math.max(0, ...parts.map(w => { const b = w.getBoundingBox(); return b.max.z - b.min.z; }));
     if (thick > 0 && (rec.type === 'outline' || rec.type === 'rough')) {
-        const passes = rec.down > 0 ? Math.ceil((thick + 0.01) / rec.down) : 1;
-        bits.push(`${len(thick)} deep, ${passes} pass${passes === 1 ? '' : 'es'}`);
+        const past = rec.type === 'outline' ? outlinePast(rec, process) : 0;
+        const passes = rec.down > 0 ? Math.ceil((thick + past + 0.01) / rec.down) : 1;
+        bits.push(`${len(thick)} deep${past ? ` + ${len(past)} through` : ''}, ${passes} pass${passes === 1 ? '' : 'es'}`);
     }
     if (rec.type === 'outline' && rec.leave > 0) bits.push(`leaves ${len(rec.leave)}${rec.lastpass ? '' : ', no last pass: stays big'}`);
     if (rec.type === 'outline' && rec.lastpass) bits.push('last pass full depth');
@@ -1523,12 +1525,17 @@ function stepLine(rec) {
             : deg === 0 || deg === 90 ? `lines along ${way(deg)}` : `lines at ${deg}°`);
     }
     if (self.__swarfOpCustom?.(rec)) bits.push('custom');
-    if (rec.rate > 0 && rec.type === 'outline' && !(process.camFullEngage >= 1)) {
-        const band = /shopbot/i.test(device?.deviceName || '') ? 1500 : 0;
-        const slow = rec.rate * (process.camFullEngage || 0.8), real = rec.rate >= band ? Math.max(slow, band) : slow;
-        if (real < rec.rate - 0.5) bits.push(`full-width pass at ${inch ? `${Math.round(real / 25.4)} in/min` : `${Math.round(real)} mm/min`}`);
+    // an outline runs at the feed on its card (its full-width speed): under the ShopBot's rough band, said
+    if (rec.rate > 0 && rec.type === 'outline' && /shopbot/i.test(device?.deviceName || '') && rec.rate < 1500 - 0.5) {
+        bits.push(`under ${inch ? '59 in/min' : '1500 mm/min'}: the ShopBot runs rough`);
     }
     return bits.join(' · ');
+}
+// how far an outline goes past the board's bottom: a cut-out only, as op-outline.js cuts it
+function outlinePast(rec, process) {
+    if (rec.inside && !rec.outside) return 0;
+    if (rec.ov_botz || process.camZBottom || process.camStockIndexed) return 0;
+    return Math.max(0, Math.min(2, +(rec.thru ?? process.camOutlineThru ?? 0) || 0));
 }
 // A pocket clears down to a floor in the part (op-pocket.js): a flat part has none, and a floor cannot
 // be typed. TEX's inlay cuts a flat pocket from a mark at a typed depth: the card sends the student there.
