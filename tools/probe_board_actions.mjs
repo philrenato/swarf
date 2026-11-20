@@ -106,6 +106,76 @@ try {
   check(clean(s), `closing it leaves nothing behind, no pocket step (${JSON.stringify(s)})`);
   check(await page.evaluate(() => { window.__swarfTex.open(); const ok = !/Pocket:/.test(document.getElementById('tx-say').textContent); window.__swarfTex.close(false, true); return ok; }), 'the next plain visit to tex is not a pocket visit');
 
+  // what done says, as it says it
+  await page.evaluate(() => { const a = window.kiri.api, o = a.show.alert; window.__said = []; a.show.alert = function (m, ...r) { window.__said.push(String(m)); return o.call(this, m, ...r); }; });
+  const lastSaid = () => page.evaluate(() => window.__said[window.__said.length - 1] || '');
+
+  // texture an area: the rectangle is on (a drag marks the part); done with no mark says so
+  await rightClick(at.x, at.y);
+  await press('texture an area');
+  const tx2 = await page.evaluate(() => { const S = window.__swarfTex.state(); return S && { tool: S.tool, say: document.getElementById('tx-say').textContent }; });
+  check(tx2 && tx2.tool === 'rect' && /drag a rectangle/.test(tx2.say), `an unmarked part opens on the rectangle tool (${JSON.stringify(tx2)})`);
+  await page.evaluate(() => { window.__said = []; window.__swarfTex.close(true); }); await wait(500);
+  check(/Nothing was marked/.test(await lastSaid()), `done with no mark says nothing was marked ("${await lastSaid()}")`);
+  // pocket a shape: a drag marks it, the line asks for its depth, no plug unless asked for
+  await rightClick(at.x, at.y);
+  await press('pocket a shape');
+  const tool = await page.evaluate(() => window.__swarfTex.state().tool);
+  check(tool === 'rect', `the pocket visit opens on the rectangle tool (${tool})`);
+  const box = await page.evaluate(() => { const S = window.__swarfTex.state(), r = document.getElementById('tx-svg').getBoundingClientRect(), b = window.kiri.api.widgets.all()[0].getBoundingBox(); return [r.left + S.ox + (b.min.x + 40) * S.k, r.top + S.oy - (b.min.y + 20) * S.k, r.left + S.ox + (b.min.x + 120) * S.k, r.top + S.oy - (b.min.y + 60) * S.k]; });
+  await page.mouse.move(box[0], box[1]); await page.mouse.down(); await page.mouse.move((box[0] + box[2]) / 2, (box[1] + box[3]) / 2, { steps: 4 }); await page.mouse.move(box[2], box[3], { steps: 4 }); await page.mouse.up();
+  await wait(600);
+  const pm = await page.evaluate(() => ({ say: document.getElementById('tx-say').textContent, plugBtn: !!document.getElementById('tx-plug'), unnamed: [...document.querySelectorAll('#tx-card input:not([type=range]), #tx-card select')].filter(i => !i.getAttribute('aria-label')).map(i => i.id) }));
+  check(/Marked\. Type its depth in the card/.test(pm.say), `after the drag the line asks for its depth ("${pm.say}")`);
+  check(pm.plugBtn, 'the pocket card offers "add a plug that fits"');
+  check(!pm.unnamed.length, `every field on the tex card has a name (unnamed: ${pm.unnamed})`);
+  await page.evaluate(() => window.__swarfTex.close(true)); await wait(1200);
+  const pd = await page.evaluate(() => { const a = window.kiri.api; return { parts: a.widgets.all().length, plugs: a.widgets.all().filter(w => w.meta.inlay).length, ops: a.conf.get().process.ops.map(o => o.type) }; });
+  check(pd.parts === 1 && !pd.plugs && pd.ops.includes('inlay'), `a plain pocket: its step, no plug on the bed (${JSON.stringify(pd)})`);
+  // the button adds the plug
+  await page.evaluate(() => { const a = window.kiri.api; a.platform.select(a.widgets.all()[0]); window.__swarfTex.open(); }); await wait(500);
+  await page.evaluate(() => document.getElementById('tx-plug').click()); await wait(300);
+  await page.evaluate(() => window.__swarfTex.close(true)); await wait(1500);
+  const pp = await page.evaluate(() => window.kiri.api.widgets.all().filter(w => w.meta.inlay).length);
+  check(pp >= 1, `"add a plug that fits" then done: the plug comes onto the bed (${pp})`);
+
+  // carve words that run off the board: the letter off it is said, in the card, after done and as a concern
+  await fresh();
+  await page.evaluate(() => window.kiri.api.platform.load_svg('<svg xmlns="http://www.w3.org/2000/svg" width="150mm" height="100mm" viewBox="0 0 150 100"><rect width="150" height="100"/></svg>', 'sign', { depth: 19, soup: true, dpi: 0 }));
+  await wait(1200);
+  await page.evaluate(() => { window.kiri.api.platform.deselect?.(); window.moto.space.view.top(); });
+  await wait(1000);
+  const at3 = await centre();
+  await rightClick(at3.x, at3.y);
+  await press('carve words');
+  await page.waitForFunction(() => document.activeElement && document.activeElement.id === 'sd-str' && window.__swarfDraw.text.font, { timeout: 15000 }).catch(() => {});
+  await page.keyboard.type('KCAD'); await wait(150);
+  // the K's advance left of the board's edge: the K wholly off, CAD on
+  const spot2 = await page.evaluate(() => {
+    const D = window.__swarfDraw, S = D.state(), f = D.text.font, r = document.getElementById('sd-svg').getBoundingClientRect(), b = window.kiri.api.widgets.all()[0].getBoundingBox();
+    const os2 = f.tables.os2, cap = (os2 && os2.sCapHeight) || f.unitsPerEm * 0.7, adv = f.getAdvanceWidth('K', D.text.h * f.unitsPerEm / cap);
+    const x = b.min.x - Math.ceil(adv) - 1;
+    return [r.left + S.ox + x * S.k, r.top + S.oy - (b.min.y + 30) * S.k];
+  });
+  await page.mouse.move(spot2[0] + 10, spot2[1] + 10); await page.mouse.move(spot2[0], spot2[1]); await page.mouse.click(spot2[0], spot2[1]);
+  await wait(800);
+  const off = await page.evaluate(() => { const o = document.querySelector('#sd-svg .sd-off'), S = window.__swarfDraw.state(), p = S.parts[S.sel]; return { carve: !!(p && p.carve), off: o && o.getAttribute('data-off'), say: document.getElementById('sd-say').textContent, card: document.querySelector('#swarf-draw .sd-card').textContent, unnamed: [...document.querySelectorAll('#swarf-draw .sd-card input, #swarf-draw .sd-card select')].filter(i => !i.getAttribute('aria-label')).map(i => i.id) }; });
+  check(off.carve && /^K is off sign: it will not be carved\./.test(off.off || ''), `the K off the board is drawn in the warning colour (${JSON.stringify(off.off)})`);
+  check(/K is off sign/.test(off.say) && /K is off sign/.test(off.card), `the line and the card say so ("${off.say}")`);
+  check(!off.unnamed.length, `every field on the draw card has a name (unnamed: ${off.unnamed})`);
+  await page.evaluate(() => { window.__said = []; window.__swarfDraw.close(true); }); await wait(1500);
+  const doneSaid = await page.evaluate(() => window.__said.join(' | '));
+  check(/K is off sign: it will not be carved/.test(doneSaid), `done says it too ("${doneSaid}")`);
+  check(!/before the outline/.test(doneSaid) && /Next: add outline to cut it out, or leave it as a board\./.test(doneSaid), 'with no outline step, done does not say "before the outline"');
+  const cc = await page.evaluate(() => window.__swarfTex.concerns().map(c => c.body).filter(b => /K is off sign/.test(b)));
+  check(cc.length === 1, `a concern carries it after done (${cc})`);
+  // with an outline step: "before the outline"
+  await page.evaluate(() => { const a = window.kiri.api, s = a.conf.get(); s.process.ops.push({ type: 'outline', tool: (s.tools.find(t => t.type === 'endmill') || s.tools[0]).id }); a.conf.save(); a.platform.select(a.widgets.all()[0]); window.__swarfDraw.open(); });
+  await wait(800);
+  await page.evaluate(() => { const S = window.__swarfDraw.state(), p = S.parts.find(p => p.carve); p.text.str = 'KCAD'; p.dirty = true; window.__said = []; window.__swarfDraw.close(true); }); await wait(1500);
+  const doneSaid2 = await page.evaluate(() => window.__said.join(' | '));
+  check(/before the outline\./.test(doneSaid2) && /Next: toolpaths\./.test(doneSaid2), `with an outline step, done says before the outline ("${doneSaid2}")`);
+
   // ── a tray with a floor (a mesh: draw cannot carve into it) ──
   await fresh();
   await page.evaluate(() => {

@@ -34,7 +34,7 @@
     card.innerHTML = '<span class="lbl">size</span>';
     for (const [a, word] of AX) {
       const inp = document.createElement('input');
-      inp.inputMode = 'text'; inp.dataset.word = word;
+      inp.inputMode = 'text'; inp.dataset.word = word; inp.setAttribute('aria-label', word);
       inp.addEventListener('keydown', e => { if (e.key === 'Enter') { inp.dataset.typed = '1'; apply(a); inp.blur(); } if (e.key === 'Escape') { delete inp.dataset.typed; show(); inp.blur(); } e.stopPropagation(); });
       inp.addEventListener('blur', () => apply(a));
       // only a box typed in is applied on blur; the rest show cam's numbers, focused or not
