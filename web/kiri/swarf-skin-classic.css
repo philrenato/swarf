@@ -338,6 +338,9 @@ html[data-skin="classic"] #swarf-run .sr-actions button.wait { box-shadow: inset
 html[data-skin="classic"] #swarf-run .sr-mach .sr-out { color: #fff !important; text-shadow: 1px 1px 0 #000 !important; }   /* links in the machine box sit on the blue desktop */
 /* cut ready or a job moving: white on navy (the skin map's .cut:not(:disabled) black outranked it) */
 html[data-skin="classic"] #swarf-run .sr-actions .cut:not(:disabled):not(.wait):not(.quiet) { color: #fff !important; }
+/* the ladder's step now: navy like cut, white words, the default ring */
+html[data-skin="classic"] #swarf-run .sr-zrow button.fill:not(:disabled), html[data-skin="classic"] #swarf-run .sr-actions button.fill:not(:disabled) {
+  background: #000080 !important; color: #fff !important; font-weight: 700 !important; box-shadow: var(--c-out), 0 0 0 2px #c0c0c0, 0 0 0 3px #000 !important; }
 
 /* a notice's close: a Platinum close box (13 px, a 1 px frame, an inset bevel), not the 95 button
    bevel squeezed round a × that reads as a broken image. An

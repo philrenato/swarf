@@ -187,7 +187,7 @@ html[data-skin="glass"] button:active, html[data-skin="glass"] #swarf-run button
 html[data-skin="glass"] button.selected, html[data-skin="glass"] #panel-right #oplist > div.selected, html[data-skin="glass"] #ws-widgets button.selected,
 html[data-skin="glass"] #swarf-run .sr-modes button.on, html[data-skin="glass"] #swarf-run .sr-jog .sr-modes button.on, html[data-skin="glass"] #swarf-run .sr-sim button.on,
 html[data-skin="glass"] #swarf-run .sr-vtools button.on, html[data-skin="glass"] #swarf-draw .sd-bar button.on, html[data-skin="glass"] #swarf-draw .sd-card button.tx-pick.on, html[data-skin="glass"] #swarf-draw .sd-card button.tx-sw.on, html[data-skin="glass"] #swarf-draw .sd-card button.tx-fill.on, html[data-skin="glass"] #swarf-draw .sd-bar .sd-go,
-html[data-skin="glass"] #swarf-run .sr-actions .cut, html[data-skin="glass"] #swarf-run .sr-card .row .go, html[data-skin="glass"] #swarf-run .sr-pad button:active,
+html[data-skin="glass"] #swarf-run .sr-actions .cut, html[data-skin="glass"] #swarf-run .sr-zrow button.fill:not(:disabled), html[data-skin="glass"] #swarf-run .sr-actions button.fill:not(:disabled), html[data-skin="glass"] #swarf-run .sr-card .row .go, html[data-skin="glass"] #swarf-run .sr-pad button:active,
 html[data-skin="glass"] #swarf-run .sr-pad button.held, html[data-skin="glass"] #swarf-start .row:not(.sb) button:first-of-type, html[data-skin="glass"] #swarf-sim-machine.on, html[data-skin="glass"] #swarf-sim-bed.on, html[data-skin="glass"] .swarf-x-card .swarf-x-go,
 html[data-skin="glass"] #layer-animate button:nth-of-type(2), html[data-skin="glass"] #oplist .draggable.swarf-params-open .swarf-op-chevron {
   background: var(--g-aqua) !important; border-color: rgba(94, 99, 106, .55) !important; color: #ffffff !important;
@@ -351,6 +351,8 @@ html[data-skin="glass"] #mode-tools > span.swarf-step-run.swarf-step-on label, h
 html[data-skin="glass"] #mode-tools > span.swarf-step-run.swarf-step-on svg, html[data-skin="glass"] #mode-tools > span.swarf-step-run.swarf-step-on svg * { color: #fff !important; fill: #fff !important; }
 /* cut ready or a job moving: white on the graphite jelly. The skin map's .cut:not(:disabled) (near-black) would outrank the jelly's white and leave "cut" illegible during a trace */
 html[data-skin="glass"] #swarf-run .sr-actions .cut:not(:disabled):not(.wait):not(.quiet) { color: #fff !important; }
+/* the ladder's step now: the same graphite jelly, white words */
+html[data-skin="glass"] #swarf-run .sr-zrow button.fill:not(:disabled), html[data-skin="glass"] #swarf-run .sr-actions button.fill:not(:disabled) { color: #fff !important; }
 /* the small "add a step" label sits over the scene through the glass (the wood in simulate):
    dark enough to read on it (3.9:1 over the orange board) */
 html[data-skin="glass"] .swarf-add-op-label { color: #3a3b3d !important; }

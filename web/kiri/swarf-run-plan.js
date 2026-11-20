@@ -255,7 +255,9 @@
     const out = [];
     let p = plan.from || { x: 0, y: 0, z: 0 };
     for (const s of plan.steps) {
-      if (s.router === true) { out.push(`the ${tool} on`); continue; }
+      // the file's own first lines can switch it off and on again before the first cut (C7 before a
+      // tool change, then C6): the words say once that it turns on, before the bit comes down
+      if (s.router === true) { if (!out.includes(`the ${tool} on`)) out.push(`the ${tool} on`); continue; }
       if (!s.move) continue;
       if (s.phase !== 'entry') break;
       const m = s.move;

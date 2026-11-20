@@ -483,9 +483,8 @@ body.swarf-run-open { filter: none !important; }
 #swarf-run .sr-sim button.on, #swarf-run .sr-vtools button.on { background: #45403c !important; border-color: #b3aaa0 !important; color: #fff !important; }
 #swarf-run .sr-keepzero { background: #2a2523; border-color: #4f4642; color: #f2ede4; border-radius: 6px; }
 #swarf-run .sr-keepzero:hover { border-color: #a39a90; }
-/* a button waiting on a step is pressable: it says what it needs */
-#swarf-run .sr-actions .cut.quiet { background: var(--swarf-bg-3, #1c1817) !important; color: inherit !important; border-color: var(--swarf-line-2, #3a1e18) !important; box-shadow: none !important; }
-#swarf-run .sr-actions button.wait { opacity: .78; cursor: help; box-shadow: none !important; }
+#swarf-run .sr-actions .cut.quiet { /* cut, plain: a finished cut, or the ladder's step is not cut yet */ background: var(--swarf-bg-3, #1c1817) !important; color: inherit !important; border-color: var(--swarf-line-2, #3a1e18) !important; box-shadow: none !important; }
+#swarf-run .sr-actions button.wait { /* a button waiting on a step is pressable: it says what it needs */ opacity: .78; cursor: help; box-shadow: none !important; }
 #swarf-run .sr-need { padding: 8px 12px 0; display: flex; flex-wrap: wrap; align-items: center; gap: 4px; font-size: 11px; line-height: 16px; color: var(--c-dim, #8a857c); }
 #swarf-run .sr-need span { /* each need a small pill, so the line reads as a row of checks */ padding: 0 7px; border: 1px solid var(--swarf-line-2, #3a1e18); border-radius: 999px; white-space: nowrap; }
 #swarf-run .sr-need:empty { display: none; }
@@ -497,6 +496,12 @@ body.swarf-run-open { filter: none !important; }
 #swarf-run .sr-step { cursor: pointer; }
 #swarf-run .sr-card p.sr-way { font-size: 12px; color: var(--c-dim, #8a857c); margin: -4px 0 10px; }
 #swarf-run .sr-card p.sr-way.bad { color: var(--swarf-accent-hi, #b0221a); }
+#swarf-run .sr-card p.sr-warn { /* a warning the student ticks: as loud as the ticks, in the skin's amber, its tick right under it */ font-size: 14px; font-weight: 600; line-height: 1.4; color: var(--swarf-amber, #c08a3a); margin: 8px 0 0; }
+#swarf-run .sr-card p.sr-warn + label { padding-top: 4px; margin-bottom: 6px; }
+#swarf-run .sr-warns { /* the file's warnings in the strip's place on a short screen: amber, one line each */ padding: 8px 12px 0; display: flex; flex-direction: column; gap: 2px; font-size: 12px; line-height: 16px; }
+#swarf-run .sr-warns:empty { display: none; }
+#swarf-run .sr-warns > div { color: var(--swarf-amber, #c08a3a); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; cursor: pointer; }
+#swarf-run .sr-zrow button.fill:not(:disabled), #swarf-run .sr-actions button.fill:not(:disabled) { /* the ladder's step now is the filled button; cut waits plain until it is its turn */ background: var(--c-red) !important; border-color: var(--c-red) !important; color: #fff !important; }
 #swarf-run .sr-board-size { display: flex; align-items: flex-start; gap: 8px; margin: 6px 0 10px; }
 #swarf-run .sr-board-size label { display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 0; cursor: default; }
 #swarf-run .sr-board-size input { width: 76px; text-align: right; }
@@ -799,7 +804,8 @@ html[data-skin] #swarf-run .sr-jog .sr-zrow button.next, html[data-skin] #swarf-
     el.rateIn.addEventListener('input', () => { el.rateVal.textContent = `${el.rateIn.value}%`; if (!rateT) rateT = setTimeout(rateNow, 150); });
     el.prog.append(el.rate);
     el.need = h('div', { class: 'sr-need' });
-    el.prog.append(el.need);
+    el.warns = h('div', { class: 'sr-warns' });
+    el.prog.append(el.warns, el.need);
     // a waiting button still takes the press, and says what it waits for
     for (const k of ['trace', 'air', 'cut']) el.btn[k].addEventListener('click', e => {
       if (!el.btn[k].classList.contains('wait')) return;
@@ -811,6 +817,7 @@ html[data-skin] #swarf-run .sr-jog .sr-zrow button.next, html[data-skin] #swarf-
     el.prog.append(el.fromRow);
     el.plan = h('div', { class: 'sr-plan' });
     el.prog.append(el.plan);
+    window.addEventListener('resize', () => { if (S.open) placeNeed(); });
 
     // status (lower right)
     el.stat = h('div', { class: 'sr-mach' });
@@ -1461,12 +1468,12 @@ html[data-skin] #swarf-run .sr-jog .sr-zrow button.next, html[data-skin] #swarf-
 
   function renderPlan() {
     el.plan.innerHTML = '';
-    if (!S.prog) return;
+    if (!S.prog) { placeNeed(); return; }
     const p = S.prog.parsed, b = P.cutBounds(p);
     const add = (t, cls) => el.plan.append(h('div', { class: cls || '', text: t }));
     // the bit's path, not the part: an outline runs a bit's radius outside it, so a 100 mm disc reads
     // about 106 here, and that is right (never resize the part to get back to 100)
-    el.facts.textContent = b ? `bit's path ${lens([b.max.x - b.min.x, b.max.y - b.min.y], 0)} · ${len(-Math.min(0, b.min.z))} deep · about ${mins(p.seconds)}` : '';
+    el.facts.textContent = b ? `bit's path ${lens([b.max.x - b.min.x, b.max.y - b.min.y], 0)} · ${len(-Math.min(0, b.min.z))} deep · ${aboutTime(progSeconds())}` : '';
     el.facts.title = 'Where the bit\'s center goes: half a bit outside an outline';
     const pr = problems();
     if (!pr.block.length) add(`${p.unitsGuessed ? '? units not named, read as millimeters' : p.units === 'in' ? '✓ inches, turned into millimeters' : '✓ millimeters'} · ✓ small enough for the machine · ✓ ${p.moves.length} moves read`, 'ok');
@@ -1493,6 +1500,21 @@ html[data-skin] #swarf-run .sr-jog .sr-zrow button.next, html[data-skin] #swarf-
     if (changes.length > 1) add(`${changes.length} tool changes: at each one the bit stops ${len(CHANGE_Z, 0)} up with the router off; change it, zero Z again, then continue`, 'w');
     for (const x of pr.block) add(x, 'b');
     for (const x of pr.warn) add(x, 'w');
+    placeNeed();
+  }
+  // At a short window (1280 × 720) the file's warnings take the strip's place, one amber line each,
+  // and the strip's checks go to the foot of the plan, under "more below"
+  function placeNeed() {
+    if (!el.warns) return;
+    const running = !!(S.machine && S.machine.state && S.machine.state.running);
+    const warn = S.prog && !running && innerHeight < 800 ? problems().warn : [];
+    const show = t => { const n = [...el.plan.children].find(c => c.textContent === t); if (n) n.scrollIntoView({ block: 'nearest' }); };
+    if (el.warns.dataset.sig !== warn.join('\n')) {
+      el.warns.dataset.sig = warn.join('\n');
+      el.warns.replaceChildren(...warn.map(t => h('div', { text: t, onclick: () => show(t) })));
+    }
+    if (warn.length) { if (el.plan.lastChild !== el.need) el.plan.append(el.need); }
+    else if (el.need.parentNode !== el.prog) el.prog.insertBefore(el.need, el.fromRow);
   }
 
   // seconds left in the running program, from its moves at their feeds (rapids at the jog speed)
@@ -1505,7 +1527,29 @@ html[data-skin] #swarf-run .sr-jog .sr-zrow button.next, html[data-skin] #swarf-
       S.runTimes = mv;
     }
     const total = S.runCum[S.runCum.length - 1], done = S.runCum[Math.max(0, (S.runIdx || 0) - 1)] || 0;
-    return Math.max(0, total - done) / (((S.machine.state && S.machine.state.rate) || 100) / 100);
+    // distance over feed runs short of the machine (speed-ups, bends): scaled to the file's estimate,
+    // so a cut starts at the time its card said
+    const flat = S.prog && S.prog.parsed.seconds, k = flat > 0 ? Math.min(3, Math.max(1, progSeconds() / flat)) : 1;
+    return k * Math.max(0, total - done) / (((S.machine.state && S.machine.state.rate) || 100) / 100);
+  }
+
+  // the file's time as the machine takes it: the estimate export, simulate and the step cards give
+  // (swarf-estimate.js: speed-ups, slow-downs at bends, the router's spin-up), worked out once a file
+  function progSeconds() {
+    const p = S.prog;
+    if (!p) return 0;
+    if (p.est === undefined) {
+      const E = window.SwarfEstimate;
+      let device = null;
+      try { device = window.kiri.api.conf.get().device; } catch (e) { /* no settings yet */ }
+      try { p.est = E ? E.of(p.parsed, { cfg: E.cfgFor ? E.cfgFor(device) : undefined }).seconds : p.parsed.seconds; } catch (e) { p.est = p.parsed.seconds; }
+    }
+    return p.est;
+  }
+  // "about 14 min", in export's words
+  function aboutTime(s) {
+    const E = window.SwarfEstimate;
+    return E && E.words ? E.words(s) : `about ${mins(s)}`;
   }
 
   function mins(s) {
@@ -1603,12 +1647,18 @@ html[data-skin] #swarf-run .sr-jog .sr-zrow button.next, html[data-skin] #swarf-
     el.next.style.display = nextNeed ? '' : 'none';
     if (!running && need.some(n => !n.ok)) {
       el.need.append(h('b', { text: 'to run:' }));
-      for (const n of need) el.need.append(h('span', { class: n.ok ? 'ok' : 'no', text: (n.ok ? '✓ ' : '○ ') + n.label + (n.opt && !n.ok ? ' (or skip it)' : ''), title: n.ok ? '' : n.todo, onclick: n.ok ? null : () => { tell(`${n.todo[0].toUpperCase()}${n.todo.slice(1)}.`, 'warn'); flashNeed(n.k); } }));
+      for (const n of need) el.need.append(h('span', { class: n.ok ? 'ok' : 'no', text: (n.ok ? '✓ ' : '○ ') + n.label + (n.opt && !n.ok ? (n.k === 'trace' ? ' (or skip it)' : ' (not set: cut will ask)') : ''), title: n.ok ? '' : n.todo, onclick: n.ok ? null : () => { tell(`${n.todo[0].toUpperCase()}${n.todo.slice(1)}.`, 'warn'); flashNeed(n.k); } }));
     }
     // a finished cut: the steps read done, cut goes quiet, and the box offers what comes next
     const finished = !running && (S.lastDone === 'cut' || S.lastDone === 'from') && !S.stoppedAt;
     if (finished) for (const node of el.steps.children) node.className = 'sr-step done';
-    el.btn.cut.classList.toggle('quiet', finished);
+    // the ladder's step now is the filled button (zero x y, then z plate or zero z, then trace);
+    // cut stays pressable, plain, until it is its turn
+    const step = !running && !finished ? (need.find(n => !n.ok) || {}).k : null;
+    const zBtn = el.plateBtn && el.plateBtn.style.display !== 'none' ? el.plateBtn : el.zzBtn;
+    const fill = { xy: el.zxyBtn, z: zBtn, trace: el.btn.trace }[step];
+    for (const b of [el.zxyBtn, el.zzBtn, el.plateBtn, el.btn.trace]) if (b) b.classList.toggle('fill', b === fill);
+    el.btn.cut.classList.toggle('quiet', finished || !!fill);
     el.start.style.display = !S.prog || finished ? '' : 'none';
     // after a test cut, "measure it" waits where the student looks
     if (el.measure) el.measure.style.display = finished && S.prog && S.prog.source === 'lesson' ? '' : 'none';
@@ -1664,7 +1714,7 @@ html[data-skin] #swarf-run .sr-jog .sr-zrow button.next, html[data-skin] #swarf-
     else if (offer) el.keepZero.textContent = `use the zero from ${zeroWhen(S.zeroSetAt)} (${backXY && backZ ? 'X Y and Z' : backXY ? 'X Y' : 'Z'})? Only if this board has not moved since then${zeroWords(backXY, backZ)}`;
     // the plan's checks follow the zero (never "fits the table" when it no longer does)
     const sig = S.prog ? problems().block.join('|') + `|${!!S.zeroXY}${!!S.zeroZ}${!!(S.keptZero && S.keptZero.xy)}${!!(S.keptZero && S.keptZero.z)}|${S.zeroAt}|${S.zBit ? (S.zBit.name || S.zBit.num) : ''}${!!(S.machine && S.machine.mabs && corner())}` : '';
-    if (sig !== S.planSig) { S.planSig = sig; renderPlan(); }
+    if (sig !== S.planSig) { S.planSig = sig; renderPlan(); } else placeNeed();
     // a latched fault sounds, softly and again every few seconds, until all clear (real machine only)
     if (window.SwarfSound) { const want = !!S.fault && isReal(); if (want !== SwarfSound.faulting()) SwarfSound.fault(want); }
     coach(now, st);
@@ -1700,6 +1750,16 @@ html[data-skin] #swarf-run .sr-jog .sr-zrow button.next, html[data-skin] #swarf-
     const win = onWindows() ? ` ${WIN_ONE}` : '';
     if (st && !st.connected && M.DirectMachine && S.machine instanceof M.DirectMachine) return say(`Not connected: ${st.note}. Plug the box's USB cable into this computer and press connect.${win}`, 'bad');
     if (st && !st.connected) return say(`Not connected. Plug the ShopBot into this computer and press connect.${win}`, 'bad');
+    // a finished cut says so whatever the ladder says: a cut from the machine's own zero leaves the
+    // zero unset in swarf, and the top line names that zero instead of asking for one
+    if ((S.lastDone === 'cut' || S.lastDone === 'from') && !S.stoppedAt && !S.toolChange && now !== 'load' && now !== 'check') {
+      const W = window.SwarfSafetyWords || {};
+      const coast = W.coasting || 'Finished. Keep your hands clear until the bit has stopped turning.';
+      const done = W.finished || 'At Finished, wait until the bit has stopped turning.';
+      const own = S.ranOwnZero ? 'Finished, from the machine\'s own zero' : '';
+      if (st && st.coasting) return say(own ? coast.replace(/^Finished\./, `${own}.`) : coast, 'warn');
+      return say(own ? `${own}: ${done.replace(/^At Finished, /, '')}` : done);
+    }
     const o = originText();
     switch (now) {
       case 'load': return say(S.camBusy ? 'Making the toolpaths…' : S.camError || 'No toolpaths yet. Add a step to your part (rough, contour, outline, pocket), then press control.');
@@ -1719,8 +1779,7 @@ html[data-skin] #swarf-run .sr-jog .sr-zrow button.next, html[data-skin] #swarf-
         if (S.lostAt) return say(`The USB link dropped at line ${S.lostAt}. If the machine is still moving or the router still turns, press the floor e-stop. Plug in, press connect, then continue from line ${S.lostAt}.`, 'bad');
         if (S.stoppedAt && st && st.resumeLine === S.stoppedAt) return say(`${st.note[0].toUpperCase()}${st.note.slice(1)}. The router is off and the bit is up.`, 'warn');
         if (S.stoppedAt) return say(`Stopped at line ${S.stoppedAt}. To finish, press continue from line ${S.stoppedAt}; to start over, press cut.`, 'warn');
-        if ((S.lastDone === 'cut' || S.lastDone === 'from') && st && st.coasting) return say((window.SwarfSafetyWords || {}).coasting || 'Finished. Keep your hands clear until the bit has stopped turning.', 'warn');
-        return say(S.lastDone === 'cut' || S.lastDone === 'from' ? ((window.SwarfSafetyWords || {}).finished || 'Finished. Wait until the bit has stopped turning.') : 'Ready. Press cut; a short checklist comes first.');
+        return say('Ready. Press cut; a short checklist comes first.');
     }
   }
 
@@ -2320,44 +2379,55 @@ html[data-skin] #swarf-run .sr-jog .sr-zrow button.next, html[data-skin] #swarf-
     const untraced = !test && !S.traced;
     // the zero not set in swarf: one tick the student owns on every run card, never a block
     const unzeroed = (!S.zeroXY || !S.zeroZ) ? [!S.zeroXY ? 'X Y' : '', !S.zeroZ ? 'Z' : ''].filter(Boolean).join(' and ') : '';
-    const items = (test ? testChecklist() : checklist(from ? line : 0)).concat(
-      unzeroed ? [`My ${unzeroed} zero is set on the machine`] : [],
-      untraced ? ['no trace: I checked the bit clears every clamp and the zero is right'] : []);
+    // Z not zeroed here: no tick that says where Z zero is (the warning above says it is unknown)
+    const items = (test ? testChecklist() : checklist(from ? line : 0)).filter(t => S.zeroZ || !/^Z zero is/.test(t));
+    // the two warnings' own ticks, each drawn right under its warning
+    const own = [unzeroed ? `My ${unzeroed} zero is set on the machine` : '', untraced ? 'no trace: I checked the bit clears every clamp and the zero is right' : ''];
     const checks = items.map(t => h('input', { type: 'checkbox' }));
+    const ownChecks = own.map(t => t ? h('input', { type: 'checkbox' }) : null);
+    const tick = (t, c) => h('label', {}, c, h('span', { text: t }));
     const b = P.cutBounds(S.prog.parsed);
     const size = b ? lens([b.max.x - b.min.x, b.max.y - b.min.y], 0) : '';
     const tool = spindleWord();
     const plan = makePlan(from ? 'from' : test ? kind : 'cut', line);
     const words = {
       trace: { h: 'Trace the border', go: 'trace', p: `The machine is about to move: up to ${up(1)} over Z 0, then around the ${size} box the cut fills, ${tool} off. Watch it stay over your board and clear every screw and clamp (clamps inside the cut are not checked).` },
-      air: { h: `Run ${S.prog.name} as an air cut`, go: 'air cut', p: `The machine is about to move: the whole file ${prose(AIR_CLEAR)} above its highest point, ${tool} off, at 3/4 cutting speed${isDirect() ? ' (a slider changes it)' : ''}, about ${mins(S.prog.parsed.seconds / ((plan && plan.rate) || 0.75))}. It is not a clamp check: watch the path.` },
+      air: { h: `Run ${S.prog.name} as an air cut`, go: 'air cut', p: `The machine is about to move: the whole file ${prose(AIR_CLEAR)} above its highest point, ${tool} off, at 3/4 cutting speed${isDirect() ? ' (a slider changes it)' : ''}, ${aboutTime(progSeconds() / ((plan && plan.rate) || 0.75))}. It is not a clamp check: watch the path.` },
       from: { h: `Continue from line ${line}`, go: `continue from line ${line}`, p: `The machine is about to move and the ${tool} to start: up to ${up(1)}, over to where that line starts, ${tool} on, then the rest of the file.` },
       cut: { h: `Cut ${S.prog.name}`, go: 'cut', p: `The machine is about to move and the ${tool} to start.` }
     }[from ? 'from' : test ? kind : 'cut'];
     const go = h('button', { class: 'go', text: untraced ? `${words.go} without a trace` : words.go, disabled: '' });
     const bad = !plan ? 'There is nothing to run there.' : plan.problems.length ? `It can't run: ${plan.problems[0]}.` : '';
-    const update = () => { go.disabled = !!bad || !checks.every(c => c.checked); };
-    checks.forEach(c => c.addEventListener('change', update));
+    const all = checks.concat(ownChecks.filter(Boolean));
+    const update = () => { go.disabled = !!bad || !all.every(c => c.checked); };
+    all.forEach(c => c.addEventListener('change', update));
     // the way in, from where the bit is now: the same moves the machine will make
     const way = plan && window.SwarfRunPlan ? wayWords(plan) : '';
     const back = () => { el.sheet.classList.remove('on'); showPlan(null); };
     // summary first: file, bit, and whether the zero was set here or carried over (an assumption)
     const kz = S.keptZero, kxy = !!(kz && kz.xy && S.zeroXY), kzz = !!(kz && kz.z && S.zeroZ);
     const zeroSaid = !S.zeroXY || !S.zeroZ ? 'zero unknown' : kxy || kzz ? `earlier ${kxy && kzz ? '' : kxy ? 'X Y ' : 'Z '}zero, assumed` : 'zero set';
-    const sum = [S.prog.name, bitNamed(from ? line : 0), zeroSaid, !from && !test ? `about ${mins(S.prog.parsed.seconds)}` : ''].filter(Boolean).join(' · ');
+    const sum = [S.prog.name, bitNamed(from ? line : 0), zeroSaid, !from && !test ? aboutTime(progSeconds()) : ''].filter(Boolean).join(' · ');
+    // the zero swarf does not know, in numbers from where the bit is now (the plan starts there), so
+    // the student can check it against the board by eye: work 0, 0, 0 is the machine's own zero
+    const at = plan && plan.from;
+    const zNums = [];
+    if (at && !S.zeroXY) zNums.push(`The file's X 0 Y 0 is ${len(Math.hypot(at.x, at.y), 0)} from the bit now.`);
+    if (at && !S.zeroZ) zNums.push(`Its Z 0 is ${len(Math.abs(at.z))} ${at.z >= 0 ? 'below' : 'above'} the bit${b && b.min.z < 0 ? `, and the cut goes ${len(-b.min.z)} under that` : ''}.`);
     // then only what is unusual; the plan's open warnings counted, not repeated (the inch note has its own tick)
     const open = test ? 0 : problems().warn.filter(w => !/^Written in inches/.test(w)).length;
     el.card.append(h('h2', { text: words.h }), h('p', { class: 'sr-sum', text: sum }),
       ...(bad ? [h('p', { class: 'sr-way bad', text: bad })] : []),
-      ...(unzeroed ? [h('p', { class: 'sr-way bad', text: `${unzeroed} not zeroed in swarf: it runs from the machine's zero.` })] : []),
-      ...(untraced ? [h('p', { class: 'sr-way bad', text: 'No trace this time: clamps and zero unchecked. Trace first if unsure.' })] : []),
+      // the two warnings, each with its own tick right under it
+      ...(unzeroed ? [h('p', { class: 'sr-warn', text: [`${unzeroed} not zeroed in swarf: it runs from the machine's own zero.`, ...zNums].join(' ') }), tick(own[0], ownChecks[0])] : []),
+      ...(untraced ? [h('p', { class: 'sr-warn', text: 'No trace this time: clamps and zero unchecked. Trace first if unsure.' }), tick(own[1], ownChecks[1])] : []),
       ...(open ? [h('p', { class: 'sr-way', text: `${open === 1 ? 'One concern' : `${open} concerns`} still open.` })] : []),
       h('p', { text: words.p }),
       ...(way ? [h('p', { class: 'sr-way', text: `First: ${way}.` })] : []),
-      ...items.map((t, i) => h('label', {}, checks[i], h('span', { text: t }))),
+      ...items.map((t, i) => tick(t, checks[i])),
       h('div', { class: 'row' }, h('button', { text: 'not yet', onclick: back }), go));
     // the student's ticks arm this plan, and only it; a plan made before the bit moved will not run
-    go.onclick = () => { el.sheet.classList.remove('on'); if (unzeroed) tell(`Cutting from the machine's own zero (${unzeroed} not zeroed in swarf).`, 'warn'); else if (untraced) tell('Cutting without a trace.', 'warn'); start(window.SwarfRunPlan.arm(plan)); };
+    go.onclick = () => { el.sheet.classList.remove('on'); if (!test) S.ranOwnZero = unzeroed; if (unzeroed) tell(`Cutting from the machine's own zero (${unzeroed} not zeroed in swarf).`, 'warn'); else if (untraced) tell('Cutting without a trace.', 'warn'); start(window.SwarfRunPlan.arm(plan)); };
     if (plan) showPlan(plan);
     el.sheet.classList.add('on');
   }
