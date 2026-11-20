@@ -26,7 +26,7 @@
     spinUp: 3,                                                  // s after the spindle starts
     safeZ: 25.4                                                 // work mm, Run mode's SAFE_Z
   };
-  // the router: outputs 1 and 4 (Phil 10-29 at the machine: output 1 alone did not start it; the shop's
+  // the router: outputs 1 and 4 (measured at the machine: output 1 alone does not start it; the shop's
   // own router-on sets output 4, then output 1). Off clears both.
   const SPINDLE = 0x009;
   const ORIGIN_KEY = 'swarf-shopbot-origin';
@@ -38,12 +38,12 @@
   const HOME = { x: { input: 2, hit: 0 }, y: { input: 3, hit: 0 }, offset: { x: -12.7, y: -12.7 },
     fast: 88.9, slow: 25.4, backOff: 25.4, travel: { x: 2600, y: 1400 }, block: 15, confirmed: false };
   // blocks the card holds ahead of the one it plays: three, about 80 ms at a trace's 50 mm/s, so a
-  // moment's work on the page never lets it run dry (two stopped and started the bit, Phil 11-02); a
+  // moment's work on the page never lets it run dry (two stop and start the bit); a
   // stop ramps down from the last block sent, about 2 mm later than with two. Homing keeps two.
   const WINDOW = 3;
   const PLATE_KEY = 'swarf-shopbot-plate';
   const UNKNOWN = 'not now: swarf can\'t tell whether the router is on. Press the red e-stop on the floor, then all clear';
-  // a pressed e-stop and an e-stop swarf could not read are two different things (third review #1)
+  // a pressed e-stop and an e-stop swarf could not read are two different things
   const STOP_KEY = 'swarf-shopbot-stop', STOP_DEFAULT = { input: 8, rest: 0 };
   const STOP_WORDS = {
     pressed: 'the e-stop reads pressed: release the red e-stop on the floor first',
@@ -55,7 +55,7 @@
   // travel: swarf stops after 60 mm (search down on the plate card raises it). The guide
   // starts the bit 25-50 mm over the board and proves the clip circuit first, so a seek
   // that still misses contact ends at most ~35 mm below the board's top, not 230.
-  // A fresh browser takes the shop's plate as known (Phil 11-18: a student never has to touch the plate
+  // A fresh browser takes the shop's plate as known (a student never has to touch the plate
 // to the bit on purpose); machine setup still sets another box's plate.
 const PLATE = { input: 1, hit: 1, thickness: 3.0734, fast: 12.7, slow: 6.35, lift: 25.4, travel: 60, confirmed: true };
 
@@ -90,8 +90,8 @@ const PLATE = { input: 1, hit: 1, thickness: 3.0734, fast: 12.7, slow: 6.35, lif
       this.planner.m.invert = this.invertMask();
     }
 
-    // Saved settings as read back, checked field by field (review A18: a corrupt origin made every
-    // position NaN and every jog was refused). A bad field takes the default; a repaired origin is
+    // Saved settings as read back, checked field by field (a corrupt origin would make every
+    // position NaN and refuse every jog). A bad field takes the default; a repaired origin is
     // said (originRepaired), so control retires the zero kept with it.
     saneSaved() {
       const num = (v, ok) => typeof v === 'number' && Number.isFinite(v) && ok(v);
@@ -149,9 +149,9 @@ const PLATE = { input: 1, hit: 1, thickness: 3.0734, fast: 12.7, slow: 6.35, lif
     }
 
     // Output n (1-12) on for `ms`, then back as it was. Idle only.
-    // An off that did not land latches the router as unknown (third review #3): nothing moves
+    // An off that did not land latches the router as unknown: nothing moves
     // or starts until an off reaches the card (recover) or the box is connected again.
-    // The feed override (Phil 10-29, like the MR-1's): cuts only, 50 to 150 % in 5 % steps, never
+    // The feed override (like the MR-1's): cuts only, 50 to 150 % in 5 % steps, never
     // past the machine's top speed; a raise ramps in, a cut slows at once.
     setOverride(pct) {
       if (!Number.isFinite(+pct)) return this.state.override || 100;
@@ -162,7 +162,7 @@ const PLATE = { input: 1, hit: 1, thickness: 3.0734, fast: 12.7, slow: 6.35, lif
       return v;
     }
 
-    // An air cut's speed (Phil 11-04: "real speed is fine. Maybe with an accelerator slider"): 50 to
+    // An air cut's speed (real speed, with an accelerator slider): 50 to
     // 400 % of the file's feeds, plunges and ramps too, since nothing is cutting; never past the
     // machine's move speeds. Air cuts only: a real cut keeps the override above.
     setRate(pct) {
@@ -174,7 +174,7 @@ const PLATE = { input: 1, hit: 1, thickness: 3.0734, fast: 12.7, slow: 6.35, lif
       return v;
     }
 
-    // The router on by hand, to test it (Phil 10-29, a button in the jog pad): on until the button,
+    // The router on by hand, to test it (a button in the jog pad): on until the button,
     // any key, the e-stop or 60 s turns it off. Nothing moves while it runs (busy), and the e-stop
     // is read ten times a second (a momentary press is short).
     async routerTest(on) {
@@ -182,7 +182,7 @@ const PLATE = { input: 1, hit: 1, thickness: 3.0734, fast: 12.7, slow: 6.35, lif
       if (on) {
         if (this.busy() || this.routerTesting || this.routerWarning) return false;
         if (this.state.routerUnknown) throw new Error(UNKNOWN);
-        // the warning sound first, then a moment, then the router (Phil 10-29: a reminder before it starts)
+        // the warning sound first, then a moment, then the router (a reminder before it starts)
         this.routerWarning = true;
         try {
           this.set({ note: 'the router is about to start' });
@@ -216,7 +216,7 @@ const PLATE = { input: 1, hit: 1, thickness: 3.0734, fast: 12.7, slow: 6.35, lif
       const on = this.outputs | (n === 1 ? SPINDLE : 1 << (n - 1));
       const word = w => [0xF0, w & 0xFF, (w >> 8) & 0x0F, 0xFF, 0xFF, 0xFF];
       this.testing = true;
-      // the router: the same warning sound and moment as the router button (torture test 10-29)
+      // the router: the same warning sound and moment as the router button
       if (n === 1) {
         this.set({ note: 'the router is about to start' });
         this.cue('router');
@@ -255,10 +255,9 @@ const PLATE = { input: 1, hit: 1, thickness: 3.0734, fast: 12.7, slow: 6.35, lif
       return off;
     }
 
-    // A fresh reading of the e-stop (its input, stopCfg) before anything moves or switches on (third review
-    // #1): 'clear', 'pressed', or 'unread' when no reading came. An old reading never stands in.
+    // A fresh reading of the e-stop (its input, stopCfg) before anything moves or switches on: 'clear', 'pressed', or 'unread' when no reading came. An old reading never stands in.
     async freshStop() {
-      // a momentary e-stop let go is still a stop: nothing moves again on this link (Phil 10-29)
+      // a momentary e-stop let go is still a stop: nothing moves again on this link
       if (this.estopPending) return 'pressed';
       if (this.card && !this.card.streaming) {
         let st = null;
@@ -317,14 +316,14 @@ const PLATE = { input: 1, hit: 1, thickness: 3.0734, fast: 12.7, slow: 6.35, lif
         await this.card.setBlocks(WINDOW);
         await this.card.cmd([0xF0, 0, 0, 0xFF, 0xFF, 0xFF]);
         await this.card.motors(true);
-        // Real box 10-27: the first move straight after motors-on was counted but never moved (X, then Z); the drives need a moment.
+        // On the real box the first move straight after motors-on is counted but never moved (X, then Z); the drives need a moment.
         await new Promise(r => setTimeout(r, this.cfg.motorWakeMs ?? 500));
         this.read(st);
       } catch (e) {
         link.onClose = null;
         this.link = null;
         await link.close();
-        // CTS/DSR read 0 on the real box even while it answers (10-27), so they say nothing here
+        // CTS/DSR read 0 on the real box even while it answers, so they say nothing here
         this.set({ connected: false, note: `the box did not answer: switch it on, pull the red stop buttons out, press the blue reset (${e.message})` });
         return false;
       }
@@ -336,7 +335,7 @@ const PLATE = { input: 1, hit: 1, thickness: 3.0734, fast: 12.7, slow: 6.35, lif
       return true;
     }
 
-    // The e-stop was pressed (Phil 10-29): when the machine is at rest, every output off and swarf lets
+    // The e-stop was pressed: when the machine is at rest, every output off and swarf lets
     // go of it. Connecting again is the student's say-so that the machine is safe, and clears it.
     async estopped() {
       if (!this.link || this.estopping) return;
@@ -354,7 +353,7 @@ const PLATE = { input: 1, hit: 1, thickness: 3.0734, fast: 12.7, slow: 6.35, lif
         note: `stopped by the e-stop (input ${this.stopCfg().input}): swarf let go of the machine` });
     }
 
-    // Let go of the box (Windows 10-29: the COM port takes one program at a time, so going back to
+    // Let go of the box (Windows: the COM port takes one program at a time, so going back to
     // ShopBot 3 needs swarf to close it). Only at rest; every output is switched off first, and an
     // off that did not land keeps the link (the router's state would be unknown).
     async disconnect() {
@@ -372,7 +371,7 @@ const PLATE = { input: 1, hit: 1, thickness: 3.0734, fast: 12.7, slow: 6.35, lif
       return true;
     }
 
-    // A dropped link mid-job is never a finish (Fable review 10-27): the UI keeps
+    // A dropped link mid-job is never a finish: the UI keeps
     // the line and asks for a reconnect. Whether the card stops the spindle on
     // its own after a drop is not yet proven on the box.
     lost() {
@@ -383,11 +382,11 @@ const PLATE = { input: 1, hit: 1, thickness: 3.0734, fast: 12.7, slow: 6.35, lif
       if (this.card && this.card.streaming && this.planner.st) this.steps = { ...this.planner.st.cur };
       this.job = null; this.holdAt = null;
       this.homeOrigin = null;
-      // a router test ends with the link (torture test 10-29: it stayed "on" and busy after a reconnect)
+      // a router test ends with the link (never left "on" and busy after a reconnect)
       clearTimeout(this.routerTimer);
       const testing = this.routerTesting;
       this.routerTesting = false;
-      // swarf cannot know what the router does now (review #5): never show it as simply off
+      // swarf cannot know what the router does now: never show it as simply off
       const unknown = mid || testing || this.state.spindle || this.state.routerUnknown;
       this.set({ connected: false, running: false, moving: false, spindle: false, routerTest: false, routerUnknown: !!unknown, done: false,
         stopHit: mid || this.state.stopHit, lostMid: mid, note: 'USB link lost' });
@@ -413,7 +412,7 @@ const PLATE = { input: 1, hit: 1, thickness: 3.0734, fast: 12.7, slow: 6.35, lif
     }
 
     // A loop already waiting on the card when the poll is stopped or restarted must not carry on
-    // (review A6: it rescheduled itself after disconnect, and routerTest stacked a second loop)
+    // (a poll must not reschedule itself after disconnect, nor routerTest stack a second loop)
     stopPoll() { clearTimeout(this.timer); this.pollGen = (this.pollGen || 0) + 1; }
     poll() {
       this.stopPoll();
@@ -433,7 +432,7 @@ const PLATE = { input: 1, hit: 1, thickness: 3.0734, fast: 12.7, slow: 6.35, lif
           try { this.read(await this.card.status()); } catch (e) { /* busy or gone; onClose reports loss */ }
           if (gen !== this.pollGen) return;
           // the e-stop pressed at rest or during a pause is the same stop as during a move: outputs
-          // off and let go; a paused job is over (torture test 10-29: a pause hid it, and resume ran on)
+          // off and let go; a paused job is over (a pause must not hide it, nor resume run on)
           if (this.link && this.state.inputs && !this.stopClear() && !this.estopping) {
             if (paused) { this.job = null; this.set({ paused: false, resumeLine: 0 }); }
             this.estopPending = true;
@@ -451,7 +450,7 @@ const PLATE = { input: 1, hit: 1, thickness: 3.0734, fast: 12.7, slow: 6.35, lif
     busy() { return !this.card || this.card.streaming || this.state.running || !!this.testing || !!this.homing || !!this.routerTesting; }
 
     // Run ops (machine mm) as one stack; resolves with the end report.
-    // the e-stop's input and its released level. The shop's box (Phil 10-29, at the machine): the
+    // the e-stop's input and its released level. The shop's box (measured at the machine): the
     // red floor button is momentary on input 8, off at rest; ShopBot's usual input 4 is not it.
     // Machine setup's "that's the e-stop" sets another box's.
     stopCfg() {
@@ -463,7 +462,7 @@ const PLATE = { input: 1, hit: 1, thickness: 3.0734, fast: 12.7, slow: 6.35, lif
       this.set({ stopInput: input });
     }
     stopRest() { return this.stopCfg().rest; }
-    // no reading is not "released" (follow-up review #6): fail closed
+    // no reading is not "released" : fail closed
     stopClear(inputs) { const i = inputs || this.state.inputs, c = this.stopCfg(); return !!i && this.level(i, c.input) === c.rest; }
 
     async stack(ops, hook, wanted) {
@@ -472,16 +471,16 @@ const PLATE = { input: 1, hit: 1, thickness: 3.0734, fast: 12.7, slow: 6.35, lif
       try { return await this.stackNow(ops, hook, wanted); } finally { this.stacking = false; this.stopEarly = false; }
     }
     async stackNow(ops, hook, wanted) {
-      // a fresh reading of the e-stop before anything moves (follow-up review #6), not the last poll's
+      // a fresh reading of the e-stop before anything moves, not the last poll's
       const stop = await this.freshStop();
       if (stop !== 'clear') { const e = new Error(STOP_WORDS[stop]); e.refused = true; throw e; }
       // a held jog let go while that reading was on its way never starts: items() below would
-      // clear the stop the release asked for, and the axis would run on (torture test 10-29)
+      // clear the stop the release asked for, and the axis would run on
       if (wanted && !wanted()) return null;
       if (!this.state.running) this.remoteStop = false;
       const from = this.work(this.steps);
       const start = this.machine(from);
-      // every motion, a jog, a seek or a job, meets the same move check before the card sees it (third review #5)
+      // every motion, a jog, a seek or a job, meets the same move check before the card sees it
       for (let i = 0, a = start; i < ops.length; i++) {
         const o = ops[i];
         if (o.out !== undefined || o.dwell !== undefined) continue;
@@ -509,9 +508,9 @@ const PLATE = { input: 1, hit: 1, thickness: 3.0734, fast: 12.7, slow: 6.35, lif
             // the override held at a move's limits: said beside the percentage
             if (p.limited && !this.state.overrideHeld) this.set({ overrideHeld: true });
             // the readout follows at most ten times a second, after the next block is on its way: done
-            // here on every ack, the page's redraw held the next block back long enough for the card to
-            // run dry at a trace's speed, and the bit stopped and started (Phil 11-02: "trace is
-            // unacceptably jerky")
+            // here on every ack, the page's redraw would hold the next block back long enough for the card to
+            // run dry at a trace's speed, and the bit stopped and started (a jerky
+            // trace)
             if (p.st) this.soon({ pos: this.work(p.st.cur), line: p.st.line > 0 ? p.st.line : this.state.line, inputs });
           }
         });
@@ -702,7 +701,7 @@ const PLATE = { input: 1, hit: 1, thickness: 3.0734, fast: 12.7, slow: 6.35, lif
       try { localStorage.setItem(PLATE_KEY, JSON.stringify({ input, hit, confirmed, thickness, travel })); } catch (e) { /* private window */ }
       this.set({ plateCfg: { ...this.plateCfg } });
     }
-    // how far the bit comes down looking for the plate, mm (Phil 10-29: 60 by default, more by hand)
+    // how far the bit comes down looking for the plate, mm (60 by default, more by hand)
     setPlateTravel(t) {
       if (!(t >= 10 && t <= 150)) return false;
       this.plateCfg.travel = t;
@@ -823,8 +822,8 @@ const PLATE = { input: 1, hit: 1, thickness: 3.0734, fast: 12.7, slow: 6.35, lif
       return root.SwarfRunPlan.build(prog, { pos: this.state.pos, live: (prog.cut || prog.spindle !== false) && !prog.preview, cfg: this.planCfg(), ctx: this.planCtx() });
     }
 
-    // Only a plan swarf made, the student confirmed, and nothing changed since runs (third review
-    // #2, #4): a bare program, an unconfirmed plan, a plan whose fingerprint no longer matches, or
+    // Only a plan swarf made, the student confirmed, and nothing changed since runs:
+    // a bare program, an unconfirmed plan, a plan whose fingerprint no longer matches, or
     // one made for another zero or link is refused, and so is any plan while the router's state
     // is unknown. Returns why not, or ''.
     refuse(plan) {
@@ -852,7 +851,7 @@ const PLATE = { input: 1, hit: 1, thickness: 3.0734, fast: 12.7, slow: 6.35, lif
       const u = this.cfg.unit, T = root.ShopBotCard.TICK_HZ / 65536, mv = this.cfg.move;
       plan.steps.forEach((s, si) => {
         // cut: a program move that is not a rapid and does not go down, the moves the feed override
-        // scales; a plunge or a ramp down keeps the file's feed (torture test 10-29: 150 % took a
+        // scales; a plunge or a ramp down keeps the file's feed (150 % would take a
         // plunge past the machine's Z speed)
         if (s.move) {
           const a = was, b = s.move;
@@ -860,7 +859,7 @@ const PLATE = { input: 1, hit: 1, thickness: 3.0734, fast: 12.7, slow: 6.35, lif
           const down = a !== null && b.z < a.z - 1e-6;
           const air = plan.kind === 'air', worked = s.phase === 'program' && !(s.work && s.work.rapid);
           const op = Object.assign(this.machine(b), { feed: s.feed, line: s.line, si, cut: !air && worked && !down, rehearse: air && worked, ...(s.work ? { work: s.work } : {}) });
-          // the override stays inside what the plan checked (codex review 10-29): at most the XY
+          // the override stays inside what the plan checked : at most the XY
           // speed and the Z speed along this move's slope, at least the card's slowest step for it
           if ((op.cut || op.rehearse) && a) {
             const L = Math.hypot(b.x - a.x, b.y - a.y, b.z - a.z), dz = Math.abs(b.z - a.z);
@@ -956,7 +955,7 @@ const PLATE = { input: 1, hit: 1, thickness: 3.0734, fast: 12.7, slow: 6.35, lif
         this.job.restStep = i >= 0 && ops[i].si !== undefined ? ops[i].si : this.job.plan.steps.length;
         this.job.haltAt = { ...this.state.pos };
         this.halted = null;
-        // the router off has to land, or its state is unknown (follow-up review #3)
+        // the router off has to land, or its state is unknown
         const off = await this.outputsOff();
         this.set({ paused: true, spindle: false, routerUnknown: !off, note: off ? 'paused' : 'paused; the router off did not reach the card' });
         return;
@@ -979,7 +978,7 @@ const PLATE = { input: 1, hit: 1, thickness: 3.0734, fast: 12.7, slow: 6.35, lif
       }
       const remote = this.remoteStop; this.remoteStop = false;
       // finished: a cut's router was switched off, and its bit coasts down before anyone reaches in;
-      // the chime waits for that (third review #6)
+      // the chime waits for that
       const coast = !stopped && live ? this.coastMs() : 0;
       this.set({ running: false, paused: false, spindle: false, done: !stopped, coasting: !!coast, note: remote ? `stopped by the e-stop (input ${this.stopCfg().input})` : stopped ? 'stopped' : 'program finished' });
       if (!stopped) this.cue('done', coast);
@@ -996,7 +995,7 @@ const PLATE = { input: 1, hit: 1, thickness: 3.0734, fast: 12.7, slow: 6.35, lif
     // every output off, and whether the card said so
     outputsOff() { return this.card ? this.card.cmd([0xF0, 0, 0, 0xFF, 0xFF, 0xFF]).then(() => true, () => false) : Promise.resolve(false); }
 
-    // Resume is a plan of its own (third review #5): straight up where the bit stopped, the router
+    // Resume is a plan of its own: straight up where the bit stopped, the router
     // on up there, the file's outputs as they were, slowly back down, then the rest of the job.
     // The page shows it and arms it like any other; never the router with the bit in the cut.
     resumePlan() {
@@ -1020,7 +1019,7 @@ const PLATE = { input: 1, hit: 1, thickness: 3.0734, fast: 12.7, slow: 6.35, lif
       this.go(ops);
     }
 
-    // how long the router coasts after its off: 30 s (Phil 10-29); swarf-shopbot-coast, s, overrides it
+    // how long the router coasts after its off: 30 s; swarf-shopbot-coast, s, overrides it
     coastMs() { try { const v = +localStorage.getItem('swarf-shopbot-coast'); return (v > 0 && v < 120 ? v : 30) * 1000; } catch (e) { return 30000; } }
 
     stop() {

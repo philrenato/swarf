@@ -113,12 +113,12 @@ function action(rec) {
             }
             placed();
             break;
-        // swarf (Interfacing review 10-28: delete could not be undone): a deleted part comes
+        // swarf: delete can be undone: a deleted part comes
         // back where it was, and undo-redo deletes it again
         case 'restore':
             quiet = true;
             // back into its group first: the delete emptied it, and a part with no group slices with
-            // no tabs and has no scale or rotate (torture test 10-29: the outline cut straight through)
+            // no tabs and has no scale or rotate (the outline would cut straight through)
             for (let w of rec.widgets) {
                 const g = Widget.Groups.forid((w.group && w.group.id) || w.id);
                 if (!g.includes(w)) g.push(w);

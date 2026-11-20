@@ -62,7 +62,7 @@ const solidAt = (p, loops) => loops.reduce((n, l) => n + (inside(p, l) ? 1 : 0),
 
 // what is straight under a hole's center: the highest surface below its rim, or null when nothing is and
 // it goes through. Asked of the mesh itself: the levels above stop at the top sixteen flats, and a floor
-// below them read as through (a review of 109: a stepped part's blind hole drilled right out)
+// below them would read as through (a stepped part's blind hole drilled right out)
 function floorUnder(pos, c, z) {
     let best = null;
     for (let i = 0; i + 8 < pos.length; i += 9) {

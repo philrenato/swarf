@@ -1,6 +1,6 @@
 /*
  * swarf sound — four short cues for CONTROL, made by the browser (no files), on the real
- * machine only (Phil 10-28: ShopBot's own are "obnoxious"; a few where sound tells what the
+ * machine only (gentler than ShopBot's own; a few where sound tells what the
  * screen cannot):
  *   move     a rising two-note cue: the machine is about to move (people near it, not only the
  *            one at the laptop, should know)

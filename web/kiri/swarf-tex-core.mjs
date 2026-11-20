@@ -373,8 +373,8 @@ function insidePoly(x, y, p) {
 //   and optionally dots(box) -> [[u, v, depth]] and strokes(box) -> polylines with strokeWidth.
 
 const P = (k, label, min, max, step, def, unit = 'mm', typed) => ({ k, label, type: 'range', min, max, step, def, unit, ...(typed ? { lo: typed[0], hi: typed[1] } : {}) });
-// What a box takes when typed (Phil 11-01: "give the slider the normal range of values that people might
-// use ... and allow plausible values to be typed into a number box"): the slider spans the usual range;
+// What a box takes when typed (the slider gives the normal range of values people
+// use, and plausible values beyond it can be typed into the number box): the slider spans the usual range;
 // a length can be typed from a quarter of its low end to four times its high end, an angle anywhere in a
 // turn either way, a seed any whole number; a percentage or a count keeps the slider's ends.
 export function typedRange(q) {
@@ -705,7 +705,7 @@ export const PATTERNS = {
       const sz = p.size, sp = p.spacing, hw = p.width / 2, seed = p.seed | 0;
       const kinds = MEMPHIS_MIX[p.mix] || MEMPHIS_MIX.everything, solid = p.fill === 'solid';
       // each cell of a square lattice holds one glyph: its kind, turn and offset from the cell's hash
-      // density: the share of cells that hold a glyph (Phil 11-01: "80s should get density"); the rest stay plain
+      // density: the share of cells that hold a glyph ; the rest stay plain
       const dens = Math.min(1, Math.max(0, (p.density ?? 100) / 100));
       const glyph = (i, j) => {
         if (dens < 1 && hash3(i, j, 5, seed) >= dens) return null;
@@ -932,7 +932,7 @@ export function makeMask(spec) {
   }
   throw new Error('unknown mask ' + spec.type);
 }
-// How the soft edge comes up to full depth, 0..1 over its width (Phil 11-01: falloffs at the edge):
+// How the soft edge comes up to full depth, 0..1 over its width (falloffs at the edge):
 // smooth eases in and out; straight is a plain ramp; round drops steeply at the edge and levels off
 // (a rounded-over rim); cove starts gently and steepens (a scooped hollow).
 export const CURVES = {
@@ -1075,8 +1075,8 @@ export function texture(spec) {
   const sh = spec.shape || {}, curve = sh.curve || 'smooth';
   const w = maskWeight(mask, spec.soft || 0, curve);
   let h = (x, y) => { const m = w(x, y); return m > 0 ? hb(x, y) * m : 0; };
-  // the mark shaped (Phil 11-01: "invert, where background lowers and tex raises", falloffs, a border
-  // band of various characters; lots of mixing and remixing): relief up turns the pattern over (its
+  // the mark shaped (invert, where background lowers and tex raises, falloffs, a border
+  // band of various characters; all of them mixed freely): relief up turns the pattern over (its
   // high places are cut, its low ones stay), floor sinks the whole mark first, and a border band runs
   // along the edge. Any of them makes a surface the raster cuts (no plunges or centerlines).
   const B = sh.border && sh.border.style && sh.border.style !== 'none' ? { ...borderDefaults(), ...sh.border } : null;
@@ -1741,7 +1741,7 @@ export function newFill(pattern = 'waves', over = {}) {
   return { fill: 'texture', pattern, params, scale: 1, angle: 0, origin: [0, 0], fade: 3, depth: params.depth, tool: suggestBit(pattern, params), path: 'auto', finish: 'standard', grit: 0, ...over };
 }
 
-// The bit each pattern cuts best by default (Phil 11-01: the default bit and stepover should make the
+// The bit each pattern cuts best by default (the default bit and stepover make the
 // pattern recognizable). Measured against the design on a 60 mm square (cut vs designed surface):
 // the 1/4 in ball holds every surface and dot pattern at a correlation of 0.92 or more in a few
 // minutes; line patterns (knurl, step & repeat, memphis as lines) come out exact and faster with a
@@ -1750,7 +1750,7 @@ export function suggestBit(pattern, params = {}) {
   if (pattern === 'knurl') return 'v90';
   if ((pattern === 'motif' && params.fill !== 'pocket') || (pattern === 'memphis' && params.fill !== 'solid')) return 'v90';
   // memphis filled solid keeps its 2.4 mm lines: no ball cuts them that narrow, a 90° V rasters
-  // them to their depth (11-19: 1.1 mm of relief against 0.4 with the 1/4 in ball)
+  // them to their depth (1.1 mm of relief against 0.4 with the 1/4 in ball)
   if (pattern === 'memphis') return 'v90';
   // a pocketed repeat's shapes are small: the 1/8 in ball reaches twice as deep into them as the 1/4
   if (pattern === 'motif') return 'ball18';
@@ -1799,7 +1799,7 @@ export function markTexture(mark, o = {}) {
 }
 
 // ---------------------------------------------------------------------------------------------
-// The TEX recipe (v1): a mark's texture as a file another app can draw (Phil 11-01: Unreason first).
+// The TEX recipe (v1): a mark's texture as a file another app can draw (Unreason first).
 // The pattern, its numbers, the turn and scale, the shaping and the region, in the mark's own mm;
 // how it is cut (bit, path, finish) apart, for readers that cut. `check` carries 64 depths and the
 // stroke and dot counts, so a reader can say whether it draws what swarf draws, never "close".
@@ -1914,7 +1914,7 @@ export function markToolpath(mark, o = {}) {
   // never below the mark's own depth (a V following a groove's center would go as deep as the
   // groove is wide), nor the board's
   const maxDepth = Math.min(tex.depth, o.maxDepth > 0 ? o.maxDepth : Infinity);
-  // a stepover typed in the step's card (Phil 11-01: tune it there as on any step) wins over the finish
+  // a stepover typed in the step's card (tuned there as on any step) wins over the finish
   const stepover = mark.fill.stepover > 0 ? mark.fill.stepover : undefined;
   const path = toolpath(tex, tool, { strategy, res, scallop, stepover, maxDepth, stepDown: o.stepDown, angle: o.angle || 0, safeZ: o.safeZ, clearZ: o.clearZ });
   return { ...path, tex, tool, strategy, res };
@@ -1970,8 +1970,8 @@ export function markReport(mark, o = {}) {
 }
 
 // ---------------------------------------------------------------------------------------------
-// The mark on its part (Phil 10-30: "paint goes to, can't go past, the top edge, ever; everything
-// has to be reachable by the mill; hitting the edge means pierce/texture to the edge").
+// The mark on its part (paint goes to, never past, the top edge; everything
+// has to be reachable by the mill; reaching the edge means pierce/texture to the edge).
 //
 // clipToPart(region, xf, loops, extend): the paint counts only on the part's top (loops: the part's
 // outline and holes, even-odd, in the part's frame). Where the paint meets the part's edge, or a
@@ -2283,7 +2283,7 @@ export const PIERCES = {
 // the skin's allowable bending strain: birch ply about 0.75 % (0.5–1 %), a guess until strips are bent
 export const SKIN_STRAIN = 0.0075;
 // the skin a board of thickness T starts with: 2.5 mm, but never more than a quarter of the board
-// (review 10-30: 2.5 mm on 6 mm plywood left 3.5 mm to flex, so the kerfs fell 91 mm apart), nor
+// (2.5 mm on 6 mm plywood would leave 3.5 mm to flex, so the kerfs would fall 91 mm apart), nor
 // more than bends to the default radius without cracking (SKIN_STRAIN: 1.5 mm at 100 mm)
 export function defaultSkin(T, R = 100) {
   const crack = Math.floor(2 * SKIN_STRAIN * R * 10 + 1e-9) / 10;
@@ -2472,7 +2472,7 @@ export function pierceChecks(mark, o = {}) {
   if (!cuts) return { warnings: [], notes: [], cuts: null };
   const f = mark.fill, tool = fillTool(f), w = tool.diameter, T = o.thickness > 0 ? o.thickness : 19;
   const p = { ...pierceDefaults(f.pattern, T), ...(f.params || {}) };
-  // every length said once, one way (r086 check S3: the pitch read 2 37/64 in one sentence and
+  // every length said once, one way (never a pitch of 2 37/64 in one sentence and
   // 2 9/16 in the next): o.len rounds (the app's prose); by default the app's mm rounding
   const L = o.len || ((v) => `${fmt(roundProse(v), 1)} mm`);
   const warnings = [], notes = ['These numbers are a starting point: cut a test strip first.'];
@@ -2485,10 +2485,10 @@ export function pierceChecks(mark, o = {}) {
     // kerfs counted as lines across the bend (bridges break one kerf into slots)
     const nk = kerfCount(cuts);
     notes.unshift(`Kerfs every ${L(cuts.pitch)}, ${cuts.through ? 'right through' : `${L(T - skin)} deep, leaving ${L(skin)}`}, ${nk} kerf${nk === 1 ? '' : 's'}.`,
-      // the rule in words: rounded numbers in a sum never multiply out on a calculator (deep review S12)
+      // the rule in words: rounded numbers in a sum never multiply out on a calculator
       'The spacing is the bit\'s width × the bend radius ÷ (the board − the skin): where the kerfs just close when it bends.');
-    // too few kerfs: the reason is the mark, not the bend (review 10-30 F2: "a bend this gentle
-    // needs few kerfs" sent students to the radius, which on a thin board cracks the skin first)
+    // too few kerfs: the reason is the mark, not the bend ("a bend this gentle
+    // needs few kerfs" would send students to the radius, which on a thin board cracks the skin first)
     if (nk < 3 && cuts.across > 0) {
       const rmin = skin > 0 ? skin / (2 * SKIN_STRAIN) : 0, tighter = p.radius > rmin * 1.25 + 1;
       notes.splice(1, 0, `This mark is ${L(cuts.across)} across the bend; kerfs fall every ${L(cuts.pitch)}, so ${nk ? `only ${nk} fit${nk === 1 ? 's' : ''}` : 'none fit'}: make the mark wider across the bend${tighter ? ' or the radius smaller' : ''}. A quarter turn at ${L(p.radius)} wants about ${L(Math.PI / 2 * p.radius)} across.`);
@@ -2549,8 +2549,8 @@ ${circles}
 }
 
 // ---------------------------------------------------------------------------------------------
-// The part as a mesh with its marks applied, for rendering (Phil 10-30: "is there a way to export
-// those out as renderable meshes?"). A watertight solid in mm, z up from the board's bottom (0) to
+// The part as a mesh with its marks applied, for rendering (exported as
+// a renderable mesh). A watertight solid in mm, z up from the board's bottom (0) to
 // its top (the board's thickness): its outline and holes as walls, its top displaced by every
 // texture, every pierce cut through (or down to its skin).
 //
@@ -2575,7 +2575,7 @@ export function partMeshSize(loops, res) {
 }
 const loopsBox = (loops) => { const b = [Infinity, Infinity, -Infinity, -Infinity]; for (const L of loops) for (const q of L) { b[0] = Math.min(b[0], q[0]); b[1] = Math.min(b[1], q[1]); b[2] = Math.max(b[2], q[0]); b[3] = Math.max(b[3], q[1]); } return b; };
 // 48 000 cells: a 6 x 10 in cutting board comes out near 0.9 mm, about 200 thousand triangles and
-// 10 MB as STL, a file a student can email (review 10-30 F10: 0.5 mm made it 31 MB)
+// 10 MB as STL, a file a student can email (0.5 mm would make it 31 MB)
 export function autoMeshRes(loops, maxCells = 48000) {
   const b = loopsBox(loops), area = Math.max(1, (b[2] - b[0]) * (b[3] - b[1]));
   return Math.max(0.5, Math.sqrt(area / maxCells));
@@ -2808,7 +2808,7 @@ export function meshSTL(mesh, name = 'swarf') {
   }
   return buf;
 }
-// a Wavefront OBJ (mm; Y up, as OBJ readers expect and swarf's import reads it, 11-09: x stays, the
+// a Wavefront OBJ (mm; Y up, as OBJ readers expect and swarf's import reads it: x stays, the
 // part's z (up) is y, its y is -z, as the GLB below), with normals: smooth across the top so
 // it renders soft, one per face on the walls and the bottom so their edges stay hard
 export function meshOBJ(mesh, name = 'swarf') {
@@ -2907,8 +2907,8 @@ export function swatch(id, N, colors, params) {
 }
 
 // ---------------------------------------------------------------------------------------------
-// Inlay (Phil 11-02: "instead of tex I get the ability to drop down the part by X depth and
-// automatically get a matching part in the scene that I could machine in another material"): the
+// Inlay (the part dropped down by a depth, and
+// a matching part in the scene to machine in another material): the
 // paint cut as a flat pocket `depth` deep by a flat bit, and the plug that fills it.
 //
 //   fill = { fill: 'inlay', depth, gap, proud, tool | bit, stepover? }
@@ -3004,7 +3004,7 @@ export function inlayShape(mark, o = {}) {
   if (!region || region.type !== 'paint') return null;
   const tool = fillTool(f), r = tool.R, gap = Math.max(0, f.gap ?? INLAY.gap);
   const A = mark.xf || IDENTITY;
-  // every point of the part's outline counts: a hole moved into the paint is a new shape (review 11-02)
+  // every point of the part's outline counts: a hole moved into the paint is a new shape
   const partKey = o.part ? o.part.map((L) => L.map((q) => `${+q[0].toFixed(4)},${+q[1].toFixed(4)}`).join(';')).join('|') : '';
   const key = JSON.stringify([regionHash(region), A, r, gap, o.res || 0, o.cells || 0, partKey.length > 4000 ? `${partKey.length}:${regionHash({ nx: 0, ny: 0, x0: 0, y0: 0, res: 0, data: Array.from(partKey, (c) => c.charCodeAt(0)) })}` : partKey]);
   if (inlayCache.has(key)) return inlayCache.get(key);
@@ -3021,13 +3021,13 @@ export function inlayShape(mark, o = {}) {
   const S = rasterLoops(loops, bx[0], bx[1], h, nx, ny);
   // opened (what a bit of radius r can reach), then closed (no inside corner tighter than r), then
   // opened again: a closing that bridges a neck narrower than the bit leaves wood the bit cannot clear
-  // under the plug (review 11-02: two dots 0.5 mm apart, 0.34 mm too big)
+  // under the plug (two dots 0.5 mm apart would be 0.34 mm too big)
   const sdS = signedOf(nx, ny, S);
   // opening: the union of the bit's discs that fit; closing: what is left when they roll round outside
   const open = (X) => { const a = edt(nx, ny, (k) => !X[k]), c = edt(nx, ny, (k) => a[k] > rc), Y = new Uint8Array(N); for (let k = 0; k < N; k++) Y[k] = c[k] <= rc ? 1 : 0; return Y; };
   const close = (X) => { const a = edt(nx, ny, (k) => X[k]), c = edt(nx, ny, (k) => a[k] > rc), Y = new Uint8Array(N); for (let k = 0; k < N; k++) Y[k] = c[k] > rc ? 1 : 0; return Y; };
   // closed then opened again until it holds: a closing that bridges a neck narrower than the bit leaves
-  // wood under the plug, and an opening can cut an inside corner tighter than the bit (review 11-02)
+  // wood under the plug, and an opening can cut an inside corner tighter than the bit
   const toC = edt(nx, ny, (k) => sdS[k] <= -rc);
   let F = new Uint8Array(N); for (let k = 0; k < N; k++) F[k] = toC[k] <= rc ? 1 : 0;
   for (let it = 0; it < 6; it++) {
@@ -3080,7 +3080,7 @@ export function inlayToolpath(mark, o = {}) {
   if (!sh || sh.empty) return { moves: [], inlay: sh, strategy: 'pocket' };
   const f = mark.fill, tool = sh.tool, r = sh.r, E = emitter(o);
   const want = Math.max(0.01, f.depth ?? INLAY.depth), deep = o.maxDepth > 0 ? Math.min(want, o.maxDepth) : want;
-  // rings at most the bit's radius apart: wider leaves a post standing in the middle (review 11-02)
+  // rings at most the bit's radius apart: wider leaves a post standing in the middle
   const step = Math.min(r, f.stepover > 0 ? f.stepover : 0.4 * 2 * r);
   const sd = o.stepDown > 0 ? o.stepDown : deep, zs = [];
   for (let z = -sd; z > -deep + 1e-6; z -= sd) zs.push(z);
@@ -3206,7 +3206,7 @@ export function inlayChecks(mark, o = {}) {
 }
 
 // ---------------------------------------------------------------------------------------------
-// V-carve: a closed shape cut by a V-bit along its medial axis (review 105 F3, M4). At a point the
+// V-carve: a closed shape cut by a V-bit along its medial axis. At a point the
 // depth is its distance to the outline over tan(half the bit's angle), so the cone's rim touches the
 // outline all the way round and the corners come out sharp. It stops at the shallowest of: the flat
 // depth typed (fill.limit), the bit's own cone (past that the shank would have to do the cutting) and
@@ -3566,7 +3566,7 @@ export function vcarveToolpath(mark, o = {}) {
   for (let f = -sd; f > deepest + 1e-6; f -= sd) floors.push(f);
   floors.push(deepest);
   // a straight run that crosses the depth limit bends there: depth follows the width up to it, then holds.
-  // Without the bend the pass sloped end to end and left wood at the corners (a review of 109: 1.6 mm)
+  // Without the bend the pass would slope end to end and leave wood at the corners (1.6 mm)
   const bendAt = cap * tan;
   const axis = sh.axis.map((P) => {
     const out = [];

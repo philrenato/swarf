@@ -1,6 +1,6 @@
 /*
- * swarf prefs — setup › preferences in swarf's words (Phil 10-28: "the preferences dialog
- * box needs work again"). Kiri builds five columns of its own names (anti-alias, web asm,
+ * swarf prefs — setup › preferences in swarf's words.
+ * Kiri builds five columns of its own names (anti-alias, web asm,
  * heal mesh …) in a 2 × 3 grid with one cell empty. This regroups the same rows, by their
  * kiri.api.ui keys, into what a student looks for first ("the view", "the bed") and folds
  * the rest under "advanced". The rows, their inputs and their saving stay kiri's; only
@@ -73,12 +73,12 @@
       col.append(list);
       wrap.append(col);
     }
-    // Kiri's layout spacing is not the gap swarf keeps (12 mm, r42): the row would say the wrong number (Fable review 3 #22)
+    // Kiri's layout spacing is not the gap swarf keeps (12 mm): the row would say the wrong number
     const sp = rowOf(ui.spaceLayout); if (sp) { sp.style.display = 'none'; used.add(sp); }
-    // dark mode is the skin's job now (VIEW › skin): its row stays, out of sight, with the old look
+    // dark mode is the skin's job (VIEW › skin): its row stays, out of sight, with Kiri's look
     const dark = rowOf(ui.dark);
     if (dark) { dark.classList.add('swarf-prefs-dark'); wrap.querySelector('.swarf-prefs-adv .swarf-prefs-rows').append(dark); const l = dark.querySelector('label'); if (l) l.textContent = 'dark mode'; }
-    // kiri's own columns, now empty of everything we moved; anything left (a mode's own row) stays reachable
+    // kiri's own columns, empty of every row moved above; anything left (a mode's own row) stays reachable
     const old = box.querySelector('.f-row.gap10');
     if (old) {
       for (const c of old.querySelectorAll(':scope > .f-col')) {
@@ -92,7 +92,7 @@
     return true;
   }
 
-  // mm | in on the bed's top-left corner (Phil 10-30: "what if we put an in/mm slider right here?"),
+  // mm | in on the bed's top-left corner ,
   // one tap from every mode. It drives Kiri's own units select, so preferences and it are one setting.
   function unitsSwitch() {
     const ui = window.kiri && window.kiri.api && window.kiri.api.ui;
@@ -109,8 +109,8 @@
       const b = document.createElement('button');
       b.textContent = word; b.setAttribute('role', 'radio');
       b.addEventListener('click', () => {
-        // a real change event (review 10-30 F1): calling sel.onchange() reached Kiri alone, and
-        // the cards that listen (TEX, the tab card, auto tabs, DRAW) kept saying mm. A dispatched
+        // a real change event: calling sel.onchange() would reach Kiri alone, and
+        // the cards that listen (TEX, the tab card, auto tabs, DRAW) would keep saying mm. A dispatched
         // event runs Kiri's onchange property once, first (it was set before any listener), then them.
         if (sel.value !== k) { sel.value = k; sel.dispatchEvent(new Event('change', { bubbles: true })); }
         show();

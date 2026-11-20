@@ -18,7 +18,7 @@
     const kiri = window.kiri;
     const api = kiri && kiri.api;
     if (!api || !api.event) return false;
-    // swarf v010 r8: working-sky accelerated drift ("smoke/fog") only in
+    // swarf: working-sky accelerated drift ("smoke/fog") only in
     // expert mode. Default users don't see it.
     const setWorking = (on) => {
       const expert = body.classList.contains('swarf-expert');
@@ -33,9 +33,9 @@
     try { api.event.on('animate', () => setWorking(true)); } catch (e) {}
     try { api.event.on('animate.end', () => setWorking(false)); } catch (e) {}
 
-    // swarf r6: force TAGS (cam-tabs) + STRATEGY (cam-output) drawers closed, once per profile
-    // (settings.hidden is top-level). Gated (review r093 C3): run on every load it closed a drawer
-    // the student had opened and saved the settings at every boot; new profiles start closed anyway.
+    // swarf: force TAGS (cam-tabs) + STRATEGY (cam-output) drawers closed, once per profile
+    // (settings.hidden is top-level). Gated: run on every load it would close a drawer
+    // the student had opened and save the settings at every boot; new profiles start closed anyway.
     try {
       const MIG = 'swarf.r6.drawers-closed';
       if (api.conf && api.conf.get && !localStorage.getItem(MIG)) {
@@ -51,10 +51,10 @@
       }
     } catch (e) { console.warn('swarf: drawers migration failed', e); }
 
-    // swarf 082: the ShopBot is the default machine (Phil 10-29: "make the shopbot the default
-    // machine"). New profiles get it from defaults.js (filter.CAM); a profile still on the MR-1
+    // swarf: the ShopBot is the default machine.
+    // New profiles get it from defaults.js (filter.CAM); a profile still on the MR-1
     // that earlier builds picked for it is switched once. Someone who picks the MR-1 after
-    // this keeps it. (Replaces the r6 migration that forced the MR-1 on first load.)
+    // this keeps it.
     try {
       const MIG_SB = 'swarf.082.default-shopbot';
       if (!localStorage.getItem(MIG_SB) && api.conf && api.conf.get) {
@@ -67,8 +67,8 @@
       }
     } catch (e) {}
 
-    // swarf 082: a ShopBot profile saved before 082 wrote 'UNITS:MM with no check; the file now
-    // refuses to run on a ShopBot set to inches (torture test 10-29). Every load, idempotent.
+    // swarf: a ShopBot profile whose post writes 'UNITS:MM with no check gets the check, so the file
+    // refuses to run on a ShopBot set to inches. Every load, idempotent.
     try {
       const s = api.conf && api.conf.get && api.conf.get();
       const guard = 'IF %(25)=0 THEN GOTO UNIT_ERROR';
@@ -84,8 +84,8 @@
       if (changed && api.conf.save) api.conf.save();
     } catch (e) {}
 
-    // swarf 083: the ShopBot's rapids travel 5 mm (0.2 in, VCarve's usual safe Z) above the board,
-    // not Kiri's 1 mm (Phil 10-29: the 1 mm raised a concern on a default setup). Raised on load and
+    // swarf: the ShopBot's rapids travel 5 mm (0.2 in, VCarve's usual safe Z) above the board,
+    // not Kiri's 1 mm (1 mm raises a concern on a default setup). Raised on load and
     // whenever the ShopBot is picked, only when under 3 mm, and said once.
     try {
       const raise = () => {
@@ -105,8 +105,8 @@
       api.event.on('device.selected', () => setTimeout(raise, 0));
     } catch (e) {}
 
-    // swarf r5: force animation-mesh density down for stored profiles. Upstream
-    // Kiri defaults animesh to "800"; swarf r5 lowers it to "500" (grid density
+    // swarf: force animation-mesh density down for stored profiles. Upstream
+    // Kiri defaults animesh to "800"; swarf lowers it to "500" (grid density
     // is (animesh · stockArea)² so this ~2× speeds up "building animation").
     // defaults.js only helps fresh profiles — this migration catches everyone.
     try {
@@ -124,15 +124,15 @@
       }
     } catch (e) {}
 
-    // swarf r12+: profile reset. Wipe ws-settings AND IndexedDB, then
+    // swarf: profile reset. Wipe ws-settings AND IndexedDB, then
     // reload so the delete completes before Kiri re-opens the DB.
     // BUMPED r14: stale profiles from r12/r13 carried over ops/settings
     // that defeated r14's rough-op auto-add (user clicked TOOLPATHS,
     // nothing rendered). Fresh profile forces the r14 code path.
     try {
       const MIG_R12 = 'swarf.r14.profile-reset-v8';
-      // a new browser has nothing to reset: mark it and go on (review r093 A10: every first visit
-      // deleted an empty database and reloaded, on top of the service worker's own reload)
+      // a new browser has nothing to reset: mark it and go on (otherwise every first visit
+      // would delete an empty database and reload, on top of the service worker's own reload)
       if (!localStorage.getItem(MIG_R12) && !localStorage.getItem('ws-settings')) localStorage.setItem(MIG_R12, '1');
       if (!localStorage.getItem(MIG_R12)) {
         localStorage.removeItem('ws-settings');
@@ -152,11 +152,11 @@
     } catch (e) { console.warn('swarf: r12 profile reset failed', e); }
 
     // expose a manual reset for Help → Reset Profile
-    // swarf r14+: also unregister the coi service worker + clear caches.
+    // swarf: also unregister the coi service worker + clear caches.
     // Without this, a stale SW can leave the reloaded page without the
     // cross-origin headers SharedArrayBuffer needs, and the loading
-    // curtain never lifts (Phil saw "swarf needs browser features" fallback
-    // after hitting Reset Profile).
+    // curtain never lifts (the "swarf needs browser features" fallback
+    // after Reset Profile).
     window.__swarfResetProfile = async function () {
       try {
         localStorage.removeItem('ws-settings');

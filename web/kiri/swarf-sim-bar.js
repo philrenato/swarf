@@ -9,7 +9,7 @@
   if (window.__swarfSimBarLoaded) return;
   window.__swarfSimBarLoaded = true;
 
-  // swarf v010 r8: chips default OFF — reserved for when the student
+  // swarf: chips default OFF — reserved for when the student
   // explicitly turns on the "feels like a real cut" view.
   try {
     const chipsSaved = localStorage.getItem('swarf.chips');
@@ -48,12 +48,12 @@
     const cfg = CFG[kind];
     const on  = !!window[cfg.flag];
     b.textContent = on ? cfg.onLabel : cfg.offLabel;
-    // (whole-app review r086 B5) one pill style for every toggle on the bar, chips, lightstreams
+    // one pill style for every toggle on the bar, chips, lightstreams
     // and machine alike: each skin draws .swarf-toggle-on / -off (the swarf skin: on = mill-red)
     b.title              = on ? cfg.onTitle : cfg.offTitle;
     b.classList.toggle('swarf-toggle-on',  on);
     b.classList.toggle('swarf-toggle-off', !on);
-    // (r093 UX V2) the state is the pill's fill, as machine's; the word stays the same
+    // the state is the pill's fill, as machine's; the word stays the same
     b.setAttribute('aria-pressed', on ? 'true' : 'false');
   }
 
@@ -83,7 +83,7 @@
     if (!bar || bar.dataset.swarfExtras === '1') return;
     if (!bar.querySelector('button')) return; // wait for Kiri to populate
     bar.dataset.swarfExtras = '1';
-    // (whole-app review r086 B5) the bar names itself in every skin, and its two numbers say
+    // the bar names itself in every skin, and its two numbers say
     // what they are: "speed ×1" and "done 35 %"
     const name = document.createElement('span');
     name.className = 'swarf-sim-name';
@@ -101,13 +101,13 @@
       }
     }
 
-    // swarf r10-f (Phil feedback): no paths button on the bar; the paths' checkboxes are Kiri's native
-    // label row, which in simulate (Phil 11-01) holds one box per step, above this bar
+    // swarf: no paths button on the bar; the paths' checkboxes are Kiri's native
+    // label row, which in simulate holds one box per step, above this bar
     // (swarf-lightstream.js addStepBox). The bar keeps chips + lightstreams.
     bar.appendChild(makeToggle('chips'));
     bar.appendChild(makeToggle('lightstream'));
 
-    // ── editable speed field (Phil markup Apr 15 item 4) ──
+    // ── editable speed field ──
     // the speed label: the readonly <input size="3"> after the "toggle speed" button
     const speedBtn = bar.querySelector('button[title="toggle speed"]');
     const speedLabelEl = speedBtn
@@ -128,7 +128,7 @@
         if (!Number.isFinite(v) || v <= 0) v = 1;
         if (v < 0.5) v = 0.5;
         if (v > 100) v = 100;
-        // (Phil 11-01) a number held to the ends is said, with the range
+        // a number held to the ends is said, with the range
         if (Number.isFinite(typed) && typed !== v) {
           try { window.kiri.api.show.alert(`Simulate's speed goes from 0.5 to 100: it is set to ${v}.`, 5); } catch (e) { /* no alerts */ }
         }
@@ -142,7 +142,7 @@
       speedLabelEl.parentNode.insertBefore(field, speedLabelEl.nextSibling);
       const sw = document.createElement('span'); sw.className = 'swarf-sim-word'; sw.textContent = 'speed ×';
       field.before(sw);
-      // (review 105 F7) what that number means against the clock, measured as it plays (swarf-estimate.js)
+      // what that number means against the clock, measured as it plays (swarf-estimate.js)
       const real = document.createElement('span');
       real.id = 'swarf-sim-real';
       real.className = 'swarf-sim-word swarf-sim-real';
@@ -160,7 +160,7 @@
       }).observe(bar, { childList: true, subtree: true, attributes: true, attributeFilter: ['class','style'] });
     }
   }
-  // (review r086 F3) Space in simulate plays and pauses; it never scrolls the page
+  // Space in simulate plays and pauses; it never scrolls the page
   function onSpace(e) {
     if (e.key !== ' ' || e.metaKey || e.ctrlKey || e.altKey) return;
     const bar = document.getElementById('layer-animate');
@@ -173,7 +173,7 @@
     const b = vis('pause') && window.__swarfSimPlaying ? vis('pause') : vis('play');
     if (b) { b.click(); window.__swarfSimPlaying = b.title === 'play'; }
   }
-  // Esc leaves simulate for the toolpaths, as Esc leaves DRAW, TEX and the tab card (deep review S8)
+  // Esc leaves simulate for the toolpaths, as Esc leaves DRAW, TEX and the tab card
   function onEsc(e) {
     if (e.key !== 'Escape') return;
     const bar = document.getElementById('layer-animate');

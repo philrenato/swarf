@@ -31,8 +31,8 @@ const CAM_SCHEME = {
 
     // CAM-specific operations
     operations: {
-        // Tab visualization — swarf v010 r5: mill-red glowing blocks in both
-        // themes. Phil: "tabs should be red in general." Reads as part of the
+        // Tab visualization — swarf: mill-red glowing blocks in both
+        // themes; tabs are red in general. Reads as part of the
         // mill-red light-language (matches accent, retract markers, simulate
         // button). Opacity kept high so they read as solid glow, not ghosted.
         tabs: {

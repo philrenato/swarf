@@ -1,7 +1,7 @@
 /*
  * swarf quick start — the shop poster ("Run ShopBot with Swarf", KCAD woodshop) as a
- * walk-through in help (Phil 10-28: "Make a quick setup/tutorial feature in help with
- * something adapted from the poster"). Twelve pages: the opening line, five steps of file
+ * walk-through in help (a quick setup/tutorial adapted
+ * from the poster). Twelve pages: the opening line, five steps of file
  * prep, what to do before you touch the machine, five steps at the machine, and the
  * emergency. A page can carry a "show me" that does or opens the thing it names.
  * Words in <b> are what the student presses or reads in swarf, as on the poster.
@@ -28,7 +28,7 @@
   ];
   // the safety sentences come from swarf-safety-words.js, the copy the poster matches word for word
   const words = t => t.replace(/%(\w+)%/g, (_, k) => {
-    // Windows only: the box's COM port takes one program at a time (Phil 10-29)
+    // Windows only: the box's COM port takes one program at a time
     if (k === 'windows') return window.ShopBotLink && ShopBotLink.kind() === 'serial' ? ' On Windows, quit ShopBot 3 first: one program at a time.' : '';
     const w = (window.SwarfSafetyWords || {})[k] || '';
     return k === 'finished' ? w.replace(/^At Finished/, 'At <b>Finished</b>') : w;
@@ -58,7 +58,7 @@
     const body = root.querySelector('.st-body');
     body.innerHTML = `<div class="st-n${P.n === '!' ? ' warn' : ''}">${P.n}</div><h3 id="st-h">${P.h}</h3>` +
       (P.p ? P.p.map(t => `<p>${words(t)}</p>`).join('') : '') + (P.list ? `<ul>${P.list.map(t => `<li>${t}</li>`).join('')}</ul>` : '');
-    // the numbered steps count as steps; the welcome, safety and emergency pages carry no number (review 10-29: "5 of 13" over a big 4)
+    // the numbered steps count as steps; the welcome, safety and emergency pages carry no number (never "5 of 13" over a big 4)
     const pg = PAGES[at], steps = PAGES.filter(q => typeof q.n === 'number').length;
     root.querySelector('.st-count').textContent = typeof pg.n === 'number' ? `step ${pg.n} of ${steps}` : '';
     root.querySelector('.st-dots').innerHTML = PAGES.map((_, k) => `<i class="${k === at ? 'on' : ''}"></i>`).join('');

@@ -14,11 +14,11 @@ const surfaces = {
             ...actions,
             'view-arrange': stop(() => api.platform.layout()),
             'act-slice':    stop(() => api.function.slice()),
-            // swarf v010 r7/r8: 'act-paths' combines toolpaths + preview.
+            // swarf: 'act-paths' combines toolpaths + preview.
             // If we're returning from SIMULATE, auto-clear sim/trail state
-            // first so the new preview starts from a clean slate. Per Phil:
-            // "if someone goes from simulate to toolpaths it should rebuild
-            // toolpaths/autoclear beforehand."
+            // first so the new preview starts from a clean slate: going from
+            // simulate to toolpaths rebuilds the toolpaths and clears
+            // beforehand.
             'act-paths': stop(() => {
                 try {
                     const curView = api.view && api.view.get && api.view.get();
@@ -50,7 +50,7 @@ const surfaces = {
             }),
             'act-preview':  stop(() => api.function.print()),
             'act-animate':  stop(() => api.function.animate()),
-            // swarf v010 r7: CLEAR — wipe slices/preview/sim; back to arrange
+            // swarf: CLEAR — wipe slices/preview/sim; back to arrange
             'act-clear':    stop(() => {
                 try { api.function.clear && api.function.clear(); } catch (e) {}
                 try { api.animate && api.animate.clear && api.animate.clear(); } catch (e) {}
@@ -60,7 +60,7 @@ const surfaces = {
                 try { window.dispatchEvent(new CustomEvent('swarf.clear')); } catch (e) {}
             }),
             'act-export':   stop(() => api.function.export()),
-            // swarf v010 r7 rev2: simulate display toggles — proxy to the
+            // swarf: simulate display toggles — proxy to the
             // Kiri sim-bar buttons so handlers fire identically.
             'view-trans': stop(() => { try { const ui = api.ui && api.ui.anim; ui && ui.trans && ui.trans.click && ui.trans.click(); } catch (e) {} }),
             'view-model': stop(() => { try { const ui = api.ui && api.ui.anim; ui && ui.model && ui.model.click && ui.model.click(); } catch (e) {} }),

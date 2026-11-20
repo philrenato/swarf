@@ -3,7 +3,7 @@
  * for the material, the outline bit, the board's thickness and the machine (the rule is in
  * autotab-rule.js). Two sliders move it: how many (fewer .. more) and size (smaller .. larger).
  *
- * The press places them at once (Phil 10-30: no apply step; undo or the trash takes them back):
+ * The press places them at once (no apply step; undo or the trash takes them back):
  * ordinary tabs in the existing tab system (the widget's `tab` annotation, drawn by cl-tab.js),
  * each record carrying `auto: true`. Placing again replaces only the auto ones, and never a tab
  * placed by hand; an auto tab that would land on a hand-placed one is left out.
@@ -14,7 +14,7 @@
  * part's `tabset.spots` (a point on the edge, in the part's frame, turned, mirrored and scaled
  * with the part), and placing again leaves that place empty. The trash forgets pins and spots.
  *
- * Parametric (Phil 10-29: "make all the tab attributes parametric and editable"): every number
+ * Parametric (every tab attribute parametric and editable): every number
  * the rule uses has a field: length, height, reach, how many, from corners, big hole, in each
  * hole, and whether big holes get tabs at all. An empty field is automatic and shows the rule's
  * value in gray; a typed value is pinned. A part that has auto tabs keeps its settings
@@ -53,8 +53,8 @@ export const FIELDS = [
 ];
 
 const SL = () => window.SwarfLength;
-// a length in a sentence: the nearest 16th in inches (r086 check S3: "0.1874 in tall" beside a
-// field reading 3/16), mm as before; the fields keep SwarfLength.field
+// a length in a sentence: the nearest 16th in inches (never "0.1874 in tall" beside a
+// field reading 3/16), mm to the decimal; the fields keep SwarfLength.field
 const say = mm => (SL() ? (SL().prose ? SL().prose(mm, undefined, 2) : SL().say(mm)) : `${(+mm).toFixed(2)} mm`);
 const clone = o => JSON.parse(JSON.stringify(o));
 const r2 = v => Math.round(v * 100) / 100;
@@ -211,7 +211,7 @@ export function autoPlace(opt) {
 }
 
 /**
- * A concern's fix (sync.js, Phil 11-13): auto tabs on these parts only, whatever is selected, in
+ * A concern's fix (sync.js): auto tabs on these parts only, whatever is selected, in
  * one step of undo. holes: "hold inside pieces" goes back on for each of them (and a pinned
  * "holes from" wider than its loose piece lets go), on its own settings, so its hole tabs are placed.
  * @returns {{ placed: number, held: number, parts: number } | null} null where auto tabs cannot go
@@ -224,7 +224,7 @@ export function autoFix(widgets, holes) {
     const before = tabSnap(ws);
     const id = { next: Date.now() };
     const plans = ws.map(w => {
-        const set = normal(clone(setOf(w) || cur));   // the part's own settings, never the panel's (fresh review 11-13)
+        const set = normal(clone(setOf(w) || cur));   // the part's own settings, never the panel's
         if (holes) {
             delete set.pin.holes;
             const least = Math.min(...autoAudit(w).loose.filter(h => !h.tabs).map(h => h.across));
@@ -461,8 +461,8 @@ function toLoop(p, loop) {
 const audits = new Map();   // widget id -> { key, out }
 
 /**
- * What would come loose when this part is cut through (Phil 10-29: "anything that could fly off
- * the machine"): its outside with no tab, and every hole that leaves a loose piece with no tab.
+ * What would come loose when this part is cut through (anything that could fly off
+ * the machine): its outside with no tab, and every hole that leaves a loose piece with no tab.
  * @returns {{ outerTabs: number, loose: Array<{ across: number, tabs: number }>, holeMin: number }}
  */
 export function autoAudit(widget, opt = {}) {
@@ -549,7 +549,7 @@ function summary(plans) {
     }));
 }
 
-// the plans the line was said from, so a units switch says it again in the new units (review r093-ux B2)
+// the plans the line was said from, so a units switch says it again in the new units
 let lastPlans = null;
 function describe(plans) {
     if (!plans.length) return 'Add a part first.';
@@ -565,7 +565,7 @@ function describe(plans) {
     if (spots) line += ` ${plural(spots, 'place')} where you deleted one stay${spots === 1 ? 's' : ''} empty (remove all starts over).`;
     if (plans.some(p => p.plan.small)) line += ' A small part: fewer tabs fit.';
     if (plans.some(p => p.rule.capped)) line += ` Height held to ${say(r.height)}, under the board's thickness.`;
-    // what it could not do, said, not left to a success line (codex review 10-29)
+    // what it could not do, said, not left to a success line
     const skipped = plans.reduce((a, p) => a + (p.plan.skipped || 0), 0);
     if (skipped) line += ` ${skipped} tab${skipped === 1 ? '' : 's'} did not fit: add ${skipped === 1 ? 'it' : 'them'} by hand with + where the part needs holding.`;
     if (plans.some(p => !p.rule.pinned.height && p.rule.height < p.rule.heightFloor - 0.01)) line += ` The board is thin, so the tabs are only ${say(r.height)} tall (under the usual ${say(r.heightFloor)}): check they hold.`;
@@ -579,8 +579,8 @@ function sayLine(text) {
 }
 
 // the fields: pinned values as typed, automatic ones as gray placeholders from the first part
-// what is on the board now, before any number (review 11-13 #7: a count field reading 3 looked like
-// three tabs while the part had none): the tabs placed on the parts this panel acts on, and the
+// what is on the board now, before any number (a count field reading 3 looks like
+// three tabs while the part may have none): the tabs placed on the parts this panel acts on, and the
 // button says what a press will do
 function showPlaced(suggest) {
     if (!els.placed) return;
@@ -588,7 +588,7 @@ function showPlaced(suggest) {
     let n = 0, bare = 0;
     try { for (const w of ws) { const k = (api.widgets.annotate(w.id).tab || []).length; n += k; if (!k) bare++; } } catch (e) { return; }
     const who = ws.length === 1 ? (ws[0].meta && ws[0].meta.file || 'this part') : `${ws.length} parts`;
-    // several parts: say how many have none, so one tabbed part does not hide an untabbed one (fresh review 11-13)
+    // several parts: say how many have none, so one tabbed part does not hide an untabbed one
     els.placed.textContent = !ws.length ? '' : `${n} tab${n === 1 ? '' : 's'} placed on ${who}${ws.length > 1 && bare ? `: ${bare} with none` : ''}`;
     els.placed.classList.toggle('none', !!bare);
     n = bare ? 0 : n;
@@ -708,7 +708,7 @@ function field(f) {
         let v = NaN;
         if (t) v = f.kind === 'len' ? (SL() ? SL().parse(t) : parseFloat(t)) : Math.round(parseFloat(t));
         if (!t) delete cur.pin[f.key];
-        // (Phil 11-01) a count goes 1 to 100 a part: more is no tab plan, and slow to place
+        // a count goes 1 to 100 a part: more is no tab plan, and slow to place
         else if (Number.isFinite(v) && v > 0 && (f.kind === 'len' || v <= 100)) cur.pin[f.key] = f.kind === 'len' ? Math.round(v * 1000) / 1000 : v;
         else {
             sayLine(`${f.label}: type ${f.kind === 'len' ? 'a number above zero, like 1/2 or 12 mm' : 'a whole number from 1 to 100'}, or leave it empty for automatic.`);
@@ -772,7 +772,7 @@ export function autoTabRow() {
         edited();
     });
     auto.classList.add('swarf-autotabs-reset');
-    // the tabs actually on the board, above the button and the numbers (review 11-13 #7)
+    // the tabs actually on the board, above the button and the numbers
     const placed = document.createElement('div');
     placed.className = 'swarf-autotabs-placed';
     placed.setAttribute('aria-live', 'polite');
@@ -783,9 +783,9 @@ export function autoTabRow() {
     recall();
     const box = document.createElement('div');
     box.className = 'swarf-autotabs';
-    // the line that says what the press did sits under the sliders, above the fields (r086 check S1: at
-    // 720 it was below the rail's fold under the fields; above the sliders, its two lines becoming three
-    // moved the slider being dragged, Phil 11-01), with room kept for its usual length (swarf.css)
+    // the line that says what the press did sits under the sliders, above the fields (at
+    // 720 under the fields it falls below the rail's fold; above the sliders, its two lines becoming three
+    // would move the slider being dragged), with room kept for its usual length (swarf.css)
     box.append(what, placed, btns, density.wrap, scale.wrap, say, grid, auto);
     setTimeout(() => {
         try {
@@ -818,7 +818,7 @@ export function autoTabRow() {
             api.event.on(['widget.select', 'widget.deselect'], () => setTimeout(follow, 0));
             api.event.on('settings.load', () => setTimeout(showFields, 0));
             // student mode: midline is for double-sided work (advanced only), and stop adding shows
-            // only while tabs are being placed by hand (review r093-ux T7)
+            // only while tabs are being placed by hand
             try { const row = api.ui.camTabsMidline && api.ui.camTabsMidline.closest('.var-row'); if (row) row.classList.add('swarf-expert-only'); } catch (e) { /* no row */ }
             if (api.ui.tabDun) api.ui.tabDun.style.display = 'none';
             if (api.ui.units) api.ui.units.addEventListener('change', () => setTimeout(() => { showFields(); if (lastPlans) sayLine(describe(lastPlans)); }, 0));

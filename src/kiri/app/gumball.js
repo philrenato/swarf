@@ -1,6 +1,6 @@
 /** Copyright Stewart Allen <sa@grid.space> -- All Rights Reserved */
 //
-// swarf r14+: Rhino-style gumball.
+// swarf: Rhino-style gumball.
 //
 // Design:
 // - Three TransformControls (translate, rotate, scale) all attached to a
@@ -10,7 +10,7 @@
 //   We read the per-frame delta and apply it LIVE to the widget via
 //   api.selection.move/rotate/scale so the part itself moves — not just
 //   mesh.position, which creates the "floor is moving, part is static"
-//   illusion Phil flagged.
+//   illusion.
 // - On translate commit, snap the widget's bottom to z=0. Parts always sit
 //   on the grid. Grid stays still during the drag; snap-back happens once
 //   at drag end.

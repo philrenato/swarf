@@ -32,8 +32,8 @@ export function parse(text, opt = { }) {
     const inputUnits = (!opt.units || opt.units === 'auto') ? fileUnits : opt.units;
     const scale = getScaleToMM(inputUnits); // convert to mm (Kiri:Moto's internal unit)
 
-    // swarf: an entity with a coordinate that is not a number is left out (torture test 10-29:
-    // one bad LWPOLYLINE froze the page for good)
+    // swarf: an entity with a coordinate that is not a number is left out (one
+    // bad LWPOLYLINE would freeze the page for good)
     const finite = o => typeof o === 'number' ? Number.isFinite(o) : Array.isArray(o) ? o.every(finite)
         : o && typeof o === 'object' ? Object.values(o).every(finite) : true;
     const entities = extractEntities(lines).filter(finite);
@@ -41,17 +41,17 @@ export function parse(text, opt = { }) {
     // Scale all entities to mm BEFORE stitching
     scaleEntities(entities, scale);
 
-    // swarf 11-09 (Phil's test.dxf from Rhino): a drawing for cutting is flat. Its elevation (Z -292.1
-    // there) became part of the extrude, a 311 mm "thickness" floating off the bed. Every point lies
+    // swarf: a drawing for cutting is flat. Its elevation (Z -292.1
+    // in a Rhino export) would become part of the extrude, a 311 mm "thickness" floating off the bed. Every point lies
     // on Z 0; the typed thickness is the only height.
-    // swarf 115a (review 11-13 #6): the heights it was drawn at are counted first (0.01 mm apart is one
+    // swarf: the heights it was drawn at are counted first (0.01 mm apart is one
     // height), so the import can say when curves at several heights were pressed onto one board
     const zs = [];
     flattenZ(entities, zs);
     opt.heights = countHeights(zs);
 
-    // swarf 11-09: an open spline joins the lines, arcs and polylines it meets (the same file: one
-    // spline and one polyline closing a board's outline came in as two broken pieces). Sampled here,
+    // swarf: an open spline joins the lines, arcs and polylines it meets (one
+    // spline and one polyline closing a board's outline must not come in as two broken pieces). Sampled here,
     // it stitches as a polyline does.
     for (let k = 0; k < entities.length; k++) {
         const e = entities[k];
@@ -379,8 +379,8 @@ function parseLWPolyline(lines, start) {
     let closed = false;
     const points = [];
     let currentPoint = null;
-    // swarf (fresh review 11-13): an LWPOLYLINE's one height is its elevation, code 38; read as 0 it
-    // counted as a second height beside a spline at the same elevation
+    // swarf: an LWPOLYLINE's one height is its elevation, code 38; read as 0 it
+    // would count as a second height beside a spline at the same elevation
     let elev = 0;
     const done = () => { for (const p of points) p.z = elev; };
 

@@ -76,7 +76,7 @@ export class Stack {
         const map = {}
         for (const [label, layer] of Object.entries(layers.layers)) {
             map[label] = this.renderLayer(layer, group);
-            // swarf 11-09: each mesh says which layer it draws, so the lightstream can take the cuts
+            // swarf: each mesh says which layer it draws, so the lightstream can take the cuts
             // ('milling') and leave the rapids ('moving') without guessing from a segment's length
             for (const m of this.new_meshes || []) m.userData.layer = label;
         }

@@ -1,7 +1,7 @@
 /*
  * swarf sim machine — the shop's ShopBot in cam's SIMULATE, as in CONTROL
- * (Phil 10-27: "an in control simulator that shows how the bed/machine will
- * move. Maybe that can also be in the simulate main view?").
+ * (the in-control simulator that shows how the bed/machine will
+ * move, also in the simulate main view).
  *
  * On this ShopBot the BED moves in X under a fixed gantry; the carriage rides
  * the beam in Y and the router rides the carriage in Z. Cam's simulator moves
@@ -21,7 +21,7 @@
   let WORLD = null, gantry = null, rail = null, bed = null, chip = null, mr1 = null;
   let active = false, x0 = null, kind = null;
   // which machine: the ShopBot's bed slides under a fixed gantry ('bed'); the MR-1's
-  // bed stays and the gantry, carriage and spindle move over it ('gantry', Phil 10-28)
+  // bed stays and the gantry, carriage and spindle move over it ('gantry')
   function machineKind() {
     let n = '';
     try { n = String(api().conf.get().device.deviceName || ''); } catch (e) { return null; }
@@ -32,8 +32,8 @@
     gantry: 'Show the MR-1: its table stays still; the gantry moves in Y, the carriage in X and the spindle in Z'
   };
 
-  // the bed slides, and cam's grid on it with it (Phil 10-29: the grid stood still, so the bed
-  // seemed not to move). The grid is cam's own object in the scene, rebuilt at times: found by name.
+  // the bed slides, and cam's grid on it with it (a grid standing still would make the bed
+  // seem not to move). The grid is cam's own object in the scene, rebuilt at times: found by name.
   function slide(x) {
     if (!WORLD) return;
     WORLD.position.x = x;
@@ -58,7 +58,7 @@
   let model = null;
   function build() {
     const THREE = window.THREE, s = space();
-    // one model for SIMULATE and CONTROL: swarf-shopbot-model.js (Phil 10-28, from photos)
+    // one model for SIMULATE and CONTROL: swarf-shopbot-model.js (from photos)
     model = window.SwarfShopBotModel.build(THREE);
     // the gantry: in the scene (space.scene.add turns it to match the world), so it stays put
     gantry = new THREE.Group();
@@ -106,15 +106,15 @@
   }
   // cam rebuilds its grid when the view changes (a zoom, simulate's framing): a new one starts at
   // x 0 while the bed has slid, so while simulate runs the grid is put back with the bed each frame
-  // one loop, however many times simulate is pressed (review r093 A16)
+  // one loop, however many times simulate is pressed
   let gridRaf = 0;
   function keepGrid() {
     gridRaf = 0;
     if (!active) return;
     const g = gridView();
     if (g && WORLD && g.position.x !== WORLD.position.x) g.position.x = WORLD.position.x;
-    // the gantry shows once the camera is far enough out, however it got there (review r093-ux B1:
-    // only the wheel re-checked, so a zoom by fit or a pinch left the chip lit and no machine)
+    // the gantry shows once the camera is far enough out, however it got there (if only
+    // the wheel re-checked, a zoom by fit or a pinch would leave the chip lit and no machine)
     if (wanted()) near();
     gridRaf = requestAnimationFrame(keepGrid);
   }
@@ -171,7 +171,7 @@
     near();
   }
 
-  // the bed can hold still (Phil 11-01: "a toggle ... to stop bedslinger motion"): the gantry moves
+  // the bed can hold still (a toggle stops the bedslinger motion): the gantry moves
   // over it instead, as on a gantry machine, which is easier to watch than the whole board sliding
   const STILL = 'swarf-sim-bed-still';
   const bedStill = () => { try { return localStorage.getItem(STILL) === '1'; } catch (e) { return false; } };
@@ -204,10 +204,10 @@
     if (!host || chip) return;
     chip = document.createElement('button');
     chip.id = 'swarf-sim-machine';
-    chip.className = 'swarf-sim-extra swarf-toggle';   // (review r086 B5) the same pill as chips and lightstreams
+    chip.className = 'swarf-sim-extra swarf-toggle';   // the same pill as chips and lightstreams
     chip.textContent = 'machine';
     chip.title = TITLE[kind] || 'Show the machine';
-    // turning it on steps back to show the machine; off comes back to the parts (review 10-28b #17)
+    // turning it on steps back to show the machine; off comes back to the parts
     chip.onclick = () => {
       try { localStorage.setItem(KEY, wanted() ? '0' : '1'); } catch (e) { /* private window */ }
       apply();

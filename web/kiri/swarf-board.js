@@ -1,6 +1,6 @@
 /*
  * swarf board — what DRAW (swarf-draw.js) and TEX (swarf-tex.js) share: the bed seen from above
- * (code review r093 D1: TEX's board was a copy of DRAW's).
+ * (one board, not a copy in each).
  *
  * Plain functions, each taking the mode's own state S ({ bed: [w, d], k, ox, oy, whole }) and its
  * board's <svg> where they need them: the view (fit, wheel, toMM), the ground under the parts
@@ -16,7 +16,7 @@
   const api = () => window.kiri && window.kiri.api;
   const V = () => window.SwarfVector;
   const $ = id => document.getElementById(id);
-  // a typed length is held to a thousandth of a mm; a field refuses one that rounds under its floor (torture test 10-29: 0.0004 became 0)
+  // a typed length is held to a thousandth of a mm; a field refuses one that rounds under its floor (0.0004 never becomes 0)
   const r3 = v => +(+v).toFixed(3);
   const clone = o => JSON.parse(JSON.stringify(o));
   const esc = t => String(t).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -69,7 +69,7 @@
   }
 
   // the ground under the parts, as SVG strings: the bed and a 10 mm / 100 mm grid (big: the 100 mm
-  // lines over the 10 mm ones too), and (review 10-28: "no bed, origin, scale or units") the bed's
+  // lines over the 10 mm ones too), and the bed's
   // size in its corner, the origin, and a scale bar of a round length about 100 px long
   function ground(S, svg, big) {
     const k = S.k, [bw, bd] = S.bed, out = [];
@@ -115,8 +115,8 @@
     return [Math.cos(t), -Math.sin(t), Math.sin(t), Math.cos(t)];
   }
 
-  // ── a turn in 3D, followed (Phil 11-02: a board flipped over X and then Y lies flat again, and TEX
-  // still called it tipped over): each part keeps its whole rotation (meta.rq, a quaternion) and the one
+  // ── a turn in 3D, followed (a board flipped over X and then Y lies flat again, and TEX
+  // must not call it tipped over): each part keeps its whole rotation (meta.rq, a quaternion) and the one
   // it had when it last lay flat (meta.rflat). A turn that leaves it flat, top up or upside down, is a
   // 2D change since then, M (a turn, or a mirror when it is upside down); one that leaves it on its side
   // is { M: null }. Read once per event: DRAW and TEX both ask. ──
@@ -170,8 +170,8 @@
     }, 150);
   }
 
-  // cam's own letter keys listen for keypress (r opened recent files, e the machine dialog): none of
-  // them reach cam while a board is open; a prompt's Enter still lands (review r093 A3)
+  // cam's own letter keys listen for keypress (r opens recent files, e the machine dialog): none of
+  // them reach cam while a board is open; a prompt's Enter still lands
   const hush = e => { if (!/^(INPUT|SELECT|TEXTAREA)$/.test(e.target && e.target.tagName)) e.stopPropagation(); };
 
   window.SwarfBoard = { api, V, $, r3, clone, esc, isClosed, inLoop, flat, view, toMM, wheel, ground, rotationOf, turnOf, bodyUp, twoOf, between, wire, hush };

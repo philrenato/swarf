@@ -163,7 +163,7 @@
       // "MX, 3" and "PAUSE 2" both occur: the command ends at the first comma or space
       const cmdm = s.match(/^([A-Za-z][A-Za-z0-9]*)\s*,?\s*(.*)$/);
       // anything else (an assignment whose value was all brackets, a stray symbol) is a line swarf
-      // can't carry out, never a crash: a sample file's bracketed assignment threw here (10-29)
+      // can't carry out, never a crash: a bracketed assignment must not throw here
       if (!cmdm) { out.unsupported.push({ line: n, text: s }); continue; }
       const cmd = cmdm[1].toUpperCase();
       const p = cmdm[2] === '' ? [] : cmdm[2].split(',');
@@ -233,7 +233,7 @@
           if (cm) {
             const k = Number(cm[1]);
             const kind = { 6: 'spindle-on', 7: 'spindle-off', 9: 'tool-change', 2: 'zero-z', 3: 'home' }[k];
-            if (!kind) { out.unsupported.push({ line: n, text: s }); break; }   // a macro swarf does not run (follow-up review #1)
+            if (!kind) { out.unsupported.push({ line: n, text: s }); break; }   // a macro swarf does not run
             event(n, kind, 'C' + k);
             if (k === 3) out.warnings.push({ line: n, text: 'C3 homes the machine; the preview cannot place it' });
           } else if (/^(PAUSE|MSG|GOSUB|GOTO|IF|RETURN|ON|INPUT)\b/.test(cmd)) {
@@ -246,8 +246,8 @@
     }
 
     function gcodeLine(U, n) {
-      // the whole line must be words swarf knows, each with a number (follow-up review #1:
-      // "Xbad" or a stray Q999 were silently dropped)
+      // the whole line must be words swarf knows, each with a number (never
+      // "Xbad" or a stray Q999 silently dropped)
       // a dwell (G4) carries its seconds in P; P on any other line is still a word swarf does not know
       const dwell = /(^|[^A-Z])G\s*0*4(?![\d.])/.test(U);
       const rest = U.replace(/^N\s*\d+\s*/, '').replace(dwell ? /[GMXYZIJFSTNP]\s*[-+]?(\d+\.?\d*|\.\d+)/g : /[GMXYZIJFSTN]\s*[-+]?(\d+\.?\d*|\.\d+)/g, '').trim();
@@ -269,7 +269,7 @@
       // a tool change acts before the line's motion: the move would run with the next bit
       // before the change card; such a line is refused, not reordered
       if (ms.includes(6) && ('X' in words || 'Y' in words || 'Z' in words)) { out.unsupported.push({ line: n, text: U.trim(), why: 'a tool change and a move on one line' }); return; }
-      // an allowlist, not a blacklist (design review 10-28 #2): a G or M code swarf does not
+      // an allowlist, not a blacklist: a G or M code swarf does not
       // carry out exactly (G92 offsets, G18/G19 planes, G41/42 compensation, canned cycles,
       // G93 feed modes …) makes the whole line unreadable, which blocks the run
       // G17 XY plane, G20/21 units, G40/49/80 cancels, G54 the one work offset, G90/91, G94: all
@@ -393,7 +393,7 @@
     return out.concat(footer()).join('\r\n');
   }
 
-  // The way into any run from where the bit is (design review 10-28 #1), shared by the real
+  // The way into any run from where the bit is, shared by the real
   // machine and the simulator: up to safe Z (or the first move's own height, if higher), the
   // router may start there, over to the first move's start at that height, slowly down to it.
   // Steps: { move: {x,y,z,kind:'up'|'over'|'down',line} } and one { routerHere: true }.
@@ -476,12 +476,12 @@
     ];
     const moves = lead.concat(rest);
     // a file that never switches the router before line N runs with it on, as the whole file
-    // does (torture test 10-29: from line N cut with the router off); a switch-off before N keeps it off
+    // does (never from line N with the router off); a switch-off before N keeps it off
     const spindleOn = on ? on.kind === 'spindle-on' : true;
     const sbp = movesToSbp(moves, { name: `${name} from line ${line}`, spindle: spindleOn, rpm: rpm ? rpm.value : undefined, safeZ });
     // the original file's own events from line N on: the written file numbers its lines
-    // afresh, the moves keep the original numbers (review 10-27)
-    // the machine as the file left it at that line (the follow-up review: reconstruct the modal
+    // afresh, the moves keep the original numbers
+    // the machine as the file left it at that line (reconstruct the modal
     // state or refuse): every other output's last switch before the line is made again on the way in
     const outs = new Map();
     for (const e of parsed.events) if (e.line < line && e.kind === 'output' && e.value[0] >= 2) outs.set(e.value[0], e);
@@ -510,7 +510,7 @@
     return out.join('\n') + '\n';
   }
 
-  // the first rapid that crosses below the top of the board (review 105: at rapid speed, through the wood)
+  // the first rapid that crosses below the top of the board (at rapid speed, through the wood)
   function rapidAcross(parsed) {
     return parsed.moves.find(m => m.rapid && Math.min(m.z, m.z0) < -0.05 && Math.hypot(m.x - m.x0, m.y - m.y0) > 0.05) || null;
   }

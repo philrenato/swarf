@@ -35,7 +35,7 @@
   // the deploy stamps every machine-control file; connect refuses a page that mixes two builds
   (typeof window !== 'undefined' ? window : globalThis).SWARF_BUILDS = Object.assign((typeof window !== 'undefined' ? window : globalThis).SWARF_BUILDS || {}, { 'swarf-shopbot-card.js': '__SWARF_BUILD__' });
 
-  // ticks per second, measured on the real box 10-27 (every job ran 1.2037x a 73.5 MHz plan).
+  // ticks per second, measured on the real box (every job ran 1.2037x a 73.5 MHz plan).
   const TICK_HZ = 88473600 / 12;
   const AXES = ['x', 'y', 'z', 'a', 'b'];
   const END = 0x78;
@@ -75,8 +75,8 @@
       });
     }
 
-    // A write that threw (the box unplugged) takes its reply with it (review A7): the wait was left
-    // pending, so the next command said "a reply is already pending" and not the real cause.
+    // A write that threw (the box unplugged) takes its reply with it: a wait left
+    // pending would make the next command say "a reply is already pending" and not the real cause.
     // Only the wait this write made is dropped.
     async send(bytes, p, w) {
       try { await this.link.write(bytes); } catch (e) {
@@ -122,8 +122,8 @@
      * should end with END; one is added if missing. Resolves with the end
      * report. onAck(ack, blockIndex) after every block.
      */
-    // No item straddles two blocks (10-29: a USB drop after half an item left the card waiting for
-    // the rest, and it answered nothing until switched off). An item that does not fit is put off to
+    // No item straddles two blocks (a USB drop after half an item leaves the card waiting for
+    // the rest, and it answers nothing until switched off). An item that does not fit is put off to
     // the next block; the gap is filled with items that restate what the card already has (its
     // direction, line and tick length; its tick length; its outputs), and where no such fill fits,
     // the block's last ticks move to the next block, which leaves the motion as it was.
@@ -270,9 +270,9 @@
     constructor(m) {
       this.m = Object.assign({ rampSpeed: 10.16, rampRate: 5.08, maxTickHz: 25000, minTickHz: 20, invert: 0 }, m);
       if (!(this.m.startSpeed > 0)) this.m.startSpeed = this.m.rampSpeed;
-      // How fast speed rises with distance, measured from ShopBot 3 on the shop's machine (10-29:
-      // its keypad jog reaches 38 mm/s in about 0.4 s, 3 mm/s per mm with this Ramp Rate of 5.08).
-      // The manual's 2 units per Ramp Rate gave 0.39 in this metric setup, which crawled through
+      // How fast speed rises with distance, measured from ShopBot 3 on the shop's machine (its
+      // keypad jog reaches 38 mm/s in about 0.4 s, 3 mm/s per mm with this Ramp Rate of 5.08).
+      // The manual's 2 units per Ramp Rate give 0.39 in this metric setup, which crawls through
       // the motors' rough band (below ~25 mm/s); 10 shook the gantry. A stop (pause, stop, e-stop)
       // keeps the quick ramp-down, about 6 mm from 100 mm/s.
       this.k = 15.24 / this.m.rampRate;            // (mm/s) per mm: ramps up and down in a move
@@ -293,7 +293,7 @@
 
     // Junction speed limits between consecutive moves, then forward/backward
     // passes so no move needs more than k per mm of change.
-    // An air cut's rate is planned in, not multiplied on later (Phil 11-04: "an accelerator slider"):
+    // An air cut's rate is planned in, not multiplied on later (the air cut's accelerator slider):
     // at 400 % the junction speeds would be 400 % too, and a square corner would take 40 mm/s.
     // vIn: the speed the run starts at, when the rate changed partway through.
     profile(moves, from, vIn0) {
@@ -317,10 +317,10 @@
         const s = segs[i], n = segs[i + 1];
         if (!n) { s.vEnd = vs; continue; }
         // the speed through a bend, by its angle: full through a gentle one (under 3°), down to the ramp
-        // speed at a right angle or sharper, in a straight line between. It was 65 % of the feed at any
-        // bend past 2.6°, so a curve or a texture's raster drawn in short segments ran at two speeds,
-        // vertex by vertex, and shook (Phil 11-02: "make sure air cut and cut are all tuned to work well,
-        // like the jog work")
+        // speed at a right angle or sharper, in a straight line between. 65 % of the feed at any
+        // bend past 2.6° would run a curve or a texture's raster drawn in short segments at two speeds,
+        // vertex by vertex, and shake it; air cut and cut are tuned as smooth
+        // as the jogs
         const cos = Math.max(-1, Math.min(1, s.dir.x * n.dir.x + s.dir.y * n.dir.y + s.dir.z * n.dir.z));
         const deg = Math.acos(cos) * 180 / Math.PI;
         const f = deg <= 3 ? 1 : deg >= 90 ? 0 : 1 - (deg - 3) / 87;
@@ -351,7 +351,7 @@
      */
     // The reset happens when items() is called, not when the stream is first read:
     // card.run() waits for a pending poll before reading, and a stop pressed in that
-    // gap must survive (review 10-27: it was cleared, so a stop or a jog release was lost).
+    // gap must survive (cleared, a stop or a jog release would be lost).
     items(ops, start) {
       this.halt = null;
       this.vHalt = null;
@@ -431,17 +431,17 @@
           }
           this.vLast = v;
           if (this.halt) {
-            // the slow-down carries across segments (review 10-27: it restarted at every
-            // segment, so curves made of short segments never came down to a stop)
+            // the slow-down carries across segments (restarted at every
+            // segment, curves made of short segments would never come down to a stop)
             this.vHalt = Math.max(0, Math.min(this.vHalt === null ? v : this.vHalt, v) - this.kStop * mmPerTick);
             v = this.vHalt;
             // a stop ends at the ramp speed, as quickly as before: a seek must not push on past contact
             if (v <= v0) { this.at = { steps: cur, line: ln, op: s.mv }; yield END; return true; }
           }
           let r = this.reloadFor(v / mmPerTick);
-          // ramp in 0.5% steps. (10-29: 0.1% steps were tried against a buzz; recordings at constant
-          // speed showed the buzz is the motors' full-step tone, a tenth of the step rate, and the
-          // finer steps only made more multi-byte items, so an item straddling two blocks likelier)
+          // ramp in 0.5% steps. (0.1% steps do not cure the buzz: recorded at constant
+          // speed, the buzz is the motors' full-step tone, a tenth of the step rate, and
+          // finer steps only make more multi-byte items, so an item straddling two blocks likelier)
           if (reload >= 0 && Math.abs(r - reload) <= (0x10000 - reload) * 0.005) r = reload;
           if (nd !== dirs || ln !== line || (r !== reload && r < 0xF000)) {
             dirs = nd; line = st.line = ln; reload = r;

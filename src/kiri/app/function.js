@@ -57,9 +57,9 @@ function prepareSlices(callback, scale = 1, offset = 0) {
         callback = preparePreview;
     }
 
-    // swarf (review 105 m1): the parts' order is never what happens to be picked. Picked parts went
-    // first, so a remake from export (a part picked) and a press of toolpaths (nothing picked, the
-    // press before let it go) wrote different files for the same work.
+    // swarf: the parts' order is never what happens to be picked. Picked parts first would
+    // make a remake from export (a part picked) and a press of toolpaths (nothing picked, the
+    // press before let it go) write different files for the same work.
     order = undefined;
 
     const widgets = api.widgets.all();
@@ -526,7 +526,7 @@ function prepareAnimation() {
  * @param {...*} args - Arguments passed through to exportFile()
  */
 // swarf: what the toolpaths were made from. Export makes them again when any of it changed since
-// (torture test 10-29: a material change after toolpaths exported the old material's feeds)
+// (a material change after toolpaths must not export the old material's feeds)
 function workSig() {
     try {
         const s = api.conf.get();

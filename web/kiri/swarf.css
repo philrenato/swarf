@@ -1,4 +1,4 @@
-/* numbers in a shipped mono, so readouts match on every machine; words stay in the system sans (Phil 11-06).
+/* numbers in a shipped mono, so readouts match on every machine; words stay in the system sans.
    One face per weight, never a range. Renato Symbols covers the glyphs swarf draws itself. */
 @font-face { font-family: 'IBM Plex Mono'; font-weight: 400; font-style: normal; font-display: swap; src: url('vendor/font/ibm-plex-mono-400.woff2') format('woff2'); }
 @font-face { font-family: 'IBM Plex Mono'; font-weight: 400; font-style: normal; font-display: swap; src: url('vendor/font/renato-symbols-400.woff2') format('woff2'); unicode-range: U+2190-2199,U+21A9-21AA,U+21B0-21B3,U+21B6-21B7,U+21BA-21BB,U+21C4,U+21C6,U+21D2,U+21E7,U+2295,U+2298-2299,U+229E,U+22A1,U+22B6,U+22EF,U+2300,U+2303-2304,U+2307,U+2312,U+2316,U+2318,U+2331,U+2337,U+233E,U+2399,U+23ED-23EE,U+23F1,U+23F3,U+23F8-23FA,U+25A0-25A2,U+25A6,U+25AC-25AD,U+25B2,U+25B4,U+25B6,U+25B8,U+25BC,U+25BE,U+25C0,U+25C2,U+25C6-25C9,U+25CB-25D0,U+25D4,U+25D7,U+25E7,U+2600,U+2630,U+266A,U+2684,U+2699,U+26A0,U+26AC,U+26D4,U+270E,U+2713,U+2715,U+2725-2728,U+2736,U+275A,U+2764,U+27E8-27E9,U+27F2-27F3,U+27F7,U+2912-2913,U+2922,U+2982,U+29C9,U+2B06-2B08,U+2B0A,U+2B1B,U+2B22,U+2B50,U+1F5C0; }
@@ -24,7 +24,7 @@ body.swarf-expert .swarf-expert-only { display: initial !important; }
   text-decoration: none;
 }
 
-/* ---- Palette v2 (2026-04-15 refs pass): hotter crimson with glow, industrial-mill-red,
+/* ---- Palette v2: hotter crimson with glow, industrial-mill-red,
        bone-on-warm-black. Tuned against EMCO Mill-55 + Tron:Ares chrome refs. No Tron
        lettering, no lightcycle motifs — just the hot-red-on-black register and the
        industrial mill red-enclosure-on-gray-body contrast. ---- */
@@ -47,7 +47,7 @@ body.swarf-expert .swarf-expert-only { display: initial !important; }
 }
 #tx-card, #swarf-run { --swarf-more-bg: #1a1615; }
 
-/* swarf viewport: warm black with "red sky at night" sailor's gradient (markup Apr 15) */
+/* swarf viewport: warm black with "red sky at night" sailor's gradient */
 html, body { background: var(--swarf-bg) !important; color: var(--swarf-text); }
 /* Red-sky gradient applied to the BODY so it sits behind the 3D canvas rather than on top
    of #container. Kiri's canvas renders opaque black by default; we kill that with JS (sky color
@@ -55,8 +55,8 @@ html, body { background: var(--swarf-bg) !important; color: var(--swarf-text); }
    canvas's clear color only when the canvas doesn't paint something — OR via the overlay
    glow on the surrounding chrome. Subtle by design. */
 body {
-  /* swarf sky backdrop v5 (markup Apr 15 round 4 — "not the right texture, too fine,
-     should be cloudier, mix with sunset refs"). Target: sailor's-warning mackerel sky —
+  /* swarf sky backdrop v5 (cloudy, not fine, mixed with
+     sunset refs). Target: sailor's-warning mackerel sky —
      cirrocumulus cloud ripples lit red-orange at the horizon, cooling to purple-blue
      at zenith, yellow sun-glow punch low-center. Film grain is OUT; big cloud lumps
      are IN. Layer stack (top CSS → bottom visually):
@@ -146,8 +146,7 @@ body.swarf-sky-working::before {
 #container {
   background: transparent !important;
   /* swarf: keep Kiri's position:fixed full-viewport — switching to relative
-     collapses the THREE canvas dimensions and renders the viewport invisible
-     (markup #3 follow-up, Apr 15) */
+     collapses the THREE canvas dimensions and renders the viewport invisible */
 }
 /* keep the thin accent rail at top of viewport */
 #container::before {
@@ -161,18 +160,17 @@ body.swarf-sky-working::before {
   z-index: 1;
 }
 
-/* ---- Guarantee the viewport actually has a box to render into (markup: 'where is the 3D?') ---- */
+/* ---- Guarantee the viewport actually has a box to render into ---- */
 #mid { min-height: calc(100vh - 46px); }
-/* (review r086 F3) the app is the window: it never scrolls as a page (Space in simulate, a
-   trackpad flick or a focused field below the fold moved the menubar and wordmark off the top) */
+/* the app is the window: it never scrolls as a page (Space in simulate, a
+   trackpad flick or a focused field below the fold would move the menubar and wordmark off the top) */
 html, body { overflow: hidden !important; overscroll-behavior: none; }
 #mid-mid { min-width: 60vw; min-height: calc(100vh - 100px); }
 #container { min-height: calc(100vh - 100px); }
 
-/* swarf: pager hover-tooltip removed (markup #2, Apr 15) — caret-left button gone, the note no longer applies. Per-widget options surface on row hover via .widpop:hover .widopt. */
+/* swarf: no pager hover-tooltip (there is no caret-left button). Per-widget options surface on row hover via .widpop:hover .widopt. */
 
-/* swarf: watermark — back to lower-left (markup Apr 15 round 4 —
-   "renato.design mysteriously jumped to upper right rather than lower left"). */
+/* swarf: watermark — lower-left, never upper right. */
 #swarf-watermark {
   position: fixed; left: 18px; bottom: 14px; z-index: 9999;
   font-family: "IBM Plex Mono", ui-monospace, monospace;
@@ -183,11 +181,11 @@ html, body { overflow: hidden !important; overscroll-behavior: none; }
   transition: opacity 200ms linear, color 200ms linear, bottom 220ms ease-out;
 }
 #swarf-watermark:hover { opacity: 1; color: var(--swarf-accent-hi); }
-/* (review r093 F3) each skin forces the watermark's color for legibility, so the hover says it again */
+/* each skin forces the watermark's color for legibility, so the hover says it again */
 html:not([data-skin]) #swarf-watermark:hover { color: var(--swarf-accent-hi) !important; }
 
 /* swarf: panel headers — slight gradient + 1px grid texture so they read as
-   structural plates rather than flat bars (markup Apr 15, annotation #2). */
+   structural plates rather than flat bars. */
 .set-header {
   background-image:
     linear-gradient(180deg,
@@ -221,8 +219,8 @@ body, .set-header, label, button, select, input, .opdiv, #op-add-list > div {
 
 /* panels */
 /* swarf: keep #app/#mid/#container transparent so the body sunset gradient
-   AND the THREE canvas in #container actually show. Earlier opaque fill was
-   painting over both (markup #3, Apr 15). */
+   AND the THREE canvas in #container actually show. An opaque fill would
+   paint over both. */
 #app, #mid, #container {
   background: transparent !important;
 }
@@ -493,7 +491,7 @@ body.swarf-menu-open #swarf-concerns, body.swarf-menu-open #swarf-start, body.sw
 }
 .swarf-step label { cursor: pointer; }
 #mode-tools > span.selected .swarf-step label { color: #fff; }
-/* RUN (r32): the last step, after export — red like the machine's own end of the flow;
+/* RUN: the last step, after export — red like the machine's own end of the flow;
    faded when the chosen machine is not the ShopBot (the MR-1 uses export) */
 .swarf-step-run { border-left: 1px solid var(--swarf-line-2); }
 .swarf-step-run label, .swarf-step-run i { color: var(--swarf-accent-hi); }
@@ -542,7 +540,7 @@ body.swarf-run-open #install-swarf, body.swarf-run-open #swarf-watermark { visib
   color: var(--swarf-text);
 }
 .swarf-about-mark sup { font-size: 9px; color: var(--swarf-text-2); font-weight: 500; margin-left: 2px; top: -0.8em; text-decoration: none; }
-/* swarf r14+: Safari renders a faint underline under the <sup>™ and <sup>re —
+/* swarf: Safari renders a faint underline under the <sup>™ and <sup>re —
    WebKit inherits text-decoration onto positioned <sup> where Blink/Gecko don't.
    Explicit none on every <sup> in the about/credits block kills it. */
 .swarf-about sup, .swarf-credits sup { text-decoration: none; }
@@ -625,7 +623,7 @@ body.swarf-run-open #install-swarf, body.swarf-run-open #swarf-watermark { visib
 .swarf-help-empty { color: var(--swarf-text-2); }
 .swarf-help-empty p { margin: 0 0 10px 0; }
 
-/* ===== swarf layout inversion (markup Apr 15) =====
+/* ===== swarf layout inversion =====
    Upper-left  = persistent machining-path panel (#panel-right content: operation list)
    Upper-right = live status readout (objects / ranges / machine)
    Lower-right = parameter detail (Tabs, Output) — the stuff you tune, floating, auxiliary
@@ -633,9 +631,9 @@ body.swarf-run-open #install-swarf, body.swarf-run-open #swarf-watermark { visib
 
 
 /* ---- #panel-right — TOOLPATHS pinned upper-left, solo ---- */
-/* swarf v010 r10 (markup Apr 15 #6): OBJECTS / TABS / STRATEGY moved to the
-   right rail. TOOLPATHS is the only resident left, so we move it UP into
-   the slot OBJECTS vacated. Top offset still clears the menubar + mode-tools
+/* swarf: OBJECTS / TABS / STRATEGY live in the
+   right rail. TOOLPATHS is the only resident left, so it moves UP into
+   the slot OBJECTS would take. Top offset still clears the menubar + mode-tools
    strip so open top-menu dropdowns never overlap the panel. */
 #panel-right {
   position: fixed !important;
@@ -644,7 +642,7 @@ body.swarf-run-open #install-swarf, body.swarf-run-open #swarf-watermark { visib
   width: 320px;
   max-height: calc(100vh - 120px);
   overflow-y: auto;
-  z-index: 5;  /* swarf v010 r8: below top-menu dropdowns */
+  z-index: 5;  /* swarf: below top-menu dropdowns */
   padding: 0 !important;
   gap: 10px !important;
   background: transparent !important;
@@ -655,7 +653,7 @@ body.swarf-run-open #install-swarf, body.swarf-run-open #swarf-watermark { visib
   top: 96px;
   right: 16px;
   width: 320px;
-  /* (review r086 F2) the rail ends above the concerns pill, which docks under it, and the
+  /* the rail ends above the concerns pill, which docks under it, and the
      pill above the size card: the rail scrolls, it never squashes or slides under either */
   max-height: calc(100vh - 230px);
   overflow-y: auto;
@@ -667,12 +665,12 @@ body.swarf-run-open #install-swarf, body.swarf-run-open #swarf-watermark { visib
   flex-direction: column;
 }
 /* rail plates inherit the same mill-red / chamfered treatment as panel-right */
-/* (review r086 F2) a panel keeps its height: headers and rows never squash, the rail scrolls */
+/* a panel keeps its height: headers and rows never squash, the rail scrolls */
 #swarf-right-rail > .set2-group, #panel-left .set2-group { flex-shrink: 0 !important; }
-/* r086 check S1: a rail that runs past the window's foot says so — a pill held at its bottom edge
+/* a rail that runs past the window's foot says so — a pill held at its bottom edge
    (it also covers the sliver of a half-cut header); gone once scrolled to the end */
-/* (r093 UX V1) the cue is an opaque band across the foot, faded at its top: rows slide under it,
-   never under see-through words. Advanced's panel column and the tex card use it too (B3, V5). */
+/* the cue is an opaque band across the foot, faded at its top: rows slide under it,
+   never under see-through words. Advanced's panel column and the tex card use it too. */
 #swarf-right-rail.swarf-more::after, #panel-left.swarf-more::after, #tx-card.swarf-more::after {
   content: 'more below \25BE'; text-transform: none !important; position: sticky; bottom: 0; flex-shrink: 0; align-self: stretch;
   display: block; box-sizing: border-box; height: 30px; margin-top: -30px; padding: 12px 0 0; text-align: center;
@@ -735,25 +733,24 @@ body.swarf-run-open #install-swarf, body.swarf-run-open #swarf-watermark { visib
   #swarf-right-rail { width: 260px; }
   #panel-right { width: 260px; }
 }
-/* swarf v010 r8: topbar menu dropdowns must always paint over #panel-right
-   and any simulate bar content so they're never obscured. r10-f (markup
-   Apr 15): don't touch #menubar's position/stacking — setting position on
-   it re-sized the bar. Just drop the rails beneath the default dropdown
+/* swarf: topbar menu dropdowns must always paint over #panel-right
+   and any simulate bar content so they're never obscured. Don't
+   touch #menubar's position/stacking — setting position on
+   it re-sizes the bar. Just drop the rails beneath the default dropdown
    z-index (999) so they paint under menu pops. */
-/* swarf r12: menu dropdowns must paint over position:fixed panels.
+/* swarf: menu dropdowns must paint over position:fixed panels.
    Make the entire menubar position:fixed with a high z-index so its
    dropdown children (which are position:absolute within it) paint
    above #panel-right. */
 #menubar {
   position: fixed !important;
   top: 0; left: 0; right: 0;
-  z-index: 95 !important;   /* the menus open over control and draw, never under them (Phil 10-28) */
+  z-index: 95 !important;   /* the menus open over control and draw, never under them */
 }
 #panel-right, #swarf-right-rail { z-index: 2 !important; }
 
 /* swarf: OBJECTS list rows — upstream Kiri capped #ws-widgets buttons at 150px which
-   truncated "Raised Snap - Count..." to a useless stub (markup Apr 15 round 4 —
-   "label container in objects is still too small"). Let the button fill the plate. */
+   truncates "Raised Snap - Count..." to a useless stub. Let the button fill the plate. */
 #ws-widgets button {
   max-width: none !important;
   width: 100% !important;
@@ -765,9 +762,9 @@ body.swarf-run-open #install-swarf, body.swarf-run-open #swarf-watermark { visib
   text-align: left;
 }
 #ws-widgets .widpop { padding: 2px 0; }
-/* flying chips are the swarf skin's alone (Phil 11-02): the other skins have no chips toggle */
+/* flying chips are the swarf skin's alone: the other skins have no chips toggle */
 html[data-skin] .swarf-toggle-chips { display: none !important; }
-/* the tick: cut this part in this run (Phil 11-02); an unticked part's name fades */
+/* the tick: cut this part in this run; an unticked part's name fades */
 #ws-widgets > div { display: flex; align-items: center; }
 #ws-widgets .swarf-cut-tick { flex: 0 0 auto; width: 15px; height: 15px; margin: 0 6px 0 2px; accent-color: var(--swarf-accent, #c33); cursor: pointer; }
 #ws-widgets button.leftout { opacity: 0.5; font-style: italic; }
@@ -861,8 +858,8 @@ html[data-skin] .swarf-toggle-chips { display: none !important; }
 }
 
 /* ---- #panel-left — Tabs/Output parameter rail pinned right side ---- */
-/* Phil r5: raised from bottom:16px so the bottom drawer (STRATEGY) sits roughly
-   where the top drawer (TAGS) used to sit. Both drawers also start collapsed
+/* the bottom drawer (STRATEGY) sits roughly
+   where the top drawer (TAGS) would. Both drawers also start collapsed
    (default-closed migration in swarf-sky.js). */
 #panel-left {
   position: fixed !important;
@@ -877,8 +874,8 @@ html[data-skin] .swarf-toggle-chips { display: none !important; }
   padding: 0 !important;
 }
 #panel-slide { padding: 0 !important; gap: 10px !important; }
-/* r086 check S5: the column scrolls, not its contents. #panel-slide shrank to the dock's
-   max-height and spilled its rows (arc output, origin, limits) off the window with no scroll. */
+/* the column scrolls, not its contents: #panel-slide shrunk to the dock's
+   max-height would spill its rows (arc output, origin, limits) off the window with no scroll. */
 #panel-left { overscroll-behavior: contain; }
 #panel-left > #panel-slide { flex-shrink: 0 !important; }
 #panel-left .set2-group {
@@ -911,13 +908,13 @@ html[data-skin] .swarf-toggle-chips { display: none !important; }
 }
 #panel-left .set-header[style*="background: rgb"] { background: transparent !important; }
 
-/* legacy #mid > .f-col positioning is no longer used — superseded by #panel-left / #panel-right fixed */
+/* #mid > .f-col positioning is not used — #panel-left / #panel-right are fixed instead */
 #mid > .f-col:first-child { position: static !important; }
 
-/* kill the extra decorative lines around the parameter rail ("these extra lines are weird").
-   NOTE: the earlier version swept in `.set2-group.bottom` with opacity:0 which nuked the
-   whole toolpaths panel (it carries class="bottom" in HTML). Now only the decorative
-   border/hr rules are muted — the panel itself stays visible (markup Apr 15). */
+/* kill the extra decorative lines around the parameter rail.
+   NOTE: never sweep in `.set2-group.bottom` with opacity:0: that hides the
+   whole toolpaths panel (it carries class="bottom" in HTML). Only the decorative
+   border/hr rules are muted — the panel itself stays visible. */
 .set-sep,
 hr {
   border-color: transparent !important;
@@ -929,14 +926,13 @@ hr {
 }
 
 /* swarf: this fork is CAM-only. Permanently hide any mode-fdm/mode-sla/mode-laser
-   panels that Kiri's HTML still contains but we don't use (markup Apr 15 — RANGES
-   pill was leaking into CAM view). */
+   panels that Kiri's HTML still contains but swarf doesn't use (the RANGES
+   pill would leak into CAM view). */
 .mode-fdm, .mode-sla, .mode-laser { display: none !important; }
 
 /* swarf: HUD corner brackets + scanline overlay on every panel pill — pushes the
    chrome further from Kiri's flat-pill look toward the Tron:Ares terminal refs.
-   Kept subtle; this is read, not decoration (markup Apr 15 — "much more of what's
-   in that folder"). */
+   Kept subtle; this is read, not decoration. */
 #panel-right .set2-group,
 #panel-left .set2-group {
   position: relative;
@@ -977,8 +973,8 @@ hr {
   );
 }
 
-/* four corner brackets per panel: the swarf skin's (review r093 F1: the plate's ::before / ::after
-   carry the brackets alone, in this skin alone; the skins drew 10 px squares from them) */
+/* four corner brackets per panel: the swarf skin's (the plate's ::before / ::after
+   carry the brackets alone, in this skin alone; in the other skins they would draw 10 px squares) */
 html:not([data-skin]) #panel-right .set2-group::before,
 html:not([data-skin]) #panel-right .set2-group::after,
 html:not([data-skin]) #panel-left  .set2-group::before,
@@ -1003,7 +999,7 @@ html:not([data-skin]) #panel-left  .set2-group::after {
   border-right: 1px solid var(--swarf-accent);
 }
 
-/* ---- Wordmark: push in from the corner (markup note: too close to edge) ---- */
+/* ---- Wordmark: push in from the corner ---- */
 .menubar-appname {
   color: var(--swarf-text) !important;
   padding: 0 18px 0 28px !important;
@@ -1011,7 +1007,7 @@ html:not([data-skin]) #panel-left  .set2-group::after {
   align-items: baseline;
 }
 .swarf-wordmark {
-  /* Helvetica (Phil 11-06); it is not ours to ship, so a PC without it shows Arial */
+  /* Helvetica; it is not ours to ship, so a PC without it shows Arial */
   font-family: Helvetica, Arial, sans-serif !important;
   display: inline-flex;
   align-items: baseline;
@@ -1022,7 +1018,7 @@ html:not([data-skin]) #panel-left  .set2-group::after {
   line-height: 1;
   transform: translateY(3px);
 }
-/* v00000-009: split wordmark — sw (white) | arf (mill-red).
+/* split wordmark — sw (white) | arf (mill-red).
    Reads as a quiet bark: the cutter making its sound. The split also
    anchors the SWARF / ARF backronym. */
 .swarf-wordmark .swarf-mark-sw  { color: #fff; }
@@ -1037,7 +1033,7 @@ html:not([data-skin]) #panel-left  .set2-group::after {
 }
 .menubar-separator { background: var(--swarf-line) !important; }
 
-/* swarf: Concordance content styling — proper glossary layout (Apr 15) */
+/* swarf: Concordance content styling — proper glossary layout */
 .swarf-help-modal .swarf-help-body.swarf-concordance {
   display: block !important;
   text-align: left;
@@ -1100,7 +1096,7 @@ html:not([data-skin]) #panel-left  .set2-group::after {
 .swarf-search .swarf-result-kind.tool  { color: var(--swarf-text-2); }
 .swarf-search .swarf-result-kind.coach { color: #6ea3c8; border-color: rgba(110,163,200,0.35); }
 
-/* swarf: Concerns drawer — bottom-bar count badge + drawer body (Apr 15).
+/* swarf: Concerns drawer — bottom-bar count badge + drawer body.
    Empty drawer = clean setup. Content = list of warnings with explanations. */
 #swarf-concerns {
   position: fixed; right: 18px; bottom: 90px; z-index: 9000;
@@ -1162,8 +1158,8 @@ html:not([data-skin]) #panel-left  .set2-group::after {
   text-align: center; padding: 14px 0;
 }
 
-/* swarf: always-visible add-op grid inside the toolpaths panel
-   (markup Apr 15 — "I still don't see a way to make/add/change/see toolpaths") */
+/* swarf: always-visible add-op grid inside the toolpaths panel,
+   a way to make/add/change/see toolpaths */
 .swarf-add-op-label {
   display: flex; align-items: center; justify-content: space-between; gap: 8px;
   font-size: 11px; letter-spacing: 0.02em; text-transform: none;
@@ -1210,7 +1206,7 @@ body:not(.swarf-expert) .swarf-add-op-grid > .swarf-expert-only {
   display: none !important;
 }
 
-/* swarf: Kiri:Moto MIT license panel inside Help → About (markup Apr 15 follow-up) */
+/* swarf: Kiri:Moto MIT license panel inside Help → About */
 .swarf-license {
   margin: 12px 0 4px 0;
   padding: 10px 14px;
@@ -1230,7 +1226,7 @@ body:not(.swarf-expert) .swarf-add-op-grid > .swarf-expert-only {
 .swarf-license-body a { color: var(--swarf-accent); text-decoration: none; }
 .swarf-license-body a:hover { color: var(--swarf-accent-hi); }
 
-/* swarf: inline op-parameter drawer (2026-04-15) — per-op tool/feed/stepdown/stepover
+/* swarf: inline op-parameter drawer — per-op tool/feed/stepdown/stepover
    without digging into the expert right panel. */
 #oplist .draggable.has-params {
   display: flex;
@@ -1238,7 +1234,7 @@ body:not(.swarf-expert) .swarf-add-op-grid > .swarf-expert-only {
   flex-wrap: wrap;
   align-items: center;
 }
-/* chevron: brighter, larger, with EDIT label so affordance is obvious (r5) */
+/* chevron: brighter, larger, with EDIT label so affordance is obvious */
 #oplist .draggable .swarf-op-chevron {
   margin-left: auto;
   margin-right: 6px;
@@ -1252,7 +1248,7 @@ body:not(.swarf-expert) .swarf-add-op-grid > .swarf-expert-only {
   display: inline-flex; align-items: center; gap: 5px;
   letter-spacing: 0.02em; text-transform: none; font-weight: 600;
 }
-/* (r093 UX T6) the pill's word in the row's own face and size, not a bold mono: edit outlined, editing filled */
+/* the pill's word in the row's own face and size, not a bold mono: edit outlined, editing filled */
 #oplist .draggable .swarf-op-chevron::before {
   content: "edit";
   font-size: 11px;
@@ -1275,14 +1271,14 @@ body:not(.swarf-expert) .swarf-add-op-grid > .swarf-expert-only {
 /* whole row label becomes a pointer target too — click anywhere on the op name
    to toggle the parameter drawer (r5 affordance). */
 #oplist .draggable.has-params > .label { cursor: pointer; }
-/* (r093 UX T5) an open step's × stays in its header row, after edit ▾, not halfway down the card */
+/* an open step's × stays in its header row, after edit ▾, not halfway down the card */
 #oplist .draggable.has-params > .label { order: 0; }
 #oplist .draggable.has-params > .swarf-op-chevron { order: 1; }
 #oplist .draggable.has-params > .del { order: 2; position: static; margin-right: -2px; }
 #oplist .draggable.has-params > .swarf-op-params { order: 3; }
 /* a TEX step's label stays on one line (its whole name in the row's tooltip), so edit stays beside it */
 #oplist .draggable.tex-step > .label { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; flex: 1 1 0; }
-/* review r093-ux T2: the tiny chevron read as a stray dot ("rough ·"); the edit ▾ pill says it folds */
+/* the edit ▾ pill says it folds (a tiny chevron reads as a stray dot: "rough ·") */
 #oplist .draggable.has-params > .label::after {
   content: none; margin-left: 6px;
   color: var(--swarf-text-3, #58534a);
@@ -1329,7 +1325,7 @@ body:not(.swarf-expert) .swarf-add-op-grid > .swarf-expert-only {
   border-radius: 2px;
   min-width: 0;
 }
-/* (review r086 F4) each number names its unit, in mm or in */
+/* each number names its unit, in mm or in */
 .swarf-op-params .swarf-op-row > .swarf-op-unit { flex: 0 0 48px; font-style: normal; font-size: 11px; white-space: nowrap; }
 .swarf-op-params .swarf-op-num > input { text-align: right; width: 0; }
 .swarf-op-params { box-sizing: border-box; max-width: 100%; }
@@ -1351,7 +1347,7 @@ body:not(.swarf-expert) .swarf-add-op-grid > .swarf-expert-only {
   cursor: pointer;
 }
 
-/* swarf: SIMULATE playback bar (2026-04-15 r6) — upstream Kiri ships a white
+/* swarf: SIMULATE playback bar — upstream Kiri ships a white
    control strip; re-skin as a dark HUD with a bright mill-red PLAY affordance
    at left so the button to start simulation is unmistakable. */
 #layer-animate {
@@ -1433,7 +1429,7 @@ body:not(.swarf-expert) .swarf-add-op-grid > .swarf-expert-only {
   font-size: 11px !important;
 }
 
-/* swarf r6: SIMULATE bar extras — chips toggle + the bar clearing the
+/* swarf: SIMULATE bar extras — chips toggle + the bar clearing the
    renato.design watermark. The watermark sits at lower-left bottom:14px;
    when phase=simulating it lifts above the 52px bar so they don't overlap. */
 .swarf-sim-extra {
@@ -1452,7 +1448,7 @@ body.swarf-phase-simulating #swarf-watermark {
   padding-left: 24px !important;
 }
 
-/* swarf r5: workflow-phase aura (2026-04-15). The body picks up one of
+/* swarf: workflow-phase aura. The body picks up one of
    .swarf-phase-{idle,toolpaths,previewing,simulating,exported}; CSS paints
    the subtle difference so the user can feel which step they're in. */
 body { transition: filter 900ms ease-out; }
@@ -1502,7 +1498,7 @@ body.swarf-phase-exported   #swarf-watermark::after { background: #6a6a6a; }
 body:not(.swarf-expert) #speeds { display: none !important; }
 
 /* ================================================================
-   DIALOG UNIFICATION (Apr 15) — job/download popover, Application
+   DIALOG UNIFICATION — job/download popover, Application
    Preferences, Workspace Export confirm. Mimic the tool-drawer
    (.set2-group) register + About-panel type pass. Drawer aesthetic:
    warm-black plate, mill-red left rail, scanline hairlines, chamfer,
@@ -1896,7 +1892,7 @@ body.swarf-phone > *:not(#swarf-phone-wall) { display: none !important; }
   position: fixed;
   bottom: 8px;
   right: 8px;
-  z-index: 10050;   /* over simulate's bar and every card (Phil 11-01, below) */
+  z-index: 10050;   /* over simulate's bar and every card (see below) */
   visibility: visible !important;
   font-size: 11px;
   letter-spacing: .04em;
@@ -1945,13 +1941,13 @@ button#ver { margin: 0; line-height: normal; font-weight: normal; text-align: le
 #install-swarf.on {
   display: inline-block;
 }
-/* the simulate bar shown: the two pills step aside, as in draw and control (1366 look 10-31: install
-   swarf sat on advanced's "machine" button; lifted, the version then sat under the concerns pill) */
+/* the simulate bar shown: the two pills step aside, as in draw and control (install
+   swarf would sit on advanced's "machine" button; lifted, the version would sit under the concerns pill) */
 body:has(#layer-animate:not(.hide)) #install-swarf {
   visibility: hidden !important;
 }
-/* the version stays in the bottom-right corner everywhere (Phil 11-01: "make sure version number/
-   update always shows up in bottom right corner"): above simulate's bar, over every card */
+/* the version stays in the bottom-right corner everywhere, the version
+   and the update with it: above simulate's bar, over every card */
 /* in simulate it sits in the bar's empty right end (above the bar it met the concerns pill) */
 body:has(#layer-animate:not(.hide)) #ver { bottom: calc(8px + (var(--swarf-simbar-h, 56px) - 20px) / 2); right: 22px; }
 #install-swarf:hover {
@@ -1989,18 +1985,18 @@ body:has(#layer-animate:not(.hide)) #ver { bottom: calc(8px + (var(--swarf-simba
     overflow-x: auto;
 }
 
-/* swarf shape (r36): the reason a shape can't be made, under its fields */
+/* swarf shape: the reason a shape can't be made, under its fields */
 .swarf-shape-why { min-height: 1.4em; margin: 6px 0 0; color: var(--swarf-accent-hi); font-size: 12px; max-width: 300px; text-align: center; }
 .swarf-shape select, .swarf-shape input { font: inherit; }
 .swarf-shape-prev { width: 140px; height: 110px; margin: 8px auto 0; display: flex; align-items: center; justify-content: center; }
 .swarf-shape-prev svg { fill: var(--swarf-text); fill-opacity: .85; stroke: none; }
 
-/* swarf size (r36): the selected part's size in mm, at the bottom of the workspace */
+/* swarf size: the selected part's size in mm, at the bottom of the workspace */
 #swarf-size { position: fixed; left: 50%; bottom: 22px; transform: translateX(-50%); z-index: 30; display: none; align-items: center; gap: 8px;
   padding: 8px 14px; background: rgba(27,23,21,.95); border: 1px solid #3a3230; border-radius: 8px; box-shadow: 0 8px 28px rgba(0,0,0,.45);
   color: var(--swarf-text); font: 13px "IBM Plex Mono", ui-monospace, monospace; }
 #swarf-size.on { display: flex; }
-/* (r093 UX B4) with the size card up, the steps panel ends above it: the step list gives up
+/* with the size card up, the steps panel ends above it: the step list gives up
    height (it scrolls) so add a step stays in reach; a panel still too tall scrolls whole */
 #panel-right .set2-group { flex-shrink: 0; }
 #panel-right > .set2-group:last-child { margin-bottom: 0; }
@@ -2017,7 +2013,7 @@ body:has(#swarf-size.on) #panel-right #oplist { max-height: min(calc(70vh - 200p
 #swarf-size .ax small { color: var(--swarf-text-2); font-size: 11px; }
 #swarf-size .keep { display: flex; align-items: center; gap: 6px; margin-left: 8px; color: var(--swarf-text-2); font-size: 12px; cursor: pointer; }
 
-/* swarf draw (r37): the bed from above as a drawing, over the workspace. Quiet: no red here */
+/* swarf draw: the bed from above as a drawing, over the workspace. Quiet: no red here */
 #swarf-draw { position: fixed; inset: 0; z-index: 60; background: #121010; color: var(--swarf-text);
   font: 13px "IBM Plex Mono", ui-monospace, monospace; }
 #swarf-draw svg { position: absolute; inset: 0; width: 100%; height: 100%; outline: none; cursor: default; touch-action: none; }
@@ -2089,11 +2085,11 @@ body.swarf-draw-open #swarf-concerns, body.swarf-draw-open #swarf-size { display
 #swarf-start button { font: inherit; font-size: 13px; color: #f2ede4; background: #2a2523; border: 1px solid #4f4642; border-radius: 6px; padding: 8px 14px; cursor: pointer; text-transform: none; letter-spacing: 0; }
 #swarf-start button:hover, #swarf-start button:focus-visible { border-color: #d8d2c6; outline: none; }
 #swarf-start small { color: #7d736b; font-size: 11px; }
-/* r44: while a job is on the machine, cam's steps sleep (review 10-28 #20: SHAPE went red while paused) */
+/* while a job is on the machine, cam's steps sleep (SHAPE never goes red while paused) */
 body.swarf-run-busy #mode-tools > span:not(.swarf-step-run) { opacity: .82; cursor: not-allowed; }
 body.swarf-run-busy #mode-tools > span:not(.swarf-step-run):hover { background: transparent !important; color: inherit !important; text-shadow: none; }
 body.swarf-run-busy #mode-tools > span:not(.swarf-step-run):hover svg { fill: var(--swarf-text-2) !important; color: var(--swarf-text-2) !important; }
-/* r44: wider hit places in DRAW (review 10-28 #12) */
+/* wider hit places in DRAW */
 #swarf-draw .sd-near { fill: none; stroke: transparent; stroke-width: 14; pointer-events: stroke; cursor: move; }
 #swarf-draw .sd-hit { fill: transparent; stroke: none; pointer-events: fill; cursor: move; }
 #swarf-draw .sd-pthit { fill: transparent; stroke: none; pointer-events: fill; cursor: pointer; }
@@ -2114,7 +2110,7 @@ body.swarf-run-busy #mode-tools > span:not(.swarf-step-run):hover svg { fill: va
 .swarf-skin-row span { visibility: hidden; }
 .swarf-skin-row.swarf-skin-on span { visibility: visible; }
 
-/* ---- setup › preferences, regrouped (swarf-prefs.js, Phil 10-28: "needs work again") ----
+/* ---- setup › preferences, regrouped (swarf-prefs.js) ----
    Two columns, the view and the bed, then advanced folded across the width. */
 #mod-prefs.swarf-prefs { min-width: 0 !important; width: min(620px, 92vw); padding: 18px 22px 20px !important; }
 #mod-prefs.swarf-prefs .menu-title { font-size: 13px !important; letter-spacing: .08em; text-transform: none; color: var(--swarf-text) !important; padding: 0 0 12px; align-self: flex-start; }
@@ -2145,7 +2141,7 @@ html[data-skin="glass"] #mod-prefs .swarf-prefs-rows > .var-row { border-bottom-
 html[data-skin="glass"] .swarf-prefs-adv { border-top-color: rgba(0,0,0,.08); }
 html[data-skin="classic"] #mod-prefs.swarf-prefs { border-radius: 0 !important; }
 
-/* ---- modes (swarf-modes.js, Phil 10-28): in draw or control the row folds to cam · draw · control ---- */
+/* ---- modes (swarf-modes.js): in draw or control the row folds to cam · draw · control ---- */
 #swarf-step-cam { display: none !important; }
 body.swarf-focus #swarf-step-cam { display: flex !important; }
 body.swarf-focus #mode-tools > span:not(#swarf-step-cam):not(#swarf-step-draw):not(#swarf-step-tex):not(#swarf-step-run) { display: none !important; }
@@ -2158,42 +2154,42 @@ html[data-skin="glass"] #mode-tools > span#swarf-step-draw.swarf-step-on, html[d
 body.swarf-focus #swarf-step-cam { border-right: 1px solid var(--swarf-line-2); }
 #mod-prefs .f-row.gap10.swarf-prefs-old { display: none !important; }
 
-/* reduced motion (Interfacing review 10-28 #4): the working strip and the sky hold still */
+/* reduced motion: the working strip and the sky hold still */
 @media (prefers-reduced-motion: reduce) {
   #swarf-run .sr-strip.on { animation: none !important; background-size: 100% 100% !important; }
   body, body::before, body::after { animation: none !important; }
 }
 
-/* no orphans, anywhere (Phil 10-28: "be maniacal culling orphans"): body text wraps so its last
+/* no orphans, anywhere: body text wraps so its last
    line is never one word; headings and one-line notices balance their lines */
 html, body, #swarf-run, #swarf-draw, .mdialog, #dialog, #alert-text, #swarf-start, #swarf-size, #mod-help { text-wrap: pretty; }
 h1, h2, h3, h4, .sr-card h2, .sr-veilcard h2, #swarf-start h2, .menu-title, #swarf-run .sr-say, #alert-text { text-wrap: balance; }
 #mode-tools span, .sr-step, kbd { text-wrap: nowrap; }
 
-/* help search: the tag and the name side by side with a gap, the text under both (Fable review 3 #21: "controldrives") */
+/* help search: the tag and the name side by side with a gap, the text under both (never "controldrives") */
 .swarf-search .swarf-result { display: grid !important; grid-template-columns: max-content 1fr; column-gap: 10px; align-items: baseline; }
 .swarf-search .swarf-result strong { margin-left: 0 !important; white-space: nowrap; }
 .swarf-search .swarf-result p { grid-column: 1 / -1; }
 .swarf-search .swarf-result-kind.run { color: var(--swarf-text); }
-/* focus is always visible, in every skin (Fable review 3 #24 / Interfacing 1C) */
+/* focus is always visible, in every skin */
 :focus-visible { outline: 2px solid var(--swarf-accent-hi, #3a6aa8) !important; outline-offset: 2px !important; }
 html[data-skin="glass"] :focus-visible { outline-color: #303236 !important; }
 /* a card that takes the focus when it opens (so Esc and Tab start inside it) is not a control:
    no ring around the whole card, which read as a second, square frame; its controls keep theirs */
 #modal-box > .mdialog:focus-visible, #dialog:focus-visible { outline: none !important; }
-/* deep review S16: a 1 px dotted ring was lost on the dark selected pills */
+/* a 1 px dotted ring is lost on the dark selected pills */
 html[data-skin="classic"] :focus-visible { outline: 2px dotted #000 !important; outline-offset: -4px !important; box-shadow: 0 0 0 2px #fff inset !important; }
 .swarf-search .swarf-result-kind.shop { color: var(--swarf-text); }
 .swarf-search .swarf-result-kind.tex, .swarf-search .swarf-result-kind.draw { color: var(--swarf-text); }
 
-/* one casing rule in every skin (Phil 10-28: "Your call on casing, just make it consistent"):
-   no skin turns words to capitals or Title Case (the uppercase and capitalize rules are gone);
+/* one casing rule in every skin:
+   no skin turns words to capitals or Title Case (no uppercase or capitalize rules);
    controls and labels are lowercase, sentences and card headings sentence case, names (ShopBot,
    MR-1, KCAD) as they are spelled. Kiri's few capitalised labels are lowercased here. */
 #menubar label, #menubar span, .top-menu-drop label, #mode-tools label, .set-header, .set-header a,
 .var-row > label, #camops label, #camops span, .mdialog label:not(.menu-title) { text-transform: lowercase; }
 
-/* ---- legibility pass, the swarf skin (Phil 10-28: "make sure legibility is never compromised") ----
+/* ---- legibility, the swarf skin: never compromised ----
    measured with tools/look_legibility.mjs: 4.5:1 for every text on the dark plates and the red sky */
 html:not([data-skin]) { --swarf-text-2: #b8b0a4; --swarf-text-3: #9a9286; }
 html:not([data-skin]) #swarf-watermark { color: #efe6d8 !important; opacity: 1 !important; text-shadow: 0 1px 2px rgba(0,0,0,.6); }
@@ -2209,11 +2205,11 @@ html:not([data-skin]) #panel-right .set2-group summary.set-header a, html:not([d
 html:not([data-skin]) #swarf-run .sr-pad button small, html:not([data-skin]) #swarf-run .sr-jog .sr-modes .lbl small, html:not([data-skin]) #swarf-run .sr-jog .sr-modes .lbl { color: #cfc7bb !important; }
 html:not([data-skin]) .set-header a, html:not([data-skin]) summary.set-header a { color: #ff8a7e !important; }
 
-/* a concern reads top to bottom: its title, what is wrong, then what to do (legibility pass 10-28) */
+/* a concern reads top to bottom: its title, what is wrong, then what to do */
 .swarf-concern { display: block !important; }
 .swarf-concern strong, .swarf-concern em { display: block !important; }
 .swarf-concern em { margin-top: 3px; }
-/* the menus open over control and draw, never under them (Phil 10-28: setup's list was cut off in control);
+/* the menus open over control and draw, never under them (setup's list is never cut off in control);
    #menubar's own z-index is with its position, above */
 #menubar .top-menu-drop { z-index: 96 !important; }
 
@@ -2294,7 +2290,7 @@ html[data-skin="classic"] #mod-x { width: 18px; height: 16px; display: grid; pla
 html:not([data-skin]) .swarf-license a, html:not([data-skin]) .swarf-about a, html:not([data-skin]) .swarf-credits a { color: #ff8a7e !important; }   /* the about box links read on the dark plate */
 html:not([data-skin]) .swarf-concordance section h3 { color: #ff8a7e !important; }   /* section heads on the dark plate */
 
-/* the router test button (Phil 10-29): red while the router runs, in every skin */
+/* the router test button: red while the router runs, in every skin */
 html #swarf-run .sr-keyrow button.sr-router.on,
 html[data-skin] #swarf-run .sr-keyrow button.sr-router.on,
 html:not([data-skin]) #swarf-run .sr-keyrow button.sr-router.on { background: #b3261e !important; border-color: #8c1d18 !important; color: #fff !important; box-shadow: 0 0 0 3px rgba(179, 38, 30, .25) !important; }
@@ -2304,7 +2300,7 @@ html[data-skin] #swarf-run .sr-keyrow button.sr-router.on b,
 html[data-skin] #swarf-run .sr-keyrow button.sr-router.on small,
 html:not([data-skin]) #swarf-run .sr-keyrow button.sr-router.on small { color: #fff !important; }
 
-/* the empty bed (Phil 10-29): ShopBot row, a close, and after a delete a strip at the bottom */
+/* the empty bed: ShopBot row, a close, and after a delete a strip at the bottom */
 #swarf-start .row.sb button { font-size: 12px; }
 #swarf-start .swarf-start-x { position: absolute; top: 8px; right: 10px; border: 0 !important; background: none !important; box-shadow: none !important; font-size: 18px; line-height: 1; padding: 2px 6px; opacity: .7; cursor: pointer; }
 #swarf-start { position: fixed; }
@@ -2323,7 +2319,7 @@ html:not([data-skin]) #swarf-run .sr-keyrow button.sr-router.on small { color: #
 .swarf-autotabs-slider .name { width: 62px; flex: none; }
 .swarf-autotabs-slider .end { flex: none; font-size: 11px; opacity: 0.8; }
 .swarf-autotabs-slider input[type=range] { flex: 1; min-width: 60px; accent-color: var(--swarf-accent); }
-/* room for its usual three lines, so the fields under it hold still as the sliders change it (Phil 11-01) */
+/* room for its usual three lines, so the fields under it hold still as the sliders change it */
 .swarf-autotabs-say { line-height: 1.35; min-height: 4.05em; flex-shrink: 0; }
 .swarf-autotabs-say:empty { display: none; }
 /* auto tabs' fields: every attribute, empty = automatic (grey), typed = pinned */
@@ -2339,14 +2335,14 @@ html:not([data-skin]) #swarf-run .sr-keyrow button.sr-router.on small { color: #
 .swarf-autotabs-field input[type=checkbox] { margin: 0; accent-color: var(--swarf-accent); }
 .swarf-autotabs-slider.off { opacity: 0.45; }
 .swarf-autotabs-reset { align-self: flex-start; font-size: 11px; padding: 3px 8px; }
-/* the open step's "editing" badge reads in every skin: white on the accent (reviews 10-29: dark on
+/* the open step's "editing" badge reads in every skin: white on the accent (never dark on
    dark in glass and classic); a hover keeps its text instead of red on red */
 html #oplist .draggable.swarf-params-open .swarf-op-chevron { color: #fff !important; background: var(--swarf-accent, #d02020) !important; }
 html #oplist .draggable:not(.swarf-params-open) .swarf-op-chevron:hover { color: var(--swarf-text, #d8d2c6) !important; }
-/* the export dialog: no upstream donation line in a school shop app (reviews 10-29); Kiri:Moto is credited in about */
+/* the export dialog: no upstream donation line in a school shop app; Kiri:Moto is credited in about */
 #export-support { display: none !important; }
 /* about: Kiri styles every #mod-help link as a padded flex box (its old help list); swarf's about
-   reuses that id, so its credits and license ran as squeezed columns (Phil 10-29: "this looks weird") */
+   reuses that id, so its credits and license would run as squeezed columns */
 #mod-help.swarf-about a { display: inline !important; padding: 0 !important; border-radius: 0 !important; background: none !important; }
 #mod-help.swarf-about .swarf-license, #mod-help.swarf-about .swarf-license-body,
 #mod-help.swarf-about .swarf-about-body { display: block !important; }
@@ -2355,9 +2351,9 @@ html #oplist .draggable:not(.swarf-params-open) .swarf-op-chevron:hover { color:
 #mod-help.swarf-about .swarf-about-foot { flex-wrap: wrap; gap: 6px 12px; }
 #mod-help.swarf-about #kiri-version { white-space: nowrap; }
 #mod-help.swarf-about .swarf-about-links { flex-wrap: wrap; }
-/* a dialog or DRAW in front: cam's panels go behind it and take no clicks (reviews 10-29: at 1024
-   the toolpaths panel covered about, the quick start and DRAW's toolbar; behind the tool library a
-   click on "rough" added a step) */
+/* a dialog or DRAW in front: cam's panels go behind it and take no clicks (at 1024
+   the toolpaths panel would cover about, the quick start and DRAW's toolbar; behind the tool library a
+   click on "rough" would add a step) */
 body:has(#modal[style*="flex"]) #panel-right, body:has(#modal[style*="flex"]) #swarf-right-rail,
 body:has(#modal[style*="flex"]) #swarf-size, body:has(#modal[style*="flex"]) #swarf-concerns,
 body.swarf-draw-open #panel-right, body.swarf-draw-open #swarf-right-rail, body.swarf-draw-open #swarf-concerns {
@@ -2366,11 +2362,11 @@ body.swarf-draw-open #panel-right, body.swarf-draw-open #swarf-right-rail, body.
 /* advanced mode's settings panels (machine profile, stock, limits, origin, expert) step aside for
    DRAW's and TEX's boards: they drew over the card, and TEX's pierce lives in advanced mode */
 body.swarf-draw-open #panel-slide { display: none !important; }
-/* and for control (deep review 10-31 M2: limits sat over air cut, origin over trace); the
-   toolpath speed legend is cam's alone (M3: "59 56 53" read as a live readout in control) */
+/* and for control (limits would sit over air cut, origin over trace); the
+   toolpath speed legend is cam's alone ("59 56 53" would read as a live readout in control) */
 body.swarf-run-open #panel-slide, body.swarf-run-open #panel-left { display: none !important; }
 body.swarf-focus #speeds, body.swarf-run-open #speeds { display: none !important; }
-/* review 10-30 B4: TEX's card ran under the install / version chips at 1440×900; DRAW and TEX
+/* TEX's card would run under the install / version chips at 1440×900; DRAW and TEX
    step them aside as control does */
 body.swarf-draw-open #install-swarf,
 body.swarf-draw-open #swarf-watermark { visibility: hidden !important; }
@@ -2420,15 +2416,15 @@ html[data-skin] #swarf-draw svg .sd-part.sd-regsrc, #swarf-draw svg .sd-part.sd-
 /* the brush size in the bar; small swatches in one row on a short window; the points row on one line */
 #swarf-draw.sd-tex .tx-bsize { display: inline-flex; align-items: center; gap: 4px; font-size: 12px; }
 #swarf-draw.sd-tex .tx-bsize input { font: inherit; width: 52px; text-align: right; padding: 4px 6px; border-radius: 6px; border: 1px solid currentColor; background: transparent; color: inherit; }
-/* 720p: two rows of five with their one-word captions (review 10-30 B3), a 22 px picture each */
-/* fourteen patterns (reaction, blobtex 11-01) in two rows on a short window, so the basic card still fits */
-#swarf-draw.sd-tex .tx-sws.tx-compact { grid-template-columns: repeat(5, 1fr); gap: 3px; margin: 2px 0 4px; }   /* 11 px captions (Phil 11-13) need five across, three rows */
+/* 720p: two rows of five with their one-word captions, a 22 px picture each */
+/* fourteen patterns (reaction, blobtex) in two rows on a short window, so the basic card still fits */
+#swarf-draw.sd-tex .tx-sws.tx-compact { grid-template-columns: repeat(5, 1fr); gap: 3px; margin: 2px 0 4px; }   /* 11 px captions need five across, three rows */
 #swarf-draw.sd-tex .tx-sws.tx-compact .tx-sw { padding: 3px 0 3px !important; gap: 1px; font-size: 11px !important; min-width: 0; }
 #swarf-draw.sd-tex .tx-sws.tx-compact .tx-sw span { letter-spacing: -0.02em !important; }
 #swarf-draw.sd-tex .tx-sws.tx-compact .tx-sw img { width: 22px; height: 22px; border-radius: 3px; }
 /* six to a row in a short window: a caption in the system's sans in every skin (the swarf skin's mono ran
    six letters past a 31 px swatch) */
-#swarf-draw.sd-tex .tx-sws .tx-sw span { font-family: system-ui, -apple-system, 'Segoe UI', sans-serif !important; letter-spacing: 0 !important; }   /* every swatch: 11 px mono touched the tile's edge (Phil 11-13 floor) */
+#swarf-draw.sd-tex .tx-sws .tx-sw span { font-family: system-ui, -apple-system, 'Segoe UI', sans-serif !important; letter-spacing: 0 !important; }   /* every swatch: 11 px mono touches the tile's edge at the 11 px floor */
 #swarf-draw.sd-tex .sd-card .tx-ptsrow { flex-wrap: nowrap; }
 #swarf-draw.sd-tex .sd-card .tx-ptsrow input { width: 44px; }
 /* the kerfed board from the side, in the skin's own text color */
@@ -2445,22 +2441,22 @@ html[data-skin] #swarf-draw svg .sd-part.sd-regsrc, #swarf-draw svg .sd-part.sd-
 #swarf-draw.sd-tex .tx-brush { pointer-events: none; }
 #swarf-draw.sd-tex svg { cursor: crosshair; }
 
-/* mm | in on the bed's top-left corner (swarf-prefs.js unitsSwitch, Phil 10-30) */
+/* mm | in on the bed's top-left corner (swarf-prefs.js unitsSwitch) */
 #swarf-units { position: fixed; top: 52px; left: 14px; z-index: 40; display: flex; gap: 0; }
 #swarf-units button { font-size: 12px; padding: 4px 10px; min-width: 38px; margin: 0; }
 #swarf-units button:first-child { border-top-right-radius: 0; border-bottom-right-radius: 0; }
 #swarf-units button:last-child { border-top-left-radius: 0; border-bottom-left-radius: 0; margin-left: -1px; }
-/* r086 check P12: under a modal (the export card, preferences, which has its own units row) the
-   mm | in switch steps aside: it sat crisp above the blur and read as pressable. P11: the start
-   card steps aside for a modal or a dialog (the SVG import's make parts showed it through). Both
+/* under a modal (the export card, preferences, which has its own units row) the
+   mm | in switch steps aside: crisp above the blur it would read as pressable. The start
+   card steps aside for a modal or a dialog (the SVG import's make parts would show it through). Both
    come back when it closes; a dialog (top layer, its own backdrop) keeps the switch reachable. */
 body:has(#modal[style*="flex"]) #swarf-units,
 body:has(#modal[style*="flex"]) #swarf-start, body:has(#dialog[open]) #swarf-start { display: none !important; }
 
-/* a notice's own × (alerts.js, Phil 10-30): it closes that one; it never looks like it stays */
+/* a notice's own × (alerts.js): it closes that one; it never looks like it stays */
 #alert-text p.alert-one { display: flex; align-items: flex-start; gap: 10px; }
 #alert-text p.alert-one > span { flex: 1; }
-/* r086 check P7: a 24 px target round a small ×; the negative margins keep the line as it was */
+/* a 24 px target round a small ×; the negative margins keep the line as it was */
 #alert-text .alert-x { flex: none; border: 0; background: transparent; color: inherit; opacity: 0.6; font-size: 18px; line-height: 1; padding: 0; margin: -5px -8px -5px -2px; cursor: pointer; min-width: 24px; min-height: 24px; display: inline-flex; align-items: center; justify-content: center; box-shadow: none; }
 #alert-text .alert-x:hover, #alert-text .alert-x:focus-visible { opacity: 1; }
 
@@ -2485,7 +2481,7 @@ body.swarf-draw-open #swarf-tabcard { display: none !important; }
 body:has(#modal[style*="flex"]) #swarf-tabcard { z-index: -1 !important; pointer-events: none !important; }
 @media (max-width: 1100px) { #swarf-tabcard { flex-wrap: wrap; left: 16px; right: 16px; transform: none; justify-content: center; } }
 
-/* (whole-app review r086 B1) export in cam: one swarf card. Kiri's rows hide (its gcode preview
+/* export in cam: one swarf card. Kiri's rows hide (its gcode preview
    shows only when preferences ask for it); the card speaks in the body font in wet plastic and
    classic, in mono in the swarf skin. */
 #mod-x-any.swarf-x > :not(.swarf-x-card):not(#code-preview-head):not(#code-preview) { display: none !important; }
@@ -2504,13 +2500,13 @@ html[data-skin] #mod-x-any.swarf-x, html[data-skin] .swarf-x-card { font-family:
 .swarf-x-card .swarf-x-proj, .swarf-x-card .swarf-x-zip { font-size: 12px; }
 .swarf-x-card .swarf-x-go { font-weight: 600; }
 
-/* (whole-app review r086 C3) a router (the ShopBot, the MR-1) has no lathe, rotary index, loop or
+/* a router (the ShopBot, the MR-1) has no lathe, rotary index, loop or
    laser: advanced does not offer those steps there */
 body.swarf-router #op-add-list > #cam-lathe, body.swarf-router #op-add-list > #cam-index,
 body.swarf-router #op-add-list > #cam-loop, body.swarf-router #op-add-list > #laser-on,
 body.swarf-router #op-add-list > #laser-off { display: none !important; }
 
-/* (whole-app review r086 F7) one focus ring for the menu bar, its items and the mode row */
+/* one focus ring for the menu bar, its items and the mode row */
 #menubar .top-menu > span:focus-visible, .top-menu-drop .content > div:focus-visible, #mode-tools > .swarf-step:focus-visible {
   outline: 2px solid var(--swarf-accent-hi, #d02020) !important; outline-offset: 2px; }
 html[data-skin="glass"] #menubar .top-menu > span:focus-visible, html[data-skin="glass"] .top-menu-drop .content > div:focus-visible,
@@ -2522,7 +2518,7 @@ html[data-skin="classic"] #mode-tools > .swarf-step:focus-visible { outline: 1px
 .top-menu-drop .content > div .swarf-key { position: absolute; right: 36px; top: 50%; transform: translateY(-50%); opacity: .6; font-size: 11px; text-transform: none !important; letter-spacing: 0; pointer-events: none; }
 .swarf-x-card .swarf-x-name input { text-align: left !important; }
 
-/* (whole-app review r086 B5) the simulate bar: its name in every skin, words for its numbers */
+/* the simulate bar: its name in every skin, words for its numbers */
 #layer-animate::before { display: none !important; }
 #layer-animate .swarf-sim-name { font-weight: 700; font-size: 12px; padding: 0 12px 0 0; margin-right: 6px; border-right: 1px solid var(--swarf-line, #2a2a2a); text-transform: none; letter-spacing: 0; color: var(--swarf-text, #d8d2c6); }
 html:not([data-skin]) #layer-animate .swarf-sim-name { color: var(--swarf-accent-hi, #ff3a2a); }
@@ -2530,33 +2526,33 @@ html:not([data-skin]) #layer-animate .swarf-sim-name { color: var(--swarf-accent
 #layer-animate .swarf-sim-name { display: flex; align-items: center; align-self: stretch; }
 #layer-animate .swarf-sim-unit { padding-left: 2px !important; }
 
-/* (whole-app review r086 B4) the layer range slider is advanced's: a student's toolpaths view
+/* the layer range slider is advanced's: a student's toolpaths view
    keeps the toggles (bit · direction · moves · cuts) and the watermark clear */
 body:not(.swarf-expert) #layer-slider #slider { display: none !important; }
 #layers, #layers label { font-family: inherit !important; text-transform: none !important; }
-/* (Phil 11-01) simulate's per-step path boxes (swarf-lightstream.js): the toolpaths view's toggle row,
+/* simulate's per-step path boxes (swarf-lightstream.js): the toolpaths view's toggle row,
    raised just above the sim bar (its height measured, as it wraps on a narrow window) */
 body.swarf-sim-paths #layer-slider { bottom: calc(var(--swarf-simbar-h, 52px) + 6px); }
-/* (r093 UX T10) the toolpaths view's toggles (bit · direction · moves · cuts) sit where simulate's
+/* the toolpaths view's toggles (bit · direction · moves · cuts) sit where simulate's
    step boxes do, just above the sim bar's line, as one pill strip in both views */
 body:not(.swarf-expert) #layer-slider { bottom: calc(var(--swarf-simbar-h, 72px) + 6px); }
 body:not(.swarf-expert) #layers:has(.var-row) { align-self: center; width: max-content; max-width: 100%; flex-wrap: wrap; padding: 3px 12px 0;
   border-radius: 999px; background: var(--swarf-more-bg, var(--swarf-bg-2)); box-shadow: 0 0 0 1px var(--swarf-line), 0 4px 14px rgba(0,0,0,.18); }
-/* (whole-app review r086 B3) the step list's "end of ops chain" bar is advanced's too */
+/* the step list's "end of ops chain" bar is advanced's too */
 body:not(.swarf-expert) #oplist > .clock { display: none !important; }
-/* (whole-app review r086 F8) preferences fit a 720 px window: the card scrolls */
+/* preferences fit a 720 px window: the card scrolls */
 #mod-prefs { max-height: calc(100vh - 80px); overflow-y: auto !important; }
-/* (whole-app review r086 C4) strategy's machinist rows wait in advanced */
+/* strategy's machinist rows wait in advanced */
 body:not(.swarf-expert) .swarf-adv-row { display: none !important; }
 
-/* r086 check P13: steps on an empty bed wait for a part, and the list says so (not dimmed: a dimmed
-   step fell under 4.5:1 in the legibility pass, and it is still a live control) */
+/* steps on an empty bed wait for a part, and the list says so (not dimmed: a dimmed
+   step falls under 4.5:1, and it is still a live control) */
 body.swarf-bed-empty #oplist:has(.draggable)::before {
   content: 'No part on the bed: these steps wait for the next one.'; display: block; padding: 2px 2px 6px;
   font-size: 11px; line-height: 1.3; color: var(--swarf-text-2); white-space: normal; text-transform: none !important; letter-spacing: 0;
 }
 
-/* sliders beside TEX's numbers and the brush, as MASQ's (Phil 11-01): a thin track drawn in a 14 px box, a round
+/* sliders beside TEX's numbers and the brush, as MASQ's: a thin track drawn in a 14 px box, a round
    thumb; stronger than every skin's card-input rule */
 html #swarf-draw input.sd-slide, html[data-skin] #swarf-draw .sd-card input.sd-slide, html[data-skin] #swarf-draw .tx-bsize input.sd-slide, html #swarf-draw.sd-tex .tx-bsize input.sd-slide {
   -webkit-appearance: none !important; appearance: none !important; display: block; flex: 1 1 40px !important; min-width: 40px; width: auto !important; height: 14px !important;
@@ -2575,7 +2571,7 @@ html #swarf-draw .tx-bsize input.sd-slide, html[data-skin] #swarf-draw .tx-bsize
 #swarf-draw.sd-tex .sd-card .sd-row.sd-slid > .u { flex: none; }
 html #swarf-draw.sd-tex .sd-card .sd-row.sd-slid input.sd-slide { min-width: 60px; }
 
-/* swarf 103: each step's share of the time on the ShopBot, beside its edit pill (swarf-estimate.js),
+/* swarf: each step's share of the time on the ShopBot, beside its edit pill (swarf-estimate.js),
    and the whole job's time at the end of the sim bar */
 #oplist .draggable > .swarf-op-time { order: 0; margin-left: auto; padding: 0 6px; font-style: normal; font-size: 11px; opacity: 0.7; white-space: nowrap; font-variant-numeric: tabular-nums; }
 #oplist .draggable > .swarf-op-time:empty { display: none; }
@@ -2584,7 +2580,7 @@ html #swarf-draw.sd-tex .sd-card .sd-row.sd-slid input.sd-slide { min-width: 60p
 #layer-animate .swarf-sim-time { display: flex; align-items: center; align-self: stretch; padding: 0 10px; font-size: 12px; white-space: nowrap; font-variant-numeric: tabular-nums; cursor: default; }
 #layer-animate .swarf-sim-time[hidden] { display: none; }
 
-/* swarf 103: the right-click menu (swarf-menu.js): a part's turns, mirror, copy, leave out, delete */
+/* swarf: the right-click menu (swarf-menu.js): a part's turns, mirror, copy, leave out, delete */
 .swarf-ctx { position: fixed; z-index: 10050; min-width: 190px; padding: 5px; display: flex; flex-direction: column; gap: 1px;
   background: var(--swarf-bg-2, var(--swarf-bg, #faf9f6)); color: var(--swarf-text, #1e1c18); border: 1px solid var(--swarf-line, rgba(0, 0, 0, 0.14));
   border-radius: 10px; box-shadow: 0 10px 30px rgba(0, 0, 0, 0.18); backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px); font-size: 13px; }
@@ -2598,7 +2594,7 @@ html body .swarf-ctx button.danger { color: var(--swarf-accent, #c01d14); }
 html[data-skin="glass"] .swarf-ctx, html[data-skin="classic"] .swarf-ctx { background: rgba(251, 251, 250, 0.95); color: #1e1f20; }
 @media (pointer: coarse) { html body .swarf-ctx button { padding: 10px 12px; } }
 
-/* the export card repeats what is still open (review 105 F2) */
+/* the export card repeats what is still open */
 .swarf-x-concerns { margin: 8px 0; padding: 8px 10px; border-left: 3px solid var(--swarf-warn, #b8862a); background: rgba(184, 134, 42, .09); font-size: 12px; line-height: 1.4; }
 .swarf-x-concerns ul { margin: 4px 0 0; padding: 0; list-style: none; }
 .swarf-x-concerns li { margin-top: 4px; }
@@ -2606,7 +2602,7 @@ html[data-skin="glass"] .swarf-ctx, html[data-skin="classic"] .swarf-ctx { backg
 .swarf-x-concerns p { margin: 4px 0 0; }
 .swarf-x-nothing { margin: 8px 0; color: var(--swarf-accent-hi, #c0392b); font-size: 12px; }
 
-/* a step's line: its bit, how deep, the real speed (review 105 F6, F18, M3) */
+/* a step's line: its bit, how deep, the real speed */
 #oplist .draggable > .swarf-op-sum { order: 5; flex: 0 0 100%; box-sizing: border-box; padding: 0 8px 5px; font-size: 11px; line-height: 1.3; opacity: 0.72; white-space: normal; }
 #oplist .draggable > .swarf-op-sum:empty { display: none; }
 #oplist .draggable > .swarf-op-route { order: 5; flex: 0 0 100%; display: block !important; box-sizing: border-box; padding: 0 8px 6px; font-size: 11px; line-height: 1.3; white-space: normal; text-transform: none; }
@@ -2620,14 +2616,14 @@ html[data-skin="glass"] .swarf-ctx, html[data-skin="classic"] .swarf-ctx { backg
 
 body { font-variant-numeric: tabular-nums; }
 
-/* copies: the bed from above, on the card (review 105) */
+/* copies: the bed from above, on the card */
 .swarf-copies-says { min-height: 1.4em; margin: 6px 0 0; font-size: 12px; text-align: center; }
 .swarf-copies .swarf-shape-prev svg { fill: none; }
 .swarf-copies .swarf-shape-prev .bed { fill: none; stroke: var(--swarf-text); stroke-opacity: .5; stroke-width: .5%; vector-effect: non-scaling-stroke; }
 .swarf-copies .swarf-shape-prev .mine { fill: var(--swarf-text); fill-opacity: .85; }
 .swarf-copies .swarf-shape-prev .new { fill: var(--swarf-accent); fill-opacity: .85; }
 .swarf-copies .swarf-shape-prev .other { fill: var(--swarf-text); fill-opacity: .25; }
-/* bits: swarf's own list, beside the steps; the menus stay free (review 105 F17) */
+/* bits: swarf's own list, beside the steps; the menus stay free */
 #swarf-bits { position: fixed; left: 336px; top: 96px; width: min(520px, calc(100vw - 352px)); max-height: calc(100vh - 170px); z-index: 30; display: flex; flex-direction: column;
   background: var(--swarf-bg-2); color: var(--swarf-text); border: 1px solid var(--swarf-line); border-radius: 8px; box-shadow: 0 8px 24px rgba(0,0,0,.35); font-size: 12px; }
 #swarf-bits .swarf-bits-head { display: flex; align-items: center; justify-content: space-between; padding: 8px 12px; border-bottom: 1px solid var(--swarf-line); }
@@ -2646,15 +2642,15 @@ body.swarf-menu-open #swarf-bits { z-index: -1 !important; pointer-events: none;
 #swarf-bits .swarf-bits-why { min-height: 1.2em; margin: 0 0 6px; color: var(--swarf-accent-hi); }
 #swarf-bits .swarf-bits-x { padding: 0 8px; }
 @media (max-width: 860px) { #swarf-bits { left: 8px; width: calc(100vw - 16px); } }
-/* review 11-13 #11: "make it wider" is for a narrow desktop window, not a phone */
+/* "make it wider" is for a narrow desktop window, not a phone */
 @media (pointer: coarse) { .swarf-phone-wide { display: none; } }
-/* review 11-13 #7: the tabs on the board, said before the numbers */
+/* the tabs on the board, said before the numbers */
 .swarf-autotabs-placed { font-size: 12px; margin: 2px 0 6px; }
 .swarf-autotabs-placed.none { color: var(--swarf-amber, #c08a3a); }
-/* review 11-13 #8: on a short screen open concerns take the size strip's place, not half of it */
+/* on a short screen open concerns take the size strip's place, not half of it */
 @media (max-height: 820px) { body.swarf-concerns-up #swarf-size { display: none !important; } }
-/* Interfacing #6 (Phil 11-13): an 11 px floor for every word swarf shows; the two ™ marks are marks, not words */
-/* help floats beside the work (Interfacing #2, Phil 11-13): a non-modal card, dragged by its bar,
+/* an 11 px floor for every word swarf shows; the two ™ marks are marks, not words */
+/* help floats beside the work: a non-modal card, dragged by its bar,
    under the menus (90) and dialogs (300), over control (60) and the step cards (80); the bed takes clicks */
 #swarf-help-float { position: fixed; left: 336px; top: 96px; z-index: 85; display: flex; flex-direction: column;
   width: min(380px, calc(100vw - 16px)); max-height: min(72vh, calc(100vh - 112px)); box-sizing: border-box;

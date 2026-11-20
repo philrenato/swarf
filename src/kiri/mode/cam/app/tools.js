@@ -164,7 +164,7 @@ function otag(o) {
     return tags.join('');
 }
 
-// swarf (whole-app review r086 B2): the bit library in swarf's words, each size with its unit
+// swarf: the bit library in swarf's words, each size with its unit
 function swarfToolWords(tool) {
     const { ui } = api;
     const u = tool && tool.metric ? 'mm' : 'in';
@@ -301,7 +301,7 @@ function _showTools() {
     setToolChanged(false);
 
     ui.toolsClose.onclick = function() {
-        // swarf (r086): asked in swarf's own card, not the browser's
+        // swarf: asked in swarf's own card, not the browser's
         if (!editTools.changed) return api.dialog.hide();
         api.uc.confirm('Close the bits without saving your changes?', { 'keep editing': false, 'close without saving': true }).then(yes => {
             if (yes) api.dialog.hide();

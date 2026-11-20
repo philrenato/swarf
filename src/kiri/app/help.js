@@ -26,8 +26,7 @@ function showHelpFile(local,then) {
     }
     // swarf: fork version replaces upstream Kiri:Moto version string.
     // Reads window.SWARF_VERSION (set by swarf-version.js) rather than a
-    // hardcoded copy of its own — the previous hardcoded "v00000-007" had
-    // drifted silently for the entire life of the fork.
+    // hardcoded copy of its own, which would drift silently.
     $('kiri-version').innerHTML = `${self.SWARF_VERSION || 'swarf'} · kiri:moto ${version}`;
     modal.show('help');
     api.event.emit('help.show', local);

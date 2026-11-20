@@ -1,6 +1,6 @@
 /**
- * swarf: a part with a shaped top edge (Phil 10-27: "straight extrusion and a
- * chamfer and a filleted edge to start").
+ * swarf: a part with a shaped top edge (straight extrusion, a
+ * chamfer and a filleted edge).
  *
  * The outline (with its holes) rises straight to (thickness − size), then the
  * edge turns in by `size` over the last `size` of height: a 45° chamfer, or a

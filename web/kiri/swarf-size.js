@@ -1,7 +1,7 @@
 /*
  * swarf size — the selected part's real size, where you are looking (in cam's units: mm, or
  * inches with fractions typed as 3/4 or 1 1/2, swarf-length.js)
- * (Phil 10-27: "clearer scaling controls"). A small card at the bottom of the
+ * (clear scaling controls). A small card at the bottom of the
  * workspace: width × depth × height, each typeable, and "keep proportions".
  *
  * It drives cam's own scale panel (#size_x/y/z and the lock boxes, kept
@@ -38,7 +38,7 @@
       inp.addEventListener('keydown', e => { if (e.key === 'Enter') { inp.dataset.typed = '1'; apply(a); inp.blur(); } if (e.key === 'Escape') { delete inp.dataset.typed; show(); inp.blur(); } e.stopPropagation(); });
       inp.addEventListener('blur', () => apply(a));
       // only a box typed in is applied on blur; the rest show cam's numbers, focused or not
-      // (review 10-28: Tab into depth kept its old 100, and leaving it squashed the part back)
+      // (Tab into depth must not keep its old 100 and squash the part back on leaving)
       inp.addEventListener('input', () => { inp.dataset.typed = '1'; });
       fields[a] = inp;
       const w = document.createElement('label'); w.className = 'ax';
@@ -47,7 +47,7 @@
       if (a !== 'z') card.append(Object.assign(document.createElement('span'), { className: 'x', textContent: '×' }));
     }
     card.append(unitEl = Object.assign(document.createElement('span'), { className: 'mm', textContent: 'mm' }));
-    // a shaped top edge, said where the size is (review 10-28 #8)
+    // a shaped top edge, said where the size is
     edge = Object.assign(document.createElement('span'), { className: 'edge', title: 'the top edge: change it in draw' });
     card.append(edge);
     keep = document.createElement('label'); keep.className = 'keep';
@@ -58,8 +58,8 @@
     keep.append(box, document.createTextNode('keep proportions'));
     keep.box = box;
     card.append(keep);
-    // what you can do with the picked parts, where you can see it (Phil 10-27:
-    // "after I make something, how do I select, delete etc?")
+    // what you can do with the picked parts, where you can see it (select,
+    // delete and the rest, right after making something)
     const act = (word, title, fn) => { const b = document.createElement('button'); b.className = 'act'; b.textContent = word; b.title = title; b.onclick = fn; card.append(b); return b; };
     card.append(Object.assign(document.createElement('span'), { className: 'sep' }));
     edit = act('edit in draw', 'move its points, reshape it, change its thickness or edge', () => window.__swarfDraw && window.__swarfDraw.open());
@@ -84,8 +84,8 @@
     if (Math.abs(v - parseFloat(src.was ?? src.value)) < 1e-6) return;
     // width and length move together when kept; height (the board's thickness) stays its own
     const together = keep.box.checked && a !== 'z';
-    // the bed and the machine's reach first, as the shape dialog does (deep review 10-31 M1: 99999
-    // went to cam's scale and froze the page)
+    // the bed and the machine's reach first, as the shape dialog does (99999
+    // sent to cam's scale would freeze the page)
     const was = parseFloat(src.was ?? src.value), k = was > 0 ? v / was : 1, mm = x => x * scale();
     const now = b => parseFloat(($(`size_${b}`) || {}).value) || 0;
     const w = mm(a === 'x' ? v : together ? now('x') * k : now('x')), d = mm(a === 'y' ? v : together ? now('y') * k : now('y')), t = mm(a === 'z' ? v : now('z'));
@@ -109,7 +109,7 @@
     if (!n) return;
     // several picked: the size is the first one's; the buttons act on all of them
     // the picked parts as the objects list names them: a word or a drawing kept together is one
-    // thing, "shapes (2 pieces)" (review 105 P3)
+    // thing, "shapes (2 pieces)"
     const picked = a.selection.widgets ? a.selection.widgets() : [];
     const groups = [...new Set(picked.map(w => w.group || w))];
     const many = g => Array.isArray(g) && g.length > 1;
@@ -118,7 +118,7 @@
     count.title = n > 1 ? 'shift-click a part to add it or leave it out' : '';
     edit.style.display = picked.some(w => w.meta && w.meta.svg) ? '' : 'none';
     const e = picked[0] && picked[0].meta && picked[0].meta.edge;
-    // scaled in width and depth, the edge stretched with it (its height did not): say so (review 10-28b #32)
+    // scaled in width and depth, the edge stretched with it (its height did not): say so
     const xf = picked[0] && picked[0].meta && picked[0].meta.xf;
     const stretched = xf && (Math.abs(Math.hypot(xf[0], xf[1]) - 1) > 1e-3 || Math.abs(Math.hypot(xf[2], xf[3]) - 1) > 1e-3);
     edge.textContent = e && e.kind && e.kind !== 'straight' && e.size > 0 ? `${e.kind} ${L() ? L().say(e.size) : +(+e.size).toFixed(2) + ' mm'} edge${stretched ? ', stretched with the part' : ''}` : '';
@@ -139,7 +139,7 @@
       clearInterval(t);
       if (!a || !a.event) return;
       build();
-      // the sentence stays true: each act on the bed rewrites it, and toolpaths clears it (review 10-28b #3)
+      // the sentence stays true: each act on the bed rewrites it, and toolpaths clears it
       const said = t => { try { a.event.alerts(true); if (t) a.show.alert(t, 6); } catch (e) { /* no alerts */ } };
       const nm = w => (w && w.meta && w.meta.file) || 'the part';
       let resizing = 0;
@@ -150,11 +150,11 @@
       a.event.on('preview.begin', () => said(''));
       for (const ev of ['widget.select', 'widget.deselect', 'selection.scale', 'selection.move', 'selection.rotate', 'platform.layout', 'widget.add', 'widget.delete']) a.event.on(ev, () => setTimeout(show, 0));
       new MutationObserver(show).observe(document.body, { attributes: true, attributeFilter: ['class'] });
-      // mm | in: the fields in the new units at once (review r093-ux B2: they kept the old numbers
-      // under the new suffix until the part was picked again)
+      // mm | in: the fields in the new units at once (never the old numbers
+      // under the new suffix until the part is picked again)
       if (a.ui && a.ui.units) a.ui.units.addEventListener('change', () => setTimeout(show, 50));
-      // (Phil 11-01) and cam's own size fields with them, which the card reads: a part picked in mm
-      // kept 150 in its field after the switch, and typing 200 mm then read the board as 19 in thick
+      // and cam's own size fields with them, which the card reads: a part picked in mm
+      // would keep 150 in its field after the switch, and typing 200 mm would read the board as 19 in thick
       a.event.on('units.set', () => { try { a.selection.update_info(); } catch (e) { /* nothing picked */ } setTimeout(show, 0); });
       show();
     }

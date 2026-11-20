@@ -1,6 +1,6 @@
 /*
  * swarf length — one way to read and show a length in swarf's own cards (shape, size, draw),
- * following cam's units setting (setup › preferences › units). Phil 10-29: a woodshop that
+ * following cam's units setting (setup › preferences › units). A woodshop that
  * thinks in inches types 3/4, 1 1/2", 0.75 in or 19 mm anywhere and gets what it typed.
  *
  *   SwarfLength.unit()           'mm' or 'in', cam's setting
@@ -35,7 +35,7 @@
   function parse(text, def) {
     let s = String(text == null ? '' : text).trim().toLowerCase();
     // 1,000 or 2,438.4: commas between groups of three are thousands (an American shop); any
-    // other comma is a decimal point, 1,5 = 1.5 (torture test 10-29: 1,000 read as 1)
+    // other comma is a decimal point, 1,5 = 1.5 (1,000 never reads as 1)
     s = /^[-+]?\d{1,3}(,\d{3})+(\.\d*)?(\s*[a-z"″]*)?$/.test(s) ? s.replace(/,/g, '') : s.replace(/,/g, '.');
     if (!s) return NaN;
     const um = s.match(/(mm|millimeters?|cm|inches|inch|in|"|″)$/);
@@ -50,13 +50,13 @@
     else if (/^(\d+\.?\d*|\.\d+)$/.test(s)) { v = +s; frac = false; }
     else return NaN;
     // a fraction with no unit is inches whatever the setting: nobody means 3/4 of a millimeter
-    // (deep review 10-31 S3: 3/4 in mm mode made a 0.75 mm part)
+    // (3/4 in mm mode never makes a 0.75 mm part)
     const k = SUFFIX[u] || (frac || (def || unit()) === 'in' ? IN : 1);
-    // to a billionth of a mm, so 3/4 in is 19.05 and not 19.049999999999997 (Phil 11-01)
+    // to a billionth of a mm, so 3/4 in is 19.05 and not 19.049999999999997
     return Math.round(sign * v * k * 1e9) / 1e9;
   }
 
-  // a field's number in the scene's precision (Phil 11-01: no 12.700000001): inches to 3 places,
+  // a field's number in the scene's precision (no 12.700000001): inches to 3 places,
   // or 4 when it is a 64th that needs them (1/64 = 0.0156), so a 64th reads back within 0.0013 mm;
   // mm to 2 places, 3 under 1 mm (a stepover, a tolerance) or for an inch size (3.175, a 1/8 in bit)
   function show(mm, u) {
@@ -67,7 +67,7 @@
     return String(+mm.toFixed(Math.abs(mm) < 1 || in64 ? 3 : 2));
   }
 
-  // a design field's text (TEX, the tab card, auto tabs; review 10-30 B8): in inches the nearest
+  // a design field's text (TEX, the tab card, auto tabs): in inches the nearest
   // 32nd as a fraction when it is within half a thousandth ("3/16", "1 1/2"), else three decimals
   // ("0.079"); parse() reads either back to within 0.013 mm. In mm, as show().
   function field(mm, u) {
@@ -93,7 +93,7 @@
     return `${frac(mm / IN) || +(mm / IN).toFixed(4)} in`;
   }
 
-  // a length in a sentence (r086 check S3): a student bends plywood with a tape measure, not a
+  // a length in a sentence: a student bends plywood with a tape measure, not a
   // rule in 64ths, so a pitch of 71 mm is "2 13/16 in" wherever it is said, never "2 51/64" in one
   // line and "2 13/16" in the next.
   function prose(mm, u, dp) {
@@ -113,7 +113,7 @@
   }
 
   // a bare fraction typed while the units are mm is read as inches (parse, above). Two readings of
-  // the same text are both plausible, so say which one was taken (review 11-13 #5): '' when there is
+  // the same text are both plausible, so say which one was taken: '' when there is
   // nothing to say (inches, a unit typed, a decimal)
   function note(text, def) {
     const s = String(text == null ? '' : text).trim().toLowerCase();

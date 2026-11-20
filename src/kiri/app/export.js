@@ -15,7 +15,7 @@ import { hash } from '../../ext/md5.js';
  * Sequential print counter for generating unique export filenames.
  * Increments with each export and persists in local storage.
  */
-// swarf: the first file on a computer is -001 (review 105 P1: it was -002)
+// swarf: the first file on a computer is -001, never -002
 let printSeq = parseInt(local['kiri-print-seq'] || local['print-seq'] || "0");
 
 function localGet(key) {
@@ -39,10 +39,10 @@ export function exportFile(options) {
         .map(v => v.replace(/ /g,'-'))
         .map(v => v.substring(0,20))
         .map(v => v.split('.')[0]);
-    // swarf: a project saved or opened as a .swarf names the export after itself (review 10-30 F9)
+    // swarf: a project saved or opened as a .swarf names the export after itself
     const project = window.SwarfFile && window.SwarfFile.projectName && window.SwarfFile.projectName();
     if (project) names.unshift(String(project).replace(/ /g, '-').substring(0, 40));
-    // the project's name goes bare (r086 check S4: cutting-board.swarf exported cutting-board-002.sbp);
+    // the project's name goes bare (cutting-board.swarf exports cutting-board.sbp);
     // a sequence number only when there is no project, to keep two exports of "rectangle" apart
     names.project = !!project;
     api.event.emit('export', mode);
@@ -65,7 +65,7 @@ export function exportFile(options) {
  * @param {string[]} names - Widget filenames for export naming
  */
 function callExport(callback, mode, names) {
-    // swarf (r086 check P4): code that asks for the file (control building its program) says its
+    // swarf: code that asks for the file (control building its program) says its
     // own words, so no notice; the export card's wait is said in swarf's words, not Kiri's
     let alert = api.feature.work_alerts && !callback ? api.show.alert("Making the machine file…") : null;
     let gcode = [];
@@ -277,13 +277,13 @@ function bindField(field, varname) {
 }
 
 /**
- * swarf (whole-app review r086 B1): the export dialog as a swarf card. One name field, one line of
+ * swarf: the export dialog as a swarf card. One name field, one line of
  * what the file is ("about 3 min · 71 KB · end 1/4 · hard wood"), one button that saves the file
  * the machine runs ("save circle.sbp"), a quiet "also save the project". Kiri's own rows (gcode
  * preview, one file per step) stay reachable in advanced. Outside cam the dialog is Kiri's.
  */
 /**
- * swarf (review 11-13 #3): what swarf knew when it saved the file goes into the file, as comments the
+ * swarf: what swarf knew when it saved the file goes into the file, as comments the
  * machine skips: one line that swarf saved it, and each concern still open. Control reads them back
  * (swarf-run.js fileNotes) when the file is opened on its own, so a technician sees the missing tabs
  * the student saw. The comment mark is the file's own: ' in a ShopBot file, else ; or ( ).
@@ -293,7 +293,7 @@ function swarfFileNote(text, open, ext) {
     const sbp = /^sbp$/i.test(ext) || /^\s*'/m.test(t);
     const paren = !sbp && !/^\s*;/m.test(t) && /^\s*\(/m.test(t);
     // plain ASCII, no brackets or apostrophes (a parser that strips ' comments first would cut a
-    // bracketed line in half), and short: some controllers refuse lines over 255 (fresh review 11-13 #3, #4)
+    // bracketed line in half), and short: some controllers refuse lines over 255
     const ascii = { '\u203a': '>', '\u2013': '-', '\u2014': '-', '\u00d7': 'x', '\u2019': '', '\u2018': '', '\u201c': '"', '\u201d': '"', '\u00b0': ' deg', '\u2026': '...' };
     const clean = v => String(v || '').replace(/[\u2018-\u203a\u00b0\u00d7\u2013\u2014]/g, c => ascii[c] != null ? ascii[c] : ' ')
         .replace(/[^\x20-\x7e]/g, ' ').replace(/['()]/g, '').replace(/\s+/g, ' ').trim();
@@ -301,7 +301,7 @@ function swarfFileNote(text, open, ext) {
     const day = new Date().toISOString().slice(0, 10);
     let head = line(`swarf saved: ${day}, ${open.length ? open.length + ' concern' + (open.length === 1 ? '' : 's') + ' open' : 'no concerns open'}`);
     for (const c of open) head += line(`swarf concern: ${clean(c.title)}${c.hint ? ' - ' + clean(c.hint) : ''}`);
-    // the board size, so control names the zero on it for a file opened alone (Phil 11-16)
+    // the board size, so control names the zero on it for a file opened alone
     const pr = api.conf.get().process || {};
     if (pr.swarfBoardOn && pr.swarfBoardX > 0 && pr.swarfBoardY > 0 && pr.swarfBoardZ > 0)
         head += line(`swarf board: ${+pr.swarfBoardX.toFixed(2)} x ${+pr.swarfBoardY.toFixed(2)} x ${+pr.swarfBoardZ.toFixed(2)} mm, X 0 Y 0 at its ${pr.camOriginCenter ? 'center' : 'front-left corner'}`);
@@ -324,7 +324,7 @@ function swarfExportCard(on, { filename, fileext, info, download, downloadBits, 
     // what the file is, in one line
     // the time as the ShopBot takes it (swarf-estimate.js: its speed-ups, slow-downs at bends,
     // the router's spin-up), the same number simulate and the step cards show; Kiri's own
-    // distance-over-feed time was a quarter short on a texture (Phil 11-02)
+    // distance-over-feed time is a quarter short on a texture
     const E = window.SwarfEstimate;
     const est = E && gcodeText ? E.of(gcodeText, { sections: info.swarfStarts || [], cfg: E.cfgFor ? E.cfgFor(set.device) : undefined }) : null;
     if (est) info.time = est.seconds;   // Kiri's time row in advanced says the same
@@ -345,8 +345,8 @@ function swarfExportCard(on, { filename, fileext, info, download, downloadBits, 
     const mat = msel && msel.selectedOptions[0] ? msel.selectedOptions[0].textContent.trim() : '';
     const facts = [time, size, bits.length > 2 ? `${bits.length} bits` : bits.join(', then '), mat].filter(Boolean).join(' · ');
     const expert = document.body.classList.contains('swarf-expert');
-    // what is still wrong travels with the file: in the concerns' own words, the save says it knows
-    // (review 105 F2, M5). A file with no cutting at all has nothing to save (m6).
+    // what is still wrong travels with the file: in the concerns' own words, the save says it knows.
+    // A file with no cutting at all has nothing to save (m6).
     let open = [];
     try { open = window.__swarfConcernsNow ? window.__swarfConcernsNow() : []; } catch (e) { /* not ready */ }
     const nothing = gcodeText && !/^\s*(G0?1|G0?2|G0?3|M[23XYZ]|C[WC])\b/m.test(gcodeText);
@@ -376,8 +376,8 @@ function swarfExportCard(on, { filename, fileext, info, download, downloadBits, 
     paint();
     name.addEventListener('input', paint);
     name.addEventListener('keydown', ev => { ev.stopPropagation(); if (ev.key === 'Enter') go.click(); });
-    // two files, two buttons, each says what it saved (review 11-13 #4: "also save the project" closed the
-    // card and saved only the project, so a student could reach the machine without the machine file)
+    // two files, two buttons, each says what it saved ("also save the project" must not close the
+    // card and save only the project, or a student could reach the machine without the machine file)
     let projSaved = '';
     go.onclick = () => {
         if (kiriName) kiriName.value = clean(name.value);
@@ -576,7 +576,7 @@ function exportGCodeDialog(gcode, sections, info, names) {
     }
 
     api.modal.show('xany');
-        // swarf (review r086 B1): in cam the dialog is one swarf card, the file the machine runs
+        // swarf: in cam the dialog is one swarf card, the file the machine runs
         swarfExportCard(MODE === MODES.CAM, { filename, fileext, info, download, downloadBits, sections, gcodeText: gcode });
         let set = api.conf.get();
         let fdm = MODE === MODES.FDM;

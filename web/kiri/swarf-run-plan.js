@@ -1,7 +1,7 @@
 /*
- * swarf run plan — one job plan for every way a program runs (design review 10-28: "source
+ * swarf run plan — one job plan for every way a program runs (source
  * file → strict parse → immutable job plan → validation → operator authorization →
- * execution"). The plan holds every move the machine will make, the entry and the exits
+ * execution). The plan holds every move the machine will make, the entry and the exits
  * included, and every output switch, dwell and hold, in work millimeters. The preview draws
  * it, the simulator plays it and the ShopBot driver sends it; nothing adds a move afterwards.
  *
@@ -29,7 +29,7 @@
  *   plan.id         a fingerprint of everything it does: arming one plan never arms another
  *   plan.ctx        what it was made for (the machine's zero and link); a plan for another zero will not run
  *
- * Third review 10-28: the file behind the moves (prog.source, or prog.sbp read again) is checked
+ * The file behind the moves (prog.source, or prog.sbp read again) is checked
  * here too, so a line the reader refused stops the plan whoever calls it; a plan is frozen all the
  * way down and checks its own fingerprint before it runs (verify); a resume after a pause is a
  * plan of its own (resumeFrom); the card's slowest step is counted in whole steps (segProblem),
@@ -43,7 +43,7 @@
     const P = root.SwarfRunParse;
     const S = cfg.safeZ;
     const steps = [], problems = [];
-    // the file these moves came from, checked here as well as on the page (third review #2)
+    // the file these moves came from, checked here as well as on the page
     const src = prog.source || (prog.sbp && P ? P.parse(prog.sbp, { machineUnits: 'mm' }) : null);
     if (!src) problems.push('there is no checked file behind these moves');
     else for (const v of validate(src)) problems.push(v.text);
@@ -78,7 +78,7 @@
     const lifting = moves.length && moves[0].liftFirst;
     if (!moves.length) problems.push('there are no moves to run');
     else if (!lifting) {
-      // every run enters the same way from wherever the bit is (design review #1)
+      // every run enters the same way from wherever the bit is
       const E = P.entryMoves(pos, moves[0], S);
       if (E.skipFirst) moves = moves.slice(1);
       for (const x of E) {
@@ -131,7 +131,7 @@
       const up = hold.hold === 'tool-change' ? Math.max(S, cfg.changeZ || 50) : S;
       if (at.z < up) move({ x: at.x, y: at.y, z: up }, Math.min(cfg.jog.z, cfg.move.z), hold.line, 'exit');
     }
-    // the card's slowest step, per move from its own steps (reviews #3, follow-up #2)
+    // the card's slowest step, per move from its own steps
     if (cfg.unit && cfg.tickHz) {
       let from = { ...pos };
       for (const s of steps) {
@@ -155,7 +155,7 @@
   function rank(ev) { return ev.kind === 'rpm' ? 0 : preMotion(ev) ? 1 : 2; }
 
   // a copy of the plan's data (no shared objects with whoever made it), frozen all the way down,
-  // with its fingerprint (third review #4)
+  // with its fingerprint
   function seal(plan) {
     const p = deepFreeze(JSON.parse(JSON.stringify(plan)));
     return Object.freeze(Object.assign({}, p, { id: fingerprint(p) }));
@@ -186,7 +186,7 @@
 
   // What swarf can carry out exactly, checked on the file itself (the page, the plan and the
   // driver all use this one list): every line understood, Z zero on the board's top. An inch file
-  // runs (Phil 10-29, VCarve's ShopBot post writes inches): the reader turns every length and speed
+  // runs (VCarve's ShopBot post writes inches): the reader turns every length and speed
   // into millimeters before any plan is made, so the plan, its fingerprint and the card only ever
   // see millimeters, and the checklist has the student confirm the size in both.
   function validate(src) {
@@ -195,7 +195,7 @@
     if (src.units && src.units !== 'mm' && src.units !== 'in') out.push({ k: 'units', text: `the file's units (${src.units}) are not inches or millimeters` });
     for (const u of src.unsupported || []) out.push({ k: 'unsupported', line: u.line, text: `line ${u.line} is something swarf can't carry out exactly ("${String(u.text).slice(0, 40)}"${u.why ? `: ${u.why}` : ''})` });
     // swarf zeros Z on the board's top: a file whose cuts all sit above Z 0 was zeroed on the table
-    // (or on a spoil board), and every safe height in it would sit inside the board (third review #5)
+    // (or on a spoil board), and every safe height in it would sit inside the board
     const cuts = (src.moves || []).filter(m => !m.rapid);
     // VCarve says where it put Z zero: &PWZorigin = Table Surface
     const zo = (src.events || []).filter(e => e.kind === 'z-origin').pop();
@@ -204,8 +204,8 @@
     return out;
   }
 
-  // One move the card can make as asked, counted in the whole steps it will send (third review
-  // #5): a feed under the card's slowest step for that move would run faster than asked. A move
+  // One move the card can make as asked, counted in the whole steps it will send:
+  // a feed under the card's slowest step for that move would run faster than asked. A move
   // of no whole steps does nothing and is fine. Returns why not, or ''.
   // a feed in words, in cam's units when the page has them
   function rate(mmMin) { return root.SwarfLength ? root.SwarfLength.rate(mmMin) : `${Math.round(mmMin)} mm/min`; }
@@ -220,7 +220,7 @@
     return feed < (T * L / st) * 1.02 ? `is slower than the card can step (${rate(feed * 60)})` : '';
   }
 
-  // A resume after a pause, as a plan of its own (third review #5): up where the bit stopped,
+  // A resume after a pause, as a plan of its own: up where the bit stopped,
   // the router on up there (a cut), the outputs the file had on at that point, slowly down to
   // where it stopped, then the rest of the original plan from the step it was in.
   function resumeFrom(plan, k, at, cfg) {
@@ -248,7 +248,7 @@
   }
 
   // the way in, in words, for the cards: "up to 25 mm, the router on, over to X 12, Y 40, down to Z -1.5"
-  // (opt.len: a height in words, opt.at: a coordinate's number, both in the student's units; r086 check S2;
+  // (opt.len: a height in words, opt.at: a coordinate's number, both in the student's units;
   // opt.tool: what turns the bit on this machine, "router" or "spindle")
   function entryWords(plan, opt) {
     const len = (opt && opt.len) || (v => `${v.toFixed(0)} mm`), at = (opt && opt.at) || (v => v.toFixed(0)), tool = (opt && opt.tool) || 'router';

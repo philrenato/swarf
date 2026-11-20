@@ -1,6 +1,6 @@
 /**
- * swarf: one tab at a time (Phil 10-30: "would still like to be able to move/delete/change them
- * individually"). In cam, with no mode to enter or leave: a press on a tab picks it (it lights
+ * swarf: one tab at a time (each moved, deleted or changed
+ * individually). In cam, with no mode to enter or leave: a press on a tab picks it (it lights
  * up; the size card gives way to the tab's own card).
  *   - drag it: it slides along the part's outline, stays on the edge and turned to it, and stops
  *     short of another tab or a place TEX cuts through
@@ -90,8 +90,8 @@ function tabAt(e) {
     ray.setFromCamera(ndc(e, el), I.camera);
     const hit = ray.intersectObjects(boxes, false)[0];
     if (hit && hit.object.tab) return { widget: hit.object.tab.widget, id: hit.object.tab.id };
-    // a near miss still picks the tab (deep review S9: a tab is ~18 × 8 px, students aim at the red
-    // mark, and a few pixels off grabbed the part): the nearest box on screen within NEAR px
+    // a near miss still picks the tab (a tab is ~18 × 8 px, students aim at the red
+    // mark, and a few pixels off would grab the part): the nearest box on screen within NEAR px
     const NEAR = 12, r = el.getBoundingClientRect(), x = e.clientX - r.left, y = e.clientY - r.top;
     let best = null, bd = NEAR;
     const p = new THREE.Vector3(), bb = new THREE.Box3();
@@ -205,7 +205,7 @@ function moveTo(widget, rec, at) {
     light(true);
 }
 
-// one look per frame, the last move's (deep review P8: a raycast on every pointermove)
+// one look per frame, the last move's (not a raycast on every pointermove)
 let hoverEv = null;
 function onHover(e) {
     if (drag || e.buttons) return;
@@ -224,7 +224,7 @@ function hoverNow(e) {
 
 function onKey(e) {
     if (!picked) return;
-    // Esc in one of the card's fields reverts that field (its own handler), not the whole card (deep review S5)
+    // Esc in one of the card's fields reverts that field (its own handler), not the whole card
     if (e.key === 'Escape') { if (inputHasFocus()) return; tabUnpick(); return; }
     if ((e.key === 'Delete' || e.key === 'Backspace') && !inputHasFocus() && !(api.modal && api.modal.visible && api.modal.visible())) {
         // the tab goes, not the part it is on
@@ -368,7 +368,7 @@ function buildCard() {
 function note(text) {
     if (!els.note) return;
     els.note.textContent = text || (picked ? 'drag it along the edge' : '');
-    // the standing hint is one line (r086 check P1: it wrapped to two once "stays as you set it" showed)
+    // the standing hint is one line (it would wrap to two once "stays as you set it" shows)
     els.note.classList.toggle('hint', !text);
 }
 

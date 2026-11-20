@@ -22,7 +22,7 @@
  *            "fewer"), at most what fits with a gap of two tab footprints between tabs
  *   holes  = a hole that leaves a loose piece when the outline cuts it gets tabs too (half as
  *            many, at least 2, or 1 where two do not fit): anything cut free can catch the bit
- *            and fly (Phil 10-29: "anything that could fly off the machine"). The bit takes its
+ *            and fly off the machine. The bit takes its
  *            own width from each side, so a hole narrower than 2 bits + 3 mm leaves only a
  *            sliver and gets none (holeMin, below). On a tight hole a tab is shorter, at most
  *            an eighth of the way round and never under the bit.
@@ -41,7 +41,7 @@
  * typed and the sliders leave it alone; an unpinned one stays automatic. A pinned height still
  * stays under the board's thickness (a tab as tall as the board is no cut at all).
  *
- * Single tabs (Phil 10-30: "move/delete/change them individually"): planTabs takes the tabs that
+ * Single tabs (moved, deleted or changed individually): planTabs takes the tabs that
  * stay where they are (opt.fixed: a tab the student moved or resized) and the places where a tab
  * was deleted (opt.skip: "no tab here"), both as points on the edge. Each takes one of the
  * outline's slots, so the others are planned around it and a deleted tab does not come back.
@@ -67,7 +67,7 @@ export const MACHINES = {
     other:  { name: 'machine', hFloor: 1.5, minTabs: 3 },
 };
 
-export const HOLE_MIN = 75;      // the old threshold (before 10-29): a hole this wide or more got tabs
+export const HOLE_MIN = 75;      // the earlier rule's threshold: a hole this wide or more gets tabs
 // a hole this wide (its narrower side) or more leaves a loose piece more than 3 mm across
 export const holeMinFor = bitMm => Math.round((2 * (bitMm > 0 ? bitMm : 6.35) + 3) * 100) / 100;
 const CORNER_DEG = 25;           // a turn sharper than this is a corner a tab keeps away from

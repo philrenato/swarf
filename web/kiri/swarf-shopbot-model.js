@@ -1,6 +1,6 @@
 /*
  * swarf shopbot model — the shop's ShopBot as a ghost, one model for SIMULATE and
- * CONTROL (Phil 10-28, from three photos of the machine: proportions right, the
+ * CONTROL (from three photos of the machine: proportions right, the
  * angled front edge of the blue end supports, a round router, a cable chain that
  * rolls as Y moves). Kept to boxes, a few low cylinders and lines: under 2,000
  * triangles in all.
@@ -83,7 +83,7 @@
     // the beam: a deep extrusion with its two rails on the front face
     box(-BEAM.d / 2, BEAM.d / 2, -REACH, BED.y + REACH, BEAM.z0, BEAM.z1, M.alu, gantry);
     for (const z of [BEAM.z0 + 18, BEAM.z1 - 30]) box(-BEAM.d / 2 - 6, -BEAM.d / 2, -REACH, BED.y + REACH, z, z + 12, M.alu, gantry);
-    // "SB" on the outer face of the near support (Phil 10-29: initials, not the maker's name or logo)
+    // "SB" on the outer face of the near support (initials, not the maker's name or logo)
     try {
       const c = document.createElement('canvas'); c.width = 512; c.height = 128;
       const g = c.getContext('2d');

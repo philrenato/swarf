@@ -14,7 +14,7 @@ let meshes = {},
     button = {},
     label = {},
     unitScale = 1,
-    // swarf r6: more speed options (Phil markup)
+    // swarf: more speed options
     speedValues = [ 0.5, 1, 2, 4, 8, 16, 32 ],
     speedPauses = [  40, 30, 20, 10, 5,  2,  0 ],
     speedNames  = [ "½×","1×","2×","4×","8×","16×","!!" ],
@@ -35,7 +35,7 @@ export function animate_clear(api) {
     space.platform.showGridBelow(true);
     client.animate_cleanup();
     Object.keys(meshes).forEach(id => deleteMesh(id));
-    // swarf r14+: drop the stock shell alongside the heightmap.
+    // swarf: drop the stock shell alongside the heightmap.
     if (stockShell) {
         space.world.remove(stockShell);
         stockShell = null;
@@ -48,7 +48,7 @@ export function animate_clear(api) {
 export function animate(api, delay) {
     api.show.busy("building animation");
     let settings = api.conf.get();
-    // swarf r12: add a thin skin of material around the part for the
+    // swarf: add a thin skin of material around the part for the
     // simulation mesh so the tool visibly cuts through something.
     // Skin thickness = tool diameter (just enough to see the cut).
     // Toolpaths themselves assume zero padding (cutout mode).
@@ -112,13 +112,13 @@ export function animate(api, delay) {
         });
 
         origin = settings.origin;
-        // swarf r6: default to 1× (index 1) — index 0 is now ½× which is
+        // swarf: default to 1× (index 1) — index 0 is ½× which is
         // surprisingly slow for first-time users
-        // swarf v010 r6: default speed is 1× (not 0.5×). speedValues[1] = 1.
+        // swarf: default speed is 1× (not 0.5×). speedValues[1] = 1.
         const stored = api.local.getInt('cam.anim.speed');
         speedIndex = (stored == null || stored < 0 || stored >= speedValues.length) ? 1 : stored;
         updateSpeed();
-        // swarf r6: auto-play when SIMULATE fires. Upstream just runs ONE
+        // swarf: auto-play when SIMULATE fires. Upstream just runs ONE
         // step and waits for the user to click play — confusing because
         // clicking SIMULATE should make the simulation run. play({}) gives
         // Infinity steps and chips fly.
@@ -151,7 +151,7 @@ Object.assign(client, {
 
     animate_setup(settings, ondone) {
         unitScale = settings.controller.units === 'in' ? 1/25.4 : 1;
-        // swarf r7: stock mesh uses the CURRENT swarf material (PBR) so the
+        // swarf: stock mesh uses the CURRENT swarf material (PBR) so the
         // block being cut looks like the chips, not Kiri's default blue.
         const sm = window.__swarfMaterial;
         const a = sm && sm.appearance;
@@ -175,8 +175,8 @@ Object.assign(client, {
         add_red_neg_z(material);
         // expose so swarf-material.js can re-tint live on material switch
         window.__swarfAnimStockMaterial = material;
-        // swarf v010 r6: compute lightstream ribbon width from stepover × tool Ø
-        // × 0.5 (world units/mm). Phil: wide stepover → wider ribbon.
+        // swarf: compute lightstream ribbon width from stepover × tool Ø
+        // × 0.5 (world units/mm): wide stepover → wider ribbon.
         try {
             const ops = (settings.process && settings.process.ops) || [];
             const tools = settings.tools || [];
@@ -190,7 +190,7 @@ Object.assign(client, {
             }
             if (!bestDia) bestDia = 3.175;
             if (!bestStep) bestStep = 0.4;
-            // swarf v010 r8 c: ribbon width now tracks tool DIAMETER, not
+            // swarf: ribbon width tracks tool DIAMETER, not
             // stepover distance. Stepover for prosumer endmills is 0.2–0.8mm
             // — rendering that in world units gives a 1-px wire, not a
             // ribbon. Tool-Ø × 0.9 gives the actual material-cut band that
@@ -254,11 +254,11 @@ function meshAdd(id, ind, pos, sab) {
         mesh = new THREE.LineSegments(geo, mat);
     } else {
         geo.computeVertexNormals();
-        // swarf r6: tool meshes (id != 0) get a fluted mill-style material
+        // swarf: tool meshes (id != 0) get a fluted mill-style material
         // so the cutter doesn't read as a plain cylinder. Stock grid (id=0)
         // keeps Kiri's translucent material.
         if (id !== 0) {
-            // swarf r6: tool is ALWAYS metallic silver — never tinted by the
+            // swarf: tool is ALWAYS metallic silver — never tinted by the
             // stock material. PBR (MeshStandardMaterial) so it reads as real
             // brushed steel under any light/sky color.
             const fluteTex = window.__swarfGetFluteTexture && window.__swarfGetFluteTexture();
@@ -280,7 +280,7 @@ function meshAdd(id, ind, pos, sab) {
         } else {
             mesh = new THREE.Mesh(geo, material);
             mesh.renderOrder = -10;
-            // swarf v010 r4: generate box-projection UVs on the stock mesh so
+            // swarf: generate box-projection UVs on the stock mesh so
             // the material's brushed/grain/foam/scratch texture actually shows
             // up. Kiri's stock geometry ships without UVs because upstream
             // never intended the stock to be textured.
@@ -292,7 +292,7 @@ function meshAdd(id, ind, pos, sab) {
     // swarf: the simulated board's heightmap, for the probes that measure what was cut
     if (id === 0 && typeof window !== 'undefined') window.__swarfSimStock = mesh;
 
-    // swarf r14+: build the stock shell exactly once, when the heightmap
+    // swarf: build the stock shell exactly once, when the heightmap
     // (id=0) comes in. Same material, placed at the same origin so the
     // shell follows the heightmap on mesh_move.
     if (id === 0 && !stockShell) {
@@ -301,7 +301,7 @@ function meshAdd(id, ind, pos, sab) {
     }
 }
 
-// swarf v010 r4: triplanar-ish UV projection based on vertex normal. Picks
+// swarf: triplanar-ish UV projection based on vertex normal. Picks
 // whichever cardinal plane the face points along and uses its world-space
 // coordinates. Scale: 1 UV = 80mm, so default textureRepeat ~6 reads at
 // approx the size of real brushing.
@@ -332,10 +332,10 @@ function meshUpdates(id) {
         return; // animate cancelled
     }
     mesh.geometry.attributes.position.needsUpdate = true;
-    // swarf v010 r4: per-frame UV + normal rebuild made the tool lag behind
+    // swarf: no per-frame UV + normal rebuild: it makes the tool lag behind
     // the cut. Initial UVs (built once in meshAdd) stay close enough as the
     // tool carves — slight texture stretch in cut regions is acceptable.
-    // swarf (Phil 10-30, "simulate doesn't show the texture as it's going"): the
+    // swarf (simulate shows the texture as it is cut): the
     // stock's material (swarf-material.js, PBR) shades with the mesh's own
     // normals, which were computed once on the flat board, so a carved texture
     // shaded as uncut. The heightmap's normals follow the cut now, a few times
@@ -363,7 +363,7 @@ function deleteMesh(id) {
     const m = meshes[id];
     space.world.remove(m);
     delete meshes[id];
-    // swarf r6: drop deleted tool meshes from the spin registry
+    // swarf: drop deleted tool meshes from the spin registry
     if (m && window.__swarfToolMeshes) {
         const i = window.__swarfToolMeshes.indexOf(m);
         if (i >= 0) window.__swarfToolMeshes.splice(i, 1);
@@ -432,14 +432,14 @@ function handleGridUpdate(data) {
     if (data && data.tfrac !== undefined && window.SwarfEstimateUI) window.SwarfEstimateUI.simAt(data.tfrac);
 }
 
-// swarf v010 r6: derive ms-pause from any speed multiplier (incl. user
+// swarf: derive ms-pause from any speed multiplier (incl. user
 // custom values outside the built-in cycle). 30 ms ≈ 1× baseline. Min 0.
 function pauseFor(mul) {
     if (!Number.isFinite(mul) || mul <= 0) return 30;
     return Math.max(0, Math.round(30 / mul));
 }
 
-// swarf v010 r6: when the user sets a custom speed via the sim bar button,
+// swarf: when the user sets a custom speed via the sim bar button,
 // push the new speed+pause to the worker without waiting for a cycle click.
 if (typeof window !== 'undefined') {
     window.addEventListener('swarf.speed.custom', () => {
@@ -452,7 +452,7 @@ if (typeof window !== 'undefined') {
 }
 
 function updateSpeed(inc = 0) {
-    // swarf r6: any user click on a speed cycle clears any custom override
+    // swarf: any user click on a speed cycle clears any custom override
     if (inc !== 0) window.__swarfCustomSpeed = null;
     if (inc === Infinity) {
         speedIndex = speedMax;
@@ -501,7 +501,7 @@ function checkMeshCommands(data) {
             mesh.position.z = pos.z;
             space.update();
         }
-        // swarf r14+: keep the static shell glued to the heightmap origin.
+        // swarf: keep the static shell glued to the heightmap origin.
         if (id === 0 && stockShell) {
             stockShell.position.x = pos.x;
             stockShell.position.y = pos.y;
@@ -510,7 +510,7 @@ function checkMeshCommands(data) {
         label.x.value = (pos.x - origin.x).toFixed(2);
         label.y.value = (pos.y + origin.y).toFixed(2);
         label.z.value = (pos.z - origin.z).toFixed(2);
-        // swarf r6: broadcast tool position for chip physics. In 2D-mode CAM,
+        // swarf: broadcast tool position for chip physics. In 2D-mode CAM,
         // the tool mesh has POSITIVE id (toolID starts at 2); in 3D-indexed
         // mode it's negative. Stock grid is id=0 and never moves after init,
         // so emit for any non-zero mesh_move.
@@ -549,7 +549,7 @@ function add_red_neg_z(material) {
             `#include <dithering_fragment>`,
             `
             #include <dithering_fragment>
-            // swarf (review 10-30 B9): a carved face darkens with its slope, so a texture's low
+            // swarf: a carved face darkens with its slope, so a texture's low
             // relief reads from above; the flat top (z ~ 1) and the board's sides (z ~ 0) keep
             // their shade
             {
