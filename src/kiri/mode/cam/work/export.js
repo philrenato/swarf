@@ -2,6 +2,7 @@
 
 import { base } from '../../../../geo/base.js';
 import { version } from '../../../../moto/license.js';
+import { asciiNote } from '../../../core/ascii.js';
 
 const { util } = base;
 
@@ -225,12 +226,13 @@ export function cam_export(print, online) {
         if (changeTool) {
             pos.t = out.tool;
             consts.tool = pos.t.getNumber();
-            consts.tool_name = pos.t.getName();
+            // swarf: the name goes into the file's tool line as a comment: ASCII, as swarf's own notes
+            consts.tool_name = asciiNote(pos.t.getName()) || `bit ${consts.tool}`;
             if (perBit) {
                 // swarf: no change inside the file. Where a bit starts is marked instead, and the app
                 // makes one file per bit, each with the start and end (app/export.js bitFiles)
                 append();
-                online({ bit: { order: toolChanges + 1, number: consts.tool, name: consts.tool_name } });
+                online({ bit: { order: toolChanges + 1, number: consts.tool, name: pos.t.getName() } });
             } else if (!laserOp && (spro.camToolInit || toolChanges > 0)) {
                 // swarf: a ShopBot file names each bit by its order in the file (1, 2, 3 …), not by the
                 // library number: ShopBot 3's tool-change routine (C9) reads numbers above 20 as a

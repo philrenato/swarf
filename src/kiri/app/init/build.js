@@ -4,6 +4,21 @@ import { menubar } from './menu.js';
 import { api } from '../api.js';
 import { env, opAdd } from '../../mode/cam/app/init-ui.js';
 
+// the rough swarf adds is said once the toolpaths are up: the run clears the alerts before that
+let added = false, heard = false;
+function sayAdded() {
+    added = true;
+    if (heard) return;
+    heard = true;
+    const say = () => {
+        if (!added) return;
+        added = false;
+        api.show.alert('No step yet, so swarf added rough. For a flat part, outline is quicker.', 8);
+    };
+    api.event.on('preview.end', say);
+    api.event.on('preview.error', say);
+}
+
 const surfaces = {
     build(actions = {}) {
         const stop = (fn) => (ev) => {
@@ -41,8 +56,12 @@ const surfaces = {
                     if (proc && env.isCamMode && env.popOp && env.popOp.rough) {
                         const hasRealOp = (proc.ops || []).some(op => op.type && op.type !== '|');
                         if (!hasRealOp) {
-                            opAdd(env.popOp.rough.new());
-                            api.show.alert('No step yet, so swarf added rough. Change it or add outline in the steps.', 6);
+                            // marked, so its step card says swarf added it (init-ui.js paintStepLines);
+                            // said once the toolpaths are up, since the run clears the alerts
+                            const rec = env.popOp.rough.new();
+                            rec.swarfAdded = true;
+                            opAdd(rec);
+                            sayAdded();
                         }
                     }
                 } catch (e) {}

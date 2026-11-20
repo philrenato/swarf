@@ -94,11 +94,11 @@ try {
   await fresh();
   await part(rect(2600, 300), 'long', 12);
   await add('outline', { tool: 'end 1/4', inside: false });
-  await page.evaluate(() => document.getElementById('act-export').click());
-  await page.waitForFunction(() => document.querySelector('.swarf-x-card'), { timeout: 120000 }); await wait(400);
-  const card = await page.evaluate(() => ({ text: document.querySelector('.swarf-x-concerns')?.innerText || '', go: document.querySelector('.swarf-x-go').textContent, off: document.querySelector('.swarf-x-go').disabled }));
-  check(/bigger than the ShopBot/.test(card.text), `the export card repeats the concern (${card.text.slice(0, 80)})`);
-  check(/^save anyway/.test(card.go) && !card.off, `and its button says it knows (${card.go})`);
+  // a job the machine cannot do is refused, toolpaths and export, in the concern's own words
+  for (const id of ['act-paths', 'act-export']) {
+    const r = await page.evaluate(id => new Promise(res => { const a = window.kiri.api, was = a.show.alert; let said = ''; a.show.alert = (t, ...x) => { said += String(t) + ' '; return was(t, ...x); }; document.getElementById(id).click(); setTimeout(() => { a.show.alert = was; res({ said, card: !!document.querySelector('.swarf-x-card'), paths: (a.widgets.all()[0].slices || []).length }); }, 2500); }), id);
+    check(/bigger than the ShopBot's bed: .*cannot cut it/.test(r.said) && !r.card && !r.paths, `${id} refuses a part bigger than the bed (${JSON.stringify(r).slice(0, 160)})`);
+  }
   await page.keyboard.press('Escape'); await page.evaluate(() => window.kiri.api.modal.hide()); await wait(400);
 
   // m6: everything left out

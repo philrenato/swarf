@@ -63,6 +63,15 @@ try {
   await wait(300);
   c = await card();
   check(c.first === 'auto tabs', `typing "auto tabs" puts that entry first (${c.first})`);
+  // a student's own words: small words dropped, whole words first, what else an entry is asked as
+  const firstFor = q => page.evaluate(q => { const i = document.getElementById('swarf-search-input'); i.value = q; i.dispatchEvent(new Event('input')); return document.querySelector('#swarf-search-results .swarf-result strong')?.textContent || ''; }, q);
+  for (const [q, want] of [['text', /^carving words$/], ['what bit', /^bits$/], ['broken bit', /^bits$/], ['plywood', /^material$/], ['too big', /^(import a part|inches)$/],
+    ['wrong size', /^(import a part|inches)$/], ['25.4', /^(import a part|inches)$/], ['burn', /^feeds and speeds$/], ['tearout', /^feeds and speeds$/], ['grain', /^feeds and speeds$/],
+    ['two sides', /^right-click$/], ['flip', /^right-click$/], ['how to add a step', /^add a step$/]]) {
+    const got = await firstFor(q);
+    check(want.test(got), `help search "${q}" puts ${want} first (${got})`);
+  }
+  await firstFor('auto tabs');
 
   // ── the bed takes a click with help open ──
   const at = await centre();

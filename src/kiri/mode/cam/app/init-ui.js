@@ -1543,7 +1543,15 @@ function paintStepLines() {
     for (const el of document.querySelectorAll('#oplist .swarf-op-sum')) {
         const rec = ops[el.dataset.step], say = rec ? stepLine(rec) : '';
         if (el.textContent !== say) el.textContent = say;
-        const card = el.parentElement, was = card.querySelector('.swarf-op-route'), want = !!rec && pocketRoute(rec);
+        const card = el.parentElement, was = card.querySelector('.swarf-op-route:not(.swarf-op-added)'), want = !!rec && pocketRoute(rec);
+        // a step swarf put in itself says so (build.js: toolpaths pressed with no step)
+        const note = card.querySelector('.swarf-op-added');
+        if (rec && rec.swarfAdded && !note) {
+            const box = document.createElement('div');
+            box.className = 'swarf-op-route swarf-op-added';
+            box.textContent = 'added by swarf: there was no step. For a flat part, outline is quicker.';
+            el.after(box);
+        } else if (!(rec && rec.swarfAdded) && note) note.remove();
         if (want && !was) {
             const box = document.createElement('div');
             box.className = 'swarf-op-route';

@@ -1446,15 +1446,20 @@ html[data-skin] #swarf-run .sr-jog .sr-zrow button.next, html[data-skin] #swarf-
     return fileNotes(S.prog.text).board || null;
   }
   function fileNotes(text) {
-    const head = String(text || '').split(/\r?\n/, 60);
+    const head = String(text || '').split(/\r?\n/, 120);
     const out = { saved: false, concerns: [] };
+    let more = false;
     for (const l of head) {
       const bm = l.match(/^\s*(?:'|;|\()\s*swarf board:\s*([\d.]+) x ([\d.]+) x ([\d.]+) mm, X 0 Y 0 at its (center|front-left corner)/i);
       if (bm) { out.board = { x: +bm[1], y: +bm[2], z: +bm[3], center: /center/i.test(bm[4]) }; continue; }
-      const m = l.match(/^\s*(?:'|;|\()\s*swarf (saved|concern):\s*(.*?)\)?\s*$/i);
+      // a concern's title, then its hint (swarf hint:), each wrapped onto swarf more: lines
+      const m = l.match(/^\s*(?:'|;|\()\s*swarf (saved|concern|hint|more):\s*(.*?)\)?\s*$/i);
       if (!m) continue;
-      out.saved = true;
-      if (/concern/i.test(m[1]) && m[2]) out.concerns.push(m[2]);
+      const key = m[1].toLowerCase(), last = out.concerns.length - 1;
+      if (key === 'saved') { out.saved = true; more = false; continue; }
+      if (key === 'concern') { out.saved = true; more = true; if (m[2]) out.concerns.push(m[2]); else more = false; continue; }
+      if (!more || last < 0 || !m[2]) continue;
+      out.concerns[last] += key === 'hint' ? ` - ${m[2]}` : ` ${m[2]}`;
     }
     return out;
   }

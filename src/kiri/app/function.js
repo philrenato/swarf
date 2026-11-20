@@ -25,6 +25,20 @@ let complete = {};
 let order;
 
 /**
+ * swarf: a job the machine cannot do (a concern marked block, sync.js: a part bigger than the bed)
+ * is refused before any work, with the concern's own sentence. Returns that sentence, or ''.
+ */
+function refused() {
+    if (!api.mode.is_cam() || !window.__swarfConcernsNow) return '';
+    let stop;
+    try { stop = window.__swarfConcernsNow().find(c => c.block); } catch (e) { return ''; }
+    if (!stop) return '';
+    const say = `${stop.title}: ${stop.body}`;
+    api.show.alert(`${say}${stop.hint ? ` To go on, ${stop.hint}.` : ''}`, 10);
+    return say;
+}
+
+/**
  * Prepare and execute slicing for all widgets on the platform.
  * Main slicing function that:
  * - Takes screenshots for export/preview
@@ -40,6 +54,8 @@ let order;
  */
 function prepareSlices(callback, scale = 1, offset = 0) {
     const { conf, event, feature, hide, mode, view, platform, show, stacks } = api;
+
+    if (refused()) return;
 
     if (view.is_arrange()) {
         // in arrange mode, create a screenshot at the start slicing
@@ -366,6 +382,8 @@ function prepareSlices(callback, scale = 1, offset = 0) {
  */
 function preparePreview(callback, scale = 1, offset = 0) {
     const { conf, event, feature, hide, mode, view, platform, show, stacks } = api;
+
+    if (refused()) return;
     const widgets = api.widgets.all();
     const settings = conf.get();
     const { device, process, controller } = settings;
@@ -516,6 +534,7 @@ function prepareAnimation() {
         api.alerts.show("Simulate can't run in this window: it can't share memory with swarf's helpers. A private window can do this: open swarf in a normal window, or reload.", 10);
         return;
     }
+    if (refused()) return;
     api.event.emit("function.animate", {mode: api.conf.get().mode});
 }
 
@@ -546,6 +565,9 @@ function workSig() {
 function prepareExport() {
     const settings = api.conf.get();
     const argsave = arguments;
+    // a caller waiting on the file (control) hears why there is none
+    const no = refused();
+    if (no) { if (typeof argsave[0] === 'function') argsave[0](null, { message: no.replace(/\.$/, '') }); return; }
     if (complete.preview && complete.sig !== workSig()) {
         api.show.alert('the steps or the part changed since the toolpaths: making them again before export', 5);
         complete = {};

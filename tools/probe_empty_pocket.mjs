@@ -26,6 +26,11 @@ try {
   const said = await page.evaluate(() => ({ said: window.__said, ops: window.kiri.api.conf.get().process.ops.map(o => o.type) }));
   check(said.ops.includes('rough'), `rough was added (${said.ops})`);
   check(said.said.some(t => /added rough/.test(t)), `and said so (${JSON.stringify(said.said)})`);
+  // said once the toolpaths are up, so it stays on screen; and kept under the step itself
+  const kept = await page.evaluate(() => ({ last: window.__said[window.__said.length - 1] || '', shown: [...document.querySelectorAll('body *')].some(e => e.offsetParent && e.children.length === 0 && /swarf added rough/.test(e.textContent)),
+    note: document.querySelector('#oplist .swarf-op-added')?.textContent || '' }));
+  check(/added rough/.test(kept.last) && kept.shown, `the words come after the toolpaths and are still on screen (${JSON.stringify(kept)})`);
+  check(/^added by swarf: there was no step\. For a flat part, outline is quicker\.$/.test(kept.note), `the rough step says swarf added it (${kept.note})`);
   await page.evaluate(() => document.getElementById('act-clear').click()); await wait(800);
   const says = () => page.evaluate(() => { document.dispatchEvent(new Event('swarf-concerns-refresh')); return document.body.textContent.includes('a pocket has nothing to clear'); });
   check(!(await says()), 'no pocket, no concern');
