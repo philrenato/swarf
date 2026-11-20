@@ -67,7 +67,7 @@ try {
   const firstFor = q => page.evaluate(q => { const i = document.getElementById('swarf-search-input'); i.value = q; i.dispatchEvent(new Event('input')); return document.querySelector('#swarf-search-results .swarf-result strong')?.textContent || ''; }, q);
   for (const [q, want] of [['text', /^carving words$/], ['what bit', /^bits$/], ['broken bit', /^bits$/], ['plywood', /^material$/], ['too big', /^(import a part|inches)$/],
     ['wrong size', /^(import a part|inches)$/], ['25.4', /^(import a part|inches)$/], ['burn', /^feeds and speeds$/], ['tearout', /^feeds and speeds$/], ['grain', /^feeds and speeds$/],
-    ['two sides', /^right-click$/], ['flip', /^right-click$/], ['how to add a step', /^add a step$/]]) {
+    ['two sides', /^right-click$/], ['flip', /^right-click$/], ['how to add a step', /^add a step$/], ['how deep', /^step-down$/], ['rings', /^contour$/]]) {
     const got = await firstFor(q);
     check(want.test(got), `help search "${q}" puts ${want} first (${got})`);
   }

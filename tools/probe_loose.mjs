@@ -58,6 +58,20 @@ try {
   check(c.some(t => /ring is cut free with no tabs/.test(t)), `a rough alone: still "cut free with no tabs" (${c})`);
   // a rough clears the hole to chips: no piece is left inside to come loose
   check(!c.some(t => /loose piece/.test(t)), `a rough alone: no "loose piece" (it clears the hole) (${c})`);
+  // the order counts: a rough before the outline has cleared the hole; an outline first cuts the piece loose
+  const steps = names => page.evaluate(names => {
+    window.kiri.api.conf.get().process.ops = [];
+    for (const n of names) [...document.getElementById('op-add-list').children].find(c => c.innerText.trim().toLowerCase() === n)?.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    return window.kiri.api.conf.get().process.ops.filter(o => o.type !== '|').map(o => o.type).join(',');
+  }, names);
+  let order = await steps(['rough', 'outline']);
+  await wait(500);
+  c = await concerns();
+  check(order === 'rough,outline' && !c.some(t => /loose piece/.test(t)), `rough then outline: no "loose piece" (${order}: ${c})`);
+  order = await steps(['outline', 'rough']);
+  await wait(500);
+  c = await concerns();
+  check(order === 'outline,rough' && c.some(t => /1 loose piece inside ring/.test(t)), `outline then rough: the outline cuts the piece loose first, said (${order}: ${c})`);
   await page.evaluate(() => {
     const a = window.kiri.api;
     a.conf.get().process.ops = [];

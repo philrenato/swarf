@@ -56,6 +56,22 @@ try {
     return [m1, m2, m3];
   });
   check(JSON.stringify(mir) === '[true,false,true]', `mirror: undone and redone (${mir})`);
+  // a mirrored part deleted and brought back: the mirror before the delete still undoes
+  const mirDel = await page.evaluate(async () => {
+    const a = window.kiri.api, w = a.widgets.all()[0], t = ms => new Promise(r => setTimeout(r, ms));
+    a.platform.deselect(); a.platform.select(w, false);
+    a.selection.mirror();
+    a.platform.delete([w]); await t(300);
+    const out = [a.widgets.all().length];
+    try {
+      a.doit.undo(); await t(400); out.push(a.widgets.all().length, !!w.track.mirror);
+      a.doit.undo(); await t(200); out.push(!!w.track.mirror);
+      a.doit.redo(); await t(200); out.push(!!w.track.mirror);
+      a.doit.undo(); await t(200); out.push(!!w.track.mirror);
+    } catch (e) { out.push(e.message); }
+    return out;
+  });
+  check(JSON.stringify(mirDel) === '[0,1,true,false,true,false]', `mirror, delete, undo, undo: the part is back and unmirrored (${mirDel})`);
 
   // leave it out of this run
   const cut = await page.evaluate(() => {
@@ -89,6 +105,25 @@ try {
   await page.evaluate(() => window.kiri.api.doit.redo()); await wait(300);
   const o5 = await ops();
   check(o1.length === 1 && o2[0] === 'outline:777' && o3[0] === o1[0] && !o4.length && o5[0] === o1[0], `add a step and a typed feed: each one undo (${typed}: ${o1} / ${o2} / ${o3} / ${o4.length} / ${o5})`);
+
+  // a step added, then an undo step of TEX's (it puts the whole step list back): each still undoes
+  // and redoes the same step, never a second one
+  const mixed = await page.evaluate(() => {
+    const a = window.kiri.api, n = () => a.conf.get().process.ops.filter(o => o.type === 'outline').length;
+    a.conf.get().process.ops = []; a.conf.save(); a.doit.clear();
+    [...document.querySelectorAll('#op-add-list > div')].find(d => d.textContent.trim() === 'outline').click();
+    window.__swarfTex.carving(() => {});
+    const out = [n()];
+    a.doit.undo(); out.push(n());
+    a.doit.undo(); out.push(n());
+    a.doit.redo(); out.push(n());
+    a.doit.redo(); out.push(n());
+    a.doit.undo(); a.doit.undo(); out.push(n());
+    a.doit.redo(); a.doit.clear();
+    return out;
+  });
+  await wait(300);
+  check(JSON.stringify(mixed) === '[1,1,0,1,1,0]', `a step added before a tex undo step: undo takes it, redo brings one back (${mixed})`);
 
   // a material picked by hand: undone with the numbers it changed
   const mat = await page.evaluate(() => {

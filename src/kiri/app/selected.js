@@ -321,10 +321,12 @@ function mirror() {
     const onBed = api.widgets.all();
     for_widgets(widget => { if (onBed.includes(widget) && widget.group && widget.group.length) groups.add(widget.group); });
     if (!groups.size) return;
-    // a mirror is its own undo: the same flip again puts every part back
-    const list = [...groups];
-    flipGroups(list);
-    api.doit.push(() => flipGroups(list), () => flipGroups(list), { undo: 'mirror: undone', redo: 'mirror: back' });
+    // a mirror is its own undo: the same flip again puts every part back. The parts are kept, not
+    // their groups: a part deleted and brought back by undo sits in a new group
+    flipGroups([...groups]);
+    const parts = [...groups].flat();
+    const again = () => flipGroups([...new Set(parts.map(w => w.group).filter(g => g && g.length))]);
+    api.doit.push(again, again, { undo: 'mirror: undone', redo: 'mirror: back' });
 }
 
 function flipGroups(groups) {
