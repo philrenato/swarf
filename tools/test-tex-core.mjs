@@ -522,6 +522,15 @@ for (const [id, P] of Object.entries(T.PATTERNS)) {
   ok(solid.strategy !== 'centerline', `solid memphis with a V rasters (${solid.strategy}): a centerline never clears the shapes`);
   const n = den => T.markToolpath({ id: 'd', region: g, xf: T.IDENTITY.slice(), fill: T.newFill('memphis', { params: { ...T.defaults('memphis'), density: den } }) }, { res: 0.5 }).moves.length;
   ok(n(30) < n(100) * 0.6, `memphis density 30% cuts fewer moves (${n(30)} vs ${n(100)})`);
+  // a bold finish on a ball smaller than its ridge: passes a bit apart, never a stepover of 0 (rows
+  // without end ran the page out of memory); a typed stepover of next to nothing is held at 0.01 mm
+  const tiny = { id: 'tiny', name: '0.5 mm ball', type: 'ball', diameter: 0.5 };
+  ok(Math.abs(T.stepoverForScallop(T.makeTool(tiny), 0.5) - 0.5) < 1e-9 && T.stepoverForScallop(T.makeTool(tiny), 0) > 0, 'a ridge taller than the ball is: passes the ball\'s width apart; a ridge of 0: still apart');
+  const small = T.newGrid(0, 0, 6, 6, 0.5); T.paintWhere(small, () => true, 1);
+  const bt = Date.now(), bold = T.markToolpath({ id: 't', region: small, xf: T.IDENTITY.slice(), fill: T.newFill('waves', { finish: 'bold', bit: tiny }) }, { res: 0.4, maxDepth: 19 });
+  ok(bold.stepover > 0.4 && bold.moves.length > 10 && Date.now() - bt < 5000, `bold on a 0.5 mm ball: ${bold.stepover.toFixed(2)} mm apart, ${bold.moves.length} moves in ${Date.now() - bt} ms`);
+  const typed = T.markToolpath({ id: 't', region: small, xf: T.IDENTITY.slice(), fill: T.newFill('waves', { stepover: 1e-7 }) }, { res: 0.5, maxDepth: 19 });
+  ok(typed.stepover === 0.01, `a typed stepover of 0.0000001 mm runs at 0.01 (${typed.stepover})`);
 }
 
 // 41. shaping (Phil 11-01: invert, falloffs, border bands, "lots of mixing and remixing"): relief up turns
@@ -772,6 +781,12 @@ for (const [id, P] of Object.entries(T.PATTERNS)) {
   // a word off the part's edge stays on the part
   const off = T.vcarveToolpath(mk([rect(-10, 0, 40, 20)], T.newVcarve({ bit: big })), { maxDepth: 19, part: [rect(0, -5, 60, 30)] });
   ok(off.moves.filter(m => !m.rapid && m.z < -0.05).every(m => m.x >= -1e-6), 'run off the part: the moves stay on it');
+  // a star whose points run past the part's edges: its axis is found on the part only (it climbed off
+  // the grid to an infinite radius, and the floor's rings never ended)
+  const st = [[50.921, 10.854], [38.998, 11.525], [42.044, 23.071], [37.722, 11.939], [27.682, 18.405], [36.934, 10.854], [27.682, 3.303], [37.722, 9.769], [42.044, -1.363], [38.998, 10.183]];
+  const sm = mk([st], T.newVcarve({ bit: { id: 'v60', name: 'small 60° V', type: 'v', angle: 60, diameter: 3, flute: 2 } }));
+  let sp = null; try { sp = T.vcarveToolpath(sm, { maxDepth: 6, part: [rect(0, 0, 76.149, 21.708)], res: 0.3 }); } catch (e) { sp = { err: e.message }; }
+  ok(sp && !sp.err && sp.moves.length > 10 && Number.isFinite(sp.vcarve.rmax) && sp.moves.every(m => Number.isFinite(m.z) && m.z >= -2 - 1e-9), `a star past the part's edges carves within its bit (${sp && (sp.err || sp.moves.length + ' moves')})`);
 }
 
 console.log(`\n${pass} passed, ${fail} failed  (${((Date.now() - t0) / 1000).toFixed(1)} s)`);

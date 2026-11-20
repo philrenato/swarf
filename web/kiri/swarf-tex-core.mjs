@@ -1259,10 +1259,12 @@ export function heightGrid(hFn, x0, y0, nx, ny, res) {
 // Stepover for a target scallop height. Ball: the chord where two passes' circles meet h above
 // the bottom, 2*sqrt(2*r*h - h^2) — which is the familiar 2*sqrt(2*r*h) for small h. V-bit: two
 // V's whose walls cross h up, 2*h*tan(half angle). Flat end mill: no scallop on a flat floor, so 40%.
+// A ridge as tall as the ball's radius is passes a whole bit apart: a taller one asked of a small
+// ball (a bold finish on a 0.5 mm ball) is held there, never a stepover of 0 (rows without end).
 export function stepoverForScallop(tool, scallop) {
   tool = tool.prof ? tool : makeTool(tool);
-  if (tool.type === 'ball') return 2 * Math.sqrt(Math.max(0, 2 * tool.R * scallop - scallop * scallop));
-  if (tool.type === 'v') return Math.max(0.05, 2 * scallop * tool.tanHalf);
+  if (tool.type === 'ball') { const s = Math.min(Math.max(0.001, scallop), tool.R); return 2 * Math.sqrt(Math.max(0, 2 * tool.R * s - s * s)); }
+  if (tool.type === 'v') return Math.min(tool.diameter, Math.max(0.05, 2 * scallop * tool.tanHalf));
   return 0.4 * tool.diameter;
 }
 
@@ -1323,7 +1325,8 @@ function decimateRun(run, tol = 0.004) {
 export function rasterPath(tex, toolIn, o = {}) {
   const ctx = pathContext(tex, toolIn, o);
   const { tool, res, drop, b } = ctx;
-  const stepover = o.stepover || stepoverForScallop(tool, o.scallop ?? 0.05);
+  // never under a hundredth of a millimetre (a typed 0.000001 would make rows without end)
+  const stepover = Math.max(0.01, o.stepover || stepoverForScallop(tool, o.scallop ?? 0.05));
   const E = emitter(o);
   const deepest = Math.min(tex.depth, ctx.maxDepth);
   const sd = o.stepDown > 0 ? o.stepDown : Infinity;
@@ -3081,7 +3084,7 @@ export function inlayToolpath(mark, o = {}) {
   const f = mark.fill, tool = sh.tool, r = sh.r, E = emitter(o);
   const want = Math.max(0.01, f.depth ?? INLAY.depth), deep = o.maxDepth > 0 ? Math.min(want, o.maxDepth) : want;
   // rings at most the bit's radius apart: wider leaves a post standing in the middle
-  const step = Math.min(r, f.stepover > 0 ? f.stepover : 0.4 * 2 * r);
+  const step = Math.min(r, f.stepover > 0 ? Math.max(0.01, f.stepover) : 0.4 * 2 * r);
   const sd = o.stepDown > 0 ? o.stepDown : deep, zs = [];
   for (let z = -sd; z > -deep + 1e-6; z -= sd) zs.push(z);
   zs.push(-deep);
@@ -3444,15 +3447,18 @@ function vcarveField(loops, part, cells, finest = 0.05) {
   for (const r of branches) { touched.add(r.a); touched.add(r.b); }
   nodes.forEach((nd, id) => { if (!touched.has(id)) branches.push({ a: id, b: id, pts: [pt(nd.at)] }); });
   const DIRS = [[1, 0], [0.7071, 0.7071], [0, 1], [-0.7071, 0.7071], [-1, 0], [-0.7071, -0.7071], [0, -1], [0.7071, -0.7071]];
+  // uphill inside the shape only: off it (or off the grid, where no distance is known) is never higher
   const climb = (q, ways) => {
-    let r0 = dist(q[0], q[1]);
+    let r0 = inside(q[0], q[1]);
     for (let st = h; st > h / 16; st /= 2) for (let go = 0; go < 4; go++) {
       let best = null;
-      for (const w of ways) { const v = dist(q[0] + w[0] * st, q[1] + w[1] * st); if (v > r0 + 1e-5) { r0 = v; best = w; } }
+      for (const w of ways) { const v = inside(q[0] + w[0] * st, q[1] + w[1] * st); if (v > r0 + 1e-5) { r0 = v; best = w; } }
       if (!best) break;
       q[0] += best[0] * st; q[1] += best[1] * st;
     }
   };
+  // a point's radius: its distance to the outline, 0 where nothing near it is known
+  const radiusAt = (q) => { const r = dist(q[0], q[1]); return Number.isFinite(r) ? r : 0; };
   // the stairs of the grid faired away, then each point's radius, exactly, where it now is
   for (const r of branches) {
     const P = r.pts, closed = r.a < 0 && P.length > 3;
@@ -3471,10 +3477,10 @@ function vcarveField(loops, part, cells, finest = 0.05) {
       if (ways) climb(q, ways);
     }
     if (closed) P[P.length - 1] = P[0].slice();
-    for (const q of P) q[2] = dist(q[0], q[1]);
+    for (const q of P) q[2] = radiusAt(q);
   }
   // the runs that meet at a junction meet at one place, on the ridge
-  nodes.forEach((nd) => { if (nd.list.length) { const q = pt(nd.at); if (deg[nd.at] !== 1) climb(q, DIRS); q[2] = dist(q[0], q[1]); nd.q = q; } });
+  nodes.forEach((nd) => { if (nd.list.length) { const q = pt(nd.at); if (deg[nd.at] !== 1) climb(q, DIRS); q[2] = radiusAt(q); nd.q = q; } });
   for (const r of branches) {
     if (r.a >= 0) r.pts[0] = nodes[r.a].q.slice();
     if (r.b >= 0 && r.pts.length > 1) r.pts[r.pts.length - 1] = nodes[r.b].q.slice();
