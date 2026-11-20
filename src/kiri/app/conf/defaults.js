@@ -582,6 +582,9 @@ export const conf = {
                 camOutlineWide: false,
                 camOutlineLeave: 0,
                 camOutlineLastPass: false,
+                // swarf: how far a cut-out goes past the board's bottom, into the spoilboard, so a board
+                // a little thicker than typed is still cut free
+                camOutlineThru: 0.3,
                 camPocketContour: false,
                 camPocketDown: 1,
                 camPocketExpand: 0,

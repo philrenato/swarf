@@ -22,12 +22,23 @@ class OpOutline extends CamOp {
         let ops_list = this.ops_list = [ ];
         // swarf: an allowance left on these passes, and a last pass at the true size (VCarve's profile)
         let leave = op.leave > 0 ? { leave_xy: op.leave } : {};
+        // swarf: a cut-out goes on past the board's bottom into the spoilboard (up to 2 mm), so a board a
+        // little thicker than typed is still cut free. Not for holes alone, nor a step with its own bottom.
+        let proc = state.settings.process;
+        let past = 0;
+        if ((outside || !inside) && !ov_botz && !proc.camZBottom && !proc.camStockIndexed) {
+            past = Math.max(0, Math.min(2, +(op.thru ?? proc.camOutlineThru ?? 0) || 0));
+        }
+        let deep = past ? { past_z: past } : {};
 
         if (outside) {
             let areas = shadow.base.clone(true);
             ops_list.push(new OpArea(state, {
                 areas: { [widget.id]: areas.map(p => p.toArray()) },
                 ...leave,
+                ...deep,
+                // the card's feed for an outline already allows for a full-width pass
+                fullFeed: true,
                 base: true,
                 direction,
                 dogbones,
@@ -57,6 +68,9 @@ class OpOutline extends CamOp {
             let areas = shadow.base.clone(true);
             ops_list.push(new OpArea(state, {
                 ...leave,
+                ...deep,
+                // the card's feed for an outline already allows for a full-width pass
+                fullFeed: true,
                 areas: { [widget.id]: areas.map(p => p.toArray()) },
                 direction,
                 dogbones,
@@ -86,6 +100,9 @@ class OpOutline extends CamOp {
         if (op.lastpass) {
             ops_list.push(new OpArea(state, {
                 areas: { [widget.id]: shadow.base.clone(true).map(p => p.toArray()) },
+                ...deep,
+                // the card's feed for an outline already allows for a full-width pass
+                fullFeed: true,
                 base: outside ? true : undefined,
                 direction,
                 dogbones,

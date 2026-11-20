@@ -137,7 +137,9 @@ try {
       pts.push({ x, y, z });
     }
     const zmin = Math.min(...pts.map(p => p.z));
-    const top = pts.filter(p => Math.abs(p.z - (zmin + 0)) > 0.01 && p.z < zmin + ply.height + 0.3 && p.z > zmin + ply.height - 0.3);
+    // the outline goes on 0.3 mm into the spoilboard (op-outline.js); the tab top is measured from the board's bottom
+    const bottom = zmin + 0.3;
+    const top = pts.filter(p => Math.abs(p.z - zmin) > 0.01 && p.z < bottom + ply.height + 0.3 && p.z > bottom + ply.height - 0.3);
     const groups = [];
     for (const p of top) { const g = groups.find(g => Math.hypot(g.x - p.x, g.y - p.y) < 40); if (!g) groups.push({ x: p.x, y: p.y }); }
     return { zmin: +zmin.toFixed(2), atTop: top.length, places: groups.length };

@@ -708,7 +708,18 @@
   // no longer matches — the material, the op's tool or the device changed —
   // or when it has no stamp yet (a new op, or the auto-added rough).
   const OP_TYPES = ['rough', 'outline', 'contour', 'pocket', 'drill', 'texture', 'pierce', 'inlay', 'vcarve'];
-  function opValues(type, p) {
+  // Every pass of an outline is full width, so its feed is the material's at camFullEngage: the card
+  // shows the speed the file runs (prepare.js leaves an outline's feed as it is). On the ShopBot a
+  // feed above the motors' rough band (1500 mm/min) stays above it.
+  function fullWidth(feed, c) {
+    const k = c && c.settings && c.settings.process ? c.settings.process.camFullEngage : 0.8;
+    if (!(feed > 0) || !(k > 0 && k < 1)) return feed;
+    const band = c && c.lim && c.lim.shopbot ? 1500 : 0, slow = Math.round(feed * k / 10) * 10;
+    return feed >= band ? Math.max(slow, band) : slow;
+  }
+  window.__swarfFullWidth = (feed, settings) => fullWidth(feed, settings ? { settings, lim: deviceLimits(settings) } : feedCtx());
+  function opValues(type, p, c) {
+    if (type === 'outline') return { spindle: p.spindle, rate: fullWidth(p.feed, c), plunge: Math.min(p.plunge, fullWidth(p.feed, c)), down: p.stepdown, step: p.stepover };
     // a drill's `rate` is its plunge (cl-ops.js maps it to camDrillDownSpeed)
     if (type === 'drill') return { spindle: p.spindle, rate: p.plunge, down: p.stepdown };
     if (type === 'contour') return { spindle: p.spindle, rate: p.feed, step: p.stepover };
@@ -729,10 +740,11 @@
   }
   // the stamp carries what the numbers came from: the material, the bit and its
   // own diameter, the machine and its limits; the speed and what the bit is (cutter, flutes) join it only
-  // when not the start's, so a stamp from before them still matches
+  // when not the start's, so a stamp from before them still matches. An outline's ends in :w, its feed
+  // the full-width one (fullWidth)
   function stampOf(op, c, level) {
     const tool = c.findTool(op.tool), dia = toolDiamMm(tool), lim = c.lim, sw = (tool && tool.swarf) || {};
-    const more = (level ? `:s${level}` : '') + (sw.cutter === 'carbide' ? ':carbide' : '') + (sw.flutes > 0 ? `:f${sw.flutes}` : '');
+    const more = (level ? `:s${level}` : '') + (sw.cutter === 'carbide' ? ':carbide' : '') + (sw.flutes > 0 ? `:f${sw.flutes}` : '') + (op.type === 'outline' ? ':w' : '');
     return `${current.id}:${op.tool}:${c.devName}:${(+dia || 0).toFixed(3)}:${lim ? [lim.spindleMin, lim.spindleMax, lim.feedMax, lim.feedMaxZ].join(',') + (lim.endFlutes ? `,${lim.endFlutes}` : '') : ''}${more}`;
   }
   const levelOf = stamp => +((/:s(\d+)/.exec(String(stamp || '')) || [])[1] || 0);
@@ -745,7 +757,7 @@
     if (op.preset !== stampOf(op, c, level)) return false;
     const tool = c.findTool(op.tool), p = atSpeed(current, toolDiamMm(tool), c.lim, tool, level);
     if (!p) return false;
-    const want = opValues(op.type, p);
+    const want = opValues(op.type, p, c);
     const slack = k => Math.max(want[k] * 0.02, k === 'down' ? 0.05 : k === 'step' ? 0.005 : 1);
     return Object.keys(want).some(k => want[k] > 0 && op[k] > 0 && Math.abs(op[k] - want[k]) > slack(k));
   }
@@ -769,11 +781,20 @@
       const tool = findTool(op.tool), dia = toolDiamMm(tool), sw = (tool && tool.swarf) || {};
       const stamp = stampOf(op, c, level);
       if (op.preset === stamp) continue;
+      // an outline from before its card showed the full-width feed: the file ran its feed at that, so
+      // the card takes the number the file ran, and the step cuts as it did
+      if (op.type === 'outline' && op.preset && !/:w$/.test(op.preset)) {
+        op.rate = fullWidth(op.rate, c);
+        if (op.plunge > op.rate) op.plunge = op.rate;
+        op.preset += ':w';
+        changed = true;
+        if (op.preset === stamp) continue;
+      }
       // a stamp from before carries no geometry: take it as matching once, so a student's edits survive the upgrade
-      if (op.preset === `${current.id}:${op.tool}:${devName}`) { op.preset = stamp; changed = true; continue; }
+      if (op.preset === `${current.id}:${op.tool}:${devName}` || (op.type === 'outline' && op.preset === `${current.id}:${op.tool}:${devName}:w`)) { op.preset = stamp; changed = true; continue; }
       const p = atSpeed(current, dia, lim, tool, level);
       if (!p) continue;
-      const now = opValues(op.type, p);
+      const now = opValues(op.type, p, c);
       // only the speed changed: a custom step keeps its own numbers (the speed line says so)
       if (noSpeed(op.preset) === noSpeed(stamp) && opCustom(op, c)) { op.preset = stamp; changed = true; continue; }
       // this step had numbers of its own under the last material: they are replaced, by
@@ -787,7 +808,7 @@
       if (flip) why = nowCarb ? 'carbide' : 'HSS';
       const before = was ? atSpeed(was, dia, lim, tool, level) : flip ? atSpeed(current, dia, lim, flip, level) : null;
       if (before) {
-        const prior = opValues(op.type, before);
+        const prior = opValues(op.type, before, c);
         const differs = k => prior[k] > 0 && op[k] > 0 && Math.abs(op[k] - prior[k]) > prior[k] * 0.01;
         if (differs('rate')) replaced.push({ type: op.type, from: op.rate, to: now.rate });
         else if (Object.keys(prior).some(differs)) replaced.push({ type: op.type });
@@ -1019,7 +1040,8 @@
         continue;
       }
       // a drill only plunges: its own line, without a horizontal feed
-      const k = `${op.tool}:${op.type === 'drill' ? 'drill' : 'cut'}`;
+      // an outline runs full width: its own line, at its own feed (fullWidth)
+      const k = `${op.tool}:${op.type === 'drill' ? 'drill' : op.type === 'outline' ? 'full' : 'cut'}`;
       if (!byTool.has(k)) byTool.set(k, []);
       byTool.get(k).push(op.type);
     }
@@ -1030,7 +1052,10 @@
       if (!p) continue;
       const name = tool ? (tool.name || `bit ${tool.number}`) : 'bit';
       if (kind === 'drill') line(`${types.join(', ')} · ${name}: ${p.spindle} rpm · plunge ${rate(p.plunge)}`);
-      else line(`${types.join(', ')} · ${name}: ${p.spindle} rpm · feed ${num(p.feed)} · plunge ${rate(p.plunge)} · ${len(p.stepdown)} a pass`);
+      else {
+        const feed = kind === 'full' ? fullWidth(p.feed, { settings, lim }) : p.feed;
+        line(`${types.join(', ')} · ${name}: ${p.spindle} rpm · feed ${num(feed)} · plunge ${rate(Math.min(p.plunge, feed))} · ${len(p.stepdown)} a pass`);
+      }
     }
   }
   function speedRow(labelCss) {

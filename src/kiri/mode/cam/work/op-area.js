@@ -267,7 +267,9 @@ class OpArea extends CamOp {
             } else
             if (mode === 'trace') {
                 let { tr_over, tr_offz, tr_type  } = op;
-                let zs = down ? base_util.lerp(zTop, op.thru ? zBottom : Math.max(zBottom, area.minZ()), down) : [ bounds.min.z ];
+                // swarf: past_z carries a cut-out on below the board's bottom (op-outline.js)
+                let zEnd = op.thru ? zBottom - (op.past_z || 0) : Math.max(zBottom, area.minZ());
+                let zs = down ? base_util.lerp(zTop, zEnd, down) : [ bounds.min.z - (op.past_z || 0) ];
                 let zroc = 0;
                 let zinc = 1 / zs.length;
                 if (tr_offz) zs = zs.map(z => z - tr_offz);
@@ -515,6 +517,7 @@ class OpArea extends CamOp {
                     cutdir: op.ov_conv,
                     depthFirst: process.camDepthFirst,
                     easeDown: op.down && process.easeDown ? op.down : 0,
+                    engage: !op.fullFeed,
                     outline: op.drape || op.mode === 'trace',
                     progress: (n,m) => progress(n/m, "area"),
                     slices: min.area.filter(slice => slice.camLines)

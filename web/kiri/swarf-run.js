@@ -1900,7 +1900,7 @@ html[data-skin] #swarf-run .sr-jog .sr-zrow button.next, html[data-skin] #swarf-
 
   // A measured board against this job (optional, on the plate card). The job's thickness is known for
   // cam's own toolpaths (its tallest part being cut); a file brought in says only how deep it cuts.
-  // More than 1 mm apart is one sentence, what would follow. Null when nothing was typed.
+  // More than 0.2 mm apart is said plainly, with what would follow. Null when nothing was typed.
   function boardCheck(mm) {
     if (!(mm > 0)) return null;
     const P = S.prog;
@@ -1918,10 +1918,11 @@ html[data-skin] #swarf-run .sr-jog .sr-zrow button.next, html[data-skin] #swarf-
     const deep = moves.reduce((d, m) => Math.max(d, -m.z), 0);
     const mine = `Your board measures ${len(mm, 2)}`;
     if (job) {
-      const off = mm - job, made = `the job was made for ${len(job, 2)}`;
-      if (Math.abs(off) <= 1) return { warn: false, text: `${mine}, within 1 mm of the job's ${len(job, 2)}.` };
-      if (off > 0) return { warn: true, text: deep >= job - 0.5 ? `${mine}; ${made}. The cut would stop ${len(mm - deep, 2)} short of going through.` : `${mine}; ${made}. Its deepest cut is ${len(deep, 2)} from the top, so it stays in the board: check this is the board you meant.` };
-      return { warn: true, text: deep > mm ? `${mine}; ${made}. The cut goes ${len(deep, 2)} down from the top, so it would go ${len(deep - mm, 2)} into the spoilboard.` : `${mine}; ${made}. Its deepest cut is ${len(deep, 2)} from the top, so it stays in the board: check this is the board you meant.` };
+      const off = mm - job;
+      if (Math.abs(off) <= 0.2) return { warn: false, text: `${mine}, within ${len(0.2, 2)} of the job's ${len(job, 2)}.` };
+      const made = `${len(Math.abs(off), 2)} ${off > 0 ? 'thicker' : 'thinner'} than the ${len(job, 2)} the job was made for`;
+      if (off > 0) return { warn: true, text: deep >= mm ? `${mine}: ${made}. The cut goes ${len(deep, 2)} down, so it still goes through.` : deep >= job - 0.5 ? `${mine}: ${made}. The cut would stop ${len(mm - deep, 2)} short of going through.` : `${mine}: ${made}. Its deepest cut is ${len(deep, 2)} from the top, so it stays in the board: check this is the board you meant.` };
+      return { warn: true, text: deep > mm ? `${mine}: ${made}. The cut goes ${len(deep, 2)} down from the top, so it would go ${len(deep - mm, 2)} into the spoilboard.` : `${mine}: ${made}. Its deepest cut is ${len(deep, 2)} from the top, so it stays in the board: check this is the board you meant.` };
     }
     if (deep > mm + 1) return { warn: true, text: `${mine}; this file cuts ${len(deep, 2)} down from the top, so it would go ${len(deep - mm, 2)} into the spoilboard.` };
     return { warn: false, text: `${mine}; this file cuts ${len(deep, 2)} down from the top, which stays in the board.` };

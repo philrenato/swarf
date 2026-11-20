@@ -17,7 +17,7 @@ const wait = ms => new Promise(r => setTimeout(r, ms));
 const bad = [], errors = [];
 const check = (ok, what) => { console.log(ok ? 'ok  ' : 'FAIL', what); if (!ok) bad.push(what); };
 const near = (a, b, tol = 0.06) => Math.abs(a - b) <= tol;
-const W = 120, H = 80, T = 12, BIT = 6.35, LEAVE = 0.5;
+const W = 120, H = 80, T = 12, BIT = 6.35, LEAVE = 0.5, THRU = 0.3;
 const rect = `<svg xmlns="http://www.w3.org/2000/svg" width="${W}mm" height="${H}mm" viewBox="0 0 ${W} ${H}"><rect width="${W}" height="${H}"/></svg>`;
 // a 7 mm round hole: a 1/4 in bit fits, the bit plus 0.5 mm all round does not. And a 30 mm square one
 const holed = `<svg xmlns="http://www.w3.org/2000/svg" width="${W}mm" height="${H}mm" viewBox="0 0 ${W} ${H}"><path fill-rule="evenodd" d="M0 0H${W}V${H}H0ZM30 36.5a3.5 3.5 0 1 0 0 7a3.5 3.5 0 1 0 0 -7ZM70 25H100V55H70Z"/></svg>`;
@@ -96,7 +96,7 @@ try {
   f = passes(text);
   check(near(across(f.flat)[0], W + BIT + 2 * LEAVE) && near(across(f.flat)[1], H + BIT + 2 * LEAVE), `leave alone: every pass ${LEAVE} mm off the part (${across(f.flat).map(v => v.toFixed(2))})`);
   const line = await page.evaluate(() => document.querySelector('#oplist .swarf-op-sum[data-step]')?.textContent);
-  check(/oversize/.test(line || ''), `and the step's line says it stays oversize (${line})`);
+  check(/stays big|oversize/.test(line || ''), `and the step's line says it stays oversize (${line})`);
 
   // ── leave + last pass ──
   await page.evaluate(() => { const i = document.querySelector('#oplist [data-swarf-field="lastpass"]'); i.click(); }); await wait(300);
@@ -106,7 +106,7 @@ try {
   f = passes(text);
   check(!P.routerOffCut(f.parsed), `router on for every cut (${JSON.stringify(P.routerOffCut(f.parsed))})`);
   check(!P.rapidAcross(f.parsed), `no rapid across in the wood (${JSON.stringify(P.rapidAcross(f.parsed))})`);
-  check(near(f.deepest, -T), `down to the board's bottom (${f.deepest})`);
+  check(near(f.deepest, -T - THRU), `down through the board's bottom, ${THRU} mm into the spoilboard (${f.deepest})`);
   // the path sits at the bit's half width + the allowance from the part, then at the half width alone:
   // the last pass is what the cuts do after the widest ring is last seen
   const xs = f.flat.map(m => m.x), ys = f.flat.map(m => m.y);
@@ -143,7 +143,7 @@ try {
   const zs = list => [...new Set(list.filter(m => near(m.z, m.z0, 0.001)).map(m => m.z.toFixed(2)))];
   const round = f.flat.filter(inRound), square = f.flat.filter(inSquare);
   check(zs(round).length > 2, `the 7 mm hole, which the first passes cannot enter, steps down in the last pass (${zs(round).length} levels)`);
-  check(round.length && near(Math.min(...round.map(m => m.z)), -T), `and reaches the bottom (${round.length ? Math.min(...round.map(m => m.z)) : 'no cuts'})`);
+  check(round.length && near(Math.min(...round.map(m => m.z)), -T - THRU), `and reaches through the bottom (${round.length ? Math.min(...round.map(m => m.z)) : 'no cuts'})`);
   // first passes at 30 - 2 x (3.175 + 0.5) across, last at 30 - 2 x 3.175
   const sq = across(square);
   check(near(sq[0], 30 - BIT), `the square hole's last ring is at the true size (${sq[0].toFixed(2)})`);
@@ -159,6 +159,7 @@ try {
   check(!P.rapidAcross(f.parsed) && !P.routerOffCut(f.parsed), 'inside only: no rapid in the wood, router on');
   const spanX = across(f.flat)[0];
   check(f.flat.length > 3 && spanX < W - 20, `inside only: it cuts the holes and not the outside (${spanX.toFixed(2)} across, part ${W})`);
+  check(near(f.deepest, -T), `inside only: it frees no part, so it stops at the board's bottom (${f.deepest})`);
 
   // ── no tabs: a last pass says what it would do ──
   await fresh(); await part(rect, 'plate', T);
