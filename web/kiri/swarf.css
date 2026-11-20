@@ -2722,11 +2722,14 @@ body:has(#swarf-help-float:not([hidden])) #swarf-concerns { z-index: 80 !importa
 @media (max-width: 1100px) and (min-width: 900px) {
   body:has(#swarf-size.on) #panel-right { max-height: calc(100vh - 206px); }
 }
-/* narrower still: the concerns pill goes up to the menu bar's free end, its list opening down,
-   so it never sits on the size card or the rail; the rail ends above the two-row size card */
-@media (max-width: 899px) {
+/* where the size card spans the window, the concerns pill goes up to the menu bar's free end, its
+   list opening down, so it never sits on the size card's buttons or the rail */
+@media (max-width: 1100px) {
   #swarf-concerns { top: 4px !important; bottom: auto !important; right: 12px; }
   #swarf-concerns-body { top: 36px; bottom: auto; max-height: calc(100vh - 60px); width: min(360px, calc(100vw - 24px)); }
+}
+/* narrower still: the rail ends above the two-row size card */
+@media (max-width: 899px) {
   body:has(#swarf-size.on) #swarf-right-rail { max-height: calc(100vh - 256px); }
 }
 /* a concern's fix and its help sit side by side, one row */
