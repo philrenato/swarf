@@ -1149,7 +1149,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 
 ==============================================================================
-Clipper (src/ext/clip2.js), Angus Johnson 6.4.2
+Clipper (src/ext/clip2.js, and its C++ in lib/kiri/wasm/kiri-geo.wasm), Angus Johnson 6.4.2
 License: BSL-1.0
 ------------------------------------------------------------------------------
 Copyright Angus Johnson 2010-2017

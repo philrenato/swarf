@@ -69,7 +69,7 @@ const E = [
   ['@tracespace/parser (gerber)', ver('@tracespace/parser'), 'MIT', lic('@tracespace/parser')],
   ['quickjs-emscripten (QuickJS by Fabrice Bellard and Charlie Gordon)', ver('quickjs-emscripten'), 'MIT', lic('quickjs-emscripten')],
   ['pngjs (src/ext/pngjs.js)', '', 'MIT', MIT('2015 Luke Page & Original Contributors')],
-  ['Clipper (src/ext/clip2.js), Angus Johnson', '6.4.2', 'BSL-1.0', 'Copyright Angus Johnson 2010-2017\n\n' + BOOST],
+  ['Clipper (src/ext/clip2.js, and its C++ in lib/kiri/wasm/kiri-geo.wasm), Angus Johnson', '6.4.2', 'BSL-1.0', 'Copyright Angus Johnson 2010-2017\n\n' + BOOST],
   ['JSPoly (src/ext/jspoly.js), Ruwan J Egodagamage, a translation of Boost.Polygon', '1.0.1', 'BSL-1.0', BOOST],
   ['md5 (src/ext/md5.js), from upstream Kiri:Moto', '', 'CC BY-SA (Stack Overflow)', 'Source: https://stackoverflow.com/questions/1655769/fastest-md5-implementation-in-javascript\nContributed to Stack Overflow under its Creative Commons Attribution-ShareAlike license.'],
   ['opentype.js (web/kiri/vendor/opentype)', '1.3.4', 'MIT', file('web/kiri/vendor/opentype/LICENSE.txt')],
