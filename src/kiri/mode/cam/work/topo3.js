@@ -462,10 +462,22 @@ export class Topo {
         // apart from its corner (raster_slice), and the paths run past the part, so the scale is
         // the resolution itself: steps over bounds is a little more, and drifts with distance
         const rx = 1 / resolution, ry = 1 / resolution;
+        // a cell's tool height is read by every sample beside it: each is worked out once (the
+        // tool's profile is many cells on a fine raster, a small part's above all)
+        const cells = new Map();
+        const cellZ = (ix, iy) => {
+            const key = ix * 4194304 + iy;
+            let z = cells.get(key);
+            if (z === undefined) {
+                if (cells.size > 4e6) cells.clear();
+                cells.set(key, z = toolAtZ(ix, iy));
+            }
+            return z;
+        };
         const toolAt = (x, y) => {
             const fx = rx * (x - pp.minX), fy = ry * (y - pp.minY);
             const x0 = Math.floor(fx), y0 = Math.floor(fy);
-            return Math.max(toolAtZ(x0, y0), toolAtZ(x0 + 1, y0), toolAtZ(x0, y0 + 1), toolAtZ(x0 + 1, y0 + 1));
+            return Math.max(cellZ(x0, y0), cellZ(x0 + 1, y0), cellZ(x0, y0 + 1), cellZ(x0 + 1, y0 + 1));
         };
         const flat = Math.min(0.02, resolution / 4);
         const at = newPoint(0, 0);

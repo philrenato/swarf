@@ -12,7 +12,6 @@
 //          tab's top, point or move; every move inside the clip outline (to within a raster step);
 //          the area inside the outline covered to the stepover; the same input gives the same paths
 //   plan:  any saved pattern, angle and axis gives one or two passes at sound angles
-import assert from 'node:assert/strict';
 globalThis.self = globalThis;
 const { THREE } = await import('../src/ext/three.js'); globalThis.THREE = THREE;
 await import('../src/add/array.js'); await import('../src/add/three.js');
