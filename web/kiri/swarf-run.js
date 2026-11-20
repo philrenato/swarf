@@ -1983,7 +1983,7 @@ html[data-skin] #swarf-run .sr-jog .sr-zrow button.next, html[data-skin] #swarf-
     const mine = `Your board measures ${len(mm, 2)}`;
     if (job) {
       const off = mm - job;
-      if (Math.abs(off) <= 0.2) return { warn: false, text: `${mine}, within ${len(0.2, 2)} of the job's ${len(job, 2)}.` };
+      if (Math.abs(off) <= 0.2 + 1e-6) return { warn: false, text: `${mine}, within ${len(0.2, 2)} of the job's ${len(job, 2)}.` };
       const made = `${len(Math.abs(off), 2)} ${off > 0 ? 'thicker' : 'thinner'} than the ${len(job, 2)} the job was made for`;
       if (off > 0) return { warn: true, text: deep >= mm ? `${mine}: ${made}. The cut goes ${len(deep, 2)} down, so it still goes through.` : deep >= job - 0.5 ? `${mine}: ${made}. The cut would stop ${len(mm - deep, 2)} short of going through.` : `${mine}: ${made}. Its deepest cut is ${len(deep, 2)} from the top, so it stays in the board: check this is the board you meant.` };
       return { warn: true, text: deep > mm ? `${mine}: ${made}. The cut goes ${len(deep, 2)} down from the top, so it would go ${len(deep - mm, 2)} into the spoilboard.` : `${mine}: ${made}. Its deepest cut is ${len(deep, 2)} from the top, so it stays in the board: check this is the board you meant.` };

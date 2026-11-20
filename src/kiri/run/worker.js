@@ -108,6 +108,9 @@ function minhandler(msg) {
 // for concurrent operations
 const minwork = {
 
+    // every helper started, idle or busy
+    pool: [],
+
     // core functions
 
     get concurrent() {
@@ -129,7 +132,16 @@ const minwork = {
                 error.preventDefault();
                 // an error nothing caught: the work this helper holds fails with it instead of waiting
                 const fn = minifns[minion.seq];
-                if (fn) fn({ error: String(error.message || 'a helper stopped') });
+                if (fn) return fn({ error: String(error.message || 'a helper stopped') });
+                // an error with no work in hand is a helper that never started: it leaves the pool,
+                // and when none is left the waiting work fails instead of waiting
+                minion.dead = true;
+                const at = minions.indexOf(minion);
+                if (at >= 0) minions.splice(at, 1);
+                if (minwork.pool.every(m => m.dead) && minionq.length) {
+                    minionq.length = 0;
+                    dispatch.send({ seq: 0, task: 'minion.error', done: true, data: String(error.message || 'the helpers did not start') });
+                }
             };
             minion.onmessageerror = (error) => {
                 debug({ MINION_MESSAGE_ERROR: error });
@@ -138,6 +150,7 @@ const minwork = {
             minion.onmessage = minhandler;
             minion.postMessage({ cmd: "label", name: `#${i}` });
             minions.push(minion);
+            minwork.pool.push(minion);
         }
         console.log(`kiri | init pool | ${version || "rogue"} | ${concurrent}`);
     },
@@ -147,6 +160,7 @@ const minwork = {
             minion.terminate();
         }
         minions.length = 0;
+        minwork.pool.length = 0;
     },
 
     queue(work, ondone, direct) {
@@ -170,7 +184,7 @@ const minwork = {
             minifns[seq] = (data) => {
                 delete minifns[seq];
                 minion.seq = undefined;
-                minions.push(minion);
+                if (!minion.dead) minions.push(minion);
                 // a helper that failed: the page restarts the engine and says why (its caller would wait forever)
                 if (data && data.error) {
                     dispatch.send({ seq: 0, task: 'minion.error', done: true, data: data.error });

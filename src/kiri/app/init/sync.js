@@ -1188,7 +1188,7 @@ function setup_keybd_nav() {
                     if (bw && bd && (sx > bw + 0.5 || sy > bd + 0.5)) warnings.push({
                         title: `${name} is bigger than the ${mach}'s bed`,
                         body: `${pair(sx, sy)}; the bed is ${pair(bw, bd)}. The machine cannot cut it as it is.`,
-                        hint: 'make it smaller, or choose the other machine (setup › machine)',
+                        hint: sy <= bw + 0.5 && sx <= bd + 0.5 ? 'turn it a quarter turn: it fits that way' : 'make it smaller, or choose the other machine (setup › machine)',
                         block: !w.meta.disabled });
                     else if (bw && bd && (p.x + b.min.x < -bw / 2 - 0.5 || p.x + b.max.x > bw / 2 + 0.5 || p.y + b.min.y < -bd / 2 - 0.5 || p.y + b.max.y > bd / 2 + 0.5)) {
                         // the least slide that puts it on the bed; offered only for a part on its own that
