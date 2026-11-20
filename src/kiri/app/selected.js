@@ -243,6 +243,9 @@ function copyOf(ow, group) {
         while (taken.has(`${base}-${n}`)) n++;
         nw.meta.file = `${base}-${n}`;
         nw.meta.vertices = ow.meta.vertices;
+        // the same mesh, so the same box: the board's thickness for its tabs and checks
+        // (unset, a copy's auto tabs stood on top of the board and the cut never went under them)
+        if (ow.track.box) nw.track.box = { ...ow.track.box };
         // swarf: the copy keeps its drawing (DRAW, save drawing) and its marks (TEX: the same
         // mark ids, so the same texture steps cut it) and sits beside the original
         for (const k of ['svg', 'c0', 'xf', 't', 'edge', 'tilted', 'engrave', 'tex', 'drawn', 'orig', 'rq', 'rflat', 'disabled']) {
