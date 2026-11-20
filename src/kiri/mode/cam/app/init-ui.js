@@ -458,7 +458,7 @@ export function opRender() {
             rough:   ['tool','rate','down','step','inside'],
             outline: ['tool','rate','down','step','inside','outside','leave','lastpass'],
             pocket:  ['tool','rate','down','step'],
-            contour: ['tool','rate','step','inside'],
+            contour: ['tool','pattern','lineAngle','rate','step','inside'],
             lathe:   ['tool','rate','down','step'],
             trace:   ['tool','rate','down'],
             drill:   ['tool','rate','down'],
@@ -478,7 +478,8 @@ export function opRender() {
             const tex = rec.texmark && window.__swarfTex && window.__swarfTex.stepCard ? window.__swarfTex.stepCard(rec.texmark) : null;
             const labels = { tool: 'tool', rate: 'feed', down: 'stepdown', step: 'stepover', plunge: 'plunge', path: 'path', finish: 'finish', texstep: 'stepover',
                              inside: 'inside only', outside: 'outside only', all: 'clear all',
-                             flats: 'flats', curves: 'curves', leave: 'leave', lastpass: 'last pass' };
+                             flats: 'flats', curves: 'curves', leave: 'leave', lastpass: 'last pass',
+                             pattern: 'pattern', lineAngle: 'angle' };
             // a drill's feed is how fast it goes down, and its step-down a peck
             if (rec.type === 'drill') { labels.rate = 'plunge'; labels.down = 'peck'; }
             // (review r086 F4) every number says its unit and follows mm | in: feed in mm/min or
@@ -494,6 +495,8 @@ export function opRender() {
                 finish: 'how close the raster\'s passes run: smoother takes longer; ridged and bold leave them showing. Typing a stepover makes it custom',
                 texstep: rec.type === 'inlay' ? `stepover: how far apart the pocket's rings are, in ${inch ? 'inches' : 'mm'}; 40% of the bit unless you type your own` : `stepover: how far apart the raster's passes are, in ${inch ? 'inches' : 'mm'}; a finish sets it, or type your own`,
                 inside: 'cut only inside the part outline',
+                pattern: 'how the passes run over the surface: lines one way, cross (lines both ways), or perimeter (rings in from the edge)',
+                lineAngle: 'which way the lines run, in degrees: 0 along X, 90 along Y, 45 corner to corner. Cross adds the lines at right angles to these',
                 outside: 'cut only outside the part outline',
                 leave: `leave: wood the first passes leave on the part, in ${inch ? 'inches' : 'mm'}. 0 leaves none. Without a last pass the part stays that much oversize`,
                 lastpass: 'last pass: one more time round at the whole depth, at the true size, for a clean edge. Tabs stay. Give it a leave of about 1/2 mm',
@@ -502,7 +505,7 @@ export function opRender() {
                 tips.rate = `plunge: how fast the bit goes down into the wood, in ${inch ? 'inches' : 'mm'} per minute`;
                 tips.down = `peck: how deep the bit goes before it lifts to clear the chips, in ${inch ? 'inches' : 'mm'}. 0 goes down in one`;
             }
-            const units = { rate: inch ? 'in/min' : 'mm/min', plunge: inch ? 'in/min' : 'mm/min', down: inch ? 'in' : 'mm', step: '% of bit', texstep: inch ? 'in' : 'mm', leave: inch ? 'in' : 'mm' };
+            const units = { lineAngle: '°', rate: inch ? 'in/min' : 'mm/min', plunge: inch ? 'in/min' : 'mm/min', down: inch ? 'in' : 'mm', step: '% of bit', texstep: inch ? 'in' : 'mm', leave: inch ? 'in' : 'mm' };
             const rows = swarfFields.map(f => {
                 const tip = tips[f] ? ` title="${tips[f]}"` : '';
                 if (f === 'tool') {
@@ -516,6 +519,12 @@ export function opRender() {
                     return `<label class="swarf-op-row"${tip}><span>${labels[f]}</span><select data-swarf-field="${f}" data-op="${mark + i}">${opts.map(([k, w]) => `<option value="${esc(k)}"${k === cur ? ' selected' : ''}>${esc(w)}</option>`).join('')}</select></label>`;
                 }
                 if ((f === 'path' || f === 'finish' || f === 'texstep') && !tex) return '';
+                // a contour's pattern (swarf: work/op-contour.js contourPlan); perimeter has no angle
+                if (f === 'pattern') {
+                    const cur = ['cross', 'perimeter'].includes(rec.pattern) ? rec.pattern : 'lines';
+                    return `<label class="swarf-op-row"${tip}><span>${labels[f]}</span><select data-swarf-field="pattern" data-op="${mark + i}">${[['lines', 'lines'], ['cross', 'cross'], ['perimeter', 'perimeter']].map(([k, w]) => `<option value="${k}"${k === cur ? ' selected' : ''}>${w}</option>`).join('')}</select></label>`;
+                }
+                if (f === 'lineAngle' && rec.pattern === 'perimeter') return '';
                 if (BOOL_FIELDS[f]) {
                     return `<label class="swarf-op-row swarf-op-bool"${tip}><input type="checkbox" data-swarf-field="${f}" data-op="${mark + i}"${rec[f] ? ' checked' : ''}/><span>${labels[f]}</span></label>`;
                 }
@@ -589,6 +598,15 @@ export function opRender() {
                         for (const ev of ['mousedown', 'click']) inp.addEventListener(ev, e => e.stopPropagation());
                         return;
                     }
+                    if (f === 'pattern') {
+                        inp.addEventListener('change', () => {
+                            rec.pattern = inp.value;
+                            api.conf.save();
+                            api.event.emit('cam.op.render');
+                        });
+                        for (const ev of ['mousedown', 'click']) inp.addEventListener(ev, e => e.stopPropagation());
+                        return;
+                    }
                     // a TEX step's mark fields: the mark's values, written back to the mark (every copy),
                     // then the card again so a finish and its stepover say each other
                     if (card && (f === 'tool' || f === 'path' || f === 'finish' || f === 'texstep')) {
@@ -622,6 +640,8 @@ export function opRender() {
                     } else if (inp.type !== 'checkbox') {
                         // a step saved before leave existed leaves none
                         if (f === 'leave' && rec.leave == null) inp.value = opShow(f, 0);
+                        // a contour saved before the angle existed runs along its axis
+                        if (f === 'lineAngle' && rec.lineAngle == null) inp.value = String(String(rec.axis).toUpperCase() === 'Y' ? 90 : 0);
                         if (rec[f] !== undefined && rec[f] !== null) inp.value = opShow(f, rec[f]);
                         inp.addEventListener('keydown', ev => { if (ev.key === 'Enter') inp.blur(); });
                     }
@@ -657,6 +677,11 @@ export function opRender() {
                             else if (plungeField && topZ > 0 && v > topZ) no = `That is faster than this machine plunges (${rateWords(topZ)} at most): it stays as it was.`;
                             else if (f === 'rate' && top > 0 && v > top) no = `That is faster than this machine moves (${rateWords(top)} at most): the feed stays as it was.`;
                             if (no) api.show.alert(no, 6);
+                            else if (Number.isFinite(v) && f === 'lineAngle') {
+                                // any direction, written 0 up to 180 (180 runs the same way as 0); X or Y keeps Kiri's axis
+                                rec.lineAngle = +((((v % 180) + 180) % 180).toFixed(2));
+                                if (rec.lineAngle === 0) rec.axis = 'X'; else if (rec.lineAngle === 90) rec.axis = 'Y';
+                            }
                             else if (Number.isFinite(v)) rec[f] = v;
                             inp.value = opShow(f, rec[f]);
                         }
@@ -1191,13 +1216,9 @@ export function init() {
             case "rough": return opAddRough();
             case "outline": return opAddOutline();
             case "contour":
-                let caxis = "X";
-                for (let op of env.current.process.ops) {
-                    if (op.type === "contour" && op.axis === "X") {
-                        caxis = "Y";
-                    }
-                }
-                return opAddContour(caxis);
+                // swarf: every contour starts along X; its pattern and angle say any other way (a
+                // second contour used to turn to Y unseen: cross does that in one step now)
+                return opAddContour("X");
             case "lathe":
                 let laxis = "X";
                 for (let op of env.current.process.ops) {
@@ -1469,6 +1490,10 @@ function stepLine(rec) {
         if (c) bits.push(c.n ? `${c.n} hole${c.n === 1 ? '' : 's'}${c.deep > 0 ? `, ${len(c.deep)} deep` : ''}` : 'no hole this bit fits');
     }
     if (rec.type === 'pocket') bits.push('down to the floor you pick');
+    if (rec.type === 'contour') {
+        const deg = rec.lineAngle != null ? +rec.lineAngle : String(rec.axis).toUpperCase() === 'Y' ? 90 : 0;
+        bits.push(rec.pattern === 'perimeter' ? 'rings in from the edge' : `${rec.pattern === 'cross' ? 'cross' : 'lines'} at ${deg}°`);
+    }
     if (self.__swarfOpCustom?.(rec)) bits.push('custom');
     if (rec.rate > 0 && rec.type === 'outline' && !(process.camFullEngage >= 1)) {
         const band = /shopbot/i.test(device?.deviceName || '') ? 1500 : 0;

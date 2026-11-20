@@ -73,7 +73,7 @@ const disk = [
 // ---- cases -------------------------------------------------------------------------------------
 const T = { e116: 1002, e18: 1001, e14: 1000, e12: 1010, b18: 1004, b14: 1018, v90: 1105, drill14: 1006 };
 const cases = [];
-const add = (name, part, ops, o = {}) => cases.push({ name, part, ops, tabs: o.tabs || 'none', thick: o.thick, device: o.device || 'ShopBot.Basic', material: o.material || 'plywood', expectFree: o.expectFree ?? ops.some(q => (q.type === 'outline' && !q.inside) || q.type === 'rough') });
+const add = (name, part, ops, o = {}) => cases.push({ name, part, ops, dir: o.dir, tabs: o.tabs || 'none', thick: o.thick, device: o.device || 'ShopBot.Basic', material: o.material || 'plywood', expectFree: o.expectFree ?? ops.some(q => (q.type === 'outline' && !q.inside) || q.type === 'rough') });
 const shapes = {
   ring: ['ring', { d: 85.6, di: 70 }], star: ['star', { d: 100, p: 5, i: 44 }], rounded: ['rounded', { w: 150, h: 100, r: 10 }],
   tiny: ['circle', { d: 8 }], slot: ['slot', { w: 60, h: 5 }], big: ['rect', { w: 1200, h: 600 }], tri: ['polygon', { d: 40, n: 3 }],
@@ -104,7 +104,16 @@ for (const [k, svg] of Object.entries({ holes, nested, comb })) {
 for (const f of disk) {
   const n = f.split('/').pop();
   add(`${n} rough e14 + contour b18`, { stl: f }, [{ type: 'rough', tool: T.e14 }, { type: 'contour', tool: T.b18 }], { tabs: 'auto' });
-  add(`${n} contour b14`, { stl: f }, [{ type: 'contour', tool: T.b14 }], { expectFree: false });
+  add(`${n} contour b14`, { stl: f }, [{ type: 'contour', tool: T.b14 }], { expectFree: false, dir: 0 });
+  // contour patterns (145): lines at an angle, cross, rings in from the edge, inside only or over the edge
+  if (/waves|dome/.test(n)) {
+    for (const [w, set, dir] of [['lines 90', { pattern: 'lines', lineAngle: 90, axis: 'Y' }, 90], ['lines 45', { pattern: 'lines', lineAngle: 45 }, 45],
+      ['lines 120', { pattern: 'lines', lineAngle: 120 }, 120], ['cross 0', { pattern: 'cross', lineAngle: 0 }, 'cross 0'], ['cross 30', { pattern: 'cross', lineAngle: 30 }, 'cross 30'],
+      ['perimeter', { pattern: 'perimeter' }, 'rings'], ['perimeter inside', { pattern: 'perimeter', inside: true }, 'rings']]) {
+      add(`${n} contour b14 ${w}`, { stl: f }, [{ type: 'contour', tool: T.b14, set }], { expectFree: false, dir });
+    }
+    add(`${n} rough e14 + contour b18 cross 45`, { stl: f }, [{ type: 'rough', tool: T.e14 }, { type: 'contour', tool: T.b18, set: { pattern: 'cross', lineAngle: 45 } }], { tabs: 'auto', dir: 'any' });
+  }
   add(`${n} rough e12 tabs:most`, { stl: f }, [{ type: 'rough', tool: T.e12 }], { tabs: 'most' });
   add(`${n} outline e18`, { stl: f }, [{ type: 'outline', tool: T.e18 }], { tabs: 'auto' });
 }
@@ -153,6 +162,7 @@ async function runCase(c) {
       if (!op) continue;
       op.tool = q.tool;
       if (q.inside != null) op.inside = q.inside;
+      if (q.set) Object.assign(op, q.set);
     }
     for (const w of a.widgets.all()) a.platform.select(w, true);
     if (tabs !== 'none') {
@@ -202,6 +212,20 @@ async function runCase(c) {
     ok.push(check(!off, `${c.name}: router on whenever the bit is in the wood`, off));
     ok.push(check(r.minZ >= -(board + 2.01), `${c.name}: no deeper than the board (${board.toFixed(1)}) + 2`, r.minZ));
     ok.push(check(r.maxZ <= 60, `${c.name}: no higher than 60 mm`, r.maxZ));
+    // which way the cuts run: each sideways feed move's direction (0-180), weighted by its length
+    if (c.dir !== undefined && c.dir !== 'any') {
+      const hist = new Array(180).fill(0); let all = 0;
+      for (const m of cuts) { const dx = m.x - m.x0, dy = m.y - m.y0, l = Math.hypot(dx, dy); if (l < 0.2) continue; const a = ((Math.round(Math.atan2(dy, dx) * 180 / Math.PI) % 180) + 180) % 180; hist[a] += l; all += l; }
+      const near = (a, tol = 6) => { let s = 0; for (let d = -tol; d <= tol; d++) s += hist[(((a + d) % 180) + 180) % 180]; return all ? s / all : 0; };
+      let want, got;
+      if (typeof c.dir === 'number') { got = near(c.dir); want = got >= 0.6; }
+      else if (/^cross/.test(c.dir)) { const a = +c.dir.split(' ')[1]; got = [near(a), near((a + 90) % 180)].map(v => +v.toFixed(2)); want = got[0] >= 0.25 && got[1] >= 0.25 && got[0] + got[1] >= 0.6; }
+      // rings turn with the part's edge: the way at right angles to the most-cut way carries a good
+      // share too (a long part puts more along its length; lines at one angle put almost none across)
+      else { const top = hist.map((_, a) => near(a)).reduce((b, v, a, all) => v > all[b] ? a : b, 0); got = [near(top), near((top + 90) % 180)].map(v => +v.toFixed(2)); want = got[1] >= 0.2; }
+      r.dirShare = got;
+      ok.push(check(want, `${c.name}: the cuts run ${typeof c.dir === 'number' ? `at ${c.dir}°` : c.dir === 'rings' ? 'round with the edge (rings)' : `both ways (${c.dir})`}`, got));
+    }
     if (cb) ok.push(check(r.cut.x <= setup.box.x + 2 * setup.dia + 2.5 && r.cut.y <= setup.box.y + 2 * setup.dia + 2.5, `${c.name}: the cut no wider than the part and two bits (a sharp corner's miter)`, { cut: r.cut, box: setup.box, dia: setup.dia }));
     if (c.expectFree && cb && cuts.length) {
       // the part's bottom: deepest cut within 0.5 mm of the board's bottom (or through)
