@@ -124,11 +124,9 @@
       }
     } catch (e) {}
 
-    // swarf: profile reset. Wipe ws-settings AND IndexedDB, then
-    // reload so the delete completes before Kiri re-opens the DB.
-    // BUMPED r14: stale profiles from r12/r13 carried over ops/settings
-    // that defeated r14's rough-op auto-add (user clicked TOOLPATHS,
-    // nothing rendered). Fresh profile forces the r14 code path.
+    // swarf: a one-time profile reset for a browser holding settings from before this key: wipe
+    // ws-settings AND IndexedDB, then reload so the delete completes before Kiri re-opens the DB.
+    // Old profiles carried ops and settings that kept the default step from being added.
     try {
       const MIG_R12 = 'swarf.r14.profile-reset-v8';
       // a new browser has nothing to reset: mark it and go on (otherwise every first visit

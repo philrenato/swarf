@@ -458,7 +458,7 @@
     return Math.min(byWidth, c.down * V_WIDTH * 2, c.downMax > 0 ? c.downMax : Infinity);
   }
   // the bit's own flute count when it has one; else the machine's usual count for an end or ball
-  // mill (lim.endFlutes: 4 on the MR-1); else the material's assumption
+  // mill (lim.endFlutes: 2 on the MR-1); else the material's assumption
   const flutesOf = (c, tool, lim) => (tool && tool.swarf && tool.swarf.flutes > 0 ? tool.swarf.flutes
     : lim && lim.endFlutes > 0 && tool && (tool.type === 'endmill' || tool.type === 'ballmill') ? lim.endFlutes : c.flutes);
   // what the bit is made of: high-speed steel unless it says carbide

@@ -469,18 +469,15 @@ export class Topo {
             for (const t of clipTab) if (z <= t.z && at.isInPolygon(t)) top = Math.max(top, t.z);
             return top;
         };
-        const loops = [];
-        if (pass.kind === 'rings') {
-            // each offset's outlines and holes, the outermost first; a hole grows a ring of its own
-            let ring = POLY.expand(clipTo, -resolution);
-            for (let n = 0; ring && ring.length && n < 100000; n++) {
-                for (const poly of POLY.flatten(ring.map(r => r.clone(true)))) {
-                    const pts = poly.points.map(q => [q.x, q.y]);
-                    if (pts.length > 2) loops.push([...pts, pts[0]]);
-                }
-                ring = POLY.expand(ring, -toolStep);
-            }
-        } else {
+        // the cut height at a point: the surface (or a tab's top) plus leave
+        const zAt = (x, y) => {
+            let z = toolAt(x, y);
+            if (clipTab && clipTab.length && z < tabHeight) { const top = tabTop(x, y, z); if (top > z) z = top; }
+            return z + leave;
+        };
+        const rings = pass.kind === 'rings';
+        const loops = rings ? this.ringPaths(clipTo, resolution, toolStep) : [];
+        if (!rings) {
             // parallel lines toolStep apart across the box, every other one run back
             const a = (pass.angle || 0) * DEG2RAD, dx = Math.cos(a), dy = Math.sin(a);
             const corners = [[box.min.x, box.min.y], [box.max.x, box.min.y], [box.max.x, box.max.y], [box.min.x, box.max.y]];
@@ -493,8 +490,24 @@ export class Topo {
                 loops.push(k % 2 ? [p1, p0] : [p0, p1]);
             }
         }
+        // a straight hop from a line's end to the next line's start stays on the surface when it is
+        // short and inside the clip outline all the way, so a slanted edge is followed, not lifted over
+        const reach = toolStep * 4;
+        const hop = (a, b) => {
+            const len = Math.hypot(b.x - a.x, b.y - a.y);
+            if (!(len <= reach)) return null;
+            const n = Math.max(1, Math.ceil(len / step)), pts = [];
+            for (let j = 1; j < n; j++) {
+                const x = a.x + (b.x - a.x) * j / n, y = a.y + (b.y - a.y) * j / n;
+                if (clipTo && !inside(clipTo, x, y)) return null;
+                pts.push(newPoint(x, y, zAt(x, y)));
+            }
+            return pts;
+        };
+        let lastLine;
         const total = loops.length || 1;
-        onupdate(0, total, pass.kind === 'rings' ? 'contour rings' : 'contour lines');
+        const label = rings ? 'contour rings' : 'contour lines';
+        onupdate(0, total, label);
         for (let li = 0; li < loops.length; li++) {
             const path = loops[li];
             const lines = [];
@@ -527,19 +540,105 @@ export class Topo {
                 for (let j = (i === 1 ? 0 : 1); j <= n; j++) {
                     const x = x0 + (x1 - x0) * j / n, y = y0 + (y1 - y0) * j / n;
                     if (clipTo && !inside(clipTo, x, y)) { end(); continue; }
-                    let z = toolAt(x, y);
-                    if (clipTab && clipTab.length && z < tabHeight) { const top = tabTop(x, y, z); if (top > z) z = top; }
-                    keep(x, y, z + leave);
+                    keep(x, y, zAt(x, y));
                 }
             }
             end();
+            if (!rings && lines.length && lastLine) {
+                const link = hop(lastLine.last(), lines[0].first());
+                if (link) lastLine.addPoints([...link, ...lines.shift().points]);
+            }
             if (lines.length) {
                 const slice = newSlice(li);
                 slice.camLines = lines;
                 newslices.push(slice);
             }
-            if (li % 16 === 0) onupdate(li, total, pass.kind === 'rings' ? 'contour rings' : 'contour lines');
+            if (!rings) lastLine = lines.length ? lines[lines.length - 1] : lastLine;
+            if (li % 16 === 0) onupdate(li, total, label);
         }
+    }
+
+    // swarf: rings in from the clip outline, each offset's outlines and holes, the outermost first.
+    // A ring runs all the way round, then on along itself while it eases in to the ring inside, and
+    // that ring starts where the ease ends: the step-ins spiral round the part instead of lining up.
+    ringPaths(clipTo, resolution, toolStep) {
+        const levels = [];
+        let ring = POLY.expand(clipTo, -resolution);
+        for (let n = 0; ring && ring.length && n < 100000; n++) {
+            const level = [];
+            for (const poly of POLY.flatten(ring.map(r => r.clone(true)))) {
+                const pts = poly.points.map(q => [q.x, q.y]);
+                if (pts.length < 3) continue;
+                let area = 0;
+                for (let i = 0; i < pts.length; i++) {
+                    const [x0, y0] = pts[i], [x1, y1] = pts[(i + 1) % pts.length];
+                    area += x0 * y1 - x1 * y0;
+                }
+                level.push({ pts, ccw: area > 0, start: 0 });
+            }
+            levels.push(level);
+            ring = POLY.expand(ring, -toolStep);
+        }
+        const ease = Math.max(toolStep * 8, 4);
+        // the point on a loop nearest (x, y), as [segment index, t, distance]
+        const nearest = (pts, x, y) => {
+            let best = [0, 0, Infinity];
+            for (let i = 0; i < pts.length; i++) {
+                const [ax, ay] = pts[i], [bx, by] = pts[(i + 1) % pts.length];
+                const ux = bx - ax, uy = by - ay, uu = ux * ux + uy * uy;
+                const t = uu > 0 ? Math.max(0, Math.min(1, ((x - ax) * ux + (y - ay) * uy) / uu)) : 0;
+                const d = Math.hypot(ax + ux * t - x, ay + uy * t - y);
+                if (d < best[2]) best = [i, t, d];
+            }
+            return best;
+        };
+        const at = (pts, i, t) => {
+            const [ax, ay] = pts[i], [bx, by] = pts[(i + 1) % pts.length];
+            return [ax + (bx - ax) * t, ay + (by - ay) * t];
+        };
+        const out = [];
+        for (let n = 0; n < levels.length; n++) {
+            for (const loop of levels[n]) {
+                // the loop from its start round to its start again
+                const pts = loop.pts.slice(loop.start).concat(loop.pts.slice(0, loop.start));
+                const path = [...pts, pts[0]];
+                // on along the loop for the ease, drifting in to the nearest loop of the next level
+                const next = levels[n + 1] || [];
+                const head = [];
+                let walked = 0;
+                for (let i = 1; i <= pts.length && walked < ease; i++) {
+                    const [x0, y0] = pts[i - 1], [x1, y1] = pts[i % pts.length];
+                    const len = Math.hypot(x1 - x0, y1 - y0);
+                    const k = Math.max(1, Math.ceil(len / Math.max(resolution, 0.1)));
+                    for (let j = 1; j <= k && walked < ease; j++) {
+                        walked += len / k;
+                        head.push([x0 + (x1 - x0) * j / k, y0 + (y1 - y0) * j / k, walked]);
+                    }
+                }
+                const [ex, ey] = head.length ? head[head.length - 1] : pts[0];
+                let into = null, hit;
+                for (const cand of next) {
+                    if (cand.taken || cand.ccw !== loop.ccw) continue;
+                    const h = nearest(cand.pts, ex, ey);
+                    if (h[2] <= toolStep * 1.6 && (!hit || h[2] < hit[2])) { into = cand; hit = h; }
+                }
+                if (into && head.length > 1) {
+                    for (const [x, y, w] of head) {
+                        const [i, t] = nearest(into.pts, x, y);
+                        const [qx, qy] = at(into.pts, i, t), f = w / walked;
+                        path.push([x + (qx - x) * f, y + (qy - y) * f]);
+                    }
+                    // the next loop starts where the ease lands
+                    const [i, t] = hit;
+                    if (t < 1e-6) into.start = i;
+                    else if (t > 1 - 1e-6) into.start = (i + 1) % into.pts.length;
+                    else { into.pts.splice(i + 1, 0, at(into.pts, i, t)); into.start = i + 1; }
+                    into.taken = true;
+                }
+                out.push(path);
+            }
+        }
+        return out;
     }
 
     async raster(widget, params, onupdate) {

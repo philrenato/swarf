@@ -75,7 +75,7 @@ const disk = [
 // ---- cases -------------------------------------------------------------------------------------
 const T = { e116: 1002, e18: 1001, e14: 1000, e12: 1010, b18: 1004, b14: 1018, v90: 1105, drill14: 1006 };
 const cases = [];
-const add = (name, part, ops, o = {}) => cases.push({ name, part, ops, dir: o.dir, cover: o.cover, like: o.like, tabs: o.tabs || 'none', thick: o.thick, device: o.device || 'ShopBot.Basic', material: o.material || 'plywood', expectFree: o.expectFree ?? ops.some(q => (q.type === 'outline' && !q.inside) || q.type === 'rough') });
+const add = (name, part, ops, o = {}) => cases.push({ name, part, ops, dir: o.dir, cover: o.cover, like: o.like, liftsLike: o.liftsLike, tabs: o.tabs || 'none', thick: o.thick, device: o.device || 'ShopBot.Basic', material: o.material || 'plywood', expectFree: o.expectFree ?? ops.some(q => (q.type === 'outline' && !q.inside) || q.type === 'rough') });
 const shapes = {
   ring: ['ring', { d: 85.6, di: 70 }], star: ['star', { d: 100, p: 5, i: 44 }], rounded: ['rounded', { w: 150, h: 100, r: 10 }],
   tiny: ['circle', { d: 8 }], slot: ['slot', { w: 60, h: 5 }], big: ['rect', { w: 1200, h: 600 }], tri: ['polygon', { d: 40, n: 3 }],
@@ -113,9 +113,10 @@ for (const f of disk) {
   // contour patterns (145): lines at an angle, cross, rings in from the edge, inside only or over the edge
   if (/waves|dome/.test(n)) {
     for (const [w, set, dir] of [['lines 90', { pattern: 'lines', lineAngle: 90, axis: 'Y' }, 90], ['lines 45', { pattern: 'lines', lineAngle: 45 }, 45],
-      ['lines 120', { pattern: 'lines', lineAngle: 120 }, 120], ['cross 0', { pattern: 'cross', lineAngle: 0 }, 'cross 0'], ['cross 30', { pattern: 'cross', lineAngle: 30 }, 'cross 30'],
+      ['lines 120', { pattern: 'lines', lineAngle: 120 }, 120], ['lines 30', { pattern: 'lines', lineAngle: 30 }, 30], ['cross 0', { pattern: 'cross', lineAngle: 0 }, 'cross 0'], ['cross 30', { pattern: 'cross', lineAngle: 30 }, 'cross 30'],
       ['perimeter', { pattern: 'perimeter' }, 'rings'], ['perimeter inside', { pattern: 'perimeter', inside: true }, 'rings']]) {
-      add(`${n} contour b14 ${w}`, { stl: f }, [{ type: 'contour', tool: T.b14, set }], { expectFree: false, dir });
+      // lines at an angle follow a slanted edge from one line to the next, lifting about as often as along X
+      add(`${n} contour b14 ${w}`, { stl: f }, [{ type: 'contour', tool: T.b14, set }], { expectFree: false, dir, liftsLike: /lines|perimeter/.test(w) ? `${n} contour b14` : undefined });
     }
     add(`${n} rough e14 + contour b18 cross 45`, { stl: f }, [{ type: 'rough', tool: T.e14 }, { type: 'contour', tool: T.b18, set: { pattern: 'cross', lineAngle: 45 } }], { tabs: 'auto', dir: 'any' });
     // after rough leaves tabs, a patterned contour rides over them as the 0° one does
@@ -246,6 +247,9 @@ async function runCase(c) {
     }
     // the same job by another angle: the cut length within half again of its sibling's
     r.cutLen = cuts.reduce((t, m) => t + Math.hypot(m.x - m.x0, m.y - m.y0), 0);
+    // lifts: rapids that rise off the work
+    r.ups = p.moves.filter(m => m.rapid && m.z > m.z0 + 0.5).length;
+    if (c.liftsLike) { const sib = rows.find(x => x.name === c.liftsLike); if (sib && sib.ups != null) ok.push(check(r.ups <= sib.ups * 2 + 4, `${c.name}: lifts about as often as ${c.liftsLike}`, { lifts: r.ups, sibling: sib.ups })); }
     if (c.like) { const sib = rows.find(x => x.name === c.like); if (sib && sib.cutLen) ok.push(check(r.cutLen < sib.cutLen * 1.5, `${c.name}: about the same cutting as ${c.like}`, { mm: Math.round(r.cutLen), sibling: Math.round(sib.cutLen) })); }
     ok.push(check(r.maxZ <= 60, `${c.name}: no higher than 60 mm`, r.maxZ));
     // which way the cuts run: each sideways feed move's direction (0-180), weighted by its length

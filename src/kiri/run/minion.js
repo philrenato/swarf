@@ -39,12 +39,17 @@ self.onmessage = function(msg) {
     let { data } = msg;
     let { cmd } = data;
     debug('MINION.onmessage', { cmd, data });
-    try {
-        (funcs[cmd] || funcs.invalid)(data, data.seq, cmd);
-    } catch (error) {
+    // a failure replies, so the work waiting on this never hangs: the engine fails the toolpaths
+    // with the reason (a throw here, or a helper whose promise rejects later)
+    const failed = error => {
         log('MINION.dispatch.error', error);
-        // reply so the work waiting on this never hangs: the engine fails the toolpaths with the reason
         if (data && data.seq !== undefined) reply({ seq: data.seq, error: String((error && error.message) || error) });
+    };
+    try {
+        const out = (funcs[cmd] || funcs.invalid)(data, data.seq, cmd);
+        if (out && typeof out.then === 'function') out.then(null, failed);
+    } catch (error) {
+        failed(error);
     }
 };
 
@@ -164,7 +169,7 @@ const funcs = self.minion = {
         let { points } = cache;
         let state = { zero: [] };
         let output = [];
-        sliceZ(z, points, {
+        return sliceZ(z, points, {
             ...options,
             each(out) { output.push(out) }
         }).then(() => {
@@ -220,7 +225,7 @@ const funcs = self.minion = {
 
     cam_slice(data, seq) {
         const { bucket, opt } = data;
-        cache.slicer.sliceBucket(bucket, opt, slice => {
+        return cache.slicer.sliceBucket(bucket, opt, slice => {
             // log({ slice });
         }).then(data => {
             data.forEach(rec => {

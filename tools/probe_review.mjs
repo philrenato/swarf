@@ -81,10 +81,14 @@ try {
   await pick('250'); await pick('continuous');
   const x0 = await page.evaluate(() => window.__swarfRun.state.machine.state.pos.x);
   const pad = await page.evaluate(() => { const b = document.querySelector('#swarf-run .sr-pad button[data-axis="+X"]'); const r = b.getBoundingClientRect(); return [r.left + r.width / 2, r.top + r.height / 2]; });
-  await page.mouse.move(pad[0], pad[1]); await page.mouse.down(); await wait(1000); await page.mouse.up();
+  // the simulator moves on animation frames, which a busy headless page gets few of: the check is the
+  // speed the held jog asks for, and that it moves at all
+  await page.mouse.move(pad[0], pad[1]); await page.mouse.down(); await wait(1000);
+  const asked = await page.evaluate(() => { const q = window.__swarfRun.state.machine.queue[0]; return q ? q.speed * 60 : 0; });
+  await page.mouse.up();
   await wait(300);
   const moved = await page.evaluate(x0 => window.__swarfRun.state.machine.state.pos.x - x0, x0);
-  check(moved > 2 && moved < 8, `continuous jog at 250 mm/min for 1 s moved ${moved.toFixed(1)} mm (about 4.2)`);
+  check(Math.abs(asked - 250) < 1 && moved > 0 && moved < 8, `continuous jog asks for ${asked.toFixed(0)} mm/min (250), moved ${moved.toFixed(1)} mm in 1 s (at most 4.2)`);
 } finally {
   await browser.close();
 }

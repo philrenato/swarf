@@ -856,7 +856,7 @@ html[data-skin] #swarf-run .sr-jog .sr-zrow button.next, html[data-skin] #swarf-
       h('h2', { text: 'Paused. The router is switched off.' }),
       h('p', { text: 'It slows for a few seconds before it stops turning. Resume starts the router and carries on from here.' }),
       h('div', { class: 'row' },
-        h('button', { text: 'end the job', title: 'Stops here and keeps the line, so you can continue from it later', onclick: () => { S.userStopped = true; S.machine.stop(); } }),
+        h('button', { text: 'end the job', title: 'Stops here and keeps the line to continue from later', onclick: () => { S.userStopped = true; S.machine.stop(); } }),
         el.resumeBtn = h('button', { class: 'go', text: 'start the router and resume', onclick: () => resumeNow() }))));
     el.veilWay = h('p', { class: 'sr-way' });
     el.veil.querySelector('.sr-veilcard p').after(el.veilWay);
@@ -1713,8 +1713,8 @@ html[data-skin] #swarf-run .sr-jog .sr-zrow button.next, html[data-skin] #swarf-
         if (!S.zeroXY) return say(`Jog the bit over ${o.xy}, then press zero x y. Hold an arrow to get close, then use step ${stepNear}.`);
         if (/top/.test(o.z) && isGrbl()) return say(`Now Z, on ${o.z}: lower the bit (step ${stepNear}, then ${stepFine}) onto paper until it just drags, then press zero z.`);
         if (/top/.test(o.z)) return say(`Now Z, on ${o.z}: press z plate. Or lower the bit (step ${stepFine}) onto paper until it just drags, then press zero z.`);
-        return say(`Lower the bit to ${o.z} (step 1, then 0.1) onto paper until it just drags, then press zero z.`);
-      case 'trace': return say(`Press trace: the bit runs around your cut, ${up()} up, ${spindleWord()} off. Watch it clear every screw and clamp.`);
+        return say(`Lower the bit to ${o.z} (step ${stepNear}, then ${stepFine}) onto paper until it just drags, then press zero z.`);
+      case 'trace': return say(`Press trace: the bit runs around the rectangle your cut fills, ${up()} up, ${spindleWord()} off. Watch it clear every screw and clamp.`);
       case 'cut':
         if (S.lostAt) return say(`The USB link dropped at line ${S.lostAt}. If the machine is still moving or the router still turns, press the floor e-stop. Plug in, press connect, then continue from line ${S.lostAt}.`, 'bad');
         if (S.stoppedAt && st && st.resumeLine === S.stoppedAt) return say(`${st.note[0].toUpperCase()}${st.note.slice(1)}. The router is off and the bit is up.`, 'warn');

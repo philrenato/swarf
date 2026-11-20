@@ -310,6 +310,30 @@ const opDel = (rec) => {
     }
 };
 
+// swarf: a step deleted by hand comes back with undo, in its place, with its tex marks
+function opDelByHand(rec) {
+    const pos = env.current.process.ops.indexOf(rec);
+    const id = rec.texmark;
+    const marks = id ? api.widgets.all()
+        .map(w => ({ w, tex: Array.isArray(w.meta && w.meta.tex) ? w.meta.tex.filter(m => m.id === id) : [] }))
+        .filter(s => s.tex.length) : [];
+    opDel(rec);
+    if (pos < 0) return;
+    api.doit.push(() => {
+        const ops = env.current.process.ops;
+        if (ops.indexOf(rec) < 0) ops.splice(Math.min(pos, ops.length), 0, rec);
+        for (const { w, tex } of marks) {
+            const kept = Array.isArray(w.meta.tex) ? w.meta.tex.filter(m => m.id !== id) : [];
+            w.meta.tex = kept.concat(tex);
+            if (w.saveState) w.saveState(() => {});
+        }
+        api.conf.save();
+        opRender();
+        const T = window.__swarfTex;
+        if (marks.length && T && T.syncSteps) T.syncSteps(api, true);
+    }, () => opDel(rec), { undo: 'delete step: undone', redo: 'step deleted again' });
+}
+
 // swarf: the step card's numbers in the student's unit. Ops keep mm, mm/min and
 // stepover as a fraction of the bit; only the card's words and fields change.
 function opInch() {
@@ -568,10 +592,10 @@ export function opRender() {
                 surfaceDone();
                 traceDone();
                 tabDone();
-                // a step whose hand-drawn texture marks go with it asks first: the marks can't come back
+                // a step whose hand-drawn texture marks go with it asks first; undo brings both back
                 const marked = rec.texmark && api.widgets.all().some(w => Array.isArray(w.meta && w.meta.tex) && w.meta.tex.some(m => m.id === rec.texmark));
-                if (!marked) return opDel(rec);
-                api.uc.confirm('Delete this step? Its tex marks go with it.', { 'keep it': false, 'delete': true }).then(yes => { if (yes) opDel(rec); });
+                if (!marked) return opDelByHand(rec);
+                api.uc.confirm('Delete this step? Its tex marks go with it.', { 'keep it': false, 'delete': true }).then(yes => { if (yes) opDelByHand(rec); });
             };
             const drawerEl = $(`${id}-p`);
             const chevEl = $(`${id}-c`);

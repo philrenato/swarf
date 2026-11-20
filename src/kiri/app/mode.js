@@ -93,6 +93,14 @@ function setMode(mode, lock, then) {
                 }
             }
         }
+        // swarf: a stored MR-1 saved with 4 flutes takes the profile's count (its bits have 2)
+        if (current.filter[mode] === 'Langmuir.MR-1' && current.device.endmillFlutes === 4) {
+            let code = (devlist.cam || {})['Langmuir.MR-1'];
+            try { if (typeof code === 'string') code = JSON.parse(code); } catch (e) { code = null; }
+            if (code && code.endmillFlutes > 0 && code.endmillFlutes !== 4) {
+                current.device.endmillFlutes = current.cdev[mode].endmillFlutes = code.endmillFlutes;
+            }
+        }
         api.event.emit('device.select', api.device.get());
     }
     // hide/show

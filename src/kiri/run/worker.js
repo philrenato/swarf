@@ -127,6 +127,9 @@ const minwork = {
             minion.onerror = (error) => {
                 debug({ MINION_ERROR: error });
                 error.preventDefault();
+                // an error nothing caught: the work this helper holds fails with it instead of waiting
+                const fn = minifns[minion.seq];
+                if (fn) fn({ error: String(error.message || 'a helper stopped') });
             };
             minion.onmessageerror = (error) => {
                 debug({ MINION_MESSAGE_ERROR: error });
@@ -163,7 +166,10 @@ const minwork = {
             let minion = minions.shift();
             let seq = miniseq++;
             qrec.work.seq = seq;
+            minion.seq = seq;
             minifns[seq] = (data) => {
+                delete minifns[seq];
+                minion.seq = undefined;
                 minions.push(minion);
                 // a helper that failed: the page restarts the engine and says why (its caller would wait forever)
                 if (data && data.error) {

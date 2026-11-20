@@ -1696,7 +1696,7 @@
         names.push(nameOf(w));
         if (w.saveState) w.saveState(() => {});
       }
-      if (names.length) a.show.alert(`The mark on ${names.join(', ')} is gone with its step: open tex to mark it again.`, 8);
+      if (names.length) a.show.alert(`The mark on ${names.join(', ')} went with its step. ⌘Z brings both back.`, 8);
       syncSteps(a);
     }));
     a.event.on('widget.add', later(w => setTimeout(later(() => { if (T() && [].concat(w).some(x => x && x.meta && Array.isArray(x.meta.tex))) syncSteps(a, true); }), 0)));

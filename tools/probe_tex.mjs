@@ -278,7 +278,7 @@ try {
   // the concerns: a texture deeper than the board is said
   const said = await page.evaluate(() => { const a = window.kiri.api; for (const w of a.widgets.all()) for (const m of w.meta.tex) m.fill.depth = 25; a.conf.save(); return [...document.querySelectorAll('#swarf-concerns-body .swarf-concern')].map(c => c.textContent).filter(t => /texture/.test(t)); });
   check(said.some(t => /cut through/.test(t)), `concerns say a texture deeper than the board (${said[0] && said[0].slice(0, 90)}…)`);
-  // the step taken away in cam: its mark goes with it, said, and does not come back
+  // the step taken away in cam: its mark goes with it, said, and undo brings both back
   await page.evaluate(() => { const row = [...document.querySelectorAll('#oplist > div')].find(r => /^texture/.test(r.querySelector('.label')?.textContent || '')); row?.querySelector('.del')?.dispatchEvent(new MouseEvent('mousedown', { bubbles: true })); });
   await wait(500);
   // a step with marks asks first: "keep it" leaves both, "delete" takes both
@@ -292,7 +292,15 @@ try {
   await page.evaluate(() => [...document.querySelectorAll('#dialog button')].find(b => b.textContent.trim() === 'delete')?.click());
   await wait(600);
   const gone = await page.evaluate(() => ({ marks: window.kiri.api.widgets.all().map(w => (w.meta.tex || []).length), ops: window.kiri.api.conf.get().process.ops.map(o => o.type), say: document.getElementById('alert-text')?.textContent || document.body.innerText.match(/The mark on [^\n]*/)?.[0] || '' }));
-  check(gone.marks.every(n => n === 0) && !gone.ops.includes('texture') && /gone with its step/.test(gone.say), `a texture step taken away in cam takes its mark, and says so (${JSON.stringify(gone)})`);
+  check(gone.marks.every(n => n === 0) && !gone.ops.includes('texture') && /went with its step/.test(gone.say), `a texture step taken away in cam takes its mark, and says so (${JSON.stringify(gone)})`);
+  await page.evaluate(() => window.kiri.api.doit.undo());
+  await wait(800);
+  const back = await page.evaluate(() => ({ marks: window.kiri.api.widgets.all().map(w => (w.meta.tex || []).length), ops: window.kiri.api.conf.get().process.ops.map(o => o.type) }));
+  check(back.marks.some(n => n > 0) && back.ops.filter(t => t === 'texture').length === 1, `undo brings the step and its mark back (${JSON.stringify(back)})`);
+  await page.evaluate(() => window.kiri.api.doit.redo());
+  await wait(800);
+  const again = await page.evaluate(() => ({ marks: window.kiri.api.widgets.all().map(w => (w.meta.tex || []).length), ops: window.kiri.api.conf.get().process.ops.map(o => o.type) }));
+  check(again.marks.every(n => n === 0) && !again.ops.includes('texture'), `redo takes them away again (${JSON.stringify(again)})`);
 
   // PIERCE (advanced mode only): a texture mark and a pierce mark on one part. Basic mode offers no
   // pierce; in advanced mode the fill row makes a rectangle mark kerfs, right through with bridges.
