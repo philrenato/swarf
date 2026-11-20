@@ -450,8 +450,16 @@ export class Topo {
     // curve or a wall is followed as closely as the raster allows.
     async paths2d(params, onupdate) {
         const { pass, box, clipTo, clipTab, tabHeight, resolution, density, toolStep, leave, newslices } = params;
-        const { toolAtXY } = this.probe;
+        const { toolAtZ, params: pp } = this.probe;
         const step = resolution * density;
+        // the tool's height at a point between raster cells: the highest of the four cells around it,
+        // so a path at an angle rests on the surface, never in it
+        const rx = pp.stepsX / pp.boundsX, ry = pp.stepsY / pp.boundsY;
+        const toolAt = (x, y) => {
+            const fx = rx * (x - pp.minX), fy = ry * (y - pp.minY);
+            const x0 = Math.floor(fx), y0 = Math.floor(fy);
+            return Math.max(toolAtZ(x0, y0), toolAtZ(x0 + 1, y0), toolAtZ(x0, y0 + 1), toolAtZ(x0 + 1, y0 + 1));
+        };
         const flat = Math.min(0.02, resolution / 4);
         const at = newPoint(0, 0);
         const inside = (polys, x, y) => { at.x = x; at.y = y; return polys.some(p => at.isInPolygon(p)); };
@@ -490,21 +498,26 @@ export class Topo {
         for (let li = 0; li < loops.length; li++) {
             const path = loops[li];
             const lines = [];
-            let seg = [];
-            const end = () => { if (seg.length > 1) lines.push(newPolygon().setOpen().addPoints(seg)); seg = []; };
+            let seg = [], run = [];
+            const end = () => { if (seg.length > 1) lines.push(newPolygon().setOpen().addPoints(seg)); seg = []; run = []; };
+            // off the straight line from a to p by more than flat (or past its ends)
+            const off = (a, p, b) => {
+                const ux = p.x - a.x, uy = p.y - a.y, uz = p.z - a.z, uu = ux * ux + uy * uy + uz * uz;
+                if (!(uu > 0)) return true;
+                const t = ((b.x - a.x) * ux + (b.y - a.y) * uy + (b.z - a.z) * uz) / uu;
+                const ex = a.x + ux * t - b.x, ey = a.y + uy * t - b.y, ez = a.z + uz * t - b.z;
+                return !(t > 0 && t < 1 && ex * ex + ey * ey + ez * ez < flat * flat);
+            };
+            // a point is dropped only while every point dropped since the last kept one stays on the
+            // straight line to the new one (a long run is cut every 64 points)
             const keep = (x, y, z) => {
                 const p = newPoint(x, y, z);
                 const n = seg.length;
-                if (n >= 2) {
-                    // b sits on the straight run from a to p: drop it
+                if (n >= 2 && run.length < 64) {
                     const a = seg[n - 2], b = seg[n - 1];
-                    const ux = p.x - a.x, uy = p.y - a.y, uz = p.z - a.z, uu = ux * ux + uy * uy + uz * uz;
-                    if (uu > 0) {
-                        const t = ((b.x - a.x) * ux + (b.y - a.y) * uy + (b.z - a.z) * uz) / uu;
-                        const ex = a.x + ux * t - b.x, ey = a.y + uy * t - b.y, ez = a.z + uz * t - b.z;
-                        if (t > 0 && t < 1 && ex * ex + ey * ey + ez * ez < flat * flat) { seg[n - 1] = p; return; }
-                    }
+                    if (!off(a, p, b) && run.every(q => !off(a, p, q))) { run.push(b); seg[n - 1] = p; return; }
                 }
+                run = [];
                 seg.push(p);
             };
             for (let i = 1; i < path.length; i++) {
@@ -513,8 +526,8 @@ export class Topo {
                 const n = Math.max(1, Math.ceil(len / step));
                 for (let j = (i === 1 ? 0 : 1); j <= n; j++) {
                     const x = x0 + (x1 - x0) * j / n, y = y0 + (y1 - y0) * j / n;
-                    if (x < box.min.x || x > box.max.x || y < box.min.y || y > box.max.y || (clipTo && !inside(clipTo, x, y))) { end(); continue; }
-                    let z = toolAtXY(x, y);
+                    if (clipTo && !inside(clipTo, x, y)) { end(); continue; }
+                    let z = toolAt(x, y);
                     if (clipTab && clipTab.length && z < tabHeight) { const top = tabTop(x, y, z); if (top > z) z = top; }
                     keep(x, y, z + leave);
                 }
