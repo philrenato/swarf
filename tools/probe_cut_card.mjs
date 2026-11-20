@@ -99,7 +99,9 @@ try {
       if (skin === 'glass' && W === 1440) {
         await page.evaluate(() => { window.__swarfRun.state.machine.timeScale = 200; const c = document.querySelector('#swarf-run .sr-card'); for (const b of c.querySelectorAll('input[type=checkbox]')) { b.checked = true; b.dispatchEvent(new Event('change')); } c.querySelector('.row .go').click(); });
         await page.waitForFunction(() => window.__swarfRun.state.lastDone === 'cut', { timeout: 180000 }).catch(() => {});
-        await wait(1500);
+        // the 5 s note said as the cut starts ("Cutting from the machine's own zero…") holds the line first
+        await page.waitForFunction(() => !window.__swarfRun.state.hold, { timeout: 8000 }).catch(() => {});
+        await wait(500);
         const say = await page.evaluate(() => document.querySelector('#swarf-run .sr-say').textContent);
         await shot('finished');
         check(/Finished/.test(say) && /machine's own zero/.test(say) && !/press zero x y/.test(say), `a cut with no zero in swarf says it finished: "${say}"`);
