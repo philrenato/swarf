@@ -43,6 +43,9 @@ html[data-skin="glass"] {
   --sk3d-c-grid: #d2d2d3;  --sk3d-c-grid-axis: #4a4d52;  --sk3d-c-path-hidden: #e9e9e9;  --sk3d-c-path-rapid: #a8a9aa;
   --sk3d-c-path-done: #34363a;  --sk3d-c-path-todo: #a4a7ab;  --sk3d-c-tool: #363738;
   --sk3d-tab-picked: #2a7fff;
+  /* the toolpaths view draws the cut as thin graphite lines, so a close pattern reads on the pale part */
+  --sk3d-path-preview-width: .5;  --sk3d-path-preview-tint: #3e4146;  --sk3d-path-preview-rim: #1f2023;
+  --sk3d-path-preview-line: #4a4d52;
 
   /* glass recipes */
   --g-pane: rgba(255, 255, 255, .44);

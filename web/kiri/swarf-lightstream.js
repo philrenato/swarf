@@ -49,6 +49,12 @@
   // (s, mm) and across it (t, -1..1); swarf keeps its glowing light
   let look = null, sAcc = 0;
   const LOOK_WIDTH_MM = 1.8;
+  const LOOK_TINT = 0xcfe3ea, LOOK_RIM = 0x4f5f68;
+  // the toolpaths view's cut (filled from the print stack) rather than a simulate run: a skin may
+  // draw it as thinner, darker lines (--sk3d-path-preview-*), so a close pattern reads as lines
+  let previewing = false;
+  // the toolpaths view's "cuts" box is off: the preview's trail hides with Kiri's own cut lines
+  let cutsOff = false;
   let cap = 0;                  // floats each ribbon's array holds
   let drawn = 0;                // floats of it drawn
   let synced = true;            // what is drawn is the polylines' segments (a rebuild with none to draw keeps the last drawing)
@@ -74,7 +80,7 @@
   function buildLook() {
     const THREE = window.THREE;
     const mat = new THREE.ShaderMaterial({
-      uniforms: { mode: { value: 0 }, pitch: { value: 4.5 }, tint: { value: new THREE.Color(0xcfe3ea) }, rim: { value: new THREE.Color(0x4f5f68) } },
+      uniforms: { mode: { value: 0 }, pitch: { value: 4.5 }, tint: { value: new THREE.Color(LOOK_TINT) }, rim: { value: new THREE.Color(LOOK_RIM) } },
       vertexShader: 'attribute vec2 st; varying vec2 vSt; void main() { vSt = st; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }',
       fragmentShader: [
         'uniform float mode; uniform float pitch; uniform vec3 tint; uniform vec3 rim; varying vec2 vSt;',
@@ -213,7 +219,34 @@
     set(bloom, 'trail-bloom', BLOOM_COLOR); set(halo, 'trail-halo', HALO_COLOR); set(core, 'trail-core', CORE_COLOR);
     // wet plastic: glass; classic: a barber pole; swarf: the light alone
     look.material.uniforms.mode.value = skinNow() === 'classic' ? 1 : 0;
+    if (lookStyle() && previewing) rebuild();
+    cutLines();
     applyVisibility();
+  }
+  // Kiri's own cut lines in the toolpaths view, colored by feed: a skin with a preview line color
+  // (--sk3d-path-preview-line) draws them in it, any other skin in their own colors
+  let cutMeshes = [];
+  function cutLines() {
+    const S = window.SwarfSkin, line = S ? S.color('path-preview-line', null) : null;
+    for (const m of cutMeshes) for (const mat of [].concat(m.material || [])) {
+      if (!mat || !mat.color) continue;
+      if (mat.userData.swarfColor === undefined) mat.userData.swarfColor = mat.color.getHex();
+      mat.color.setHex(line !== null ? line : mat.userData.swarfColor);
+    }
+    const api = window.kiri && window.kiri.api;
+    if (api && api.space && api.space.update) api.space.update();
+  }
+  // the look ribbon's width and colors: the skin's preview ones while the toolpaths view shows
+  // the cut, the tube's own in simulate; true when its width changed
+  function lookStyle() {
+    if (!look) return false;
+    const S = window.SwarfSkin, w = previewing && S ? S.number('path-preview-width', 0) : 0;
+    const r = ribbons.find(r => r.obj === look), hw = (w > 0 ? w : LOOK_WIDTH_MM) / 2, was = r.hw;
+    r.hw = hw;
+    const u = look.material.uniforms;
+    u.tint.value.setHex(w > 0 ? S.color('path-preview-tint', LOOK_TINT) : LOOK_TINT);
+    u.rim.value.setHex(w > 0 ? S.color('path-preview-rim', LOOK_RIM) : LOOK_RIM);
+    return hw !== was;
   }
   window.addEventListener('swarf.skin', reskin);
 
@@ -309,6 +342,8 @@
     // part read as half cut. The stack names each mesh's layer: take the cuts, at any length.
     const named = meshes.some(m => m && m.userData && m.userData.layer);
     let kept = 0;
+    cutMeshes = meshes.filter(m => m && m.userData && m.userData.layer === 'milling');
+    cutLines();
     for (const m of meshes) {
       if (!m || !m.geometry) continue;
       if (named && m.userData.layer !== 'milling') continue;
@@ -323,6 +358,9 @@
       }
     }
     window.__swarfLSPrePop = kept;
+    previewing = true;
+    try { cutsOff = (api.conf.get().labels || {})[`${api.mode.get()}-${api.view.get()}-milling`] === false; } catch (e) { cutsOff = false; }
+    lookStyle();
     rebuild();
   }
 
@@ -446,6 +484,7 @@
     if (halo)  halo.visible  = on && !styled;
     if (bloom) bloom.visible = on && !styled;
     if (look)  look.visible  = on && styled;
+    if (previewing && cutsOff) for (const r of [core, halo, bloom, look]) if (r) r.visible = false;
   }
 
   function attach() {
@@ -453,11 +492,12 @@
     const api = window.kiri && window.kiri.api;
     if (!space || !space.world || !api || !api.event) return false;
     api.event.on('swarf.tool.move', ({ pos, step }) => onMove({ pos, step }));
-    api.event.on('animate',          () => { ensure(); clearTrail(); applyVisibility(); });
+    const simulating = () => { previewing = false; lookStyle(); };
+    api.event.on('animate',          () => { ensure(); clearTrail(); simulating(); applyVisibility(); });
     // every step has its box from the start, so a step can be hidden before it runs
     const allBoxes = () => { let ops = []; try { ops = window.kiri.api.conf.get().process.ops || []; } catch (e) { /* no settings */ }
       ops.forEach((o, i) => { if (o && !Array.isArray(o) && o.type !== '|' && !o.disabled) addStepBox(i); }); };
-    api.event.on('function.animate', () => { ensure(); clearTrail(); applyVisibility(); dropBoxes(); setTimeout(allBoxes, 0); });
+    api.event.on('function.animate', () => { ensure(); clearTrail(); simulating(); applyVisibility(); dropBoxes(); setTimeout(allBoxes, 0); });
     api.event.on('view.set', () => { if (!(api.view.is_animate && api.view.is_animate())) dropBoxes(); });
     window.addEventListener('swarf.lightstream.toggle', showBoxes);
     window.addEventListener('resize', showBoxes);
@@ -468,6 +508,9 @@
     api.event.on('animate.end',   clearTrail);
     api.event.on('preview.begin', clearTrail);
     api.event.on('preview.end',   populateFromPrintStack);
+    const cuts = off => label => { if (label !== 'milling') return; cutsOff = off; applyVisibility(); api.space && api.space.update && api.space.update(); };
+    api.event.on('stack.hide', cuts(true));
+    api.event.on('stack.show', cuts(false));
     return true;
   }
 
