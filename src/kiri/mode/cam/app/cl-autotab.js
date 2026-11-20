@@ -56,6 +56,7 @@ const SL = () => window.SwarfLength;
 // a length in a sentence: the nearest 16th in inches (never "0.1874 in tall" beside a
 // field reading 3/16), mm to the decimal; the fields keep SwarfLength.field
 const say = mm => (SL() ? (SL().prose ? SL().prose(mm, undefined, 2) : SL().say(mm)) : `${(+mm).toFixed(2)} mm`);
+const sayLen = say;   // the length words, for where a local `say` (the panel line) hides this one
 const clone = o => JSON.parse(JSON.stringify(o));
 const r2 = v => Math.round(v * 100) / 100;
 const plural = (n, word) => `${n} ${word}${n === 1 ? '' : 's'}`;
@@ -443,8 +444,10 @@ export function autoRefresh(force) {
         plans.push(planOne(w, normal(set), id));
     }
     if (plans.length) place(plans);
+    refreshed = plans;
     return plans.length;
 }
+let refreshed = [];   // the plans the last autoRefresh placed
 
 // distance from a point to a closed loop
 function toLoop(p, loop) {
@@ -587,7 +590,7 @@ function showPlaced(suggest) {
     const ws = targets();
     let n = 0, bare = 0;
     try { for (const w of ws) { const k = (api.widgets.annotate(w.id).tab || []).length; n += k; if (!k) bare++; } } catch (e) { return; }
-    const who = ws.length === 1 ? (ws[0].meta && ws[0].meta.file || 'this part') : `${ws.length} parts`;
+    const who = ws.length === 1 ? (ws[0].meta && ws[0].meta.file ? api.platform.part_name(ws[0]) : 'this part') : `${ws.length} parts`;
     // several parts: say how many have none, so one tabbed part does not hide an untabbed one
     els.placed.textContent = !ws.length ? '' : `${n} tab${n === 1 ? '' : 's'} placed on ${who}${ws.length > 1 && bare ? `: ${bare} with none` : ''}`;
     els.placed.classList.toggle('none', !!bare);
@@ -812,7 +815,14 @@ export function autoTabRow() {
             // a scale takes every tab away (cl-tab's tabClear); the parts with settings get theirs back
             api.event.on('selection.scale', () => setTimeout(() => {
                 const n = autoRefresh(true);
-                if (n) sayLine(`Tabs placed again on ${n} part${n === 1 ? '' : 's'} at the new size.`);
+                if (n) {
+                    // the tab height follows the board: say the new one, after the size card's
+                    // own "Resized to ..." (which clears the notices it lands on)
+                    const tall = [...new Set(refreshed.filter(p => p.records.length).map(p => sayLen(p.rule.height)))];
+                    const line = `Tabs placed again on ${n} part${n === 1 ? '' : 's'} at the new size${tall.length ? `, ${tall.join(' or ')} tall` : ''}.`;
+                    sayLine(line);
+                    setTimeout(() => api.show.alert(line, 8), 400);
+                }
                 showFields();
             }, 0));
             api.event.on(['widget.select', 'widget.deselect'], () => setTimeout(follow, 0));

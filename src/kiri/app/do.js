@@ -163,7 +163,29 @@ function placed() {
 function pushActions(ur) {
     stack.length = stpos++;
     stack.push(ur);
+    trim();
     updateButtons();
+}
+
+// swarf: deleted parts are kept whole for undo. Only the latest few, and no more than about
+// GONE_TRIS triangles of them: a big relief deleted twice would hold gigabytes. The oldest entries go
+// first (undo runs back in order, so everything before a dropped entry goes with it).
+const GONE_MAX = 8, GONE_TRIS = 3e6;
+const trisOf = w => { try { return (w.mesh.geometry.attributes.position.count || 0) / 3; } catch (e) { return 0; } };
+function trim() {
+    let n = 0, tris = 0;
+    for (let i = stpos - 1; i >= 0; i--) {
+        const u = stack[i].undo;
+        if (!u || u.type !== 'restore') continue;
+        n++;
+        for (const w of u.widgets || []) tris += trisOf(w);
+        // the latest delete is always kept, however big
+        if (n > 1 && (n > GONE_MAX || tris > GONE_TRIS)) {
+            stack.splice(0, i + 1);
+            stpos -= i + 1;
+            break;
+        }
+    }
 }
 
 /**
@@ -214,16 +236,25 @@ api.doit.quietly = function(fn) {
     quiet = true;
     try { return fn(); } finally { quiet = was; }
 };
-event.on([
-    'platform.layout',
-    'widget.add'
-], (widget) => {
-    if (!quiet) clear();
+// a re-pack moves every part: the moves before it no longer say where a part was
+event.on('platform.layout', (packed) => {
+    if (packed === true && !quiet) clear();
+});
+// swarf: a new part (an import, a shape) keeps the history: every entry names its own parts. A part
+// swapped for another (a .swarf opened, file › new, DRAW's done, TEX) leaves entries for parts that
+// are gone, so those still start the history again.
+const replacing = () => !!(self.__swarfRestoring || document.body.classList.contains('swarf-draw-open') || document.body.classList.contains('swarf-tex-open'));
+event.on('widget.add', () => {
+    if (!quiet && replacing()) clear();
 });
 event.on('widget.delete', (widget) => {
-    if (quiet) return;
+    if (quiet || replacing()) return;
     const widgets = (Array.isArray(widget) ? widget : [widget]).map(w => w && (w.widget || w)).filter(Boolean);
     if (!widgets.length) return;
+    // a part kept for undo keeps its shape and place; its slices and shadows are made again if it comes back
+    for (const w of widgets) {
+        try { if (w.clearSlices) w.clearSlices(); w.cache = {}; } catch (e) { /* nothing held */ }
+    }
     pushActions({ undo: { type: 'restore', widgets }, redo: { type: 'remove', widgets } });
 });
 

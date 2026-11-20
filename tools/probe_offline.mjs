@@ -62,6 +62,14 @@ try {
             return w;
         };
         window.Worker.prototype = W.prototype;
+        // each page notes when its curtain lifts: only the page that stays may have (a press on a
+        // page that loads again is lost)
+        const t = setInterval(() => {
+            const c = document.getElementById('curtain');
+            if (!c || c.style.display !== 'none') return;
+            clearInterval(t);
+            try { const log = JSON.parse(sessionStorage.getItem('probe-curtain') || '[]'); log.push(performance.timeOrigin); sessionStorage.setItem('probe-curtain', JSON.stringify(log)); } catch (e) { /* no storage */ }
+        }, 20);
     });
     const settle = async () => {
         await page.waitForFunction(() => window.crossOriginIsolated && navigator.serviceWorker.controller && window.__engine.length && window.SWARF_BUILD && document.getElementById('ver') && window.kiri, { timeout: 90000, polling: 500 });
@@ -78,6 +86,8 @@ try {
     await settle();
     let caches1 = await cacheState();
     check('first visit: page isolated and controlled', await page.evaluate(() => window.crossOriginIsolated && !!navigator.serviceWorker.controller));
+    const gone1 = await page.evaluate(() => ({ lifted: JSON.parse(sessionStorage.getItem('probe-curtain') || '[]'), me: performance.timeOrigin }));
+    check('first visit: no page that loaded again had lifted its curtain', gone1.lifted.length === 1 && gone1.lifted[0] === gone1.me, gone1);
     check('first visit: the cache holds every listed file', caches1[`swarf-shell-${stamp}`] >= listed.length, { caches: caches1, listed: listed.length });
     const eng = await page.evaluate(() => ({ e: window.__engine, b: window.SWARF_BUILD, url: window.__workerUrl, builds: window.SWARF_BUILDS }));
     check('engine reports the page\'s build, asked for by build', eng.e[0] && eng.e[0].engine === eng.b && eng.url.includes(`?b=${eng.b}`) && !(eng.builds || {})['CAM engine'], eng);
@@ -130,6 +140,18 @@ try {
     await page.evaluate(() => { try { sessionStorage.removeItem('swarf-build-reload'); } catch (e) { } });
     await page.reload({ waitUntil: 'domcontentloaded' });
     await settle();
+
+    // 3b. a browser with no service worker can never be isolated: the curtain still lifts, within seconds
+    {
+        const ctx = await browser.createBrowserContext();
+        const p2 = await ctx.newPage();
+        await p2.evaluateOnNewDocument(() => { try { delete Navigator.prototype.serviceWorker; } catch (e) { /* kept */ } });
+        const t0 = Date.now();
+        await p2.goto(APP, { waitUntil: 'domcontentloaded', timeout: 60000 });
+        const up = await p2.waitForFunction(() => { const c = document.getElementById('curtain'); return c && c.style.display === 'none' && !!window.kiri; }, { timeout: 30000, polling: 100 }).then(() => true, () => false);
+        check('no service worker: the curtain lifts within seconds', up && Date.now() - t0 < 20000, { s: (Date.now() - t0) / 1000, isolated: await p2.evaluate(() => window.crossOriginIsolated) });
+        await ctx.close();
+    }
 
     // 4. offline: the server stops and the browser goes offline
     await stop();

@@ -187,8 +187,26 @@ export async function init_sync() {
     // upon restore, seed presets
     api.event.emitDefer('preset', api.conf.get());
 
-    // lift curtain
-    $('curtain').style.display = 'none';
+    // lift curtain. swarf: a first visit (or a hard reload) loads once more through the service
+    // worker for shared memory (index.html); the curtain stays up until that load, so a press on the
+    // page about to go is never lost. A page that loads no further (isolated already, no service
+    // worker, a reload already tried before this page) lifts it now, and any page within 5 s.
+    const lift = () => { $('curtain').style.display = 'none'; };
+    const reloadDue = () => {
+        if (WIN.crossOriginIsolated !== false || !('serviceWorker' in navigator) || location.protocol === 'file:') return false;
+        try {
+            const t = +sessionStorage.getItem('swarf-coi-reload') || 0;
+            // a reload asked for by an earlier page that still left this one without shared memory:
+            // this browser cannot share it, and index.html does not try again
+            if (t && t < performance.timeOrigin && Date.now() - t < 10000) return false;
+        } catch (e) { return false; }
+        return true;
+    };
+    if (!reloadDue()) lift();
+    else {
+        const t0 = Date.now();
+        const wait = setInterval(() => { if (!reloadDue() || Date.now() - t0 > 5000) { clearInterval(wait); lift(); } }, 100);
+    }
 }
 
 function ui_sync() {
@@ -1508,7 +1526,7 @@ function setup_keybd_nav() {
             { kind:'app', name:'the shop\'s bits', body:'1/4 straight 48-005, 1/4 up-cut 52-910, 1/4 down-cut 57-910, 1/2 straight 48-072, in bits. in wood they cut with the shop\'s own numbers (120 in/min, 1/8 in a pass, 12,000 rpm).', tags:'bits tools shop upcut downcut straight part number feeds' },
             { kind:'run', name:'keep the zero', body:'a zero you set stays with the board. toolpaths made again in cam keep it with no press if they zero at the same place (corner or center) on the same bit. after another file, a test cut, a reconnect or a reload, one press of use the zero from (with the day and time it was set) brings it back. it is never offered for another place, or after 12 hours; Z is dropped after a bit change, the whole zero after a box restart. a kept zero is swarf assuming the board and the bit have not moved: if either did, press the board moved or the bit was changed or reseated under the program, and zero that again.', tags:'zero keep reuse reload reconnect moved reseated' },
             { kind:'run', name:'search down', body:'on the z plate card: how far the bit comes down looking for the plate, 60 mm unless you raise it.', tags:'z plate search down distance touch off' },
-            { kind:'app', name:'undo', body:'edit › undo, or ⌘Z (Ctrl+Z): takes back the last change to the parts, tabs or steps, a delete too. edit › redo, or ⇧⌘Z, puts it back.', tags:'undo redo take back cmd-z ctrl-z mistake edit menu' },
+            { kind:'app', name:'undo', body:'edit › undo, or ⌘Z (Ctrl+Z): takes back the last change to the parts (a move, turn, resize, mirror, copy, delete, or leaving one out of the run), the tabs, the steps (added, deleted or a number typed) or the material. A new part laid out with the others, a .swarf opened and file › new start it over. edit › redo, or ⇧⌘Z, puts it back.', tags:'undo redo take back cmd-z ctrl-z mistake edit menu' },
             { kind:'app', name:'select all', body:'edit › select all, or ⌘A: picks every part on the bed, to move, size or delete them together. edit › delete, or the delete key, removes the picked parts (undo brings them back); with nothing picked it does nothing.', tags:'select all pick every part delete edit menu cmd-a' },
             { kind:'app', name:'export', body:'export (in the row, or file › export the machine file) makes the file the machine runs: name it, read how long it takes, how big it is, which bit and which material, and press save name.sbp. save the project too (.swarf) keeps the parts and steps to open again, and leaves the card open for the machine file. the file carries the concerns still open when it was saved, and control shows them when it is opened on its own.', tags:'export save sbp file machine file gcode shopbot file' },
             { kind:'app', name:'simulate', body:'watch the bit cut the board before the machine does. space plays and pauses; speed × runs it faster or slower, and the words beside it say how that compares with the real cut: about 30× real time means a 3 min job plays in 6 s. done says how much of the cut has run. the view frames the board beside the steps panel, looking down; F frames it again.', tags:'simulate simulator simulation play pause speed done preview real time how fast too fast seconds frame' },

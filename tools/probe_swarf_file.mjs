@@ -285,6 +285,7 @@ try {
     return { said, dialog: !!document.querySelector('#dialog button') && document.getElementById('dialog').offsetParent !== null };
   }, buf.toString('base64'));
   check(!!opened.said, `dropped on an empty bed, it opens without asking (${opened.said})`);
+  check(/Units are now inches, as the file was saved\./.test(opened.said), 'a file saved in inches, opened where mm was set: the change of units is said');
   await wait(1500);
   { const v = await page.evaluate(VIEW); check(v.ok, `after opening on an empty bed the parts are whole in the window, the camera above the bed (${v.say})`); }
   const b0 = await snapshot(page);

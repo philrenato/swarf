@@ -101,8 +101,10 @@ ok(notes.some(t => /"v-bit"/.test(t) && /added/.test(t)) && notes.some(t => /eig
 ok(out.process.ops.map(o => o.type).join() === 'outline,texture,pocket' && out.process.camStockX === 300, 'the steps in order, the board');
 ok(out.sproc.CAM.mine.ops[0].type === 'rough', 'this computer\'s other saved processes stay');
 ok(out.widget.w1.tabset.pin.count === 3 && !out.widget.old, 'the parts\' annotations are the file\'s, carried whole');
+ok(notes.some(t => /^Units are now inches, as the file was saved\.$/.test(t)), 'units that change are said');
+ok(!F.mergeSettings(here, { ...file, controller: { units: 'mm' } }).notes.some(t => /Units are now/.test(t)), 'units that stay are not');
 // a machine that comes with swarf: nothing added, nothing said
-const m2 = F.mergeSettings(here, { ...file, device: { deviceName: 'ShopBot.Basic', internal: 0, bedWidth: 2438.4 }, filter: { CAM: 'ShopBot.Basic' }, devices: {}, tools: here.tools, process: { ops: [{ type: 'outline', tool: 1001 }] } }, { builtin: n => n === 'ShopBot.Basic' });
+const m2 = F.mergeSettings(here, { ...file, controller: { units: 'mm' }, device: { deviceName: 'ShopBot.Basic', internal: 0, bedWidth: 2438.4 }, filter: { CAM: 'ShopBot.Basic' }, devices: {}, tools: here.tools, process: { ops: [{ type: 'outline', tool: 1001 }] } }, { builtin: n => n === 'ShopBot.Basic' });
 ok(!m2.notes.length && Object.keys(m2.settings.devices).length === 1 && m2.settings.filter.CAM === 'ShopBot.Basic', 'the ShopBot that comes with swarf: no note, nothing added');
 // a machine made elsewhere and never seen here: added
 const m3 = F.mergeSettings({ ...here, devices: {} }, file, { name: 'x.swarf' });
