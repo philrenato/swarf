@@ -1,7 +1,7 @@
 /*
- * swarf draw — the bed seen from above, as a drawing (Phil 10-27: "select a
+ * swarf draw — the bed seen from above, as a drawing: select a
  * point, move it, on polygons and NURBS curves, draw something, scale any of
- * these things, give thicknesses … 2D drawing that yields machinable 3D forms").
+ * these things, give thicknesses … 2D drawing that yields machinable 3D forms.
  *
  * DRAW opens a board over the workspace showing every part that has a drawing
  * (shapes, SVG/DXF/AI/PDF imports) where it sits on the bed. Pick a part, then
@@ -215,7 +215,7 @@
       if (w.meta && w.meta.svg && !w.meta.tilted) {
         const curves = bedCurves(w);
         // made here (meta.drawn) or elsewhere: a part made elsewhere keeps its own outline (meta.orig,
-        // in its own frame) once DRAW has changed it, so clear can give it back (Phil 11-02)
+        // in its own frame) once DRAW has changed it, so clear can give it back
         const orig = Array.isArray(w.meta.orig) ? w.meta.orig.map(c => { const crv = clone(c.crv); crv.ctrlPts = crv.ctrlPts.map(([x, y, z, wt]) => [x + w.track.pos.x, y + w.track.pos.y, 0, wt ?? 1]); return { crv }; }) : null;
         if (curves.length) { parts.push({ w, name: w.meta.file || 'part', thick: thicknessOf(w), edge: w.meta.edge ? { ...w.meta.edge } : { kind: 'straight', size: 2 }, curves, dirty: false, drawn: !!w.meta.drawn, orig }); continue; }
       }
@@ -252,8 +252,8 @@
         parts.push(part);
       }
     }
-    // every visit starts with an outline inside a part making a hole (Phil 10-29); the card changes it for this visit
-    // one board for a drawn part and a made shape (deep review P14: draw said 6 mm, shape 3/4 in): the
+    // every visit starts with an outline inside a part making a hole; the card changes it for this visit
+    // one board for a drawn part and a made shape (never 6 mm in draw and 3/4 in in shape): the
     // last thickness typed here, else shape's last, else 3/4 in; engraved 1 mm or 1/32 in deep
     const inch = LEN.unit() === 'in';
     let shapeT = 0;
@@ -323,7 +323,7 @@
     // none of them reach cam while drawing
     window.addEventListener('keypress', hush, true);
     window.addEventListener('resize', render);
-    // the mm | in switch while drawing: the card and the bar follow it (review 10-30 F1)
+    // the mm | in switch while drawing: the card and the bar follow it
     S.onUnits = () => setTimeout(() => { if (S) render(); }, 0);
     try { const u = api().ui.units; if (u) u.addEventListener('change', S.onUnits); } catch (e) { /* no units control */ }
     ui.svg.focus();
@@ -348,7 +348,7 @@
     const landed = S.landed;
     S = null;
     // the view once DRAW has left the body: a new part frames, an edited one is brought into view
-    // if it is not (r086 check M1); the one camera rule waits for the rebuilt meshes' bounds
+    // if it is not; the one camera rule waits for the rebuilt meshes' bounds
     try { const a = api(); if (a && landed && a.frame) a.frame(); else if (a && apply && a.reveal) a.reveal(); } catch (e) { /* no view */ }
   }
 
@@ -408,7 +408,7 @@
     // the ground: the bed, a 10 mm / 100 mm grid (the 100 mm lines over the 10 mm ones), its size, the origin, a scale bar
     out.push(...Board.ground(S, ui.svg, true));
     for (const o of S.others) out.push(`<rect class="sd-other" x="${sx(o[0])}" y="${sy(o[3])}" width="${(o[2] - o[0]) * k}" height="${(o[3] - o[1]) * k}"><title>${esc(o[4])}: no drawing to edit</title></rect>`);
-    // wider places to press (review 10-28 #12), under the parts so a press on a part wins:
+    // wider places to press , under the parts so a press on a part wins:
     // near any outline picks its part, and so does anywhere in a word's box (inside an o, between letters)
     S.parts.forEach((part, pi) => {
       if (part.gone || pi === S.sel) return;
@@ -430,7 +430,7 @@
       if (pi === S.sel) out.push(`<path class="sd-edge" data-part="${pi}" d="${d}"/>`);
     });
     const part = S.parts[S.sel];
-    // a picked word shows its box, not every letter's points: it is edited by its words (review 10-28b #11)
+    // a picked word shows its box, not every letter's points: it is edited by its words
     if (part && !part.gone && part.text) {
       let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
       for (const c of part.curves) for (const q of c.crv.ctrlPts) { x0 = Math.min(x0, q[0]); x1 = Math.max(x1, q[0]); y0 = Math.min(y0, q[1]); y1 = Math.max(y1, q[1]); }
@@ -501,7 +501,7 @@
     return d + (isClosed(crv) ? 'Z' : '');
   }
 
-  // where an outline crosses itself, or null (review 10-28 #11): cam cannot tell inside from
+  // where an outline crosses itself, or null: cam cannot tell inside from
   // outside past a crossing. Each closed curve on its own, as a fine polyline.
   function polyOf(crv) {
     const L = [];
@@ -520,7 +520,7 @@
   };
   const inside = Board.inLoop;
   // the first other part this one overlaps (outlines cross, or one sits inside the other), or null
-  // (review 10-28b #5: a rectangle drawn over a part became a solid inside it, and both were cut)
+  // (a rectangle drawn over a part would otherwise become a solid inside it, and both be cut)
   function overlapOf(part) {
     const mine = part.curves.map(c => polyOf(c.crv)), mb = boxOf(part.curves);
     for (const o of S.parts) {
@@ -684,7 +684,7 @@
     // width / depth: the whole part stretched about its center to that size
     const size = (axis, v) => {
       if (!(v > 0)) return say('Give the size a length above 0.');
-      // no bigger than the bed either way round (deep review 10-31 M1: 99999 froze the page)
+      // no bigger than the bed either way round (99999 would freeze the page)
       if (v > bedMax()) return say(`That is bigger than the bed (${LEN.say(bedMax())} at most): it stays as it was.`);
       const b = boxOf(part.curves), was = axis ? b[3] - b[1] : b[2] - b[0];
       if (!(was > 0) || Math.abs(v - was) < 1e-6) return;
@@ -709,7 +709,7 @@
         render();
       };
       strEl.onkeydown = e => { e.stopPropagation(); if (e.key === 'Enter') { strEl.blur(); } };
-      // the picked words change as they are typed, one undo for the typing (review 105 F14)
+      // the picked words change as they are typed, one undo for the typing
       strEl.oninput = () => {
         if (S.tool === 'text') { TEXT.str = strEl.value; return; }
         const t = { ...part.text, str: strEl.value }, c = textCurves(t);
@@ -912,7 +912,7 @@
   }
 
   // ── pointer ──
-  // an outline left open by a tool switch or Escape is kept for undo, and said (Fable review 3 #16)
+  // an outline left open by a tool switch or Escape is kept for undo, and said
   function dropPen() {
     if (S.pen.length < 2) { S.pen = []; return false; }
     S.dropped = S.pen.slice(); S.pen = [];
@@ -1199,11 +1199,11 @@
     const b = path.getBoundingBox(), W = Math.max(1e-3, b.x2 - b.x1), H = Math.max(1e-3, b.y2 - b.y1);
     return V().curves(`<svg xmlns="http://www.w3.org/2000/svg" width="${W}mm" height="${H}mm" viewBox="${b.x1} ${b.y1} ${W} ${H}"><path d="${d}"/></svg>`).filter(c => isClosed(c.crv));
   }
-  // a word is named by its words, so the list reads "HIM (3 pieces)" (review 10-28b #9)
+  // a word is named by its words, so the list reads "HIM (3 pieces)"
   const wordName = (str, or) => (String(str).trim().replace(/\s+/g, '-').replace(/[^\w.-]/g, '').slice(0, 24)) || or;
   async function placeText(m) {
     try { await fontReady(); } catch (e) { say(`Text needs its font: ${e.message}.`); return; }
-    if (!S) return;   // DRAW closed while the font came (review r093 A19)
+    if (!S) return;   // DRAW closed while the font came
     const t = { str: TEXT.str, h: TEXT.h, at: [snapMM(m[0]), snapMM(m[1])], font: TEXT.name };
     const curves = textCurves(t);
     if (!curves.length) { say('Type some letters in the card first.'); return; }
@@ -1224,7 +1224,7 @@
     }
     checkCross(part);
     render();
-    // the words field, selected: typing goes straight in (review 105 F14). The press that placed them
+    // the words field, selected: typing goes straight in. The press that placed them
     // gives the board focus on its way down, so when it is still down the field waits for its release
     if (S.placing) S.wantWords = true; else focusWords();
   }
@@ -1521,7 +1521,7 @@
     while (taken.has(`${word} ${n}`)) n++;
     S.parts.push({ w: null, name: `${word} ${n}`, thick: S.thick, edge: { ...S.edge }, curves: [{ crv }], dirty: true, ...(extra || {}) });
     S.pen = []; S.hover = null; S.tool = 'select'; S.sel = S.parts.length - 1; S.pts.clear();
-    if (S.parts.length === 1 && !S.others.length) fit();   // Fable review 3 #19: the first drawing, not a fingernail on a 2.4 m bed
+    if (S.parts.length === 1 && !S.others.length) fit();   // the first drawing, not a fingernail on a 2.4 m bed
     say('Made. Drag its points to shape it, or press done to make it a part.');
     checkCross(S.parts[S.sel]);
     render();
@@ -1564,7 +1564,7 @@
       if (S.tool !== 'select') { setTool('select'); return; }
       if (S.pts.size) { S.pts.clear(); render(); return; }
       if (S.sel >= 0) { S.sel = -1; render(); return; }
-      // the last Escape leaves, but never throws away drawing without asking (review 10-28b #18)
+      // the last Escape leaves, but never throws away drawing without asking
       if (S.parts.some(p => p.dirty || (p.gone && p.w)) && !(S.escAt && performance.now() - S.escAt < 3000)) {
         S.escAt = performance.now();
         say('Press Escape again to leave without your changes, or done to make them.');
@@ -1615,8 +1615,8 @@
       const svg = V().svgOf(closed);
       const nm = p.name.replace(/\.(svg|dxf|ai|pdf)$/i, '');
       let ws = a.platform.load_svg(svg, nm, { depth: p.thick, resolution: 2, segmin: 48, soup: true, dpi: 0, place: true, edge: p.edge });
-      // an edge that does not fit: made with a straight top instead, and said (Phil 10-29: "it should
-      // do something, adapt, not do something, but never make it so I can't get out of this mode")
+      // an edge that does not fit: made with a straight top instead, and said (a mode may
+      // adapt or decline, but never trap the student in it)
       if (!ws.length && p.edge && p.edge.kind !== 'straight') {
         const why = ws.error;
         ws = a.platform.load_svg(svg, nm, { depth: p.thick, resolution: 2, segmin: 48, soup: true, dpi: 0, place: true, edge: { kind: 'straight', size: 0 } });
@@ -1641,7 +1641,7 @@
     if (made.length) a.platform.select(made[0]);
     // TEX's marks came across with their parts: their steps follow (named for the new parts)
     if (made.some(w => w.meta && w.meta.tex) && window.__swarfTex) setTimeout(() => window.__swarfTex.syncSteps(a, true), 0);
-    if (fresh) S.landed = true;   // Fable review 3 #17: done counts as a landing (framed once DRAW has left, in close)
+    if (fresh) S.landed = true;   // done counts as a landing (framed once DRAW has left, in close)
     // engraved lines: each onto the part under it, in that part's own frame (local = bed − its place)
     const lines = S.parts.filter(p => p.line);
     let engraved = 0, stepAdded = false;
@@ -1705,7 +1705,7 @@
     const partSay = !n ? '' : open.length ? `${open.join(', ')}: open lines were left out (only closed outlines get a thickness; draw a line in DRAW to engrave it).` : `${n === 1 ? (made.length > 1 ? `Made from the drawing: ${made.length} pieces, kept together.` : '1 part rebuilt from the drawing.') : `${n} drawings made into parts.`} Next: a step (${made.some(w => w.meta.edge) ? 'contour shapes the edge, outline cuts it out' : 'outline cuts it out'}), then toolpaths. Or tex, to texture its top.`;
     const all = [partSay, lineSay.trim(), carveSay.trim()].filter(Boolean).join(' ');
     if (!all) return;
-    // the hint goes as soon as it is followed: a step added, or toolpaths (review 105 F16, as SHAPE's)
+    // the hint goes as soon as it is followed: a step added, or toolpaths (as SHAPE's)
     const rec = a.show.alert(all, 10);
     const add = document.getElementById('op-add-list');
     const drop = () => { try { a.hide.alert(rec); } catch (e) { /* gone */ } if (add) add.removeEventListener('click', drop, true); };

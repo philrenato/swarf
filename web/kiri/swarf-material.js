@@ -265,7 +265,7 @@
     return tex;
   }
 
-  // swarf v010 r4: derive a tangent-space normal map from a grayscale canvas.
+  // swarf: derive a tangent-space normal map from a grayscale canvas.
   // Sobel-ish height→normal pass. Gives real per-pixel lighting response
   // without authoring bespoke normal maps.
   const _normalCache = {};
@@ -273,7 +273,7 @@
     if (!window.THREE) return null;
     const key = name + '@' + (repeat || 2) + ':N';
     if (_normalCache[key]) return _normalCache[key];
-    // the color map's own canvas: a second make() is another random texture (review r093 A12)
+    // the color map's own canvas: a second make() is another random texture
     const src = (getTexture(name, repeat) || {}).image;
     if (!src) return null;
     const w = src.width, h = src.height;
@@ -310,7 +310,7 @@
     _normalCache[key] = tex;
     return tex;
   }
-  // swarf v010: a cheap procedural environment so metalness-1 aluminum actually
+  // swarf: a cheap procedural environment so metalness-1 aluminum actually
   // reflects something (warm sky up, ember horizon, deep red below).
   let _envInstalled = false;
   function installEnvironment() {
@@ -324,7 +324,7 @@
       const g = c.getContext('2d');
       // equirect-ish: vertical gradient from warm zenith through ember to floor
       const grad = g.createLinearGradient(0, 0, 0, 512);
-      // swarf v010 r4: proper studio/shop env. Metals reflect most of what
+      // swarf: proper studio/shop env. Metals reflect most of what
       // they see — a dim env makes metal look like painted plastic. Bright
       // cool ceiling, warm rim accent at horizon, mid-gray floor.
       grad.addColorStop(0.00, '#e8ecf2');   // cool shop ceiling — pure white-ish
@@ -365,7 +365,7 @@
       tex.colorSpace = window.THREE.SRGBColorSpace || tex.colorSpace;
       let renderer = space.renderer || (window.moto && window.moto.space && window.moto.space.renderer);
       try { if (!renderer && space.internals) renderer = space.internals().renderer; } catch (e) {}
-      // swarf v010 r8 c: DO NOT set scene.environment — that globally
+      // swarf: DO NOT set scene.environment — that globally
       // reinterprets every material's reflection (incl. the red grid
       // which then reads hot orange). Instead stash the PMREM texture
       // on window.__swarfEnvMap so applyAppearance can set it per-
@@ -379,7 +379,7 @@
       } else {
         window.__swarfEnvMap = tex;
       }
-      // restrained lighting (v010 r2/r8b): one key from above-front-right, a warm hemisphere and a
+      // restrained lighting: one key from above-front-right, a warm hemisphere and a
       // faint fill, so form reads first and the floor keeps its matte finish
       try {
         const hemi = new window.THREE.HemisphereLight(0xcfc0a0, 0x1a1a1a, 0.32);
@@ -391,7 +391,7 @@
         fill.position.set(-180, 120, -140);
         scene.add(fill);
       } catch (e) {}
-      // no tonemapping or colorspace override: ACES + sRGB made the mill-red grid read orange (r8b)
+      // no tonemapping or colorspace override: ACES + sRGB make the mill-red grid read orange
       _envInstalled = true;
     } catch (e) { console.warn('swarf-material: env install failed', e); }
   }
@@ -582,8 +582,8 @@
   window.__swarfAtSpeed = atSpeed;
   window.__swarfLimits = s => deviceLimits(s);
   window.__swarfSpeeds = SPEEDS;
-  // a material's record by id (the test cuts take plywood's: 10-29, one speed rule everywhere)
-  // ---- bits: the list (review 105 F17) ----
+  // a material's record by id (the test cuts take plywood's: one speed rule everywhere)
+  // ---- bits: the list ----
   const BIT_KIND = { endmill: 'flat', ballmill: 'ball', tapermill: 'V', taperball: 'V, ball tip', drill: 'drill' };
   function bitsCard() {
     let card = null;
@@ -727,7 +727,7 @@
       devName: (settings.device && settings.device.deviceName) || '', findTool: id => tools.find(t => t.id == id)
     };
   }
-  // the stamp carries what the numbers came from (design review 10-28 #9): the material, the bit and its
+  // the stamp carries what the numbers came from: the material, the bit and its
   // own diameter, the machine and its limits; the speed and what the bit is (cutter, flutes) join it only
   // when not the start's, so a stamp from before them still matches
   function stampOf(op, c, level) {
@@ -776,7 +776,7 @@
       const now = opValues(op.type, p);
       // only the speed changed: a custom step keeps its own numbers (the speed line says so)
       if (noSpeed(op.preset) === noSpeed(stamp) && opCustom(op, c)) { op.preset = stamp; changed = true; continue; }
-      // (review 105 m2) this step had numbers of its own under the last material: they are replaced, by
+      // this step had numbers of its own under the last material: they are replaced, by
       // design (the stamp rule above), and said. Only the material changed: its stamp says so.
       const [wasId, wasTool, wasDev] = String(op.preset || '').split(':');
       const was = wasId && wasId !== current.id && wasTool == op.tool && wasDev === devName && window.__swarfMaterialById(wasId);
@@ -815,7 +815,7 @@
   function notify() {
     try { window.dispatchEvent(new CustomEvent('swarf.material.change', { detail: current })); } catch (e) {}
   }
-  // swarf v010: single place to map appearance JSON onto a THREE material.
+  // swarf: single place to map appearance JSON onto a THREE material.
   function applyAppearance(mat, a) {
     if (!mat || !a) return;
     try { mat.color.set(a.color); } catch (e) {}
@@ -823,7 +823,7 @@
     if ('roughness' in mat)        mat.roughness        = a.roughness ?? 0.6;
     if ('metalness' in mat)        mat.metalness        = a.metalness ?? 0;
     if ('envMapIntensity' in mat)  mat.envMapIntensity  = a.envIntensity ?? 1.0;
-    // swarf v010 r8 c: per-material envMap, ONLY on MeshStandardMaterial or
+    // swarf: per-material envMap, ONLY on MeshStandardMaterial or
     // MeshPhysicalMaterial. Phong's envMap path is different and renders
     // blown-out when fed PMREM output.
     if (window.__swarfEnvMap
@@ -843,7 +843,7 @@
     mat.opacity     = a.opacity ?? 1;
     const tex = getTexture(a.texture, a.textureRepeat);
     if (tex && 'map' in mat) mat.map = tex;
-    // swarf v010 r4: prefer normal map over bump map — tangent-space normals
+    // swarf: prefer normal map over bump map — tangent-space normals
     // give proper specular falloff instead of flat luminance tweaks.
     if (tex && 'normalMap' in mat && a.normalScale) {
       const n = getNormalMap(a.texture, a.textureRepeat, a.normalStrength || 1.2);
@@ -870,9 +870,9 @@
       if (!a) return;
       const THREE = window.THREE;
       // set properties on Kiri's own material, never swap it: Kiri caches its instances, and a
-      // replaced one repainted the part black on the next selection change (v010 r3)
-      // the picked parts glow warm (review 10-28: "a picked part looks exactly like an
-      // unpicked one": the appearance wrote over cam's selection color)
+      // replaced one repaints the part black on the next selection change
+      // the picked parts glow warm (a picked part must not look exactly like an
+      // unpicked one: the appearance would write over cam's selection color)
       let picked = new Set();
       try { picked = new Set(window.kiri.api.selection.widgets()); } catch (e) { /* none */ }
       let arranging = true;
@@ -883,7 +883,7 @@
         const mats = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
         for (const mat of mats) {
           if (mat && mat.color) applyAppearance(mat, a);
-          // a part left out of this run (unticked in objects) shows through (Phil 11-02), while the
+          // a part left out of this run (unticked in objects) shows through, while the
           // parts are arranged: toolpaths and simulate show the parts their own way
           const out = !!(w.meta && w.meta.disabled) && arranging;
           if (mat && (out || mat.userData.swarfOut)) {
@@ -898,9 +898,9 @@
           if (mat && mat.fog !== false) { mat.fog = false; mat.needsUpdate = true; }
         }
       }
-      // swarf v010: also re-tint the SIMULATE stock mesh material if live
+      // swarf: also re-tint the SIMULATE stock mesh material if live
       const animMat = window.__swarfAnimStockMaterial;
-      if (animMat) { applyAppearance(animMat, a); if (animMat.fog !== false) { animMat.fog = false; animMat.needsUpdate = true; } }   // far out it went black (review 10-28b #17)
+      if (animMat) { applyAppearance(animMat, a); if (animMat.fog !== false) { animMat.fog = false; animMat.needsUpdate = true; } }   // far out it would go black
       try { window.moto.space.refresh && window.moto.space.refresh(); } catch (e) {}
     } catch (e) { console.warn('swarf-material: applyToStock failed', e); }
   }
@@ -1061,8 +1061,8 @@
   }
   window.__swarfSpeed = { set: setSpeed, get: () => { try { return speedLevel(window.kiri.api.conf.get().process.swarfSpeed); } catch (e) { return 0; } } };
 
-  // the board the student has (Phil 11-16: "an optional material blank size ... a block of material of that
-  // size is shown that is what the paths cut from ... toggled on and off/deleted"). Kiri's own stock in
+  // the board the student has (an optional material blank size: a block of material of that
+  // size is shown, what the paths cut from, toggled on and off). Kiri's own stock in
   // its absolute mode (camStockOffset off, camStockX/Y/Z), the parts centred in it and sitting on its
   // bottom (camZAnchor bottom), so an outline goes through and the top is cut down from the board's top.
   // Off puts Kiri's stock back the way swarf keeps it: the parts' own size (offset 0), the old anchor.
@@ -1162,7 +1162,7 @@
     return row;
   }
 
-  // where X 0, Y 0 sits on the stock (Phil 10-28): its front-left corner by default; the
+  // where X 0, Y 0 sits on the stock: its front-left corner by default; the
   // center for something round. Kiri's own camOriginCenter, through its own checkbox.
   function originRow(labelCss) {
     const api = window.kiri && window.kiri.api;
@@ -1180,7 +1180,7 @@
         const box = api.ui && api.ui.camOriginCenter;
         if (box && box.checked !== center) { box.checked = center; if (box.onclick) box.onclick(); else { api.conf.get().process.camOriginCenter = center; api.conf.save(); } }
         if (api.function.clear_progress) api.function.clear_progress();   // toolpaths made for the other zero are stale
-        // one line, so the move of the zero is never silent (Fable review 3 #20)
+        // one line, so the move of the zero is never silent
         if (box && api.show && api.show.alert) api.show.alert(center ? 'Zero at the center: in control, put the bit on the center of your board.' : 'Zero at the front-left corner: in control, put the bit on that corner of your board.', 6);
       } catch (e) { /* cam not ready */ }
       show();

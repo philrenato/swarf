@@ -22,7 +22,7 @@ class OpDrill extends CamOp {
             sliceOut = this.sliceOut = [];
 
         // swarf: with no holes picked on this part, the step drills the round holes the bit fits
-        // (review 105 B0c: a student who drew circles got an empty step)
+        // (a student who drew circles never gets an empty step)
         const allDrills = drills[widget.id] ?? this.found(drillToolDiam, drillTool.pointLength());
         if (allDrills.length === 0) return;
 
@@ -46,8 +46,8 @@ class OpDrill extends CamOp {
             if (zBottom) drill.zBottom = Math.max(zBottom, drill.zBottom);
 
             // swarf: a picked hole that reaches the board's bottom goes on by the bit's point, as a found
-            // hole does, so its full width goes through; a blind one stops at its floor. The old fixed
-            // 5 mm past the bottom drilled into the spoilboard, or into the MR-1's plate
+            // hole does, so its full width goes through; a blind one stops at its floor. A fixed
+            // 5 mm past the bottom would drill into the spoilboard, or into the MR-1's plate
             const wa = state.workarea;
             if (op.thru > 0 && !op.mark && !drill.found && wa && drill.zBottom <= wa.bottom_z + 0.01) {
                 drill.zBottom = wa.bottom_z - drillTool.pointLength();

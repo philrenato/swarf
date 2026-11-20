@@ -64,7 +64,7 @@
     <link rel="stylesheet" type="text/css" href="/moto/menubar.css">
     <link rel="stylesheet" type="text/css" href="index.css">
     <link rel="stylesheet" type="text/css" href="swarf.css">
-    <!-- swarf skins (10-28): wet plastic (default), classic, swarf; swarf-skin.js stamps html[data-skin] before first paint -->
+    <!-- swarf skins: wet plastic (default), classic, swarf; swarf-skin.js stamps html[data-skin] before first paint -->
     <link rel="stylesheet" type="text/css" href="swarf-skin-map.css">
     <link rel="stylesheet" type="text/css" href="swarf-skin-glass.css">
     <link rel="stylesheet" type="text/css" href="swarf-skin-classic.css">
@@ -122,7 +122,7 @@
 <body>
 <div id="app" class="f-col">
     <!-- hide page contents and provide loading message during initialization -->
-    <!-- swarf r14+: curtain uses swarf's own mill-red / bone palette (same
+    <!-- swarf: curtain uses swarf's own mill-red / bone palette (same
          tokens as swarf.css). Same structural rhythm as renato.design's
          404 page: big display word, kicker, pill buttons, italic footnote. -->
     <div id="curtain">
@@ -347,11 +347,11 @@
                 <div id="fdm-output" class="set2-group mode-fdm"></div>
                 <div id="fdm-expert" class="set2-group mode-fdm bottom"></div>
                 <!-- CAM -->
-                <!-- swarf v010 r10 (markup Apr 15 #5/#6): cam-tabs and cam-output
-                     (tabs + strategy) moved to the right rail, stacked under
-                     OBJECTS. Left side now hosts only TOOLPATHS. Stock / Limits /
+                <!-- swarf: cam-tabs and cam-output
+                     (tabs + strategy) live in the right rail, stacked under
+                     OBJECTS. Left side hosts only TOOLPATHS. Stock / Limits /
                      Origin / Expert stay left (expert-only; re-exposed by nerd
-                     mode per markup #7). IDs preserved so init-menu.js keeps
+                     mode). IDs preserved so init-menu.js keeps
                      wiring groups to the right elements regardless of DOM position. -->
                 <div id="cam-stock" class="set2-group mode-cam swarf-expert-only"></div>
                 <div id="cam-limits" class="set2-group mode-cam swarf-expert-only"></div>
@@ -410,16 +410,15 @@
                     <div id="fdm-ranges" class="f-col"></div>
                 </div>
                 <div class="set2-group f-col mode-cam bottom">
-                    <!-- swarf: operation list — opens when TOOLPATHS step is clicked (markup Apr 15) -->
+                    <!-- swarf: operation list — opens when TOOLPATHS step is clicked -->
                     <details id="swarf-toolpaths-details" open>
                     <summary class="set-header mode-cam" title="the steps the machine cuts, in order"><a>steps</a></summary>
                     <div id="camops" class="f-col a-stretch grow">
                         <!-- swarf: live operations list (rough/contour/outline/pocket added here) -->
                         <div id="oplist" class="f-col"></div>
 
-                        <!-- swarf: ALWAYS-VISIBLE add-operation grid. Phil markup Apr 15:
-                             "I still don't see a way to make/add/change/see toolpaths."
-                             Pulled out of the +-popover so the primary action is obvious. -->
+                        <!-- swarf: ALWAYS-VISIBLE add-operation grid, a way to make/add/change/see toolpaths.
+                             Out of the +-popover so the primary action is obvious. -->
                         <!-- the steps' bits: the tool library opener sits on the steps' own line -->
                         <div class="swarf-add-op-label"><span>add a step</span><button id="swarf-open-tools" title="the bits this machine has: add, change or remove one">bits</button></div>
                         <div id="op-add-list" class="opdiv op-grid swarf-add-op-grid">
@@ -454,7 +453,7 @@
         </div>
     </div>
 
-    <!-- swarf v010 r10 (markup Apr 15 #5/#6): right rail — OBJECTS, TABS,
+    <!-- swarf: right rail — OBJECTS, TABS,
          STRATEGY stacked on the right side of the viewport. TOOLPATHS stays
          alone on the left (panel-right, CSS-pinned left). cam-tabs and
          cam-output divs carry their original IDs so init-menu.js wires its
@@ -882,7 +881,7 @@
     <!-- click + drag mouse tracking  -->
     <div id="tracker"></div>
 
-    <!-- swarf 10-27: no cookie banner — swarf sets no cookies (preferences stay in this browser's storage); privacy is linked from About -->
+    <!-- swarf: no cookie banner — swarf sets no cookies (preferences stay in this browser's storage); privacy is linked from About -->
 
     <!-- developer debugging -->
     <div id="stats">
@@ -899,11 +898,11 @@
     </div>
 
 </div>
-<!-- swarf dev-only: on-page error overlay so Phil doesn't need DevTools -->
+<!-- swarf dev-only: on-page error overlay, no DevTools needed -->
 <div id="swarf-err" style="display:none;position:fixed;bottom:0;left:0;right:0;max-height:40vh;overflow:auto;background:#1a0a0a;color:#ff6b5a;font:12px/1.4 monospace;padding:10px;z-index:99999;border-top:2px solid #a8382a;white-space:pre-wrap"></div>
 <script>
 (function(){
-  // swarf v010: gate error overlay behind ?dev=1 — normal users never see it.
+  // swarf: gate error overlay behind ?dev=1 — normal users never see it.
   var qs = new URLSearchParams(location.search);
   if (!qs.has('dev')) return;
   var box = document.getElementById('swarf-err');
@@ -925,7 +924,7 @@
 <!-- swarf material system: stock + chip + tool tinting + flute texture -->
 <script src="swarf-material.js"></script>
 <!-- swarf grid fade: scene fog scaled to part bbox so grid + numbers
-     fade with distance from the work (Phil v009 markup) -->
+     fade with distance from the work -->
 <script src="swarf-grid-fade.js"></script>
 <!-- swarf chip physics: tool-spin-aware shavings, gravity, floor accumulation -->
 <script src="swarf-chips.js"></script>

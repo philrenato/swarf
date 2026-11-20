@@ -1,8 +1,8 @@
 /*
  * swarf bed name — the machine you are designing for, ghosted into the front
  * left corner of the bed, as a printer's build plate carries its maker's name
- * (Phil 10-28: "make sure someone can see clearly what machine they are
- * designing for"). It lies flat on the bed in bed units, so it scales with the
+ * (so anyone can see clearly what machine they are
+ * designing for). It lies flat on the bed in bed units, so it scales with the
  * bed and a part placed over it covers it; it follows every machine change.
  */
 (function () {

@@ -174,21 +174,21 @@ function update_size(updateDark = true) {
 
     if (updateDark) {
        const scheme = getColorScheme();
-       // swarf viewport (per markup Apr 15): dark gray background, translucent red (X)
+       // swarf viewport: dark gray background, translucent red (X)
        // and amber (Y) grid lines, bed sized to the machine. Quieter than LastFirst.
        //   sky #14120f  (dark warm gray)
        //   major grid  X = 0x5a1a14  (translucent red)   Y = 0x5a3a14  (translucent amber)
        //   minor grid  X = 0x2a1a14                      Y = 0x2a2012
        // setGrid(major, minor, colorMajor, colorMinor) takes a single color per level,
        // so we alternate by using major=red-ish, minor=amber-ish as the two visible layers.
-       // swarf viewport v2 (refs pass Apr 15, 20%+): mill-red X rails, iron Y grid,
+       // swarf viewport v2: mill-red X rails, iron Y grid,
        // brighter so the bed reads as a Tron-terminal workfield — still the carving
        // instrument, not a poster. CSS adds soft corner bloom via #container gradients.
-       // swarf grid v3 (markup Apr 15, refs pass): lighter translucent gray floor,
-       // soft gray grid (was red mill-rails, too hot); rulers thinned via faint bone
+       // swarf grid v3: lighter translucent gray floor,
+       // soft gray grid (red mill-rails read too hot); rulers thinned via faint bone
        // color so they read as helvetica-neue-thin in spirit (real font swap requires
        // a new bitmap atlas — deferred).
-       // swarf skins (10-28): the floor's colors come from the skin (swarf-skin.js),
+       // swarf skins: the floor's colors come from the skin (swarf-skin.js),
        // the red-sky look's own when no skin is set
        const SK = self.SwarfSkin, hex = n => '#' + n.toString(16).padStart(6, '0');
        const skc = (k, d) => SK ? SK.color(k, d) : d, skn = (k, d) => SK ? SK.number(k, d) : d;
@@ -202,7 +202,7 @@ function update_size(updateDark = true) {
        }
        space.platform.opacity(skn('floor-opacity', 0.10));
        // swarf: null sky color = transparent scene background, so the body's
-       // red-sky CSS gradient shows through canvas alpha (markup Apr 15 round 4).
+       // red-sky CSS gradient shows through canvas alpha.
        space.sky.set({ color: null, ambient: { intensity: 0.6 } });
        document.documentElement.setAttribute('data-theme', 'dark');
        space.platform.setSize();
@@ -387,8 +387,8 @@ function select(widget, shift, recurse = true) {
     const { event, selection, view } = api;
 
     // swarf: a click on a part while looking at its toolpaths goes back to
-    // arranging, with that part picked (Phil 10-27: "after I make something,
-    // how do I select, delete etc?"). Not while a simulation plays.
+    // arranging, with that part picked, so what was just made can be
+    // selected, deleted and so on. Not while a simulation plays.
     if (!view.is_arrange() && widget && view.get && view.get() === VIEWS.PREVIEW) {
         view.set_arrange();
     }
@@ -723,7 +723,7 @@ function platformDelete(widget, defer) {
         return;
     }
     if (Array.isArray(widget)) {
-        // swarf (review r086 F1): an empty list deletes nothing, so it says nothing
+        // swarf: an empty list deletes nothing, so it says nothing
         if (!widget.length) return;
         const mc = widget.slice();
         for (let i = 0; i < mc.length; i++) {
@@ -768,7 +768,7 @@ function delete_post() {
 }
 
 /**
- * swarf (review 105 P3, P4): one name for a part wherever it is said. A group (a word, a drawing's
+ * swarf: one name for a part wherever it is said. A group (a word, a drawing's
  * pieces kept together) is "shapes (2 pieces)" as a whole, and "shapes piece 2" for one of them.
  * @param {Widget} w
  * @param {boolean} [whole] - name the whole group, not this piece
@@ -788,7 +788,7 @@ function partName(w, whole) {
  * Highlights widgets on hover. Updates when widgets are added/removed/modified.
  */
 function changed() {
-    // swarf r45 (review 10-28b #9, #10): one row per group (a word is one row, "swarf (5 pieces)"),
+    // swarf: one row per group (a word is one row, "swarf (5 pieces)"),
     // and the whole name, cut at its end by CSS if it must be, never in the middle
     const lead = w => !w.group || w.group.length < 2 || w.group[0] === w;
     h.bind($('ws-widgets'), api.widgets.all().filter(lead).map(w => {
@@ -837,11 +837,11 @@ function changed() {
                             [ h.i({ class:"fas fa-trash" }), ]
                         )
                     ])
-                    // swarf: removed vestigial caret-left toggle (markup #2, Apr 15) —
-                    // .widopt already appears on hover via CSS, the button did nothing.
+                    // swarf: no caret-left toggle —
+                    // .widopt already appears on hover via CSS.
                 ]),
-                // swarf (Phil 11-02: "a toggle on each part that grays them; the current machining run
-                // ignores them"): ticked parts are cut; an unticked one stays on the bed, see-through
+                // swarf: a toggle on each part that grays it; the current machining run
+                // ignores it: ticked parts are cut; an unticked one stays on the bed, see-through
                 h.input({
                     type: "checkbox",
                     class: "swarf-cut-tick",
@@ -945,7 +945,7 @@ function layout() {
             gap = gap || (process.slaSupportLayers && process.slaSupportDensity ? 2 : 1);
             break;
         case MODES.CAM:
-            // swarf (review 10-28): parts packed 1 mm apart read as one part, and no bit
+            // swarf: parts packed 1 mm apart read as one part, and no bit
             // fits between them: room for a 1/4 in bit and some
             gap = Math.max(gap || process.ctOutTileSpacing || 1, 12);
             break;
@@ -1090,7 +1090,7 @@ function load_svg(text, name, opt = {}) {
     return made;
 }
 
-// swarf (KCAD's guidelines, via the poster session 10-28): a drawing with an outline drawn twice,
+// swarf (KCAD's guidelines): a drawing with an outline drawn twice,
 // or two outlines lying on top of each other, cuts the same place twice or leaves a sliver. Say
 // so when the parts arrive: same size at the same place is a doubled line, a big overlap is two
 // outlines on top of each other.
@@ -1166,7 +1166,7 @@ function load_svg_into(group, text, name, opt = {}) {
 }
 
 // a solid's faces turned outward: an outline drawn clockwise extrudes inside
-// out (negative volume), which renders dark from above (Phil 10-27: "too dark")
+// out (negative volume), which renders dark from above
 function faceOut(v) {
     let vol = 0;
     for (let i = 0; i + 8 < v.length; i += 9) {
@@ -1279,7 +1279,7 @@ function load_files(files, group) {
                 load_dec();
                 stlCardsDue++;
                 setTimeout(() => { stlCardsDue--; stlUnitsCard(sw, name, read); }, 300);
-                // swarf (Phil 11-16): an STL of several solids arrives as one part: say how to
+                // swarf: an STL of several solids arrives as one part: say how to
                 // make each its own (right-click › separate the parts)
                 setTimeout(() => {
                     try {
@@ -1310,7 +1310,7 @@ function load_files(files, group) {
                         made.push(load_verts(group, obj, obj.name ? `${obj.name}-${name}` : name));
                     }
                     load_dec();
-                    // swarf 115a: say its size and which way is up; Y up / Z up turns it in place
+                    // swarf: say its size and which way is up; Y up / Z up turns it in place
                     setTimeout(() => objUpCard(made, name), 300);
                 };
                 if (objs.length > 1 && !group) {
@@ -1379,7 +1379,7 @@ function load_files(files, group) {
                 const open = svgOpenLines(text);
                 loadSVGDialog(opt => {
                     group = group || [];
-                    // the part is "bracket", not "bracket.svg" (review 10-30 C6: TEX said "kerfs on bracket.svg-1")
+                    // the part is "bracket", not "bracket.svg" (never "kerfs on bracket.svg-1" in TEX)
                     let made;
                     try {
                         made = load_svg_into(group, text, name.replace(/\.svg$/i, ''), opt);
@@ -1399,7 +1399,7 @@ function load_files(files, group) {
                     load_dec();
                 }, load_dec, svgSizeLine(text, svgAssumedPPI(text)), svgAssumedPPI(text));
             } else if (isai) {
-                // swarf r36: Illustrator / PDF drawings through Unreason's reader (web/kiri/swarf-vector.mjs),
+                // swarf: Illustrator / PDF drawings through Unreason's reader (web/kiri/swarf-vector.mjs),
                 // as SVG in mm into the same thickness dialog as an SVG
                 const V = window.SwarfVector;
                 if (!V) { api.show.alert('the drawing reader is still loading: try again', 6); load_dec(); return; }
@@ -1493,7 +1493,7 @@ function lastThickness() {
  * @private
  */
 // swarf: an import's thickness in the cards' units (inches or mm), read as SHAPE reads it
-// (3/4, 19 mm), refused outside 0.1 to 150 mm (torture test 10-29: "3/4" made 3 mm, "abc" 5 mm)
+// (3/4, 19 mm), refused outside 0.1 to 150 mm ("3/4" is never 3 mm, "abc" never 5 mm)
 function depthUnit() { return self.SwarfLength ? self.SwarfLength.unit() : 'mm'; }
 function depthShow(mm) { return self.SwarfLength ? self.SwarfLength.show(mm) : mm; }
 function depthRead(text) {
@@ -1518,9 +1518,9 @@ function svgOpenLines(text) {
     } catch (e) { return 0; }
 }
 
-// swarf: an SVG's width in real units and its viewBox together say how big one unit is; the loader
-// only looked at the width's suffix, so width="8in" viewBox="0 0 203.2 127" came in 25.4 times too
-// big (review 105 F1). The text is rewritten in mm here, so the part, its kept drawing and DRAW agree.
+// swarf: an SVG's width in real units and its viewBox together say how big one unit is; the width's
+// suffix alone would bring width="8in" viewBox="0 0 203.2 127" in 25.4 times too
+// big. The text is rewritten in mm here, so the part, its kept drawing and DRAW agree.
 const SVG_UNITS = { in: 25.4, mm: 1, cm: 10, pt: 25.4 / 72, pc: 25.4 / 6 };
 function svgInMM(text) {
     try {
@@ -1650,7 +1650,7 @@ function dxfSizeLine(w, h, k, ask) {
 
 // units (a DXF that does not say its own): { start: 'mm' | 'inch', size: u => the size line in those units }
 function loadSVGDialog(doit, cancel = () => {}, size = '', ppi = 0, units = null) {
-    // swarf: the dialog speaks SHAPE's words (review 10-28b #7), and starts at
+    // swarf: the dialog speaks SHAPE's words, and starts at
     // the last thickness SHAPE used, so a drawing and a shape come out alike
     const t = lastThickness();
     const opt = {pre: [
@@ -1689,8 +1689,8 @@ function loadSVGDialog(doit, cancel = () => {}, size = '', ppi = 0, units = null
     });
 }
 
-// swarf 115a (review 11-13 #6): an OBJ is read Y up (Rhino and Blender's habit, obj.js), so one saved
-// Z up came in on its edge with no way back. This card says the part's size in shop units and which
+// swarf: an OBJ is read Y up (Rhino and Blender's habit, obj.js), so one saved
+// Z up comes in on its edge. This card says the part's size in shop units and which
 // face is up, and its toggle turns the part in place: Z up is a quarter turn about X from Y up
 // ((x,-z,y) back to (x,y,z)). Each flip is one undo. The part stays as it is when the card closes.
 // the reading of an STL's numbers ('mm', 'in' or 'm') for this machine's bed, and how sure (stl.js stlUnitsWhy)
@@ -1800,7 +1800,7 @@ function stlUnitsFlush() {
 
 const OBJ_TURN = { z: -Math.PI / 2, y: Math.PI / 2 };   // from the other reading to this one
 // OBJs waiting for their card: one card for every OBJ in a drop, and never over another import's
-// dialog (fresh review 11-13: it replaced a pending DXF dialog, whose watcher then quit that load)
+// dialog (replacing a pending DXF dialog would make its watcher quit that load)
 let objWaiting = [], objWaitT = 0;
 function objUpCard(made, name) {
     objWaiting.push(...(made || []).filter(Boolean));

@@ -31,7 +31,7 @@ export async function cam_prepare(widgets, settings, update) {
     const { order, origin } = settings;
 
     // swarf: the job's top, over every part: a rapid clears the tallest part on the bed, not just the
-    // one being cut (review 105: a 9 mm plug beside a 19 mm board crossed 122 mm at Z -4.93, in the wood)
+    // one being cut (a 9 mm plug beside a 19 mm board would cross 122 mm at Z -4.93, in the wood)
     const { camStockIndexed, camStockOffset, camStockZ } = settings.process;
     print.jobTopZ = camStockIndexed ? 0 : Math.max(0, ...active.map(w => camStockOffset ? w.getBoundingBox().dim.z + camStockZ : camStockZ));
 
@@ -62,7 +62,7 @@ export async function cam_prepare(widgets, settings, update) {
         runs.push(prepare_open(widget, settings, print, undefined, says(index++)));
     }
     // swarf: step by step across the parts, so a bit's work is done once on the whole sheet, not once a
-    // part (review 105 M1: three rings and two bits asked for six bit changes). Only when every part has
+    // part (three rings and two bits would ask for six bit changes). Only when every part has
     // the same list of plain steps; a flip, an index or a loop changes the part between steps.
     const plain = runs.every(r => r.types.join() === runs[0].types.join() && !r.types.some(t => PART_BY_PART.has(t)));
     const sequence = plain
@@ -71,7 +71,7 @@ export async function cam_prepare(widgets, settings, update) {
     let lastRun, lastTool;
     for (const [run, i] of sequence) {
         // a step that cuts nothing here (no floor picked, a mark on another part) leaves no moves, and so
-        // no bit change or router start for nothing (review 105 F4)
+        // no bit change or router start for nothing
         const before = print.output.length, from = startPoint;
         const point = await run.step(i, startPoint);
         const made = print.output.slice(before);
@@ -240,8 +240,8 @@ function prepare_open(widget, settings, print, firstPoint, update) {
         }
     }
 
-    // swarf: the ShopBot's motors run rough under ~25 mm/s (10-29). A cut set above that never slows
-    // into it for a ramp or full engagement (Phil 11-04); a cut set slower is left as it is.
+    // swarf: the ShopBot's motors run rough under ~25 mm/s. A cut set above that never slows
+    // into it for a ramp or full engagement; a cut set slower is left as it is.
     function aboveRoughBand(rate) {
         const band = /shopbot/i.test(settings.device?.deviceName || '') ? 1500 : 0;
         return feedRate >= band ? Math.max(rate, band) : rate;

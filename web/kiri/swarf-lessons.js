@@ -1,9 +1,8 @@
 /*
- * swarf lessons — test cuts for learning the ShopBot (Phil 10-28: "devise a couple of
- * test/training parts that have someone screwing say a piece of small plywood to the bed,
- * having them 0 off the front left corner and then tells you what bit they have and then
- * guide them through a test cut … have me measure the result"; then "allow user to tell
- * you how big the test board is").
+ * swarf lessons — test cuts for learning the ShopBot: test/training parts that have someone
+ * screw a piece of small plywood to the bed, zero off the front left corner, say what bit
+ * they have, and be guided through a test cut, then measure the result; the student
+ * says how big the test board is.
  *
  * Two parts, both sized to the scrap the student has:
  *   1  the square and the circle: a groove 3 mm deep, a square and a circle inside it. The
@@ -18,7 +17,7 @@
   const R = () => window.__swarfRun;
   const KEY = 'swarf-lesson-board', RESULTS = 'swarf-test-results';
   const BITS = [
-    { id: 'e38', name: '3/8 in flat end mill', d: 9.525 },   // the shop's (Phil 10-28)
+    { id: 'e38', name: '3/8 in flat end mill', d: 9.525 },   // the shop's
     { id: 'e14', name: '1/4 in flat end mill', d: 6.35 },
     { id: 'e6', name: '6 mm flat end mill', d: 6 },
     { id: 'e18', name: '1/8 in flat end mill', d: 3.175 },
@@ -41,12 +40,12 @@
     for (const c of kids) if (c != null) e.append(c);
     return e;
   };
-  // no widow: the last two words held together; not in classic, whose Geneva draws that space double (review 10-29)
+  // no widow: the last two words held together; not in classic, whose Geneva draws that space double
   const tie = t => typeof t === 'string' && t.trim().split(/\s+/).length > 3 && document.documentElement.dataset.skin !== 'classic' ? t.replace(/ (\S+)\s*$/, '\u00a0$1') : t;
-  // a length typed in mm, or with its unit (6in, 1 1/2"): Phil 10-29
+  // a length typed in mm, or with its unit (6in, 1 1/2")
   const num = (v, d) => { const n = window.SwarfLength ? SwarfLength.parse(v, 'mm') : parseFloat(String(v).replace(',', '.')); return isFinite(n) ? n : d; };
   const f3 = v => (Math.round(v * 1000) / 1000).toString();
-  // the board card in cam's units (deep review 10-31 S6: it asked in mm with inches set); held in mm
+  // the board card in cam's units (never mm with inches set); held in mm
   const LN = () => window.SwarfLength;
   const unitNow = () => (LN() ? LN().unit() : 'mm');
   const fld = mm => (LN() ? LN().field(mm) : String(+(+mm).toFixed(2)));
@@ -75,7 +74,7 @@
   // ---- 2: the board: its size, screwed down ----
   function boardCard(lesson) {
     const r = R(), b = board();
-    // 6in becomes 152.4 as soon as it is typed (Phil 10-29)
+    // 6in becomes 152.4 as soon as it is typed
     const inp = (v, title) => { const i = el('input', { type: 'text', inputmode: 'decimal', value: fld(v), title: `${title} (${unitNow() === 'in' ? '6, 1 1/2 or 38 mm' : '150, 6in or 1 1/2"'} all work)`, style: 'width:72px;text-align:right' }); i.addEventListener('change', () => { const n = numU(i.value, NaN); if (isFinite(n)) i.value = fld(n); }); return i; };
     const w = inp(b.w, 'left to right'), d = inp(b.d, 'front to back'), t = inp(b.t, 'thickness: measure it');
     for (const i of [w, d, t]) i.addEventListener('keydown', e => e.stopPropagation());
@@ -118,7 +117,7 @@
   }
 
   // ---- the programs ----
-  // plywood, with the same rule as every other toolpath (10-29: above the motors' rough band where
+  // plywood, with the same rule as every other toolpath (above the motors' rough band where
   // the bit can take it); the pass stays shallow, a first cut should sound easy
   function feeds(bit) {
     const fixed = bit.d >= 9 ? { feed: 1500, plunge: 300, pass: 2.0 } : bit.d >= 6 ? { feed: 1500, plunge: 300, pass: 1.5 } : { feed: 900, plunge: 240, pass: 1.0 };

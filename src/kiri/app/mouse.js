@@ -164,7 +164,7 @@ class InteractionControl {
             if (event && event.target.nodeName === "CANVAS") {
                 const w = object && object.object && object.object.widget;
                 if (w && w.group && w.group.length > 1) {
-                    // swarf r45 (review 10-28b #10): a click on a letter picks its word, as the API's select does
+                    // swarf: a click on a letter picks its word, as the API's select does
                     const had = this.#api.selection.contains(w);
                     if (!event.shiftKey) { this.#platform.deselect(); this.#platform.select(w); }
                     else if (had) { for (const g of w.group) this.#platform.deselect(g, false); }
@@ -172,7 +172,7 @@ class InteractionControl {
                 } else if (w) {
                     this.#platform.select(w, event.shiftKey, false);
                 } else if (!event.shiftKey) {
-                    // swarf r45 (review 10-28b #13): a click on the bare bed (or its grid) lets go
+                    // swarf: a click on the bare bed (or its grid) lets go
                     this.#platform.deselect();
                 }
             } else {

@@ -133,7 +133,7 @@ function update_info() {
         dy = bounds.max.y - bounds.min.y,
         dz = bounds.max.z - bounds.min.z,
         scale = api.view.unit_scale();
-    // swarf (Phil 11-01): inches to 4 places, so 20 mm reads 0.787 in the size card, not 0.79
+    // swarf: inches to 4 places, so 20 mm reads 0.787 in the size card, not 0.79
     ui.size.X.value = ui.size.X.was = (dx / scale).round(scale === 25.4 ? 4 : 2)
     ui.size.Y.value = ui.size.Y.was = (dy / scale).round(scale === 25.4 ? 4 : 2)
     ui.size.Z.value = ui.size.Z.was = (dz / scale).round(scale === 25.4 ? 4 : 2)
@@ -212,7 +212,7 @@ function duplicate() {
     api.doit.quietly(() => for_widgets(widget => {
         const bb = widget.mesh.getBoundingBox();
         const op = widget.track.pos;
-        // swarf r45 (review 10-28b #4): 12 mm to the right, the layout's gap, and no re-pack,
+        // swarf: 12 mm to the right, the layout's gap, and no re-pack,
         // so the original stays where it was put
         const nw = copyOf(widget);
         nw.move(op.x + bb.max.x - bb.min.x + 12, op.y, op.z, true);
@@ -450,8 +450,8 @@ function isolateBodies(){
 }
 
 /**
- * swarf (Phil 11-16: "if multiple parts come in together, for instance as an stl, allow a right
- * click to ungroup these parts so they can be selected and worked on and deleted separately").
+ * swarf: when several parts come in together, for instance as an stl, a right
+ * click ungroups them so they can be selected and worked on and deleted separately.
  *
  * pieces(w): the separate solids in one part's mesh, as lists of triangle numbers. Triangles that
  * share a corner (by position, to 1/10000 mm) are one piece. A closed shell turned inside out that
@@ -914,7 +914,7 @@ function input_binding(ui) {
         ui.size.Y,         (e) => input_resize(e, ui),
         ui.size.Z,         (e) => input_resize(e, ui),
     ]);
-    // swarf r14+: also apply on blur so typing a value and tabbing/clicking
+    // swarf: also apply on blur so typing a value and tabbing/clicking
     // away works without hunting for Enter. Guard with a `was` check so an
     // unchanged field (e.g. user just focused and left) doesn't fire.
     const applyScale = (e) => { if (parseFloat(e.target.value) !== parseFloat(e.target.was)) input_scale(e, ui); };

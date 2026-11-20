@@ -15,8 +15,7 @@
 (function () {
   'use strict';
 
-  // Markup toolbar is always on while we're actively iterating on swarf.
-  // (Previously gated behind ?dev=1 / ?markup=1 to hide it in "normal" use.)
+  // Once loaded, the markup toolbar is always on; index.html decides whether it loads.
 
   // ── STATE ──────────────────────────────────────────────────────────────────
   const state = {
@@ -501,7 +500,7 @@
     });
   }
 
-  // swarf v010: collapse/expand the markup toolbar horizontally
+  // swarf: collapse/expand the markup toolbar horizontally
   (function wireCollapse() {
     const COLLAPSE_KEY = 'swarf-markup-toolbar-collapsed';
     const btn = document.getElementById('rd-btn-collapse');
@@ -913,7 +912,7 @@
   //      "new": "Revised text...",
   //      "default": "old" }]                     // which is pre-selected
   //
-  // Phil picks old/new, can edit either textarea.
+  // the reviewer picks old/new, can edit either textarea.
   // Decisions land in markup-feedback.json under "compareDecisions".
 
   state.compareDecisions = [];  // { id, choice, text }

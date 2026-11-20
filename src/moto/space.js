@@ -1052,7 +1052,7 @@ function keyHandler(evt) {
     updateLastAction();
     if (!defaultKeys || inputHasFocus()) return false;
     if (evt.metaKey) return false;
-    // swarf (Phil 11-01): F fits everything in view from where you are looking, in perspective, in cam;
+    // swarf: F fits everything in view from where you are looking, in perspective, in cam;
     // DRAW, TEX and control keep their own F (their own boards)
     if ((evt.charCode === cca('f') || evt.charCode === cca('F')) && typeof document !== 'undefined' && document.body
         && !/\bswarf-(draw|tex|run)-open\b/.test(document.body.className)) {
@@ -1463,7 +1463,6 @@ let Space = {
         setColor: (c) => {
             // swarf: allow null to punch a hole through the 3D scene so the body
             // CSS gradient (red sky → indigo) shows through canvas alpha:true
-            // (markup Apr 15 round 4 — "background still isn't redsky texture gradient")
             if (c === null) { SCENE.background = null; return; }
             SCENE.background = new THREE.Color(c);
         },
@@ -2103,8 +2102,7 @@ let Space = {
             preserveDrawingBuffer: true,
             logarithmicDepthBuffer: true,
             // swarf: alpha so the body's sky gradient shows through the canvas
-            // (markup Apr 15 — "background of scene should be textured red to blue
-            // gradient, like sky references in refs").
+            // (a textured red to blue gradient, like a sky).
             alpha: true
         });
         renderer.setClearColor(0x000000, 0);
@@ -2119,7 +2117,7 @@ let Space = {
             new THREE.PerspectiveCamera(perspective, aspect(), 0.1, 100000);
 
         camera.position.set(0, 200, 340);
-        // swarf: the stage as sharp as the page around it (UnRest notes 11-06: a scene pixel was a 2×2 block)
+        // swarf: the stage as sharp as the page around it (not a 2×2 block per scene pixel)
         renderer.setPixelRatio(Math.min(WIN.devicePixelRatio || 1, 3));
         renderer.setSize(width(), height());
         domelement.appendChild(renderer.domElement);

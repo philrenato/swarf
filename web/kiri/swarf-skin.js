@@ -1,7 +1,7 @@
 /*
- * swarf skin — three looks for the whole app (Phil 10-28: "two alternate skin packs
- * for the entire app that take it from its present futuristic look to: wet
- * plastic/liquid glass and classic OS").
+ * swarf skin — three looks for the whole app (two alternate skin packs
+ * that take it from its futuristic look to wet
+ * plastic/liquid glass and classic OS).
  *
  *   swarf    the red-sky mill look (no data-skin attribute: the base stylesheets alone)
  *   glass    wet plastic: frosted panes, jelly buttons, a pale sky
@@ -23,7 +23,7 @@
     { id: 'classic', name: 'classic', title: 'a classic desktop: BeOS tabs, Windows 95 bevels, Mac OS 9 pinstripes', bar: '#d6d6d6' }
   ];
   const root = document.documentElement;
-  // wet plastic is the default (Phil 10-28: "Make the wet plastic aesthetic the default")
+  // wet plastic is the default
   let current = 'glass';
   try { const s = localStorage.getItem(KEY); if (SKINS.some(k => k.id === s)) current = s; } catch (e) { /* private window */ }
   // ?skin=glass in the address opens in that skin (and keeps it)

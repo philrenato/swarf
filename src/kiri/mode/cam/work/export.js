@@ -243,7 +243,7 @@ export function cam_export(print, online) {
 
         // on spindle change (deferred from layer transition so it's post-toolchange)
         // swarf: a bit change always turns the router back on. An op with no speed of its own (TEX, an
-        // inlay) wrote none, and the next bit went in stopped (review 105): the last speed, else the top
+        // inlay) writes none, and the next bit must not go in stopped: the last speed, else the top
         // at a bit start the bit rises to the first point's height before the router starts, so a bit
         // left resting on the board after zeroing never spins in place
         const firstMove = points === 0 || changeTool;
@@ -327,9 +327,9 @@ export function cam_export(print, online) {
             center = out.center,
             nl = (compact_output && lastGn === gn) ? [] : [gn],
             dist = Math.sqrt(dx * dx + dy * dy + dz * dz),
-            // swarf: the Z limit holds the Z motion, not the whole move. It held any move that went
-            // down at all to the plunge speed, so a 260 mm ramp dropping 1.8 mm crawled at 5 mm/s
-            // and so did every downhill step of a texture (Phil 11-04: "Air cut is going VERY slow")
+            // swarf: the Z limit holds the Z motion, not the whole move. Holding any move that goes
+            // down at all to the plunge speed would crawl a 260 mm ramp dropping 1.8 mm at 5 mm/s,
+            // and every downhill step of a texture with it
             maxf = (dz < 0 && maxZd ? Math.min(maxZd * dist / -dz, maxXYd || Infinity) : maxXYd) || speed,
             feed = Math.min(speed || maxf, maxf),
             newFeed = feed && feed !== pos.f;

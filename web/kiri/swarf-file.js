@@ -1,7 +1,7 @@
 /*
- * swarf file — a .swarf project (Phil 10-30: "a superset filetype like .swarf that saved
- * everything and opened up with everything exactly the same, maybe on a different machine,
- * by drag and drop"). file › save project (.swarf), or ⌘S; open it with file › import, by
+ * swarf file — a .swarf project (a superset filetype that saves
+ * everything and opens with everything exactly the same, maybe on a different machine,
+ * by drag and drop). file › save project (.swarf), or ⌘S; open it with file › import, by
  * dropping it on the bed, or by double-clicking it when swarf is installed.
  *
  * A .swarf is a zip of three files and one binary file per part:
@@ -151,7 +151,7 @@
     // the machine
     const fdev = clone(file.device || (file.cdev && file.cdev[MODE]) || null);
     let devName = (file.filter && file.filter[MODE]) || (fdev && fdev.deviceName) || '';
-    // a name that is an object's own key (__proto__, constructor) cannot be a map's key (deep review P10)
+    // a name that is an object's own key (__proto__, constructor) cannot be a map's key
     if (typeof devName !== 'string' || devName in Object.prototype) devName = '';
     const oldDev = devName;
     if (fdev && devName) {
@@ -401,7 +401,7 @@
   }
 
   // DRAW or TEX open: leave as done does, so what is on the board goes in the file
-  // (whole-app review r086 F5) a save never leaves the mode or drops work: an outline still being
+  // a save never leaves the mode or drops work: an outline still being
   // drawn refuses the save, in DRAW's own line, saying why; otherwise the mode keeps its changes
   // as done does, the file is written, and the mode comes straight back, as it was left
   function leaveModes(apply) {
@@ -412,7 +412,7 @@
         if (M.say) M.say('Finish the outline first (click its first point to close it, or press Esc to drop it), then save.');
         return false;
       }
-      // a stroke still under the mouse is not cut short by a save (deep review S3)
+      // a stroke still under the mouse is not cut short by a save
       if (apply && st.drag) {
         if (M.say) M.say('Let go of the mouse, then save.');
         return false;
@@ -434,7 +434,7 @@
     return true;
   }
 
-  // the steps a student sees: Kiri's '|' end-of-steps divider is not one (review 10-30 F3)
+  // the steps a student sees: Kiri's '|' end-of-steps divider is not one
   const stepCount = () => { try { return (api().conf.get().process.ops || []).filter(o => o && o.type !== '|').length; } catch (e) { return 0; } };
 
   function nameFor() {
@@ -570,8 +570,8 @@
     setTimeout(() => { window.__swarfRestoring = false; }, 5000);   // never left on by a throw
     try { if (a.view && a.view.set_arrange) a.view.set_arrange(); } catch (e) { /* no view yet */ }
     return new Promise(resolve => {
-      // a file Kiri cannot take (a bad part) lets go of the holds, or feeds stay frozen till a reload
-      // (deep review 10-31 M3); the throw rejects, and open() says swarf could not open it
+      // a file Kiri cannot take (a bad part) lets go of the holds, or feeds stay frozen till a reload;
+      // the throw rejects, and open() says swarf could not open it
       try { a.conf.import({ settings: merged.settings, work: ws.work || [], view: ws.view, version: ws.version, time: ws.time || Date.now() }, false); }
       catch (e) {
         const ok = putBack();
@@ -592,7 +592,7 @@
         try { a.conf.update_fields(); a.platform.update_size(); a.platform.update_origin(); } catch (e) { /* none */ }
         try { a.event.emit('cam.op.render'); } catch (e) { /* none */ }
         // the saved camera, unless it shows no part whole (a file saved looking from inside a
-        // part, r086 check M1): then the parts are framed
+        // part): then the parts are framed
         try { if (a.reveal) a.reveal(); } catch (e) { /* no view */ }
         remember();
         window.__swarfRestoring = false;

@@ -12,11 +12,11 @@ let meshes = {},
     label = {},
     lineTracker,
     material,
-    // swarf r6: more speed options (Phil markup)
+    // swarf: more speed options
     speedValues = [0.5, 1, 2, 4, 8, 16, 32],
     speedNames  = ["½×","1×","2×","4×","8×","16×","!!"],
     speedMax = speedValues.length - 1,
-    speedIndex = 1,  // swarf v010 r6: default 1× (speedValues[1])
+    speedIndex = 1,  // swarf: default 1× (speedValues[1])
     speed,
     origin,
     color = 0,
@@ -76,7 +76,7 @@ export function animate2(api, delay) {
         }
 
         updateSpeed(0);
-        // swarf r6: auto-play when SIMULATE fires (matches anim-2d behavior)
+        // swarf: auto-play when SIMULATE fires (matches anim-2d behavior)
         setTimeout(() => play({}), delay || 0);
         toggleTrans(undefined, false);
         origin = settings.origin;
@@ -105,7 +105,7 @@ Object.assign(client, {
 
     animate_setup2(settings, ondone) {
         initPathMesh();
-        // swarf r7: stock + widget tinted by current swarf material
+        // swarf: stock + widget tinted by current swarf material
         const sm = window.__swarfMaterial;
         const a = sm && sm.appearance;
         color = dark ? 0x888888 : 0;
@@ -150,10 +150,10 @@ function initPathMesh() {
                 opacity: 0.9,
                 blending: THREE.AdditiveBlending,
                 depthWrite: false,
-                // swarf v010 r9: fog was killing the additive ribbon. The
-                // scene fog added in v009 for floor-fade applies per-material
+                // swarf: fog would kill the additive ribbon. The
+                // scene fog for floor-fade applies per-material
                 // alpha attenuation that, combined with additive blending,
-                // drove the ribbon to invisible. Opt this one material out.
+                // drives the ribbon to invisible. Opt this one material out.
                 fog: false,
               })
             : new THREE.LineBasicMaterial({ color: dark ? 0xffff00 : 0x771100 })),
@@ -201,7 +201,7 @@ function initPathMesh() {
             lines.setRotationFromEuler(rot);
         },
         visible(bool) {
-            // swarf r9: ribbon visibility is governed by __swarfLightstream
+            // swarf: ribbon visibility is governed by __swarfLightstream
             // (the user toggle). The legacy `show` var used a stale localStorage
             // pref that could force-hide the ribbon mid-simulate.
             const want = (window.__swarfLightstream !== false) && bool;
@@ -230,7 +230,7 @@ function meshAdd(id, ind, pos, ilen, plen) {
     const ia = ilen ? ind.subarray(0, ilen) : ind;
     geo.setAttribute('position', new THREE.BufferAttribute(pa, 3));
     geo.setIndex(new THREE.BufferAttribute(ia, 1));
-    // swarf v010: 3D tool ids are NEGATIVE — give them the silver flute PBR
+    // swarf: 3D tool ids are NEGATIVE — give them the silver flute PBR
     // material so the cutter doesn't read as the same material as the stock.
     let useMat = material;
     const isTool = (id !== undefined && id < 0);
@@ -366,7 +366,7 @@ function handleUpdate(data) {
         label.x.value = (pos.x - origin.x).toFixed(2);
         label.y.value = (pos.y + origin.y).toFixed(2);
         label.z.value = (pos.z - origin.z).toFixed(2);
-        // swarf r6: broadcast tool position for chip physics — any non-zero id
+        // swarf: broadcast tool position for chip physics — any non-zero id
         // (stock = 0, tool can be negative or positive depending on mode).
         if (id !== 0 && id !== undefined) {
             try { api.event.emit('swarf.tool.move', { id, pos }); } catch (e) {}

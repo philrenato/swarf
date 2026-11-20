@@ -53,7 +53,7 @@ async function path(levels, update, opts = {}) {
     const flat = opts.flat;
     const thin = opts.thin && !flat;
     const ckspeed = isCAM || opts.speed !== false;
-    // swarf v010 r5: Tron lightstream mode — re-tint Kiri's PREVIEW toolpath
+    // swarf: Tron lightstream mode — re-tint Kiri's PREVIEW toolpath
     // layers as mill-red glowing ribbons when toggled on via View menu.
     const lightstream = (typeof window !== 'undefined' && window.__swarfLightstream);
     const headColor = 0x888888;
@@ -247,7 +247,7 @@ async function path(levels, update, opts = {}) {
             pushPrint(lastOut.tool, current)
         }
 
-        // swarf v010 r5: lightstream re-tint — all marker glyphs become
+        // swarf: lightstream re-tint — all marker glyphs become
         // glowing mill-red when lightstream is on.
         const lsLine = lightstream ? 0xff6040 : null;
         const lsFace = lightstream ? 0xff2a1a : null;

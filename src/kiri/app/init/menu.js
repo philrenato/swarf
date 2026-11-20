@@ -52,7 +52,7 @@ function topMenu(actions, { text, lk, iconClass, side = 'left', right = false, i
     ]);
 }
 
-// swarf r14+: move panel — mirrors the rotate panel's pattern.
+// swarf: move panel — mirrors the rotate panel's pattern.
 // Translates the selected widget in X / Y by the value in the input, with
 // chevron buttons for +/- direction. Z intentionally omitted — parts sit
 // on the platform in CAM. Closes/drags identically to the other panels.
@@ -156,7 +156,7 @@ function content(actions) {
         ]),
         div({ class: 'menubar-separator el-app-hide' }),
         div({ class: 'f-row top-menu grow' }, [
-            // swarf (whole-app review r086 C1): one name per act. open a drawing or model, open a
+            // swarf: one name per act. open a drawing or model, open a
             // project, save the project, export the machine's file; the rest are saves of a part
             topMenu(actions, {
                 text: 'files', lk: 'fe_menu', items: [
@@ -180,7 +180,7 @@ function content(actions) {
                     menuItem(actions, { id: 'swarf-file-save', text: 'save project (.swarf)', title: 'the whole job, to open again here or elsewhere (⌘S)', iconClass: 'fas fa-floppy-disk', children: span({ class: 'swarf-key', _: '⌘S' }) }),
                     menuItem(actions, { id: 'swarf-file-export', text: 'export the machine file…', title: 'the file the machine runs: the same as export in the row', iconClass: 'fas fa-file-export', onclick(ev) { ev && ev.stopPropagation && ev.stopPropagation(); document.body.click(); const x = document.getElementById('act-export'); if (x) x.click(); } }),
                     hr(),
-                    // swarf r36: the drawing behind shapes and 2D imports, true size (web/kiri/swarf-shape.js)
+                    // swarf: the drawing behind shapes and 2D imports, true size (web/kiri/swarf-shape.js)
                     menuItem(actions, { id: 'swarf-save-drawing', text: 'save the drawing (DXF, AI, SVG, PDF)', title: 'the outline behind a shape or a 2D import, true size', iconClass: 'fas fa-bezier-curve' }),
                     menuItem(actions, { id: 'mesh-export-stl', text: 'save the part as a model (STL)', title: 'the picked part as a mesh, for printing or rendering', iconClass: 'fas fa-dice-d20' }),
                     menuItem(actions, { id: 'mesh-export-obj', text: 'save the part as a model (OBJ)', title: 'the picked part as a mesh, for rendering or another modeler', iconClass: 'fas fa-dice-d20' }),
@@ -189,7 +189,7 @@ function content(actions) {
                     menuItem(actions, { id: 'app-quit', lk: 'quit', text: 'quit', className: 'hide', onclick() { window.close() } })
                 ]
             }),
-            // swarf (whole-app review r086 C2): the edit menu a student expects; the mesh tools
+            // swarf: the edit menu a student expects; the mesh tools
             // (face down, face left, merge, isolate) wait in advanced
             topMenu(actions, {
                 text: 'edit', lk: 'ed_menu', items: [
@@ -230,7 +230,7 @@ function content(actions) {
                     menuItem(actions, { id: 'render-ghost', text: 'see-through part', title: 'draw parts see-through', iconClass: 'fas fa-border-none' }),
                     menuItem(actions, { id: 'render-edges', text: 'edges', title: 'draw the sharp edges of parts on or off', iconClass: 'fa-regular fa-square' }),
                     hr(),
-                    // swarf v010 r7 rev2: simulate display toggles — click
+                    // swarf: simulate display toggles — click
                     // dispatches to the hidden sim-bar button with the same
                     // onclick handler, so behavior is identical whether the
                     // user uses the sim bar icons or this menu.
@@ -244,7 +244,7 @@ function content(actions) {
                     menuItem(actions, { id: 'app-xpnd', text: 'fullscreen', title: 'swarf fills the screen; Esc comes back', iconClass: 'fas fa-maximize' })
                 ]
             }),
-            // swarf: Setup moved to left (Mac app convention — markup Apr 15)
+            // swarf: Setup on the left (Mac app convention)
             topMenu(actions, {
                 text: 'setup', items: [
                     menuItem(actions, { id: 'set-device', text: 'machine', title: 'which machine this job is for: the ShopBot or the MR-1', iconClass: 'fas fa-cube' }),
@@ -258,10 +258,10 @@ function content(actions) {
             // swarf: Info renamed Help, moved to left. Contains About, Searchable Help, Concordance.
             topMenu(actions, {
                 text: 'help', items: [
-                    // swarf (Phil 10-28): the shop poster as a walk-through (web/kiri/swarf-tutorial.js)
+                    // swarf: the shop poster as a walk-through (web/kiri/swarf-tutorial.js)
                     menuItem(actions, { id: 'swarf-quickstart', text: 'ShopBot quick start', title: 'a drawing to a cut part in ten steps', iconClass: 'fas fa-person-chalkboard' }),
                     menuItem(actions, { id: 'swarf-help-search', text: 'search help…', title: 'search help', iconClass: 'fas fa-magnifying-glass' }),
-                    // swarf (Phil 11-01): the videos about swarf, on YouTube, in a new tab
+                    // swarf: the videos about swarf, on YouTube, in a new tab
                     menuItem(actions, { id: 'swarf-videos', text: 'swarf videos', title: 'videos about swarf, on YouTube (opens a new tab)', iconClass: 'fas fa-circle-play' }),
                     menuItem(actions, { id: 'swarf-concordance', text: 'every word in swarf', title: 'every named thing in swarf, one line each', iconClass: 'fas fa-book-open' }),
                     hr(),
@@ -274,7 +274,7 @@ function content(actions) {
                 span({ id: 'tool-nozzle' }, [ div({ id: 'ft-nozzle' }) ])
             ]),
             div({ class: 'grow' }),
-            // swarf: language selector removed — English-only (spec authorized 2026-04-14)
+            // swarf: no language selector — English-only
         ]),
         movePanel(actions),
         rotatePanel(actions),
@@ -283,15 +283,15 @@ function content(actions) {
 }
 
 function modeTools(actions) {
-    // swarf v010 r7 workflow bar — collapsed to four verbs:
+    // swarf workflow bar — collapsed to four verbs:
     //   IMPORT · TOOLPATHS · SIMULATE · CLEAR · EXPORT
-    // Per Phil markup: TOOLPATHS now combines the old "toolpaths" (arrange
+    // TOOLPATHS combines Kiri's "toolpaths" (arrange
     // view) and "preview" (slice+render paths) into one step. Until that
     // button is hit, NO paths are visible. Clicking it generates and
     // previews them. CLEAR (X) un-previews and wipes any sim state so the
     // scene returns to a clean arrange.
     return [
-        // swarf (Phil 10-28): CAM — shown only in another mode (draw, control), where it
+        // swarf: CAM — shown only in another mode (draw, control), where it
         // stands for all of cam's steps and leads back to them (web/kiri/swarf-modes.js)
         span({ id: 'swarf-step-cam', class: 'swarf-step swarf-step-cam', title: 'back to cam: import, shape, toolpaths, simulate, export' }, [
             span([icon('fas fa-cube')]),
@@ -301,12 +301,12 @@ function modeTools(actions) {
             span([icon('fas fa-file-arrow-up')]),
             label({ _: 'import' })
         ]),
-        // swarf r36: SHAPE — make a circle, rectangle, ring… with a thickness (web/kiri/swarf-shape.js)
+        // swarf: SHAPE — make a circle, rectangle, ring… with a thickness (web/kiri/swarf-shape.js)
         span({ id: 'swarf-step-shape', class: 'swarf-step', title: 'make a circle, rectangle, ring, polygon, star or slot' }, [
             span([icon('fas fa-shapes')]),
             label({ _: 'shape' })
         ]),
-        // swarf r37: DRAW — the bed from above as a drawing: move points, draw outlines (web/kiri/swarf-draw.js)
+        // swarf: DRAW — the bed from above as a drawing: move points, draw outlines (web/kiri/swarf-draw.js)
         span({ id: 'swarf-step-draw', class: 'swarf-step', title: "move a part's points, or draw with pen, shapes or words" }, [
             span([icon('fas fa-pen-nib')]),
             label({ _: 'draw' })
@@ -318,7 +318,7 @@ function modeTools(actions) {
         ]),
         // Combined TOOLPATHS — fires preview (slice + render paths). Clicking
         // also switches to arrange view so the left drawer for op editing
-        // stays reachable. The old 'view-arrange' button is gone because the
+        // stays reachable. No 'view-arrange' button: the
         // left TOOLPATHS drawer handles op setup directly.
         span({ id: 'act-paths', ...on(actions, 'act-paths'), class: 'swarf-step', title: 'make the toolpaths for the steps and show them' }, [
             span([icon('fas fa-route')]),
@@ -328,7 +328,7 @@ function modeTools(actions) {
             span([icon('fas fa-play')]),
             label({ id: 'label-animate', _: 'simulate' })
         ]),
-        // swarf v010 r7: CLEAR — nuke all path/preview/sim state
+        // swarf: CLEAR — nuke all path/preview/sim state
         span({ id: 'act-clear', ...on(actions, 'act-clear'), class: 'swarf-step swarf-step-clear', title: 'clear the toolpaths and the simulation' }, [
             span([icon('fas fa-xmark')]),
             label({ id: 'label-clear', _: 'clear' })
@@ -337,7 +337,7 @@ function modeTools(actions) {
             span([icon('fas fa-file-export')]),
             label({ id: 'label-export', _: 'export' })
         ]),
-        // swarf r32 (Phil 10-27): CONTROL is the last step — swarf has two modes, cam
+        // swarf: CONTROL is the last step — swarf has two modes, cam
         // and control; control runs these toolpaths on the ShopBot (web/kiri/swarf-run.js)
         span({ id: 'swarf-step-run', class: 'swarf-step swarf-step-run', title: 'control the ShopBot: bring these toolpaths, jog, zero, trace, cut' }, [
             span([icon('fas fa-circle-play')]),

@@ -9,13 +9,13 @@
  * Pattern borrowed from interfacing's phone-edition banner (see
  * philrenato-web/interfacing/play/js/global-palette.js). Same url-param
  * escape hatches (?phone=1 forces on, ?full=1 forces off), persisted in
- * localStorage so Phil can preview on desktop / override on phone.
+ * localStorage, to preview on desktop / override on phone.
  */
 (function () {
   'use strict';
   const KEY = 'swarf_phone_mode'; // "auto" | "on" | "off"
   const params = new URLSearchParams(location.search);
-  // storage can be blocked (a lab policy): the wall still works, it just forgets (review r093 A11)
+  // storage can be blocked (a lab policy): the wall still works, it just forgets
   const get = () => { try { return localStorage.getItem(KEY); } catch (e) { return null; } };
   const put = v => { try { localStorage.setItem(KEY, v); } catch (e) { /* blocked */ } };
   if (params.get('phone') === '1') put('on');

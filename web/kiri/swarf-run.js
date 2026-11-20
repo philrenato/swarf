@@ -1,7 +1,7 @@
 /**
  * swarf run — Run mode: drive the ShopBot (or the MR-1, over its GRBL board) from swarf.
  *
- * Layout (Phil, 10-22): preview upper left, blank until a program loads; jog
+ * Layout: preview upper left, blank until a program loads; jog
  * upper right, always there, locked while a program runs. Program and its
  * steps lower left; machine status lower right.
  *
@@ -41,18 +41,18 @@
     const rpm = [...new Set(ev.filter(e => e.kind === 'rpm').map(e => e.value).filter(v => v > 0))];
     return { names, rpm };
   }
-  // The shop router is a Porter-Cable 7518 with its own five-step dial (Phil 10-27).
-  // Its five settings, from Porter-Cable's listings for the 7518 (10-27); its selector is marked in rpm.
+  // The shop router is a Porter-Cable 7518 with its own five-step dial.
+  // Its five settings, from Porter-Cable's listings for the 7518; its selector is marked in rpm.
   const DIAL = [[1, 10000], [2, 13000], [3, 16000], [4, 19000], [5, 21000]];
   function dialFor(rpm) {
     const d = DIAL.reduce((a, b) => Math.abs(b[1] - rpm) < Math.abs(a[1] - rpm) ? b : a);
-    // a speed past the dial's ends says so plainly, never as two numbers that disagree (review 10-28b #25)
+    // a speed past the dial's ends says so plainly, never as two numbers that disagree
     if (rpm < DIAL[0][1]) return `setting 1, its slowest (${DIAL[0][1].toLocaleString()} rpm; the file asked ${rpm.toLocaleString()})`;
     if (rpm > DIAL[4][1]) return `setting 5, its fastest (${DIAL[4][1].toLocaleString()} rpm; the file asked ${rpm.toLocaleString()})`;
     return `setting ${d[0]} (${d[1].toLocaleString()} rpm${d[1] !== rpm ? `; the file asked ${rpm.toLocaleString()}` : ''})`;
   }
   // line: a continue from that line names the bit and speed in effect there, not the file's first
-  // an inch file: the student confirms its size in both units before it moves (Phil 10-29)
+  // an inch file: the student confirms its size in both units before it moves
   function inchItem() {
     const p = S.prog && S.prog.parsed;
     if (!p || p.units !== 'in') return null;
@@ -163,7 +163,7 @@
 .sr-scrub .sr-play, .sr-scrub .sr-rate { min-width: 34px; height: 26px; padding: 0 8px; border-radius: 6px; border: 1px solid #4f4642; background: #2a2523; font-size: 12px; cursor: pointer; }
 .sr-scrub .sr-play.on { border-color: #a39a90; }
 .sr-jog { padding-bottom: 10px; overflow-y: auto; transition: opacity .2s; }
-.sr-jog.locked > :not(.sr-lock):not(.sr-dro):not(.sr-jh):not(.sr-pin) { opacity: .85; pointer-events: none; }   /* readable while locked (legibility pass 10-28); the lock line says why */   /* readable while locked (legibility pass 10-28) */
+.sr-jog.locked > :not(.sr-lock):not(.sr-dro):not(.sr-jh):not(.sr-pin) { opacity: .85; pointer-events: none; }   /* readable while locked; the lock line says why */
 .sr-jog.locked .sr-dro { pointer-events: none; }
 .sr-jog.offline > :not(.sr-lock):not(.sr-jh):not(.sr-pin) { opacity: .4; pointer-events: none; filter: grayscale(1); }   /* not connected: nothing here can reach the machine */
 .sr-keyrow { display: flex; align-items: center; gap: 10px; margin: 8px 12px 0; }
@@ -217,7 +217,7 @@
 .sr-file .name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--swarf-text-2, #8a857c); }
 .sr-file button { background: var(--swarf-bg-3, #1c1817); border: 1px solid var(--swarf-line-2, #3a1e18); border-radius: 999px; padding: 6px 12px; }
 .sr-actions { display: grid; grid-template-columns: 1fr 1fr 1.4fr 1fr 1fr; gap: 8px; padding: 10px 12px 0; }
-.sr-actions button { border-radius: 10px; padding: 11px 0; /* 40 px: one-word labels (r093 UX V7) */ font-size: 14px; font-weight: 600; letter-spacing: .06em;
+.sr-actions button { border-radius: 10px; padding: 11px 0; /* 40 px: one-word labels */ font-size: 14px; font-weight: 600; letter-spacing: .06em;
   background: var(--swarf-bg-3, #1c1817); border: 1px solid var(--swarf-line-2, #3a1e18); }
 .sr-actions .cut { background: var(--swarf-accent, #d02020); border-color: var(--swarf-accent, #d02020); color: #fff; }
 .sr-actions .cut:not(:disabled):hover { background: var(--swarf-accent-hi, #ff3a2a); box-shadow: 0 0 18px var(--swarf-glow, rgba(224,40,30,.32)); }
@@ -284,7 +284,6 @@
 .sr-mr1raw { max-height: 180px; overflow: auto; font-size: 11px; white-space: pre-wrap; margin: 4px 0; }
 .sr-card .sr-out.armed { border-color: var(--swarf-accent, #d02020); color: #fff; }
 body.swarf-run-open { filter: none !important; }
-/* ---- review pass 10-27 ---- */
 .sr-pad button { flex-direction: column; gap: 1px; line-height: 1.05; }
 .sr-pad button b { font-size: 15px; }
 .sr-pad button small { font-size: 11px; font-weight: 500; letter-spacing: .04em; color: #d8d2c6; text-transform: none; }
@@ -303,7 +302,7 @@ body.swarf-run-open { filter: none !important; }
 .sr-card details { margin: 10px 0; color: var(--swarf-text, #d8d2c6); }
 .sr-card summary { cursor: pointer; color: var(--swarf-text-2, #8a857c); text-transform: none; letter-spacing: 0.02em; font-size: 12px; }
 .sr-stat .sr-hold.arming { background: var(--swarf-accent, #d02020) !important; transition: background 1.5s linear; }
-/* ---- inside swarf (10-27): no header row; steps + sentence share a line ---- */
+/* ---- inside swarf: no header row; steps + sentence share a line ---- */
 .sr-top { display: flex; align-items: center; gap: 14px; padding: 0 16px 6px; }
 .sr-target { margin-left: auto; flex: none; padding: 4px 12px; border-radius: 999px; font-size: 13px; border: 1px solid var(--swarf-line, #2a1612); white-space: nowrap; }
 .sr-target.sim { color: #8fb0d0; border-color: #4f6f8f; }
@@ -315,14 +314,14 @@ body.swarf-run-open { filter: none !important; }
 .sr-top .sr-steps { flex: none; padding: 0; gap: 4px; }
 .sr-top .sr-step { flex: none; padding: 5px 9px; font-size: 11px; gap: 6px; }
 .sr-top .sr-step .n { width: 18px; height: 18px; font-size: 11px; }
-.sr-top .sr-say { flex: 1; padding: 0; min-height: 2.7em; font-size: 14px; line-height: 1.35; }  /* two lines kept: a long sentence no longer moves the page (review 10-28b #22) */
+.sr-top .sr-say { flex: 1; padding: 0; min-height: 2.7em; font-size: 14px; line-height: 1.35; }  /* two lines kept: a long sentence never moves the page */
 .sr-jog h3.sr-jh { display: flex; align-items: center; gap: 10px; }
 .sr-jh .sr-conn { margin-left: auto; text-transform: none; letter-spacing: .02em; font-weight: 400; font-size: 12px; }
 .sr-jh .sr-conn button { padding: 2px 10px; font-size: 12px; }
 .sr-vtools button.on { background: rgb(31,48,66) !important; border-color: #8fb0d0 !important; }
 .sr-veil { position: absolute; inset: 0; z-index: 9; display: none; place-items: center; background: rgba(20,18,17,.72); backdrop-filter: grayscale(1) blur(1px); }
 .sr-veil.on { display: grid; }
-#swarf-run.sr-veiled .sr-actions { visibility: hidden !important; }   /* Fable 3 #6: scoped() made it a descendant rule that never matched */
+#swarf-run.sr-veiled .sr-actions { visibility: hidden !important; }   /* a direct rule: scoped() would make it a descendant rule that never matches */
 .sr-veilcard { width: min(520px, 92vw); background: #13100f; border: 1px solid var(--swarf-amber, #c08a3a); border-left: 3px solid var(--swarf-amber, #c08a3a); padding: 20px 22px; }
 .sr-veilcard h2 { margin: 0 0 8px; font-size: 24px; color: #fff; }
 .sr-veilcard p { margin: 0 0 16px; line-height: 1.5; color: var(--swarf-text, #d8d2c6); }
@@ -331,13 +330,13 @@ body.swarf-run-open { filter: none !important; }
 .sr-veilcard .go { background: var(--swarf-accent, #d02020); border-color: var(--swarf-accent-hi, #ff3a2a); }
 .sr-other { display: inline-block; margin: 6px 12px 0; font-size: 12px; color: var(--swarf-text-2, #8a857c); text-decoration: underline; }
 .sr-other:hover { color: var(--swarf-text, #d8d2c6); }
-/* ---- jog panel, tidy (Phil 10-27: "a little sloppy") ---- */
+/* ---- jog panel ---- */
 .sr-col > .sr-jog { flex: none; padding-bottom: 12px; }
 .sr-col > .sr-mach { flex: 1 1 auto; }
-/* (whole-app review r086 F8) on a short screen (1280×720, 1366×768) the right column scrolls:
+/* on a short screen (1280×720, 1366×768) the right column scrolls:
    the simulated speed pills and the sounds chip stay reachable, never under the window's edge */
 .sr-grid > .sr-col:last-child { overflow-y: auto; overscroll-behavior: contain; }
-/* (r093 UX V1) an opaque band across the foot, faded at its top, as the rail's: never see-through words over words */
+/* an opaque band across the foot, faded at its top, as the rail's: never see-through words over words */
 .sr-col.swarf-more::after, .sr-plan.swarf-more::after {
   content: 'more below \\25BE'; text-transform: none; position: sticky; bottom: 0; display: block; flex-shrink: 0; align-self: stretch;
   box-sizing: border-box; height: 30px; margin-top: -30px; padding: 12px 0 0; text-align: center; pointer-events: none; z-index: 3;
@@ -372,11 +371,11 @@ body.swarf-run-open { filter: none !important; }
 .sr-jog .sr-keyrow .sr-keys { margin: 0; }
 .sr-faultbar { display: flex; align-items: center; gap: 10px; margin: 6px 0 8px; padding: 8px 10px; border-radius: 8px; background: #b3261e; color: #fff; font-size: 13px; font-weight: 600; }
 .sr-faultbar .sr-faulttext { flex: 1; }
-.sr-faultbar button { flex: none; font-size: 13px; padding: 6px 14px; }   /* never cut a safety line short (review 10-29) */
+.sr-faultbar button { flex: none; font-size: 13px; padding: 6px 14px; }   /* never cut a safety line short */
 .sr-jog .sr-goto { display: flex; gap: 6px; margin: 10px 12px 0; }
 .sr-jog .sr-goto > button { flex: 1 1 0; min-width: 0; padding: 8px 6px; line-height: 1.15; }
 @media (max-width: 900px) { .sr-grid { grid-template-columns: 1fr; overflow-y: auto; } .sr-col > .sr-view { flex: none; height: 360px; } }
-/* ---- swarf skin (Phil 10-27: "more readable, too dark, fit with swarf") ----
+/* ---- swarf skin ----
    swarf's own panel language: the scene glows through, plates with a red edge
    stripe and a slate header bar, bone text, red section labels, lighter controls. */
 #swarf-run { background: rgba(10,8,8,.62); backdrop-filter: blur(2px) saturate(1.1); font-size: 14px; }
@@ -429,7 +428,7 @@ body.swarf-run-open { filter: none !important; }
 .sr-card p, .sr-chk span { color: var(--swarf-text, #d8d2c6); }
 
 #swarf-run { --c-surf: rgba(27,23,21,.95); --c-line: #3a3230; --c-btn: #322c29; --c-btn2: #3f3835; --c-bline: #4f4642; --c-text: #e8e2d8; --c-dim: #998f85; --c-red: #d02020; }
-/* ---- calm (Phil 10-27: "this app design is INCREDIBLY busy/clumsy looking") ----
+/* ---- calm ----
    quiet surfaces, small gray labels, lowercase like swarf's own tiles; red only for
    the current step, cut and stop; one border weight; no stripes, bars or chamfers. */
 #swarf-run .sr-box { background: var(--c-surf) !important; border: 1px solid var(--c-line) !important; border-radius: 8px !important; clip-path: none !important; box-shadow: 0 8px 28px rgba(0,0,0,.45) !important; }
@@ -458,7 +457,7 @@ body.swarf-run-open { filter: none !important; }
 #swarf-run .sr-actions { grid-template-columns: repeat(3, 1fr) !important; }
 #swarf-run .sr-board-say { min-height: 1.4em; margin: 6px 0 0; font-size: 12px; line-height: 1.4; }
 #swarf-run .sr-board-say.warn { color: var(--swarf-amber, #d09020); font-weight: 600; }
-#swarf-run .sr-actions .stop { grid-column: span 2; }   /* while a job runs, stop is the biggest target (Interfacing review 10-28 #6) */
+#swarf-run .sr-actions .stop { grid-column: span 2; }   /* while a job runs, stop is the biggest target */
 #swarf-run .sr-actions button { padding: 14px 0 !important; font-size: 14px !important; }
 #swarf-run .sr-actions .cut:not(:disabled) { background: var(--c-red) !important; border-color: var(--c-red) !important; color: #fff !important; }
 #swarf-run .sr-actions .cut:disabled, #swarf-run .sr-actions .cut.wait { background: var(--c-btn) !important; border-color: var(--c-bline) !important; }
@@ -480,16 +479,15 @@ body.swarf-run-open { filter: none !important; }
 #swarf-run .sr-view { border-radius: 8px !important; }
 #swarf-run .sr-col > .sr-box { border: 1px solid var(--c-line) !important; box-shadow: 0 8px 28px rgba(0,0,0,.45) !important; }
 #swarf-run .sr-jog .sr-modes button.on, #swarf-run .sr-jog .sr-modes.sr-steprow button.on { background: #45403c !important; border-color: #b3aaa0 !important; color: #fff !important; }
-/* one look for "on" in control: the sim speed chip, the view chips and the keep-zero offer match the jog chips (review 10-28b #27) */
+/* one look for "on" in control: the sim speed chip, the view chips and the keep-zero offer match the jog chips */
 #swarf-run .sr-sim button.on, #swarf-run .sr-vtools button.on { background: #45403c !important; border-color: #b3aaa0 !important; color: #fff !important; }
 #swarf-run .sr-keepzero { background: #2a2523; border-color: #4f4642; color: #f2ede4; border-radius: 6px; }
 #swarf-run .sr-keepzero:hover { border-color: #a39a90; }
-/* a button waiting on a step is pressable: it says what it needs (Phil 10-28: "I can't figure out why
-   it won't let me go to trace or in the air") */
+/* a button waiting on a step is pressable: it says what it needs */
 #swarf-run .sr-actions .cut.quiet { background: var(--swarf-bg-3, #1c1817) !important; color: inherit !important; border-color: var(--swarf-line-2, #3a1e18) !important; box-shadow: none !important; }
 #swarf-run .sr-actions button.wait { opacity: .78; cursor: help; box-shadow: none !important; }
 #swarf-run .sr-need { padding: 8px 12px 0; display: flex; flex-wrap: wrap; align-items: center; gap: 4px; font-size: 11px; line-height: 16px; color: var(--c-dim, #8a857c); }
-#swarf-run .sr-need span { /* (r093 UX V7) each need a small pill, so the line reads as a row of checks */ padding: 0 7px; border: 1px solid var(--swarf-line-2, #3a1e18); border-radius: 999px; white-space: nowrap; }
+#swarf-run .sr-need span { /* each need a small pill, so the line reads as a row of checks */ padding: 0 7px; border: 1px solid var(--swarf-line-2, #3a1e18); border-radius: 999px; white-space: nowrap; }
 #swarf-run .sr-need:empty { display: none; }
 #swarf-run .sr-need b { font-weight: 500; color: var(--c-text, #d8d2c6); margin-right: 2px; }
 #swarf-run .sr-need .ok { color: var(--c-dim, #8a857c); }
@@ -524,10 +522,10 @@ html[data-skin] #swarf-run .sr-jog .sr-zrow button.next, html[data-skin] #swarf-
 `;
 
   // ------------------------------------------------------------ dom
-  // No orphans (Phil 10-28: "be maniacal culling orphans"): a sentence's last two words are
+  // No orphans: a sentence's last two words are
   // tied with a no-break space, so its last line is never one word ("clamp", "one:"). Short
   // labels (three words or fewer) and anything without a space are left alone.
-  // no widow: the last two words held together; not in classic, whose Geneva draws that space double (review 10-29)
+  // no widow: the last two words held together; not in classic, whose Geneva draws that space double
   const tie = t => typeof t === 'string' && t.trim().split(/\s+/).length > 3 && document.documentElement.dataset.skin !== 'classic' ? t.replace(/ (\S+)\s*$/, '\u00a0$1') : t;
   function h(tag, attrs, ...kids) {
     const e = document.createElement(tag);
@@ -553,20 +551,20 @@ html[data-skin] #swarf-run .sr-jog .sr-zrow button.next, html[data-skin] #swarf-
     });
   }
 
-  // Step and speed rows (Phil 10-27: findable, plain, more humane than most control software), in cam's
-  // units (Phil 10-30: "when in inches the jog panel is still in mm"); inside, steps stay mm and speeds mm/min
+  // Step and speed rows (findable, plain), in cam's
+  // units; inside, steps stay mm and speeds mm/min
   function inch() { return !!window.SwarfLength && SwarfLength.unit() === 'in'; }
-  // (review r086 F4) a length in words, in cam's units: "19.1 mm", or "3/4 in" / "0.75 in"
+  // a length in words, in cam's units: "19.1 mm", or "3/4 in" / "0.75 in"
   function len(mm, dp) {
     if (!inch()) return `${+(+mm).toFixed(dp == null ? 1 : dp)} mm`;
     const v = mm / 25.4, f = Math.round(v * 16);
     return `${Math.abs(v * 16 - f) < 1e-6 && window.SwarfLength ? SwarfLength.say(mm).replace(/ in$/, '') : +v.toFixed(2)} in`;
   }
-  // a length in a sentence, in cam's units: the nearest 16th in inches (r086 check S2/S3)
+  // a length in a sentence, in cam's units: the nearest 16th in inches
   const prose = (mm, dp) => window.SwarfLength ? SwarfLength.prose(mm, inch() ? 'in' : 'mm', dp) : `${+(+mm).toFixed(dp == null ? 1 : dp)} mm`;
   // the lift before any move over the work (SAFE_Z): "25 mm" (with "(1 in)" where the line said it), or "1 in"
   const up = paren => inch() ? '1 in' : paren ? '25 mm (1 in)' : '25 mm';
-  // the way in, in the student's units: "up to 1 in, over to X 0.47, Y 1.57" (r086 check S2)
+  // the way in, in the student's units: "up to 1 in, over to X 0.47, Y 1.57"
   // (the router or the spindle, named as this machine names it)
   const wayWords = plan => window.SwarfRunPlan.entryWords(plan, inch() ? { len: v => prose(v, 0), at: v => +(v / 25.4).toFixed(2), tool: spindleWord() } : { len: v => prose(v, 0), tool: spindleWord() });
   const lens = (a, dp) => inch() ? a.map(v => len(v, dp).replace(/ in$/, '')).join(' × ') + ' in' : a.map(v => +(+v).toFixed(dp == null ? 1 : dp)).join(' × ') + ' mm';
@@ -586,7 +584,7 @@ html[data-skin] #swarf-run .sr-jog .sr-zrow button.next, html[data-skin] #swarf-
     const stepIn = h('input', { type: 'text', inputmode: 'decimal', placeholder: `${u}…`, title: ui ? 'Type any step, then Enter: 1/2, 0.25 in or 5 mm' : 'Type any step in mm, then Enter (1/2 in works too)' });
     const steps = (ui ? [0.01, 0.1, 1, 2] : [0.1, 1, 10, 50]).map(v => ui ? v * IN : v);
     // a step from the other units' buttons (the 1 mm default, then "in" pressed) becomes the button
-    // in the same place on this row, as the speed row does (review 10-30 F6: inches lit "0.0394");
+    // in the same place on this row, as the speed row does (never a lit "0.0394" in inches);
     // a step typed in the field stays as typed
     const others = (ui ? [0.1, 1, 10, 50] : [0.01, 0.1, 1, 2].map(v => v * IN));
     if (S.jogStep !== 'cont' && !S.jogTyped && !steps.some(x => same(x, S.jogStep))) { const i = others.findIndex(x => same(x, S.jogStep)); if (i >= 0) S.jogStep = steps[i]; }
@@ -600,12 +598,12 @@ html[data-skin] #swarf-run .sr-jog .sr-zrow button.next, html[data-skin] #swarf-
     }
     // a step that is none of the buttons (typed, or from the other units) shows in the field
     if (S.jogStep !== 'cont' && !steps.some(x => same(x, S.jogStep))) { stepIn.value = window.SwarfLength ? SwarfLength.show(S.jogStep) : String(S.jogStep); stepIn.classList.add('on'); }
-    // a typed step stays within half the bed's width, the most one press should move (torture test 10-29: 5000 mm went)
+    // a typed step stays within half the bed's width, the most one press should move
     stepIn.addEventListener('change', () => {
       const v = mmOf(stepIn.value);
       if (v > 600) { stepIn.value = ''; tell(`A jog step goes up to ${ui ? 'about 24 in (600 mm)' : '600 mm (about 24 in)'}. For longer moves use continuous, or go to.`, 'warn'); return; }
       if (v > 0) { pickStep(v, null); return; }
-      // not a step (abc, 0, -5, empty): the row shows the step a press will really move (deep review S17)
+      // not a step (abc, 0, -5, empty): the row shows the step a press will really move
       const typed = stepIn.value.trim();
       rateRows();
       if (typed) tell(`swarf could not read "${typed}" as a step above 0: each press still moves ${S.jogStep === 'cont' ? 'for as long as you hold it' : window.SwarfLength ? window.SwarfLength.say(S.jogStep) : S.jogStep + ' mm'}.`, 'warn');
@@ -633,7 +631,7 @@ html[data-skin] #swarf-run .sr-jog .sr-zrow button.next, html[data-skin] #swarf-
     document.head.append(h('style', { text: scoped(CSS) }));
     const root = el.root = h('div', { id: 'swarf-run' });
 
-    // Control sits inside swarf (Phil 10-27: "not a whole new line at top"): swarf's
+    // Control sits inside swarf: swarf's
     // menubar and step row stay; the connection lives in the jog header; the five
     // steps and the sentence share one line.
     el.conn = h('div', { class: 'sr-conn' }, h('span', { class: 'sr-dot' }), el.connText = h('span', { text: '' }),
@@ -643,10 +641,10 @@ html[data-skin] #swarf-run .sr-jog .sr-zrow button.next, html[data-skin] #swarf-
     STEPS.forEach((s, i) => el.steps.append(h('div', { class: 'sr-step', 'data-step': s, title: STEP_SAYS[s], onclick: () => tell(STEP_SAYS[s]) }, h('span', { class: 'n', text: String(i + 1) }), h('span', { text: s }))));
     el.say = h('div', { class: 'sr-say' });
     el.strip = h('div', { class: 'sr-strip' });   // MASQ's working strip: on while the machine runs
-    // which machine this is, in one place (review 11-13 #8): in the top row, not a new line (Phil 10-27)
+    // which machine this is, in one place: in the top row, not a new line
     el.target = h('div', { class: 'sr-target', title: 'What the buttons below move' });
     root.append(h('div', { class: 'sr-top' }, el.steps, el.say, el.target), el.strip);
-    // the mm | in switch with control open: its sentence and the steps' words follow (r086 check S2)
+    // the mm | in switch with control open: its sentence and the steps' words follow
     try {
       const u = window.kiri.api.ui.units;
       if (u) u.addEventListener('change', () => setTimeout(() => {
@@ -662,13 +660,13 @@ html[data-skin] #swarf-run .sr-jog .sr-zrow button.next, html[data-skin] #swarf-
     // preview (upper left)
     el.view = h('div', { class: 'sr-box sr-view' });
     el.canvas = h('canvas');
-    el.empty = h('div', { class: 'sr-empty' });   // the box below says what to do (Fable 3 #7: it was said four ways)
+    el.empty = h('div', { class: 'sr-empty' });   // the box below says what to do, in one place
     el.facts = h('div', { class: 'sr-facts' });
     el.scrubLabel = h('span', { text: '' });
     el.scrub = h('input', { type: 'range', min: '0', max: '0', value: '0', title: 'Show the program up to a line' });
     // scrub: the path up to a line, and the bit (and the ghost machine) where that line ends.
-    // ▶ plays the program through like cam's simulate (Phil 10-27: "the bed isn't moving
-    // when I scrub this playhead … can it just play?"). The numbers stay the machine's.
+    // ▶ plays the program through like cam's simulate,
+    // and the bed moves with the playhead. The numbers stay the machine's.
     el.scrub.addEventListener('input', () => { playStop(); previewAt(+el.scrub.value); });
     el.play = h('button', { class: 'sr-play', text: '▶', title: 'Play the program through (space pauses)', onclick: () => (PV.raf ? playStop() : playStart()) });
     el.playRate = h('button', { class: 'sr-rate', text: `preview ${PV.rate}×`, title: 'How fast it plays, against the machine\'s own speed', onclick: () => { PV.rate = PV_RATES[(PV_RATES.indexOf(PV.rate) + 1) % PV_RATES.length]; el.playRate.textContent = `preview ${PV.rate}×`; } });
@@ -708,7 +706,7 @@ html[data-skin] #swarf-run .sr-jog .sr-zrow button.next, html[data-skin] #swarf-
     el.modes = h('div', { class: 'sr-modes sr-steprow' });
     el.speeds = h('div', { class: 'sr-modes' });
     rateRows();
-    // the mm | in switch pressed with control open (1366 look 10-31): rows, plan and readout follow
+    // the mm | in switch pressed with control open: rows, plan and readout follow
     try {
       const u = window.kiri.api.ui.units;
       if (u) u.addEventListener('change', () => {
@@ -731,13 +729,13 @@ html[data-skin] #swarf-run .sr-jog .sr-zrow button.next, html[data-skin] #swarf-
     };
     cell('+Y', 'y', 1, 2, 1); cell('−X', 'x', -1, 1, 2); cell('+X', 'x', 1, 3, 2); cell('−Y', 'y', -1, 2, 3);
     cell('+Z', 'z', 1, 5, 1); cell('−Z', 'z', -1, 5, 3);
-    // the router by hand, to test it (Phil 10-29): asks before it starts, red while on, one press stops it
-    // the bed seen from the front, 8 x 4 like the ShopBot's (Phil 10-29): which way X and Y run
+    // the router by hand, to test it: asks before it starts, red while on, one press stops it
+    // the bed seen from the front, 8 x 4 like the ShopBot's: which way X and Y run
     const bed = h('div', { class: 'sr-bedmap', title: 'The bed from the front; the dot is the front-left corner' });
     bed.innerHTML = '<svg viewBox="0 0 84 46" aria-hidden="true"><rect x="2" y="2" width="80" height="40" rx="3"/><circle cx="6" cy="38" r="2.6"/><path d="M14 38H34M30 35l4 3-4 3M6 30V12M3 16l3-4 3 4"/><text x="38" y="41">X</text><text x="9" y="11">Y</text></svg><small>front</small>';
     bed.style.gridColumn = 2; bed.style.gridRow = 2;
     pad.append(bed);
-    // (Phil 10-29: out of the jog grid, small, in the corner, so a jog press never lands on it)
+    // (out of the jog grid, small, in the corner, so a jog press never lands on it)
     el.routerBtn = h('button', { class: 'sr-router', title: 'Test the router: switch it on, then off', onclick: () => routerButton() }, h('b', { text: 'router' }), h('small', { text: 'test' }));
     el.jog.append(pad,
       h('div', { class: 'sr-keyrow' }, el.routerBtn,
@@ -748,7 +746,7 @@ html[data-skin] #swarf-run .sr-jog .sr-zrow button.next, html[data-skin] #swarf-
           : aboutToMove({ title: 'The machine is about to home', text: 'It lifts, then runs to the home sensors in the -X, -Y corner.', go: 'home', run: () => S.machine.home() }) }),
         el.mr1CheckBtn = h('button', { text: 'machine check', title: 'What the MR-1 reports: its settings, its switches. Nothing moves', onclick: () => mr1Check() }),
         el.goXY = h('button', { text: 'go to x y 0', title: 'Up, then over to X 0, Y 0', onclick: () => aboutToMove({ title: 'The bit is about to move',
-          // before Z is zeroed there is no Z 0 to name: it lifts from where it is (Fable 3 #12)
+          // before Z is zeroed there is no Z 0 to name: it lifts from where it is
           text: S.zeroZ ? `Up to ${up(1)} over Z 0 (if it is lower), then over to X 0, Y 0.` : `Up ${up(1)} from where it is, then over to X 0, Y 0.`,
           go: 'move', run: () => { const z = S.machine.state.pos.z; S.machine.goTo({ z: S.zeroZ ? Math.max(z, SAFE_Z) : z + 25.4, x: 0, y: 0 }); } }) }),
         el.goZ = h('button', { text: `go to ${goZword()} above z 0`, title: `Down to ${goZword()} above Z 0, slowly`, onclick: () => aboutToMove({ title: 'The bit is about to come down', text: `Down to ${goZword()} above Z 0, slowly. Check nothing is under the bit but the board.`, go: 'move', run: () => { setJogSpeed(); S.machine.goTo({ z: goZmm() }); } }) }),
@@ -769,8 +767,8 @@ html[data-skin] #swarf-run .sr-jog .sr-zrow button.next, html[data-skin] #swarf-
       el.measure = h('button', { text: 'measure it', title: 'Type in what your calipers read', onclick: () => window.__swarfLessons && window.__swarfLessons.measure() }));
     el.lessonLink = h('a', { class: 'sr-other', text: 'a test cut', href: '#', title: 'Learn the machine on a scrap of plywood' });
     el.lessonLink.addEventListener('click', e => { e.preventDefault(); if (window.__swarfLessons) window.__swarfLessons.choose(); });
-    // a latched fault: a red bar over the program, its button the way out (reviews 10-29: only a small
-    // underlined "all clear" in the to-run line said so)
+    // a latched fault: a red bar over the program, its button the way out, not a small
+    // underlined "all clear" in the to-run line
     el.faultText = h('span', { class: 'sr-faulttext' });
     el.faultBar = h('div', { class: 'sr-faultbar', style: 'display:none' }, el.faultText, h('button', { class: 'go', text: 'all clear…', onclick: () => faultCard() }));
     el.prog.append(el.faultBar, el.fileInput, h('div', { class: 'sr-file' }, el.fileName, el.fromCam), el.start, h('div', {}, el.otherFile, el.lessonLink));
@@ -782,7 +780,7 @@ html[data-skin] #swarf-run .sr-jog .sr-zrow button.next, html[data-skin] #swarf-
       stop: h('button', { class: 'stop', text: 'stop', title: 'Stop all motion', onclick: () => { S.userStopped = true; S.machine.stop(); } })
     };
     el.prog.append(h('div', { class: 'sr-actions' }, el.btn.trace, el.btn.air, el.btn.cut, el.btn.pause, el.btn.stop));
-    // the feed override while a job runs (Phil 10-29, like the MR-1's): cuts only, 50 to 150 % in 5 % steps
+    // the feed override while a job runs (like the MR-1's): cuts only, 50 to 150 % in 5 % steps
     const ovr = d => { const m = S.machine; if (m && m.setOverride) { m.setOverride(((m.state.override || 100) + d)); refresh(); } };
     el.ovr = h('div', { class: 'sr-ovr' }, h('span', { class: 'lbl', text: 'feed' }),
       el.ovrDn = h('button', { text: '−5%', title: 'Cut 5 % slower (down to 50 %)', onclick: () => ovr(-5) }),
@@ -790,7 +788,7 @@ html[data-skin] #swarf-run .sr-jog .sr-zrow button.next, html[data-skin] #swarf-
       el.ovrUp = h('button', { text: '+5%', title: 'Cut 5 % faster, up to 150 %', onclick: () => ovr(5) }),
       h('button', { text: '100%', title: 'Back to the file\'s own feeds', onclick: () => { const m = S.machine; if (m && m.setOverride) { m.setOverride(100); refresh(); } } }));
     el.prog.append(el.ovr);
-    // an air cut's speed (Phil 11-04): nothing is cutting, so a slider and a wider range. Dragged, it
+    // an air cut's speed: nothing is cutting, so a slider and a wider range. Dragged, it
     // sets the speed a few times a second: each change plans the rest of the job again
     let rateT = 0;
     const rateNow = () => { rateT = 0; const m = S.machine; if (m && m.setRate) { m.setRate(+el.rateIn.value); refresh(); } };
@@ -840,8 +838,8 @@ html[data-skin] #swarf-run .sr-jog .sr-zrow button.next, html[data-skin] #swarf-
     el.stat.append(h('div', { class: 'sr-stat' }, el.big, el.rows, el.ask, el.simCtl, el.soundBtn, el.checkBtn, el.note));
 
     grid.append(h('div', { class: 'sr-col' }, el.view, el.prog), el.rightCol = h('div', { class: 'sr-col' }, el.jog, el.stat));
-    // a box that scrolls says so while there is more below (deep review S4: at 1280×720 the go-to row,
-    // the speed and the simulator note sat under the window with nothing to show it), as the rail does
+    // a box that scrolls says so while there is more below (at 1280×720 the go-to row,
+    // the speed and the simulator note sit under the window), as the rail does
     for (const box of [el.rightCol, el.plan]) {
       let rq = 0;
       const more = () => { rq = 0; box.classList.toggle('swarf-more', box.scrollHeight - box.clientHeight - box.scrollTop > 6); };
@@ -902,8 +900,8 @@ html[data-skin] #swarf-run .sr-jog .sr-zrow button.next, html[data-skin] #swarf-
       this.paths = null;
       this.done = -1;
       // the work: the board's paths, its grid, the origin and the ghost bed. On the
-      // shop's ShopBot the BED moves in X under a fixed gantry (Phil 10-27: "the bed
-      // isn't moving"), so with the machine shown this whole group slides in X.
+      // shop's ShopBot the BED moves in X under a fixed gantry, so
+      // with the machine shown this whole group slides in X.
       this.work = new THREE.Group();
       this.scene.add(this.work);
       // origin axes
@@ -935,7 +933,7 @@ html[data-skin] #swarf-run .sr-jog .sr-zrow button.next, html[data-skin] #swarf-
       new ResizeObserver(() => this.resize(box)).observe(box);
       this.resize(box);
       const loop = () => {
-        // nothing to draw while control is shut (review A15: it rendered every frame forever); open() wakes it
+        // nothing to draw while control is shut; open() wakes it
         if (!S.open) { this.raf = 0; return; }
         // close in on the job the gantry would fill the view: only the bed shows until you zoom out
         if (this.ghostParts) this.ghostParts.gantry.visible = this.sph.r > 1800;
@@ -1049,14 +1047,14 @@ html[data-skin] #swarf-run .sr-jog .sr-zrow button.next, html[data-skin] #swarf-
     },
     showUpTo(line) { this.upTo = line; this.paint(line, this.doneLine || 0); },
     progress(line) { this.doneLine = line; this.paint(this.upTo === undefined ? Infinity : this.upTo, line); },
-    // The shop's ShopBot, ghosted for scale (Phil 10-27): a 4 x 8 ft bed that slides
+    // The shop's ShopBot, ghosted for scale: a 4 x 8 ft bed that slides
     // along X under a fixed gantry; the carriage rides the beam in Y and the router
     // rides the carriage in Z. The bed lives in this.work and slides with the job.
     // With no home switches the board's place on the bed is unknown: the job sits
     // near the bed's front-left corner. Turned off with the "machine" chip.
     buildGhost() {
       const THREE = this.THREE, G = new THREE.Group();
-      // one model for CONTROL and SIMULATE: swarf-shopbot-model.js (Phil 10-28, from photos)
+      // one model for CONTROL and SIMULATE: swarf-shopbot-model.js (from photos)
       const m = window.SwarfShopBotModel.build(THREE);
       const { bed, gantry } = m;
       G.add(bed, gantry);
@@ -1094,7 +1092,7 @@ html[data-skin] #swarf-run .sr-jog .sr-zrow button.next, html[data-skin] #swarf-
       if (slide) this.follow();
     },
     // machine shown: the camera stays put until the job slides out of view, then pans
-    // (and backs off if it must) so the bit and the job are both in frame (review 10-28 #23)
+    // (and backs off if it must) so the bit and the job are both in frame
     follow() {
       const b = this.bounds;
       if (!b) return;
@@ -1114,7 +1112,7 @@ html[data-skin] #swarf-run .sr-jog .sr-zrow button.next, html[data-skin] #swarf-
       this.ghost.visible = on;
       this.ghostParts.bed.visible = on;
       if (this.at) this.setTool(this.at);
-      if (this.grid) this.grid.visible = !on;   // the bed is the grid when the machine shows (Phil: "why are there 2 grids?")
+      if (this.grid) this.grid.visible = !on;   // the bed is the grid when the machine shows (never two grids)
       try { localStorage.setItem('swarf-run-ghost', on ? '1' : '0'); } catch (e) { /* private window */ }
       if (on) this.fitBed(); else this.fit();
     },
@@ -1272,11 +1270,11 @@ html[data-skin] #swarf-run .sr-jog .sr-zrow button.next, html[data-skin] #swarf-
     playStop();
     const before = S.prog ? { at: spotOf(), atz: originText().z, bit: S.zBit, src: S.prog.source } : null;
     // cam made the very same toolpaths again: keep the job where it is (a stop, a tool
-    // change, the zero), just say so (review 10-27: a round trip to cam forgot the line)
+    // change, the zero), just say so (a round trip to cam keeps the line)
     if (S.prog && source === 'cam' && S.prog.source === 'cam' && S.prog.text === text) { refresh(); return; }
     const parsed = P.parse(text, { machineUnits: 'mm' });
     S.prog = { name, text, parsed, source, ...(extra || {}) };
-    // Phil 11-09: "when I go to CAM and back it shouldn't make me re-zero". The zero is the board's,
+    // a round trip to cam does not ask for a new zero. The zero is the board's,
     // so a new program keeps it when it zeroes at the same place (corner or center) and the machine
     // has not lost where it is; Z only when the program starts on the bit Z was set with.
     const wasAt = before ? before.at : null, wasBit = before ? before.bit : undefined;
@@ -1286,7 +1284,7 @@ html[data-skin] #swarf-run .sr-jog .sr-zrow button.next, html[data-skin] #swarf-
     const keepXY = roundTrip && S.zeroXY && !S.zeroLost && !S.lostAt;
     const keepZ = roundTrip && S.zeroZ && !S.zStale && !S.toolChange && !S.zeroLost && !S.lostAt;
     S.hold = null;   // a new program's own first step says what to do, not the last answer
-    rememberZero();  // the zero is the board's, not the file's: one press keeps it (Phil 10-29)
+    rememberZero();  // the zero is the board's, not the file's: one press keeps it
     S.zeroXY = S.zeroZ = S.traced = false;
     S.zx = S.zy = false; S.stoppedAt = 0; S.lastDone = null; S.toolChange = null; S.lostAt = 0;
     if (S.zeroAt === undefined && keepXY) S.zeroAt = wasAt;
@@ -1294,7 +1292,7 @@ html[data-skin] #swarf-run .sr-jog .sr-zrow button.next, html[data-skin] #swarf-
     const kept = [];
     if (sameAt && keepXY) { S.zeroXY = S.zx = S.zy = true; kept.push('X Y'); }
     if (before && originText().z === before.atz && keepZ && cmpBit(wasBit, bitAt(parsed, 1)) === 'same') { S.zeroZ = true; S.zBit = bitAt(parsed, 1); kept.push('Z'); }
-    // a kept zero is an assumption about the shop, not a measurement (review 11-13 #2): said as one,
+    // a kept zero is an assumption about the shop, not a measurement: said as one,
     // and it stays on the plan with a way to drop the half that is no longer true
     S.keptZero = kept.length ? { xy: kept.includes('X Y'), z: kept.includes('Z') } : null;
     if (kept.length && el.say) tell(`Using the earlier zero (${kept.join(' and ')}): right only if the board and the bit have not moved. Trace this file once before you cut.`);
@@ -1321,11 +1319,11 @@ html[data-skin] #swarf-run .sr-jog .sr-zrow button.next, html[data-skin] #swarf-
     const near = (v, w) => Math.abs(v) <= Math.max(10, w * 0.03);   // an outline's path sits a bit's radius outside the stock
     const w = b.max.x - b.min.x, d = b.max.y - b.min.y;
     let xy;
-    if (near(b.min.x, w) && near(b.min.y, d)) xy = 'the front-left corner of your board';   // the poster's words (10-28)
+    if (near(b.min.x, w) && near(b.min.y, d)) xy = 'the front-left corner of your board';   // the poster's words
     else if (near((b.min.x + b.max.x) / 2, w) && near((b.min.y + b.max.y) / 2, d)) xy = 'the center of your board';
     else xy = `the point your file calls X 0, Y 0 (the cut spans X ${spanWords(b.min.x, b.max.x)}, Y ${spanWords(b.min.y, b.max.y)} ${unitWord()})`;
-    // cuts reaching below zero from no higher than a safe height start on the board's top (083: plunges
-    // now start at the 5 mm z clearance, past the old 2 mm test)
+    // cuts reaching below zero from no higher than a safe height start on the board's top (plunges
+    // start at the 5 mm z clearance)
     const z = b.max.z <= 26 && b.min.z < 0 ? 'the top of your board' : b.min.z >= -0.5 ? 'the table under your board' : 'where your file puts Z 0';
     return { xy, z };
   }
@@ -1339,7 +1337,7 @@ html[data-skin] #swarf-run .sr-jog .sr-zrow button.next, html[data-skin] #swarf-
       const proc = a.conf.get().process || {};
       const outl = (proc.ops || []).filter(o => o && (o.type === 'outline' || o.type === 'rough') && !o.disabled);
       if (!outl.length || proc.camZBottom > 0 || proc.camStockIndexed) return out;
-      // a rough down to the part's bottom frees it as an outline does (Phil 10-29: a rough-only circle)
+      // a rough down to the part's bottom frees it as an outline does (a rough-only circle)
       const outer = outl.some(o => !o.inside), holes = outl.some(o => !o.omitthru && !o.omitvoid);
       for (const w of a.widgets.all()) {
         if (w.track.synth || w.meta.disabled) continue;
@@ -1354,22 +1352,22 @@ html[data-skin] #swarf-run .sr-jog .sr-zrow button.next, html[data-skin] #swarf-
   }
 
   function problems() {
-    if (S.prMemo) return S.prMemo;     // inside one refresh (review A14)
+    if (S.prMemo) return S.prMemo;     // inside one refresh
     const out = { block: [], warn: [] };
     if (!S.prog) return out;
     const p = S.prog.parsed;
     if (!p.moves.length) out.block.push('The file has no moves swarf can read.');
     // a file that never says (no G20/G21, no IN/MM): read as millimeters, and said so, with its size
-    // (torture test 10-29: it showed "✓ millimeters", and an inch file would cut 25.4 times too small)
+    // (an inch file read as millimeters would cut 25.4 times too small)
     if (p.unitsGuessed) {
       const gb = P.cutBounds(p);
       out.warn.push(`This file does not say inches or millimeters, so swarf reads it as millimeters${gb ? `: ${(gb.max.x - gb.min.x).toFixed(0)} × ${(gb.max.y - gb.min.y).toFixed(0)} mm` : ''}. If it was made in inches it would cut 25.4 times too small: check the size before you cut.`);
     }
     if (p.units === 'in') out.warn.push('Written in inches: swarf turns every move into millimeters (1 in = 25.4 mm). The checklist shows the size in both.');
     else if (p.units !== 'mm') out.block.push(`This file's units (${p.units}) are not inches or millimeters.`);
-    // from cam: a part, or a piece inside a hole, the outline cuts free with no tab (Phil 10-29)
+    // from cam: a part, or a piece inside a hole, the outline cuts free with no tab
     if (S.prog.source === 'cam') for (const line of looseWords()) out.warn.push(line);
-    // a file opened on its own (review 11-13 #3): cam's parts are not here to ask, so read what swarf
+    // a file opened on its own: cam's parts are not here to ask, so read what swarf
     // wrote into the file when it was saved; with no such lines, say what swarf cannot know
     else if (S.prog.source !== 'lesson') {
       const notes = fileNotes(S.prog.text);
@@ -1379,7 +1377,7 @@ html[data-skin] #swarf-run .sr-jog .sr-zrow button.next, html[data-skin] #swarf-
     const b = P.cutBounds(p);
     const L = isMR1() ? mr1Limits() : M.LIMITS;
     // Z: the file's whole rise and fall within the axis' travel, and a word on deep cuts and on
-    // rapids into the board (torture test 10-29: Z 500, 45 mm deep and G0 to Z -5 all passed; review 105: a crossing blocks)
+    // rapids into the board (a rapid crossing into the board blocks)
     const all = P.boundsOf(p.moves);
     if (all) {
       const span = all.max.z - all.min.z, travel = L.z[1] - L.z[0];
@@ -1392,7 +1390,7 @@ html[data-skin] #swarf-run .sr-jog .sr-zrow button.next, html[data-skin] #swarf-
       if (dive) out.block.push(`Line ${dive.line}: a rapid move goes across below the top of the board (Z ${Math.min(dive.z, dive.z0).toFixed(1)}): at rapid speed through the wood. Make the toolpaths again and export a new file.`);
       if (down) out.warn.push(`Line ${down.line}: a rapid move comes straight down to Z ${down.z.toFixed(1)}, below the top of the board. That is fine over a thinner part on the bed, not over the board: check the file.`);
     }
-    // a bit fed into the board with the router off breaks (review 105): the file's own switches, read in order
+    // a bit fed into the board with the router off breaks: the file's own switches, read in order
     const dead = P.routerOffCut(p);
     if (dead) out.block.push(`Line ${dead.line}: this file feeds the bit into the board with the router off${dead.afterChange ? ', after a bit change that never turns it back on' : ''}. Make the toolpaths again and export a new file.`);
     // the table's corner known (table corners card): the job must sit on the table from this zero
@@ -1402,14 +1400,14 @@ html[data-skin] #swarf-run .sr-jog .sr-zrow button.next, html[data-skin] #swarf-
       const x0 = b.min.x + ma.x - pos.x - c.x, y0 = b.min.y + ma.y - pos.y - c.y, x1 = x0 + b.max.x - b.min.x, y1 = y0 + b.max.y - b.min.y;
       if (x0 < -2 || y0 < -2 || x1 > T.x + 2 || y1 > T.y + 2) out.block.push(`From this zero the cut runs off the table (X ${spanWords(x0, x1)}, Y ${spanWords(y0, y1)} ${unitWord()} from its front-left corner). Zero somewhere else.`);
     }
-    // Z zero on the table, not the board (third review #5): every safe height would sit in the board
+    // Z zero on the table, not the board: every safe height would sit in the board
     if (window.SwarfRunPlan && window.SwarfRunPlan.validate(p).some(v => v.k === 'table-zero')) out.block.push('Every cut in this file is above Z 0, so it was made with Z zero on the table. swarf zeros Z on the top of your board: make the file again with Z zero on the top of the material (in VCarve: Job Setup, Z Zero, Material Surface).');
-    // any line swarf can't carry out exactly blocks the run (design review 10-28 #2): skipping
+    // any line swarf can't carry out exactly blocks the run: skipping
     // one can start every move after it from the wrong place
     const mover = p.unsupported[0];
     if (mover) out.block.push(`Line ${mover.line} is something swarf can't carry out exactly ("${mover.text.slice(0, 40)}"${mover.why ? `: ${mover.why}` : ''})${p.unsupported.length > 1 ? `, and ${p.unsupported.length - 1} more` : ''}. Skipping it could start the moves after it from the wrong place, so swarf won't run this file. Make it again from swarf's toolpaths, or without that line.`);
-    // the card cannot step slower than this (a 16-bit tick at its clock): a slower feed would run faster (review #3)
-    // per move, from its own steps (follow-up review #2): a diagonal's floor is higher than an axis's
+    // the card cannot step slower than this (a 16-bit tick at its clock): a slower feed would run faster
+    // per move, from its own steps: a diagonal's floor is higher than an axis's
     const T = 7372800 / 65536, U = { x: 72.183661, y: 72.183661, z: 90.229567 };
     const floorOf = m => { const L = Math.hypot(m.x - m.x0, m.y - m.y0, m.z - m.z0), st = Math.max(Math.abs(m.x - m.x0) * U.x, Math.abs(m.y - m.y0) * U.y, Math.abs(m.z - m.z0) * U.z); return st >= 1 ? T * L / st : 0; };
     const slow = !isMR1() && p.moves.find(m => !m.rapid && m.feed > 0 && m.feed < floorOf(m) * 1.02);
@@ -1467,13 +1465,13 @@ html[data-skin] #swarf-run .sr-jog .sr-zrow button.next, html[data-skin] #swarf-
     const p = S.prog.parsed, b = P.cutBounds(p);
     const add = (t, cls) => el.plan.append(h('div', { class: cls || '', text: t }));
     // the bit's path, not the part: an outline runs a bit's radius outside it, so a 100 mm disc reads
-    // about 106 here, and that is right (review 11-13 #1: never resize the part to get back to 100)
+    // about 106 here, and that is right (never resize the part to get back to 100)
     el.facts.textContent = b ? `bit's path ${lens([b.max.x - b.min.x, b.max.y - b.min.y], 0)} · ${len(-Math.min(0, b.min.z))} deep · about ${mins(p.seconds)}` : '';
     el.facts.title = 'Where the bit\'s center goes: half a bit outside an outline';
     const pr = problems();
     if (!pr.block.length) add(`${p.unitsGuessed ? '? units not named, read as millimeters' : p.units === 'in' ? '✓ inches, turned into millimeters' : '✓ millimeters'} · ✓ small enough for the machine · ✓ ${p.moves.length} moves read`, 'ok');
     if (b && S.prog.source === 'cam') add('the size above is the bit\'s path: an outline runs half a bit outside the part, so leave the part as it is.');
-    // where it lands is a second check, and it needs the table's corner and an X Y zero (review 11-13 #1)
+    // where it lands is a second check, and it needs the table's corner and an X Y zero
     if (b && !pr.block.some(x => /runs off the table|bigger than the table/.test(x))) {
       const known = !!(S.machine && S.machine.mabs && corner());
       if (!S.zeroXY) add('where it lands on the table: not checked until X Y is zeroed');
@@ -1481,7 +1479,7 @@ html[data-skin] #swarf-run .sr-jog .sr-zrow button.next, html[data-skin] #swarf-
       else if (!known) add('where it lands on the table: not checked (swarf does not know the table\'s corner: table corners)');
       else add('✓ on the table from this zero', 'ok');
     }
-    // the kept zero, until it is zeroed again (review 11-13 #2)
+    // the kept zero, until it is zeroed again
     const kz = S.keptZero, kxy = !!(kz && kz.xy && S.zeroXY), kzz = !!(kz && kz.z && S.zeroZ);
     if (kxy || kzz) {
       el.plan.append(h('div', { class: 'w sr-kept' }, `using the earlier zero (${kxy && kzz ? 'X Y and Z' : kxy ? 'X Y' : 'Z'}${zeroWords(kxy, kzz)}): right only if nothing moved `,
@@ -1519,7 +1517,7 @@ html[data-skin] #swarf-run .sr-jog .sr-zrow button.next, html[data-skin] #swarf-
 
   // ------------------------------------------------------------ steps
   // the job from cam is out of date while its toolpaths are made again, or when that failed: it stays on
-  // the screen but nothing runs it (review 105 B2: for those seconds it read as ready, the old file)
+  // the screen but nothing runs it (for those seconds it must not read as ready)
   function stale() { return S.camBusy || !!(S.camError && S.prog && S.prog.source === 'cam'); }
   function stepNow() {
     if (!S.prog || !S.prog.parsed.moves.length || stale()) return 'load';
@@ -1540,11 +1538,11 @@ html[data-skin] #swarf-run .sr-jog .sr-zrow button.next, html[data-skin] #swarf-
       { k: 'busy', label: 'machine still', ok: !st || !st.connected || ready, todo: 'wait for the machine to stop moving' },
       { k: 'prog', label: 'a program', ok: !!(S.prog && S.prog.parsed.moves.length) && !stale(), todo: S.camBusy ? 'wait for the toolpaths to finish' : S.camError && S.prog ? S.camError : 'make a part in cam and press control, or open a file' },
       { k: 'file', label: 'file checked', ok: !!S.prog && !problems().block.length, todo: (S.prog ? problems().block[0] || 'fix the file' : 'load a file, or bring the toolpaths from cam').replace(/\.$/, '') },
-      // the zero never stops trace, air cut or cut (Phil 11-18: "If I hit trace, let me trace. ALWAYS"):
+      // the zero never stops trace, air cut or cut:
       // it is shown here as a step to do, and the cut card says when it is not set
       { k: 'xy', label: 'X Y zeroed', opt: true, ok: !!S.zeroXY, todo: S.zeroHad && S.zeroHad.xy && zeroFresh(S.zeroSetAt) && !S.zx && sameSpot() ? 'press "use the zero from" if the board has not moved, or jog over your X 0, Y 0 and press zero x y' : 'jog the bit over your X 0, Y 0 and press zero x y' },
       { k: 'z', label: 'Z zeroed', opt: true, ok: !!S.zeroZ, todo: S.zeroHad && S.zeroHad.z && zeroFresh(S.zeroSetAt) && sameBit() ? 'press "use the zero from", or zero Z again' : isGrbl() ? 'lower the bit onto paper and press zero z' : 'press z plate, or lower the bit onto paper and press zero z' },
-      // the trace is the protocol, not physics (Phil 11-16: "you DO NOT HAVE TO TRACE OR AIRCUT"): cut
+      // the trace is the protocol, not physics: cut
       // goes ahead without it, after one more tick on its card (askCut); the rest above never skip
       { k: 'trace', label: 'traced', opt: true, ok: !!S.traced, todo: 'press trace and watch it clear the clamps, or cut without it' }
     ].filter(n => n.k !== 'busy' || !n.ok);
@@ -1556,8 +1554,8 @@ html[data-skin] #swarf-run .sr-jog .sr-zrow button.next, html[data-skin] #swarf-
     b.animate([{ boxShadow: '0 0 0 0 rgba(242,237,228,0)' }, { boxShadow: '0 0 0 6px rgba(242,237,228,.6)' }, { boxShadow: '0 0 0 0 rgba(242,237,228,0)' }], { duration: 700, iterations: 2 });
   }
 
-  // problems() rescans every move and every widget: worked out once a refresh, not 4-6 times (review
-  // A14). Nothing a refresh runs changes the file, the zero or the position, and the memo ends with it.
+  // problems() rescans every move and every widget: worked out once a refresh, not 4-6 times.
+  // Nothing a refresh runs changes the file, the zero or the position, and the memo ends with it.
   function refresh() {
     S.prMemo = null;
     S.prMemo = problems();
@@ -1575,15 +1573,15 @@ html[data-skin] #swarf-run .sr-jog .sr-zrow button.next, html[data-skin] #swarf-
     // commands still on their way to the machine count as busy: nothing new starts until they land
     const ready = st && st.connected && !st.queued && !(st.kind === 'sim' && st.moving);
     el.jog.classList.toggle('locked', !!running);
-    // the ShopBot not connected: everything that needs it greys out (Phil 10-29); the simulator keeps them
+    // the ShopBot not connected: everything that needs it greys out; the simulator keeps them
     const offline = isReal() && !(st && st.connected);
     el.jog.classList.toggle('offline', offline);
     for (const b of [el.btn.trace, el.btn.air, el.btn.cut]) if (b) b.classList.toggle('offline', offline);
-    // a job on the machine (running or paused) keeps control: cam's steps look asleep (review 10-28 #20)
+    // a job on the machine (running or paused) keeps control: cam's steps look asleep
     document.body.classList.toggle('swarf-run-busy', !!running && S.open);
     window.__swarfRunBusy = !!running || !!(st && st.paused) || !!S.stoppedAt || !!S.toolChange;
     // what trace, in the air and cut wait for, each one named; a waiting button still takes the
-    // press and says it (Phil 10-28: "I can't figure out why it won't let me go to trace or in the air")
+    // press and says why it waits
     const need = needs(st, ready);
     const testWhy = need.filter(n => !n.ok && !n.opt).map(n => n.todo);
     const cutWhy = need.filter(n => !n.ok && !n.opt).map(n => n.todo);
@@ -1599,7 +1597,7 @@ html[data-skin] #swarf-run .sr-jog .sr-zrow button.next, html[data-skin] #swarf-
     el.fromBtn.disabled = running || cutWhy.length > 0;
     el.fromBtn.title = cutWhy.length ? `Continue needs: ${cutWhy.join(', then ')}.` : `Up to ${up()}, over, then cut from this line on`;
     el.need.innerHTML = '';
-    // the next thing to do and why, pinned above each panel that scrolls (review 11-13 #8)
+    // the next thing to do and why, pinned above each panel that scrolls
     const nextNeed = !running && need.find(n => !n.ok);
     el.next.textContent = nextNeed ? `next: ${nextNeed.todo}` : '';
     el.next.style.display = nextNeed ? '' : 'none';
@@ -1607,17 +1605,17 @@ html[data-skin] #swarf-run .sr-jog .sr-zrow button.next, html[data-skin] #swarf-
       el.need.append(h('b', { text: 'to run:' }));
       for (const n of need) el.need.append(h('span', { class: n.ok ? 'ok' : 'no', text: (n.ok ? '✓ ' : '○ ') + n.label + (n.opt && !n.ok ? ' (or skip it)' : ''), title: n.ok ? '' : n.todo, onclick: n.ok ? null : () => { tell(`${n.todo[0].toUpperCase()}${n.todo.slice(1)}.`, 'warn'); flashNeed(n.k); } }));
     }
-    // a finished cut: the steps read done, cut goes quiet, and the box offers what comes next (Fable 3 #11)
+    // a finished cut: the steps read done, cut goes quiet, and the box offers what comes next
     const finished = !running && (S.lastDone === 'cut' || S.lastDone === 'from') && !S.stoppedAt;
     if (finished) for (const node of el.steps.children) node.className = 'sr-step done';
     el.btn.cut.classList.toggle('quiet', finished);
     el.start.style.display = !S.prog || finished ? '' : 'none';
-    // after a test cut, "measure it" waits where the student looks (Fable 3 #9)
+    // after a test cut, "measure it" waits where the student looks
     if (el.measure) el.measure.style.display = finished && S.prog && S.prog.source === 'lesson' ? '' : 'none';
-    // Z's keys as the keyboard names them: fn + arrows on a Mac, Page Up / Page Down elsewhere (review 10-29)
+    // Z's keys as the keyboard names them: fn + arrows on a Mac, Page Up / Page Down elsewhere
     const zKeys = /Mac/i.test(navigator.platform || navigator.userAgent) ? 'fn ↑ ↓  Z' : 'PgUp PgDn  Z';
-    if (el.keys) el.keys.textContent = running ? 'any key pauses   ·   emergency: the red e-stop on the floor' : `← → ↑ ↓  X Y   ·   ${zKeys}   ·   space stops${S.jogStep === 'cont' && !(S.machine && S.machine.limitsKnown && S.machine.limitsKnown()) ? '   ·   continuous: no end stops, let go in time' : ''}`;   // Fable 3 #10
-    // the links stand in for the button row, never beside it (deep review S14: two "a test cut" after a finish)
+    if (el.keys) el.keys.textContent = running ? 'any key pauses   ·   emergency: the red e-stop on the floor' : `← → ↑ ↓  X Y   ·   ${zKeys}   ·   space stops${S.jogStep === 'cont' && !(S.machine && S.machine.limitsKnown && S.machine.limitsKnown()) ? '   ·   continuous: no end stops, let go in time' : ''}`;
+    // the links stand in for the button row, never beside it (never two "a test cut" after a finish)
     const startShown = !S.prog || finished;
     el.otherFile.style.display = S.prog && !startShown && !jobHeld() ? '' : 'none';
     el.lessonLink.style.display = S.prog && !startShown && !jobHeld() ? '' : 'none';
@@ -1628,8 +1626,8 @@ html[data-skin] #swarf-run .sr-jog .sr-zrow button.next, html[data-skin] #swarf-
     el.zxyBtn.classList.toggle('next', !!(first && first.k === 'xy') && !running);
     el.fromRow.style.display = S.stoppedAt ? '' : 'none';
     el.fromBtn.textContent = `continue from line ${el.fromLine.value}`;
-    // go-to buttons always there, greyed until that zero is set (Phil 10-29: "I thought there was
-    // but don't see it"); a saved zero only counts once kept ("use the zero you set")
+    // go-to buttons always there, greyed until that zero is set;
+    // a saved zero only counts once kept ("use the zero you set")
     const okXY = !!(S.zeroXY && S.zeroSetAt), okZ = !!(S.zeroZ && S.zeroSetAt);
     el.goXY.disabled = !okXY || !!running; el.goZ.disabled = !okZ || !!running;
     el.goXY.title = okXY ? 'Up, then over to X 0, Y 0' : 'Zero X Y first (or press "use the zero from")';
@@ -1649,11 +1647,11 @@ html[data-skin] #swarf-run .sr-jog .sr-zrow button.next, html[data-skin] #swarf-
     el.fromCam.title = running ? 'Not while the job runs: stop it first' : 'Make the toolpaths again and bring them here';
     // "same zero as last time": only a zero set in this session, offered when a new file needs one
     // never after a bit change: the saved Z belongs to the old bit
-    // and only before either zero is set again: never in the middle of setting them (review 10-28b #21)
+    // and only before either zero is set again: never in the middle of setting them
     // after a reconnect the offer stands with no file loaded too: the zero was the machine's, not the file's
-    // Phil 10-29: "if I am zeroed I shouldn't have to rezero": any file, a test cut, after a reload;
+    // a zero once set is offered back: any file, a test cut, after a reload;
     // never after a bit change (its Z is the old bit's) or a count that jumped (the box restarted)
-    // Phil 11-09: "a dead simple way to confirm that zero has been set from almost any situation": the
+    // one plain way to confirm the zero from almost any situation: the
     // button stands whenever some of the saved zero can come back (X Y, or Z unless a bit change made
     // it the old bit's); never halfway through zeroing X and Y by hand, never while a job runs
     const backXY = !!(S.zeroHad && S.zeroHad.xy && !S.zeroXY && sameSpot()), backZ = !!(S.zeroHad && S.zeroHad.z && !S.zeroZ && sameBit());
@@ -1664,7 +1662,7 @@ html[data-skin] #swarf-run .sr-jog .sr-zrow button.next, html[data-skin] #swarf-
     el.keepZero.style.display = offer ? '' : 'none';
     if (offer && S.zeroReconnect) el.keepZero.textContent = `use the zero from ${zeroWhen(S.zeroSetAt)}? Only if the board and the machine have not moved since ${S.discWhy || (S.discAt ? 'you disconnected' : 'the link dropped')}${S.discAt ? '' : ', then trace to check it'}`;
     else if (offer) el.keepZero.textContent = `use the zero from ${zeroWhen(S.zeroSetAt)} (${backXY && backZ ? 'X Y and Z' : backXY ? 'X Y' : 'Z'})? Only if this board has not moved since then${zeroWords(backXY, backZ)}`;
-    // the plan's checks follow the zero (Fable review 3 #1: it said "fits the table" when it no longer did)
+    // the plan's checks follow the zero (never "fits the table" when it no longer does)
     const sig = S.prog ? problems().block.join('|') + `|${!!S.zeroXY}${!!S.zeroZ}${!!(S.keptZero && S.keptZero.xy)}${!!(S.keptZero && S.keptZero.z)}|${S.zeroAt}|${S.zBit ? (S.zBit.name || S.zBit.num) : ''}${!!(S.machine && S.machine.mabs && corner())}` : '';
     if (sig !== S.planSig) { S.planSig = sig; renderPlan(); }
     // a latched fault sounds, softly and again every few seconds, until all clear (real machine only)
@@ -1707,7 +1705,7 @@ html[data-skin] #swarf-run .sr-jog .sr-zrow button.next, html[data-skin] #swarf-
       case 'load': return say(S.camBusy ? 'Making the toolpaths…' : S.camError || 'No toolpaths yet. Add a step to your part (rough, contour, outline, pocket), then press control.');
       case 'check': return say(problems().block[0], 'bad');
       case 'zero':
-        // two lines at 1280 in every skin (r093 UX W4): the status never pushes the page down
+        // two lines at 1280 in every skin: the status never pushes the page down
         if (S.toolChange) return say(`${S.toolChange} The router is off (leave its own switch on), the bit ${len(CHANGE_Z, 0)} up. Once it has stopped turning, change it, zero Z, then continue from line ${S.stoppedAt}.`, 'warn');
         if (S.zeroLost) return say('The box lost its position while it was unplugged. Zero X Y and Z again before you go on.', 'warn');
         // the step names follow the units: the jog's steps are 0.01 / 0.1 / 1 / 2 in, or 0.1 / 1 / 10 mm
@@ -1763,8 +1761,8 @@ html[data-skin] #swarf-run .sr-jog .sr-zrow button.next, html[data-skin] #swarf-
     refresh();
   }
 
-  // Z plate (Phil 10-27, then "the auto z depth with the touch off tool. Like the SB
-  // software has, but more tightly integrated"): one card, not five. The plate's
+  // Z plate (the auto Z depth with the touch-off tool, as the SB
+  // software has it, more tightly integrated): one card, not five. The plate's
   // thickness; three checks (bit over the board, clip on, plate under the bit); the
   // circuit proved by touching the plate to the bit, which also tells swarf which
   // input the plate is on; then touch off (C2: two touches, Z = the plate's
@@ -1775,7 +1773,7 @@ html[data-skin] #swarf-run .sr-jog .sr-zrow button.next, html[data-skin] #swarf-
     if (!m || !m.zZero || m.state.running || (isDirect() && !m.state.connected)) return;
     playStop();
     const sim = !isDirect();
-    // no touch step, ever (Phil 10-29, again 11-18): the shop's plate is known from the start, and
+    // no touch step, ever: the shop's plate is known from the start, and
     // machine setup sets another box's. The plate already reading contact is still refused before the
     // bit moves, and the descent stops after its travel. A saved plate input that is the e-stop's (or a
     // home sensor's) is no plate: the card sends the teacher to machine setup.
@@ -1789,7 +1787,7 @@ html[data-skin] #swarf-run .sr-jog .sr-zrow button.next, html[data-skin] #swarf-
     ];
     const boxes = {};
     const body = h('div', { class: 'sr-plate' });
-    // (review r086 F4) the plate's numbers in cam's units; a bare number typed is in them too
+    // the plate's numbers in cam's units; a bare number typed is in them too
     const plateShow = mm => window.SwarfLength ? SwarfLength.show(mm) : String(+(+mm).toFixed(3));
     const thick = h('input', { type: 'text', inputmode: 'decimal', value: plateShow(m.plateCfg.thickness), title: `Your plate's thickness, from calipers: Z zero is this far below` });
     // why touch off is shut, in words on the card (a shut button with only a tooltip read as
@@ -1834,8 +1832,8 @@ html[data-skin] #swarf-run .sr-jog .sr-zrow button.next, html[data-skin] #swarf-
       go.title = go.disabled ? why.textContent : `The bit comes down slowly, touches, lifts, touches again and lifts ${up()}. Any key stops it.`;
     };
     thick.addEventListener('keydown', e => e.stopPropagation());
-    // how far the bit searches down for the plate (Phil 10-29: 60 mm by default, raise it by hand)
-    // (Phil 11-01) shown as every length field is (SwarfLength.show), so the number read back is the
+    // how far the bit searches down for the plate (60 mm by default, raise it by hand)
+    // shown as every length field is (SwarfLength.show), so the number read back is the
     // one stored: 10 mm showed as 0.39 in, which read back as 9.9 mm and was refused
     const reachShow = () => plateShow((m.plateCfg && m.plateCfg.travel) || 60);
     const reach = h('input', { type: 'text', inputmode: 'decimal', value: reachShow(), title: 'How far the bit comes down looking for the plate' });
@@ -1929,12 +1927,12 @@ html[data-skin] #swarf-run .sr-jog .sr-zrow button.next, html[data-skin] #swarf-
     return { warn: false, text: `${mine}; this file cuts ${len(deep, 2)} down from the top, which stays in the board.` };
   }
 
-  // The plate card's picture (Phil 10-28: the plate model, swarf-plate-model.js): the bit, the
+  // The plate card's picture (the plate model, swarf-plate-model.js): the bit, the
   // ground clip on the router's clamp ring and the plate, posed for the card's step: 'test' (held
   // up against the bit, the circuit check), 'flat' (on the board, the bit coming down to it) and
   // 'away' (put back). Ink on the light skins, the faint ghost on the dark one. It renders only
   // while the card is open.
-  // One renderer for every plate card (review A8: each card made a WebGL context it never let go,
+  // One renderer for every plate card (a WebGL context per card would never be let go,
   // and Chrome drops the oldest past ~16, the control viewer's); its canvas moves into each card.
   let plateGL = null;
   function plateView() {
@@ -1953,7 +1951,7 @@ html[data-skin] #swarf-run .sr-jog .sr-zrow button.next, html[data-skin] #swarf-
     const mine = plateGL.owner = {};     // a card opened after this one takes the canvas, and this one's loop ends
     const wrap = h('div', { class: 'sr-plate-view' });
     const labels = { bit: h('span', { text: 'bit', class: 'l' }), clip: h('span', { text: 'ground clip', class: 'r' }), plate: h('span', { text: 'plate', class: 'b' }) };
-    // a picture of the steps, not the machine's live position (follow-up review)
+    // a picture of the steps, not the machine's live position
     wrap.append(canvas, ...Object.values(labels), h('em', { class: 'sr-plate-note', text: 'a picture, not the live machine' }));
     const dark = !document.documentElement.getAttribute('data-skin');
     const style = dark ? 'ghost' : 'ink';
@@ -1971,7 +1969,7 @@ html[data-skin] #swarf-run .sr-jog .sr-zrow button.next, html[data-skin] #swarf-
       }
     };
     // rests while the sheet is off (touch off hides it); pose() wakes it for the card's next step
-    // (review A9: the loop ended there, and "Z is zero" kept the bit halfway down)
+    // (a loop that ended there would leave "Z is zero" showing the bit halfway down)
     const frame = now => {
       if (plateGL.owner !== mine || !document.contains(canvas) || !el.sheet.classList.contains('on')) { raf = 0; return; }
       // flat: the bit comes down to the plate, touches, lifts, as touch off will do
@@ -1988,7 +1986,7 @@ html[data-skin] #swarf-run .sr-jog .sr-zrow button.next, html[data-skin] #swarf-
     } };
   }
 
-  // which program a zero was set for: a new program with other origin words retires it (Fable 3 #2)
+  // which program a zero was set for: a new program with other origin words retires it
   // the zero, kept across files and reloads: what was zeroed, when, and the card's count then
   const ZERO_KEY = 'swarf-run-zero';
   function rememberZero() { if (S.zeroXY || S.zeroZ) S.zeroHad = { xy: !!S.zeroXY, z: !!S.zeroZ }; saveZero(); }
@@ -1996,7 +1994,7 @@ html[data-skin] #swarf-run .sr-jog .sr-zrow button.next, html[data-skin] #swarf-
     const t = Date.now(); if (t - (S.zeroSavedAt || 0) < 500 && S.zeroHad) return; S.zeroSavedAt = t;
     try { localStorage.setItem(ZERO_KEY, JSON.stringify({ had: S.zeroHad || null, at: S.zeroSetAt || 0, steps: S.lastSteps || null, where: S.zeroAt === undefined ? null : S.zeroAt, bit: S.zBit || null })); } catch (e) { /* private window */ }
   }
-  // a typed length in control: mm unless it says otherwise (Phil 10-29: "I type 6in and it makes it mm")
+  // a typed length in control: mm unless it says otherwise ("6in" is 6 inches)
   // a bare number is in cam's units (the plate's fields too: their numbers are shown in them)
   function mmOf(t, def) { return window.SwarfLength ? SwarfLength.parse(t, def) : parseFloat(t); }
   // the bit a program has in at a line: the last tool named at or before it, else the first named
@@ -2017,7 +2015,7 @@ html[data-skin] #swarf-run .sr-jog .sr-zrow button.next, html[data-skin] #swarf-
   // Z was just set: remember the bit it was set with (undefined with no program: the next file adopts it)
   function markZBit() { S.zBit = S.prog ? bitAt(S.prog.parsed, S.stoppedAt || 1) : undefined; }
   // the place a program zeroes X Y, coarsely: 'corner', 'center', or null when the file only says its
-  // own X 0, Y 0 (Phil 11-09: a corner zero was offered to a center file)
+  // own X 0, Y 0 (a corner zero is never offered to a center file)
   function spotOf() {
     if (!S.prog) return null;
     if (S.prog.origin) { const t = S.prog.origin.xy || ''; return /front-left corner/.test(t) ? 'corner' : /center/.test(t) ? 'center' : null; }
@@ -2027,7 +2025,7 @@ html[data-skin] #swarf-run .sr-jog .sr-zrow button.next, html[data-skin] #swarf-
     // a part small enough to read as both (under about 20 mm) is not known: offered, never kept by itself
     return corner && center ? null : corner ? 'corner' : center ? 'center' : null;
   }
-  // what the saved zero was, in words, so a press is a choice made knowing it (review 11-09)
+  // what the saved zero was, in words, so a press is a choice made knowing it
   // a saved zero is offered back for 12 hours; after that the board may be anyone's
   function zeroFresh(at) { return !!at && Date.now() - at < 12 * 3600e3; }
   // when a zero was set, with its day: the box may have been left on for the next student
@@ -2042,9 +2040,9 @@ html[data-skin] #swarf-run .sr-jog .sr-zrow button.next, html[data-skin] #swarf-
   }
   // X Y was just set: remember the place
   function markXYAt() { S.zeroAt = S.prog ? spotOf() : undefined; }
-  // a zero measured now replaces that half of a kept one: its note and its drop button go (fresh
-  // review 11-13 #1: the z plate, a typed position and the corners card left the note up, and its
-  // button would then have dropped the zero just measured). Every path that sets a zero calls it.
+  // a zero measured now replaces that half of a kept one: its note and its drop button go (the z
+  // plate, a typed position and the corners card too: a note left up would keep a button that
+  // drops the zero just measured). Every path that sets a zero calls it.
   function freshZero(axes) {
     if (!S.keptZero) return;
     if (/[xy]/.test(axes)) S.keptZero.xy = false;
@@ -2059,16 +2057,16 @@ html[data-skin] #swarf-run .sr-jog .sr-zrow button.next, html[data-skin] #swarf-
   function progKey() { return S.prog ? `${S.prog.source}|${S.prog.name}|${originText().xy}` : ''; }
   function keepZero() {
     const had = S.zeroHad || { xy: true, z: true };
-    // the board still clamped is not the machine still knowing where it is (codex review 10-29): after
+    // the board still clamped is not the machine still knowing where it is: after
     // the link dropped, or a job stopped short, the zero comes back but the trace does not. Tracing
     // again shows the bit going round the board where it should, before any cut.
-    // Read before the flags below are cleared (review A4: it read them after, and never fired)
+    // Read before the flags below are cleared (read after, it never fires)
     const unsure = !!(S.lostAt || S.stoppedAt || (S.zeroReconnect && !S.discAt));
     // what is set stays set; Z comes back only for the bit it was set with (not after a bit change)
     const back = { xy: false, z: false };
     if (had.xy && sameSpot()) { S.zeroXY = S.zx = S.zy = true; back.xy = true; if (S.zeroAt == null && S.prog) S.zeroAt = spotOf(); }
     if (had.z && sameBit()) { S.zeroZ = true; back.z = true; if (!S.zBit && S.prog) markZBit(); }
-    // brought back, not measured: the same note and drop buttons as a zero kept across cam (review 11-13 #5)
+    // brought back, not measured: the same note and drop buttons as a zero kept across cam
     if (back.xy || back.z) S.keptZero = { xy: back.xy || !!(S.keptZero && S.keptZero.xy), z: back.z || !!(S.keptZero && S.keptZero.z) };
     saveZero();
     S.zeroReconnect = false; S.discAt = 0; S.discWhy = '';
@@ -2200,10 +2198,10 @@ html[data-skin] #swarf-run .sr-jog .sr-zrow button.next, html[data-skin] #swarf-
       // a jog under way (the zero steps' pad): Space stops it, as everywhere
       if ((e.key === ' ' || e.key === 'Enter') && t && el.card.contains(t) && !(e.key === ' ' && S.machine && (S.machine.state.moving || S.contHeld))) { e.stopPropagation(); return; }
       if (t && t.tagName === 'INPUT') return;
-      // no jogging under a card: the plan it shows was made from where the bit is (torture test 10-29)
+      // no jogging under a card: the plan it shows was made from where the bit is
       if (JOG_KEYS[e.key]) { e.preventDefault(); e.stopPropagation(); return; }
     }
-    // a running job: any key at all pauses it, router off (Phil 10-27)
+    // a running job: any key at all pauses it, router off
     if (S.open && PV.raf && e.type === 'keydown' && e.key === ' ' && !(S.machine && S.machine.state.running)) { e.preventDefault(); playStop(); return; }
     if (S.open && S.machine && e.type === 'keydown' && S.machine.state.running && !S.machine.state.paused) {
       e.preventDefault(); e.stopPropagation();
@@ -2308,8 +2306,8 @@ html[data-skin] #swarf-run .sr-jog .sr-zrow button.next, html[data-skin] #swarf-
     ].filter(Boolean);
   }
   // in the air: the deepest point clears the highest point of the cut by AIR_CLEAR, so a file
-  // zeroed on the table does not run through the board (design review 10-28 #7)
-  // the highest point of every move below safe height, rapids too (follow-up review #5: a file
+  // zeroed on the table does not run through the board
+  // the highest point of every move below safe height, rapids too (a file
   // that rapids down near a pocket floor cuts only below its board's top)
   function airTop() { const mv = S.prog ? S.prog.parsed.moves : []; let t = 0; for (const m of mv) { if (m.z < SAFE_Z - 0.5) t = Math.max(t, m.z); if (m.z0 < SAFE_Z - 0.5) t = Math.max(t, m.z0); } return t; }
   function airClear() { return AIR_CLEAR + airTop(); }
@@ -2320,7 +2318,7 @@ html[data-skin] #swarf-run .sr-jog .sr-zrow button.next, html[data-skin] #swarf-
     el.card.innerHTML = '';
     // a cut with no trace this zero: said at the top, and one more tick the student owns
     const untraced = !test && !S.traced;
-    // the zero not set in swarf: one tick the student owns on every run card, never a block (Phil 11-18)
+    // the zero not set in swarf: one tick the student owns on every run card, never a block
     const unzeroed = (!S.zeroXY || !S.zeroZ) ? [!S.zeroXY ? 'X Y' : '', !S.zeroZ ? 'Z' : ''].filter(Boolean).join(' and ') : '';
     const items = (test ? testChecklist() : checklist(from ? line : 0)).concat(
       unzeroed ? [`My ${unzeroed} zero is set on the machine`] : [],
@@ -2364,8 +2362,8 @@ html[data-skin] #swarf-run .sr-jog .sr-zrow button.next, html[data-skin] #swarf-
     el.sheet.classList.add('on');
   }
 
-  // Every move swarf makes by itself asks first (Phil 10-28: "it should never move or turn on
-  // spindle without popping up with a solid 'I am about to move' type message"). Jogs are the
+  // Every move swarf makes by itself asks first: an "about to move" card before it moves or
+  // turns on the spindle. Jogs are the
   // student's own hand on the machine and move at once.
   function routerButton() {
     const m = S.machine;
@@ -2385,7 +2383,7 @@ html[data-skin] #swarf-run .sr-jog .sr-zrow button.next, html[data-skin] #swarf-
     el.sheet.classList.add('on');   // focus goes to not yet: a stray key never starts the machine
   }
 
-  // A fault is latched (the follow-up review's fault state): after the e-stop, a lost link mid-job
+  // A fault is latched: after the e-stop, a lost link mid-job
   // or a router whose state swarf could not know, nothing runs again until the student has looked
   // at the machine and said so. Jogs still work, to lift the bit clear.
   function faultCard() {
@@ -2407,8 +2405,8 @@ html[data-skin] #swarf-run .sr-jog .sr-zrow button.next, html[data-skin] #swarf-
     el.sheet.classList.add('on');
   }
 
-  // A waiting trace, in the air or cut opens what is left to do (Phil 10-28: "If cut is
-  // unavailable then clicking it should pop up what has to be done before cut")
+  // A waiting trace, in the air or cut opens what is left to do
+  // when pressed while it waits
   function needsCard(k) {
     const st = S.machine && S.machine.state;
     const ready = st && st.connected && !st.queued && !(st.kind === 'sim' && st.moving);
@@ -2436,8 +2434,8 @@ html[data-skin] #swarf-run .sr-jog .sr-zrow button.next, html[data-skin] #swarf-
     el.sheet.classList.add('on');
   }
 
-  // ---- the table's corners: the machine's own frame (Phil 10-28: "a way to 0 to the front right
-  // or front left corner of the machine - a kind of absolute positioning mode"). The shop machine
+  // ---- the table's corners: the machine's own frame : a way to zero to the front right
+  // or front left corner of the machine, a kind of absolute positioning mode. The shop machine
   // has no home switches, so swarf learns the front-left corner once, from the bit placed over it;
   // the step count keeps it until the box is switched off.
   const CORNER = 'swarf-table-corner';
@@ -2447,7 +2445,7 @@ html[data-skin] #swarf-run .sr-jog .sr-zrow button.next, html[data-skin] #swarf-
   function corner() {
     if (S.corner === undefined) { try { S.corner = JSON.parse(localStorage.getItem(CORNER)) || null; } catch (e) { S.corner = null; } }
     // a corner learned from the real box's count is lost when the box restarts (zeroLost), the simulator's when the page reloads
-    // only for this page and this connection (design review 10-28 #6): a reload or a reconnect may hide a restart
+    // only for this page and this connection: a reload or a reconnect may hide a restart
     return S.corner && S.corner.kind === (isDirect() ? 'shopbot' : 'sim') && S.corner.page === PAGE_ID && S.corner.session === (S.connSession || 0) ? S.corner : null;
   }
   const PAGE_ID = Math.random().toString(36).slice(2);
@@ -2547,7 +2545,7 @@ html[data-skin] #swarf-run .sr-jog .sr-zrow button.next, html[data-skin] #swarf-
       m.setPlate(l.input, l.hit);
       showPlate();
     };
-    // the e-stop (Phil 10-29: the shop's is a momentary button on input 8, not ShopBot's usual 4)
+    // the e-stop (the shop's is a momentary button on input 8, not ShopBot's usual 4)
     const stopText = h('p');
     const showStop = () => { const c = m.stopCfg(); stopText.textContent = `e-stop: input ${c.input}, ${c.rest ? 'on' : 'off'} at rest`; };
     showStop();
@@ -2613,7 +2611,7 @@ html[data-skin] #swarf-run .sr-jog .sr-zrow button.next, html[data-skin] #swarf-
     const st = S.machine.state;
     if (st.paused) resumeNow(); else S.machine.pause();
   }
-  // Resume runs a plan of its own (third review #5): the veil shows its way back in, and pressing
+  // Resume runs a plan of its own: the veil shows its way back in, and pressing
   // resume arms that plan, and only it. The simulator keeps its own queue (no plan).
   function resumePlan() { return S.machine && S.machine.resumePlan ? S.machine.resumePlan() : null; }
   function resumeNow() {
@@ -2804,7 +2802,7 @@ html[data-skin] #swarf-run .sr-jog .sr-zrow button.next, html[data-skin] #swarf-
     const d = S.machine;
     if (!(d && d.disconnect)) return;
     if (await d.disconnect()) {
-      // the zero stays (Phil 10-29: "just confirm that 0 is right"): on reconnect swarf asks to keep it,
+      // the zero stays: on reconnect swarf asks to keep it,
       // and a count that moved while away (a restart, or another program's moves) drops it as before
       S.discAt = Date.now(); S.discWhy = '';
       tell(onWindows() ? 'Disconnected. ShopBot 3 can use the box now (zero again in it). Press connect to come back: swarf asks whether its zero still holds.' : 'Disconnected. Press connect to come back: swarf asks whether the zero still holds.', 'warn');
@@ -2816,10 +2814,10 @@ html[data-skin] #swarf-run .sr-jog .sr-zrow button.next, html[data-skin] #swarf-
     return S.connecting;
   }
 
-  // Chrome's own reasons, in plain words (Phil 10-27: "Connect does nothing")
+  // Chrome's own reasons, in plain words (never a silent connect)
   function connWhy(e) {
     const m = (e && (e.name + ': ' + e.message)) || String(e);
-    if (e && e.next) return `${e.message[0].toUpperCase()}${e.message.slice(1)}.`;   // which chooser comes next (Windows, 10-29)
+    if (e && e.next) return `${e.message[0].toUpperCase()}${e.message.slice(1)}.`;   // which chooser comes next (Windows)
     if (/COM port is in use/.test(m)) return 'ShopBot 3 (or another program) has the box\'s COM port. Quit ShopBot 3, then press connect. Only one program can use the box at a time.';
     if (onWindows() && /NotFoundError/.test(m)) return `Chrome found no ShopBot. On the shop PC, press connect and pick the ShopBot Controller (COM) port. On your own laptop, the box needs a one-time driver first: help, then search "windows laptop". ${WIN_ONE}`;
     if (onWindows() && /SecurityError/.test(m) && /gesture|activation/i.test(m)) return 'Press connect once more: Chrome shows its USB box now.';
@@ -2860,7 +2858,7 @@ html[data-skin] #swarf-run .sr-jog .sr-zrow button.next, html[data-skin] #swarf-
         // the card keeps its count while powered; a count that moved while unplugged means a restart
         const was = S.lastSteps, now = d.steps;
         // up to two queued blocks (~300 ticks) still run after a drop; a restart moves the count far more
-        // a saved origin read back broken and reset (review A18): the zero kept with it is gone too
+        // a saved origin read back broken and reset: the zero kept with it is gone too
         if (d.originRepaired) {
           S.zeroXY = S.zeroZ = S.traced = false; S.zx = S.zy = false; S.zeroSetAt = 0; S.zeroHad = null;
           saveZero();
@@ -2870,14 +2868,14 @@ html[data-skin] #swarf-run .sr-jog .sr-zrow button.next, html[data-skin] #swarf-
           setCorner(null);   // the count restarted: the table's corner is unknown again
         } else if (was && (S.zeroXY || S.zeroZ || S.zeroHad)) {
           rememberZero();
-          // an unchanged count cannot prove the box did not restart near zero (follow-up review #4):
+          // an unchanged count cannot prove the box did not restart near zero:
           // the zero is not reused by itself; "use the last zero" asks the student to say so
           S.zeroXY = S.zeroZ = S.traced = false; S.zx = S.zy = false; S.zeroReconnect = true;
         }
         if (S.unsub) S.unsub();
-        if (S.machine) { if (S.machine.stopPoll) S.machine.stopPoll(); else if (S.machine.timer) clearTimeout(S.machine.timer); }   // review A6
+        if (S.machine) { if (S.machine.stopPoll) S.machine.stopPoll(); else if (S.machine.timer) clearTimeout(S.machine.timer); }
         S.machine = d;
-        // the machine says when: about to move, the router about to start, finished once the bit has coasted (third review #6)
+        // the machine says when: about to move, the router about to start, finished once the bit has coasted
         d.onCue = name => { if (window.SwarfSound) SwarfSound.play(name); };
         S.unsub = d.on(onState);
         return;
@@ -2946,7 +2944,7 @@ html[data-skin] #swarf-run .sr-jog .sr-zrow button.next, html[data-skin] #swarf-
       if (el.resumeBtn) {
         el.resumeBtn.disabled = !!(rp && rp.problems.length);
         // the button says what the plan does: a pause on the way in has no router to start
-        // a trace or an air cut never had the router on (reviews 10-29: it said "start the router")
+        // a trace or an air cut never had the router on (never "start the router")
         const dry = S.job === 'trace' || S.job === 'air';
         el.resumeBtn.textContent = !dry && !isGrbl() && (!rp || rp.steps.some(x => x.router === true)) ? 'start the router and resume' : 'resume';
       }
@@ -2955,7 +2953,7 @@ html[data-skin] #swarf-run .sr-jog .sr-zrow button.next, html[data-skin] #swarf-
     if (veiled) {
       const dry = S.job === 'trace' || S.job === 'air';
       const h2 = el.veil.querySelector('h2'), p = el.veil.querySelector('.sr-veilcard p');
-      // the MR-1's pause stops its spindle once the bit is still (Phil 11-19); until the board says so, it turns
+      // the MR-1's pause stops its spindle once the bit is still; until the board says so, it turns
       const spinOff = isGrbl() && !!(st && st.spinStopped);
       if (h2) h2.textContent = dry ? `Paused. The ${S.job === 'air' ? 'air cut' : 'trace'} runs with the ${isGrbl() ? 'spindle' : 'router'} off.` : isGrbl() ? (spinOff || (st && st.spinIdle) ? 'Paused. The spindle is off.' : st && st.spinKeeps ? 'Paused by the machine. The spindle keeps turning.' : 'Paused. The spindle is stopping.') : 'Paused. The router is switched off.';
       if (p) p.textContent = dry ? `The bit stopped where it was. Resume carries on from here, ${isGrbl() ? 'spindle' : 'router'} still off. End the job stops it.`
@@ -2970,7 +2968,7 @@ html[data-skin] #swarf-run .sr-jog .sr-zrow button.next, html[data-skin] #swarf-
       if (S.fault) el.faultText.textContent = `${S.fault[0].toUpperCase()}${S.fault.slice(1)}. Check the machine, then:`;
     }
     el.veil.classList.toggle('on', veiled);
-    el.veil.parentElement.classList.toggle('sr-veiled', veiled);   // its buttons only: the ones under it hide (review 10-28)
+    el.veil.parentElement.classList.toggle('sr-veiled', veiled);   // its buttons only: the ones under it hide
     el.checkBtn.style.display = isDirect() && st.connected ? '' : 'none';
     // the MR-1: no Z plate (its tool setter comes later) and no table corners (it homes to its own)
     el.plateBtn.style.display = st.connected && !isGrbl() ? '' : 'none';
@@ -2978,7 +2976,7 @@ html[data-skin] #swarf-run .sr-jog .sr-zrow button.next, html[data-skin] #swarf-
     el.mr1CheckBtn.style.display = isGrbl() && st.connected && !st.running ? '' : 'none';
     el.plateBtn.classList.toggle('next', !!(S.prog && S.zeroXY && (!S.zeroZ || S.toolChange) && !st.running));
     const hs = isDirect() && S.machine.homeCfg && S.machine.homeCfg.set;
-    // the shop machine has no home switches and is zeroed by hand (Phil 10-27): Home only once both sensors are set
+    // the shop machine has no home switches and is zeroed by hand: Home only once both sensors are set
     el.homeBtn.style.display = (hs && hs.x && hs.y) || (isGrbl() && st.connected && !st.running) ? '' : 'none';
     el.homeBtn.classList.toggle('next', isGrbl() && !!st.connected && !st.homed && !st.refused);
     el.routerBtn.style.display = isDirect() && st.connected ? '' : 'none';
@@ -2992,19 +2990,19 @@ html[data-skin] #swarf-run .sr-jog .sr-zrow button.next, html[data-skin] #swarf-
     if (S.check) updateCheck(st);
     if (S.mr1Watch) S.mr1Watch(st);
     if (S.plateWatch) S.plateWatch(st);
-    // 10-27: directions proven on the real box (no flips), so the check card waits for its button
+    // directions proven on the real box (no flips), so the check card waits for its button
     if (st.dialog) el.askText.textContent = st.dialog.caption || st.dialog.message || '';
     // a finished trace completes the trace step; a stopped one does not
     if ((st.kind === 'shopbot' || st.kind === 'grbl') && st.running) st.line = lineAt(st.pos);
     if (st.routerUnknown && !S.fault && !st.estopped) S.fault = isGrbl() ? 'swarf could not tell whether the spindle was still on' : 'swarf could not tell whether the router was still on';
     // the e-stop latches once, when its note first appears (the note stays in the state after)
-    // the e-stop (Phil 10-29): swarf lets go of the machine, and connecting again clears it, so no
+    // the e-stop: swarf lets go of the machine, and connecting again clears it, so no
     // all-clear checklist; the zero is offered back on reconnect
     if ((st.note || '') !== S.prevNote && /stopped by the (e-stop|remote stop)/.test(st.note || '')) { S.estopHit = true; S.discAt = Date.now(); S.discWhy = 'the e-stop'; S.hold = null; }
     S.prevNote = st.note || '';
     if (S.lastRunning && !st.running) keepAwake(false);
     if (S.lastRunning && !st.running) {
-      // only a real end of file is a finish: a stop, a hold or a dropped link keeps the line (Fable review 10-27)
+      // only a real end of file is a finish: a stop, a hold or a dropped link keeps the line
       const finished = !S.userStopped && !st.stopHit && !st.lostMid && (st.kind === 'shopbot' || st.kind === 'grbl' ? st.done === true : /finished/.test(st.note));
       S.userStopped = false;
       // the MR-1 still connected after a job ended mid-file restarted (power, its e-stop, the cable)
@@ -3097,10 +3095,10 @@ html[data-skin] #swarf-run .sr-jog .sr-zrow button.next, html[data-skin] #swarf-
     try { return /shopbot/i.test(api.conf.get().device.deviceName || ''); } catch (e) { return false; }
   }
   // Safari and Firefox have no WebUSB: only Chrome-family browsers can drive the box
-  // (Phil 10-28: "better indicate to users early and at the right time that Safari doesn't work")
+  // (said early and at the right time that Safari doesn't work)
   const usbOK = () => !!(window.ShopBotLink ? ShopBotLink.supported() : navigator && navigator.usb);
-  // Windows reaches the box through ShopBot's own COM port, which one program holds at a time (Phil 10-29:
-  // say so whenever the Windows version is used)
+  // Windows reaches the box through ShopBot's own COM port, which one program holds at a time (said
+  // whenever the Windows version is used)
   const onWindows = () => !!(window.ShopBotLink && ShopBotLink.windows && ShopBotLink.windows() && ShopBotLink.supported());
   const WIN_ONE = 'On Windows, quit ShopBot 3 before you press connect: only one program can use the box at a time. To go back to ShopBot 3, press disconnect (or close this tab) first, then zero again in ShopBot 3.';
   function browserName() {
@@ -3142,8 +3140,8 @@ html[data-skin] #swarf-run .sr-jog .sr-zrow button.next, html[data-skin] #swarf-
       noUsbCard().then(go => { if (go) { S.simOK = true; runStep(); } });
       return;
     }
-    // not set up for the ShopBot: offer it here, one press (review 10-28: "a shop with one
-    // machine should not ask" you to find setup › machine first)
+    // not set up for the ShopBot: offer it here, one press (a shop with one
+    // machine is not sent to find setup › machine first)
     if (!isShopBot()) {
       if (!api || !api.uc || !api.devices) return;
       const pre = ["<div class='f-col a-center swarf-shape'><h3>Control drives the ShopBot and the MR-1</h3>",
@@ -3167,7 +3165,7 @@ html[data-skin] #swarf-run .sr-jog .sr-zrow button.next, html[data-skin] #swarf-
     if (!step.dataset.wired) { step.addEventListener('click', runStep); step.dataset.wired = '1'; }
     const mr1 = isMR1(), sb = isShopBot() || mr1;
     step.classList.toggle('swarf-step-off', !sb);
-    // control is the ShopBot's and the MR-1's: another machine has no control step (Phil 10-28)
+    // control is the ShopBot's and the MR-1's: another machine has no control step
     step.style.display = sb ? '' : 'none';
     if (sb && !mr1) warnNoUsb();
     step.title = mr1 ? (serialOK() ? 'Control the MR-1: bring these toolpaths, home, jog, zero, trace, cut' : 'Control: needs Chrome or Edge')

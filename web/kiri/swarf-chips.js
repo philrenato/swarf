@@ -28,7 +28,7 @@
     return;
   }
 
-  // r15b: Phil asked for more chips, closer to the tool; the caps bound the per-frame cost
+  // more chips, closer to the tool; the caps bound the per-frame cost
   const AIRBORNE_MAX = 440;
   const SETTLED_MAX  = 900;
   const GRAVITY      = 260;   // mm/s² (Three.js mm units)
@@ -94,7 +94,7 @@
     window.addEventListener('swarf.material.change', applyMaterialToChips);
 
     // A chip is a thin ribbon, so build one: a strip of quads swept along a
-    // path, two triangles per step. The tube these used to be spent its
+    // path, two triangles per step. A tube would spend its
     // triangles on a cross-section nothing can resolve — a curl is well under
     // a millimeter on screen — and the material is DoubleSide, so a strip
     // reads the same from either face at a third of the cost.
@@ -224,7 +224,7 @@
       return n;
     }
 
-    // flying chips are the swarf skin's alone (Phil 11-02)
+    // flying chips are the swarf skin's alone
     const swarfSkin = () => !document.documentElement.hasAttribute('data-skin');
     function spawnChip(pos) {
       if (window.__swarfChipsVisible === false || !swarfSkin()) return;
@@ -238,7 +238,7 @@
       const theta = Math.random() * Math.PI * 2;
       // angular velocity → linear tangent velocity at perimeter
       const omega = (SPIN_RPM * Math.PI * 2) / 60; // rad/s
-      // low throw so chips pile near the cutter (r15)
+      // low throw so chips pile near the cutter
       const tanMag = omega * TOOL_R * 0.002;
       // tangent direction in XY plane
       const tx = -Math.sin(theta) * tanMag;
@@ -338,8 +338,8 @@
       const dt = Math.min(0.05, (now - lastTime) / 1000);
       lastTime = now;
 
-      // swarf r12: fully stop when nothing to animate. The old 8Hz heartbeat
-      // still burned CPU. Now we park entirely and restart via api events.
+      // swarf: fully stop when nothing to animate (an 8Hz heartbeat
+      // still burns CPU): park entirely and restart via api events.
       let anyAirborne = false;
       for (let f = 0; f < chips.length; f++) { if (chips[f].length) { anyAirborne = true; break; } }
       if (!simulating && !anyAirborne) {
@@ -347,7 +347,7 @@
         return;  // fully parked — restarted by simulate/tool.move events
       }
 
-      // swarf v010 r5: tool spin with velocity-driven ramp. Spin speed
+      // swarf: tool spin with velocity-driven ramp. Spin speed
       // follows actual tool motion — spinning up when cutting, coasting
       // down quickly after the move ends. Looks like a real spindle that
       // idles between cuts rather than a cartoon prop that runs forever.
@@ -464,9 +464,9 @@
         lastToolPos = { x: pos.x, y: pos.y, z: pos.z };
         lastToolTime = t;
 
-        // simulate + XY motion only: a Z test failed when the part origin was not at its top (r6)
+        // simulate + XY motion only: a Z test fails when the part origin is not at its top
         const moving = Math.hypot(toolVel.x, toolVel.y) > 0.2;
-        // about three chips per move (r15b, Phil: more chips)
+        // about three chips per move
         if (simulating && moving) {
           spawnChip(pos);
           spawnChip(pos);
@@ -500,7 +500,7 @@
     };
     let hookTries = 0;
     const hookPoll = setInterval(() => {
-      if (hookApi() || ++hookTries > 800) clearInterval(hookPoll);   // 120 s, as the space poll (review r093 A21)
+      if (hookApi() || ++hookTries > 800) clearInterval(hookPoll);   // 120 s, as the space poll
     }, 150);
   }
 })();

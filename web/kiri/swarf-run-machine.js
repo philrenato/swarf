@@ -58,7 +58,7 @@
       this.state.note = 'simulator';
       // mm/s, ShopBot [VS] jog defaults on the shop machine. cfg.jog as on the real
       // driver, so CONTROL's speed row (setJogSpeed) reaches the simulator too: the
-      // simulator jogged at 6000 mm/min whatever the row said (review 10-28)
+      // simulator would otherwise jog at 6000 mm/min whatever the row said
       this.cfg = { jog: { xy: 100, z: 100 } };
       this.zeroOffset = { x: 0, y: 0, z: 0 };
       this.raf = 0;
@@ -77,7 +77,7 @@
       this.set({ plateCfg: { ...this.plateCfg } });
       return true;
     }
-    // search down, as on the real driver (review A5: the plate card refused every value in the simulator)
+    // search down, as on the real driver (else the plate card would refuse every value in the simulator)
     setPlateTravel(t) {
       if (!(t >= 10 && t <= 150)) return false;
       this.plateCfg.travel = t;
@@ -209,7 +209,7 @@
       this.set({ pos, note: `zeroed ${axes.toUpperCase()}` });
       return true;
     }
-    // type a position: here becomes v on that axis (the real driver's VA, review 10-28b #23)
+    // type a position: here becomes v on that axis (the real driver's VA)
     setWork(axis, v) {
       if (!isFinite(v)) return false;
       if (this.busy()) { this.set({ note: 'not now: the machine is still moving. Wait until it stops' }); return false; }
@@ -241,7 +241,7 @@
       if (!root.SwarfRunPlan.verify(plan)) { this.set({ note: 'not run: this plan changed after it was made' }); return; }
       if (!plan.armed) { this.set({ note: 'not run: this plan was not confirmed' }); return; }
       if (plan.problems.length) { this.set({ note: `${plan.problems[0]}: not run` }); return; }
-      // as the ShopBot refuses it (torture test 10-29: the simulator ran a plan from wherever the bit had gone)
+      // as the ShopBot refuses it (never a plan run from wherever the bit has gone)
       const p = this.state.pos;
       if (plan.from && Math.hypot(p.x - plan.from.x, p.y - plan.from.y, p.z - plan.from.z) > 0.05) { this.set({ note: 'not run: the bit has moved since this plan was made' }); return; }
       this.queue = [];

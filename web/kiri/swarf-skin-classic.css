@@ -1,12 +1,12 @@
-/* swarf skin: CLASSIC — a desktop from the late nineties (Phil 10-28: "classic OS —
-   use a mix of BeOS and Win95 and OS9 type features").
+/* swarf skin: CLASSIC — a desktop from the late nineties (classic OS:
+   a mix of BeOS and Win95 and OS9 type features).
    Each piece borrows from the system that did it best:
      BeOS      the desktop blue, the yellow tab on each panel, yellow for a toggle that is on
      Windows 95  the silver two-pixel bevels, the navy title bars on dialogs, the taskbar step row,
                navy for a chosen row
      Mac OS 9  the Platinum menubar and its blue-highlight menus, pinstripes on the start card,
                the default-button ring, Geneva and Monaco, the yellow help balloon
-   The recipes come from Phil's own rooms: Sbalzo (BeOS), Classicery dw and fcp (Platinum),
+   The recipes come from these rooms: Sbalzo (BeOS), Classicery dw and fcp (Platinum),
    Classicery wrdz (Windows 95). The color layer is swarf-skin-map.css, driven below. */
 
 html[data-skin="classic"] {
@@ -173,7 +173,7 @@ html[data-skin="classic"] #panel-right #oplist > div, html[data-skin="classic"] 
 html[data-skin="classic"] #panel-right #oplist > div.selected, html[data-skin="classic"] #panel-right #oplist > div:hover,
 html[data-skin="classic"] #ws-widgets button.selected, html[data-skin="classic"] #ws-widgets button:hover { background: #000080 !important; color: #fff !important; border: 1px dotted #ffff80 !important; }
 html[data-skin="classic"] #panel-right #oplist, html[data-skin="classic"] #ws-widgets { background: #fff !important; box-shadow: var(--c-field) !important; padding: 3px !important; }
-/* r086 check P5: with no steps the list's white field read as an empty text box under "tool library" */
+/* with no steps the list's white field would read as an empty text box under "tool library" */
 html[data-skin="classic"] #panel-right #oplist:not(:has(.draggable)) { display: none !important; }
 
 /* ---- fields: white and sunken; pop-ups with the Platinum arrow ---- */
@@ -208,15 +208,15 @@ html[data-skin="classic"] #swarf-run .sr-card {
   background: #c0c0c0 !important; color: #000 !important; border: 0 !important; border-radius: 0 !important;
   box-shadow: var(--c-out), 4px 4px 0 rgba(0,0,0,.35) !important; padding-top: 26px !important; position: relative;
 }
-/* the modal box stays where Kiri centers it (absolute, translated); relative put every pop-up
-   half off the left edge (review 10-29: export, about, help search, tools unreachable) */
+/* the modal box stays where Kiri centers it (absolute, translated); relative would put every pop-up
+   half off the left edge (export, about, help search, tools unreachable) */
 html[data-skin="classic"] #modal > #modal-box { position: absolute !important; }
 html[data-skin="classic"] #dialog::before, html[data-skin="classic"] #modal-box::before, html[data-skin="classic"] .image-convert-dialog::before, html[data-skin="classic"] #swarf-run .sr-card::before {
   content: "swarf"; position: absolute; top: 3px; left: 3px; right: 3px; height: 18px; padding: 0 6px; display: flex; align-items: center;
   background: var(--c-title); color: #fff; font: 700 12px var(--c-font); letter-spacing: 0;
 }
 html[data-skin="classic"] #dialog::after, html[data-skin="classic"] #modal-box::after, html[data-skin="classic"] #swarf-run .sr-card::after {
-  /* no painted ×: it could not be pressed (review 10-29); each window has its own close */
+  /* no painted ×: it could not be pressed; each window has its own close */
   content: none; display: none;
 }
 html[data-skin="classic"] #dialog::backdrop { background: transparent; }
@@ -304,13 +304,13 @@ html[data-skin="classic"] .swarf-shape-prev svg { fill: #808080 !important; fill
 html[data-skin="classic"] #swarf-run .sr-note, html[data-skin="classic"] #swarf-run .sr-sim, html[data-skin="classic"] #swarf-run .sr-col > .sr-mach { color: #f0f4fa !important; }
 html[data-skin="classic"] #swarf-run .sr-actions .cut:disabled { box-shadow: var(--c-out) !important; font-weight: 400 !important; margin: 0 !important; }
 
-/* the navy cut button reads white (Fable review 3 #23) */
+/* the navy cut button reads white */
 html[data-skin="classic"] #swarf-run .sr-actions .cut, html[data-skin="classic"] #swarf-run .sr-actions .cut * { color: #fff !important; }
 html[data-skin="classic"] #swarf-run .sr-actions .cut.wait, html[data-skin="classic"] #swarf-run .sr-actions .cut.quiet { color: #000 !important; }
 
-/* ---- legibility pass (Phil 10-28: "make sure legibility is never compromised") ----
-   measured with tools/look_legibility.mjs. Windows 95's engraved gray for disabled text was the
-   look, and it failed: disabled words are dark gray on silver here, with the same white emboss. */
+/* ---- legibility: never compromised ----
+   measured with tools/look_legibility.mjs. Windows 95's engraved gray for disabled text
+   fails it: disabled words are dark gray on silver here, with the same white emboss. */
 html[data-skin="classic"] button:disabled, html[data-skin="classic"] #swarf-run button:disabled, html[data-skin="classic"] #mode-tools > span.disabled,
 html[data-skin="classic"] #mode-tools > span.disabled label, html[data-skin="classic"] #swarf-run .sr-card .row .go:disabled {
   color: #3c3c3c !important; text-shadow: 1px 1px 0 #fff !important; opacity: 1 !important; }
@@ -340,8 +340,8 @@ html[data-skin="classic"] #swarf-run .sr-mach .sr-out { color: #fff !important; 
 html[data-skin="classic"] #swarf-run .sr-actions .cut:not(:disabled):not(.wait):not(.quiet) { color: #fff !important; }
 
 /* a notice's close: a Platinum close box (13 px, a 1 px frame, an inset bevel), not the 95 button
-   bevel squeezed round a × that read as a broken image (review 10-30 B6). r086 check P2/P7: an
-   empty box read as a checkbox, so the box carries a ×; the button is a 24 px target round it. */
+   bevel squeezed round a × that reads as a broken image. An
+   empty box reads as a checkbox, so the box carries a ×; the button is a 24 px target round it. */
 html[data-skin="classic"] #alert-text button.alert-x {
   position: relative; width: 24px; height: 24px; min-width: 24px; min-height: 24px; padding: 0 !important; margin: -5px -6px -5px 0; box-sizing: border-box;
   background: transparent !important; border: 0 !important; box-shadow: none !important; border-radius: 0 !important;
@@ -358,7 +358,7 @@ html[data-skin="classic"] #alert-text button.alert-x::before {
 html[data-skin="classic"] #alert-text button.alert-x:hover::before { filter: brightness(.8); box-shadow: inset 1px 1px 0 #666, inset -1px -1px 0 #ddd; }
 html[data-skin="classic"] #alert-text button.alert-x:focus-visible { outline: 1px dotted #000; outline-offset: 1px; }
 
-/* (whole-app review r086 B6) one typeface: the cards, concerns, help, export, preferences, the
+/* one typeface: the cards, concerns, help, export, preferences, the
    simulate bar and the step card in Geneva; Monaco stays for numbers and code */
 html[data-skin="classic"] #swarf-start, html[data-skin="classic"] #swarf-start *:not([class*="fa-"]):not(.fas), html[data-skin="classic"] #swarf-concerns, html[data-skin="classic"] #swarf-concerns *:not([class*="fa-"]):not(.fas),
 html[data-skin="classic"] .swarf-help-modal, html[data-skin="classic"] .swarf-help-modal *:not([class*="fa-"]):not(.fas), html[data-skin="classic"] #mod-x-any, html[data-skin="classic"] #mod-x-any *:not([class*="fa-"]):not(.fas),
@@ -367,19 +367,19 @@ html[data-skin="classic"] .swarf-op-params, html[data-skin="classic"] .swarf-op-
   font-family: var(--c-font) !important;
 }
 html[data-skin="classic"] #mod-x-any textarea { font-family: var(--c-mono) !important; }
-/* the "more below" band (r093 UX V1): opaque, the color of the plates it sits on */
+/* the "more below" band: opaque, the color of the plates it sits on */
 html[data-skin="classic"] { --swarf-more-bg: #d4d0c8; }
 html[data-skin="classic"] #swarf-run { --swarf-more-bg: #c0c0c0; }
 html[data-skin="classic"] #tx-card { --swarf-more-bg: #d4d0c8; }
-/* (r093 UX V8) the about card in the body face, as every other card; the license stays monospace */
+/* the about card in the body face, as every other card; the license stays monospace */
 html[data-skin="classic"] .swarf-about { font-family: var(--c-font) !important; }
 html[data-skin="classic"] .swarf-about .swarf-license { font-family: var(--c-mono) !important; }
-html[data-skin="classic"] #swarf-watermark:hover { color: #000080 !important; }  /* review r093 F3: the hover the legibility rule overrode */
+html[data-skin="classic"] #swarf-watermark:hover { color: #000080 !important; }  /* the hover the legibility rule would override */
 
-/* the draw and tex tabs, when on, sit on the accent: white words, as swarf.css means them (the map made them the skin's ink, black on navy, look_legibility 11-13) */
+/* the draw and tex tabs, when on, sit on the accent: white words, as swarf.css means them (the map would make them the skin's ink, black on navy; look_legibility) */
 html[data-skin="classic"] #mode-tools > span#swarf-step-draw.swarf-step-on label, html[data-skin="classic"] #mode-tools > span#swarf-step-draw.swarf-step-on i, html[data-skin="classic"] #mode-tools > span#swarf-step-draw.swarf-step-on svg,
 html[data-skin="classic"] #mode-tools > span#swarf-step-tex.swarf-step-on label, html[data-skin="classic"] #mode-tools > span#swarf-step-tex.swarf-step-on i, html[data-skin="classic"] #mode-tools > span#swarf-step-tex.swarf-step-on svg { color: #fff !important; fill: #fff !important; }
-/* the quick start's title on its navy bar, and control's target chip on the steel-blue desk: white words (the map made them ink and info navy, look_legibility 11-13) */
+/* the quick start's title on its navy bar, and control's target chip on the steel-blue desk: white words (the map would make them ink and info navy; look_legibility) */
 html[data-skin="classic"] #swarf-tutorial .st-title { color: #fff; }
 html[data-skin="classic"] #swarf-run .sr-target.sim, html[data-skin="classic"] #swarf-run .sr-target.live { color: #fff; }
 html[data-skin="classic"] #swarf-run .sr-target.sim { border-color: #fff; }

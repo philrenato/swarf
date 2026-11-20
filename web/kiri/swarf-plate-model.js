@@ -1,8 +1,8 @@
 /*
  * swarf plate model — the Z plate, its lead, and the ground clip on the router, for the
- * plate card and the shop poster (Phil 10-28, from a photo of the shop's setup: an
+ * plate card and the shop poster (from a photo of the shop's setup: an
  * aluminum strip on a coiled black lead, a copper alligator clip biting the black Allen
- * screw in the side of the router's clamp (Phil 10-28), the bit hanging between them).
+ * screw in the side of the router's clamp, the bit hanging between them).
  * Same drawing as the ShopBot model: a faint fill and its creases, boxes and low
  * cylinders, a few hundred triangles.
  *
@@ -74,8 +74,8 @@
     box(2, 24, 52, M.dark, head, 0, -COLLAR.r - 8, COLLAR.z0 + 30);
     cyl(COLLAR.r + 2, COLLAR.z1, COLLAR.z1 + 26, M.dark, head, 32);       // the motor above, cut short
 
-    // ---- the black Allen screw in the side of the clamp ear (Phil 10-28: the clip "needs to go
-    // on the black allen head screw in the side of the housing for the router"), and the ground
+    // ---- the black Allen screw in the side of the clamp ear (the clip goes
+    // on the black allen head screw in the side of the housing for the router), and the ground
     // clip biting its head, the clip's levers hanging out and down to the side
     const EAR = { x: 13, y: -COLLAR.r - 8, z: COLLAR.z0 + 30 };
     const screw = new THREE.Group(); head.add(screw);

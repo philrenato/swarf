@@ -1,7 +1,7 @@
 /*
  * swarf shape — make a part without a file: circle, rectangle, rounded
- * rectangle, ring, polygon or slot, at a size and a thickness (Phil 10-27:
- * "make a circle, give it a thickness, then make gcode and cut").
+ * rectangle, ring, polygon or slot, at a size and a thickness (make a
+ * circle, give it a thickness, then make gcode and cut).
  *
  * The shape is written as a small SVG in millimeters and handed to cam's own
  * SVG import (api.platform.load_svg), so it becomes an ordinary part: it moves,
@@ -21,7 +21,7 @@
     slot:    { label: 'slot',              fields: ['w', 'h'] }
   };
   const FIELD = {
-    // (review r086 F12) in inches a shape starts at round inches, not converted millimeters
+    // in inches a shape starts at round inches, not converted millimeters
     d:  { label: 'diameter', unit: 'mm', value: 100, inch: 101.6 },
     di: { label: 'hole diameter', unit: 'mm', value: 50, inch: 50.8 },
     w:  { label: 'width', unit: 'mm', value: 150, inch: 152.4 },
@@ -93,8 +93,8 @@
   }
 
   // a part is named by what it is, "rectangle", then "rectangle 2"; its size is
-  // on the size card, and a name with the size baked in went stale at the first
-  // resize (review 10-28b #9)
+  // on the size card, and a name with the size baked in would go stale at the first
+  // resize
   function nameFor(kind) {
     const base = SHAPES[kind].label;
     let taken = [];
@@ -147,7 +147,7 @@
       // a small picture of it, to scale within its box
       const svg = !why && svgFor(kind, v);
       let pic = svg ? svg.replace(/width="[^"]*" height="[^"]*"/, 'width="100%" height="100%" preserveAspectRatio="xMidYMid meet"') : '';
-      // a shaped edge shows as a lighter band its size inside the outline (review 10-28b #8)
+      // a shaped edge shows as a lighter band its size inside the outline
       if (pic && edge !== 'straight' && es > 0) {
         const m = pic.match(/^(<svg[^>]*>)([\s\S]*)<\/svg>$/);
         if (m) pic = `${m[1]}<defs><clipPath id="shape-clip">${m[2].replace(/fill-rule="evenodd"/g, 'clip-rule="evenodd"')}</clipPath></defs>${m[2]}<g class="band" clip-path="url(#shape-clip)" fill="none" stroke-width="${2 * es}">${m[2].replace(/<(rect|circle|ellipse|path|polygon)\b/g, '<$1 fill="none"')}</g></svg>`;
@@ -165,7 +165,7 @@
       const made = a.platform.load_svg(svgFor(kind, v), nameFor(kind), { depth: t, resolution: 2, segmin: 48, soup: true, dpi: 0, edge: { kind: edge, size: es } });
       if (!made.length) { a.show.alert(made.error || 'swarf could not make that shape.', 6); return; }
       const shaped = edge === 'straight' ? '' : ` with a ${len(es)} ${EDGES[edge]} top edge`;
-      // the hint goes as soon as it is followed: a step added, or toolpaths (review r093-ux B8)
+      // the hint goes as soon as it is followed: a step added, or toolpaths
       ((rec) => { const drop = () => { try { a.hide.alert(rec); } catch (e) { /* gone */ } document.getElementById('op-add-list')?.removeEventListener('click', drop, true); };
         document.getElementById('op-add-list')?.addEventListener('click', drop, true); a.event.on('preview.begin', drop); })(
       a.show.alert(`Made a ${SHAPES[kind].label}, ${len(t)} thick${shaped}. Next: add a step (${edge === 'straight' ? 'outline cuts it out' : 'contour shapes the edge, outline cuts it out'}), then toolpaths.`, 8));

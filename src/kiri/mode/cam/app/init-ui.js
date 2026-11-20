@@ -24,7 +24,7 @@ import { toolOrder } from './tools.js';
 import { Widget, newWidget } from '../../../app/widget.js';
 import { zPlaneStart, zPlaneDone, zPlaneSelecting } from './cl-zplane.js';
 
-// a step's label can carry a file name (TEX's marks): text, never markup (deep review 10-31 M1)
+// a step's label can carry a file name (TEX's marks): text, never markup
 const esc = t => String(t).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
 
 const { BufferGeometryUtils } = THREE;
@@ -62,8 +62,8 @@ class Client {
 
 export const env = new Client();
 
-// a TEX step's row: "texture · ocean waves", the parts it is on in its tooltip (review r093-ux T3:
-// "texture: ocean waves on circle 2" ran out of the panel)
+// a TEX step's row: "texture · ocean waves", the parts it is on in its tooltip
+// ("texture: ocean waves on circle 2" would run out of the panel)
 const texShort = t => String(t).replace(/^([\w-]+): (.+?) on .*$/, '$1 · $2');
 
 export function isDark() {
@@ -310,7 +310,7 @@ const opDel = (rec) => {
     }
 };
 
-// swarf (review r086 F4): the step card's numbers in the student's unit. Ops keep mm, mm/min and
+// swarf: the step card's numbers in the student's unit. Ops keep mm, mm/min and
 // stepover as a fraction of the bit; only the card's words and fields change.
 function opInch() {
     const L = window.SwarfLength;
@@ -329,7 +329,7 @@ function opParse(f, text) {
     const L = window.SwarfLength, inch = opInch();
     const n = parseFloat(String(text).replace(',', '.'));
     // a feed is a number per minute, not a length: read its fractions (1 1/2) as a plain number
-    // (Phil 11-01) a feed may name its unit: 1500 mm/min or 60 in/min (ipm) whatever the setting
+    // a feed may name its unit: 1500 mm/min or 60 in/min (ipm) whatever the setting
     if (f === 'rate' || f === 'plunge') {
         const m = String(text).trim().match(/^(.*?)\s*(mm\/min|mm|in\/min|ipm|in|")?$/i);
         const u = m && m[2] ? (/^mm/i.test(m[2]) ? 1 : 25.4) : (inch ? 25.4 : 1), num = m ? m[1] : '';
@@ -351,7 +351,7 @@ export function opRender() {
         opUnitsHooked = true;
         api.event.on('units.set', () => setTimeout(opRender, 0));
         for (const ev of ['widget.add', 'widget.delete', 'selection.scale', 'settings.saved']) api.event.on(ev, () => setTimeout(paintStepLines, 0));
-        // (whole-app review r086 C4) strategy's machinist rows (tool init, first z max, force z
+        // strategy's machinist rows (tool init, first z max, force z
         // max, engage factor) are advanced's; a student's strategy is ease down, depth first,
         // inner first and the ease angle
         for (const k of ['camToolInit', 'camFirstZMax', 'camForceZMax', 'camFullEngage']) {
@@ -464,7 +464,7 @@ export function opRender() {
             drill:   ['tool','rate','down'],
             area:    ['tool','rate','down','step'],
             // the mark's bit, path, finish and stepover (set in TEX, tuned here too: one value), and the
-            // step's own feed, plunge and step-down (Phil 11-01: "just like other toolpaths")
+            // step's own feed, plunge and step-down (like other toolpaths)
             texture: ['tool','path','finish','texstep','down','rate','plunge'],
             pierce:  ['tool','down','rate','plunge'],
             inlay:   ['tool','texstep','down','rate','plunge'],
@@ -482,7 +482,7 @@ export function opRender() {
                              pattern: 'pattern', lineAngle: 'angle' };
             // a drill's feed is how fast it goes down, and its step-down a peck
             if (rec.type === 'drill') { labels.rate = 'plunge'; labels.down = 'peck'; }
-            // (review r086 F4) every number says its unit and follows mm | in: feed in mm/min or
+            // every number says its unit and follows mm | in: feed in mm/min or
             // in/min, step-down a length (fractions typed), stepover a share of the bit's width
             const inch = opInch();
             const tips = {
@@ -540,7 +540,7 @@ export function opRender() {
             clock ? '' :
                 `<label id="${mark + i}-x" class="del"><i class="fa-solid fa-xmark"></i></label>`,
             swarfFields ? `<label id="${mark + i}-c" class="swarf-op-chevron" title="edit parameters"><i class="fa-solid fa-chevron-down"></i></label>` : '',
-            // swarf: what the step does, in a line: its bit, how deep, how fast (review 105 F6, F18, M3)
+            // swarf: what the step does, in a line: its bit, how deep, how fast
             clock ? '' : `<div class="swarf-op-sum" data-step="${env.current.process.ops.indexOf(rec)}"></div>`,
             drawerHtml,
             `</div>`
@@ -654,7 +654,7 @@ export function opRender() {
                         } else if (inp.type === 'checkbox') {
                             rec[f] = inp.checked;
                         } else {
-                            // (deep review 10-31 S1/S2) a value swarf cannot use is refused out loud and
+                            // a value swarf cannot use is refused out loud and
                             // the old one stays: unreadable, a step-down of 0 (drill's 0 is "no peck"),
                             // or a feed past the machine's own top speed
                             const typed = inp.value.trim(), v = opParse(f, typed);
@@ -699,8 +699,8 @@ export function opRender() {
                     ev.preventDefault();
                     openOnly($(id));
                 });
-                // swarf r5: also toggle from clicking the op label itself so
-                // Phil doesn't have to aim at a small chevron.
+                // swarf: also toggle from clicking the op label itself so
+                // no one has to aim at a small chevron.
                 const labelEl = $(id) && $(id).querySelector('.label');
                 if (labelEl) {
                     labelEl.addEventListener('click', ev => {
@@ -1144,7 +1144,7 @@ export function init() {
     api.event.on([
         "selection.scale",
     ], () => {
-        // swarf: said, not silent (torture test 10-29: a resize left the part with no tabs and only
+        // swarf: said, not silent (a resize can leave the part with no tabs, never only
         // "Resized to ..."); auto tabs come back by themselves at the new size (cl-autotab.js),
         // and the ones moved or resized by hand (pinned) stay, scaled with their part
         let hand = 0, auto = 0;
@@ -1181,7 +1181,7 @@ export function init() {
         if (env.func.unpop) env.func.unpop();
     };
 
-    // drill is a basic step (review 105 B4). Done here as well as in index.html: the site's page is its
+    // drill is a basic step. Done here as well as in index.html: the site's page is its
     // own copy of that file and deploy.sh does not overwrite it
     {
         const list = $('op-add-list'), kids = [...list.children], word = t => kids.find(c => c.textContent.trim() === t);
@@ -1191,8 +1191,8 @@ export function init() {
             drill.title = 'pecks the round holes that match its bit, through the board';
             pocket.after(drill);
         }
-        // each step is a button for a keyboard and a screen reader (review 11-13 #9: outline, the first
-        // job's step, read as plain text): its tooltip is its description; Enter or Space adds it
+        // each step is a button for a keyboard and a screen reader (outline, the first
+        // job's step, is not plain text): its tooltip is its description; Enter or Space adds it
         for (const k of list.children) {
             k.setAttribute('role', 'button');
             k.setAttribute('tabindex', '0');
@@ -1269,8 +1269,8 @@ export function init() {
             case api.ui.tabDun:
                 return tabDone();
             case api.ui.tabClr:
-                // no yes/no box: undo brings them back, and that is said (review r093-ux B5: Kiri's
-                // "clear tabs?" ignored Esc and stayed up across modes)
+                // no yes/no box: undo brings them back, and that is said (Kiri's
+                // "clear tabs?" ignores Esc and stays up across modes)
                 { const before = tabSnap(); tabClear(); autoForget(); tabUndo(before, 'clear tabs');
                   api.show.alert('Removed every tab. ⌘Z brings them back.', 5); }
                 break;

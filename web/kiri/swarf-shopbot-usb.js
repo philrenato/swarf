@@ -171,7 +171,7 @@
     static async known(serial = ShopBotSerial.serial()) {
       const ports = await serial.getPorts();
       const p = ports.find(ShopBotSerial.isBox)
-        // a port picked from the full list (the shop PC, 10-29: ShopBot's old driver makes COM3 without
+        // a port picked from the full list (the shop PC: ShopBot's old driver makes COM3 without
         // the USB ids Chrome matches on); connect proves it is the box by the card's answer
         || (ShopBotSerial.anyPicked() ? ports.find(q => { const i = q.getInfo ? q.getInfo() : {}; return !i.usbVendorId || i.usbVendorId === VID; }) : null);
       return p ? new ShopBotSerial(p) : null;
@@ -252,7 +252,7 @@
   // Which link this computer uses: Windows reaches the box through its COM port (ShopBot's driver
   // owns the USB device there); macOS has no driver for it, so WebUSB opens it directly.
   // Which link this computer uses. The Mac has no driver for the box, so WebUSB opens it directly.
-  // Windows has two ways in (Phil 10-29): ShopBot's own driver makes it a COM port (the shop PC,
+  // Windows has two ways in: ShopBot's own driver makes it a COM port (the shop PC,
   // Web Serial); a student laptop without ShopBot's software can take the generic WinUSB driver
   // instead (Zadig, help › control), and then WebUSB opens it as on the Mac. Windows tries the COM
   // port first, then USB, and remembers which one worked.
@@ -288,7 +288,7 @@
     },
     // a chooser per way in; one closed with nothing picked (NotFoundError) moves on to the next
     // One chooser per press on Windows (Chrome gives one per click): the ShopBot's own COM port; then,
-    // if none matched, every COM port (the shop PC's old driver hides the box's USB ids, 10-29); then
+    // if none matched, every COM port (the shop PC's old driver hides the box's USB ids); then
     // the USB box (a laptop given the WinUSB driver). Elsewhere: WebUSB.
     async request() {
       if (!ShopBotLink.windows()) {
@@ -303,8 +303,8 @@
       try { return await steps[k](); } catch (e) {
         if (e.name === 'NotFoundError' && k < steps.length - 1) {
           ShopBotLink.tries = k + 1;
-          // nothing listed: say what to check rather than loop (10-29: on the shop PC the port showed up
-          // once the box was on and ShopBot 3 had let go of it)
+          // nothing listed: say what to check rather than loop (on the shop PC the port shows up
+          // once the box is on and ShopBot 3 has let go of it)
           const why = k === 0 && n.serial ? 'no COM port matched the ShopBot: press connect again to see every serial port, and pick the ShopBot\'s'
             : 'Chrome sees no serial port for the box right now. Check the box is on and its USB cable is in, quit ShopBot 3, then press connect again. On a laptop without ShopBot\'s software, the box needs its USB driver first (help, then search "windows laptop")';
           const err = new Error(why); err.name = 'NotFoundError'; err.next = true; throw err;

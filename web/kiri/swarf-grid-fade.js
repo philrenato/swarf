@@ -58,9 +58,9 @@
         }
       }
     } catch (e) {}
-    // 10-27 (Phil: "when done drawing and we zoom away things are too dark"):
-    // three's fog counts from the CAMERA, so a fixed near/far fogged the whole
-    // view, part and all, once you zoomed out past it. Kiri's own recompute
+    // zoomed away, things must not go too dark:
+    // three's fog counts from the CAMERA, so a fixed near/far would fog the whole
+    // view, part and all, once zoomed out past it. Kiri's own recompute
     // puts fog.near at the camera-to-target distance; ride on that and add our
     // band, so the fade sits the same distance from what you are looking at
     // at any zoom (and the floor still reads the same in every mode).
@@ -92,7 +92,7 @@
       api.event.on('widget.add',    () => setTimeout(() => applyFog(api, space), 50));
       api.event.on('widget.delete', () => setTimeout(() => applyFog(api, space), 50));
       window.addEventListener('swarf.skin', () => applyFog(api, space));
-      // not on animate: Phil (v010-r10), "the floor must be IDENTICAL across modes"
+      // not on animate: the floor must be IDENTICAL across modes
     }
     if (++tries > 200) clearInterval(poll);
   }, 150);

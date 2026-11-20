@@ -1033,7 +1033,7 @@
       this.set({ paused: true, spinKeeps: false, spinIdle: false, note: 'pausing: the spindle stops once the bit is still' });
       this.holdSpin = this.spindleStop(this.job);
     }
-    // Pause stops the spindle too (Phil 11-19). The board takes its spindle stop only in a hold and
+    // Pause stops the spindle too. The board takes its spindle stop only in a hold and
     // acts on it once the hold is at rest; the speed in its reports says whether it turns. A spindle
     // that was not turning (an air cut) is left alone, so resume has nothing to bring back.
     async spindleStop(job) {

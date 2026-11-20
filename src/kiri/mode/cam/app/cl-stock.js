@@ -100,12 +100,12 @@ export function updateStock() {
         SPACE.world.remove(env.camStock);
         env.camStock = null;
     }
-    // swarf: when not in expert mode, never even build the stock outline mesh
-    // (markup Apr 15). Skip construction entirely outside expert mode.
-    // (Phil 11-16) the board the student set under material is always shown: it is what the paths cut from
+    // swarf: when not in expert mode, never even build the stock outline mesh.
+    // Skip construction entirely outside expert mode.
+    // the board the student set under material is always shown: it is what the paths cut from
     const swarfBoard = !!process.swarfBoardOn;
     const swarfHideStock = !document.body.classList.contains('swarf-expert') && !swarfBoard;
-    // swarf v00000-009: keep SIMULATE enabled in student mode too — the
+    // swarf: keep SIMULATE enabled in student mode too — the
     // upstream gate only flips animate's disabled class when the stock
     // outline is built, which in swarf student mode is never. SIMULATE
     // works regardless of the visible stock outline, so unblock it always.
@@ -144,8 +144,8 @@ export function updateStock() {
             let lines = new THREE.LineSegments(ligeo, limat);
             env.camStock.lines = lines;
             env.camStock.add(lines);
-            // swarf: hide the stock outline by default (markup Apr 15 — "why does it
-            // have a bounding box around it that is padded?"). The stock box auto-
+            // swarf: hide the stock outline by default (no padded bounding box
+            // around the part). The stock box auto-
             // derives from part bounds in student mode and shows up as a translucent
             // cuboid around every part. For students it reads as noise, not as
             // "this is your raw material." Expert-mode body class re-enables it.

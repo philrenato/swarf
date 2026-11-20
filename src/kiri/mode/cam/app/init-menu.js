@@ -56,7 +56,7 @@ function selector(type, { input, event, opt }) {
 }
 
 
-// swarf (Phil 11-01): a bit's sizes are in the bit's own unit (its "sizes in mm" box), and each
+// swarf: a bit's sizes are in the bit's own unit (its "sizes in mm" box), and each
 // takes what a woodshop types in either unit: 1/4, 0.25 in, 6 mm, 6.35. Shown to 4 places (no
 // 0.23622047244094488); a size of 0 or less, or past a foot, is refused out loud and the old one stays.
 const TOOL_MAX_MM = 300;
@@ -133,7 +133,7 @@ export function menu() {
             anim.step     = newButton(null,"anim.step",{icon:'<i class="fas fa-step-forward"></i>',title:"single step"}),
             anim.speed    = newButton(null,"anim.fast",{icon:'<i class="fas fa-forward"></i>',title:"toggle speed"}),
             anim.labspd   = newValue(3, {class:"center padleft"}),
-            // swarf v010 r7: XYZ readout is expert-only. Hidden by default,
+            // swarf: XYZ readout is expert-only. Hidden by default,
             // shown only when body.swarf-expert class is set via the View →
             // "expert mode" toggle.
             anim.labx     = newLabel("X", {class:"padleft swarf-expert-only"}),
@@ -146,7 +146,7 @@ export function menu() {
             anim.vala     = newValue(6, {class:"center hide"}),
             anim.labpro   = newLabel("%", {class:"padleft"}),
             anim.progress = newValue(5, {class:"center"}),
-            // swarf v010 r7 rev2: these three live in View menu, hidden here
+            // swarf: these three live in View menu, hidden here
             anim.trans    = newButton(null,null,{icon:'<i class="fa-solid fa-border-none"></i>',title:"transparency",class:"padleft hide"}),
             anim.model    = newButton(null,null,{icon:'<i class="fa-solid fa-eye"></i>',title:"show model",class:"hide"}),
             anim.shade    = newButton(null,null,{icon:'<i class="fa-solid fa-cube"></i>',title:"stock box",class:"hide"}),
@@ -164,7 +164,7 @@ export function menu() {
     camTabsMidline:      newBoolean(LANG.ct_midl_s, onBooleanClick, {title:LANG.ct_midl_l}),
     separator:           newBlank({ class:"set-sep", driven }),
     camTabsManual: newRow([
-        // swarf (whole-app review r086 B8): the by-hand tools say what they do, as auto tabs does
+        // swarf: the by-hand tools say what they do, as auto tabs does
         (ui.tabAdd = newButton('add by hand', onButtonClick, {title:"place tabs by hand: click the part's edge to add one, click a tab to remove it"})),
         (ui.tabDun = newButton('stop adding', onButtonClick, {title:"stop placing tabs by hand (or press Esc)"})),
         (ui.tabClr = newButton('remove all', onButtonClick, {title:"remove every tab"}))

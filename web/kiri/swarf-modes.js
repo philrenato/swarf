@@ -1,8 +1,8 @@
 /*
- * swarf modes — cam, draw, tex and control as modes of one step row (Phil 10-28: "When
- * control is active, make the rest of the tools in that row … collapse into a new CAM
- * button … Mirror this in all modes so they are focused on their task but allow user to
- * switch"). In cam the row is cam's steps, then draw, tex and control. In draw, tex or
+ * swarf modes — cam, draw, tex and control as modes of one step row (when
+ * control is active, the rest of the tools in that row collapse into a CAM
+ * button; the same in all modes, so each is focused on its task but the student can
+ * switch). In cam the row is cam's steps, then draw, tex and control. In draw, tex or
  * control the row folds to those four with cam, the one you are in lit. Pressing another one
  * leaves this mode the way its own buttons would: draw and tex keep their changes (as done
  * does), control will not leave while a job runs.
@@ -19,7 +19,7 @@
   function placeDraw() {
     const d = $('swarf-draw'), tools = $('mode-tools');
     if (!d || !tools) return;
-    d.style.top = Math.round(tools.getBoundingClientRect().bottom) + 'px';   // no band of the 3D scene between (Fable review 3 #18)
+    d.style.top = Math.round(tools.getBoundingClientRect().bottom) + 'px';   // no band of the 3D scene between
   }
   let last = '';
   function sync() {

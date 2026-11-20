@@ -164,7 +164,7 @@ function normalize(settings) {
         "poor": "25"
     }[detail] || detail;
 
-    // swarf r6 defensive repair: an earlier mistake set settings.cdev.CAM to
+    // swarf defensive repair: a stored profile can hold settings.cdev.CAM as
     // a STRING ("Langmuir.MR-1"); fill_cull_once expects an object and
     // crashes with "Cannot create property 'new' on string". Repair any
     // cdev.<MODE> that's not an object so stored bad profiles can recover.
@@ -425,7 +425,7 @@ export const conf = {
                 maxHeight: 300,
                 useLaser: false,
                 useIndexed: false,
-                originCenter: true, // swarf: parts default centered on origin (markup Apr 15)
+                originCenter: true, // swarf: parts default centered on origin
                 spindleMax: 0,
                 // swarf: machine limits the material palette derives feeds under
                 // (0 = none). fill_cull_once drops any device key absent here.
@@ -500,7 +500,7 @@ export const conf = {
                 camDrillThru: 5,
                 camDrillTool: 1006,
                 camEaseAngle: 10,
-                camEaseDown: true, // swarf: ease-down on by default (markup Apr 15)
+                camEaseDown: true, // swarf: ease-down on by default
                 camExpertFast: false,
                 camFastFeed: 6000,
                 camFastFeedZ: 300,
@@ -561,7 +561,7 @@ export const conf = {
                 camLevelStock: true,
                 camLevelTool: 1000,
                 camMillDirection: "climb",
-                camOriginCenter: false, // swarf: X 0, Y 0 at the stock's front-left (lower-left) corner (Phil 10-28; was the centre)
+                camOriginCenter: false, // swarf: X 0, Y 0 at the stock's front-left (lower-left) corner, not the centre
                 camOriginOffX: 0,
                 camOriginOffY: 0,
                 camOriginOffZ: 0,
@@ -621,10 +621,10 @@ export const conf = {
                 camStockOffset: true,
                 // swarf: zero stock padding so the stock volume equals the part —
                 // students shouldn't see a ghost cuboid hovering around their geometry
-                // (markup Apr 15 round 4 — "parts should not have any material/padding").
+                // (parts have no material/padding).
                 // Expert mode can dial these up via the stock panel when ready.
                 camStockX: 0,
-                // swarf (Phil 11-16): the board the student has, under material: when on, Kiri's stock is
+                // swarf: the board the student has, under material: when on, Kiri's stock is
                 // this size (camStockOffset off), the parts centred in it, their bottoms on its bottom
                 swarfBoardOn: false,
                 swarfBoardX: 0,
@@ -1222,7 +1222,7 @@ export const conf = {
             WEDM: {},
             LASER: {},
         },
-        // swarf: only CAM is live; the ShopBot is the default machine for new students (Phil 10-29)
+        // swarf: only CAM is live; the ShopBot is the default machine for new students
         filter:{
             CAM: "ShopBot.Basic",
         },
@@ -1265,7 +1265,7 @@ export const conf = {
             reverseZoom: true,
             scrolls: true,
             shiny: true,
-            showOrigin: true,   // swarf (Fable review 3 #20): the 0, 0 the student zeroes on is always marked
+            showOrigin: true,   // swarf: the 0, 0 the student zeroes on is always marked
             showRulers: true,
             showSpeeds: true,
             spaceLayout: 1,
@@ -1285,7 +1285,7 @@ export const conf = {
             "fdm-solid": true,
             "fdm-supp": true,
             "fdm-xprt": true,
-            // swarf: tabs + output drawers start closed (markup #1, Apr 15)
+            // swarf: tabs + output drawers start closed
             "cam-tabs": true,
             "cam-output": true
         },

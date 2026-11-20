@@ -402,7 +402,7 @@ class Orbit extends EventDispatcher {
             } else {
             switch (event.button) {
                 case scope.mouseButtons.ORBIT:
-                    // swarf (Phil 11-01): shift-drag pans, as in Unreason (and ⌘-drag, as before)
+                    // swarf: shift-drag pans, as in Unreason (and ⌘-drag, as before)
                     state = event.metaKey || event.shiftKey ? STATE.PAN : STATE.ROTATE;
                     break;
                 case scope.mouseButtons.ZOOM:
@@ -569,7 +569,7 @@ class Orbit extends EventDispatcher {
                 factor = 1 + Math.log(absDelta / 20);
             }
 
-            // swarf (Phil 11-01): the zoom goes toward what the cursor points at. The point under it on the
+            // swarf: the zoom goes toward what the cursor points at. The point under it on the
             // plane through the target, square to the view, stays under it: target and eye slide toward
             // it by as much as the zoom closed in (measured after update, so a clamped zoom slides none)
             const pick = scope.zoomToCursor ? cursorPoint(event) : null;

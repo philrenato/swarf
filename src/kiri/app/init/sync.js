@@ -137,7 +137,7 @@ export async function init_sync() {
     // send init-done event
     api.event.emit('init-done', stats);
 
-    // swarf: no cookie banner (swarf sets no cookies; the markup is gone)
+    // swarf: no cookie banner (swarf sets no cookies; its markup is not in the page)
 
     // warn of degraded functionality when SharedArrayBuffers are missing
     // swarf: one plain sentence, and none on a first visit, whose one reload (swarf-sw.js, index.html)
@@ -378,7 +378,7 @@ function setup_keybd_nav() {
     if (ui.acct.export) {
         ui.acct.export.onclick = (ev) => { ev.stopPropagation(); settingsOps.export_profile() };
         // swarf: the menu item's own title says what a .kmz is (menu.js); Kiri's "make a backup of your
-        // device" wrote over it (deep review P5)
+        // device" must not write over it
     }
     // prevent modal input from propagating to parents
     ui.modalBox.onclick = (ev) => { ev.stopPropagation() };
@@ -390,9 +390,9 @@ function setup_keybd_nav() {
     $('set-prefs').onclick = (ev) => { ev.stopPropagation(); api.modal.show('prefs') };
     // swarf: Help menu — Search / Concordance / About
     const helpSearch = $('swarf-help-search');
-    // (Interfacing #2, Phil 11-13) help floats beside the work: the search card below opens it
+    // help floats beside the work: the search card below opens it
     if (helpSearch) helpSearch.onclick = (ev) => { ev.stopPropagation(); document.body.click(); if (window.__swarfHelp) window.__swarfHelp.open(); };
-    // the videos about swarf (Phil 11-01), one place for the link: the about card and help › swarf videos
+    // the videos about swarf, one place for the link: the about card and help › swarf videos
     const VIDEOS = 'https://www.youtube.com/watch?v=PLagAIp6MCY&list=PLNPXIo7F2Cm0';
     const helpVid = $('swarf-videos');
     if (helpVid) helpVid.onclick = (ev) => { ev.stopPropagation(); window.open(VIDEOS, '_blank', 'noopener'); };
@@ -408,7 +408,7 @@ function setup_keybd_nav() {
             api.show.alert('A job is running in control. Let it finish, or stop it, then start over.', 8);
             return;
         }
-        // (whole-app review r086 F10) asked in swarf's own card, not the browser's
+        // asked in swarf's own card, not the browser's
         document.body.click();
         const pre = ["<div class='f-col a-center swarf-shape'><h3>Start swarf over?</h3>",
             "<p class='swarf-shape-why' style='color:inherit;max-width:340px'>Every setting, bit and part on this computer goes, and swarf reloads as new. A project saved as a .swarf file is kept: open it again after.</p></div>"];
@@ -426,8 +426,8 @@ function setup_keybd_nav() {
         };
         reparent('panel-left');
         reparent('panel-right');
-        // (whole-app review r086 C3) advanced's own panels (machine profile, stock, limits,
-        // origin, expert) sat over the right rail, see-through. They are a column of their own
+        // advanced's own panels (machine profile, stock, limits,
+        // origin, expert) never sit over the right rail, see-through. They are a column of their own
         // beside toolpaths, below the notice line, scrolling if they run long.
         const left = document.getElementById('panel-left'), tp = document.getElementById('panel-right');
         if (!left || !tp) return;
@@ -445,7 +445,7 @@ function setup_keybd_nav() {
         setTimeout(dock, 0);
     })();
 
-    // swarf: click-to-open menus (kill Kiri's hover-to-open — markup note: "like a real app")
+    // swarf: click-to-open menus (kill Kiri's hover-to-open, like a real app)
     (function(){
         const menus = document.querySelectorAll('#menubar .top-menu > span');
         const close = () => {
@@ -466,7 +466,7 @@ function setup_keybd_nav() {
         });
         document.addEventListener('click', close);
         document.addEventListener('keydown', (ev) => { if (ev.key === 'Escape') close(); });
-        // swarf (whole-app review r086 F7): the menu bar and the mode row take Tab. Enter or
+        // swarf: the menu bar and the mode row take Tab. Enter or
         // Space presses a step or opens a menu (its first item takes the focus); arrows walk the
         // open menu's items; Esc closes it. One focus ring per skin (swarf.css).
         const press = (el, ev) => { ev.preventDefault(); ev.stopPropagation(); el.click(); };
@@ -505,7 +505,7 @@ function setup_keybd_nav() {
         setTimeout(stepKeys, 1500);
     })();
 
-    // swarf r44 (review 10-28 #7): one camera rule. The view frames all the parts with one
+    // swarf: one camera rule. The view frames all the parts with one
     // margin, and moves only when it has to: a part arrives off screen or onto an empty
     // bed, or a project loads. Deleting, duplicating beside, or redrawing in place leaves
     // the camera where the student put it; an emptied bed goes home.
@@ -519,7 +519,7 @@ function setup_keybd_nav() {
             return box;
         };
         // every corner of the parts' box inside the window (lim of the half-width), in front of
-        // the camera, and the camera not inside the box (r086 check M1: a wall of orange)
+        // the camera, and the camera not inside the box (a wall of orange)
         const inView = (list, lim = 0.9) => {
             const cam = space.internals && space.internals().camera;
             if (!cam) return false;
@@ -542,7 +542,7 @@ function setup_keybd_nav() {
         };
         // One fit at a time. space.view.fit tweens the zoom as a ratio of where the camera is when
         // it starts, so two fits a few ms apart (DRAW's done: widget.add at 60 ms and done at 120)
-        // multiplied into each other and left the camera inside the part (r086 check M1). Calls in
+        // would multiply into each other and leave the camera inside the part. Calls in
         // a burst become one fit, made two frames later when the rebuilt meshes have their bounds;
         // a call during a tween waits for it to land. Once landed, the fit is checked: a corner off
         // screen, the camera in the parts' box or under the bed, and it fits again at once.
@@ -664,7 +664,7 @@ function setup_keybd_nav() {
                 try { fitNow(landed, true); } catch (e) { landed(); }
             }));
         };
-        // an empty bed: the home angle, framing the whole bed (review 10-28b #14)
+        // an empty bed: the home angle, framing the whole bed
         const bed = () => {
             const plat = space.internals && space.internals().platform;
             space.view.home();
@@ -672,8 +672,8 @@ function setup_keybd_nav() {
         };
         api.frame_bed = bed;
         // simulate frames the board it carves, not the part: the stock is wider and ran under the
-        // toolpaths panel, the view on its corner (deep review S5 / r086-whole B7)
-        // (review 105 F7) it goes through frame, the one fit at a time, and frame puts the board in the
+        // toolpaths panel, the view on its corner;
+        // it goes through frame, the one fit at a time, and frame puts the board in the
         // clear part of the window. Waits up to a minute: stale toolpaths are made again first.
         let simWait = 0;
         api.event.on('function.animate', () => {
@@ -701,7 +701,7 @@ function setup_keybd_nav() {
             }
             return Math.max(x1 - x0, y1 - y0) / 2;
         };
-        // (review 105 F10) a part left under a fifth of the view is framed, or it lands as a dot
+        // a part left under a fifth of the view is framed, or it lands as a dot
         const SMALL = 0.2;
         let sized = 0;
         api.event.on('selection.scale', () => {
@@ -733,8 +733,8 @@ function setup_keybd_nav() {
         };
         api.event.on('widget.add', added);
         api.event.on('widget.delete', () => setTimeout(() => { if (!meshes().length) { wasEmpty = true; frame(); } }, 60));
-        // a deleted part's toolpaths leave the bed with it (deep review S19: its ring stayed drawn beside
-        // the next part until toolpaths was pressed again); the steps stay, the paths are made again
+        // a deleted part's toolpaths leave the bed with it (no ring left drawn beside
+        // the next part until toolpaths is pressed again); the steps stay, the paths are made again
         api.event.on('widget.delete', w => { if (Array.isArray(w) && !w.length) return; if (api.view && !api.view.is_arrange()) api.view.set_arrange(); });
         api.event.on('widgets.loaded', () => { wasEmpty = !meshes().length; always(); });
         api.event.on('load.url', always);
@@ -743,7 +743,7 @@ function setup_keybd_nav() {
         // frame only if these parts are not all in view (the same rule, for code that moved parts)
         api.reveal = list => { if (!inView((list && list.length ? list : api.widgets.all()).map(w => w.mesh).filter(Boolean))) frame(); };
 
-        // swarf r14+: force-select newly-added widgets after a short delay so
+        // swarf: force-select newly-added widgets after a short delay so
         // drag-to-move works on first import. platform.add calls platform.select
         // but the initial select is sometimes swallowed if the view hasn't
         // settled into ARRANGE yet. Re-running select later closes that window.
@@ -763,7 +763,7 @@ function setup_keybd_nav() {
         api.event.on('load.url', selectNew);
     })();
 
-    // swarf: lower-left renato.design watermark (markup Apr 15, annotation #7)
+    // swarf: lower-left renato.design watermark
     (function(){
         if (document.getElementById('swarf-watermark')) return;
         const wm = document.createElement('a');
@@ -793,7 +793,7 @@ function setup_keybd_nav() {
             apply(next);
         };
     })();
-    // swarf: Concerns drawer (markup Apr 15, locked rule) — bottom-bar count badge,
+    // swarf: Concerns drawer — bottom-bar count badge,
     // click opens a list of rule-based warnings. Starter ruleset: stepover too wide
     // on finishing, plunge rate same as feed rate, depth-of-cut > 1× tool diameter.
     // Op records name these fields `rate` and `down` (see cl-ops.js createPopOp) —
@@ -814,7 +814,7 @@ function setup_keybd_nav() {
         const tab = wrap.querySelector('#swarf-concerns-tab');
         const body = wrap.querySelector('#swarf-concerns-body');
         const count = wrap.querySelector('#swarf-concerns-count');
-        // a disclosure button for a keyboard and a screen reader (review 11-13 #9): its count and
+        // a disclosure button for a keyboard and a screen reader: its count and
         // whether it is open are said; Enter or Space opens it like a click
         tab.setAttribute('role', 'button');
         tab.setAttribute('tabindex', '0');
@@ -824,7 +824,7 @@ function setup_keybd_nav() {
             tab.setAttribute('aria-expanded', wrap.classList.contains('open') ? 'true' : 'false');
             tab.setAttribute('aria-label', `concerns: ${n === '0' ? 'none' : n}`);
         };
-        // open on a short screen (review 11-13 #8): the concerns take the size strip's place instead of
+        // open on a short screen: the concerns take the size strip's place instead of
         // covering half of it, and closing gives focus back to where it was
         let was = false, back = null;
         const placed = () => {
@@ -836,7 +836,7 @@ function setup_keybd_nav() {
             if (!on && back && back.isConnected && (wrap.contains(document.activeElement) || document.activeElement === document.body)) {
                 try { back.focus({ preventScroll: true }); } catch (e) { /* gone */ }
             }
-            if (!on) back = null;   // never handed to a later opening (fresh review 11-13)
+            if (!on) back = null;   // never handed to a later opening
         };
         new MutationObserver(placed).observe(wrap, { attributes: true, attributeFilter: ['class'] });
         // Escape closes the concerns and nothing else: Kiri's own Escape runs on keyup (blur, deselect),
@@ -844,7 +844,7 @@ function setup_keybd_nav() {
         let eatEsc = false;
         wrap.addEventListener('keydown', e => { if (e.key === 'Escape' && wrap.classList.contains('open')) { e.stopPropagation(); eatEsc = true; wrap.classList.remove('open'); } });
         window.addEventListener('keyup', e => { if (eatEsc && e.key === 'Escape') { eatEsc = false; e.stopImmediatePropagation(); e.preventDefault(); } }, true);
-        // a keyup that never came (the window lost focus first) must not eat a later Escape (fresh review 11-13)
+        // a keyup that never came (the window lost focus first) must not eat a later Escape
         window.addEventListener('blur', () => { eatEsc = false; });
         window.addEventListener('keydown', e => { if (e.key !== 'Escape') eatEsc = false; }, true);
         new MutationObserver(expanded).observe(wrap, { attributes: true, attributeFilter: ['class'] });
@@ -860,10 +860,10 @@ function setup_keybd_nav() {
             wrap.classList.toggle('open');
         });
         document.addEventListener('click', (e) => {
-            // help beside the list is part of reading it (fresh review 11-13)
+            // help beside the list is part of reading it
             if (!wrap.contains(e.target) && !(e.target.closest && e.target.closest('#swarf-help-float'))) wrap.classList.remove('open');
         });
-        // the fix is here too, and the panel closes off what it points at (review 105 F9)
+        // the fix is here too, and the panel closes off what it points at
         body.addEventListener('click', e => {
             if (e.target.closest('.swarf-concerns-x')) { wrap.classList.remove('open'); return; }
             const btn = e.target.closest('.swarf-concern-fix');
@@ -877,7 +877,7 @@ function setup_keybd_nav() {
                 evaluate();
             }
         });
-        // one press, only where one press is always right (Phil 11-13): each concern names its fix by
+        // one press, only where one press is always right: each concern names its fix by
         // id and says what it acts on (arg: parts, steps). Every fix is one step of undo; the rest of
         // the concerns keep pointing at where to fix them, since they need a value the student chooses
         const partsOf = ids => api.widgets.all().filter(w => ids.includes(w.id));
@@ -919,7 +919,7 @@ function setup_keybd_nav() {
                 const w = partsOf([id])[0];
                 if (!w) return null;
                 if (!api.view.is_arrange()) api.view.set_arrange();
-                // worked out again now (fresh review 11-13: a turn after the list was drawn made the old slide wrong)
+                // worked out again now (a turn after the list was drawn makes the old slide wrong)
                 evaluate();
                 const now = lastConcerns.find(c => c.fix === 'bed' && c.arg && c.arg[0] === id);
                 if (!now) return `${nameOf(w)}: no clear spot on the bed from here; drag it on`;
@@ -930,7 +930,7 @@ function setup_keybd_nav() {
                 return `${nameOf(w)} moved onto the bed. Undo puts it back`;
             } },
         };
-        // (review r086 F2) the pill docks under the right rail, never inside its panels: its top
+        // the pill docks under the right rail, never inside its panels: its top
         // follows the rail's bottom as panels open, close and scroll; with no rail it keeps its corner
         const dock = () => {
             const rail = document.getElementById('swarf-right-rail');
@@ -943,8 +943,8 @@ function setup_keybd_nav() {
         window.addEventListener('resize', dock);
         new MutationObserver(dock).observe(document.body, { attributes: true, attributeFilter: ['class'] });
         setTimeout(dock, 0);
-        // (r086 check S1) a rail cut at the window's foot says there is more below it: at 720
-        // the auto tabs panel ran past the fold with nothing to show it scrolled. (r093 UX B3/V5)
+        // a rail cut at the window's foot says there is more below it (at 720
+        // the auto tabs panel runs past the fold).
         // advanced's panel column and the tex card scroll too, and say so the same way.
         const watched = new WeakSet();
         const moreBelow = box => {
@@ -979,9 +979,9 @@ function setup_keybd_nav() {
         const tabsOpened = new Set();
         function evaluate() {
             const warnings = [];
-            // (whole-app review r086 F4) a concern's numbers follow mm | in too
+            // a concern's numbers follow mm | in too
             const inch = !!window.SwarfLength && window.SwarfLength.unit() === 'in';
-            // (r086 check S3) in inches a sentence says the nearest 16th, as a tape measure reads
+            // in inches a sentence says the nearest 16th, as a tape measure reads
             const len = (v, dp = 1) => inch ? window.SwarfLength.prose(v, 'in') : `${(+v).toFixed(dp)} mm`;
             const pair = (a, b) => inch ? `${+(a / 25.4).toFixed(1)} × ${+(b / 25.4).toFixed(1)} in` : `${a.toFixed(0)} × ${b.toFixed(0)} mm`;
             const rate = v => inch ? `${+(v / 25.4).toFixed(1)} in/min` : `${v} mm/min`;
@@ -1020,7 +1020,7 @@ function setup_keybd_nav() {
                             hint: 'too fast a plunge snaps end-mills'
                         });
                     }
-                    // swarf: values that make a dangerous cut (torture test 10-29: all passed with no word)
+                    // swarf: values that make a dangerous cut (each one said)
                     if (op.down != null && ['rough', 'outline', 'pocket', 'contour'].includes(op.type) && !(op.down > 0)) {
                         warnings.push({
                             title: `${op.type} step-down is ${op.down}`,
@@ -1078,7 +1078,7 @@ function setup_keybd_nav() {
                     // rule 4 — cutting speed past the material's HSS figure: the
                     // machine's spindle floor (ShopBot 9000) or a hand-typed rpm
                     // not on the ShopBot: its router turns 10,000 rpm at its slowest and takes
-                    // carbide bits, so this fired on every default setup (reviews 10-29)
+                    // carbide bits, so this would fire on every default setup
                     // the allowance is the ceiling's cutting speed for the bit's cutter when the material has one
                     const mat = window.__swarfMaterial;
                     const vcTop = topRec && topRec.vc > 0 ? topRec.vc : 0;
@@ -1107,7 +1107,7 @@ function setup_keybd_nav() {
                 }
                 // rapids skim the board: z clearance is how far above its top they travel. The ShopBot
                 // gets 5 mm (swarf-sky.js); under 3 mm there (screws, clamps, a board not flat over a
-                // sheet) or 0.5 mm on the MR-1's plate, it is a concern (Phil 10-29: it fired on 1 mm)
+                // sheet) or 0.5 mm on the MR-1's plate, it is a concern (never on 1 mm)
                 const zc = proc.camZClearance;
                 const sb = /shopbot/i.test((settings.device && settings.device.deviceName) || '');
                 const zsay = v => window.SwarfLength ? window.SwarfLength.say(v) : `${(+v).toFixed(1)} mm`;
@@ -1117,7 +1117,7 @@ function setup_keybd_nav() {
                     hint: `limits › z clearance: ${sb ? '5 mm (0.2 in)' : 'at least 1 mm'}`,
                     fix: 'zclear', arg: [sb ? 5.08 : 1] });
             } catch (e) { /* swallow until ops shape is finalised */ }
-            // the bed is a limit on both machines (Fable review 3 #13): a part bigger than the bed,
+            // the bed is a limit on both machines: a part bigger than the bed,
             // or hanging off it, is a concern in cam, not only a blocked file in control
             try {
                 const dev = api.conf.get().device || {}, bw = dev.bedWidth, bd = dev.bedDepth;
@@ -1151,7 +1151,7 @@ function setup_keybd_nav() {
                         hint: sz < 6.35 ? 'use the laser for thin sheet' : 'ask the technician about thicker stock' });
                 }
             } catch (e) { /* no device yet */ }
-            // the board size under material (Phil 11-16: "ensure that their part will fit"): the parts,
+            // the board size under material: the parts,
             // centred in it, must fit across, back to front, and in its thickness
             try {
                 const proc = api.conf.get().process, bo = api.conf.get().bounds;
@@ -1172,8 +1172,8 @@ function setup_keybd_nav() {
                     }
                 }
             } catch (e) { /* no board */ }
-            // cut free with nothing holding it (Phil 10-29: "anything that could fly off the
-            // machine"; "cuts that seem to go all the way through without tabs should be flagged"):
+            // cut free with nothing holding it (anything that could fly off the
+            // machine: a cut that goes all the way through without tabs is flagged):
             // an outline cut through the board leaves the part, and every piece inside a hole it
             // cuts, loose on the last pass, where the spinning bit can throw it
             try {
@@ -1182,14 +1182,14 @@ function setup_keybd_nav() {
                 const through = !(proc.camZBottom > 0) && !proc.camStockIndexed;
                 const audit = window.__swarfAutoTabs && window.__swarfAutoTabs.audit;
                 if (outl.length && through && audit) {
-                    // a rough down to the part's bottom frees it as an outline does (Phil 10-29: a rough-only circle)
+                    // a rough down to the part's bottom frees it as an outline does (a rough-only circle)
                     const outer = outl.some(o => !o.inside), holes = outl.some(o => !o.omitthru && !o.omitvoid);
                     for (const w of api.widgets.all()) {
                         if (w.track.synth) continue;
                         const name = api.platform.part_name(w);
                         const a = audit(w);
                         // the first time a part is cut free with no tabs, the tabs drawer opens on its
-                        // auto tabs button: the hint names it, so it should be in sight (deep review S10)
+                        // auto tabs button: the hint names it, so it should be in sight
                         if (outer && a.outerTabs === 0 && !tabsOpened.has(w.id)) {
                             tabsOpened.add(w.id);
                             setTimeout(() => { const hd = document.querySelector('#cam-tabs .set-header'), row = document.querySelector('#cam-tabs .swarf-autotabs-row'); if (hd && row && row.classList.contains('hide')) hd.click(); }, 0);
@@ -1212,7 +1212,7 @@ function setup_keybd_nav() {
                     }
                 }
             } catch (e) { /* tabs not ready yet */ }
-            // an outline only goes where its bit fits: a smaller hole is left out of the file (review 105 M2)
+            // an outline only goes where its bit fits: a smaller hole is left out of the file
             try {
                 const proc = api.conf.get().process || {}, audit = window.__swarfAutoTabs && window.__swarfAutoTabs.audit;
                 const outl = (proc.ops || []).filter(o => o && o.type === 'outline' && !o.disabled && !o.omitthru && !o.omitvoid);
@@ -1236,7 +1236,7 @@ function setup_keybd_nav() {
                         hint: `pick a bit under ${say(Math.min(...small))} for the outline, or make the hole bigger` });
                 }
             } catch (e) { /* tabs not ready yet */ }
-            // deeper than a router bit reaches (review 105 F11): the shop's bits reach about 1 in (index.html: the shop's bits)
+            // deeper than a router bit reaches: the shop's bits reach about 1 in (index.html: the shop's bits)
             try {
                 const { process: proc, tools } = api.conf.get();
                 const thick = Math.max(0, ...api.widgets.all().filter(w => !w.track.synth && !w.meta.disabled).map(w => { const b = w.getBoundingBox(); return b.max.z - b.min.z; }));
@@ -1251,14 +1251,14 @@ function setup_keybd_nav() {
                         hint: 'use a longer bit, or a thinner board' });
                 }
             } catch (e) { /* no tools yet */ }
-            // flip's own moves are not in the file: turning the part is the student's (review 105 M6)
+            // flip's own moves are not in the file: turning the part is the student's
             try {
                 if ((api.conf.get().process.ops || []).some(o => o && o.type === 'flip' && !o.disabled)) warnings.push({
                     title: 'a flip step does not turn the board',
                     body: 'the file holds no stop for it, and both sides are cut as the part lies now.',
                     hint: 'for a second side, export this side, then right-click › turn it over and make a second file' });
             } catch (e) { /* no process yet */ }
-            // a drill step: what it finds, and what it leaves. Where it has no holes it cuts nothing (review 105 B0c)
+            // a drill step: what it finds, and what it leaves. Where it has no holes it cuts nothing
             try {
                 const { process: proc, tools } = api.conf.get(), H = window.__swarfHoles;
                 const say = window.SwarfLength ? window.SwarfLength.say : (v => `${v} mm`);
@@ -1315,7 +1315,7 @@ function setup_keybd_nav() {
                         fix: 'tabs', arg: [w.id] });
                 }
             } catch (e) { /* tabs not ready yet */ }
-            // a pocket with no floor picked makes no moves, and looked done (review 105 F4)
+            // a pocket with no floor picked makes no moves, and must not look done
             try {
                 for (const o of (api.conf.get().process.ops || [])) {
                     if (!o || o.type !== 'pocket' || o.disabled) continue;
@@ -1330,7 +1330,7 @@ function setup_keybd_nav() {
             try { if (window.__swarfTex) warnings.push(...window.__swarfTex.concerns()); } catch (e) { /* tex not ready */ }
             render(warnings);
         }
-        // export asks for them fresh (review 105 F2, M5)
+        // export asks for them fresh
         window.__swarfConcernsNow = () => { evaluate(); return lastConcerns; };
         let lastConcerns = [];
         function render(warnings) {
@@ -1342,7 +1342,7 @@ function setup_keybd_nav() {
                 if (was.fix && was.fix === w.fix && was.fix !== 'zclear' && was.fix !== 'bed') was.arg = was.arg.concat(w.arg.filter(a => !was.arg.includes(a)));
                 return false;
             });
-            // one line a part, not one a letter (review 105 P2, F9): "RENATO-2 is cut free" folds into RENATO
+            // one line a part, not one a letter: "RENATO-2 is cut free" folds into RENATO
             const folded = new Map();
             warnings = warnings.filter(w => {
                 const m = /^(.+?)(?:-\d+| piece \d+) (is cut free with no tabs)$/.exec(w.title) || /^(.+?) (is cut free with no tabs)$/.exec(w.title);
@@ -1360,9 +1360,9 @@ function setup_keybd_nav() {
                 body.innerHTML = '<div class="swarf-empty">no concerns in what swarf checks.</div>';
                 return;
             }
-            // a concern's title carries a file name: text, never markup (deep review 10-31, as M1)
+            // a concern's title carries a file name: text, never markup
             const esc = t => String(t ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
-            // its help entry opens in the floating help, the concern list stays (Phil 11-13)
+            // its help entry opens in the floating help, the concern list stays
             const helpBtn = w => { const n = window.__swarfHelp && window.__swarfHelp.forConcern(w); return n ? `<button type="button" class="swarf-concern-help" data-swarf-help="${esc(n)}" title="help on ${esc(n)}">help</button>` : ''; };
             body.innerHTML = warnings.map((w, i) =>
                 `<div class="swarf-concern"><strong>${esc(w.title)}</strong>${esc(w.body)}<em>${esc(w.hint)}</em>${FIXES[w.fix] ? `<button type="button" class="swarf-concern-fix" data-fix="${esc(w.fix)}" data-i="${i}" title="${esc(FIXES[w.fix].title)}">${esc(FIXES[w.fix].verb)}</button>` : ''}${helpBtn(w)}</div>`
@@ -1382,8 +1382,8 @@ function setup_keybd_nav() {
     })();
 
     // swarf: clicking the TOOLPATHS step bar opens the operation list details
-    // panel + scrolls to it (markup Apr 15 — "bring toolpaths back, put in the red
-    // toolpaths bar at top which has nothing in it now").
+    // panel + scrolls to it, so the red toolpaths bar at top
+    // always leads to the toolpaths.
     (function(){
         const tpDetails = $('swarf-toolpaths-details');
         const tpStep = $('view-arrange');
@@ -1397,12 +1397,12 @@ function setup_keybd_nav() {
         }
     })();
 
-    // swarf: tool-library opener inside the toolpaths panel (markup Apr 15 —
-    // "you're missing the machining tools"). Opens Kiri's tool editor modal.
+    // swarf: tool-library opener inside the toolpaths panel, where the
+    // machining tools are looked for. Opens Kiri's tool editor modal.
     (function(){
         const b = $('swarf-open-tools');
-        // api.show.tools fills the list first; showing the modal alone left it empty (Phil 10-29)
-        // (review 105 F17) swarf's own list, which leaves the menus free; Kiri's editor stays behind
+        // api.show.tools fills the list first; showing the modal alone leaves it empty
+        // swarf's own list, which leaves the menus free; Kiri's editor stays behind
         // its edit in tool library, for advanced
         if (b) {
             b.title = 'the bits this machine has, and adding one';
@@ -1553,11 +1553,11 @@ function setup_keybd_nav() {
         ];
         function render(query) {
             const q = (query || '').trim().toLowerCase();
-            // a name match beats a tag match beats a body match (review 10-30 C4: "tex" listed
+            // a name match beats a tag match beats a body match ("tex" never lists
             // draw first, "tab" table corners); ties keep the index's order
-            // (review r093 H5) a whole-word name match beats a part-word one ("tab" listed table
+            // a whole-word name match beats a part-word one ("tab" lists table
             // corners second); an advanced-only entry gives way to a student's tag match ("first"
-            // gave depth first over the quick start) unless its name is the whole query
+            // gives the quick start before depth first) unless its name is the whole query
             const wordIn = (s, w) => ` ${s.replace(/[^a-z0-9.'-]+/g, ' ')} `.includes(` ${w} `);
             const score = e => {
                 const n = e.name.toLowerCase();
@@ -1571,8 +1571,8 @@ function setup_keybd_nav() {
                 if (t.includes(q)) return 20;
                 return e.body.toLowerCase().includes(q) ? 1 : 0;
             };
-            // a student's own words (deep review S15: "my part moved", "stuck", "mm to inches" found
-            // nothing): when the phrase is in no entry, each word counts, read as the app says it
+            // a student's own words ("my part moved", "stuck", "mm to inches" find
+            // something): when the phrase is in no entry, each word counts, read as the app says it
             const SAY = { moved: 'move', moving: 'move', drag: 'move', dragged: 'move', stuck: 'pause', frozen: 'pause', jammed: 'reset',
                 inches: 'units', inch: 'units', millimeters: 'units', convert: 'units', metric: 'units', imperial: 'units',
                 undo: 'undo', back: 'undo', clamp: 'tabs', hold: 'tabs', loose: 'tabs', fly: 'tabs', speed: 'feed', fast: 'feed', slow: 'feed',
@@ -1602,7 +1602,7 @@ function setup_keybd_nav() {
         input.addEventListener('input', () => show(input.value));
         render('');
 
-        // help floats beside the work (Interfacing deviation #2: no modal over the work, Phil 11-13):
+        // help floats beside the work (no modal over the work):
         // a non-modal card the student keeps open while picking parts on the bed. Dragged by its
         // top bar, kept where it was put (per browser), kept on screen, closed by × or Escape.
         const card = document.getElementById('swarf-help-float');
@@ -1678,7 +1678,7 @@ function setup_keybd_nav() {
         window.addEventListener('resize', () => { if (isOpen()) place(card.offsetLeft, card.offsetTop); });
         // keys inside help stay in help: Escape closes it (Kiri's own Escape runs on keyup and would
         // deselect the part, so that keyup is eaten), Delete and ⌘A never reach the bed's part
-        // with control open nothing is held back (fresh review 11-13: help over a running cut ate the
+        // with control open nothing is held back (help over a running cut must not eat the
         // Escape and Delete that pause it); control's own keys come first, help still closes on Escape
         card.addEventListener('keydown', ev => {
             const ctl = document.body.classList.contains('swarf-run-open');
@@ -1768,14 +1768,14 @@ function setup_keybd_nav() {
     $('mesh-split').onclick = selection.isolateBodies;
     $('context-duplicate').onclick = selection.duplicate;
     $('context-mirror').onclick = selection.mirror;
-    // swarf r14+: move panel wiring. Mirrors rotate-panel: chevrons translate
+    // swarf: move panel wiring. Mirrors rotate-panel: chevrons translate
     // by the value in the input; 'center' zeros XY so the widget snaps to
     // platform center. Move defaults to 10mm per click (vs rotate's 90°).
     if ($('context-move-panel')) {
         $('context-move-panel').onclick = () => toggleSelectionPanel('panel-move');
         $('panel-move-close').onmousedown = (ev) => { ev.stopPropagation(); };
         $('panel-move-close').onclick = (ev) => { ev.stopPropagation(); hideSelectionPanel('panel-move'); };
-        // (Phil 11-01) the step is a length in the cam units (3/4, 1/2 in, 10 mm); it keeps its length
+        // the step is a length in the cam units (3/4, 1/2 in, 10 mm); it keeps its length
         // when the units change; one swarf cannot read, or past the bed, moves nothing
         const movL = self.SwarfLength;
         const movMm = id => {

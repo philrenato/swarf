@@ -28,7 +28,7 @@
   const CORE_WIDTH_MM  = 0.4;   // tight bright centerline
   const HALO_WIDTH_MM  = 1.4;   // mid glow
   const BLOOM_WIDTH_MM = 4.2;   // wide diffuse bloom (soft edge)
-  const CORE_OPAC  = 0.58;      // dialed further down — Phil: still a touch bright
+  const CORE_OPAC  = 0.58;      // low: brighter reads as too bright
   const HALO_OPAC  = 0.18;
   const BLOOM_OPAC = 0.06;
 
@@ -37,15 +37,15 @@
   // don't get split — only true rapid repositioning breaks the line.
   const BREAK_3D_MM = 50;
 
-  // The ribbons are drawn incrementally, so a texture's tens of thousands of moves stay cheap (review
-  // r093-code A13). Each ribbon keeps one Float32Array, doubled when full; a move appends its new
+  // The ribbons are drawn incrementally, so a texture's tens of thousands of moves stay cheap.
+  // Each ribbon keeps one Float32Array, doubled when full; a move appends its new
   // segments (18 floats a ribbon), uploads only that range and moves the draw range to the end. The
   // whole trail is drawn again only where what is drawn changes behind the end: a step's box, the
   // print stack's fill at toolpaths.
   const CAP0 = 18 * 1024;       // floats a ribbon starts with (1024 segments)
   let ribbons = [];             // [{ obj, hw, uv }] bloom, halo, core, look
-  // the skin's own look (Phil 11-02: "lightstreams in wet plastic should look like glass … in classic
-  // a little like barber poles"): one more ribbon, drawn by a shader from where it is along the path
+  // the skin's own look (in wet plastic like glass … in classic
+  // a little like barber poles): one more ribbon, drawn by a shader from where it is along the path
   // (s, mm) and across it (t, -1..1); swarf keeps its glowing light
   let look = null, sAcc = 0;
   const LOOK_WIDTH_MM = 1.8;
@@ -294,7 +294,7 @@
   }
 
   // the trail from the rendered print stack at preview.end, so the toolpaths view shows the cut
-  // before any simulate (r15c); simulate clears it and draws from swarf.tool.move. Long segments
+  // before any simulate; simulate clears it and draws from swarf.tool.move. Long segments
   // are dropped as rapids.
   function populateFromPrintStack() {
     if (!ensure()) return;
@@ -304,9 +304,9 @@
     polylines = [[]];
     const top = boardTop();
     const meshes = stack.obj.meshes || [];
-    // Phil 11-09 (test.stl): a cut-out's straight sides are single moves 168 and 610 mm long, and the
-    // old "longer than 50 mm is a rapid" rule dropped them, so the trail showed only the curve and the
-    // part read as half cut. The stack now names each mesh's layer: take the cuts, at any length.
+    // a cut-out's straight sides can be single moves 168 and 610 mm long, and a
+    // "longer than 50 mm is a rapid" rule would drop them, so the trail would show only the curve and the
+    // part read as half cut. The stack names each mesh's layer: take the cuts, at any length.
     const named = meshes.some(m => m && m.userData && m.userData.layer);
     let kept = 0;
     for (const m of meshes) {
@@ -327,8 +327,8 @@
   }
 
   // The trail is where the bit cuts, not where it travels: above the board's top it is in the air
-  // (lifts to clearance, hops between dots), and drawn there, a texture's thousands of lifts stood
-  // as a gray fence over the part that read as material puffed out of it (Phil 11-01). Every
+  // (lifts to clearance, hops between dots), and drawn there, a texture's thousands of lifts would stand
+  // as a gray fence over the part that reads as material puffed out of it. Every
   // segment is clipped to just under the top (riding the top cuts nothing); what is wholly above it
   // is not drawn.
   function boardTop() {
@@ -385,8 +385,8 @@
   window.__swarfLSSteps = () => { const o = {}; for (const pl of polylines) { const k = String(pl.step); o[k] = o[k] || { segs: 0, hidden: hidden.has(pl.step) }; o[k].segs += Math.max(0, pl.length - 1); } return o; };
   function newLine(step) { const l = []; l.step = step; polylines.push(l); return l; }
 
-  // ---- each step's paths on and off (Phil 11-01: "when simulate is done can we allow the visible
-  // toolpaths to be turned on and off with checkboxes like toolpaths already does?") -------------
+  // ---- each step's paths on and off: when simulate is done the visible
+  // toolpaths turn on and off with checkboxes, as toolpaths does -------------
   // The boxes are Kiri's own layer toggles (api.uc.newBoolean in #layers, the toolpaths view's bit ·
   // direction · moves · cuts row), one per step named as the step list names it, raised above the
   // sim bar. They work while it plays too: a step's box appears when its cut begins. Every run
@@ -454,7 +454,7 @@
     if (!space || !space.world || !api || !api.event) return false;
     api.event.on('swarf.tool.move', ({ pos, step }) => onMove({ pos, step }));
     api.event.on('animate',          () => { ensure(); clearTrail(); applyVisibility(); });
-    // every step has its box from the start, so a step can be hidden before it runs (review r093-ux B7)
+    // every step has its box from the start, so a step can be hidden before it runs
     const allBoxes = () => { let ops = []; try { ops = window.kiri.api.conf.get().process.ops || []; } catch (e) { /* no settings */ }
       ops.forEach((o, i) => { if (o && !Array.isArray(o) && o.type !== '|' && !o.disabled) addStepBox(i); }); };
     api.event.on('function.animate', () => { ensure(); clearTrail(); applyVisibility(); dropBoxes(); setTimeout(allBoxes, 0); });
@@ -464,7 +464,7 @@
     window.addEventListener('swarf.clear', clearTrail);
     // the sim bar's lightstreams pill
     window.addEventListener('swarf.lightstream.toggle', applyVisibility);
-    // leaving simulate leaves no partial trail behind (r10-d, Phil: "one tiny weird stream")
+    // leaving simulate leaves no partial trail behind
     api.event.on('animate.end',   clearTrail);
     api.event.on('preview.begin', clearTrail);
     api.event.on('preview.end',   populateFromPrintStack);

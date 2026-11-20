@@ -1,6 +1,6 @@
 /*
- * swarf place — a part that arrives never lands on another (review 10-28b #5: an
- * SVG import sat inside the board, and toolpaths cut both). A new part (or group,
+ * swarf place — a part that arrives never lands on another (an
+ * SVG import inside the board would have toolpaths cut both). A new part (or group,
  * such as a word) that would overlap the parts already on the bed moves to their
  * right, 12 mm clear (the layout's gap), and the sentence says so. DRAW's done is
  * left alone: there a part is where it was drawn, and DRAW marks overlaps itself.

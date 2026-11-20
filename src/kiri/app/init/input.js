@@ -13,7 +13,7 @@ import { keyboard } from '../keyboard.js';
 import { local as sdb } from '../../../data/local.js';
 import { menu as menuCAM } from '../../mode/cam/app/init-menu.js';
 const menuFDM = ()=>[], menuLaser = ()=>[], menuSLA = ()=>[];
-// swarf v010 r6: expose Line2/LineMaterial on window for swarf-lightstream.js
+// swarf: expose Line2/LineMaterial on window for swarf-lightstream.js
 import '../swarf-line-ext.js';
 import { modal } from '../modal.js';
 import { preferences } from '../preferences.js';
@@ -58,7 +58,7 @@ function updateTool(ev) {
 
 function checkSeed(then) {
     const widgets = (api.widgets && api.widgets.all && api.widgets.all()) || [];
-    // swarf r44 (review 10-28, Phil: "Empty bed with prompt works"): no demo cube. An empty
+    // swarf: no demo cube. An empty
     // bed shows the start prompt (web/kiri/swarf-start.js); the camera homes on the bed.
     if (widgets.length === 0) {
         try { space.event.onResize(); } catch (e) {}
@@ -164,7 +164,7 @@ export function init_input() {
     try { if (typeof window !== 'undefined') { window.moto = window.moto || {}; window.moto.space = space; } } catch (e) {}
     space.view.setFitPadding({ perspective: 0.8 });
     space.sky.showGrid(false);
-    // swarf: null = let body CSS gradient show through canvas alpha (markup Apr 15 r4)
+    // swarf: null = let body CSS gradient show through canvas alpha
     space.sky.setColor(null);
     space.setAntiAlias(controller.antiAlias);
     space.init(container, (delta) => {

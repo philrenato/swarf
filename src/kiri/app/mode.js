@@ -71,12 +71,12 @@ function setMode(mode, lock, then) {
     // restore cached device profile for this mode
     if (current.cdev[mode]) {
         current.device = clone(current.cdev[mode]);
-        // swarf r44: the ShopBot's 4 x 8 ft bed is 2438.4 x 1219.2, not the 2400 x 1200 kept before
+        // swarf: the ShopBot's 4 x 8 ft bed is 2438.4 x 1219.2, not 2400 x 1200
         if (current.filter[mode] === 'ShopBot.Basic' && current.device.bedWidth === 2400 && current.device.bedDepth === 1200) {
             current.device.bedWidth = current.cdev[mode].bedWidth = 2438.4;
             current.device.bedDepth = current.cdev[mode].bedDepth = 1219.2;
         }
-        // swarf (review 105 m3): a stored ShopBot keeps the post it was saved with: the file ends lifted clear
+        // swarf: a stored ShopBot keeps the post it was saved with: the file ends lifted clear
         const post = current.device.gcodePost;
         if (current.filter[mode] === 'ShopBot.Basic' && Array.isArray(post) && !post.some(l => /^JZ\b/.test(l))) {
             const at = post.findIndex(l => /Turning router OFF/.test(l));

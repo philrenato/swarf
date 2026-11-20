@@ -1,7 +1,7 @@
 /*
- * swarf menu — what you can do with a part, where it is (Phil 11-02: "consider what might be
- * appropriate for right click features ala Unreason. Maybe people could get to rotate etc that
- * way?"). Right-click a part on the bed: turn it, turn it over, stand it on its side or lay it flat,
+ * swarf menu — what you can do with a part, where it is (right-click features, as in
+ * Unreason: rotate and the rest reached from the part itself).
+ * Right-click a part on the bed: turn it, turn it over, stand it on its side or lay it flat,
  * mirror, duplicate, leave it out of this run, separate the parts, edit it in draw, carve words, pocket a shape,
  * texture an area, delete. Right-
  * click the empty bed: make a shape, draw, open a file, select all, and three ways to look. In
@@ -52,7 +52,7 @@
     try { a.selection.update_bounds(); a.platform.update_bounds(); a.space.auto_save(); a.selection.update_info(); window.moto.space.update(); } catch (e) { /* no workspace */ }
   }
 
-  // a part standing up (Phil 11-18: the common case is a file whose XY came in vertical): taller than
+  // a part standing up (the common case is a file whose XY came in vertical): taller than
   // its narrower side on the bed. Laid flat by a quarter turn that puts its thinnest side up, and that
   // way is its flat from then on (an import's own way up is not a flat to go back to).
   function standing(w) {
@@ -77,7 +77,7 @@
   }
 
   // carving words, pocketing a shape and texturing an area live in three modes (draw, a step, tex):
-  // a student starts from the part and the row says which mode owns the task (review 11-13 #10).
+  // a student starts from the part and the row says which mode owns the task.
   // Each opens that mode as it already is, with this part picked (partItems picked it).
   //   carve words: draw's text tool, carving into this part (only a 2D part draw can carve into)
   //   pocket a shape: a part with a floor to pick gets a pocket step; a flat part goes to tex's inlay,
@@ -136,7 +136,7 @@
         : { label: 'leave it out of this run', title: 'untick it in objects: it stays on the bed, nothing cuts it', run: () => { a.platform.set_cut(list, false); said(`${who} is left out of this run: tick it in objects to cut it again.`); } },
     ];
     // parts that came in together (one STL of several solids, or a file's objects grouped): each
-    // becomes its own part, to pick, move, cut or delete alone (Phil 11-16)
+    // becomes its own part, to pick, move, cut or delete alone
     const how = list.length === 1 || list.every(p => p.group === w.group) ? a.selection.separable && a.selection.separable(w) : null;
     if (how) items.push({ label: 'separate the parts', title: how === 'group' ? 'they came in together: each moves on its own' : 'one part for each solid in it, each where it sits', run: () => {
       const r = a.selection.separate(w) || {};

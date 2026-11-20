@@ -208,9 +208,9 @@ function confirm(message, buttons, input, opt = {}) {
             html.appendAll(opt.post);
         }
         dialog.innerHTML = html.join('');
-        // swarf (r086, from the .swarf review): Esc closes the dialog with no button pressed; it
+        // swarf: Esc closes the dialog with no button pressed; it
         // answers as cancel does (false), so whoever asked is never left waiting (an import
-        // stayed "loading a group" for good)
+        // never stays "loading a group" for good)
         dialog.onclose = () => {
             feature.on_key = onkey_save;
             if (!answered) { answered = true; setTimeout(() => { resolve(false) }, 0); }
@@ -471,7 +471,7 @@ function unchanged(input) {
     return !!input.setv && typeof input.real === 'number' && input.shown !== undefined && input.value === input.shown;
 }
 
-// swarf (Phil 11-01: "everything should accept mm or in when units are typed in"): a field with
+// swarf: everything accepts mm or in when units are typed in: a field with
 // units reads what a woodshop types, whatever the setting: 19, 19 mm, 3/4, 3/4 in, 0.75", 1 1/2 in,
 // 2 cm (swarf-length.js; a bare number is in the current units, a fraction is inches). Its bound
 // is in mm, as Kiri wrote it (a clearance of 0.01 to 100 mm, never 100 in); a number outside it is
@@ -486,7 +486,7 @@ function unitsValue(input) {
         if (old !== undefined) input.setv(old); else input.value = '';
         return old;
     }
-    // a bare fraction in mm reads as inches: say so, it has a second plausible reading (review 11-13 #5)
+    // a bare fraction in mm reads as inches: say so, it has a second plausible reading
     const said = L && L.note ? L.note(text, units === 25.4 ? 'in' : 'mm') : '';
     if (said && !input.bound) fieldSay(`${fieldName(input)}: ${said}`);
     if (input.bound) {

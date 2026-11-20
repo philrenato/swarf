@@ -1,7 +1,7 @@
 /*
  * swarf estimate — how long a machine file takes on the ShopBot, worked out the way control runs it
- * (Phil 11-02: "a machining time estimate for all paths being simulated ... and make sure the
- * estimate that goes in export is accurate as well").
+ * (a machining time estimate for all paths being simulated, and the same
+ * accurate estimate in export).
  *
  * The file is read as control reads it (swarf-run-parse.js), each move gets the speed the job plan
  * gives it (swarf-run-plan.js: the machine's own XY and Z limits, rapids at the jog speed), and each
@@ -29,7 +29,7 @@
 
   // Any other machine (the MR-1): moves and rapids at its own top speeds from the machine profile
   // (feedMax, feedMaxZ in mm/min), and no extra spin-up, its file dwells for it (G4 P2). The
-  // speed-up profile stays the ShopBot card's: a rough guess there, but rapids no longer run at a
+  // speed-up profile stays the ShopBot card's: a rough guess there, but rapids never run at a
   // speed the machine cannot reach.
   function cfgFor(device) {
     const d = device || {};
@@ -192,7 +192,7 @@
     showReal();
     const b = bar();
     if (b) {
-      // out of date, or never made (a reload keeps the job, not the paths): said where the time was (review 105 F8, F19)
+      // out of date, or never made (a reload keeps the job, not the paths): said where the time was
       const had = S.est && !ok;
       if (!est && had) { b.hidden = false; b.classList.add('stale'); b.textContent = 'changed: press toolpaths again'; b.title = 'changed since the toolpaths: simulate shows the old ones'; }
       else if (!est) { b.textContent = ''; b.title = ''; b.hidden = true; b.classList.remove('stale'); }

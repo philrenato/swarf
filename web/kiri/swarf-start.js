@@ -1,6 +1,6 @@
 /*
- * swarf start — what an empty bed says (review 10-28, Phil: "Empty bed with
- * prompt works"). No demo cube: when nothing is on the bed, one quiet card in
+ * swarf start — what an empty bed says: an empty bed
+ * with a prompt. No demo cube: when nothing is on the bed, one quiet card in
  * the middle of it offers the three ways to begin, each the same as its step.
  */
 (function () {
@@ -18,7 +18,7 @@
       b('make a shape', 'a circle, rectangle, ring, polygon, star or slot, with a thickness', () => window.__swarfShape ? window.__swarfShape.open() : $('swarf-step-shape') && $('swarf-step-shape').click()),
       b('draw one', 'draw an outline or type words on the bed, seen from above', () => window.__swarfDraw && window.__swarfDraw.open()),
       b('open a file', 'a drawing (SVG, DXF, AI, PDF), a model (STL, OBJ) or a project (.swarf)', () => $('load-file') && $('load-file').click()));
-    // the ShopBot works with an empty bed too (Phil 10-29): jog, zero, a test cut
+    // the ShopBot works with an empty bed too: jog, zero, a test cut
     const row2 = document.createElement('div'); row2.className = 'row sb';
     row2.append(
       b('control the ShopBot', 'jog, zero and run the machine: no part needed', () => $('swarf-step-run') && $('swarf-step-run').click()),
@@ -37,7 +37,7 @@
     document.body.append(card);
   }
 
-  // (review r086 F4) a bed's size in cam's units: 2438 × 1219 mm, or 96 × 48 in
+  // a bed's size in cam's units: 2438 × 1219 mm, or 96 × 48 in
   function bed(w, d) {
     const inch = window.SwarfLength && window.SwarfLength.unit() === 'in';
     return inch ? `${Math.round(w / 25.4)} × ${Math.round(d / 25.4)} in` : `${Math.round(w)} × ${Math.round(d)} mm`;
@@ -48,15 +48,15 @@
     const empty = a.widgets.all().length === 0;
     const cls = document.body.classList;
     // the steps stay for the next part (a delete comes back with ⌘Z, a part drawn next reuses them);
-    // with no part the list says they wait (r086 check P13)
+    // with no part the list says they wait
     cls.toggle('swarf-bed-empty', empty);
-    // never over a dialog (Fable review 3 #14: it floated over setup › machine)
+    // never over a dialog (setup › machine among them)
     const modal = (document.getElementById('dialog') || {}).open || [...document.querySelectorAll('#modal, .mdialog')].some(m => m.offsetParent && getComputedStyle(m).display !== 'none' && m.id !== 'swarf-start');
     if (modal) { card.classList.remove('on'); return; }
     if (!empty) { closed = false; }
     card.classList.toggle('on', empty && !closed && !cls.contains('swarf-run-open') && !cls.contains('swarf-draw-open'));
     card.classList.toggle('compact', compact);
-    // (review r086 C3) a router (the ShopBot, the MR-1): no lathe, index, loop or laser steps
+    // a router (the ShopBot, the MR-1): no lathe, index, loop or laser steps
     try { document.body.classList.toggle('swarf-router', /shopbot|mr-1/i.test(a.conf.get().device.deviceName || '')); } catch (e) { /* no device yet */ }
     try { card.querySelector('.row.sb').style.display = /shopbot/i.test(a.conf.get().device.deviceName || '') ? '' : 'none'; } catch (e) { /* no device yet */ }
     // which machine, and its bed, as DRAW names it
@@ -71,8 +71,8 @@
       clearInterval(t);
       if (!a || !a.event) return;
       build();
-      // Phil 10-28: "we should default to lower left as 0, not center": saved jobs from
-      // before carry the old center origin; move them over once (a choice made after stays)
+      // the origin defaults to the lower left, not the center: saved jobs from
+      // before that carry the old center origin; move them over once (a choice made after stays)
       try {
         if (!localStorage.getItem('swarf-origin-front-left')) {
           const s = a.conf.get();
@@ -101,7 +101,7 @@
           if (v && v !== cur) a.devices.select(v);
         });
       }, true);
-      // switching machine says at once what no longer fits (Fable review 3 #13)
+      // switching machine says at once what no longer fits
       a.event.on('device.selected', () => setTimeout(() => {
         try {
           const d = a.conf.get().device || {}, big = [];
@@ -109,7 +109,7 @@
           if (big.length) a.show.alert(`${big.join('; ')}: bigger than this machine's ${bed(d.bedWidth, d.bedDepth)} bed.`, 10);
         } catch (e) { /* no parts yet */ }
       }, 300));
-      // on an empty bed, toolpaths and export say why nothing happens (review 10-28b #16)
+      // on an empty bed, toolpaths and export say why nothing happens
       for (const id of ['act-paths', 'act-export', 'act-animate']) {
         const b = $(id);
         if (b) b.addEventListener('click', e => {
@@ -121,7 +121,7 @@
           clearTimeout(p.t); p.t = setTimeout(() => { p.textContent = 'Make a shape, draw one, or open a file.'; p.classList.remove('nudge'); }, 2500);
         }, true);
       }
-      // a faded step says why it is off (review 10-28b #15)
+      // a faded step says why it is off
       const sim = $('act-animate');
       if (sim) {
         const why = () => {

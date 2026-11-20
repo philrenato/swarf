@@ -1,6 +1,6 @@
 /*
- * swarf tex — mark a part, then texture the mark (Phil 10-29: "Draw is for making new shapes.
- * tex is for marking and then texturing and piercing those shapes").
+ * swarf tex — mark a part, then texture the mark (draw is for making new shapes;
+ * tex is for marking and then texturing and piercing those shapes).
  *
  * TEX opens the same board DRAW does (the bed from above, every part where it sits) with its own
  * tools: the brush paints a mark on a part and erases it (⌥ while painting, or the eraser), the
@@ -49,7 +49,7 @@
     const d = mm(t.flute_diam || t.shaft_diam);
     if (!(d > 0)) return null;
     const name = t.name || `#${t.number}`;
-    // how deep its flutes reach (deep review 10-31 M1: a 1/2 in flute was asked for 37 mm)
+    // how deep its flutes reach (a 1/2 in flute is never asked for 37 mm)
     const flute = mm(t.flute_len) > 0 ? mm(t.flute_len) : undefined;
     if (t.type === 'ballmill') return { id: `lib${t.id}`, name, type: 'ball', diameter: d, flute };
     if (t.type === 'endmill') return { id: `lib${t.id}`, name, type: 'flat', diameter: d, flute };
@@ -173,7 +173,7 @@
 
   // ── marks: a paint grid in the mark's frame, xf to the part's ──
   // a fill this swarf can draw: a pattern from a newer swarf (or an edited file) becomes the plain
-  // one of its kind, and says so (deep review 10-31 S1: the card threw and left the mode half-open)
+  // one of its kind, and says so (a card that threw would leave the mode half-open)
   let unknownFills = 0;
   function knownFill(f) {
     const C = T();
@@ -217,7 +217,7 @@
     // one mode at a time: DRAW keeps its changes (as its done does) before TEX opens
     const D = window.__swarfDraw;
     if (D && D.state()) { D.close(true); if (D.state()) return; }
-    // a part marked tipped over that lies flat after all is lined up again (Phil 11-02)
+    // a part marked tipped over that lies flat after all is lined up again
     try { if (D && D.settleTilted) D.settleTilted(); } catch (e) { console.warn('swarf tex: settle', e); }
     const dev = a.conf.get().device || {};
     const parts = [];
@@ -231,7 +231,7 @@
       for (const L of loops) for (const q of L) { b[0] = Math.min(b[0], q[0]); b[1] = Math.min(b[1], q[1]); b[2] = Math.max(b[2], q[0]); b[3] = Math.max(b[3], q[1]); }
       parts.push({ w, name: nameOf(w), pos, loops, drawn, box: b, ...sizeOf(w), tilted: !!(w.meta && w.meta.tilted), marks: (w.meta && Array.isArray(w.meta.tex) ? w.meta.tex : []).filter(m => faceUp(w, m)).map(loadMark), dormant: (w.meta && Array.isArray(w.meta.tex) ? w.meta.tex : []).filter(m => !faceUp(w, m)), dirty: false });
     }
-    // 12 mm, or 1/2 in when the units are inches (deep review P6: 0.472 in)
+    // 12 mm, or 1/2 in when the units are inches (never 0.472 in)
     const brush0 = LEN.unit() === 'in' ? 12.7 : 12;
     let brush = brush0;
     try { brush = parseFloat(localStorage.getItem(BRUSH)) || brush0; } catch (e) { /* private */ }
@@ -291,7 +291,7 @@
     // (api(), not a: build has no a, and the ReferenceError hid in this catch since r2 N5)
     try { const u = api().ui.units; if (u) u.addEventListener('change', S.onUnits); } catch (e) { /* no units control */ }
     $('tx-fit').onclick = () => { fit(!S.whole); render(); ui.svg.focus(); };
-    // cancel with changes asks once, as Esc does (deep review S1: it threw marks away at once)
+    // cancel with changes asks once, as Esc does (never throwing marks away at once)
     $('tx-cancel').onclick = () => {
       if (S.parts.some(p => p.dirty) && !(S.cancelAt && performance.now() - S.cancelAt < 4000)) {
         S.cancelAt = performance.now();
@@ -313,7 +313,7 @@
     ui.svg.focus();
   }
 
-  // done (apply) or cancel: either way TEX closes. Done never keeps you in TEX (Phil: a mode may
+  // done (apply) or cancel: either way TEX closes. Done never keeps you in TEX (a mode may
   // adapt, never trap): what it could not do, it says after.
   // quiet: the next mode speaks instead (make it a part / a hole: DRAW says what happens to the mark)
   function close(apply, quiet) {
@@ -330,7 +330,7 @@
     document.body.classList.remove('swarf-draw-open', 'swarf-tex-open');
     S = null;
     const a = api();
-    // back in cam with the parts in view (r086 check M1: a camera left inside a part stays there)
+    // back in cam with the parts in view (a camera left inside a part stays there)
     try { if (a && a.reveal) a.reveal(); } catch (e) { /* no view */ }
     if (said && a && !quiet) a.show.alert(said, 10);
   }
@@ -557,7 +557,7 @@
     if (reach * 2 < bit * 1.05) return say(`The mark is too narrow for the ${tool ? tool.name : '1/4 in'} bit (${LEN.prose(bit)}) that cuts the outline: make it wider first.`);
     const loops = c.loops.map(L => C.sampleCurve(L.handles, 12).pts.map(q => bedOf(part, m, q)));
     const w = part.w, name = `${m.made || 'mark'} from ${part.name}`;
-    // DRAW says what becomes of the mark; TEX's count would include the one leaving (deep review P3)
+    // DRAW says what becomes of the mark; TEX's count would include the one leaving
     close(true, true);
     const D = window.__swarfDraw;
     if (!D) return;
@@ -667,7 +667,7 @@
   function kerfPicture(part, f, pr) {
     const lib = T().fillTool(f), w = lib.diameter, Tb = part.thick || 19, skin = Math.min(Math.max(0, pr.skin), Tb);
     const pitch = T().kerfPitch(w, Tb, skin, pr.radius);
-    // room kept right of the board for its "skin" label (r086 check P3: a long board clipped it to "sk")
+    // room kept right of the board for its "skin" label (a long board would clip it to "sk")
     const W = 240, H = 56, k = Math.min(3, (H - 28) / Tb), x0 = 10, y0 = 4, n = Math.max(2, Math.min(8, Math.floor((W - 54) / Math.max(1, pitch * k))));
     const span = Math.min(W - 44, n * pitch * k + w * k);
     let kerfs = '';
@@ -678,7 +678,7 @@
       <path class="tx-kp-arc" d="M${x0},${by + 6} Q${x0 + span / 2},${by + 6 + Math.min(10, 600 / pr.radius)} ${x0 + span},${by + 6}"/>
       <text class="tx-kp-t" x="${x0 + span + 4}" y="${y0 + Tb * k - 1}">skin</text><text class="tx-kp-t" x="${x0 + span / 2 - 14}" y="${H - 2}">bends this way</text></svg></div>`;
   }
-  // a pattern said in a sentence: "Ocean waves: a sum of wave trains…" (review r093-ux V4: a capital mid-line)
+  // a pattern said in a sentence: "Ocean waves: a sum of wave trains…" (a capital mid-line)
   const patSaid = p => `${p.label.charAt(0).toUpperCase()}${p.label.slice(1)}: ${p.blurb.charAt(0).toLowerCase()}${p.blurb.slice(1)}`;
   // the patterns as swatches, in the skin's colors, made once a visit
   function swatchHref(id) {
@@ -704,7 +704,7 @@
       if (q.shuffle) return `<div class="sd-row" title="another arrangement of the same pattern"><span>${word === 'seed' ? 'arrangement' : word}</span><button id="${id}" class="tx-shuffle">shuffle</button></div>`;
       if (q.type === 'select') return selRow(word, id, q.options.map(o => [o, o]), v);
       if (q.type === 'text') return `<div class="sd-row"><span>${word}</span><input id="${id}" class="wide" value="${esc(v)}"></div>`;
-      // a slider beside each ranged number, as MASQ's (Phil 11-01): it fills the field and takes it on release
+      // a slider beside each ranged number, as MASQ's: it fills the field and takes it on release
       const slide = q.type === 'range' && q.max > q.min ? `<input type="range" class="sd-slide" data-for="${id}" min="${q.min}" max="${q.max}" step="${q.step || 'any'}" value="${Math.min(q.max, Math.max(q.min, +v || 0))}" aria-label="${esc(word)}">` : '';
       if (q.unit === 'mm') return lenRow(word, id, v, q.tip, slide);
       return numRow(word, id, v, q.unit === '°' || q.unit === '%' ? q.unit : '', q.tip, slide);
@@ -734,15 +734,15 @@
       return selRow('bit', 'tx-bit', opts, String(f.tool), f.fill === 'pierce' ? 'the straight bit that cuts the kerfs or holes; its width is the kerf' : f.fill === 'inlay' ? 'the straight bit that cuts the pocket: its radius rounds the inside corners, of the pocket and the plug alike' : f.fill === 'vcarve' ? 'the V-bit that carves it: 90° is wider and shallower, 60° narrower and deeper' : 'the bit that cuts it: ball for smooth hollows, V for sharp grooves');
     };
     // pierce lives in advanced mode; a pierce mark seen from basic mode can still go back to
-    // texture (review 10-30 F11), and says where pierce lives
-    // inlay (Phil 11-02) is for everyone: a pocket, and the part that fills it
+    // texture, and says where pierce lives
+    // inlay is for everyone: a pocket, and the part that fills it
     const fillRow = f => `<div class="sd-row tx-fills" title="carve the top, cut in with a V-bit, sink a pocket${expert || f.fill === 'pierce' ? ', or pierce' : ''}"><span>fill</span><button class="tx-fill${f.fill === 'texture' ? ' on' : ''}" data-fill="texture">texture</button><button class="tx-fill${f.fill === 'vcarve' ? ' on' : ''}" data-fill="vcarve">v-carve</button><button class="tx-fill${f.fill === 'inlay' ? ' on' : ''}" data-fill="inlay">inlay</button>${expert || f.fill === 'pierce' ? `<button class="tx-fill${f.fill === 'pierce' ? ' on' : ''}" data-fill="pierce">pierce</button>` : ''}</div>${expert || f.fill !== 'pierce' ? '' : '<div class="sd-note tx-adv">Pierce lives in advanced mode (view › advanced): here it can go back to texture.</div>'}`;
     if (m && m.fill.fill === 'pierce') {
       const f = m.fill, P = C.PIERCES[f.pattern], pr = { ...C.pierceDefaults(f.pattern, part.thick), ...(f.params || {}) };
       h += fillRow(f);
       h += selRow('pattern', 'tx-pat', Object.entries(C.PIERCES).map(([k, q]) => [k, q.label]), f.pattern, P.blurb);
-      // the fields first, then what they make (deep review S6: at 720 the card was the picture and five
-      // paragraphs, every field below the fold); short windows fold the longer notes and put the picture after
+      // the fields first, then what they make (at 720 the picture and five
+      // paragraphs first would put every field below the fold); short windows fold the longer notes and put the picture after
       const compact = window.innerHeight < 820;
       if (f.pattern === 'kerf' && !compact) h += kerfPicture(part, f, pr);
       for (const q of P.params) if (q.basic) h += paramRow(q, pr[q.k]);
@@ -767,7 +767,7 @@
       for (const q of P.params) if (!q.basic) h += paramRow(q, pr[q.k]);
       h += '</details>';
     } else if (m && m.fill.fill === 'vcarve') {
-      // V-CARVE (review 105 F3): the shape cut in by a V-bit; the words of one drawn in DRAW change there
+      // V-CARVE: the shape cut in by a V-bit; the words of one drawn in DRAW change there
       const f = m.fill, tex = m.info && m.info.ver === m.ver ? m.info : null;
       h += fillRow(f);
       const nw = tex ? tex.warnings.length : 0;
@@ -780,7 +780,7 @@
         for (const n of tex.notes) warns += `<div class="sd-note">${esc(n)}</div>`;
       }
     } else if (m && m.fill.fill === 'inlay') {
-      // INLAY (Phil 11-02): the mark sunk as a flat pocket, and its plug a part of its own to cut from
+      // INLAY: the mark sunk as a flat pocket, and its plug a part of its own to cut from
       // another wood. The fields, then what they make; what to watch for at the end
       const f = m.fill, tex = m.info && m.info.ver === m.ver ? m.info : null, I = C.INLAY;
       h += fillRow(f);
@@ -800,7 +800,7 @@
       const f = m.fill, P = C.PATTERNS[f.pattern], pr = { ...C.defaults(f.pattern), ...(f.params || {}) };
       const compact = window.innerHeight < 820;
       h += `${fillRow(f)}<div class="tx-sws${compact ? ' tx-compact' : ''}">${Object.entries(C.PATTERNS).map(([k, p]) => `<button class="tx-sw${k === f.pattern ? ' on' : ''}" data-pat="${k}" aria-label="${esc(p.label)}: ${esc(p.blurb)}" data-hint="${esc(compact ? p.label : patSaid(p))}"><img alt="" src="${swatchHref(k)}"><span>${esc(p.short)}</span></button>`).join('')}</div>`;
-      // at 720p the swatches keep their captions on two rows of five (review 10-30 B3: ten unlabeled
+      // at 720p the swatches keep their captions on two rows of five (not ten unlabeled
       // 16 px squares); the hint line goes (the captions and the pattern select name it) and path folds into more
       if (!compact) h += `<div class="sd-note tx-swhint" id="tx-swhint">${esc(patSaid(P))}</div>`;
       // a short window keeps the captioned swatches only (the select repeats them), so the shape row fits
@@ -808,11 +808,11 @@
       // what it costs and what to watch for, up by the pattern where it is seen
       const tex = m.info && m.info.ver === m.ver ? m.info : null;
       // one line up here, always one line: the time, or that it is being worked out. What to watch for goes
-      // below the controls (Phil 11-01: "make sure that the UI doesn't jump around when sliders etc are
-      // moved": a warning that came and went above them moved every row 35 px under the pointer)
+      // below the controls, so the UI never jumps when sliders move (a warning that came and went
+      // above them would move every row 35 px under the pointer)
       warns = '';
       if (tex) {
-        // nothing fits (a mark narrower than the bit): say why, never "About 0 s" (deep review S7)
+        // nothing fits (a mark narrower than the bit): say why, never "About 0 s"
         if (!(tex.seconds > 0.5)) warns += `<div class="sd-note tx-warn">Nothing to cut: the mark is too narrow for the ${esc(bitName(f))}. Paint it wider, or pick a smaller bit.</div>`;
         for (const w of tex.warnings) warns += `<div class="sd-note tx-warn">${esc(w)}</div>`;
       }
@@ -821,12 +821,12 @@
       for (const q of P.params) if (q.basic) h += paramRow(q, pr[q.k]);
       h += lenRow('depth', 'tx-depth', f.depth, 'the deepest the texture goes below the part\'s top', sl('tx-depth', 0.2, 6, 0.1, f.depth));
       h += lenRow('soft edge', 'tx-fade', f.fade || 0, 'how far in from the mark\'s edge the texture takes to reach its full depth', sl('tx-fade', 0, 20, 0.5, f.fade || 0));
-      // which way it runs, and which way up (Phil 11-01: direction control; "the ability to invert,
-      // where background lowers and tex raises"), on the front: they change the look most
+      // which way it runs, and which way up (direction; invert,
+      // where background lowers and tex raises), on the front: they change the look most
       const turnRows = numRow('direction', 'tx-angle', r3(f.angle || 0), '°', 'which way the pattern runs: 0 as drawn, 90 a quarter turn', sl('tx-angle', 0, 180, 1, f.angle || 0, 'direction'))
         + selRow('relief', 'tx-relief', [['in', 'cut in'], ['up', 'stands up']], f.relief === 'up' ? 'up' : 'in', 'cut in: the pattern is carved into the top. stands up: the ground around it is cut away and the pattern is left standing');
       if (!compact) h += turnRows;
-      // the edge: how the soft edge falls off, and a border band along it (Phil 11-01). A short window
+      // the edge: how the soft edge falls off, and a border band along it. A short window
       // folds direction and relief in here too, so the basic card still fits without scrolling
       const bo = { ...C.borderDefaults(), ...(f.border || {}) }, hasB = bo.style !== 'none';
       const edgeOpen = S.edgeOpen ?? hasB;
@@ -848,7 +848,7 @@
       const kind = f.relief === 'up' || f.floor > 0 || hasB ? 'surface' : P.build(C.defaults(f.pattern)).kind;
       const ok = { auto: true, raster: true, crosshatch: true, plunge: kind === 'dots', centerline: kind === 'strokes' };
       const pathRow = selRow('path', 'tx-path', Object.entries(PATHS).filter(([k]) => ok[k]).map(([k, t]) => [k, k === 'auto' && tex ? `${t}: ${PATHS[tex.strategy]}` : t]), ok[f.path] ? f.path : 'auto', 'how the bit goes over it: best picks one plunge per dot when the bit can make the dots, a V-bit along each groove, else raster');
-      // how finely the raster goes: smooth to bold ridges (Phil 11-01: finer and coarser, the passes showing on purpose)
+      // how finely the raster goes: smooth to bold ridges (finer and coarser, the passes showing on purpose)
       // while the cut is worked out, the last path known decides, so the finish row neither comes nor goes
       const strat = tex ? tex.strategy : m.lastStrategy;
       const rasters = !strat || strat === 'raster' || strat === 'crosshatch';
@@ -875,7 +875,7 @@
         <div class="sd-note">About ${(size.triangles / 1000).toFixed(0)} thousand triangles, ${(size.triangles * 50 / 1e6).toFixed(1)} MB as STL.</div>
         <div class="sd-row"><button id="tx-mesh-save" title="the part as a mesh with its marks, for rendering">save the part</button></div></details>`;
     }
-    // what to watch for, at the card's end, so its coming and going moves no control (Phil 11-01)
+    // what to watch for, at the card's end, so its coming and going moves no control
     if (m && m.fill.fill !== 'pierce') h += warns;
     ui.card.innerHTML = h;
     ui.card.scrollTop = keepTop;
@@ -997,7 +997,7 @@
     bind('tx-depth', v => {
       const what = f.fill === 'inlay' ? 'pocket' : 'texture';
       if (!(v >= 0.1)) return say(`Give the ${what} at least 0.1 mm of depth.`);
-      // as deep as the board or more: held 1 mm short, said, and the field shows it (deep review P8)
+      // as deep as the board or more: held 1 mm short, said, and the field shows it
       const top = part.thick > 1.5 ? Math.max(0.1, part.thick - 1 - (+f.floor || 0)) : v, d = Math.min(v, top);
       set(f => { f.depth = r3(d); if (f.fill !== 'inlay') f.params = { ...(f.params || {}), depth: r3(d) }; });
       if (d < v) say(`${LEN.prose(v)} is as deep as ${part.name} is thick or more: the ${what} would cut through, so it goes ${LEN.prose(d)} deep.`);
@@ -1053,15 +1053,15 @@
     } catch (e) { worker = false; }
     return worker || null;
   }
-  // a length in the card's sentences: in inches the nearest 16th (SwarfLength.prose; r086 check S3),
-  // in mm as before. Every length the checks say passes here once, so one pitch reads one way.
+  // a length in the card's sentences: in inches the nearest 16th (SwarfLength.prose),
+  // in mm to the decimal. Every length the checks say passes here once, so one pitch reads one way.
   const prose = v => (LEN.unit() === 'in' ? LEN.prose(v) : LEN.say(T().roundProse(v)));
   const says = t => String(t).replace(/⟦([-\d.e+]+)⟧/g, (_, v) => prose(+v));
   function info(part, m) {
     const op = stepOf(m.id) || {}, ver = m.ver;
     const ask = { mark: { id: m.id, region: m.region, xf: m.xf, fill: m.fill }, thickness: part.thick, part: part.loops, down: op.down || 0, rate: op.rate || 1500, plunge: op.plunge || 500 };
     const done = r => (r.error ? null : { ver, warnings: r.warnings.map(says), notes: r.notes.map(says), strategy: r.strategy, seconds: r.seconds });
-    // a check that fails says so, never "Working out the cut…" for good (review r093 A1)
+    // a check that fails says so, never "Working out the cut…" for good
     const failed = e => ({ ver, warnings: [`swarf could not work out this cut: ${String(e && e.message || e)}`], notes: [], strategy: 'raster', seconds: 0 });
     const w = texWorker();
     if (w) return new Promise(res => { const id = ++asked; pending.set(id, r => { if (!r.error) return res(done(r)); try { res(here()); } catch (e) { res(failed(r.error === 'no worker' ? e : r.error)); } }); w.postMessage({ id, ...ask }); });
@@ -1107,7 +1107,7 @@
     say('The mark is gone (⌘Z brings it back). Done removes its step.');
     render();
   }
-  // clear (Phil 11-01: "TEX needs a clear function"): the picked part's marks, else every part's; one undo step
+  // clear: the picked part's marks, else every part's; one undo step
   const clearable = () => (S.sel >= 0 ? [S.parts[S.sel]] : S.parts).filter(p => p && p.marks.length);
   function clearMarks() {
     const ps = clearable();
@@ -1153,7 +1153,7 @@
     if (!curMark() && make) { part.marks.push(newMark(part, WORD[S.tool])); S.mark = part.marks.length - 1; }
     return curMark() ? { part, m: curMark() } : null;
   }
-  // a mark takes paint only on its part's top, less its holes (Phil 10-30: paint never goes past
+  // a mark takes paint only on its part's top, less its holes (paint never goes past
   // the top's edge; where it meets the edge the pattern runs full to it, swarf-tex-core clipToPart)
   const onTop = (part, m) => (u, v) => onPart(T().xfApply(m.xf, u, v), part.loops);
   function stamp(t, a, b, val) {
@@ -1265,7 +1265,7 @@
       S.box = null;
       const b = d.to;
       if (!b || Math.abs(b[0] - d.at[0]) < 1 || Math.abs(b[1] - d.at[1]) < 1) { S.undo.pop(); say('Drag farther: a shape needs at least 1 mm each way.'); render(); return; }
-      // off the part: said, and a mark this press made, still empty, goes again (review r093 A2)
+      // off the part: said, and a mark this press made, still empty, goes again
       if (!shapeInto(d.t, [d.at, b], S.tool, d.val)) {
         S.undo.pop();
         const { part, m } = d.t, i = part.marks.indexOf(m);
@@ -1297,7 +1297,7 @@
       if (S.mark >= 0) { S.mark = -1; render(); return; }
       if (S.sel >= 0) { S.sel = -1; render(); return; }
       // the last Escape leaves, never throwing marks away without asking (as DRAW)
-      // a burst of Escs stops on the question: only a press after a beat answers it (deep review S1)
+      // a burst of Escs stops on the question: only a press after a beat answers it
       if (S.parts.some(p => p.dirty)) {
         const since = S.escAt ? performance.now() - S.escAt : Infinity;
         if (since < 400) return;
@@ -1361,12 +1361,12 @@
     a.conf.get().process.ops = clone(snap.ops);
     a.conf.save();
     a.event.emit('cam.op.render');
-    // an inlay's plug follows its mark back and forth (review 11-02)
+    // an inlay's plug follows its mark back and forth
     try { syncPlugs(a); } catch (e) { console.warn('swarf tex: plug', e); }
   }
   function commit() {
     const a = api();
-    // TEX's done is undoable in cam like a tab or a move (deep review S2: ⌘Z said "nothing to undo")
+    // TEX's done is undoable in cam like a tab or a move (⌘Z never says "nothing to undo")
     const before = a.doit ? texSnap(S.parts.filter(p => p.dirty).map(p => p.w)) : null;
     const done = commit1();
     if (before && before.parts.length) {
@@ -1397,7 +1397,7 @@
     try { plugs = syncPlugs(a); } catch (e) { console.warn('swarf tex: plug', e); }
     const plugSaid = plugs.made.length ? ` ${plugs.made.map(p => `"${p.meta.file}"`).join(', ')} ${plugs.made.length === 1 ? 'is its plug, on the bed' : 'are their plugs, on the bed'} and left out of this run: tick ${plugs.made.length === 1 ? 'it' : 'them'} in objects to cut from another wood.` : plugs.redone.length ? ' The plug changed with its pocket.' : plugs.gone ? ' Its plug went with it.' : '';
     const ops = a.conf.get().process.ops || [], free = ops.some(o => o && (o.type === 'outline' || o.type === 'rough'));
-    // worded per fill (review 10-30 F5: a pierce mark's toast said "a texture step")
+    // worded per fill (a pierce mark's toast never says "a texture step")
     const by = r.addedBy || { texture: r.added, vcarve: 0, inlay: 0, pierce: 0 };
     const kinds = ['texture', 'vcarve', 'inlay', 'pierce'].filter(k => by[k]).map(k => (by[k] === 1 ? `${r.added === 1 ? (k === 'inlay' ? 'an' : 'a') : '1'} ${k} step` : `${by[k]} ${k} steps`).replace('vcarve', 'v-carve'));
     const added = `${kinds.join(' and ')} ${r.added === 1 ? 'was' : 'were'} added`;
@@ -1420,8 +1420,8 @@
     say(`${nameOf(w)} lies flat again: paint on it.`);
   }
 
-  // ── an inlay's plug: a part of its own on the bed (Phil 11-02: "automatically get a matching part
-  // in the scene that I could machine in another material"), made on done and kept in step with its
+  // ── an inlay's plug: a part of its own on the bed (a matching part
+  // in the scene to machine in another material), made on done and kept in step with its
   // mark: changed with it, gone with it. It arrives left out of this run (unticked in objects), beside
   // its part, lined up with where it goes ──
   const plugOf = (part, m) => { const a = api(); return a ? a.widgets.all().find(w => w.meta && w.meta.inlay && w.meta.inlay.mark === m.id) || null : null; };
@@ -1497,7 +1497,7 @@
     if (typeof bit === 'number' && tools.some(t => t.id === bit)) return bit;
     const want = (BITS[bit] || BITS.ball14).tool;
     if (tools.some(t => t.id === want)) return want;
-    // the same kind of bit, never a ball standing in for a straight one (deep review 10-31 S5)
+    // the same kind of bit, never a ball standing in for a straight one
     const kind = String(bit).startsWith('flat') ? 'endmill' : String(bit).startsWith('v') ? 'tapermill' : 'ballmill';
     const like = tools.find(t => t.type === kind);
     return like ? like.id : (tools[0] && tools[0].id);
@@ -1711,8 +1711,8 @@
     return (x, y, r) => marks.some(q => { if (at(q, x, y)) return true; for (let k = 0; k < 16; k++) { const a = k / 16 * 2 * Math.PI; for (const f of [0.5, 1]) if (at(q, x + r * f * Math.cos(a), y + r * f * Math.sin(a))) return true; } return false; });
   }
 
-  // a texture or pierce step's card in the steps panel (Phil 11-01: "we still give them the parameters
-  // in tex, but then we can also change or tune them here, just like other toolpaths"): the mark's own
+  // a texture or pierce step's card in the steps panel (the parameters are given
+  // in tex, and changed or tuned here too, like other toolpaths): the mark's own
   // bit, path, finish and stepover, read and written from there; one value, every copy of the mark
   function stepCard(id) {
     const a = api(), e = a && marksOnBed(a).get(id);
@@ -1764,7 +1764,7 @@
     if (k === 'tool' && e.mark.fill && e.mark.fill.fill === 'inlay') { try { syncPlugs(a); } catch (x) { console.warn('swarf tex: plug', x); } }
     return true;
   }
-  // ── a drawing carved into a part, from DRAW (review 105 F3, M4): a mark like any other, that also
+  // ── a drawing carved into a part, from DRAW: a mark like any other, that also
   // keeps what was drawn, so DRAW can show its words again. Everything comes in the part's own frame.
   // A mark already on that part keeps its frame, its turns and its copies; every copy takes the change.
   function carve(w, { id, loops, curves, text, name, tool, limit }) {
@@ -1816,7 +1816,7 @@
     const a = api(), picked = a && a.selection.widgets ? a.selection.widgets() : [];
     if (a && !picked.length) { const one = a.widgets.all().find(w => !(w.track && w.track.synth) && !(w.meta && w.meta.disabled)); if (one) a.platform.select(one); }
     open();
-    // tex did not open (draw would not close): no visit to be a pocket one, so the flag goes (fresh review 11-13)
+    // tex did not open (draw would not close): no visit to be a pocket one, so the flag goes
     if (!S) pocketVisit = false;
     if (S) { say('Pocket: drag a rectangle or an ellipse on the part, then type its depth on the card. Done adds an inlay step, and a plug that fills it, left out of this run.'); render(); }
   }

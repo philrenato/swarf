@@ -72,8 +72,8 @@ class KeyboardControl {
      */
     inputHasFocus() {
         let active = this.#DOC.activeElement;
-        // swarf: a focused dropdown or editable text counts too (torture test 10-29: Backspace on a
-        // focused select deleted the selected part)
+        // swarf: a focused dropdown or editable text counts too (Backspace on a
+        // focused select must not delete the selected part)
         return active && (active.nodeName === "INPUT" || active.nodeName === "TEXTAREA" || active.nodeName === "SELECT" || active.isContentEditable);
     }
 
@@ -149,7 +149,7 @@ class KeyboardControl {
 
         // swarf: no keyboard shortcuts except Delete/Backspace for removing the selected part.
         // Every other Kiri hotkey is suppressed here. swarf keeps only the keys a student needs.
-        // (whole-app review r086 F1: with nothing picked Delete is nothing, says nothing; inside
+        // (with nothing picked Delete is nothing, says nothing; inside
         // CONTROL, DRAW or TEX it never reaches a part the screen cannot show)
         if (evt.keyCode === 8 || evt.keyCode === 46) {
             if (this.inputHasFocus()) return false;
@@ -272,10 +272,10 @@ class KeyboardControl {
             if (handler({key:evt})) return;
         }
 
-        // swarf (whole-app review r086 F6): Kiri's letter keys are retired in cam too. r opened
-        // Kiri's recent files, e its raw machine list, p said "nothing to slice", x exported, ? the
-        // about box and Z cleared every setting: none is in help, and a student brushing the
-        // keyboard met Kiri's words. DRAW, TEX and CONTROL keep their own keys (printed on their
+        // swarf: Kiri's letter keys are retired in cam too. r opens
+        // Kiri's recent files, e its raw machine list, p says "nothing to slice", x exports, ? the
+        // about box and Z clears every setting: none is in help, and a student brushing the
+        // keyboard would meet Kiri's words. DRAW, TEX and CONTROL keep their own keys (printed on their
         // buttons); cam's are ⌘Z, ⇧⌘Z, ⌘A, ⌘S and Delete, on keydown.
         this.#onUnhandledKey(evt);
         return false;

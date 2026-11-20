@@ -68,7 +68,7 @@ function setViewMode(mode) {
             break;
         case VIEWS.PREVIEW:
             $('act-preview').classList.add('selected');
-            // swarf r45 (review 10-28b #1): the visible TOOLPATHS step lights as "you are here", as SIMULATE does
+            // swarf: the visible TOOLPATHS step lights as "you are here", as SIMULATE does
             $('act-paths')?.classList.add('selected');
             api.visuals.set_widget_visibility(true);
             // Hide edges without persisting (preserve user preference)

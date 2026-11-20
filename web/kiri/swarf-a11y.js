@@ -82,13 +82,13 @@
         if (b) sync(b);
     });
     // every toggle lives in the simulate bar: watch it (not the whole body, which mutates per frame
-    // in simulate) for toggles added and for classes flipped in code (review r093 B3)
+    // in simulate) for toggles added and for classes flipped in code
     new MutationObserver(() => document.querySelectorAll('.swarf-toggle').forEach(sync))
         .observe(document.getElementById('layer-animate') || document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ['class'] });
 })();
 
-/* review 10-30 F7: with DRAW or TEX open, cam's panels sit behind the board; Tab from the board's
-   card walked into them (the left panel's material select, "endmills & bits"). They are inert
+/* with DRAW or TEX open, cam's panels sit behind the board; Tab from the board's
+   card would walk into them (the left panel's material select, "endmills & bits"). They are inert
    while the board is up: no focus, no clicks, nothing read aloud. The mode row and menus stay. */
 (function boardInert() {
     const BEHIND = ['panel-left', 'panel-right', 'panel-slide', 'swarf-right-rail', 'swarf-concerns', 'swarf-size', 'swarf-tabcard'];
