@@ -387,3 +387,8 @@ html[data-skin="classic"] #swarf-run .sr-target.live { border-color: #8fd3a8; }
 /* the control card's buttons, kept in view when the card scrolls */
 html[data-skin="classic"] #swarf-run .sr-card > .row:last-child { background: #c0c0c0 !important; }
 html[data-skin="classic"] #swarf-run .sr-card.swarf-more > .row:last-child::before { color: #000 !important; font-style: italic; }
+/* the chosen step's open card sits on navy: its labels, units and box labels in white */
+html[data-skin="classic"] #panel-right #oplist > div.selected .swarf-op-row > span,
+html[data-skin="classic"] #panel-right #oplist > div.selected .swarf-op-row > .swarf-op-unit,
+html[data-skin="classic"] #panel-right #oplist > div:hover .swarf-op-row > span,
+html[data-skin="classic"] #panel-right #oplist > div:hover .swarf-op-row > .swarf-op-unit { color: #fff !important; }

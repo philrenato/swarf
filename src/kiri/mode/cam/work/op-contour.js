@@ -7,13 +7,11 @@ import { newPoint } from '../../../../geo/point.js';
 import { newPolygon } from '../../../../geo/polygon.js';
 import { newSlice } from '../../../core/slice.js';
 import { tip2tipEmit } from '../../../../geo/paths.js';
-import { OpArea } from './op-area.js';
-import { polygons as POLY } from '../../../../geo/polygons.js';
 
 // swarf: the contour's pattern. lines run one way (lineAngle: 0 along X, 90 along Y, any angle
 // between), cross runs them twice at right angles, perimeter follows the part's edge in rings that
-// step inward. Lines along X or Y are Kiri's own contour; any other angle, and the rings, are the
-// area step's surface paths over the part's footprint, so the bit follows the same surface.
+// step inward. Lines along X or Y are Kiri's own contour walk; any other angle, and the rings, are
+// paths of their own sampled on the same raster (topo3 paths2d), with the same clip, tabs and floor.
 export function contourPlan(op) {
     const pattern = ['cross', 'perimeter'].includes(op.pattern) ? op.pattern : 'lines';
     let angle = Number.isFinite(+op.lineAngle) && op.lineAngle !== null && op.lineAngle !== '' ? +op.lineAngle : (String(op.axis).toUpperCase() === 'Y' ? 90 : 0);
@@ -104,54 +102,22 @@ class OpContour extends CamOp {
             this.op = { ...this.op, axis: plan[0].axis };
             return this.sliceTopo(progress);
         }
-        // otherwise each pass is its own op, in order
+        // otherwise each pass is its own contour, in order
         const { op, state } = this;
         const parts = this.parts = [];
         for (const pass of plan) {
-            if (pass.kind === 'topo') {
-                const sub = new OpContour(state, { ...op, pattern: 'lines', lineAngle: pass.axis === 'Y' ? 90 : 0, axis: pass.axis });
-                sub.sub = true;
-                parts.push(sub);
-            } else {
-                parts.push(new OpArea(state, this.areaOp(pass)));
-            }
+            const sub = pass.kind === 'topo'
+                ? new OpContour(state, { ...op, pattern: 'lines', lineAngle: pass.axis === 'Y' ? 90 : 0, axis: pass.axis })
+                : new OpContour(state, { ...op, axis: 'X', trace2d: pass, layer: pass.kind === 'rings' ? 'contour rings' : `contour ${Math.round(pass.angle)}°` });
+            sub.sub = true;
+            parts.push(sub);
         }
         const per = 1 / parts.length;
         let base = 0;
         for (const part of parts) {
-            if (part instanceof OpContour) await part.sliceTopo(pct => progress(base + pct * per));
-            else await part.slice(pct => progress(base + pct * per));
+            await part.sliceTopo(pct => progress(base + pct * per));
             base += per;
         }
-    }
-
-    // the area step's surface paths over the footprint: widened by the bit's width so its centre
-    // rolls half a bit past the edge as contour's lines do, unless the step stays inside the part
-    // (the area step keeps its paths half a bit inside whatever it is given)
-    areaOp(pass) {
-        const { op, state } = this;
-        const tool = new Tool(state.settings, op.tool);
-        const reach = op.inside ? 0 : tool.fluteDiameter() - 0.01;
-        const base = state.shadow.base.clone(true);
-        const areas = POLY.flatten(reach > 0 ? POLY.expand(base, reach) : base);
-        return {
-            rename: pass.kind === 'rings' ? 'contour rings' : `contour ${Math.round(pass.angle)}°`,
-            spindle: op.spindle,
-            direction: 'climb',
-            tool: op.tool,
-            rate: op.rate,
-            mode: 'surface',
-            sr_type: pass.kind === 'rings' ? 'offset' : 'linear',
-            sr_angle: pass.angle || 0,
-            sr_alter: true,
-            tolerance: op.tolerance > 0 ? op.tolerance : 0.05,
-            over: op.step,
-            expand: 0,
-            smooth: 0,
-            rotated: true,
-            areas: { [state.widget.id]: areas.map(p => p.toArray()) },
-            surfaces: {}
-        };
     }
 
     async sliceTopo(progress) {
@@ -179,7 +145,7 @@ class OpContour extends CamOp {
                 addSlices(slices);
                 for (let slice of slices) {
                     slice.output()
-                        .setLayer(`contour ${op.axis}`, { face: color, line: color })
+                        .setLayer(op.layer || `contour ${op.axis}`, { face: color, line: color })
                         .addPolys(slice.camLines);
                 }
             },

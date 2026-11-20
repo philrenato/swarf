@@ -45,10 +45,10 @@ try {
     }));
     const has = (a, b, c) => sizes.some(s => Math.abs(s[0] - a) < 0.2 && Math.abs(s[1] - b) < 0.6 && Math.abs(s[2] - c) < 0.6);
     check(sizes.length === 2 && has(6, 100, 100) && has(6, 40, 60), `${file}: parts ${JSON.stringify(sizes)}`);
-    if (!/\.svg$/.test(file)) check(alerts.some(t => /1 open line was left out/.test(t)), `${file}: the open line is reported (${JSON.stringify(alerts)})`);
-    if (file === 'uses-hidden-text.svg') check(alerts.some(t => /^1 text object left out/.test(t)) && alerts.some(t => /^1 hidden shape left out/.test(t)), `${file}: the text and the hidden shape are said (${JSON.stringify(alerts)})`);
-    if (file === 'two-shapes-3pages.pdf') check(alerts.some(t => /has 3 pages .*only the first was read/.test(t)), `${file}: the other pages are said (${JSON.stringify(alerts)})`);
-    if (file === 'two-shapes.pdf') check(!alerts.some(t => /pages/.test(t)), `${file}: one page, nothing said about pages`);
+    if (!/\.svg$/.test(file)) check(alerts.some(t => /Left out: 1 open line/.test(t)), `${file}: the open line is reported (${JSON.stringify(alerts)})`);
+    if (file === 'uses-hidden-text.svg') check(alerts.some(t => /Left out: .*1 text object.*1 hidden shape/.test(t)) && alerts.filter(t => /Left out/.test(t)).length === 1, `${file}: the text and the hidden shape are said (${JSON.stringify(alerts)})`);
+    if (file === 'two-shapes-3pages.pdf') check(alerts.some(t => /^Page 1 of 3 read/.test(t)), `${file}: the other pages are said (${JSON.stringify(alerts)})`);
+    if (file === 'two-shapes.pdf') check(!alerts.some(t => /Page 1 of/.test(t)), `${file}: one page, nothing said about pages`);
     check(await page.evaluate(() => window.kiri.api.widgets.all().every(w => /<svg/.test(w.meta.svg || ''))), `${file}: each part keeps its drawing`);
     { const v = await page.evaluate(VIEW); check(v.ok, `${file}: after the import the parts are whole in the window, the camera above the bed (${v.say})`); }
     await page.close();

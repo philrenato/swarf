@@ -1311,7 +1311,7 @@ body:not(.swarf-expert) .swarf-add-op-grid > .swarf-expert-only {
   color: var(--swarf-text-2, #aaa);
 }
 .swarf-op-params .swarf-op-row > span {
-  flex: 0 0 64px;
+  flex: 0 0 80px;
 }
 .swarf-op-params .swarf-op-row > input,
 .swarf-op-params .swarf-op-row > select {
@@ -1326,8 +1326,10 @@ body:not(.swarf-expert) .swarf-add-op-grid > .swarf-expert-only {
   min-width: 0;
 }
 /* each number names its unit, in mm or in */
-.swarf-op-params .swarf-op-row > .swarf-op-unit { flex: 0 0 48px; font-style: normal; font-size: 11px; white-space: nowrap; }
+.swarf-op-params .swarf-op-row > .swarf-op-unit { flex: 0 0 56px; font-style: normal; font-size: 11px; white-space: nowrap; }
 .swarf-op-params .swarf-op-num > input { text-align: right; width: 0; }
+/* a field that does not apply to this pattern stays in place, greyed */
+.swarf-op-params .swarf-op-row.swarf-op-off { opacity: .4; }
 .swarf-op-params { box-sizing: border-box; max-width: 100%; }
 .swarf-op-params .swarf-op-row > input:focus,
 .swarf-op-params .swarf-op-row > select:focus {

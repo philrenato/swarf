@@ -495,8 +495,8 @@ export function opRender() {
                 finish: 'how close the raster\'s passes run: smoother takes longer; ridged and bold leave them showing. Typing a stepover makes it custom',
                 texstep: rec.type === 'inlay' ? `stepover: how far apart the pocket's rings are, in ${inch ? 'inches' : 'mm'}; 40% of the bit unless you type your own` : `stepover: how far apart the raster's passes are, in ${inch ? 'inches' : 'mm'}; a finish sets it, or type your own`,
                 inside: 'cut only inside the part outline',
-                pattern: 'how the passes run over the surface: lines one way, cross (lines both ways), or perimeter (rings in from the edge)',
-                lineAngle: 'which way the lines run, in degrees: 0 along X, 90 along Y, 45 corner to corner. Cross adds the lines at right angles to these',
+                pattern: 'how the passes run over the surface: lines one way, cross (lines both ways), or perimeter (rings from the edge in, round every hole too)',
+                lineAngle: 'which way the lines run: 0 along X, 90 along Y, kept between 0 and 180. Cross adds lines at right angles to these. Perimeter has no angle',
                 outside: 'cut only outside the part outline',
                 leave: `leave: wood the first passes leave on the part, in ${inch ? 'inches' : 'mm'}. 0 leaves none. Without a last pass the part stays that much oversize`,
                 lastpass: 'last pass: one more time round at the whole depth, at the true size, for a clean edge. Tabs stay. Give it a leave of about 1/2 mm',
@@ -524,11 +524,12 @@ export function opRender() {
                     const cur = ['cross', 'perimeter'].includes(rec.pattern) ? rec.pattern : 'lines';
                     return `<label class="swarf-op-row"${tip}><span>${labels[f]}</span><select data-swarf-field="pattern" data-op="${mark + i}">${[['lines', 'lines'], ['cross', 'cross'], ['perimeter', 'perimeter']].map(([k, w]) => `<option value="${k}"${k === cur ? ' selected' : ''}>${w}</option>`).join('')}</select></label>`;
                 }
-                if (f === 'lineAngle' && rec.pattern === 'perimeter') return '';
                 if (BOOL_FIELDS[f]) {
                     return `<label class="swarf-op-row swarf-op-bool"${tip}><input type="checkbox" data-swarf-field="${f}" data-op="${mark + i}"${rec[f] ? ' checked' : ''}/><span>${labels[f]}</span></label>`;
                 }
-                return `<label class="swarf-op-row swarf-op-num"${tip}><span>${labels[f]}</span><input type="text" inputmode="decimal" data-swarf-field="${f}" data-op="${mark + i}"/><em class="swarf-op-unit">${units[f] || ''}</em></label>`;
+                // perimeter has no angle: the row stays, greyed, so the rows under it do not move
+                const off = f === 'lineAngle' && rec.pattern === 'perimeter';
+                return `<label class="swarf-op-row swarf-op-num${off ? ' swarf-op-off' : ''}"${tip}><span>${labels[f]}</span><input type="text" inputmode="decimal" data-swarf-field="${f}" data-op="${mark + i}"${off ? ' disabled' : ''}/><em class="swarf-op-unit">${units[f] || ''}</em></label>`;
             }).join('');
             drawerHtml = `<div id="${mark + i}-p" class="swarf-op-params" data-op="${mark + i}">${rows}</div>`;
         }
@@ -1216,8 +1217,7 @@ export function init() {
             case "rough": return opAddRough();
             case "outline": return opAddOutline();
             case "contour":
-                // swarf: every contour starts along X; its pattern and angle say any other way (a
-                // second contour used to turn to Y unseen: cross does that in one step now)
+                // swarf: every contour starts along X; its pattern and angle say any other way
                 return opAddContour("X");
             case "lathe":
                 let laxis = "X";
@@ -1492,7 +1492,11 @@ function stepLine(rec) {
     if (rec.type === 'pocket') bits.push('down to the floor you pick');
     if (rec.type === 'contour') {
         const deg = rec.lineAngle != null ? +rec.lineAngle : String(rec.axis).toUpperCase() === 'Y' ? 90 : 0;
-        bits.push(rec.pattern === 'perimeter' ? 'rings in from the edge' : `${rec.pattern === 'cross' ? 'cross' : 'lines'} at ${deg}°`);
+        // the way it runs in words where there are words for it: along X / Y, else the angle
+        const way = d => d === 0 ? 'X' : d === 90 ? 'Y' : `${d}°`;
+        bits.push(rec.pattern === 'perimeter' ? 'perimeter, edge in'
+            : rec.pattern === 'cross' ? (deg === 0 || deg === 90 ? 'cross, X and Y' : `cross at ${deg}° and ${+((deg + 90) % 180).toFixed(2)}°`)
+            : deg === 0 || deg === 90 ? `lines along ${way(deg)}` : `lines at ${deg}°`);
     }
     if (self.__swarfOpCustom?.(rec)) bits.push('custom');
     if (rec.rate > 0 && rec.type === 'outline' && !(process.camFullEngage >= 1)) {

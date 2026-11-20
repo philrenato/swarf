@@ -23,30 +23,37 @@ const walk = (n, fn) => { for (const c of kids(n)) if (fn(c) !== false) walk(c, 
 const drawnIn = n => { let k = DRAWN.has(tag(n)) ? 1 : 0; walk(n, c => { if (DRAWN.has(tag(c))) k++; }); return k; };
 
 export function tidy(text) {
-    const out = { svg: text, hidden: 0, text: 0, uses: 0, missing: 0 };
+    const out = { svg: text, hidden: 0, text: 0, uses: 0, missing: 0, images: 0, clipped: 0 };
     let doc;
     try {
         doc = new DOMParser().parseFromString(text, 'image/svg+xml');
     } catch (e) { return out; }
     const root = doc && doc.documentElement;
     if (!root || tag(root) !== 'svg' || doc.getElementsByTagName('parsererror').length) return out;
-    // the <style> rules that hide a whole class or id
-    const cls = new Set(), ids = new Set();
+    // the <style> rules that hide a whole class or id: a rule's selector read by its last compound
+    // part (g.off, .a.b, #id); a selector with a descendant step is not read
+    const cls = [], ids = new Set();
     for (const st of Array.from(doc.getElementsByTagName('style'))) {
         const css = (st.textContent || '').replace(/\/\*[\s\S]*?\*\//g, '');
         for (const m of css.matchAll(/([^{}]+)\{([^}]*)\}/g)) {
             if (!/display\s*:\s*none|visibility\s*:\s*hidden/i.test(m[2])) continue;
             for (const sel of m[1].split(',').map(s => s.trim())) {
-                if (/^\.[\w-]+$/.test(sel)) cls.add(sel.slice(1));
-                else if (/^#[\w-]+$/.test(sel)) ids.add(sel.slice(1));
+                const c = /^([a-zA-Z][\w-]*)?((?:\.[\w-]+)+)$/.exec(sel);
+                if (c) cls.push({ tag: c[1] || null, all: c[2].split('.').filter(Boolean) });
+                else if (/^[a-zA-Z]*#[\w-]+$/.test(sel)) ids.add(sel.replace(/^[a-zA-Z]*#/, ''));
             }
         }
     }
+    const hiddenByClass = el => {
+        if (!cls.length) return false;
+        const has = new Set((el.getAttribute('class') || '').split(/\s+/).filter(Boolean));
+        return has.size > 0 && cls.some(r => (!r.tag || r.tag === tag(el)) && r.all.every(c => has.has(c)));
+    };
     const hidden = el => {
         const style = el.getAttribute('style') || '';
         return el.getAttribute('display') === 'none' || el.getAttribute('visibility') === 'hidden'
             || /(^|;)\s*display\s*:\s*none/i.test(style) || /(^|;)\s*visibility\s*:\s*hidden/i.test(style)
-            || (el.getAttribute('class') || '').split(/\s+/).some(c => cls.has(c)) || ids.has(el.getAttribute('id'));
+            || hiddenByClass(el) || ids.has(el.getAttribute('id'));
     };
     let changed = false;
     const drop = (el, count) => { if (count) out.hidden += drawnIn(el); el.parentNode.removeChild(el); changed = true; };
@@ -69,13 +76,23 @@ export function tidy(text) {
             if (!ref || depth >= USE_DEPTH || stack.includes(ref)) { out.missing++; u.parentNode.removeChild(u); changed = true; continue; }
             const g = doc.createElementNS(SVGNS, 'g');
             const x = parseFloat(u.getAttribute('x')) || 0, y = parseFloat(u.getAttribute('y')) || 0;
-            const tf = [u.getAttribute('transform') || '', x || y ? `translate(${x} ${y})` : ''].filter(Boolean).join(' ');
+            const t = tag(ref);
+            // a symbol (or svg) with a viewBox shown at the use's own width and height: scaled to fit,
+            // centred, as the default preserveAspectRatio (xMidYMid meet) draws it
+            let fit = '';
+            const vb = (t === 'symbol' || t === 'svg') && (ref.getAttribute('viewBox') || '').trim().split(/[\s,]+/).map(Number);
+            const uw = parseFloat(u.getAttribute('width')), uh = parseFloat(u.getAttribute('height'));
+            if (vb && vb.length === 4 && vb.every(Number.isFinite) && vb[2] > 0 && vb[3] > 0 && (uw > 0 || uh > 0)) {
+                const sx = uw > 0 ? uw / vb[2] : uh / vb[3], sy = uh > 0 ? uh / vb[3] : sx, k = Math.min(sx, sy);
+                const ox = (uw > 0 ? uw - vb[2] * k : 0) / 2, oy = (uh > 0 ? uh - vb[3] * k : 0) / 2;
+                fit = `translate(${ox} ${oy}) scale(${k}) translate(${-vb[0]} ${-vb[1]})`;
+            }
+            const tf = [u.getAttribute('transform') || '', x || y ? `translate(${x} ${y})` : '', fit].filter(Boolean).join(' ');
             if (tf) g.setAttribute('transform', tf);
             for (const a of Array.from(u.attributes)) {
                 const n = a.name.replace(/^.*:/, '');
                 if (!['href', 'x', 'y', 'width', 'height', 'transform', 'id'].includes(n)) g.setAttribute(a.name, a.value);
             }
-            const t = tag(ref);
             for (const c of (t === 'symbol' || t === 'svg') ? kids(ref) : [ref]) {
                 const copy = c.cloneNode(true);
                 if (copy.removeAttribute) copy.removeAttribute('id');
@@ -90,6 +107,9 @@ export function tidy(text) {
     // the sources the copies came from are never drawn themselves
     for (const el of Array.from(doc.getElementsByTagName('symbol'))) { el.parentNode.removeChild(el); changed = true; }
     for (const el of Array.from(doc.getElementsByTagName('text'))) if (!inSource(el)) out.text++;
+    for (const el of Array.from(doc.getElementsByTagName('image'))) if (!inSource(el)) out.images++;
+    // a clipping mask or mask is not read: the shapes under it come in whole
+    walk(root, el => { const t = tag(el); if (t === 'defs' || t === 'symbol') return false; if (el.getAttribute('clip-path') || el.getAttribute('mask')) { out.clipped++; return false; } });
     if (changed) out.svg = new XMLSerializer().serializeToString(doc);
     return out;
 }

@@ -112,7 +112,8 @@ export class Topo {
             newslices.push(debug);
         }
 
-        if (webGPU && !contour.nogpu) {
+        // swarf: paths of its own (contour.trace2d) are sampled on the CPU raster below
+        if (webGPU && !contour.nogpu && !contour.trace2d) {
             // invert tool Z offset for gpu code
             let toolBounds = new THREE.Box3()
                 .expandByPoint({ x: -toolDiameter/2, y: -toolDiameter/2, z: 0 })
@@ -390,6 +391,25 @@ export class Topo {
             topo.raster = false;
         }
 
+        if (contour.trace2d) {
+            await this.paths2d({
+                pass: contour.trace2d,
+                box: topo.box.clone().expandByVector(new THREE.Vector3(partOff, partOff, 0)),
+                clipTo,
+                clipTab,
+                tabHeight,
+                resolution,
+                density,
+                toolStep,
+                leave,
+                newslices
+            }, (i, l, p) => {
+                onupdate(l / 2 + i / 2, l, p);
+            });
+            ondone(newslices);
+            return this;
+        }
+
         await this.contour({
             box: topo.box,
             minX,
@@ -420,6 +440,93 @@ export class Topo {
         ondone(newslices);
 
         return this;
+    }
+
+    // swarf: the contour along 2D paths: lines at any angle across the part, or rings that step in
+    // from the clip outline (around every hole as well, outside in). Each point is the tool's height
+    // on the same raster as the X / Y walk, with the same rules: off the clip outline the path ends,
+    // inside a tab it rides at the tab's top, and it never goes below the raster's floor (zMin).
+    // Points are kept every raster cell and merged only where the path runs straight in 3D, so a
+    // curve or a wall is followed as closely as the raster allows.
+    async paths2d(params, onupdate) {
+        const { pass, box, clipTo, clipTab, tabHeight, resolution, density, toolStep, leave, newslices } = params;
+        const { toolAtXY } = this.probe;
+        const step = resolution * density;
+        const flat = Math.min(0.02, resolution / 4);
+        const at = newPoint(0, 0);
+        const inside = (polys, x, y) => { at.x = x; at.y = y; return polys.some(p => at.isInPolygon(p)); };
+        const tabTop = (x, y, z) => {
+            at.x = x; at.y = y;
+            let top = -Infinity;
+            for (const t of clipTab) if (z <= t.z && at.isInPolygon(t)) top = Math.max(top, t.z);
+            return top;
+        };
+        const loops = [];
+        if (pass.kind === 'rings') {
+            // each offset's outlines and holes, the outermost first; a hole grows a ring of its own
+            let ring = POLY.expand(clipTo, -resolution);
+            for (let n = 0; ring && ring.length && n < 100000; n++) {
+                for (const poly of POLY.flatten(ring.map(r => r.clone(true)))) {
+                    const pts = poly.points.map(q => [q.x, q.y]);
+                    if (pts.length > 2) loops.push([...pts, pts[0]]);
+                }
+                ring = POLY.expand(ring, -toolStep);
+            }
+        } else {
+            // parallel lines toolStep apart across the box, every other one run back
+            const a = (pass.angle || 0) * DEG2RAD, dx = Math.cos(a), dy = Math.sin(a);
+            const corners = [[box.min.x, box.min.y], [box.max.x, box.min.y], [box.max.x, box.max.y], [box.min.x, box.max.y]];
+            const along = corners.map(([x, y]) => x * dx + y * dy), across = corners.map(([x, y]) => -x * dy + y * dx);
+            const a0 = Math.min(...along) - step, a1 = Math.max(...along) + step;
+            const c0 = Math.min(...across), c1 = Math.max(...across);
+            let k = 0;
+            for (let c = c0 + toolStep / 2; c < c1; c += toolStep, k++) {
+                const p0 = [a0 * dx - c * dy, a0 * dy + c * dx], p1 = [a1 * dx - c * dy, a1 * dy + c * dx];
+                loops.push(k % 2 ? [p1, p0] : [p0, p1]);
+            }
+        }
+        const total = loops.length || 1;
+        onupdate(0, total, pass.kind === 'rings' ? 'contour rings' : 'contour lines');
+        for (let li = 0; li < loops.length; li++) {
+            const path = loops[li];
+            const lines = [];
+            let seg = [];
+            const end = () => { if (seg.length > 1) lines.push(newPolygon().setOpen().addPoints(seg)); seg = []; };
+            const keep = (x, y, z) => {
+                const p = newPoint(x, y, z);
+                const n = seg.length;
+                if (n >= 2) {
+                    // b sits on the straight run from a to p: drop it
+                    const a = seg[n - 2], b = seg[n - 1];
+                    const ux = p.x - a.x, uy = p.y - a.y, uz = p.z - a.z, uu = ux * ux + uy * uy + uz * uz;
+                    if (uu > 0) {
+                        const t = ((b.x - a.x) * ux + (b.y - a.y) * uy + (b.z - a.z) * uz) / uu;
+                        const ex = a.x + ux * t - b.x, ey = a.y + uy * t - b.y, ez = a.z + uz * t - b.z;
+                        if (t > 0 && t < 1 && ex * ex + ey * ey + ez * ez < flat * flat) { seg[n - 1] = p; return; }
+                    }
+                }
+                seg.push(p);
+            };
+            for (let i = 1; i < path.length; i++) {
+                const [x0, y0] = path[i - 1], [x1, y1] = path[i];
+                const len = Math.hypot(x1 - x0, y1 - y0);
+                const n = Math.max(1, Math.ceil(len / step));
+                for (let j = (i === 1 ? 0 : 1); j <= n; j++) {
+                    const x = x0 + (x1 - x0) * j / n, y = y0 + (y1 - y0) * j / n;
+                    if (x < box.min.x || x > box.max.x || y < box.min.y || y > box.max.y || (clipTo && !inside(clipTo, x, y))) { end(); continue; }
+                    let z = toolAtXY(x, y);
+                    if (clipTab && clipTab.length && z < tabHeight) { const top = tabTop(x, y, z); if (top > z) z = top; }
+                    keep(x, y, z + leave);
+                }
+            }
+            end();
+            if (lines.length) {
+                const slice = newSlice(li);
+                slice.camLines = lines;
+                newslices.push(slice);
+            }
+            if (li % 16 === 0) onupdate(li, total, pass.kind === 'rings' ? 'contour rings' : 'contour lines');
+        }
     }
 
     async raster(widget, params, onupdate) {

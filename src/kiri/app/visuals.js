@@ -349,7 +349,14 @@ function setProgress(value = 0, msg) {
         if (pct) pct.innerText = '';
     }
 
-    text.innerText = msg || '';
+    text.innerText = progressWords(msg);
+}
+
+// swarf: the engine's own stage names in words a person reads
+const PROGRESS_WORDS = { shadow: "the part's outline", raster: 'reading the surface', 'contour x': 'contour', 'contour y': 'contour', 'contour lines': 'contour', 'contour rings': 'contour' };
+function progressWords(msg) {
+    if (!msg) return '';
+    return PROGRESS_WORDS[String(msg).trim().toLowerCase()] ?? msg;
 }
 
 let statsTimer;

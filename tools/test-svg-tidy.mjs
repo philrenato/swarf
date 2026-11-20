@@ -57,6 +57,21 @@ ok('text is counted (never read); a part around it still comes in', () => {
   const { t, p } = read('<rect width="80" height="40"/><text x="10" y="20" font-size="10">HELLO</text><g><text>A</text></g>');
   assert.equal(t.text, 2); assert.equal(p.length, 1);
 });
+ok('a <use> with its own width and height shows its symbol at that size, centred', () => {
+  const { p } = read('<symbol id="s" viewBox="0 0 10 10"><rect width="10" height="10"/></symbol><use href="#s" x="10" y="10" width="50" height="50"/><use href="#s" x="0" y="70" width="40" height="20"/>');
+  const b = p.map(box).sort((a, c) => a[1] - c[1]);
+  assert.deepEqual(b[1], [10, -60, 60, -10], '50 x 50 where it was put');
+  assert.deepEqual(b[0], [10, -90, 30, -70], 'fits the short side, centred along the long one');
+});
+ok('rules by tag and class, or by two classes, hide what they name and only that', () => {
+  const { t, p } = read('<style>g.off{display:none} .a.b{visibility:hidden}</style><g class="off"><rect width="5" height="5"/></g><rect class="off" x="20" width="5" height="5"/><rect class="a b" x="40" width="5" height="5"/><rect class="a" x="60" width="5" height="5"/>');
+  assert.equal(t.hidden, 2); assert.equal(p.length, 2);
+  assert.deepEqual(p.map(box).map(b => b[0]).sort((a, c) => a - c), [20, 60]);
+});
+ok('pictures and clipping masks are counted', () => {
+  const { t } = read('<image href="x.png" width="10" height="10"/><defs><clipPath id="c"><rect width="5" height="5"/></clipPath></defs><circle r="10" cx="50" cy="50" clip-path="url(#c)"/>');
+  assert.equal(t.images, 1); assert.equal(t.clipped, 1);
+});
 ok('a drawing with nothing to put right comes back as it was', () => {
   const src = s('<rect width="10" height="10"/>');
   const t = SVG.tidy(src); assert.equal(t.svg, src); assert.equal(t.uses + t.hidden + t.text + t.missing, 0);

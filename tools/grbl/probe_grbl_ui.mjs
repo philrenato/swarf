@@ -197,13 +197,21 @@ try {
   check(await btn('pause'), 'pause');
   await page.waitForFunction(() => window.__stub.state.state === 'Hold' && window.__stub.state.sub === 0, { timeout: 5000, polling: 20 });
   await page.waitForFunction(() => window.__stub.state.spinStop === 2, { timeout: 5000, polling: 20 });
-  await page.waitForFunction(() => /spindle is off/.test(document.querySelector('#swarf-run .sr-veil h2').textContent), { timeout: 3000, polling: 50 }).catch(() => {});
-  const veil = await page.evaluate(() => document.querySelector('#swarf-run .sr-veil h2').textContent + ' ' + document.querySelector('#swarf-run .sr-veilcard p').textContent);
-  check(/spindle is off/.test(veil) && /starts the spindle/.test(veil), `paused, spindle off: "${veil}"`);
+  const veilText = () => page.evaluate(() => document.querySelector('#swarf-run .sr-veil h2').textContent + ' ' + document.querySelector('#swarf-run .sr-veilcard p').textContent);
+  // the board says 0 at once; the card keeps "stopping" while the spindle runs down, then says off
+  const early = await veilText();
+  check(/Spindle stopping/.test(early) && /Keep clear/.test(early), `the spindle running down: "${early}"`);
+  await page.waitForFunction(() => /Spindle off/.test(document.querySelector('#swarf-run .sr-veil h2').textContent), { timeout: 8000, polling: 50 }).catch(() => {});
+  const veil = await veilText();
+  check(/Spindle off/.test(veil) && /starts it here/.test(veil), `paused, spindle off: "${veil}"`);
   const held = await stubPos(); await wait(300);
   check(JSON.stringify(held) === JSON.stringify(await stubPos()), 'nothing moves while paused');
   await page.screenshot({ path: `${OUT}/2-paused.png` });
-  check(await page.evaluate(() => { const b = document.querySelector('#swarf-run .sr-veil .go'); const t = b.textContent; b.click(); return t === 'resume'; }), 'resume');
+  check(await page.evaluate(() => { const b = document.querySelector('#swarf-run .sr-veil .go'); const t = b.textContent; b.click(); return t === 'start the spindle and resume'; }), 'start the spindle and resume');
+  // while it comes back the card says so, and has no resume to press
+  await page.waitForFunction(() => /Starting the spindle/.test(document.querySelector('#swarf-run .sr-veil h2').textContent), { timeout: 4000, polling: 20 }).catch(() => {});
+  const starting = await page.evaluate(() => ({ t: document.querySelector('#swarf-run .sr-veil h2').textContent, hidden: getComputedStyle(document.querySelector('#swarf-run .sr-veil .go')).visibility === 'hidden', moving: window.__stub.state.state }));
+  check(/Starting the spindle/.test(starting.t) && starting.hidden && starting.moving !== 'Run', `the spindle starting: "${starting.t}", resume hidden ${starting.hidden}, board ${starting.moving}`);
   await page.waitForFunction(() => window.__stub.state.state === 'Run', { timeout: 8000, polling: 20 });
   check(await page.evaluate(() => window.__stub.state.spinStop === 0 && window.__stub.state.spindle.on && !window.__stub.state.restarts), 'the spindle back on before it moved');
   // stop: hold, rest, reset; the position kept and still homed

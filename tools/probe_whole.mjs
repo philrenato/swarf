@@ -128,7 +128,7 @@ for (const [W, H] of SIZES) for (const skin of ['glass', 'classic', 'swarf']) {
     await page.waitForFunction(() => window.kiri.api.widgets.all().length >= 1, { timeout: 15000 }).catch(() => {});
     await wait(800);
     const said = await page.evaluate(() => document.getElementById('alert-area')?.innerText || '');
-    check(/1 open line was left out/.test(said), `an SVG import says its open lines ("${said.replace(/\s+/g, ' ').slice(0, 120)}")`);
+    check(/Left out: 1 open line/.test(said), `an SVG import says its open lines ("${said.replace(/\s+/g, ' ').slice(0, 120)}")`);
     await page.evaluate(() => { for (const w of window.kiri.api.widgets.all()) window.kiri.api.platform.delete(w); });
     await wait(600);
     await shape(page);

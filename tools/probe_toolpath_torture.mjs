@@ -58,6 +58,8 @@ function relief(w, h, nx, ny, f) {
 const gen = {
   'waves-relief.stl': relief(120, 80, 120, 80, (x, y) => 8 + 4 * Math.sin(x / 7) * Math.cos(y / 9)),
   'dome.stl': relief(90, 90, 90, 90, (x, y) => { const r = Math.hypot(x - 45, y - 45); return 3 + (r < 40 ? Math.sqrt(40 * 40 - r * r) / 2 : 0); }),
+  // a sign-sized relief: the patterns' resolution has to follow the part's size
+  'panel-relief.stl': relief(500, 350, 250, 175, (x, y) => 10 + 6 * Math.sin(x / 30) * Math.cos(y / 25)),
 };
 for (const [n, b] of Object.entries(gen)) writeFileSync(join(tmp, n), b);
 const H = homedir();
@@ -73,7 +75,7 @@ const disk = [
 // ---- cases -------------------------------------------------------------------------------------
 const T = { e116: 1002, e18: 1001, e14: 1000, e12: 1010, b18: 1004, b14: 1018, v90: 1105, drill14: 1006 };
 const cases = [];
-const add = (name, part, ops, o = {}) => cases.push({ name, part, ops, dir: o.dir, tabs: o.tabs || 'none', thick: o.thick, device: o.device || 'ShopBot.Basic', material: o.material || 'plywood', expectFree: o.expectFree ?? ops.some(q => (q.type === 'outline' && !q.inside) || q.type === 'rough') });
+const add = (name, part, ops, o = {}) => cases.push({ name, part, ops, dir: o.dir, cover: o.cover, like: o.like, tabs: o.tabs || 'none', thick: o.thick, device: o.device || 'ShopBot.Basic', material: o.material || 'plywood', expectFree: o.expectFree ?? ops.some(q => (q.type === 'outline' && !q.inside) || q.type === 'rough') });
 const shapes = {
   ring: ['ring', { d: 85.6, di: 70 }], star: ['star', { d: 100, p: 5, i: 44 }], rounded: ['rounded', { w: 150, h: 100, r: 10 }],
   tiny: ['circle', { d: 8 }], slot: ['slot', { w: 60, h: 5 }], big: ['rect', { w: 1200, h: 600 }], tri: ['polygon', { d: 40, n: 3 }],
@@ -92,6 +94,9 @@ for (const edge of ['chamfer', 'round']) for (const [k, kind, v] of [['rounded',
   add(`${k} ${edge} edge outline e14 tabs`, { shape: kind, v, edge: { kind: edge, size: 4 } }, [{ type: 'outline', tool: T.e14 }], { tabs: 'auto' });
   add(`${k} ${edge} edge rough e12 tabs:most`, { shape: kind, v, edge: { kind: edge, size: 4 } }, [{ type: 'rough', tool: T.e12 }], { tabs: 'most' });
 }
+// a flat ring: perimeter rings go round the hole too, so the top beside the hole is cut
+for (const inside of [false, true]) add(`ring contour b14 perimeter${inside ? ' inside' : ''}`, { shape: 'ring', v: { d: 85.6, di: 50 } }, [{ type: 'contour', tool: T.b14, set: { pattern: 'perimeter', inside } }], { expectFree: false, dir: 'any', cover: [26, 30] });
+add('ring contour b14 lines 45', { shape: 'ring', v: { d: 85.6, di: 50 } }, [{ type: 'contour', tool: T.b14, set: { pattern: 'lines', lineAngle: 45 } }], { expectFree: false, dir: 45 });
 add('ring rough e14 tabs:auto mr1 aluminum', { shape: 'ring', v: { d: 85.6, di: 70 } }, [{ type: 'rough', tool: T.e18 }], { tabs: 'auto', device: 'Langmuir.MR-1', material: 'aluminum', thick: 6 });
 for (const [k, svg] of Object.entries({ holes, nested, comb })) {
   add(`${k} outline e14 tabs`, { svg }, [{ type: 'outline', tool: T.e14 }], { tabs: 'auto' });
@@ -113,7 +118,15 @@ for (const f of disk) {
       add(`${n} contour b14 ${w}`, { stl: f }, [{ type: 'contour', tool: T.b14, set }], { expectFree: false, dir });
     }
     add(`${n} rough e14 + contour b18 cross 45`, { stl: f }, [{ type: 'rough', tool: T.e14 }, { type: 'contour', tool: T.b18, set: { pattern: 'cross', lineAngle: 45 } }], { tabs: 'auto', dir: 'any' });
+    // after rough leaves tabs, a patterned contour rides over them as the 0° one does
+    for (const [w, set] of [['lines 45', { pattern: 'lines', lineAngle: 45 }], ['perimeter', { pattern: 'perimeter' }]])
+      add(`${n} rough e14 + contour b14 ${w} tabs`, { stl: f }, [{ type: 'rough', tool: T.e14 }, { type: 'contour', tool: T.b14, set }], { tabs: 'auto', dir: 'any' });
+    // a tapered bit: the stepover is a share of its width at every angle, so 45° is the same job as 0°
+    add(`${n} contour v90 lines 0`, { stl: f }, [{ type: 'contour', tool: T.v90, set: { pattern: 'lines', lineAngle: 0 } }], { expectFree: false, dir: 0 });
+    add(`${n} contour v90 lines 45`, { stl: f }, [{ type: 'contour', tool: T.v90, set: { pattern: 'lines', lineAngle: 45 } }], { expectFree: false, dir: 45, like: `${n} contour v90 lines 0` });
   }
+  if (/panel/.test(n)) for (const [w, set, dir] of [['lines 45', { pattern: 'lines', lineAngle: 45 }, 45], ['perimeter', { pattern: 'perimeter' }, 'rings']])
+    add(`${n} contour b14 ${w}`, { stl: f }, [{ type: 'contour', tool: T.b14, set }], { expectFree: false, dir });
   add(`${n} rough e12 tabs:most`, { stl: f }, [{ type: 'rough', tool: T.e12 }], { tabs: 'most' });
   add(`${n} outline e18`, { stl: f }, [{ type: 'outline', tool: T.e18 }], { tabs: 'auto' });
 }
@@ -176,7 +189,8 @@ async function runCase(c) {
     const tabN = ws.reduce((n, w) => n + (a.widgets.annotate(w.id).tab || []).length, 0);
     const tools = s.tools;
     const dia = Math.max(...s.process.ops.filter(o => o.tool).map(o => { const t = tools.find(t => t.id === o.tool); return t ? (t.metric ? t.flute_diam : t.flute_diam * 25.4) : 0; }));
-    return { parts: ws.length, box, tabs: tabN, ops: s.process.ops.filter(o => o.type !== '|').map(o => o.type), dia, stockZ: s.process.camStockZ };
+    const tabList = ws.length === 1 ? (a.widgets.annotate(ws[0].id).tab || []).map(t => ({ x: t.pos.x, y: t.pos.y, top: t.pos.z + t.dim.z / 2, half: Math.min(t.dim.x, t.dim.y) / 2 })) : [];
+    return { parts: ws.length, box, tabs: tabN, tabList, ops: s.process.ops.filter(o => o.type !== '|').map(o => o.type), dia, stockZ: s.process.camStockZ };
   }, c.ops, c.tabs);
   await wait(700);
   await page.evaluate(() => { window.__tortureDone = null; const e = kiri.api.event; e.on('preview.end', () => window.__tortureDone = window.__tortureDone || 'ok'); e.on('preview.error', x => window.__tortureDone = 'error ' + x); document.getElementById('act-paths')?.click(); });
@@ -210,7 +224,29 @@ async function runCase(c) {
     const dive = P.rapidAcross(p), off = P.routerOffCut(p);
     ok.push(check(!dive, `${c.name}: no rapid sideways below the top`, dive));
     ok.push(check(!off, `${c.name}: router on whenever the bit is in the wood`, off));
-    ok.push(check(r.minZ >= -(board + 2.01), `${c.name}: no deeper than the board (${board.toFixed(1)}) + 2`, r.minZ));
+    // a contour finishes the top: it never goes below the board (the other steps may cut a little through)
+    const contourOnly = c.ops.every(q => q.type === 'contour');
+    ok.push(check(r.minZ >= -(board + (contourOnly ? 0.05 : 2.01)), `${c.name}: no deeper than the board (${board.toFixed(1)})${contourOnly ? '' : ' + 2'}`, r.minZ));
+    // with tabs and a contour, nothing cuts into a tab: a cut whose centre is over a tab stays at its top
+    // (a single part at the front-left zero: the file's 0, 0 is the part's corner, its bottom at -board)
+    if (setup.tabList.length && c.ops.some(q => q.type === 'contour')) {
+      let worst = null;
+      for (const t of setup.tabList) {
+        const cx = t.x + setup.box.x / 2, cy = t.y + setup.box.y / 2, h = Math.max(0, t.half - 0.5);
+        for (const m of cuts) if (Math.abs(m.x - cx) < h && Math.abs(m.y - cy) < h && m.z + board < t.top - 0.05) { worst = { at: [+m.x.toFixed(1), +m.y.toFixed(1)], z: +(m.z + board).toFixed(2), top: +t.top.toFixed(2) }; break; }
+        if (worst) break;
+      }
+      ok.push(check(!worst, `${c.name}: no cut into a tab`, worst));
+    }
+    // the top beside a hole is reached: cut points in a band of distances from the part's centre
+    if (c.cover && cb) {
+      const mx = (cb.min.x + cb.max.x) / 2, my = (cb.min.y + cb.max.y) / 2;
+      let n = 0; for (const m of cuts) { const d = Math.hypot(m.x - mx, m.y - my); if (d >= c.cover[0] && d <= c.cover[1] && m.z > -board + 0.5) n++; }
+      ok.push(check(n > 0, `${c.name}: cuts the top ${c.cover[0]}-${c.cover[1]} mm from the centre`, n));
+    }
+    // the same job by another angle: the cut length within half again of its sibling's
+    r.cutLen = cuts.reduce((t, m) => t + Math.hypot(m.x - m.x0, m.y - m.y0), 0);
+    if (c.like) { const sib = rows.find(x => x.name === c.like); if (sib && sib.cutLen) ok.push(check(r.cutLen < sib.cutLen * 1.5, `${c.name}: about the same cutting as ${c.like}`, { mm: Math.round(r.cutLen), sibling: Math.round(sib.cutLen) })); }
     ok.push(check(r.maxZ <= 60, `${c.name}: no higher than 60 mm`, r.maxZ));
     // which way the cuts run: each sideways feed move's direction (0-180), weighted by its length
     if (c.dir !== undefined && c.dir !== 'any') {

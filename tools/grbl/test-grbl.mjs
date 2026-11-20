@@ -221,14 +221,18 @@ const log = (...a) => console.log('  ', ...a);
     await sleep(120);
     assert.deepEqual(stub.mpos(), at, 'nothing moves in Hold:0');
     assert.equal(m.state.paused, true);
-    // the pause stops the spindle once the bit is still (Phil 11-19), and swarf hears it stopped
+    // the pause stops the spindle once the bit is still, and swarf hears it stopped; the card says
+    // "stopping" while it runs down, then "off"
     await until(() => m.state.spinStopped, 5000, 'the spindle stopped');
+    assert.equal(m.state.spin, 'stopping', 'still running down');
+    await until(() => m.state.spin === 'off', (m.cfg.spinDown + 2) * 1000, 'run down, then off');
     assert.equal(stub.state.spinStop, 2, 'the board stopped its spindle');
     assert.equal(stub.state.spindle.on, true, 'the file still has it on (M3 kept)');
     const pausedNote = m.state.note;
     // resume: the spindle back first, turning for the spin-up before anything moves
     const restarts = stub.state.restarts || 0;
     const r = m.resume();
+    await until(() => m.state.spin === 'starting', 2000, 'the card says the spindle is starting');
     await until(() => stub.state.spinStop === 0, 5000, 'the spindle asked back');
     const backAt = Date.now(), still = stub.mpos();
     await until(() => stub.state.state === 'Run', 8000, 'Run again');
@@ -238,9 +242,32 @@ const log = (...a) => console.log('  ', ...a);
     assert.equal(stub.state.restarts || 0, restarts, 'the spindle came back by its own ask, not by the cycle start');
     await r;
     assert.equal(m.state.spinStopped, false);
+    assert.equal(m.state.spin, null);
     await until(() => !m.state.running, 30000, 'resumed job to finish');
     assert.equal(m.state.done, true, m.state.note);
     log('pause/resume: held at', at.map(v => v.toFixed(2)).join(','), `"${pausedNote}"; spun up ${waited} ms →`, m.state.note);
+  }
+
+  // the spindle's restart ask does not land: resume says so and the next resume asks again
+  {
+    await m.fresh();
+    const p = job(m, zigzag(60, 5, 600));
+    assert.ok(m.run(R.arm(p)));
+    await until(() => stub.state.spindle.on && stub.state.state === 'Run', 10000, 'cutting');
+    m.pause();
+    await until(() => m.state.spin === 'off', 15000, 'spindle off');
+    stub.state.noSpinStop = true;
+    await m.resume();
+    assert.equal(m.state.paused, true, 'not resumed with the spindle still');
+    assert.equal(m.state.spin, 'off');
+    assert.ok(/did not start again/.test(m.state.note), m.state.note);
+    stub.state.noSpinStop = false;
+    await m.resume();
+    assert.equal(m.state.paused, false, m.state.note);
+    assert.equal(stub.state.spinStop, 0, 'the second ask brought it back');
+    await until(() => !m.state.running, 30000, 'finish');
+    assert.equal(m.state.done, true, m.state.note);
+    log('restart ask lost, asked again:', m.state.note);
   }
 
   // a board that takes no spindle stop: the pause says so, resume does not ask the spindle twice
@@ -253,6 +280,7 @@ const log = (...a) => console.log('  ', ...a);
     m.pause();
     await until(() => /has not said the spindle stopped/.test(m.state.note), 8000, 'the pause says the spindle may turn');
     assert.equal(m.state.spinStopped, false);
+    assert.equal(m.state.spin, 'unsure', 'the card says it may still turn');
     await m.resume();
     assert.equal(m.state.paused, false, m.state.note);
     await until(() => !m.state.running, 30000, 'finish');
@@ -491,6 +519,7 @@ const log = (...a) => console.log('  ', ...a);
   await until(() => m.state.paused, 3000, 'swarf paused by the board');
   assert.equal(m.state.running, true);
   assert.equal(m.state.spinKeeps, true, 'a hold from the board leaves the spindle turning, and says so');
+  assert.equal(m.state.spin, 'turning');
   assert.equal(stub.state.spinStop, 0);
   log('board hold:', m.state.note);
   // and the board's own cycle start clears it

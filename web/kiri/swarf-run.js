@@ -854,9 +854,9 @@ html[data-skin] #swarf-run .sr-jog .sr-zrow button.next, html[data-skin] #swarf-
     // cut checklist sheet
     el.veil = h('div', { class: 'sr-veil' }, h('div', { class: 'sr-veilcard' },
       h('h2', { text: 'Paused. The router is switched off.' }),
-      h('p', { text: 'The bit stopped where it was; it slows for a few seconds before it stops turning. Resume starts the router and carries on from here. End the job keeps the line so you can continue later.' }),
+      h('p', { text: 'It slows for a few seconds before it stops turning. Resume starts the router and carries on from here.' }),
       h('div', { class: 'row' },
-        h('button', { text: 'end the job', onclick: () => { S.userStopped = true; S.machine.stop(); } }),
+        h('button', { text: 'end the job', title: 'Stops here and keeps the line, so you can continue from it later', onclick: () => { S.userStopped = true; S.machine.stop(); } }),
         el.resumeBtn = h('button', { class: 'go', text: 'start the router and resume', onclick: () => resumeNow() }))));
     el.veilWay = h('p', { class: 'sr-way' });
     el.veil.querySelector('.sr-veilcard p').after(el.veilWay);
@@ -1685,7 +1685,7 @@ html[data-skin] #swarf-run .sr-jog .sr-zrow button.next, html[data-skin] #swarf-
       const where = left ? `, about ${mins(left)} left` : '';
       if (isGrbl()) {
         // the MR-1's own pause stops the spindle; a hold from the machine's button leaves it turning
-        if (st.paused) return say(`${what}: paused, ${st.spinStopped ? 'the spindle off. Resume starts it again first' : st.spinIdle ? 'the spindle off. Press resume to go on' : st.spinKeeps ? 'the spindle still turning. Press resume to go on' : 'the spindle stopping. Then press resume to go on'}, or end the job.`, 'warn');
+        if (st.paused) return say(`${what}: paused, ${({ off: 'spindle off', idle: 'spindle off', unsure: 'the spindle may still be turning', starting: 'the spindle starting', turning: 'the spindle still turning' })[st.spin] || 'spindle stopping'}.`, 'warn');
         return say(`${what}${where}. Stay at the machine. Any key pauses it while swarf is in front (the bit held, then the spindle stopped); that is not an emergency stop. In an emergency, press the MR-1's e-stop.`);
       }
       if (st.paused) return say(`${what}: paused, router off. Press resume to go on, or end the job.`, 'warn');
@@ -2953,15 +2953,23 @@ html[data-skin] #swarf-run .sr-jog .sr-zrow button.next, html[data-skin] #swarf-
     if (veiled) {
       const dry = S.job === 'trace' || S.job === 'air';
       const h2 = el.veil.querySelector('h2'), p = el.veil.querySelector('.sr-veilcard p');
-      // the MR-1's pause stops its spindle once the bit is still; until the board says so, it turns
-      const spinOff = isGrbl() && !!(st && st.spinStopped);
-      if (h2) h2.textContent = dry ? `Paused. The ${S.job === 'air' ? 'air cut' : 'trace'} runs with the ${isGrbl() ? 'spindle' : 'router'} off.` : isGrbl() ? (spinOff || (st && st.spinIdle) ? 'Paused. The spindle is off.' : st && st.spinKeeps ? 'Paused by the machine. The spindle keeps turning.' : 'Paused. The spindle is stopping.') : 'Paused. The router is switched off.';
-      if (p) p.textContent = dry ? `The bit stopped where it was. Resume carries on from here, ${isGrbl() ? 'spindle' : 'router'} still off. End the job stops it.`
-        : isGrbl() ? (spinOff ? 'The bit stopped in the cut. Resume starts the spindle there, waits for it, then carries on. End the job keeps the line so you can continue later.'
-          : st && st.spinIdle ? 'The bit stopped where it was. Resume carries on from here. End the job keeps the line so you can continue later.'
-          : st && st.spinKeeps ? 'The bit stopped where it was, and the spindle is still turning: keep your hands clear. Resume carries on from here. End the job stops the spindle and keeps the line so you can continue later.'
-          : 'The bit stopped where it was. Keep your hands clear until the spindle has stopped. End the job keeps the line so you can continue later.')
-        : 'The bit stopped where it was; it slows for a few seconds before it stops turning. Resume starts the router and carries on from here. End the job keeps the line so you can continue later.';
+      // the MR-1's card follows the driver's spin state: stopping, off, idle (it was not turning),
+      // unsure (the board never said it stopped), starting (resume brings it back), turning (held at the machine)
+      const spin = isGrbl() && st ? st.spin || 'stopping' : '';
+      const SPIN = {
+        stopping: ['Paused. Spindle stopping.', 'Keep clear.'],
+        off: ['Paused. Spindle off.', 'Resume starts it here, waits for it, then cuts on.'],
+        idle: ['Paused.', 'Resume carries on from here.'],
+        unsure: ['Paused. The spindle may still be turning.', 'Keep clear of the bit.'],
+        starting: ['Starting the spindle.', `Keep clear: it moves again in ${(S.machine && S.machine.cfg && S.machine.cfg.spinUp) || 2} seconds.`],
+        turning: ['Paused at the machine.', 'The spindle is still turning: keep clear.']
+      }[spin] || ['Paused.', 'Keep clear.'];
+      if (h2) h2.textContent = dry ? `Paused. The ${S.job === 'air' ? 'air cut' : 'trace'} runs with the ${isGrbl() ? 'spindle' : 'router'} off.` : isGrbl() ? SPIN[0] : 'Paused. The router is switched off.';
+      if (p) p.textContent = dry ? 'Resume carries on from here.'
+        : isGrbl() ? SPIN[1]
+        : 'It slows for a few seconds before it stops turning. Resume starts the router and carries on from here.';
+      if (el.resumeBtn) el.resumeBtn.style.visibility = isGrbl() && spin === 'starting' ? 'hidden' : '';
+      if (el.resumeBtn && isGrbl() && !dry) el.resumeBtn.textContent = spin === 'off' ? 'start the spindle and resume' : 'resume';
     }
     if (el.faultBar) {
       el.faultBar.style.display = S.fault ? '' : 'none';

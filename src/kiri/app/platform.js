@@ -1391,11 +1391,10 @@ function load_files(files, group) {
                     if (made.error) {
                         api.show.alert(made.error, 12);
                     } else if (made.length === 0) {
-                        api.show.alert(open ? `${open} open line${open > 1 ? 's' : ''} and no closed shape: only closed shapes can be given a thickness` : 'no closed shapes found in that drawing: text must be turned into outlines first', 10);
-                    } else if (open) {
-                        api.show.alert(`${open} open line${open > 1 ? 's were' : ' was'} left out: only closed shapes can be given a thickness`, 10);
+                        api.show.alert(nothingIn({ ...tidy, open }), 12);
+                    } else {
+                        leftOut({ ...tidy, open });
                     }
-                    if (!made.error && made.length) svgLeftOut(tidy);
                     load_dec();
                 }, load_dec, svgSizeLine(text, svgAssumedPPI(text)), svgAssumedPPI(text));
             } else if (isai) {
@@ -1404,18 +1403,16 @@ function load_files(files, group) {
                 const V = window.SwarfVector;
                 if (!V) { api.show.alert('the drawing reader is still loading: try again', 6); load_dec(); return; }
                 V.toSVG(name, new Uint8Array(data)).then(r => {
-                    const firstOf = r.pages > 1 ? ` on its first page (of ${r.pages})` : '';
                     if (!r.svg) {
-                        api.show.alert(r.open ? `${r.open} open line${r.open > 1 ? 's' : ''} and no closed shape${firstOf}: only closed shapes can be given a thickness` : `no shapes found in that drawing${firstOf}`, 10);
+                        api.show.alert(nothingIn(r), 12);
                         load_dec();
                         return;
                     }
-                    if (r.open) api.show.alert(`${r.open} open line${r.open > 1 ? 's were' : ' was'} left out: only closed shapes can be given a thickness`, 10);
                     loadSVGDialog(opt => {
                         group = group || [];
                         const made = load_svg_into(group, r.svg, name.replace(/\.(ai|pdf)$/i, ''), opt);
                         if (made.error) api.show.alert(made.error, 12);
-                        else pdfLeftOut(r);
+                        else leftOut(r);
                         load_dec();
                     }, load_dec, svgSizeLine(r.svg));
                 }).catch(e => { api.show.alert(`could not read that drawing: ${e.message}`, 10); load_dec(); });
@@ -1428,13 +1425,12 @@ function load_files(files, group) {
                 const refuse = r => { api.show.alert(tooBig([[0, 0, 0, r.big[0], r.big[1], 0]], name), 12); load_dec(); };
                 V.toSVG(name, bytes, { maxMM }).then(r => {
                     if (r.big) return refuse(r);
-                    dxfLeftOut(r);
                     if (!r.svg) {
-                        api.show.alert(r.open ? `${r.open} open line${r.open > 1 ? 's' : ''} and no closed shape: only closed shapes can be given a thickness` : 'no shapes found in that drawing', 10);
+                        api.show.alert(nothingIn(r), 12);
                         load_dec();
                         return;
                     }
-                    if (r.open) api.show.alert(`${r.open} open line${r.open > 1 ? 's were' : ' was'} left out: only closed shapes can be given a thickness`, 10);
+                    leftOut(r);
                     // a file that does not say its units: the card asks, and says the size each way
                     const w = r.box[2] - r.box[0], h = r.box[3] - r.box[1];
                     const units = r.fileUnits ? null : { start: r.units || 'mm', size: u => dxfSizeLine(w, h, (u === 'inch' ? 25.4 : 1) / (r.units === 'inch' ? 25.4 : 1), true) };
@@ -1617,29 +1613,34 @@ function svgSizeLine(text, ppi = 0) {
     } catch (e) { return ''; }
 }
 
-// what an .ai or .pdf reading left out: every page after the first (an .ai's other artboards),
-// text and pictures
-function pdfLeftOut(r) {
-    const n = (k, one, many) => `${k} ${k > 1 ? many : one}`;
-    if (r.pages > 1) api.show.alert(`this file has ${r.pages} pages (artboards in Illustrator): only the first was read. Save each one as its own file to bring it in`, 12);
-    if (r.text) api.show.alert(`${n(r.text, 'text object', 'text objects')} left out: turn text into outlines`, 10);
-    if (r.images) api.show.alert(`${n(r.images, 'picture', 'pictures')} left out: only lines and curves are read`, 10);
+// what a drawing's reading left out, in one strip: open lines (only closed shapes take a thickness),
+// text, pictures, hidden shapes, copies of nothing, other objects; the pages after the first (an
+// .ai's other artboards); a clipping mask, which is not read, so its shapes came in whole
+const count = (k, one, many) => `${k} ${k > 1 ? many : one}`;
+function leftOut(r) {
+    const out = [
+        r.open && count(r.open, 'open line', 'open lines'),
+        r.text && count(r.text, 'text object', 'text objects'),
+        r.images && count(r.images, 'picture', 'pictures'),
+        r.hidden && count(r.hidden, 'hidden shape', 'hidden shapes'),
+        r.missing && count(r.missing, 'empty copy', 'empty copies'),
+        r.other && `${count(r.other, 'other object', 'other objects')} (${(r.otherKinds || []).join(', ').toLowerCase()})`
+    ].filter(Boolean);
+    const say = [
+        r.pages > 1 ? `Page 1 of ${r.pages} read: save each page as its own file.` : '',
+        out.length ? `Left out: ${out.join(', ')}.${r.text ? ' Turn text into outlines to cut it.' : ''}` : '',
+        r.clipped ? `${count(r.clipped, 'clipping mask', 'clipping masks')} not read: the shapes came in whole.` : ''
+    ].filter(Boolean).join(' ');
+    if (say) api.show.alert(say, 30);
 }
-
-// what an SVG reading left out on purpose: text, hidden shapes, copies of nothing
-function svgLeftOut(r) {
-    const n = (k, one, many) => `${k} ${k > 1 ? many : one}`;
-    if (r.text) api.show.alert(`${n(r.text, 'text object', 'text objects')} left out: turn text into outlines`, 10);
-    if (r.hidden) api.show.alert(`${n(r.hidden, 'hidden shape', 'hidden shapes')} left out, as the drawing hides ${r.hidden > 1 ? 'them' : 'it'}`, 10);
-    if (r.missing) api.show.alert(`${n(r.missing, 'copy', 'copies')} (use) of a missing shape left out`, 10);
-}
-
-// what a DXF reading left out that is not a line: text, pictures and other objects
-function dxfLeftOut(r) {
-    const n = (k, one, many) => `${k} ${k > 1 ? many : one}`;
-    if (r.text) api.show.alert(`${n(r.text, 'text object', 'text objects')} left out: turn text into outlines`, 10);
-    if (r.images) api.show.alert(`${n(r.images, 'picture', 'pictures')} left out: only lines and curves are read`, 10);
-    if (r.other) api.show.alert(`${n(r.other, 'other object', 'other objects')} left out (${r.otherKinds.join(', ').toLowerCase()})`, 10);
+// nothing came in: say what the drawing had instead
+function nothingIn(r) {
+    const of = r.pages > 1 ? ` (page 1 of ${r.pages})` : '';
+    if (r.open) return `${count(r.open, 'open line', 'open lines')} and no closed shape${of}: only closed shapes can be given a thickness.`;
+    if (r.text) return `Only text in that drawing${of}: turn it into outlines first.`;
+    if (r.images) return `Only a picture in that drawing${of}: swarf reads lines and curves.`;
+    if (r.hidden) return `Only hidden shapes in that drawing${of}.`;
+    return `No closed shapes in that drawing${of}.`;
 }
 
 // a DXF's size on the card; k scales it to the units picked
