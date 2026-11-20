@@ -988,6 +988,9 @@ html[data-skin] .swarf-phone-escape-note {
 html[data-skin] #ver {
     background: rgb(var(--sk-n0) / calc(0.62 * var(--sk-a-n0, 1)))
 }
+html[data-skin] #ver:focus-visible {
+    outline: 2px solid var(--swarf-accent-hi, rgb(var(--sk-warn) / calc(1 * var(--sk-a-warn, 1))))
+}
 html[data-skin] #ver:hover {
     background: rgb(var(--sk-n0) / calc(0.8 * var(--sk-a-n0, 1)))
 }
@@ -1647,6 +1650,12 @@ html[data-skin] #swarf-run .sr-card {
 html[data-skin] #swarf-run .sr-card > .row:last-child {
     background: var(--swarf-bg-2, rgb(var(--sk-n0) / calc(1 * var(--sk-a-n0, 1))))
 }
+html[data-skin] #swarf-run .sr-card.swarf-more > .row:last-child {
+    box-shadow: 0 -10px 12px -6px rgb(var(--sk-shadow) / calc(0.35 * var(--sk-a-shadow, 1)))
+}
+html[data-skin] #swarf-run .sr-card.swarf-more > .row:last-child::before {
+    color: var(--swarf-warn, rgb(var(--sk-warn) / calc(1 * var(--sk-a-warn, 1))))
+}
 html[data-skin] #swarf-run .sr-card .sr-mach {
     color: var(--swarf-text-2, rgb(var(--sk-n6) / calc(1 * var(--sk-a-n6, 1))))
 }
@@ -1678,6 +1687,9 @@ html[data-skin] #swarf-run .sr-plate .sr-circuit {
 }
 html[data-skin] #swarf-run .sr-plate .sr-circuit.ok {
     color: var(--swarf-text, rgb(var(--sk-n8) / calc(1 * var(--sk-a-n8, 1))))
+}
+html[data-skin] #swarf-run .sr-card .sr-why {
+    color: var(--swarf-warn, rgb(var(--sk-warn) / calc(1 * var(--sk-a-warn, 1))))
 }
 html[data-skin] #swarf-run .sr-plate > button {
     background: var(--swarf-bg-3, rgb(var(--sk-n1) / calc(1 * var(--sk-a-n1, 1))));
@@ -2098,6 +2110,16 @@ html[data-skin] #swarf-run .sr-card p.sr-way {
 }
 html[data-skin] #swarf-run .sr-card p.sr-way.bad {
     color: var(--swarf-accent-hi, rgb(var(--sk-acc) / calc(1 * var(--sk-a-acc, 1))))
+}
+html[data-skin] #swarf-run .sr-card p.sr-warn {
+    color: var(--swarf-amber, rgb(var(--sk-warn) / calc(1 * var(--sk-a-warn, 1))))
+}
+html[data-skin] #swarf-run .sr-warns > div {
+    color: var(--swarf-amber, rgb(var(--sk-warn) / calc(1 * var(--sk-a-warn, 1))))
+}
+html[data-skin] #swarf-run .sr-zrow button.fill:not(:disabled),
+html[data-skin] #swarf-run .sr-actions button.fill:not(:disabled) {
+    color: rgb(var(--sk-n9) / calc(1 * var(--sk-a-n9, 1))) !important
 }
 html[data-skin] #swarf-run .sr-board-size small {
     color: var(--c-dim, rgb(var(--sk-n6) / calc(1 * var(--sk-a-n6, 1))))
