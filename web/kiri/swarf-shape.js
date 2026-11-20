@@ -113,16 +113,16 @@
     const inchNow = window.SwarfLength && window.SwarfLength.unit() === 'in';
     const val = k => (last.v && last.v[k] > 0 ? last.v[k] : inchNow && FIELD[k].inch ? FIELD[k].inch : FIELD[k].value);
     const rows = Object.keys(FIELD).map(k =>
-      `<tr data-f="${k}"><th>${FIELD[k].label}</th><td><input id="shape-${k}" value="${FIELD[k].unit === 'mm' ? fld(val(k)) : val(k)}" size="6" inputmode="${FIELD[k].unit === 'mm' ? 'text' : 'decimal'}"> ${FIELD[k].unit === 'mm' ? unitW() : FIELD[k].unit}</td></tr>`).join('');
+      `<tr data-f="${k}"><th>${FIELD[k].label}</th><td><input id="shape-${k}" aria-label="${FIELD[k].label}" value="${FIELD[k].unit === 'mm' ? fld(val(k)) : val(k)}" size="6" inputmode="${FIELD[k].unit === 'mm' ? 'text' : 'decimal'}"> ${FIELD[k].unit === 'mm' ? unitW() : FIELD[k].unit}</td></tr>`).join('');
     const pre = [
       "<div class='f-col a-center swarf-shape'>",
       "  <h3>Make a shape</h3>",
       "  <div class='f-row t-right'><table>",
-      `  <tr><th>shape</th><td><select id="shape-kind">${Object.keys(SHAPES).map(k => `<option value="${k}"${k === kind0 ? ' selected' : ''}>${SHAPES[k].label}</option>`).join('')}</select></td></tr>`,
+      `  <tr><th>shape</th><td><select id="shape-kind" aria-label="shape">${Object.keys(SHAPES).map(k => `<option value="${k}"${k === kind0 ? ' selected' : ''}>${SHAPES[k].label}</option>`).join('')}</select></td></tr>`,
       rows,
-      `  <tr><th>thickness</th><td><input id="shape-t" value="${fld(last.t > 0 ? last.t : 19.05)}" size="6" inputmode="text"> ${unitW()}</td></tr>`,
-      `  <tr><th>top edge</th><td><select id="shape-edge">${Object.keys(EDGES).map(k => `<option value="${k}"${k === (EDGES[last.edge] ? last.edge : 'straight') ? ' selected' : ''}>${EDGES[k]}</option>`).join('')}</select></td></tr>`,
-      `  <tr data-e="1"><th>edge size</th><td><input id="shape-es" value="${fld(last.es > 0 ? last.es : 2)}" size="6" inputmode="text"> ${unitW()}</td></tr>`,
+      `  <tr><th>thickness</th><td><input id="shape-t" aria-label="thickness" value="${fld(last.t > 0 ? last.t : 19.05)}" size="6" inputmode="text"> ${unitW()}</td></tr>`,
+      `  <tr><th>top edge</th><td><select id="shape-edge" aria-label="top edge">${Object.keys(EDGES).map(k => `<option value="${k}"${k === (EDGES[last.edge] ? last.edge : 'straight') ? ' selected' : ''}>${EDGES[k]}</option>`).join('')}</select></td></tr>`,
+      `  <tr data-e="1"><th>edge size</th><td><input id="shape-es" aria-label="edge size" value="${fld(last.es > 0 ? last.es : 2)}" size="6" inputmode="text"> ${unitW()}</td></tr>`,
       "  </table></div>",
       "  <div id='shape-prev' class='swarf-shape-prev'></div>",
       "  <p id='shape-why' class='swarf-shape-why'></p>",

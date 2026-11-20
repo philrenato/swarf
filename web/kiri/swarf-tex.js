@@ -164,6 +164,15 @@
   function claim(w, m, rq) { if (!m.face) { const u = Board.bodyUp(rq || rqOf(w)); m.face = [u.x, u.y, u.z].map(v => Math.round(v * 1e6) / 1e6); m.at = (rq || rqOf(w)).slice(); } return m; }
   const faceUp = (w, m, rq) => { claim(w, m, rq); const u = Board.bodyUp(rq || rqOf(w)); return u.x * m.face[0] + u.y * m.face[1] + u.z * m.face[2] > 0.999; };
   const onPart = (p, loops) => loops.reduce((n, L) => n + (inLoop(p, L) ? 1 : 0), 0) % 2 === 1;
+  // what the part's outline is made from, short: its drawing hashed, or its box
+  function outlineKey(w) {
+    const t = w.meta && w.meta.svg;
+    if (t) return `${t.length}:${hashOf(t)}`;
+    const g = w.mesh.geometry;
+    g.computeBoundingBox();
+    const b = g.boundingBox;
+    return [b.min.x, b.min.y, b.max.x, b.max.y].map(v => v.toFixed(3)).join(',');
+  }
   function sizeOf(w) {
     const g = w.mesh.geometry;
     g.computeBoundingBox();
@@ -199,7 +208,8 @@
     const b = part.box, pad = 2;
     const region = T().newGrid(b[0] - pad, b[1] - pad, b[2] + pad, b[3] + pad, 0.5);
     // a visit from a pocket step's card starts on a flat pocket, deep enough to show, short of the bottom
-    const f = (pocketVisit && T().newInlay({ depth: Math.min(T().INLAY.depth, Math.max(0.5, r3(part.thick / 2))) })) || lastFill() || T().newFill('waves', { tool: 'ball14' });
+    // (a plain pocket: its plug only when the card's button asks for one)
+    const f = (pocketVisit && T().newInlay({ depth: Math.min(T().INLAY.depth, Math.max(0.5, r3(part.thick / 2))), plug: false })) || lastFill() || T().newFill('waves', { tool: 'ball14' });
     f.origin = [(b[0] + b[2]) / 2, (b[1] + b[3]) / 2];
     return { id: newId(), made: made || 'brush', region, xf: T().IDENTITY.slice(), fill: normBit(f), face: faceNow(part.w), at: rqOf(part.w).slice(), ver: 1 };
   }
@@ -240,9 +250,11 @@
     const picked = a.selection.widgets ? a.selection.widgets() : [];
     const i = parts.findIndex(p => picked.includes(p.w));
     if (i >= 0) { S.sel = i; S.mark = parts[i].marks.length ? 0 : -1; }
+    // a picked part with no mark yet: the rectangle is on, so the first drag marks it
+    if (i >= 0 && !parts[i].marks.length) S.tool = 'rect';
     fit();
     say(!parts.length ? 'No parts yet: import one, make a shape or draw one, then come back to mark it.'
-      : S.sel >= 0 ? `${parts[S.sel].name} is picked: paint on it with the brush, or drag a rectangle or an ellipse.`
+      : S.sel >= 0 ? (S.tool === 'rect' ? `${parts[S.sel].name} is picked: drag a rectangle on it, or pick the brush or the ellipse.` : `${parts[S.sel].name} is picked: paint on it with the brush, or drag a rectangle or an ellipse.`)
         : 'Pick a part, then mark it: the brush paints, the rectangle and ellipse drag out, a region fills its top.');
     if (unknownFills) say(`${unknownFills === 1 ? 'A mark has' : unknownFills + ' marks have'} a pattern from a newer swarf: shown as the plain one of its kind. Done keeps the change; cancel leaves the file's as it was.`);
     render();
@@ -696,9 +708,9 @@
   function card() {
     const part = curPart(), m = curMark(), C = T();
     const keepTop = ui.card.scrollTop;
-    const lenRow = (word, id, v, tip, slide = '') => `<div class="sd-row${slide ? ' sd-slid' : ''}"${tip ? ` title="${esc(tip)}"` : ''}><span>${word}</span>${slide}<input id="${id}" value="${LEN.fld(r3(v))}" inputmode="text" data-len="1"><span class="u">${LEN.unit()}</span></div>`;
-    const numRow = (word, id, v, unit, tip, slide = '') => `<div class="sd-row${slide ? ' sd-slid' : ''}"${tip ? ` title="${esc(tip)}"` : ''}><span>${word}</span>${slide}<input id="${id}" value="${esc(v)}" inputmode="decimal"><span class="u">${unit}</span></div>`;
-    const selRow = (word, id, opts, v, tip) => `<div class="sd-row"${tip ? ` title="${esc(tip)}"` : ''}><span>${word}</span><select id="${id}">${opts.map(([k, t]) => `<option value="${esc(k)}"${k === v ? ' selected' : ''}>${esc(t)}</option>`).join('')}</select><span class="u"></span></div>`;
+    const lenRow = (word, id, v, tip, slide = '') => `<div class="sd-row${slide ? ' sd-slid' : ''}"${tip ? ` title="${esc(tip)}"` : ''}><span>${word}</span>${slide}<input id="${id}" aria-label="${esc(word)}" value="${LEN.fld(r3(v))}" inputmode="text" data-len="1"><span class="u">${LEN.unit()}</span></div>`;
+    const numRow = (word, id, v, unit, tip, slide = '') => `<div class="sd-row${slide ? ' sd-slid' : ''}"${tip ? ` title="${esc(tip)}"` : ''}><span>${word}</span>${slide}<input id="${id}" aria-label="${esc(word)}" value="${esc(v)}" inputmode="decimal"><span class="u">${unit}</span></div>`;
+    const selRow = (word, id, opts, v, tip) => `<div class="sd-row"${tip ? ` title="${esc(tip)}"` : ''}><span>${word}</span><select id="${id}" aria-label="${esc(word)}">${opts.map(([k, t]) => `<option value="${esc(k)}"${k === v ? ' selected' : ''}>${esc(t)}</option>`).join('')}</select><span class="u"></span></div>`;
     const paramRow = (q, v) => {
       const id = `tx-p-${q.k}`, word = q.label.toLowerCase();
       if (q.shuffle) return `<div class="sd-row" title="another arrangement of the same pattern"><span>${word === 'seed' ? 'arrangement' : word}</span><button id="${id}" class="tx-shuffle">shuffle</button></div>`;
@@ -791,7 +803,9 @@
       h += lenRow('stands proud', 'tx-proud', f.proud ?? I.proud, 'the plug is this much thicker than the pocket is deep, to sand flush once it is glued in', sl('tx-proud', 0, 5, 0.1, f.proud ?? I.proud));
       h += bitRow(f);
       const plug = plugOf(part, m);
-      h += `<div class="sd-note tx-plugsay">${plug ? `The plug is <b>${esc(nameOf(plug))}</b> on the bed. To cut it: untick ${esc(part.name)} in objects, tick the plug, set the other wood's material.` : 'Press done: the plug comes onto the bed as its own part, left out of this run, to cut from another wood.'}</div>`;
+      h += f.plug === false
+        ? '<div class="sd-note tx-plugsay">A plain pocket. To fill it with another wood, add a plug: a part of its own that fits it.</div><div class="sd-row"><button id="tx-plug" title="a part that fits the pocket, cut from another wood">add a plug that fits</button></div>'
+        : `<div class="sd-note tx-plugsay">${plug ? `The plug is <b>${esc(nameOf(plug))}</b> on the bed. To cut it: untick ${esc(part.name)} in objects, tick the plug, set the other wood's material.` : 'Press done: the plug comes onto the bed as its own part, left out of this run, to cut from another wood.'}</div>`;
       if (tex) {
         for (const w of tex.warnings) warns += `<div class="sd-note tx-warn">${esc(w)}</div>`;
         for (const n of tex.notes) warns += `<div class="sd-note">${esc(n)}</div>`;
@@ -928,7 +942,9 @@
     if (!m) return;
     const f = m.fill;
     // every change to the fill: undoable, remembered for the next mark, the picture and checks again
-    const set = (fn) => { snap(); fn(f); m.ver++; part.dirty = true; try { localStorage.setItem(FILL, JSON.stringify({ ...f, origin: [0, 0] })); } catch (e) { /* private */ } render(); imagesSoon(); checkSoon(); };
+    const set = (fn) => { snap(); fn(f); m.ver++; part.dirty = true; try { localStorage.setItem(FILL, JSON.stringify({ ...f, origin: [0, 0], plug: undefined })); } catch (e) { /* private */ } render(); imagesSoon(); checkSoon(); };
+    const pg = $('tx-plug');
+    if (pg) pg.onclick = () => { set(f => { delete f.plug; }); say('Press done: the plug comes onto the bed, left out of this run.'); ui.svg.focus(); };
     const pierce = f.fill === 'pierce';
     const pick = v => set(f => {
       if (pierce) { f.pattern = v; f.params = C.pierceDefaults(v, part.thick); return; }
@@ -1276,7 +1292,7 @@
     if (d.kind === 'paint' || d.kind === 'shape') {
       const m = d.t.m;
       if (!markHas(m) && d.val) say('Paint on the part: the mark is where you paint.');
-      else if (d.val) say(`Marked. Pick its pattern in the card; press done to keep it.`);
+      else if (d.val) say(m.fill && m.fill.fill === 'inlay' ? 'Marked. Type its depth in the card; press done to keep it.' : 'Marked. Pick its pattern in the card; press done to keep it.');
     }
     render(); imagesSoon(); checkSoon();
   }
@@ -1391,7 +1407,7 @@
       // saved now, not on the usual delay: a reload right after done keeps the marks
       if (p.w.saveState) p.w.saveState(() => {});
     }
-    if (!changed) return '';
+    if (!changed) return S.parts.some(p => p.marks.some(markHas)) ? '' : 'Nothing was marked.';
     const r = syncSteps(a);
     let plugs = { made: [], redone: [], gone: 0 };
     try { plugs = syncPlugs(a); } catch (e) { console.warn('swarf tex: plug', e); }
@@ -1433,7 +1449,7 @@
     const C = T(), all = a.widgets.all(), want = new Map(), gone = [], made = [];
     // a delete lays the bed out again in cam: every part goes back where it was
     const was = new Map(all.map(w => [w, [w.track.pos.x, w.track.pos.y]]));
-    for (const w of all) for (const m of (w.meta && w.meta.tex) || []) if (m.fill && m.fill.fill === 'inlay' && !want.has(m.id)) want.set(m.id, { w, m });
+    for (const w of all) for (const m of (w.meta && w.meta.tex) || []) if (m.fill && m.fill.fill === 'inlay' && m.fill.plug !== false && !want.has(m.id)) want.set(m.id, { w, m });
     // a mark gone from a part still here: its plugs go. A part deleted keeps its plugs (they may be
     // being cut on their own)
     for (const w of all) { const q = w.meta && w.meta.inlay; if (q && !want.has(q.mark) && all.some(x => x.id === q.src)) gone.push(w); }
@@ -1635,6 +1651,18 @@
           said.set(key, chk.warnings);
           if (said.size > 200) said.delete(said.keys().next().value);
         }
+        // words carved in DRAW: letters off the part (each by its letter, when DRAW said which)
+        const D = window.__swarfDraw;
+        if (m.drawn && Array.isArray(m.drawn.loops) && D && D.offPieces) {
+          const okey = JSON.stringify(['off', m.id, m.xf, m.drawn.sig, m.drawn.chars, outlineKey(w)]);
+          if (!said.has(okey)) {
+            loops = loops || localLoops(w).loops;
+            const A = m.xf || T().IDENTITY, mine = m.drawn.loops.map(L => L.map(q => T().xfApply(A, q[0], q[1])));
+            const r = D.offPieces(mine, m.drawn.chars || null, loops, m.drawn.name || 'the carving', name);
+            said.set(okey, r ? [r.say] : []);
+          }
+          for (const body of said.get(okey)) out.push({ title: `${fillWords(m)} on ${name}`, body, hint: 'draw: drag the words onto the part' });
+        }
         const type = stepType(m);
         for (const body of said.get(key)) out.push({
           title: `${fillWords(m)} on ${name}`,
@@ -1767,14 +1795,14 @@
   // ── a drawing carved into a part, from DRAW: a mark like any other, that also
   // keeps what was drawn, so DRAW can show its words again. Everything comes in the part's own frame.
   // A mark already on that part keeps its frame, its turns and its copies; every copy takes the change.
-  function carve(w, { id, loops, curves, text, name, tool, limit }) {
+  function carve(w, { id, loops, curves, chars, text, name, tool, limit }) {
     const C = T(), holders = api().widgets.all().filter(g => g.meta && Array.isArray(g.meta.tex) && g.meta.tex.some(m => m.id === id));
     const had = holders.includes(w) ? w.meta.tex.find(m => m.id === id) : null;
     if (id && !had) uncarve(id);
     const I = C.xfInvert(had ? had.xf || C.IDENTITY : C.IDENTITY), to = (x, y) => C.xfApply(I, x, y);
     const mine = loops.map(L => C.thinLoop(L, 0.008).map(q => to(q[0], q[1]).map(v => +v.toFixed(3))));
     const { region, sig } = C.drawnRegion(mine);
-    const drawn = { loops: mine, sig, name,
+    const drawn = { loops: mine, sig, name, ...(chars && chars.length === mine.length ? { chars } : {}),
       curves: curves.map(c => ({ crv: { ...c.crv, ctrlPts: c.crv.ctrlPts.map(([x, y, , wt]) => [...to(x, y), 0, wt ?? 1]) } })),
       ...(text ? { text: { ...text, at: to(text.at[0], text.at[1]) } } : {}) };
     const stored = C.storeRegion(region);
@@ -1818,7 +1846,7 @@
     open();
     // tex did not open (draw would not close): no visit to be a pocket one, so the flag goes
     if (!S) pocketVisit = false;
-    if (S) { say('Pocket: drag a rectangle or an ellipse on the part, then type its depth on the card. Done adds an inlay step, and a plug that fills it, left out of this run.'); render(); }
+    if (S) { say('Pocket: drag a rectangle or an ellipse on the part, then type its depth on the card. Done adds an inlay step.'); render(); }
   }
   window.__swarfTex = { open, openPocket, close, say, setTool, render, state: () => S, lastMesh: () => S && S.lastMesh, concerns, syncSteps, pierceAvoid, stepCard, setStepCard, carve, uncarve, carving };
 })();

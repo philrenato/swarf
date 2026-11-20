@@ -426,6 +426,9 @@
       const src = S.tool === 'regions' && S.reg && S.reg.group && S.reg.group.includes(part);
       out.push(`<path class="sd-part${part.line || part.carve ? ' sd-line' : ''}${part.carve ? ' sd-carve' : ''}${src ? ' sd-line sd-regsrc' : ''}${pi === S.sel ? ' on' : ''}${part.cross || part.over ? ' cross' : ''}" data-part="${pi}" d="${d}"/>`);
       if (part.cross) out.push(`<circle class="sd-cross" cx="${sx(part.cross[0])}" cy="${sy(part.cross[1])}" r="7"/>`);
+      // carved letters off the part under them, in the warning colour
+      const off = part.carve ? carveOff(part) : null;
+      if (off) out.push(`<path class="sd-cross sd-off" data-off="${esc(off.say)}" d="${off.curves.map(i => pathOf(part.curves[i].crv)).join(' ')}"/>`);
       // a wide, unseen edge, so a press near the outline (to add a point) lands on the part
       if (pi === S.sel) out.push(`<path class="sd-edge" data-part="${pi}" d="${d}"/>`);
     });
@@ -556,7 +559,7 @@
   const crossSay = (part, x) => `${part.name} crosses itself near ${LEN.unit() === 'in' ? `${LEN.fld(x[0])}, ${LEN.fld(x[1])} in` : `${r3(x[0])}, ${r3(x[1])} mm`}: past a crossing, swarf cannot tell inside from outside. Move a point so its lines don't cross.`;
   function checkCross(part) {
     if (part.line) { part.cross = null; part.over = null; return null; }
-    if (part.carve) { part.cross = null; part.over = null; return null; }
+    if (part.carve) { part.cross = null; part.over = null; const off = carveOff(part); if (off) say(off.say); return null; }
     part.cross = part.text ? null : crossing(part);
     if (part.cross) say(crossSay(part, part.cross));
     const o = overlapOf(part);
@@ -570,21 +573,21 @@
     const part = S.parts[S.sel];
     // a length row shows and reads cam's units (swarf-length.js: 3/4, 1 1/2", 19 mm); the part stays in mm
     const row = (word, id, v, unit) => unit === 'mm'
-      ? `<div class="sd-row"><span>${word}</span><input id="${id}" value="${LEN.fld(v)}" inputmode="text" data-len="1"><span class="u">${LEN.unit()}</span></div>`
-      : `<div class="sd-row"><span>${word}</span><input id="${id}" value="${v}" inputmode="decimal"><span class="u">${unit}</span></div>`;
-    const textRows = (str, hh) => `<div class="sd-row"><span>words</span><input id="sd-str" class="wide" value="${esc(str)}"></div>${row('letter height', 'sd-th', hh, 'mm')}
+      ? `<div class="sd-row"><span>${word}</span><input id="${id}" aria-label="${word}" value="${LEN.fld(v)}" inputmode="text" data-len="1"><span class="u">${LEN.unit()}</span></div>`
+      : `<div class="sd-row"><span>${word}</span><input id="${id}" aria-label="${word}" value="${v}" inputmode="decimal"><span class="u">${unit}</span></div>`;
+    const textRows = (str, hh) => `<div class="sd-row"><span>words</span><input id="sd-str" class="wide" aria-label="words" value="${esc(str)}"></div>${row('letter height', 'sd-th', hh, 'mm')}
       <div class="sd-row"><span>font</span>${fontSelect(S.tool === 'text' || !part || !part.text ? TEXT.name : part.text.font || TEXT.name)}</div>`;
     // carve into <part>: the part it is on when it is on one, the only part there is when not
     const carveWord = p => { const hosts = S.parts.filter(canHost), h = p ? hostOf(p) : S.textFor && !S.textFor.gone ? S.textFor : hosts.length === 1 ? hosts[0] : null; return h ? `carve into ${h.name}` : 'carve into the part under it'; };
-    const modeRow = (now, p) => `<div class="sd-row" title="what ${now === undefined || S.tool === 'text' || p && p.text ? 'words or an outline' : 'an outline'} inside or over a part makes"><span>inside or over a part</span></div><div class="sd-row"><select id="sd-mode" class="wide">${Object.entries(MODES).map(([k, v]) => `<option value="${k}"${k === (now ?? S.mode) ? ' selected' : ''}>${k === 'carve' ? esc(carveWord(p)) : v}</option>`).join('')}</select></div>`;
+    const modeRow = (now, p) => `<div class="sd-row" title="what ${now === undefined || S.tool === 'text' || p && p.text ? 'words or an outline' : 'an outline'} inside or over a part makes"><span>inside or over a part</span></div><div class="sd-row"><select id="sd-mode" class="wide" aria-label="inside or over a part">${Object.entries(MODES).map(([k, v]) => `<option value="${k}"${k === (now ?? S.mode) ? ' selected' : ''}>${k === 'carve' ? esc(carveWord(p)) : v}</option>`).join('')}</select></div>`;
     // the V-bits by name, and how deep it may go
     const carveRows = c => {
       const bits = vBits(api());
-      return (bits.length ? `<div class="sd-row" title="the V-bit: 90° is wider and shallower, 60° narrower and deeper"><span>bit</span><select id="sd-vbit" class="wide">${bits.map(t => `<option value="${t.id}"${t.id === c.tool ? ' selected' : ''}>${esc(t.name)}</option>`).join('')}</select></div>` : '<div class="sd-note">No V-bit in the tool library: add one in bits, or the carve has nothing to cut with.</div>')
+      return (bits.length ? `<div class="sd-row" title="the V-bit: 90° is wider and shallower, 60° narrower and deeper"><span>bit</span><select id="sd-vbit" class="wide" aria-label="bit">${bits.map(t => `<option value="${t.id}"${t.id === c.tool ? ' selected' : ''}>${esc(t.name)}</option>`).join('')}</select></div>` : '<div class="sd-note">No V-bit in the tool library: add one in bits, or the carve has nothing to cut with.</div>')
         + `<div title="the deepest it goes, then a flat floor; 0 has no limit">${row('flat depth', 'sd-vlim', c.limit || 0, 'mm')}</div>`;
     };
-    const ptsRow = pc => pc ? `<div class="sd-row" title="points on the line: fewer is smoother, more follows your hand"><span>points</span><input id="sd-pts" value="${pc.n}" inputmode="numeric"><span class="u"></span></div>` : '';
-    const edgeRows = e => `<div class="sd-row"><span>top edge</span><select id="sd-edge">${['straight', 'chamfer', 'round'].map(k => `<option${k === e.kind ? ' selected' : ''}>${k}</option>`).join('')}</select><span class="u"></span></div>${e.kind === 'straight' ? '' : row('edge size', 'sd-es', e.size, 'mm')}`;
+    const ptsRow = pc => pc ? `<div class="sd-row" title="points on the line: fewer is smoother, more follows your hand"><span>points</span><input id="sd-pts" aria-label="points" value="${pc.n}" inputmode="numeric"><span class="u"></span></div>` : '';
+    const edgeRows = e => `<div class="sd-row"><span>top edge</span><select id="sd-edge" aria-label="top edge">${['straight', 'chamfer', 'round'].map(k => `<option${k === e.kind ? ' selected' : ''}>${k}</option>`).join('')}</select><span class="u"></span></div>${e.kind === 'straight' ? '' : row('edge size', 'sd-es', e.size, 'mm')}`;
     let h = '';
     if (S.tool === 'regions') {
       const R = S.reg;
@@ -618,8 +621,9 @@
     } else if (part && !part.gone) {
       const b = boxOf(part.curves), one = S.pts.size === 1 ? [...S.pts][0] : null;
       const host = part.carve ? hostOf(part) : null;
-      h = `<div class="sd-h">${esc(part.name)}${part.carve ? ': carved' : ''}</div>${part.text ? textRows(part.text.str, part.text.h) : ''}${ptsRow(part.pencil)}${part.text || part.carve ? modeRow(part.carve ? 'carve' : 'part', part) : ''}${part.carve ? carveRows(part.carve) : ''}${row('width', 'sd-w', r3(b[2] - b[0]), 'mm')}${row('length', 'sd-d', r3(b[3] - b[1]), 'mm')}`;
-      if (part.carve) h += `<div class="sd-note">${host ? `Cut into ${esc(host.name)} by the V-bit. Done adds a v-carve step if there is none.` : 'Over no part: move it onto a part to carve it there (over nothing it is left out).'}</div>`;
+      h = `<div class="sd-h">${esc(part.name)}${part.carve ? (host ? ': carved' : ': not carved') : ''}</div>${part.text ? textRows(part.text.str, part.text.h) : ''}${ptsRow(part.pencil)}${part.text || part.carve ? modeRow(part.carve ? 'carve' : 'part', part) : ''}${part.carve ? carveRows(part.carve) : ''}${row('width', 'sd-w', r3(b[2] - b[0]), 'mm')}${row('length', 'sd-d', r3(b[3] - b[1]), 'mm')}`;
+      const off = host ? carveOff(part) : null;
+      if (part.carve) h += `<div class="sd-note">${off ? esc(off.say) + ' Drag it onto the part.' : host ? `Cut into ${esc(host.name)} by the V-bit. Done adds a v-carve step if there is none.` : 'Over no part: move it onto a part to carve it there (over nothing it is left out).'}</div>`;
       else h += `${row('thickness', 'sd-t', part.thick, 'mm')}${edgeRows(part.edge)}`;
       if (one) {
         const [ci, i] = one.split(':').map(Number), P = part.curves[ci].crv.ctrlPts[i];
@@ -1054,7 +1058,13 @@
       return;
     }
     if ((d.kind === 'pts' || d.kind === 'part') && !d.moved) S.undo.pop();          // a click, not a move
-    if ((d.kind === 'pts' || d.kind === 'part') && d.moved && S.parts[S.sel]) { checkCross(S.parts[S.sel]); for (const p of S.parts) if (p !== S.parts[S.sel] && p.over) p.over = overlapOf(p) ? p.over : null; }
+    if ((d.kind === 'pts' || d.kind === 'part') && d.moved && S.parts[S.sel]) {
+      const moved = S.parts[S.sel];
+      checkCross(moved);
+      for (const p of S.parts) if (p !== moved && p.over) p.over = overlapOf(p) ? p.over : null;
+      // a part reshaped or moved out from under what is carved into it
+      if (!moved.carve && !moved.cross && !moved.over) { const off = S.parts.map(p => p.carve && carveOff(p)).find(Boolean); if (off) say(off.say); }
+    }
     if (d.kind === 'box') {
       const part = S.parts[S.sel], b = S.box;
       S.box = null;
@@ -1120,7 +1130,7 @@
   const LOCAL = { list: null, said: '' };
   function fontSelect(cur) {
     const o = (v, t, on) => `<option value="${esc(v)}"${on ? ' selected' : ''}>${esc(t)}</option>`;
-    let h = `<select id="sd-fontsel" class="wide" title="the letters' font">`;
+    let h = `<select id="sd-fontsel" class="wide" aria-label="font" title="the letters' font">`;
     const names = [BUILTIN, ...[...FONTS.keys()].filter(n => n !== BUILTIN)];
     if (!names.includes(cur)) names.push(cur);
     h += names.map(n => o('font:' + n, n === BUILTIN ? `${n} (built in)` : n, n === cur)).join('');
@@ -1185,15 +1195,19 @@
     }
     throw new Error('the built-in font did not load');
   }
+  // the font size that makes capitals h mm tall
+  function textScale(f, h) {
+    const os2 = f.tables.os2;
+    const cap = (os2 && os2.sCapHeight) || (g => g.y2 - g.y1)(f.charToGlyph('H').getBoundingBox()) || f.unitsPerEm * 0.7;
+    return h * f.unitsPerEm / cap;
+  }
   // the words as closed curves in board mm, the first letter's baseline starting at `at`,
   // capitals `h` mm tall
   function textCurves(t) {
     // the part's own font (a word edited later is set in its font, not the last one read)
     const f = (t.font && FONTS.get(t.font)) || TEXT.font;
     if (!f || !t.str.trim()) return [];
-    const os2 = f.tables.os2;
-    const cap = (os2 && os2.sCapHeight) || (g => g.y2 - g.y1)(f.charToGlyph('H').getBoundingBox()) || f.unitsPerEm * 0.7;
-    const path = f.getPath(t.str, t.at[0], -t.at[1], t.h * f.unitsPerEm / cap);
+    const path = f.getPath(t.str, t.at[0], -t.at[1], textScale(f, t.h));
     const d = path.toPathData(4);
     if (!d) return [];
     const b = path.getBoundingBox(), W = Math.max(1e-3, b.x2 - b.x1), H = Math.max(1e-3, b.y2 - b.y1);
@@ -1419,6 +1433,63 @@
       if (n > most) { most = n; best = p; }
     }
     return most >= L.length / 2 ? best : null;
+  }
+  // ── carved letters off their part ──
+  // each closed curve of a word: [its glyph's index, its letter], by the glyph box its middle is in
+  // (null for an outline, or words whose font is not here)
+  function glyphsOf(part) {
+    const t = part.text, f = t && ((t.font && FONTS.get(t.font)) || TEXT.font);
+    if (!f || !t.str || !t.str.trim()) return null;
+    const key = JSON.stringify([t, part.curves.length]);
+    if (part.glyphs && part.glyphs.key === key) return part.glyphs.v;
+    const paths = f.getPaths(t.str, t.at[0], -t.at[1], textScale(f, t.h));
+    const chars = Array.from(t.str), named = paths.length === chars.length;
+    // font units come down the page: a glyph's box on the bed is its y negated
+    const boxes = paths.map((p, i) => { const b = p.getBoundingBox(); return isFinite(b.x1) && b.x2 > b.x1 ? { i, c: named ? chars[i] : 'a letter', b: [b.x1, -b.y2, b.x2, -b.y1] } : null; }).filter(Boolean);
+    const v = part.curves.map(c => {
+      if (!isClosed(c.crv) || !boxes.length) return null;
+      const P = c.crv.ctrlPts, mx = P.reduce((s, q) => s + q[0], 0) / P.length, my = P.reduce((s, q) => s + q[1], 0) / P.length;
+      const d = g => (mx < g.b[0] || mx > g.b[2] || my < g.b[1] || my > g.b[3] ? 1e9 : 0) + Math.hypot(mx - (g.b[0] + g.b[2]) / 2, my - (g.b[1] + g.b[3]) / 2);
+      const g = boxes.reduce((x, y) => (d(y) < d(x) ? y : x));
+      return [g.i, g.c];
+    });
+    part.glyphs = { key, v };
+    return v;
+  }
+  // loops (one frame), chars (per loop [glyph, letter], or null: the drawing as one), the host's loops:
+  // which loops are off the host's material, and the line that says so; null when all is on it
+  function offPieces(loops, chars, host, name, hostName) {
+    const groups = new Map();
+    loops.forEach((L, i) => {
+      const k = chars && chars[i] ? chars[i][0] : -1;
+      if (!groups.has(k)) groups.set(k, { c: chars && chars[i] ? chars[i][1] : null, n: 0, out: 0, loops: [] });
+      const g = groups.get(k);
+      g.loops.push(i);
+      for (const q of L) { g.n++; if (host.filter(H => inside(q, H)).length % 2 === 0) g.out++; }
+    });
+    const whole = [], part = [], off = [];
+    for (const g of groups.values()) {
+      if (!g.n || g.out <= g.n * 0.01) continue;
+      off.push(...g.loops);
+      (g.out >= g.n * 0.99 ? whole : part).push(g.c);
+    }
+    if (!off.length) return null;
+    const and = L => (L.length === 1 ? L[0] : `${L.slice(0, -1).join(', ')} and ${L[L.length - 1]}`);
+    const out = [];
+    if (whole.length) out.push(whole[0] === null ? `${name} is off ${hostName}: it will not be carved.` : `${and(whole)} ${whole.length === 1 ? 'is' : 'are'} off ${hostName}: ${whole.length === 1 ? 'it' : 'they'} will not be carved.`);
+    if (part.length) out.push(part[0] === null ? `Part of ${name} is off ${hostName}: that part will not be carved.` : `${and(part)} ${part.length === 1 ? 'runs' : 'run'} off ${hostName}: only part of ${part.length === 1 ? 'it' : 'them'} will be carved.`);
+    return { off, say: out.join(' ') };
+  }
+  // a carving in DRAW against the part under it (bed frame): its off curves (indices into curves)
+  function carveOff(part) {
+    if (!part || !part.carve || part.gone) return null;
+    const host = hostOf(part);
+    if (!host) return null;
+    const idx = [];
+    part.curves.forEach((c, i) => { if (isClosed(c.crv)) idx.push(i); });
+    const g = glyphsOf(part);
+    const r = offPieces(idx.map(i => flat(part.curves[i].crv, 1)), g ? idx.map(i => g[i]) : null, loopsOf(host), part.name, host.name);
+    return r && { say: r.say, curves: r.off.map(k => idx[k]) };
   }
   function addLine(crv, extra) {
     snap();
@@ -1669,7 +1740,7 @@
       if (engraved) stepAdded = engraveStep(a);
     }
     // carved: each onto the part under it, a mark with its step (swarf-tex.js), its letters kept
-    const carved = [], carveLoose = [];
+    const carved = [], carveLoose = [], offSaid = [];
     let carveSteps = 0;
     if (carves.length && window.__swarfTex) {
       const Tx = window.__swarfTex;
@@ -1685,13 +1756,17 @@
           const curves = p.curves.filter(c => isClosed(c.crv)).map(c => { const crv = clone(c.crv); crv.ctrlPts = crv.ctrlPts.map(([x, y, , wt]) => [x - q.x, y - q.y, 0, wt ?? 1]); return { crv }; });
           const loops = curves.map(c => flat(c.crv, 0.1).map(([x, y]) => [x, y]));
           if (!loops.length) { carveLoose.push(p.name); continue; }
-          p.carve.mark = Tx.carve(w, { id: p.carve.mark, loops, curves, name: p.name, tool: p.carve.tool, limit: p.carve.limit, text: p.text ? { ...p.text, at: [p.text.at[0] - q.x, p.text.at[1] - q.y] } : null });
+          const off = carveOff(p), g = glyphsOf(p), chars = g ? p.curves.map((c, i) => (isClosed(c.crv) ? g[i] : undefined)).filter(x => x !== undefined) : null;
+          p.carve.mark = Tx.carve(w, { id: p.carve.mark, loops, curves, chars, name: p.name, tool: p.carve.tool, limit: p.carve.limit, text: p.text ? { ...p.text, at: [p.text.at[0] - q.x, p.text.at[1] - q.y] } : null });
           carved.push(`${p.name} is carved into ${host.name}`);
+          if (off) offSaid.push(off.say);
         }
       });
       carveSteps = r.added || 0;
     }
-    const carveSay = (carved.length ? `${carved.join('; ')}: ${carveSteps ? (carveSteps === 1 ? 'a v-carve step was added' : `${carveSteps} v-carve steps were added`) : 'its step cuts it'}, before the outline. Open draw to change it. Next: toolpaths.` : '') +
+    // "before the outline" only when there is one to be before
+    const cutOut = (() => { try { return (a.conf.get().process.ops || []).some(o => o && (o.type === 'outline' || o.type === 'rough') && !o.disabled); } catch (e) { return false; } })();
+    const carveSay = (carved.length ? `${carved.join('; ')}: ${carveSteps ? (carveSteps === 1 ? 'a v-carve step was added' : `${carveSteps} v-carve steps were added`) : 'its step cuts it'}${cutOut ? ', before the outline' : ''}.${offSaid.length ? ' ' + offSaid.join(' ') : ''} Open draw to change it. ${cutOut ? 'Next: toolpaths.' : 'Next: add outline to cut it out, or leave it as a board.'}` : '') +
       (carveLoose.length ? ` ${carveLoose.join(', ')} ${carveLoose.length === 1 ? 'is' : 'are'} over no part, so left out.` : '');
     const lineSay = (engraved ? `${engraved === 1 ? '1 line is' : `${engraved} lines are`} engraved: ${stepAdded ? 'an engrave step was added to cut them' : 'the engrave step cuts them'}.` : '') +
       (loose.length ? ` ${loose.join(', ')} ${loose.length === 1 ? 'is' : 'are'} over no part, so ${loose.length === 1 ? 'it was' : 'they were'} left out.` : '');
@@ -1792,5 +1867,5 @@
     if (step && !step.dataset.wired) { step.dataset.wired = '1'; step.addEventListener('click', open); }
   });
 
-  window.__swarfDraw = { open, close, setTool, render, bedCurves, settleTilted, state: () => S, isChain, text: TEXT, fonts: FONTS, engraveAreas, adopt, say };
+  window.__swarfDraw = { open, close, setTool, render, bedCurves, settleTilted, state: () => S, isChain, text: TEXT, fonts: FONTS, engraveAreas, adopt, say, offPieces };
 })();
