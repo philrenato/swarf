@@ -458,8 +458,10 @@ export class Topo {
         const { toolAtZ, params: pp } = this.probe;
         const step = resolution * density;
         // the tool's height at a point between raster cells: the highest of the four cells around it,
-        // so a path at an angle rests on the surface, never in it
-        const rx = pp.stepsX / pp.boundsX, ry = pp.stepsY / pp.boundsY;
+        // so a path at an angle rests on the surface, never in it. The raster's cells are resolution
+        // apart from its corner (raster_slice), and the paths run past the part, so the scale is
+        // the resolution itself: steps over bounds is a little more, and drifts with distance
+        const rx = 1 / resolution, ry = 1 / resolution;
         const toolAt = (x, y) => {
             const fx = rx * (x - pp.minX), fy = ry * (y - pp.minY);
             const x0 = Math.floor(fx), y0 = Math.floor(fy);
@@ -638,11 +640,17 @@ export class Topo {
                 if (h[2] <= toolStep * 1.6 && (!hit || h[2] < hit[2])) { into = cand; hit = h; }
             }
             if (!into) return null;
+            // where the ring runs on past the next one (a neck or a spike the next level lost) the
+            // nearest point of the next ring is far off, and the drift toward it would cut across
+            // the gap: then the next ring starts on its own
+            const drift = [];
             for (const [x, y, w] of head) {
-                const [i, t] = nearest(into.pts, x, y);
+                const [i, t, d] = nearest(into.pts, x, y);
+                if (d > toolStep * 1.6) return null;
                 const [qx, qy] = at(into.pts, i, t), f = w / walked;
-                path.push([x + (qx - x) * f, y + (qy - y) * f]);
+                drift.push([x + (qx - x) * f, y + (qy - y) * f]);
             }
+            path.push(...drift);
             // the next loop starts where the ease lands
             const [i, t] = hit;
             if (t < 1e-6) into.start = i;
