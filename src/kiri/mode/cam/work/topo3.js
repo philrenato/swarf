@@ -42,10 +42,10 @@ export class Topo {
             density = 1 + (contour.reduction || 0),
             tool = new Tool(settings, contour.tool),
             // the auto grid shrinks with the part; for angled lines and rings (paths2d) it stops at
-            // a hundredth of the bit, finer than the bit can follow, so a part smaller than the bit
+            // 1/250 of the bit, finer than the bit can follow, so a part smaller than the bit
             // does not sample hundreds of thousands of cells under it at every point
             autoRes = 1 / Math.sqrt(animesh / (boundsX * boundsY)),
-            resolution = (tolerance ? tolerance : contour.trace2d ? Math.max(autoRes, tool.fluteDiameter() / 100) : autoRes).round(5),
+            resolution = (tolerance ? tolerance : contour.trace2d ? Math.max(autoRes, tool.fluteDiameter() / 250) : autoRes).round(5),
             toolOffset = tool.generateProfile(resolution).profile,
             toolDiameter = tool.fluteDiameter(),
             toolStep = toolDiameter * contour.step,

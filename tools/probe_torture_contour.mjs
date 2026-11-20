@@ -79,7 +79,7 @@ for (const step of [0.05, 1.2, 3]) {
   add(`pit contour e18 lines 45 step ${step}`, 'pit', [{ type: 'contour', tool: T.e18, set: { pattern: 'lines', lineAngle: 45, step } }]);
   add(`pit contour b14 perimeter step ${step}`, 'pit', [{ type: 'contour', tool: T.b14, set: { pattern: 'perimeter', step } }]);
 }
-// a part smaller than the bit: angled lines and rings sample a grid no finer than a hundredth of
+// a part smaller than the bit: angled lines and rings sample a grid no finer than 1/250 of
 // the bit, so every bit finishes in seconds there
 for (const w of ['lines 0', 'lines 45', 'perimeter', 'perimeter inside']) {
   const [pattern, a] = w.split(' ');
@@ -191,8 +191,8 @@ async function runCase(c) {
     // inside the part and a bit (inside only: the bit's centre on the part)
     if (isContourOnly && setup.tool) {
       // over the edge the contour's clip is the part grown by the bit's radius and three raster cells
-      // (angled lines and rings: the grid is no finer than a hundredth of the bit)
-      const res = Math.max(0.05, 1 / Math.sqrt(500000 / (setup.box.x * setup.box.y)), setup.tool.d / 100);
+      // (angled lines and rings: the grid is no finer than 1/250 of the bit)
+      const res = Math.max(0.05, 1 / Math.sqrt(500000 / (setup.box.x * setup.box.y)), setup.tool.d / 250);
       const R = setup.tool.d / 2, m0 = setup.inside ? 0.05 : R + 3 * res + 0.1;
       const out = cuts.find(m => m.x < -m0 || m.y < -m0 || m.x > setup.box.x + m0 || m.y > setup.box.y + m0);
       ok.push(check(!out, `${c.name}: the cut within the part${setup.inside ? '' : ' and a bit'}`, out && { x: out.x, y: out.y, line: out.line }));
@@ -201,8 +201,8 @@ async function runCase(c) {
     // bit's own shape, allowing the contour's raster (its cell sideways, read at a cell corner)
     if (setup.tool && isContourOnly) {
       const { type, d, len, tip } = setup.tool, R = d / 2;
-      // (angled lines and rings: the grid is no finer than a hundredth of the bit)
-      const res = Math.max(0.05, 1 / Math.sqrt(500000 / (setup.box.x * setup.box.y)), setup.tool.d / 100);
+      // (angled lines and rings: the grid is no finer than 1/250 of the bit)
+      const res = Math.max(0.05, 1 / Math.sqrt(500000 / (setup.box.x * setup.box.y)), setup.tool.d / 250);
       const slack = 2 * res + 0.05;
       const zoff = dist => type === 'ballmill' ? Math.sqrt(Math.max(0, R * R - dist * dist)) - R
         : (type === 'tapermill' && dist > tip / 2) ? -((dist - tip / 2) / (R - tip / 2)) * len : 0;
