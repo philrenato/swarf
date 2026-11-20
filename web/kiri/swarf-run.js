@@ -3272,7 +3272,14 @@ html[data-skin] #swarf-run .sr-jog .sr-zrow button.next, html[data-skin] #swarf-
         for (const ev of ['preview.end', 'preview.error']) api.event.on(ev, () => { making = false; endedAt = Date.now(); });
         const stale = () => { if (!making && Date.now() - endedAt > 800 && api.function.clear_progress) api.function.clear_progress(); };
         for (const ev of ['widget.add', 'widget.delete', 'widget.duplicate', 'selection.move', 'selection.rotate', 'selection.scale', 'selection.drag', 'device.selected', 'cam.stock.toggle', 'settings.saved']) api.event.on(ev, stale);
-        // in control, the other steps lead back to cam (a running job keeps control)
+        // the bed emptied by hand: the job made from those parts is over, and its moves are not held
+        // (a long job is hundreds of MB). The zero is the board's: offered back with one press, as
+        // for any new file. A stop or a bit change to go on from keeps the job.
+        api.event.on('widget.delete', () => setTimeout(() => {
+          if (!S.prog || S.prog.source !== 'cam' || S.open || S.stoppedAt || S.lostAt || S.toolChange) return;
+          if (window.__swarfRestoring || ['swarf-draw-open', 'swarf-tex-open'].some(c => document.body.classList.contains(c))) return;
+          if (!api.widgets.all().length) forget();
+        }, 0));
         const tools = document.getElementById('mode-tools');
         if (tools) tools.addEventListener('click', e => {
           if (!S.open || e.target.closest('#swarf-step-run')) return;

@@ -957,7 +957,8 @@ function setup_keybd_nav() {
                 rec.axis = 'X';
                 const put = () => {
                     if (camEnv.current.process.ops.includes(rec)) return;
-                    camOpAdd(rec);
+                    // one undo step, this fix's own (it also knows the step's place before the outline)
+                    api.doit.quietly(() => camOpAdd(rec));
                     // read again: a save can hand the process a new list
                     const ops = camEnv.current.process.ops;
                     const at = ops.findIndex(o => o && o.type === 'outline'), was = ops.indexOf(rec);
@@ -976,12 +977,24 @@ function setup_keybd_nav() {
             } },
         };
         // the pill docks under the right rail, never inside its panels: its top
-        // follows the rail's bottom as panels open, close and scroll; with no rail it keeps its corner
+        // follows the rail's bottom as panels open, close and scroll; with no rail it keeps its corner.
+        // Where that would put it on the size card (a wide card in a narrow window) it goes up to the
+        // menu bar's free end instead (.up, swarf.css)
+        let sizeSeen = false;
         const dock = () => {
             const rail = document.getElementById('swarf-right-rail');
             const r = rail && rail.offsetParent !== null ? rail.getBoundingClientRect() : null;
+            // its list is open up there (a short window hides the size card meanwhile): it stays put
+            if (wrap.classList.contains('open') && wrap.classList.contains('up')) return;
+            wrap.classList.remove('up');
             if (r && r.height > 4) { wrap.style.top = Math.round(r.bottom + 8) + 'px'; wrap.style.bottom = 'auto'; }
             else { wrap.style.top = ''; wrap.style.bottom = ''; }
+            const size = document.getElementById('swarf-size');
+            if (!size) return;
+            if (!sizeSeen && window.ResizeObserver) { sizeSeen = true; new ResizeObserver(dock).observe(size); }
+            if (!size.classList.contains('on')) return;
+            const c = size.getBoundingClientRect(), t = tab.getBoundingClientRect();
+            if (t.left < c.right && c.left < t.right && t.top < c.bottom && c.top < t.bottom) wrap.classList.add('up');
         };
         const rail = document.getElementById('swarf-right-rail');
         if (rail && window.ResizeObserver) new ResizeObserver(dock).observe(rail);
@@ -1231,9 +1244,11 @@ function setup_keybd_nav() {
                 if (outl.length && through && audit) {
                     // a rough down to the part's bottom frees it as an outline does (a rough-only circle).
                     // Inside a hole a rough clears the whole piece to chips: only an outline cuts it loose,
-                    // and only when no rough has cleared the hole already
+                    // and only when no rough before it has cleared the hole already
                     const outer = outl.some(o => !o.inside);
-                    const holes = outl.some(o => o.type === 'outline' && !o.omitthru && !o.omitvoid) && !outl.some(o => o.type === 'rough' && !o.omitthru);
+                    const cutsHoles = o => o.type === 'outline' && !o.omitthru && !o.omitvoid;
+                    const firstCut = outl.findIndex(cutsHoles);
+                    const holes = firstCut >= 0 && !outl.slice(0, firstCut).some(o => o.type === 'rough' && !o.omitthru);
                     for (const w of api.widgets.all()) {
                         if (w.track.synth) continue;
                         const name = api.platform.part_name(w);
@@ -1596,7 +1611,7 @@ function setup_keybd_nav() {
             { kind:'app', name:'the shop\'s bits', body:'1/4 straight 48-005, 1/4 up-cut 52-910, 1/4 down-cut 57-910, 1/2 straight 48-072, in bits. in wood they cut with the shop\'s own numbers (120 in/min, 1/8 in a pass, 12,000 rpm).', tags:'bits tools shop upcut downcut straight part number feeds' },
             { kind:'run', name:'keep the zero', body:'a zero you set stays with the board. toolpaths made again in cam keep it with no press if they zero at the same place (corner or center) on the same bit. after another file, a test cut, a reconnect or a reload, one press of use the zero from (with the day and time it was set) brings it back. it is never offered for another place, or after 12 hours; Z is dropped after a bit change, the whole zero after a box restart. a kept zero is swarf assuming the board and the bit have not moved: if either did, press the board moved or the bit was changed or reseated under the program, and zero that again.', tags:'zero keep reuse reload reconnect moved reseated' },
             { kind:'run', name:'search down', body:'on the z plate card: how far the bit comes down looking for the plate, 60 mm unless you raise it.', tags:'z plate search down distance touch off' },
-            { kind:'app', name:'undo', body:'edit › undo, or ⌘Z (Ctrl+Z): takes back the last change to the parts (a move, turn, resize, mirror, copy, delete, or leaving one out of the run), the tabs, the steps (added, deleted or a number typed) or the material. A new part laid out with the others, a .swarf opened and file › new start it over. edit › redo, or ⇧⌘Z, puts it back.', tags:'undo redo take back cmd-z ctrl-z mistake edit menu' },
+            { kind:'app', name:'undo', body:'edit › undo, or ⌘Z (Ctrl+Z): takes back the last change to the parts (a move, turn, resize, mirror, copy, delete, or leaving one out of the run), the tabs, the steps (added, deleted or a number typed) or the material. deleted parts come back for the last 8 deletes, fewer when the parts are very big. a new part laid out with the others, a .swarf opened and file › new start it over. edit › redo, or ⇧⌘Z, puts it back.', tags:'undo redo take back cmd-z ctrl-z mistake edit menu' },
             { kind:'app', name:'select all', body:'edit › select all, or ⌘A: picks every part on the bed, to move, size or delete them together. edit › delete, or the delete key, removes the picked parts (undo brings them back); with nothing picked it does nothing.', tags:'select all pick every part delete edit menu cmd-a' },
             { kind:'app', name:'export', body:'export (in the row, or file › export the machine file) makes the file the machine runs: name it, read how long it takes, how big it is, which bit and which material, and press save name.sbp. save the project too (.swarf) keeps the parts and steps to open again, and leaves the card open for the machine file. the file carries the concerns still open when it was saved, and control shows them when it is opened on its own.', tags:'export save sbp file machine file gcode shopbot file' },
             { kind:'app', name:'simulate', body:'watch the bit cut the board before the machine does. space plays and pauses; speed × runs it faster or slower, and the words beside it say how that compares with the real cut: about 30× real time means a 3 min job plays in 6 s. done says how much of the cut has run. the view frames the board beside the steps panel, looking down; F frames it again.', tags:'simulate simulator simulation play pause speed done preview real time how fast too fast seconds frame' },
@@ -1611,7 +1626,7 @@ function setup_keybd_nav() {
             { kind:'app', name:'view', body:'cam: F fits the parts in view. drag turns the view, shift-drag (or right-drag) pans, and the wheel zooms toward the cursor.', tags:'view fit zoom pan orbit turn rotate mouse wheel camera f key' },
             { kind:'app', name:'keys', body:'⌘Z undo, ⇧⌘Z redo, ⌘A select all, ⌘S save project, delete removes the picked parts, F fits them in view. tab walks the menus and the step row; enter or space presses. in draw and tex, hover a tool to see its key.', tags:'keys keyboard shortcuts tab focus enter space' },
             { kind:'op', name:'rough', body:'the first pass: it clears most of the wood in flat layers above the part, fast and deep, and leaves a little for contour to finish.', tags:'roughing clearing bulk first pass' },
-            { kind:'op', name:'contour', body:'a smooth pass over a curved top after rough: the bit runs back and forth in one direction at a fine stepover, following the surface. 5–15 % of the bit\'s width is typical.', tags:'contouring finishing surface curved' },
+            { kind:'op', name:'contour', body:'a smooth pass over a curved top after rough, following the surface at a fine stepover: 5–15 % of the bit\'s width is typical. pattern on its card: lines (at the angle you type), cross (lines both ways) or perimeter (rings from the edge in). it is also the step that shapes a chamfer or round top edge.', tags:'contouring finishing surface curved pattern lines cross perimeter rings angle chamfer round edge' },
             { kind:'op', name:'outline', body:"cuts the part free from the board along its outside edge. usually the last step. add tabs so the part doesn't fly out. it goes 0.3 mm past the board's bottom into the spoilboard (top & bottom › through), so a board a little thicker than typed is still cut free. every pass is full width: the feed on its card is the speed the file runs.", tags:'outline cutout silhouette through spoilboard skin feed' },
             { kind:'op', name:'pocket', body:'clears flat-bottomed hollows: trays, recesses, a sunk hole. pick the floor face and swarf clears down to it, inside its walls. a flat part has no floor to pick: the card\'s pocket in tex button opens tex with inlay picked, where you drag the shape and type the depth.', tags:'pocket cavity tray depth recess flat inlay' },
             { kind:'param', name:'stepover', body:'how far the bit moves sideways between passes, as a share of its width: the step card says 40 % of bit. swarf starts wood, foam and plastic at 30–45 %. wider cuts faster and works the bit harder.', tags:'stepover sideways pass spacing percent of bit' },
@@ -1651,9 +1666,9 @@ function setup_keybd_nav() {
             const ASKED = { 'carving words': 'text words letters sign', 'material': 'plywood wood mdf acrylic',
                 'import a part': 'too big wrong size 25.4 tiny huge', 'inches': 'too big wrong size 25.4',
                 'feeds and speeds': 'burn burns burning burnt tearout tear-out grain fuzzy', 'right-click': 'two sides flip turn over back side',
-                'bits': 'broken snapped dull' };
+                'bits': 'broken snapped dull', 'step-down': 'deep', 'contour': 'rings' };
             const askedOf = e => ` ${ASKED[e.name] || ''} `;
-            // a name match beats a also-asked match beats a tag match beats a body match ("tex" never lists
+            // a name match beats an also-asked match beats a tag match beats a body match ("tex" never lists
             // draw first, "tab" table corners); whole words before parts of words; ties keep the index's order.
             // An advanced-only entry gives way to a student's tag match ("first"
             // gives the quick start before depth first) unless its name is the whole query

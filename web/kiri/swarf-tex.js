@@ -1365,7 +1365,9 @@
   // the marks and the steps, as they are on the parts and in cam: one undo step either side of done
   function texSnap(parts) {
     const a = api();
-    return { parts: parts.map(w => ({ w, tex: w.meta && w.meta.tex ? clone(w.meta.tex) : undefined })), ops: clone(a.conf.get().process.ops || []) };
+    // each step is kept as itself with its values: put back, it is the same step the other undo
+    // entries (a step added, deleted, a number typed on its card) hold
+    return { parts: parts.map(w => ({ w, tex: w.meta && w.meta.tex ? clone(w.meta.tex) : undefined })), ops: (a.conf.get().process.ops || []).map(op => ({ op, was: clone(op) })) };
   }
   function texPut(snap) {
     const a = api();
@@ -1374,7 +1376,10 @@
       if (tex) w.meta.tex = clone(tex); else delete w.meta.tex;
       if (w.saveState) w.saveState(() => {});
     }
-    a.conf.get().process.ops = clone(snap.ops);
+    a.conf.get().process.ops = snap.ops.map(({ op, was }) => {
+      for (const k of Object.keys(op)) if (!(k in was)) delete op[k];
+      return Object.assign(op, clone(was));
+    });
     a.conf.save();
     a.event.emit('cam.op.render');
     // an inlay's plug follows its mark back and forth
@@ -1387,7 +1392,8 @@
     const done = commit1();
     if (before && before.parts.length) {
       const after = texSnap(before.parts.map(s => s.w));
-      if (JSON.stringify([after.parts.map(s => s.tex), after.ops]) !== JSON.stringify([before.parts.map(s => s.tex), before.ops])) {
+      const sig = snap => JSON.stringify([snap.parts.map(s => s.tex), snap.ops.map(o => o.was)]);
+      if (sig(after) !== sig(before)) {
         a.doit.push(() => texPut(before), () => texPut(after), { undo: 'tex marks: undone', redo: 'tex marks: back' });
       }
     }

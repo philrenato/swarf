@@ -114,6 +114,33 @@ try {
   await page.evaluate(t => window.__swarfRun.loadProgram('corner.sbp', t, 'file'), corner); await wait(500);
   const z6 = await zero(); delete z6.text;
   check(/X Y and Z.*X Y at the front-left corner.*Z with the end 1\/4/.test(z6.offer), `a corner file is, and the button says where and with which bit ("${z6.offer.slice(0, 160)}")`);
+
+  // the bed emptied in cam: control lets the job go (its moves are not held); the zero is the board's,
+  // so it is offered back with one press when the part returns
+  await toCam();
+  await page.evaluate(() => { const a = window.kiri.api; a.platform.clear(); a.conf.get().process.ops = []; a.conf.save(); a.platform.load_svg('<svg xmlns="http://www.w3.org/2000/svg" width="100mm" height="60mm" viewBox="0 0 100 60"><rect width="100" height="60"/></svg>', 'plate', { depth: 6, resolution: 2, segmin: 48, soup: true, dpi: 0 }); });
+  await wait(800);
+  await page.evaluate(() => { const el = Array.from(document.getElementById('op-add-list').children).find(c => c.innerText.trim().toLowerCase() === 'outline'); el?.dispatchEvent(new MouseEvent('click', { bubbles: true })); });
+  await wait(400);
+  check(await paths() === 'ok', 'toolpaths for the part to delete');
+  await toControl();
+  await page.evaluate(() => { window.__swarfRun.state.machine.timeScale = 50; });
+  await btn('zero x y'); await btn('zero z'); await wait(300);
+  const z7 = await zero(); delete z7.text;
+  await toCam();
+  await page.evaluate(() => { const a = window.kiri.api; a.view.set_arrange(); a.platform.delete(a.widgets.all().slice()); });
+  await wait(500);
+  const held = await page.evaluate(() => ({ prog: !!window.__swarfRun.state.prog, parts: window.kiri.api.widgets.all().length }));
+  check(z7.xy && z7.z && !held.prog && !held.parts, `the last part deleted: control holds no job (zeroed ${z7.xy}/${z7.z}, ${JSON.stringify(held)})`);
+  await page.evaluate(() => window.kiri.api.doit.undo());
+  await wait(800);
+  check(await paths() === 'ok', 'undo brings the part back: toolpaths');
+  await toControl();
+  const z8 = await zero(); delete z8.text;
+  check(!z8.xy && !z8.z && /X Y and Z/.test(z8.offer), `back in control the zero is offered, not assumed ("${z8.offer.slice(0, 80)}")`);
+  await page.evaluate(() => document.querySelector('#swarf-run .sr-keepzero').click()); await wait(400);
+  const z9 = await zero(); delete z9.text;
+  check(z9.xy && z9.z, `one press brings it back (${JSON.stringify(z9)})`);
   check(!errors.length, `no page errors ${errors.slice(0, 3).join(' | ')}`);
 } finally {
   await browser.close();

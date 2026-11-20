@@ -146,6 +146,20 @@ try {
   await round('add contour', /chamfer edge and no contour step/, 'add contour');
   const order = await page.evaluate(() => window.kiri.api.conf.get().process.ops.filter(o => o && !o.disabled).map(o => o.type).join(','));
   check(/contour,.*outline/.test(order), `the contour step goes in before the outline (${order})`);
+  // the press is one undo step, and redo puts the step back in its place
+  const types = () => page.evaluate(() => window.kiri.api.conf.get().process.ops.filter(o => o && o.type !== '|').map(o => o.type).join(','));
+  await undo(); await wait(500);
+  await page.evaluate(() => window.kiri.api.doit.clear());
+  await press(/chamfer edge and no contour step/);
+  await wait(700);
+  await undo(); await wait(500);
+  const took = await types();
+  await undo(); await wait(300);
+  const second = await page.evaluate(() => document.body.innerText);
+  await redo(); await wait(500);
+  const again = await types();
+  check(!/contour/.test(took) && /nothing to undo/.test(second) && !/contour step: taken back/.test(second) && /contour,.*outline/.test(again) && again.split('contour').length === 2,
+    `add contour is one undo step; redo puts it back before the outline, once (after undo: ${took}; after redo: ${again})`);
 
   // a concern that needs the student's value has no button
   await page.evaluate(() => { const a = window.kiri.api, o = a.conf.get().process.ops.find(o => o.type === 'outline'); o.down = 12; a.conf.save(); });

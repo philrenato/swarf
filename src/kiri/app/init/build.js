@@ -13,6 +13,8 @@ function sayAdded() {
     const say = () => {
         if (!added) return;
         added = false;
+        // toolpaths refused that time, and the step taken out since: nothing to say
+        if (!(env.current?.process?.ops || []).some(op => op && op.swarfAdded)) return;
         api.show.alert('No step yet, so swarf added rough. For a flat part, outline is quicker.', 8);
     };
     api.event.on('preview.end', say);

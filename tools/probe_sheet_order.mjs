@@ -55,7 +55,8 @@ try {
     const low = Math.min(...f.parsed.moves.filter(m => m.rapid && Math.hypot(m.x - m.x0, m.y - m.y0) > 1).map(m => Math.min(m.z, m.z0)));
     check(!f.across && low >= 0, `${order}: every rapid across clears the tallest part (lowest Z ${low.toFixed(2)}, highest ${hi.toFixed(2)})`);
     const min = Math.min(...f.parsed.moves.map(m => m.z));
-    check(min < -18.9 && min > -19.1, `${order}: both still cut to the bed (deepest ${min.toFixed(2)})`);
+    // the board's 19 mm and the outline's 0.3 mm through
+    check(min < -19.2 && min > -19.4, `${order}: both still cut to the bed, 0.3 mm into it (deepest ${min.toFixed(2)})`);
   }
 
   // F4: a pocket with no floor, on another bit: nothing of it in the file
@@ -100,6 +101,18 @@ try {
     check(/bigger than the ShopBot's bed: .*cannot cut it/.test(r.said) && !r.card && !r.paths, `${id} refuses a part bigger than the bed (${JSON.stringify(r).slice(0, 160)})`);
   }
   await page.keyboard.press('Escape'); await page.evaluate(() => window.kiri.api.modal.hide()); await wait(400);
+  // refused with no step: the rough swarf put in is never announced later, over another job's toolpaths
+  await fresh();
+  await part(rect(2600, 300), 'long', 12);
+  await page.evaluate(() => document.getElementById('act-paths').click()); await wait(1500);
+  const putIn = await page.evaluate(() => window.kiri.api.conf.get().process.ops.some(o => o.swarfAdded));
+  await fresh();
+  await part(rect(200, 100), 'small', 12);
+  await add('outline', { tool: 'end 1/4', inside: false });
+  const later = await page.evaluate(() => new Promise(res => { const a = window.kiri.api, was = a.show.alert; let said = ''; a.show.alert = (t, ...x) => { said += String(t) + ' '; return was(t, ...x); };
+    a.event.on('preview.end', () => setTimeout(() => { a.show.alert = was; res(said); }, 600)); document.getElementById('act-paths').click(); setTimeout(() => res('timeout'), 60000); }));
+  check(putIn && later !== 'timeout' && !/added rough/.test(later), `a rough added to a refused job is not announced on a later job (${putIn}; "${later.slice(0, 80)}")`);
+  await page.evaluate(() => document.getElementById('act-clear').click()); await wait(600);
 
   // m6: everything left out
   await fresh();
