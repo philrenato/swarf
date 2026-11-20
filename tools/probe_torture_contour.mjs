@@ -79,15 +79,13 @@ for (const step of [0.05, 1.2, 3]) {
   add(`pit contour e18 lines 45 step ${step}`, 'pit', [{ type: 'contour', tool: T.e18, set: { pattern: 'lines', lineAngle: 45, step } }]);
   add(`pit contour b14 perimeter step ${step}`, 'pit', [{ type: 'contour', tool: T.b14, set: { pattern: 'perimeter', step } }]);
 }
-// a part smaller than the bit is rastered as finely as a big one (cells a few microns across), and
-// a bit's profile is then hundreds of thousands of cells: a 1/4 in bit at an angle or in rings takes
-// minutes there, so the angles and rings go with the 1/16 in bit, the 1/4 in ball and V along X
+// a part smaller than the bit: angled lines and rings sample a grid no finer than a hundredth of
+// the bit, so every bit finishes in seconds there
 for (const w of ['lines 0', 'lines 45', 'perimeter', 'perimeter inside']) {
   const [pattern, a] = w.split(' ');
-  add(`tiny contour e116 ${w}`, 'tiny', [{ type: 'contour', tool: T.e116, set: { pattern, lineAngle: +a || 0, inside: /inside/.test(w) } }]);
+  for (const t of ['e116', 'b14', 'v90'])
+    add(`tiny contour ${t} ${w}`, 'tiny', [{ type: 'contour', tool: T[t], set: { pattern, lineAngle: +a || 0, inside: /inside/.test(w) } }]);
 }
-add('tiny contour b14 lines 0', 'tiny', [{ type: 'contour', tool: T.b14, set: { pattern: 'lines', lineAngle: 0 } }]);
-add('tiny contour v90 lines 0', 'tiny', [{ type: 'contour', tool: T.v90, set: { pattern: 'lines', lineAngle: 0 } }]);
 add('panel contour b14 lines 150', 'panel', [{ type: 'contour', tool: T.b14, set: { pattern: 'lines', lineAngle: 150 } }]);
 // tabs left by a rough, ridden over by every pattern
 for (const w of ['lines 45', 'cross 20', 'perimeter'])
@@ -193,7 +191,8 @@ async function runCase(c) {
     // inside the part and a bit (inside only: the bit's centre on the part)
     if (isContourOnly && setup.tool) {
       // over the edge the contour's clip is the part grown by the bit's radius and three raster cells
-      const res = Math.max(0.05, 1 / Math.sqrt(500000 / (setup.box.x * setup.box.y)));
+      // (angled lines and rings: the grid is no finer than a hundredth of the bit)
+      const res = Math.max(0.05, 1 / Math.sqrt(500000 / (setup.box.x * setup.box.y)), setup.tool.d / 100);
       const R = setup.tool.d / 2, m0 = setup.inside ? 0.05 : R + 3 * res + 0.1;
       const out = cuts.find(m => m.x < -m0 || m.y < -m0 || m.x > setup.box.x + m0 || m.y > setup.box.y + m0);
       ok.push(check(!out, `${c.name}: the cut within the part${setup.inside ? '' : ' and a bit'}`, out && { x: out.x, y: out.y, line: out.line }));
@@ -202,7 +201,8 @@ async function runCase(c) {
     // bit's own shape, allowing the contour's raster (its cell sideways, read at a cell corner)
     if (setup.tool && isContourOnly) {
       const { type, d, len, tip } = setup.tool, R = d / 2;
-      const res = Math.max(0.05, 1 / Math.sqrt(500000 / (setup.box.x * setup.box.y)));
+      // (angled lines and rings: the grid is no finer than a hundredth of the bit)
+      const res = Math.max(0.05, 1 / Math.sqrt(500000 / (setup.box.x * setup.box.y)), setup.tool.d / 100);
       const slack = 2 * res + 0.05;
       const zoff = dist => type === 'ballmill' ? Math.sqrt(Math.max(0, R * R - dist * dist)) - R
         : (type === 'tapermill' && dist > tip / 2) ? -((dist - tip / 2) / (R - tip / 2)) * len : 0;

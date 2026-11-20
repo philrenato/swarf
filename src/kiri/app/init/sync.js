@@ -1079,7 +1079,7 @@ function setup_keybd_nav() {
                         });
                     }
                     // swarf: values that make a dangerous cut (each one said)
-                    if (op.down != null && ['rough', 'outline', 'pocket', 'contour'].includes(op.type) && !(op.down > 0)) {
+                    if (op.down != null && ['rough', 'outline', 'pocket', 'contour', 'texture', 'pierce', 'inlay', 'vcarve'].includes(op.type) && !(op.down > 0)) {
                         warnings.push({
                             title: `${op.type} step-down is ${op.down}`,
                             body: 'a step-down of zero or less cuts the whole depth in one pass, or nothing at all.',
