@@ -1989,6 +1989,7 @@ html[data-skin] #swarf-run .sr-jog .sr-zrow button.next, html[data-skin] #swarf-
       return { warn: true, text: deep > mm ? `${mine}: ${made}. The cut goes ${len(deep, 2)} down from the top, so it would go ${len(deep - mm, 2)} into the spoilboard.` : `${mine}: ${made}. Its deepest cut is ${len(deep, 2)} from the top, so it stays in the board: check this is the board you meant.` };
     }
     if (deep > mm + 1) return { warn: true, text: `${mine}; this file cuts ${len(deep, 2)} down from the top, so it would go ${len(deep - mm, 2)} into the spoilboard.` };
+    if (deep > mm + 0.05) return { warn: false, text: `${mine}; this file cuts ${len(deep, 2)} down from the top: through the board and ${len(deep - mm, 2)} into the spoilboard.` };
     return { warn: false, text: `${mine}; this file cuts ${len(deep, 2)} down from the top, which stays in the board.` };
   }
 

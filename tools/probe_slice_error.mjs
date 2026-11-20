@@ -42,6 +42,20 @@ try {
   check(!r.seen.includes('preview.end') && !r.seen.includes('slice.end'), 'no slice or preview is said to have ended');
   check(r.seen.includes('preview.error'), 'the export waiting on it hears preview.error');
   check(r.called === 'never', `no file with no cuts is handed over (${r.called})`);
+  // a contour step with a stepover of 0 (a project saved with one): the slice fails, it does not lay
+  // passes without end
+  const c0 = await page.evaluate(() => new Promise(res => {
+    const a = window.kiri.api, seen = [];
+    for (const ev of ['slice.error', 'preview.end', 'preview.error']) a.event.on(ev, () => seen.push(ev));
+    for (const o of a.conf.get().process.ops) if (o && o.type === 'rough') { o.type = 'contour'; o.axis = 'X'; o.pattern = 'lines'; o.lineAngle = 45; o.step = 0; o.down = 3; }
+    a.function.clear_progress();
+    let called = null;
+    const t0 = Date.now(), t = setInterval(() => { if (seen.includes('preview.error') || Date.now() - t0 > 30000) { clearInterval(t); res({ seen, ms: Date.now() - t0, called: called === null ? 'never' : 'a file' }); } }, 200);
+    a.function.export(text => { called = text; });
+  }));
+  console.log('   ', JSON.stringify(c0));
+  check(c0.seen.includes('slice.error') && c0.seen.includes('preview.error') && c0.ms < 30000, `a contour with a stepover of 0 fails at once (${c0.ms} ms)`);
+  check(c0.called === 'never' && !c0.seen.includes('preview.end'), 'and hands over no file');
   check(!errors.length, `no page errors (${errors.slice(0, 3).join(' | ')})`);
 } finally {
   await browser.close();

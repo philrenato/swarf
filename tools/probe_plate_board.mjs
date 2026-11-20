@@ -101,6 +101,10 @@ try {
   await typed('15');
   s = await say();
   check(s && !s.warn && /stays in the board/.test(s.text), `a 15 mm board holds it, nothing to warn of: "${s?.text}"`);
+  // a board the file goes just through (an outline's 0.3 mm): said as through, not as staying in
+  await typed('9.7');
+  s = await say();
+  check(s && !s.warn && /through the board and 0\.3\d* mm into the spoilboard/.test(s.text) && !/stays in/.test(s.text), `a 9.7 mm board is cut through by 0.3: "${s?.text}"`);
   check(!errors.length, `no page errors: ${errors.slice(0, 3).join(' | ')}`);
 } catch (e) { check(false, `the probe stopped: ${e.message}`); }
 await browser.close();

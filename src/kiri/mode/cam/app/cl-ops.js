@@ -3,7 +3,7 @@
 import { $, h } from '../../../../moto/webui.js';
 import { api } from '../../../app/api.js';
 import { env, opRender } from './init-ui.js';
-import { Tool } from '../core/tool.js';
+import { Tool, shopDefaultBit } from '../core/tool.js';
 import { opFlip } from './cl-flip.js';
 import { selectHoles } from './cl-hole.js';
 import { selectHelical } from './cl-helical.js';
@@ -23,16 +23,6 @@ let seed = Date.now();
 
 function hasIndexing() {
     return env.isIndexed;
-}
-
-// swarf: the library's plain flat 1/4 in, a new step's bit until one is picked
-const PLAIN_QUARTER = 1000;
-// on the ShopBot a new step starts on the shop's 1/4 in up-cut (its feeds are the shop's own) where it
-// would have started on the plain 1/4. Other machines keep their own default.
-export function shopDefaultBit(toolId, settings = api.conf.get()) {
-    if (toolId != PLAIN_QUARTER || !/shopbot/i.test(settings.device?.deviceName || '')) return toolId;
-    const up = (settings.tools || []).find(t => t.swarf && t.swarf.part === '52-910');
-    return up ? up.id : toolId;
 }
 
 // on the ShopBot the bit list opens on the shop's own bits (those with the shop's numbers), "in the
@@ -163,7 +153,7 @@ export function createPopOp(type, map) {
                     ? env.current.process[src.replace('~', '')]
                     : src;
             }
-            if (rec.tool !== undefined) rec.tool = shopDefaultBit(rec.tool);
+            if (rec.tool !== undefined) rec.tool = shopDefaultBit(rec.tool, api.conf.get());
             return rec;
         },
         hideshow: () => {

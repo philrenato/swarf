@@ -58,4 +58,14 @@ assert.equal(derive(hw, 6.35, { ...mr1, endFlutes: 0 }, em).feed, 800, 'at 2 flu
 const cb = derive(hw, 6.35, mr1, { ...em, swarf: { cutter: 'carbide' } });
 assert.ok(cb.spindle > derive(hw, 6.35, mr1, em).spindle && cb.spindle <= 8000 && cb.feed <= 2540, `carbide start ${cb.spindle} rpm ${cb.feed} mm/min`);
 assert.equal(derive(hw, 6.35, lim).feed >= 1500, true, 'the ShopBot keeps its floor');
+// a new step's bit: on the ShopBot the plain 1/4 in becomes the shop's 1/4 in up-cut, in the app and in
+// the rough the engine adds itself; another bit, or another machine, stays as it is
+const { shopDefaultBit } = await import('../src/kiri/mode/cam/core/tool.js');
+const sb = { device: { deviceName: 'ShopBot.Basic' }, tools }, mill = { device: { deviceName: 'Langmuir.MR-1' }, tools };
+assert.equal(shopDefaultBit(1000, sb), up.id, 'ShopBot: the plain 1/4 becomes the up-cut');
+assert.equal(shopDefaultBit('1000', sb), up.id, 'the same when the id comes as text');
+assert.equal(shopDefaultBit(1001, sb), 1001, 'ShopBot: another bit stays');
+assert.equal(shopDefaultBit(1000, mill), 1000, 'the MR-1 keeps the plain 1/4');
+assert.equal(shopDefaultBit(1000, { device: { deviceName: 'ShopBot.Basic' }, tools: tools.filter(t => t !== up) }), 1000, 'no up-cut in the list: the plain 1/4 stays');
+assert.equal(shopDefaultBit(1000, {}), 1000, 'no machine yet: unchanged');
 console.log('shop bits: ok');

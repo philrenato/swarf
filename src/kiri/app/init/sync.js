@@ -1315,6 +1315,30 @@ function setup_keybd_nav() {
                         hint: 'use a longer bit, or a thinner board' });
                 }
             } catch (e) { /* no tools yet */ }
+            // a contour rolls half a bit past the part's edge and down to its bottom there (topo3.js).
+            // With no rough or cut-out outline before it, the wood beside the part is still whole, and
+            // that is one pass at the board's full depth
+            try {
+                const { process: proc, tools } = api.conf.get();
+                const ops = (proc.ops || []).filter(o => o && !o.disabled && o.type && o.type !== '|');
+                const parts = api.widgets.all().filter(w => !w.track.synth && !w.meta.disabled);
+                const thick = Math.max(0, ...parts.map(w => { const b = w.getBoundingBox(); return b.max.z - b.min.z; }));
+                // a part that fills the board has no wood beside it
+                const bo = api.conf.get().bounds;
+                const fills = proc.swarfBoardOn && bo && !bo.isEmpty() && bo.max.x - bo.min.x > proc.swarfBoardX - 1 && bo.max.y - bo.min.y > proc.swarfBoardY - 1;
+                ops.forEach((o, i) => {
+                    if (o.type !== 'contour' || o.inside || fills) return;
+                    if (ops.slice(0, i).some(q => q.type === 'rough' || (q.type === 'outline' && (q.outside || !q.inside)))) return;
+                    const t = (tools || []).find(x => x.id == o.tool);
+                    const deep = thick - (o.bottom && proc.camZBottom > 0 ? proc.camZBottom : 0);
+                    if (!t || !(deep > t.flute_diam * (t.metric ? 1 : 25.4))) return;
+                    warnings.push({
+                        title: `the contour goes ${len(deep)} deep beside the part in one pass`,
+                        body: 'no step before it clears the wood round the part, and a contour runs down the part\'s side to its bottom.',
+                        hint: 'put rough before the contour (it clears round the part), or tick inside only on the contour',
+                        help: 'why rough before contour' });
+                });
+            } catch (e) { /* no tools yet */ }
             // flip's own moves are not in the file: turning the part is the student's
             try {
                 if ((api.conf.get().process.ops || []).some(o => o && o.type === 'flip' && !o.disabled)) warnings.push({

@@ -7,6 +7,7 @@
 //   no deeper than the board and a little (2 mm), no higher than 60 mm
 //   the cut no wider than the part and two bits (the bit's path around a sharp corner) and a little
 //   an outline or rough that frees the part: reaches the bottom; with tabs it lifts at least once per tab
+//   contour rings: from the edge in, clockwise (climb)
 // A case whose part a bit cannot cut (a 2 mm wall, a 1/2 in bit in an 8 mm circle) must still make a
 // file or say why; a hang, an error or a dangerous file fails.
 //   node tools/probe_toolpath_torture.mjs [url] [filter]     (STL=path,... adds files; OUT=dir keeps files)
@@ -94,6 +95,9 @@ for (const edge of ['chamfer', 'round']) for (const [k, kind, v] of [['rounded',
   add(`${k} ${edge} edge outline e14 tabs`, { shape: kind, v, edge: { kind: edge, size: 4 } }, [{ type: 'outline', tool: T.e14 }], { tabs: 'auto' });
   add(`${k} ${edge} edge rough e12 tabs:most`, { shape: kind, v, edge: { kind: edge, size: 4 } }, [{ type: 'rough', tool: T.e12 }], { tabs: 'most' });
 }
+// the step a shaped edge asks for (concerns › add contour): contour, then the outline that cuts it out
+for (const [w, set] of [['lines', {}], ['perimeter', { pattern: 'perimeter' }]])
+  add(`rounded chamfer edge contour b14 ${w} + outline e14 tabs`, { shape: 'rounded', v: { w: 150, h: 100, r: 10 }, edge: { kind: 'chamfer', size: 4 } }, [{ type: 'contour', tool: T.b14, set }, { type: 'outline', tool: T.e14 }], { tabs: 'auto' });
 // a flat ring: perimeter rings go round the hole too, so the top beside the hole is cut
 for (const inside of [false, true]) add(`ring contour b14 perimeter${inside ? ' inside' : ''}`, { shape: 'ring', v: { d: 85.6, di: 50 } }, [{ type: 'contour', tool: T.b14, set: { pattern: 'perimeter', inside } }], { expectFree: false, dir: 'any', cover: [26, 30] });
 add('ring contour b14 lines 45', { shape: 'ring', v: { d: 85.6, di: 50 } }, [{ type: 'contour', tool: T.b14, set: { pattern: 'lines', lineAngle: 45 } }], { expectFree: false, dir: 45 });
@@ -228,6 +232,15 @@ async function runCase(c) {
     // a contour finishes the top: it never goes below the board (the other steps may cut a little through)
     const contourOnly = c.ops.every(q => q.type === 'contour');
     ok.push(check(r.minZ >= -(board + (contourOnly ? 0.05 : 2.01)), `${c.name}: no deeper than the board (${board.toFixed(1)})${contourOnly ? '' : ' + 2'}`, r.minZ));
+    // a contour over the edge with nothing before it to clear round the part goes the board's depth
+    // beside it in one pass: concerns say so; after a rough or a cut-out outline they do not
+    {
+      const at = c.ops.findIndex(q => q.type === 'contour' && !(q.set && q.set.inside));
+      const cleared = at > 0 && c.ops.slice(0, at).some(q => q.type === 'rough' || (q.type === 'outline' && !q.inside));
+      const said = concerns.some(t => /deep beside the part in one pass/.test(t));
+      if (at >= 0 && cleared) ok.push(check(!said, `${c.name}: no one-pass concern for a contour after the wood is cleared`, concerns));
+      else if (at >= 0 && board > setup.dia + 0.5) ok.push(check(said, `${c.name}: concerns say the contour goes the board's depth beside the part in one pass`, concerns));
+    }
     // with tabs and a contour, nothing cuts into a tab: a cut whose centre is over a tab stays at its top
     // (a single part at the front-left zero: the file's 0, 0 is the part's corner, its bottom at -board)
     if (setup.tabList.length && c.ops.some(q => q.type === 'contour')) {
@@ -265,6 +278,26 @@ async function runCase(c) {
       else { const top = hist.map((_, a) => near(a)).reduce((b, v, a, all) => v > all[b] ? a : b, 0); got = [near(top), near((top + 90) % 180)].map(v => +v.toFixed(2)); want = got[1] >= 0.2; }
       r.dirShare = got;
       ok.push(check(want, `${c.name}: the cuts run ${typeof c.dir === 'number' ? `at ${c.dir}°` : c.dir === 'rings' ? 'round with the edge (rings)' : `both ways (${c.dir})`}`, got));
+    }
+    // rings on a part with no hole: cut from the edge in, clockwise all the way (climb), never from
+    // the middle out or a ring run backward
+    if (c.dir === 'rings' && cb) {
+      const mx = (cb.min.x + cb.max.x) / 2, my = (cb.min.y + cb.max.y) / 2;
+      const side = cuts.filter(m => Math.hypot(m.x - m.x0, m.y - m.y0) > 0.01);
+      const total = side.reduce((t, m) => t + Math.hypot(m.x - m.x0, m.y - m.y0), 0);
+      const fromEdge = m => Math.min(m.x - cb.min.x, cb.max.x - m.x, m.y - cb.min.y, cb.max.y - m.y);
+      let turn = 0, all = 0, run = 0, early = [0, 0], late = [0, 0];
+      for (const m of side) {
+        const sw = (m.x0 - mx) * (m.y - my) - (m.x - mx) * (m.y0 - my), l = Math.hypot(m.x - m.x0, m.y - m.y0);
+        turn += sw; all += Math.abs(sw);
+        if (run < total * 0.1) { early[0] += fromEdge(m) * l; early[1] += l; }
+        if (run > total * 0.9) { late[0] += fromEdge(m) * l; late[1] += l; }
+        run += l;
+      }
+      r.ringTurn = all ? +(turn / all).toFixed(2) : 0;
+      ok.push(check(r.ringTurn <= -0.8, `${c.name}: the rings run clockwise (climb), none backward`, r.ringTurn));
+      const e = early[1] ? early[0] / early[1] : 0, l = late[1] ? late[0] / late[1] : 0;
+      ok.push(check(e < l, `${c.name}: the rings run from the edge in`, { firstTenth: +e.toFixed(1), lastTenth: +l.toFixed(1) }));
     }
     if (cb) ok.push(check(r.cut.x <= setup.box.x + 2 * setup.dia + 2.5 && r.cut.y <= setup.box.y + 2 * setup.dia + 2.5, `${c.name}: the cut no wider than the part and two bits (a sharp corner's miter)`, { cut: r.cut, box: setup.box, dia: setup.dia }));
     if (c.expectFree && cb && cuts.length) {

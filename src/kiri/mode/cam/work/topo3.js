@@ -81,6 +81,11 @@ export class Topo {
             gridDelta = Math.floor(partOff / resolution),
             debug_clips = true;
 
+        // swarf: a stepover of 0 (a file saved with one) would lay passes without end
+        if (!(toolStep > 0)) {
+            throw 'contour: the stepover must be more than 0';
+        }
+
         if (contour.clipto) {
             let { stock } = settings;
             let { center, x, y } = stock;
@@ -561,23 +566,31 @@ export class Topo {
     // swarf: rings in from the clip outline, each offset's outlines and holes, the outermost first.
     // A ring runs all the way round, then on along itself while it eases in to the ring inside, and
     // that ring starts where the ease ends: the step-ins spiral round the part instead of lining up.
+    // The paths are returned in cutting order and are cut as they run (op-contour.js prepare).
     ringPaths(clipTo, resolution, toolStep) {
         const levels = [];
         let ring = POLY.expand(clipTo, -resolution);
         for (let n = 0; ring && ring.length && n < 100000; n++) {
             const level = [];
-            for (const poly of POLY.flatten(ring.map(r => r.clone(true)))) {
+            // an outline runs clockwise and a hole's ring counterclockwise, so the surface still to
+            // cut is on the bit's right all the way (climb)
+            const add = (poly, hole) => {
                 const pts = poly.points.map(q => [q.x, q.y]);
-                if (pts.length < 3) continue;
+                if (pts.length < 3) return;
                 let area = 0;
                 for (let i = 0; i < pts.length; i++) {
                     const [x0, y0] = pts[i], [x1, y1] = pts[(i + 1) % pts.length];
                     area += x0 * y1 - x1 * y0;
                 }
-                level.push({ pts, ccw: area > 0, start: 0 });
+                if (area > 0 !== hole) pts.reverse();
+                level.push({ pts, hole, start: 0 });
+            };
+            for (const poly of ring) {
+                add(poly, false);
+                for (const inner of poly.inner || []) add(inner, true);
             }
             levels.push(level);
-            ring = POLY.expand(ring, -toolStep);
+            ring = toolStep > 0 ? POLY.expand(ring, -toolStep) : null;
         }
         const ease = Math.max(toolStep * 8, 4);
         // the point on a loop nearest (x, y), as [segment index, t, distance]
@@ -597,45 +610,52 @@ export class Topo {
             return [ax + (bx - ax) * t, ay + (by - ay) * t];
         };
         const out = [];
+        // one ring's path; returns the ring of the next level its ease lands on, if any
+        const cut = (loop, n) => {
+            loop.done = true;
+            // the loop from its start round to its start again
+            const pts = loop.pts.slice(loop.start).concat(loop.pts.slice(0, loop.start));
+            const path = [...pts, pts[0]];
+            out.push(path);
+            // on along the loop for the ease, drifting in to the nearest loop of the next level
+            const head = [];
+            let walked = 0;
+            for (let i = 1; i <= pts.length && walked < ease; i++) {
+                const [x0, y0] = pts[i - 1], [x1, y1] = pts[i % pts.length];
+                const len = Math.hypot(x1 - x0, y1 - y0);
+                const k = Math.max(1, Math.ceil(len / Math.max(resolution, 0.1)));
+                for (let j = 1; j <= k && walked < ease; j++) {
+                    walked += len / k;
+                    head.push([x0 + (x1 - x0) * j / k, y0 + (y1 - y0) * j / k, walked]);
+                }
+            }
+            if (head.length < 2 || !(walked > 0)) return null;
+            const [ex, ey] = head[head.length - 1];
+            let into = null, hit;
+            for (const cand of levels[n + 1] || []) {
+                if (cand.done || cand.hole !== loop.hole) continue;
+                const h = nearest(cand.pts, ex, ey);
+                if (h[2] <= toolStep * 1.6 && (!hit || h[2] < hit[2])) { into = cand; hit = h; }
+            }
+            if (!into) return null;
+            for (const [x, y, w] of head) {
+                const [i, t] = nearest(into.pts, x, y);
+                const [qx, qy] = at(into.pts, i, t), f = w / walked;
+                path.push([x + (qx - x) * f, y + (qy - y) * f]);
+            }
+            // the next loop starts where the ease lands
+            const [i, t] = hit;
+            if (t < 1e-6) into.start = i;
+            else if (t > 1 - 1e-6) into.start = (i + 1) % into.pts.length;
+            else { into.pts.splice(i + 1, 0, at(into.pts, i, t)); into.start = i + 1; }
+            return into;
+        };
+        // each ring is followed through the rings it eases into, so the paths come out in the order
+        // they are cut: one run of rings level by level (an outline's inward, a hole's outward), then
+        // the next run
         for (let n = 0; n < levels.length; n++) {
-            for (const loop of levels[n]) {
-                // the loop from its start round to its start again
-                const pts = loop.pts.slice(loop.start).concat(loop.pts.slice(0, loop.start));
-                const path = [...pts, pts[0]];
-                // on along the loop for the ease, drifting in to the nearest loop of the next level
-                const next = levels[n + 1] || [];
-                const head = [];
-                let walked = 0;
-                for (let i = 1; i <= pts.length && walked < ease; i++) {
-                    const [x0, y0] = pts[i - 1], [x1, y1] = pts[i % pts.length];
-                    const len = Math.hypot(x1 - x0, y1 - y0);
-                    const k = Math.max(1, Math.ceil(len / Math.max(resolution, 0.1)));
-                    for (let j = 1; j <= k && walked < ease; j++) {
-                        walked += len / k;
-                        head.push([x0 + (x1 - x0) * j / k, y0 + (y1 - y0) * j / k, walked]);
-                    }
-                }
-                const [ex, ey] = head.length ? head[head.length - 1] : pts[0];
-                let into = null, hit;
-                for (const cand of next) {
-                    if (cand.taken || cand.ccw !== loop.ccw) continue;
-                    const h = nearest(cand.pts, ex, ey);
-                    if (h[2] <= toolStep * 1.6 && (!hit || h[2] < hit[2])) { into = cand; hit = h; }
-                }
-                if (into && head.length > 1) {
-                    for (const [x, y, w] of head) {
-                        const [i, t] = nearest(into.pts, x, y);
-                        const [qx, qy] = at(into.pts, i, t), f = w / walked;
-                        path.push([x + (qx - x) * f, y + (qy - y) * f]);
-                    }
-                    // the next loop starts where the ease lands
-                    const [i, t] = hit;
-                    if (t < 1e-6) into.start = i;
-                    else if (t > 1 - 1e-6) into.start = (i + 1) % into.pts.length;
-                    else { into.pts.splice(i + 1, 0, at(into.pts, i, t)); into.start = i + 1; }
-                    into.taken = true;
-                }
-                out.push(path);
+            for (const first of levels[n]) {
+                for (let loop = first.done ? null : first, k = n; loop; k++) loop = cut(loop, k);
             }
         }
         return out;

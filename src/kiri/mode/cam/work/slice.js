@@ -8,7 +8,7 @@ import { ops as OPS } from '../core/ops.js';
 import { polygons as POLY } from '../../../../geo/polygons.js';
 import { setSliceTracker } from '../../../core/slice.js';
 import { Slicer as cam_slicer } from './slicer-cam.js';
-import { Tool } from '../core/tool.js';
+import { Tool, shopDefaultBit } from '../core/tool.js';
 import { util } from '../../../../geo/base.js';
 
 // state shared across all widget slicing
@@ -170,18 +170,13 @@ export async function cam_slice(settings, widget, onupdate, ondone) {
     // to know about the operation system to see toolpaths on their part.
     // Also catches the case where ops contains only separators ('|').
     const hasRealOps = proc.ops && proc.ops.some(op => op.type && op.type !== '|');
-    const shopBit = id => {
-        if (id != 1000 || !/shopbot/i.test(settings.device?.deviceName || '')) return id;
-        const up = (settings.tools || []).find(t => t.swarf && t.swarf.part === '52-910');
-        return up ? up.id : id;
-    };
     if (!hasRealOps) {
         // no stock padding — toolpaths trace the part outline (cutout).
         // simulate adds its own thin skin for visual feedback.
         proc.ops = [{
             type: "rough",
-            // on the ShopBot, the shop's 1/4 in up-cut for the plain 1/4 (cl-ops.js shopDefaultBit)
-            tool: shopBit(proc.camRoughTool || 1000),
+            // on the ShopBot, the shop's 1/4 in up-cut for the plain 1/4
+            tool: shopDefaultBit(proc.camRoughTool || 1000, settings),
             direction: proc.camMillDirection || "climb",
             spindle: proc.camRoughSpindle || 1000,
             down: proc.camRoughDown || 2,

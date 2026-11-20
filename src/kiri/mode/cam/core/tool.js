@@ -3,6 +3,17 @@
 const RAD2DEG = 180 / Math.PI;
 const DEG2RAD = Math.PI / 180;
 
+// swarf: the library's plain flat 1/4 in, a new step's bit until one is picked
+const PLAIN_QUARTER = 1000;
+
+// swarf: on the ShopBot a step that would start on the plain 1/4 in starts on the shop's 1/4 in up-cut
+// (its feeds are the shop's own). Other machines keep their own default.
+function shopDefaultBit(toolId, settings) {
+    if (toolId != PLAIN_QUARTER || !/shopbot/i.test(settings.device?.deviceName || '')) return toolId;
+    const up = (settings.tools || []).find(t => t.swarf && t.swarf.part === '52-910');
+    return up ? up.id : toolId;
+}
+
 class Tool {
     constructor(settings, id, number) {
         if (number >= 0) {
@@ -253,5 +264,6 @@ export {
     calcTaperAngle,
     calcTaperBallExtent,
     calcTaperLength,
-    getToolDiameter
+    getToolDiameter,
+    shopDefaultBit
 };

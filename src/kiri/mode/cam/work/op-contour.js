@@ -205,6 +205,16 @@ class OpContour extends CamOp {
             depthData.appendAll(polys);
         }
 
+        // rings are cut in the order and the direction they were made (outside in, each ring easing
+        // into the next): picked by nearest end they would run backward, from the middle out
+        if (op.trace2d && op.trace2d.kind === 'rings') {
+            for (let el of depthData) {
+                polyEmit(el.poly);
+                newLayer();
+            }
+            return;
+        }
+
         tip2tipEmit(depthData, printPoint, (el, point) => {
             let poly = el.poly;
             if (poly.last() === point) {
