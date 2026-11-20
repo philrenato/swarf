@@ -486,18 +486,25 @@ export function autoAudit(widget, opt = {}) {
         loops.forEach((l, i) => { const d = toLoop(r.pos, l); if (d < bd) { bd = d; best = i; } });
         return bd <= (r.dim.x || 0) / 2 + 2 ? best : -1;
     });
-    let outerTabs = 0;
+    let outerTabs = 0, bare = 0;
     const loose = [], holes = [];
     loops.forEach((loop, li) => {
         const depth = loops.reduce((c, other, oi) => c + (oi !== li && inside(loop[0], other) ? 1 : 0), 0);
         const tabs = on.filter(i => i === li).length;
-        if (depth % 2 === 0) { outerTabs += tabs; return; }
         let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
         for (const p of loop) { x0 = Math.min(x0, p.x); y0 = Math.min(y0, p.y); x1 = Math.max(x1, p.x); y1 = Math.max(y1, p.y); }
         const across = Math.min(x1 - x0, y1 - y0);
+        if (depth % 2 === 0) {
+            // every outside piece is cut free on its own: one with no tab is loose, whatever the
+            // others have (a second shape in the drawing). An island in a hole is a piece inside
+            if (depth === 0) { outerTabs += tabs; if (!tabs) bare++; }
+            else if (across >= 3) loose.push({ across: Math.round(across * 10) / 10, tabs, island: true });
+            return;
+        }
         holes.push(Math.round(across * 10) / 10);
         if (across >= holeMin) loose.push({ across: Math.round(across * 10) / 10, tabs });
     });
+    if (bare) outerTabs = 0;
     const out = { outerTabs, loose, holes, holeMin, loops: loops.length };
     audits.set(widget.id, { key, out });
     return out;

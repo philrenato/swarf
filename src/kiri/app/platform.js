@@ -237,15 +237,19 @@ function update_top_z() {
             const bounds = widget.getBoundingBox();
             const wzmax = bounds.max.z;
             const zdelta = process.camZOffset || 0;
+            // swarf: stock sized from the parts (offset) is each part's own, as the slicer reads it:
+            // a part is anchored in its own stock and sits on the bed, never floated in a taller
+            // part's (a thinner part beside a thicker one would be cut short of its bottom)
+            const sz = process.camStockOffset && !widget.isIndexed ? wzmax + (process.camStockZ || 0) : stock.z;
             switch (process.camZAnchor) {
                 case 'top':
-                    widget.setTopZ(stock.z - zdelta, true);
+                    widget.setTopZ(sz - zdelta, true);
                     break;
                 case 'middle':
                     if (widget.isIndexed) {
                         widget.setTopZ(zdelta, true);
                     } else {
-                        widget.setTopZ(stock.z - (stock.z - wzmax) / 2 + zdelta, true);
+                        widget.setTopZ(sz - (sz - wzmax) / 2 + zdelta, true);
                     }
                     break;
                 case 'bottom':
