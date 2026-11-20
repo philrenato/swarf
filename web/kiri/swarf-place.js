@@ -50,7 +50,7 @@
       for (const w of fresh) { const lead = w.group && w.group.length ? w.group[0] : w; if (moved.has(lead)) continue; moved.add(lead); lead.move(dx, dy, 0); }
       try { a.space.auto_save(); } catch (e) { /* no save */ }
       try { window.moto.space.refresh(); } catch (e) { /* no view */ }
-      const name = ([...fresh][0].meta && [...fresh][0].meta.file) || 'the new part';
+      const name = ([...fresh][0].meta && [...fresh][0].meta.file) ? window.kiri.api.platform.part_name([...fresh][0]) : 'the new part';
       try { a.event.alerts(true); a.show.alert(`${name} would have landed on another part, so it sits beside them, ${window.SwarfLength ? SwarfLength.prose(GAP, null, 0) : GAP + ' mm'} clear.`, 7); } catch (e) { /* no alerts */ }
       try { a.reveal && a.reveal([...fresh]); } catch (e) { /* no view */ }
     }, 120);

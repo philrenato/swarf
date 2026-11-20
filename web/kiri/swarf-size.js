@@ -141,7 +141,7 @@
       build();
       // the sentence stays true: each act on the bed rewrites it, and toolpaths clears it
       const said = t => { try { a.event.alerts(true); if (t) a.show.alert(t, 6); } catch (e) { /* no alerts */ } };
-      const nm = w => (w && w.meta && w.meta.file) || 'the part';
+      const nm = w => (w && w.meta && w.meta.file) ? window.kiri.api.platform.part_name(w) : 'the part';
       let resizing = 0;
       a.event.on('selection.scale', () => { clearTimeout(resizing); resizing = setTimeout(() => { const v = AX.map(([b]) => parseFloat(($(`size_${b}`) || {}).value || 0) * scale()); said(`Resized to ${L() && L().unit() === 'in' ? v.map(x => L().say(x).replace(/ in$/, '')).join(' × ') + ' in' : v.map(x => +x.toFixed(2)).join(' × ') + ' mm'}.`); }, 120); });
       a.event.on('widget.duplicate', nw => { if (!window.__swarfCopying) said(`Made a copy, ${nm(nw)}, beside it.`); });
@@ -208,7 +208,7 @@
       if (!on) return { offsets, box, cw, cd, others, W, D };
       blocked = blocked || on;
     }
-    if (blocked) return { why: `It lands on ${(blocked.meta && blocked.meta.file) || 'another part'}: move that part, or ask for fewer.`, box };
+    if (blocked) return { why: `It lands on ${(blocked.meta && blocked.meta.file) ? window.kiri.api.platform.part_name(blocked) : 'another part'}: move that part, or ask for fewer.`, box };
     return { why: 'It runs off the bed from where the part sits: move the part, or ask for fewer.', box };
   }
 
@@ -264,7 +264,7 @@
       if (!go) return;
       const v = read(), p = plan(v.across, v.back, v.gap, picked);
       if (p.why || !p.offsets.length) { if (p.why) a.show.alert(p.why, 7); return; }
-      const name = picked[0].meta && picked[0].meta.file || 'the part';
+      const name = picked[0].meta && picked[0].meta.file ? window.kiri.api.platform.part_name(picked[0]) : 'the part';
       const n = p.offsets.length * picked.length;
       const made = a.selection.copies(p.offsets, { undo: `Took back the ${n === 1 ? 'copy' : `${n} copies`}.`, redo: `The ${n === 1 ? 'copy is' : `${n} copies are`} back.` });
       if (!made.length) return;
