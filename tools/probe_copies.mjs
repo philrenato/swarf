@@ -145,7 +145,8 @@ try {
   // 7: tabs and marks come with each; every copy reaches the file
   await fresh(); await part(rect(100, 60), 'tabbed');
   await page.evaluate(() => [...document.querySelectorAll('#op-add-list > div')].find(d => d.textContent.trim() === 'outline').click()); await wait(500);
-  await page.evaluate(() => { const b = [...document.querySelectorAll('button')].find(b => /^auto tabs$/i.test(b.textContent.trim()) && b.offsetParent); (b || document.getElementById('swarf-autotabs'))?.click(); }); await wait(800);
+  // the button says "auto tabs: place N" when it has a count to offer; its id stays
+  await page.evaluate(() => document.getElementById('swarf-autotabs-go')?.click()); await wait(800);
   await page.evaluate(() => { const w = window.kiri.api.widgets.all()[0]; w.meta.tex = [{ id: 'probe', made: 'probe' }]; }); // the record travels as duplicate's does
   const tabs0 = (await parts())[0].tabs;
   check(tabs0 > 0, `the part has tabs (${tabs0})`);

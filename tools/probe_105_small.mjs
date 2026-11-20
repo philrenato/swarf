@@ -43,6 +43,8 @@ const steps = {
       const L = b => { const c = getComputedStyle(b).backgroundColor.match(/[\d.]+/g).map(Number); const a = c[3] === undefined ? 1 : c[3]; return { lum: 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2], color: getComputedStyle(b).backgroundColor, sat: Math.max(c[0], c[1], c[2]) - Math.min(c[0], c[1], c[2]), a }; };
       const R = {}; for (const k of ['trace', 'air', 'cut']) { const b = document.querySelector(`#swarf-run .sr-actions .${k}`) || [...document.querySelectorAll('#swarf-run .sr-actions button')].find(x => x.textContent.includes(k)); R[k] = b ? { ...L(b), wait: b.classList.contains('wait'), text: b.textContent } : null; }
       return R; });
+    // since 136 neither the zero nor the trace holds cut back; a fault still holds all three (needs())
+    await page.evaluate(() => { const S = window.__swarfRun.state; S.fault = 'a probe fault'; S.machine.set({ note: 'probe fault' }); }); await wait(500);
     const skin0 = await page.evaluate(() => document.documentElement.getAttribute('data-skin'));
     for (const skin of ['', 'glass', 'classic']) {
       if (skin) await page.evaluate(s => { document.documentElement.setAttribute('data-skin', s); }, skin);

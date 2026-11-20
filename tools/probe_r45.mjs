@@ -80,7 +80,8 @@ try {
   const [cx, cy] = await px(page, -100, 0);
   await page.mouse.move(cx + 20, cy + 20); await page.mouse.move(cx, cy); await page.mouse.click(cx, cy);
   await wait(300);
-  // a rectangle drawn over the word is marked and named
+  // a rectangle drawn over the word is marked and named (the words field keeps the keys until it lets go)
+  await page.evaluate(() => document.activeElement && document.activeElement.blur && document.activeElement.blur());
   await page.keyboard.press('r');
   const [r0x, r0y] = await px(page, -110, -10), [r1x, r1y] = await px(page, -60, 20);
   await page.mouse.move(r0x, r0y); await page.mouse.down();
@@ -129,7 +130,8 @@ try {
   await page.waitForFunction(() => window.__swarfRun.state.prog && document.querySelector('.sr-play'), { timeout: 60000 });
   await wait(800);
   const why = await page.evaluate(() => document.querySelector('#swarf-run button.trace').title);
-  check(/^Trace needs: jog the bit over your X 0, Y 0/.test(why), `at the zero step trace says "${why}"`);
+  // the zero never holds trace back (Phil 11-18): before it is set, trace is ready and says what it runs
+  check(/^Run the rectangle the cut fills/.test(why), `at the zero step trace is ready: "${why}"`);
   const r = await page.evaluate(() => { const c = document.querySelector('#swarf-run canvas'); for (let i = 0; i < 40; i++) c.dispatchEvent(new WheelEvent('wheel', { deltaY: 120, bubbles: true, cancelable: true })); return window.__swarfRun.view().sph.r; });
   check(r <= 6000, `the wheel stops at 6 m (r ${Math.round(r)})`);
   check(errors.length === 0, `no page errors ${errors.slice(0, 3).join(' | ')}`);

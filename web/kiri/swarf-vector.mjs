@@ -2,7 +2,7 @@
  * swarf vector — 2D files in and out, through Unreason's readers and writers
  * (vendor/unreason, unchanged). Everything is millimetres.
  *
- *   SwarfVector.toSVG(name, bytes) -> { svg, closed, open, note }
+ *   SwarfVector.toSVG(name, bytes) -> { svg, closed, open, note, text, images, pages }
  *     an AI, PDF, DXF or SVG file as one SVG of its closed shapes, ready for
  *     cam's SVG import (a thickness turns them into parts). Open lines can't
  *     be given a thickness, so they are counted and left out.
@@ -199,23 +199,51 @@ function svgOfShapes(built, closed, name) {
   return { svg, box };
 }
 
+// How many pages a PDF (or an .ai, whose artboards are its pages) has: the largest /Count of a
+// /Type /Pages dictionary (the root holds them all), looked for in the file and in its compressed
+// object streams. The reader reads the first page only; 0 when it cannot tell.
+async function pdfPages(b) {
+  const latin = u => { let s = ''; for (let i = 0; i < u.length; i += 0x8000) s += String.fromCharCode.apply(null, u.subarray(i, i + 0x8000)); return s; };
+  const counts = s => {
+    let n = 0;
+    for (const m of s.matchAll(/<<((?:(?!<<|>>)[\s\S])*?\/Type\s*\/Pages\b(?:(?!<<|>>)[\s\S])*?)>>/g)) {
+      const c = /\/Count\s+(\d+)/.exec(m[1]); if (c) n = Math.max(n, +c[1]);
+    }
+    return n;
+  };
+  const s = latin(b);
+  let n = counts(s);
+  if (n) return n;
+  for (const m of s.matchAll(/<<([\s\S]{0,400}?\/Type\s*\/ObjStm[\s\S]{0,400}?)>>\s*stream\r?\n/g)) {
+    const len = /\/Length\s+(\d+)(?!\s+\d+\s+R)/.exec(m[1]);
+    if (!len || !/\/FlateDecode/.test(m[1])) continue;
+    const at = m.index + m[0].length;
+    try { n = Math.max(n, counts(latin(await inflate(b.subarray(at, at + +len[1]))))); } catch (e) { /* a stream it cannot open */ }
+  }
+  return n;
+}
+
 // opt (DXF only): { units: 'auto' | 'mm' | 'inch', maxMM }
 async function toSVG(name, bytes, opt = {}) {
   if (/\.dxf$/i.test(name)) {
     return dxfRead(name, text(bytes instanceof Uint8Array ? bytes : new Uint8Array(bytes)), opt);
   }
   const got = await read(name, bytes);
+  // what the reader passed over, and the pages after the first it never reads
+  const skipped = got.skipped || {};
+  const b = bytes instanceof Uint8Array ? bytes : new Uint8Array(bytes);
+  const extra = { text: skipped.text || 0, images: (skipped.image || 0) + (skipped['inline image'] || 0), pages: /\.(ai|pdf)$/i.test(name) ? await pdfPages(b) : 0 };
   const built = buildShapes(got.curves || []);
   const closed = built.shapes.filter(s => s.closed);
   const open = built.shapes.length - closed.length;
-  if (!closed.length) return { svg: null, closed: 0, open, note: got.note };
+  if (!closed.length) return { svg: null, closed: 0, open, note: got.note, ...extra };
   const keep = { ...built, shapes: closed };
   const box = [Infinity, Infinity, -Infinity, -Infinity];
   for (const s of closed) { box[0] = Math.min(box[0], s.box[0]); box[1] = Math.min(box[1], s.box[1]); box[2] = Math.max(box[2], s.box[2]); box[3] = Math.max(box[3], s.box[3]); }
   keep.box = box;
   // cam's import fills shapes: the writer's stroke-only paths are made solid
   const svg = writeSVG(keep, { units: 'mm', stroke: 0.25, title: name }).replace(/fill="none"/g, 'fill="#000"');
-  return { svg, closed: closed.length, open, note: got.note };
+  return { svg, closed: closed.length, open, note: got.note, ...extra };
 }
 
 function write(kind, svg) {
@@ -277,4 +305,4 @@ function split(svg, boxes) {
   return out.map(l => l.length ? svgOf(l) : null);
 }
 
-window.SwarfVector = { toSVG, write, writeParts, writeCurves, read, curves, cubics, svgOf, split, polyCrv, bezierChainCrv };
+window.SwarfVector = { toSVG, pdfPages, write, writeParts, writeCurves, read, curves, cubics, svgOf, split, polyCrv, bezierChainCrv };

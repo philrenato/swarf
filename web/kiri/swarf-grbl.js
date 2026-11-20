@@ -36,7 +36,7 @@
   const PREAMBLE = ['G21', 'G90', 'G94', 'G17', 'G54'];
   // the end of every job: wait for the planner to empty, then the spindle down to zero, a moment, off
   const END = ['G4P0', 'S0', 'G4P1', 'M5'];
-  const RT = { status: 0x3F, hold: 0x21, start: 0x7E, reset: 0x18, jogCancel: 0x85, feed100: 0x90, feedUp10: 0x91, feedDown10: 0x92, feedUp1: 0x93, feedDown1: 0x94 };
+  const RT = { status: 0x3F, hold: 0x21, start: 0x7E, reset: 0x18, jogCancel: 0x85, spindleStop: 0x9E, feed100: 0x90, feedUp10: 0x91, feedDown10: 0x92, feedUp1: 0x93, feedDown1: 0x94 };
 
   // what the board's alarms mean, in swarf's words
   const ALARMS = {
@@ -210,7 +210,8 @@
     margin: 2,               // mm kept from each end of travel
     jog: { xy: 1000 / 60, z: 500 / 60 },   // mm/s; CONTROL's speed row sets it, as on the ShopBot
     safeZ: 25.4, changeZ: 50,
-    spinUp: 2,               // s after M3 before the first move
+    spinUp: 2,               // s after M3 before the first move, and after a pause's spindle comes back
+    spinMs: 3000,            // the report that says the spindle stopped, or turns again
     rpmMax: 8000,
     jogDt: 0.025             // s of motion per hold-to-move increment, at least
   };
@@ -417,9 +418,9 @@
       if (this.job && this.state.running && !this.stopping) {
         if (r.state === 'Hold') {
           this.pauseSent = false;
-          if (!this.state.paused) { patch.paused = true; patch.note = 'paused by the machine: the spindle keeps turning. Resume, or stop'; }
+          if (!this.state.paused) { patch.paused = true; patch.spinKeeps = true; patch.spinIdle = false; patch.spinStopped = false; patch.note = 'paused by the machine: the spindle keeps turning. Resume, or stop'; }
         } else if (r.state === 'Run' && this.state.paused && !this.pauseSent) {
-          patch.paused = false; patch.note = 'running';
+          patch.paused = false; patch.note = 'running'; patch.spinStopped = false; this.spinOff = null;
         }
       }
       this.set(patch);
@@ -982,7 +983,8 @@
       const long = this.tooLong(lines);
       if (long) { this.set({ note: `${long}: not run` }); return false; }
       const job = this.job = { plan, lines, acked: 0, ended: false };
-      this.set({ running: true, paused: false, preview: false, line: 0, spindle: false, stopHit: false, resumeLine: 0, done: false, lostMid: false, toolChange: false, coasting: false, alarm: 0, rate: Math.round((plan.rate > 0 ? plan.rate : 1) * 100), note: 'running' });
+      this.spinOff = null; this.holdSpin = null;
+      this.set({ running: true, paused: false, preview: false, line: 0, spindle: false, spinStopped: false, spinKeeps: false, spinIdle: false, stopHit: false, resumeLine: 0, done: false, lostMid: false, toolChange: false, coasting: false, alarm: 0, rate: Math.round((plan.rate > 0 ? plan.rate : 1) * 100), note: 'running' });
       this.cue('move');
       this.go(job);
       return true;
@@ -1028,7 +1030,42 @@
       if (!this.state.running || this.state.paused) return;
       this.pauseSent = true;
       this.rt(RT.hold);
-      this.set({ paused: true, note: 'paused: the spindle keeps turning. Resume, or stop' });
+      this.set({ paused: true, spinKeeps: false, spinIdle: false, note: 'pausing: the spindle stops once the bit is still' });
+      this.holdSpin = this.spindleStop(this.job);
+    }
+    // Pause stops the spindle too (Phil 11-19). The board takes its spindle stop only in a hold and
+    // acts on it once the hold is at rest; the speed in its reports says whether it turns. A spindle
+    // that was not turning (an air cut) is left alone, so resume has nothing to bring back.
+    async spindleStop(job) {
+      const live = () => this.state.running && this.state.paused && this.job === job && !this.stopping;
+      const rest = await this.waitStatus(r => r.state === 'Hold' && r.sub === 0, this.cfg.holdMs);
+      if (!live()) return;
+      if (!rest) { this.set({ note: 'paused, but the machine has not said it is still: keep clear of the bit. Resume, or stop' }); return; }
+      if (!(rest.speed > 0)) { this.set({ spinIdle: true, note: 'paused: the spindle is off. Resume, or stop' }); return; }
+      this.spinOff = 'asked';
+      await this.rt(RT.spindleStop);
+      const off = await this.waitStatus(r => r.speed === 0, this.cfg.spinMs);
+      if (!live()) return;
+      if (off) { this.spinOff = 'off'; this.set({ spindle: false, spinStopped: true, note: 'paused: the spindle is off. Resume starts it again, waits for it, then goes on' }); }
+      else this.set({ note: 'paused, but the machine has not said the spindle stopped: keep clear of the bit. Resume, or stop' });
+    }
+    // the spindle back on before any motion: asked once (a second ask would stop it again), then a
+    // report with it turning, then the spin-up
+    async spindleBack(job) {
+      const live = () => this.state.running && this.state.paused && this.job === job && !this.stopping;
+      const cur = await this.fresh(this.cfg.spinMs);
+      if (!live()) return false;
+      if (!(cur && cur.speed > 0)) {
+        if (this.spinOff !== 'back') { this.spinOff = 'back'; await this.rt(RT.spindleStop); }
+        const on = await this.waitStatus(r => r.speed > 0, this.cfg.spinMs);
+        if (!live()) return false;
+        if (!on) { this.set({ note: 'the spindle did not start again: resume again, or stop' }); return false; }
+      }
+      this.set({ spindle: true, spinStopped: false, note: 'the spindle comes up to speed' });
+      const until = now() + this.cfg.spinUp * 1000;
+      while (now() < until) { await sleep(50); if (!live()) return false; }
+      this.spinOff = null;
+      return true;
     }
     // the board keeps its own queue through a hold: no plan to make again
     resumePlan() { return null; }
@@ -1040,6 +1077,9 @@
       this.resuming = true;
       this.set({ note: 'resuming' });
       try {
+        if (this.holdSpin) { await this.holdSpin; this.holdSpin = null; }
+        if (!this.state.running || this.job !== job || this.stopping) return;
+        if (this.spinOff && !(await this.spindleBack(job))) return;
         for (let i = 0; i < this.cfg.resumeTries; i++) {
           if (!this.state.running || this.job !== job || this.stopping) return;
           const st = await this.waitStatus(r => !(r.state === 'Hold' && r.sub !== 0), this.cfg.holdMs);
@@ -1052,7 +1092,7 @@
         }
         const st = this.lastStatus ? this.lastStatus.state : '';
         if (this.state.running && this.job === job && !this.stopping) {
-          if (st === 'Run' || st === 'Idle') this.set({ paused: false, note: 'running' });
+          if (st === 'Run' || st === 'Idle') this.set({ paused: false, spinIdle: false, note: 'running' });
           else this.set({ note: 'the machine did not resume: resume again, or stop' });
         }
       } finally { this.resuming = false; }
@@ -1084,11 +1124,12 @@
       const ver = await this.reset();
       this.job = null;
       this.held = null; this.jogAt = null;
+      this.spinOff = null; this.holdSpin = null;
       let words = note;
       if (!rest) { this.homed = false; words = `${note}: the machine had not come to rest, so its position is lost. Home again`; }
       if (ver && this.homed) for (const t of PREAMBLE) await this.cmd(t);
       this.stopping = false;
-      this.set({ running: false, paused: false, moving: false, spindle: false, stopHit: !!job || this.state.stopHit, done: false, homed: this.homed, note: words });
+      this.set({ running: false, paused: false, moving: false, spindle: false, spinStopped: false, stopHit: !!job || this.state.stopHit, done: false, homed: this.homed, note: words });
     }
 
     // the spindle off after a lost link, once connected again (the reconnect itself resets the board)

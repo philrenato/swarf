@@ -87,7 +87,7 @@
       if (moving) out(s.state === 'Home' ? 'ALARM:6' : 'ALARM:3');
       if (power) s.off = s.phys.slice();           // the count starts again from 0 where the axes are
       s.rx = []; s.planner = []; s.cur = null; s.pending = null; s.m0 = false; s.critical = false;
-      s.spindle = { on: false, ccw: false, S: 0 }; s.flood = false; s.ov = [100, 100, 100]; s.check = false;
+      s.spindle = { on: false, ccw: false, S: 0 }; s.spinStop = 0; s.flood = false; s.ov = [100, 100, 100]; s.check = false;
       resetModal();
       s.reports = 0; s.lastWco = ''; s.lastOv = '';
       s.state = (power || moving || wasAlarm) && S[22] === 1 ? 'Alarm' : 'Idle';
@@ -99,7 +99,7 @@
     function alarm(n, critical) {
       out(`ALARM:${n}`);
       s.planner = []; s.cur = null; s.pending = null; s.rx = [];
-      s.spindle.on = false; s.flood = false;
+      s.spindle.on = false; s.spinStop = 0; s.flood = false;
       s.state = 'Alarm'; s.sub = null;
       if (critical) { s.critical = true; out('[MSG:Reset to continue]'); }
     }
@@ -115,6 +115,8 @@
       if (b >= 0x90 && b <= 0x94) { const f = s.ov[0]; s.ov[0] = Math.max(10, Math.min(200, b === 0x90 ? 100 : b === 0x91 ? f + 10 : b === 0x92 ? f - 10 : b === 0x93 ? f + 1 : f - 1)); return; }
       if (b >= 0x95 && b <= 0x97) { s.ov[1] = b === 0x95 ? 100 : b === 0x96 ? 50 : 25; return; }
       if (b >= 0x99 && b <= 0x9D) { const v = s.ov[2]; s.ov[2] = Math.max(10, Math.min(200, b === 0x99 ? 100 : b === 0x9A ? v + 10 : b === 0x9B ? v - 10 : b === 0x9C ? v + 1 : v - 1)); return; }
+      // spindle stop (GRBL 1.1): taken only in a hold, acted on once it is at rest; again puts it back
+      if (b === 0x9E) { if (s.state === 'Hold' && !s.noSpinStop) { if (!s.spinStop) s.spinStop = 1; else if (s.spinStop === 2) s.spinStop = 0; } return; }
       if (b === 0xA0) { s.flood = !s.flood; return; }
       // anything else of 0x80 and above is taken out of the stream and ignored
     }
@@ -131,11 +133,13 @@
     // a cycle start acts only once a hold has come to rest (Hold:0); one sent while it slows is lost
     function cycleStart() {
       if (s.state !== 'Hold' || s.sub !== 0) return;
+      if (s.spinStop) { s.spinStop = 0; s.restarts = (s.restarts || 0) + 1; }
       if (s.m0) { s.m0 = false; s.state = s.cur || s.planner.length ? 'Run' : 'Idle'; s.sub = null; ok(); return; }
       s.state = s.cur || s.planner.length ? 'Run' : 'Idle'; s.sub = null;
     }
 
     // ------------------------------------------------------------ status
+    function turning() { return s.spindle.on && s.spinStop !== 2; }
     function report() {
       if (s.state === 'Home' || s.critical) return;      // the board answers no status during homing
       const st = s.state === 'Hold' ? `Hold:${s.sub}` : s.state;
@@ -144,13 +148,13 @@
       r += (S[10] & 1) ? `MPos:${vec(m)}` : `WPos:${vec(m.map((v, i) => v - w[i]))}`;
       if (S[10] & 2) r += `|Bf:${PLANNER - s.planner.length},${RX_SIZE - s.rx.length}`;
       const feed = (s.state === 'Run' || s.state === 'Jog') ? rate() : 0;
-      r += `|FS:${inch() ? (feed / IN).toFixed(1) : feed.toFixed(0)},${s.spindle.on ? s.spindle.S : 0}`;
+      r += `|FS:${inch() ? (feed / IN).toFixed(1) : feed.toFixed(0)},${turning() ? s.spindle.S : 0}`;
       const p = pins();
       if (p) r += `|Pn:${p}`;
       const moving = s.state === 'Run' || s.state === 'Jog';
       const wv = vec(w);
       if (s.reports % (moving ? 30 : 10) === 0 || wv !== s.lastWco) { r += `|WCO:${wv}`; s.lastWco = wv; }
-      const ov = s.ov.join(','), a = (s.spindle.on ? (s.spindle.ccw ? 'C' : 'S') : '') + (s.flood ? 'F' : '');
+      const ov = s.ov.join(','), a = (turning() ? (s.spindle.ccw ? 'C' : 'S') : '') + (s.flood ? 'F' : '');
       const ova = ov + a;
       if (s.reports % (moving ? 20 : 10) === 1 || ova !== s.lastOv) { r += `|Ov:${ov}`; if (a) r += `|A:${a}`; s.lastOv = ova; }
       if (s.q !== undefined) r += `|Q:${s.q}`;
@@ -417,6 +421,7 @@
         return;
       }
       if (s.state === 'Hold' && s.sub === 1 && s.simT >= s.holdEnd) s.sub = 0;
+      if (s.state === 'Hold' && s.sub === 0 && s.spinStop === 1) s.spinStop = s.spindle.on ? 2 : 0;
       if (s.state === 'Hold' && s.sub === 0) return;
       let budget = dt * (s.state === 'Hold' || s.cancelEnd ? 0.5 : 1);
       if (s.cancelEnd && s.simT >= s.cancelEnd) { s.cancelEnd = 0; s.planner = []; s.cur = null; s.state = 'Idle'; return; }

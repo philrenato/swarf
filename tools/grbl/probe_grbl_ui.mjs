@@ -182,7 +182,7 @@ try {
   check(await btn('cut'), 'cut pressed');
   await until('document.querySelector("#swarf-run .sr-sheet.on .go")', 5000, 'cut card');
   const list = await items();
-  check(list.some(t => /no trace this time/.test(t)) && list.some(t => /spindle will run at/.test(t)), `the cut card asks for the no-trace tick and names the spindle speed (${list.length} ticks)`);
+  check(list.some(t => /^no trace/.test(t)) && list.some(t => /spindle will run at/.test(t)), `the cut card asks for the no-trace tick and names the spindle speed (${list.length} ticks)`);
   await page.evaluate(() => { for (const c of document.querySelectorAll('#swarf-run .sr-sheet.on input[type=checkbox]')) c.click(); });
   const go = await sheetGo();
   check(/without a trace/.test(go), `its button: "${go}"`);
@@ -192,17 +192,20 @@ try {
   await page.waitForFunction(() => window.__stub.state.spindle.on && window.__stub.state.state === 'Run', { timeout: 20000, polling: 20 });
   const rpm = await page.evaluate(() => window.__stub.state.spindle.S);
   check(rpm > 0 && rpm <= 8000, `the spindle on at S${rpm}`);
-  // pause: the veil says the spindle keeps turning; resume carries on
+  // pause: the spindle stops once the bit is still, and the veil says so; resume starts it, then carries on
   await wait(300);
   check(await btn('pause'), 'pause');
   await page.waitForFunction(() => window.__stub.state.state === 'Hold' && window.__stub.state.sub === 0, { timeout: 5000, polling: 20 });
-  const veil = await page.evaluate(() => document.querySelector('#swarf-run .sr-veil h2').textContent);
-  check(/spindle keeps turning/.test(veil), `paused: "${veil}"`);
+  await page.waitForFunction(() => window.__stub.state.spinStop === 2, { timeout: 5000, polling: 20 });
+  await page.waitForFunction(() => /spindle is off/.test(document.querySelector('#swarf-run .sr-veil h2').textContent), { timeout: 3000, polling: 50 }).catch(() => {});
+  const veil = await page.evaluate(() => document.querySelector('#swarf-run .sr-veil h2').textContent + ' ' + document.querySelector('#swarf-run .sr-veilcard p').textContent);
+  check(/spindle is off/.test(veil) && /starts the spindle/.test(veil), `paused, spindle off: "${veil}"`);
   const held = await stubPos(); await wait(300);
   check(JSON.stringify(held) === JSON.stringify(await stubPos()), 'nothing moves while paused');
   await page.screenshot({ path: `${OUT}/2-paused.png` });
   check(await page.evaluate(() => { const b = document.querySelector('#swarf-run .sr-veil .go'); const t = b.textContent; b.click(); return t === 'resume'; }), 'resume');
-  await page.waitForFunction(() => window.__stub.state.state === 'Run', { timeout: 5000, polling: 20 });
+  await page.waitForFunction(() => window.__stub.state.state === 'Run', { timeout: 8000, polling: 20 });
+  check(await page.evaluate(() => window.__stub.state.spinStop === 0 && window.__stub.state.spindle.on && !window.__stub.state.restarts), 'the spindle back on before it moved');
   // stop: hold, rest, reset; the position kept and still homed
   await wait(300);
   check(await btn('stop'), 'stop');

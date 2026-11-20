@@ -72,7 +72,7 @@ try {
   const reach = await page.evaluate(() => { const i = document.querySelectorAll('#swarf-run .sr-plate-t input')[1]; i.value = '80'; i.dispatchEvent(new Event('change')); return { v: i.value, t: window.__swarfRun.state.machine.plateCfg.travel, say: document.querySelector('.sr-say').textContent }; });
   check(reach.v === '80' && reach.t === 80, `A5 search down 80 in the simulator: field ${reach.v}, travel ${reach.t} ("${reach.say.slice(0, 50)}")`);
   await page.evaluate(() => { for (const c of [...document.querySelectorAll('#swarf-run .sr-plate input[type=checkbox]')].slice(0, 3)) c.click(); });
-  await btn('touch the plate to the bit');
+  // 135: the plate is known from the start; the three ticks open touch off (no touch of the plate to the bit)
   await page.evaluate(() => document.querySelector('#swarf-run .sr-sheet.on .go').click());
   await page.waitForFunction(() => /^Z zeroed/.test(window.__swarfRun.state.machine.state.note), { timeout: 30000 });
   await page.waitForFunction(() => document.querySelector('#swarf-run .sr-sheet.on'), { timeout: 5000 });

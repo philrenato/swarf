@@ -2,7 +2,8 @@
 // tools/fixtures-2d) import through cam's file input as two parts at true size
 // (a 100 mm circle and a 60 x 40 rectangle), each keeping its drawing; the "make parts"
 // dialog shows once per file (it came back after an SVG's parts, 085); and for .ai and
-// .pdf and .dxf the open line is reported and left out.   node tools/probe_2d_import.mjs [url]
+// .pdf and .dxf the open line is reported and left out; an SVG drawn through <use> with a hidden
+// shape and text, and a 3-page PDF, say what they left out.   node tools/probe_2d_import.mjs [url]
 import puppeteer from 'puppeteer-core';
 import { fileURLToPath } from 'node:url';
 import { CHROME } from './chrome-path.mjs';
@@ -14,7 +15,7 @@ const browser = await puppeteer.launch({ executablePath: CHROME, headless: 'new'
 const errors = [], bad = [];
 const check = (ok, what) => { console.log(ok ? 'ok  ' : 'FAIL', what); if (!ok) bad.push(what); };
 try {
-  for (const file of ['two-shapes.ai', 'two-shapes.pdf', 'two-shapes.dxf', 'two-shapes.svg']) {
+  for (const file of ['two-shapes.ai', 'two-shapes.pdf', 'two-shapes.dxf', 'two-shapes.svg', 'uses-hidden-text.svg', 'two-shapes-3pages.pdf']) {
     const page = await browser.newPage();
     await page.setViewport({ width: 1440, height: 900 });
     page.on('pageerror', e => errors.push(`${file}: ${e.message}`));
@@ -45,6 +46,9 @@ try {
     const has = (a, b, c) => sizes.some(s => Math.abs(s[0] - a) < 0.2 && Math.abs(s[1] - b) < 0.6 && Math.abs(s[2] - c) < 0.6);
     check(sizes.length === 2 && has(6, 100, 100) && has(6, 40, 60), `${file}: parts ${JSON.stringify(sizes)}`);
     if (!/\.svg$/.test(file)) check(alerts.some(t => /1 open line was left out/.test(t)), `${file}: the open line is reported (${JSON.stringify(alerts)})`);
+    if (file === 'uses-hidden-text.svg') check(alerts.some(t => /^1 text object left out/.test(t)) && alerts.some(t => /^1 hidden shape left out/.test(t)), `${file}: the text and the hidden shape are said (${JSON.stringify(alerts)})`);
+    if (file === 'two-shapes-3pages.pdf') check(alerts.some(t => /has 3 pages .*only the first was read/.test(t)), `${file}: the other pages are said (${JSON.stringify(alerts)})`);
+    if (file === 'two-shapes.pdf') check(!alerts.some(t => /pages/.test(t)), `${file}: one page, nothing said about pages`);
     check(await page.evaluate(() => window.kiri.api.widgets.all().every(w => /<svg/.test(w.meta.svg || ''))), `${file}: each part keeps its drawing`);
     { const v = await page.evaluate(VIEW); check(v.ok, `${file}: after the import the parts are whole in the window, the camera above the bed (${v.say})`); }
     await page.close();

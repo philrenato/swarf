@@ -30,12 +30,14 @@ try {
   await page.screenshot({ path: join(OUT, 'bits-card.png') });
   check(['name', 'width', 'kind', 'part number'].every(h => card.heads.includes(h)), `its columns: ${card.heads}`);
   check(card.rows.length === card.tools, `every bit is listed (${card.rows.length} of ${card.tools})`);
-  check(card.inputs === 0, 'the list only reads');
+  // 123/131: each row's only controls are its carbide tick and its flutes
+  check(card.inputs === card.rows.length * 2, `the list's only controls are each bit's carbide tick and flutes (${card.inputs} for ${card.rows.length})`);
+  const PN = card.heads.indexOf('part number');
   const v = card.rows.filter(r => /V-bit|vee/i.test(r[0]));
   check(v.length >= 2 && v.every(r => /for carving/.test(r[2])), `V-bits say for carving: ${v.map(r => r[0] + ' ' + r[2]).join('; ')}`);
   check(card.rows.findIndex(r => /for carving/.test(r[2])) === 0, `V-bits come first (${card.rows[0][0]})`);
   check(card.rows.filter(r => !/V-bit|vee/i.test(r[0])).every(r => !/carving/.test(r[2])), 'nothing else does');
-  check(card.rows.some(r => r[3] === '48-005'), 'a part number reads 48-005');
+  check(card.rows.some(r => r[PN] === '48-005'), 'a part number reads 48-005');
   check(card.rows.every(r => /\d/.test(r[1])), 'every width has a number');
   check(card.buttons.filter(b => b.shown).every(b => b.title), `every button has a tooltip (${card.buttons.filter(b => b.shown).map(b => b.t)})`);
   check(!card.buttons.find(b => /tool library/.test(b.t))?.shown, 'edit in tool library is not in basic');
@@ -52,16 +54,17 @@ try {
 
   // adding a bit
   await page.evaluate(() => [...document.querySelectorAll('#swarf-bits button')].find(b => b.textContent === 'add a bit').click()); await wait(300);
-  const form = await page.evaluate(() => [...document.querySelectorAll('#swarf-bits .swarf-bits-form input, #swarf-bits .swarf-bits-form select')].map(e => e.title));
-  check(form.length === 5 && form.every(Boolean), `the form has its fields, each with a tooltip (${form.length})`);
+  // name, width, reach, kind, carbide (its label carries the tooltip), part number
+  const form = await page.evaluate(() => [...document.querySelectorAll('#swarf-bits .swarf-bits-form input, #swarf-bits .swarf-bits-form select')].map(e => e.title || e.closest('label')?.title || ''));
+  check(form.length === 6 && form.every(Boolean), `the form has its fields, each with a tooltip (${form.length})`);
   await page.evaluate(() => [...document.querySelectorAll('#swarf-bits button')].find(b => b.textContent === 'add').click()); await wait(200);
   check(/name/i.test(await page.evaluate(() => document.querySelector('#swarf-bits .swarf-bits-why').textContent)), 'no name is refused, in words');
   const fields = await page.$$('#swarf-bits .swarf-bits-form input');
-  await fields[0].type('my 3/16'); await fields[1].type('3/16'); await fields[3].type('99-123');
+  await fields[0].type('my 3/16'); await fields[1].type('3/16'); await (await page.$('#swarf-bits .swarf-bits-form input[placeholder="part number"]')).type('99-123');
   await page.evaluate(() => [...document.querySelectorAll('#swarf-bits button')].find(b => b.textContent === 'add').click()); await wait(500);
   const after = await page.evaluate(() => { const a = window.kiri.api, t = a.conf.get().tools.find(t => t.name === 'my 3/16'); return { t, row: [...document.querySelectorAll('#swarf-bits tbody tr')].map(r => [...r.children].map(c => c.textContent)).find(r => r[0] === 'my 3/16') }; });
   check(after.t && Math.abs(after.t.flute_diam - 4.7625) < 0.01 && after.t.metric === true, `a 3/16 bit is in the library (${after.t?.flute_diam} mm)`);
-  check(after.row && after.row[3] === '99-123', `and on the list, with its part number (${after.row})`);
+  check(after.row && after.row[PN] === '99-123', `and on the list, with its part number (${after.row})`);
   check(await page.evaluate(() => { const t = window.kiri.api.conf.get().tools, n = t.map(x => x.number); return new Set(n).size === n.length; }), 'its T number is its own');
   // the new bit can be cut with: a step on it, in the file
   await page.evaluate(() => { const a = window.kiri.api; a.platform.load_svg('<svg xmlns="http://www.w3.org/2000/svg" width="50mm" height="50mm" viewBox="0 0 50 50"><rect width="50" height="50"/></svg>', 'p', { depth: 6, soup: true, dpi: 0 }); }); await wait(900);

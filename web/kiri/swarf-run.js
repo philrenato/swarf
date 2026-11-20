@@ -1686,9 +1686,9 @@ html[data-skin] #swarf-run .sr-jog .sr-zrow button.next, html[data-skin] #swarf-
       const left = timeLeft();
       const where = left ? `, about ${mins(left)} left` : '';
       if (isGrbl()) {
-        // the MR-1 holds with its spindle still turning
-        if (st.paused) return say(`${what}: paused, the spindle still turning. Press resume to go on, or end the job.`, 'warn');
-        return say(`${what}${where}. Stay at the machine. Any key pauses it while swarf is in front (the bit held, the spindle still turning); that is not an emergency stop. In an emergency, press the MR-1's e-stop.`);
+        // the MR-1's own pause stops the spindle; a hold from the machine's button leaves it turning
+        if (st.paused) return say(`${what}: paused, ${st.spinStopped ? 'the spindle off. Resume starts it again first' : st.spinIdle ? 'the spindle off. Press resume to go on' : st.spinKeeps ? 'the spindle still turning. Press resume to go on' : 'the spindle stopping. Then press resume to go on'}, or end the job.`, 'warn');
+        return say(`${what}${where}. Stay at the machine. Any key pauses it while swarf is in front (the bit held, then the spindle stopped); that is not an emergency stop. In an emergency, press the MR-1's e-stop.`);
       }
       if (st.paused) return say(`${what}: paused, router off. Press resume to go on, or end the job.`, 'warn');
       return say(`${what}${where}. Stay at the machine. Any key pauses it while swarf is in front (router off, bit held); that is not an emergency stop. ${(window.SwarfSafetyWords || {}).emergency || 'In an emergency, step on the red e-stop on the floor.'}`);
@@ -2949,13 +2949,21 @@ html[data-skin] #swarf-run .sr-jog .sr-zrow button.next, html[data-skin] #swarf-
         // a trace or an air cut never had the router on (reviews 10-29: it said "start the router")
         const dry = S.job === 'trace' || S.job === 'air';
         el.resumeBtn.textContent = !dry && !isGrbl() && (!rp || rp.steps.some(x => x.router === true)) ? 'start the router and resume' : 'resume';
-        const h2 = el.veil.querySelector('h2'), p = el.veil.querySelector('.sr-veilcard p');
-        if (h2) h2.textContent = dry ? `Paused. The ${S.job === 'air' ? 'air cut' : 'trace'} runs with the ${isGrbl() ? 'spindle' : 'router'} off.` : isGrbl() ? 'Paused. The spindle keeps turning.' : 'Paused. The router is switched off.';
-        if (p) p.textContent = dry ? `The bit stopped where it was. Resume carries on from here, ${isGrbl() ? 'spindle' : 'router'} still off. End the job stops it.`
-          // the MR-1's board holds the motion only: its spindle runs on through a pause
-          : isGrbl() ? 'The bit stopped where it was, and the spindle is still turning: keep your hands clear. Resume carries on from here. End the job stops the spindle and keeps the line so you can continue later.'
-          : 'The bit stopped where it was; it slows for a few seconds before it stops turning. Resume starts the router and carries on from here. End the job keeps the line so you can continue later.';
       }
+    }
+    // the words follow every state while it shows: the MR-1's spindle stops a moment after the pause
+    if (veiled) {
+      const dry = S.job === 'trace' || S.job === 'air';
+      const h2 = el.veil.querySelector('h2'), p = el.veil.querySelector('.sr-veilcard p');
+      // the MR-1's pause stops its spindle once the bit is still (Phil 11-19); until the board says so, it turns
+      const spinOff = isGrbl() && !!(st && st.spinStopped);
+      if (h2) h2.textContent = dry ? `Paused. The ${S.job === 'air' ? 'air cut' : 'trace'} runs with the ${isGrbl() ? 'spindle' : 'router'} off.` : isGrbl() ? (spinOff || (st && st.spinIdle) ? 'Paused. The spindle is off.' : st && st.spinKeeps ? 'Paused by the machine. The spindle keeps turning.' : 'Paused. The spindle is stopping.') : 'Paused. The router is switched off.';
+      if (p) p.textContent = dry ? `The bit stopped where it was. Resume carries on from here, ${isGrbl() ? 'spindle' : 'router'} still off. End the job stops it.`
+        : isGrbl() ? (spinOff ? 'The bit stopped in the cut. Resume starts the spindle there, waits for it, then carries on. End the job keeps the line so you can continue later.'
+          : st && st.spinIdle ? 'The bit stopped where it was. Resume carries on from here. End the job keeps the line so you can continue later.'
+          : st && st.spinKeeps ? 'The bit stopped where it was, and the spindle is still turning: keep your hands clear. Resume carries on from here. End the job stops the spindle and keeps the line so you can continue later.'
+          : 'The bit stopped where it was. Keep your hands clear until the spindle has stopped. End the job keeps the line so you can continue later.')
+        : 'The bit stopped where it was; it slows for a few seconds before it stops turning. Resume starts the router and carries on from here. End the job keeps the line so you can continue later.';
     }
     if (el.faultBar) {
       el.faultBar.style.display = S.fault ? '' : 'none';

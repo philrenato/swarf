@@ -10,8 +10,15 @@
  */
 import puppeteer from 'puppeteer-core';
 
+import { readFileSync } from 'node:fs';
 import { CHROME } from './chrome-path.mjs';
 const URL = process.argv[2] || 'http://localhost:8099/kiri/';
+// how many bits the library ships with, read from the defaults themselves (it grows)
+const DEFAULTS = (() => {
+    const s = readFileSync(new globalThis.URL('../src/kiri/app/conf/defaults.js', import.meta.url), 'utf8');
+    const a = s.indexOf('tools:['), b = s.indexOf('\n        ]', a);
+    return (s.slice(a, b).match(/\bid:\s*\d+/g) || []).length;
+})();
 const wait = ms => new Promise(r => setTimeout(r, ms));
 
 const R21_TOOLS = [
@@ -69,7 +76,7 @@ try {
 
 const p = out.problems;
 const tools = out.after?.tools || [];
-if (tools.length !== 21) p.push(`${tools.length} tools after migration, wanted 20 defaults + the student's`);
+if (tools.length !== DEFAULTS + 1) p.push(`${tools.length} tools after migration, wanted ${DEFAULTS} defaults + the student's`);
 const vee = tools.find(t => t.id === 1003);
 if (!vee || Math.abs(vee.mm - 3.175) > 0.01) p.push(`vee 1/8 is ${vee?.mm} mm after migration`);
 const mine = tools.find(t => t.id === 1725000000000);

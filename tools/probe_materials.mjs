@@ -30,6 +30,7 @@ const limits = (dev, camFastFeedZ) => ({
     spindleMin: dev.spindleMin || 0, spindleMax: dev.spindleMax || 0, feedMax: dev.feedMax || 0,
     feedMaxZ: Math.min(...[dev.feedMaxZ, camFastFeedZ].filter(v => v > 0)),
     shopbot: /shopbot/i.test(dev.deviceName || ''),
+    endFlutes: dev.endmillFlutes || 0,
 });
 
 const stlB64 = readFileSync(STL).toString('base64');
@@ -106,6 +107,7 @@ try {
                 return {
                     type: o.type, tool: o.tool, toolName: t?.name,
                     toolMM: t ? +((t.flute_diam || 0) * (t.metric ? 1 : 25.4)).toFixed(4) : null,
+                    bit: t ? { type: t.type, swarf: t.swarf ? { flutes: t.swarf.flutes } : undefined } : null,
                     rate: o.rate, plunge: o.plunge, spindle: o.spindle, down: o.down, step: o.step,
                 };
             }),
@@ -127,7 +129,7 @@ try {
             setTimeout(() => res('timeout'), 60000);
         }));
         const gcode = await page.evaluate(() => new Promise(res => {
-            try { window.kiri.api.function.export(gc => res(typeof gc === 'string' ? gc : (gc?.gcode || String(gc)))); }
+            try { window.kiri.api.function.export((gc, info) => { window.__bitFiles = (info && info.swarfBitFiles) || null; res(typeof gc === 'string' ? gc : (gc?.gcode || String(gc))); }); }
             catch (e) { res('ERR ' + e.message); }
             setTimeout(() => res('ERR timeout'), 30000);
         }));
@@ -138,6 +140,7 @@ try {
             spindles: [...new Set((gcode.match(/\bS\d+/g) || []).map(s => +s.slice(1)))].sort((a, b) => a - b),
             tr: [...new Set((gcode.match(/^TR,\d+/gm) || []).map(s => +s.slice(3)))].sort((a, b) => a - b),
             toolLines: (gcode.match(/^(M00|M6|&Tool ?=\d+).*$/gm) || []),
+            bitFiles: await page.evaluate(() => (window.__bitFiles || []).length),
             head: gcode.split('\n').slice(0, 12),
         };
     };
@@ -210,7 +213,7 @@ if ((out.tools?.length || 0) < 20) problems.push(`live library has ${out.tools?.
 
 const expect = (row, op, dev) => {
     const lim = limits(dev, row.camFastFeedZ);
-    const p = derive(table[row.id], op.toolMM, lim);
+    const p = derive(table[row.id], op.toolMM, lim, op.bit);
     if (op.type === 'drill') return { rate: p.plunge, spindle: p.spindle, down: p.stepdown };
     if (op.type === 'contour') return { rate: p.feed, spindle: p.spindle, step: p.stepover };
     return { rate: p.feed, plunge: p.plunge, spindle: p.spindle, down: p.stepdown, step: p.stepover };
@@ -259,8 +262,10 @@ for (const mid of ['mild_steel', 'aluminum_6061']) {
     const spins = g.ops.map(o => o.spindle);
     if (!g.spindles.some(s => spins.includes(s))) problems.push(`${mid}: no op spindle (${spins}) in the S words: ${g.spindles}`);
     if (g.spindles.some(s => s > MR1.spindleMax)) problems.push(`${mid}: S words ${g.spindles} exceed ${MR1.spindleMax}`);
-    // two tools in the program (rough on the 1/4, contour on the 1/16) need a pause
-    if (!g.toolLines.some(l => l.startsWith('M00'))) problems.push(`${mid}: no M00 tool-change pause between two tools (${g.toolLines})`);
+    // two bits (rough on the 1/4, contour on the 1/16): since 125 the MR-1 gets one file per bit,
+    // never a bit change inside a file
+    if (g.bitFiles !== 2) problems.push(`${mid}: ${g.bitFiles} bit files, wanted one per bit (2)`);
+    if (g.toolLines.some(l => /^(M00|M6)/.test(l))) problems.push(`${mid}: a bit change inside an MR-1 file (${g.toolLines})`);
 }
 const a = out.gcode['mr1:mild_steel'], b = out.gcode['mr1:aluminum_6061'];
 if (a && b && JSON.stringify(a.spindles) === JSON.stringify(b.spindles)) problems.push(`both MR-1 materials exported the same spindles (${a.spindles})`);
