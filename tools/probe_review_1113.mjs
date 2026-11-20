@@ -84,7 +84,7 @@ try {
   const plan = () => page.evaluate(() => ({ plan: document.querySelector('#swarf-run .sr-plan').innerText, facts: document.querySelector('#swarf-run .sr-facts').textContent }));
   const pl0 = await plan();
   check(/small enough for the machine/.test(pl0.plan) && !/fits the table/.test(pl0.plan) && /where it lands on the table: not checked until X Y is zeroed/.test(pl0.plan), `#1 before a zero the place is not claimed (${pl0.plan.split('\n').slice(0, 3).join(' / ')})`);
-  check(/^bit's path /.test(pl0.facts) && /the part itself is smaller/.test(pl0.plan), `#1 the facts say the bit's path ("${pl0.facts}")`);
+  check(/^bit's path /.test(pl0.facts) && /half a bit outside the part/.test(pl0.plan), `#1 the facts say the bit's path ("${pl0.facts}")`);
   await page.evaluate(t => window.__swarfRun.loadProgram('handed-over.sbp', t, 'file'), file.data); await wait(400);
   const pl1 = await plan();
   check(/When this file was saved, swarf said: .*no tabs - tabs > auto tabs holds it, or screw it down clear of the bit/.test(pl1.plan), '#3 a file opened alone shows the concern it was saved with, and its hint whole');

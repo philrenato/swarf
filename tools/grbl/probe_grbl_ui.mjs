@@ -143,11 +143,12 @@ try {
   // over the board: 50 mm steps
   await page.evaluate(() => [...document.querySelectorAll('#swarf-run .sr-modes')[0].querySelectorAll('button')].find(b => b.textContent === '50').click());
   for (const l of ['+X', '+X', '−Y', '−Y', '−Z']) await jog(l);
+  // a zero pressed mid-move is refused (and says so); the bit's place is read once it has stopped
+  await until('!m.busy() && !st.moving', 5000, 'still after the jogs');
   const over = await stubPos();
   console.log('     over the board at machine', over.map(v => v.toFixed(3)).join(', '));
 
   // zero x y, zero z (paper)
-  await until('!m.busy() && !st.moving', 5000, 'still after the jogs');   // a zero pressed mid-move is refused (and says so)
   check(await btn('zero x y'), 'zero x y');
   await until('S.zeroXY && !m.busy()', 5000, 'X Y zeroed');
   check(await btn('zero z'), 'zero z');

@@ -295,12 +295,12 @@ try {
   check(gone.marks.every(n => n === 0) && !gone.ops.includes('texture') && /went with its step/.test(gone.say), `a texture step taken away in cam takes its mark, and says so (${JSON.stringify(gone)})`);
   await page.evaluate(() => window.kiri.api.doit.undo());
   await wait(800);
-  const back = await page.evaluate(() => ({ marks: window.kiri.api.widgets.all().map(w => (w.meta.tex || []).length), ops: window.kiri.api.conf.get().process.ops.map(o => o.type) }));
-  check(back.marks.some(n => n > 0) && back.ops.filter(t => t === 'texture').length === 1, `undo brings the step and its mark back (${JSON.stringify(back)})`);
+  const stepBack = await page.evaluate(() => ({ marks: window.kiri.api.widgets.all().map(w => (w.meta.tex || []).length), ops: window.kiri.api.conf.get().process.ops.map(o => o.type) }));
+  check(stepBack.marks.some(n => n > 0) && stepBack.ops.filter(t => t === 'texture').length === 1, `undo brings the step and its mark back (${JSON.stringify(stepBack)})`);
   await page.evaluate(() => window.kiri.api.doit.redo());
   await wait(800);
-  const again = await page.evaluate(() => ({ marks: window.kiri.api.widgets.all().map(w => (w.meta.tex || []).length), ops: window.kiri.api.conf.get().process.ops.map(o => o.type) }));
-  check(again.marks.every(n => n === 0) && !again.ops.includes('texture'), `redo takes them away again (${JSON.stringify(again)})`);
+  const redone = await page.evaluate(() => ({ marks: window.kiri.api.widgets.all().map(w => (w.meta.tex || []).length), ops: window.kiri.api.conf.get().process.ops.map(o => o.type) }));
+  check(redone.marks.every(n => n === 0) && !redone.ops.includes('texture'), `redo takes them away again (${JSON.stringify(redone)})`);
 
   // PIERCE (advanced mode only): a texture mark and a pierce mark on one part. Basic mode offers no
   // pierce; in advanced mode the fill row makes a rectangle mark kerfs, right through with bridges.
