@@ -56,6 +56,8 @@ try {
   await wait(500);
   c = await concerns();
   check(c.some(t => /ring is cut free with no tabs/.test(t)), `a rough alone: still "cut free with no tabs" (${c})`);
+  // a rough clears the hole to chips: no piece is left inside to come loose
+  check(!c.some(t => /loose piece/.test(t)), `a rough alone: no "loose piece" (it clears the hole) (${c})`);
   await page.evaluate(() => {
     const a = window.kiri.api;
     a.conf.get().process.ops = [];

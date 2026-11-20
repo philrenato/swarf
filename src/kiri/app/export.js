@@ -10,6 +10,7 @@ import { MODES } from './consts.js';
 const laser_driver = { exportSVG:()=>'', exportDXF:()=>'', exportOBJ:()=>'', exportGCode:()=>'' };
 const sla_client = { printDownload:()=>{} };
 import { hash } from '../../ext/md5.js';
+import { asciiNote } from '../core/ascii.js';
 
 /**
  * Sequential print counter for generating unique export filenames.
@@ -292,19 +293,31 @@ function swarfFileNote(text, open, ext) {
     const t = String(text || '');
     const sbp = /^sbp$/i.test(ext) || /^\s*'/m.test(t);
     const paren = !sbp && !/^\s*;/m.test(t) && /^\s*\(/m.test(t);
-    // plain ASCII, no brackets or apostrophes (a parser that strips ' comments first would cut a
-    // bracketed line in half), and short: some controllers refuse lines over 255
-    const ascii = { '\u203a': '>', '\u2013': '-', '\u2014': '-', '\u00d7': 'x', '\u2019': '', '\u2018': '', '\u201c': '"', '\u201d': '"', '\u00b0': ' deg', '\u2026': '...' };
-    const clean = v => String(v || '').replace(/[\u2018-\u203a\u00b0\u00d7\u2013\u2014]/g, c => ascii[c] != null ? ascii[c] : ' ')
-        .replace(/[^\x20-\x7e]/g, ' ').replace(/['()]/g, '').replace(/\s+/g, ' ').trim();
-    const line = v => { v = v.length > 110 ? v.slice(0, 107) + '...' : v; return sbp ? `' ${v}\n` : paren ? `(${v})\n` : `; ${v}\n`; };
+    // plain ASCII (core/ascii.js), each line ended as the file ends its own, and short: some
+    // controllers refuse lines over 255. A concern is its title on one line and its hint on the next
+    // (swarf hint:), each whole: a long one wraps at a space onto swarf more: lines (control joins them)
+    const eol = /\r\n/.test(t) ? '\r\n' : '\n';
+    const one = v => sbp ? `' ${v}${eol}` : paren ? `(${v})${eol}` : `; ${v}${eol}`;
+    const line = (key, v) => {
+        const words = asciiNote(v).split(' '), rows = [];
+        let row = `${key}:`;
+        for (const w of words) {
+            if (row.length + 1 + w.length > 100 && !/:$/.test(row)) { rows.push(row); row = 'swarf more:'; }
+            row += ' ' + w;
+        }
+        rows.push(row);
+        return rows.map(one).join('');
+    };
     const day = new Date().toISOString().slice(0, 10);
-    let head = line(`swarf saved: ${day}, ${open.length ? open.length + ' concern' + (open.length === 1 ? '' : 's') + ' open' : 'no concerns open'}`);
-    for (const c of open) head += line(`swarf concern: ${clean(c.title)}${c.hint ? ' - ' + clean(c.hint) : ''}`);
+    let head = line('swarf saved', `${day}, ${open.length ? open.length + ' concern' + (open.length === 1 ? '' : 's') + ' open' : 'no concerns open'}`);
+    for (const c of open) {
+        head += line('swarf concern', c.title);
+        if (c.hint) head += line('swarf hint', c.hint);
+    }
     // the board size, so control names the zero on it for a file opened alone
     const pr = api.conf.get().process || {};
     if (pr.swarfBoardOn && pr.swarfBoardX > 0 && pr.swarfBoardY > 0 && pr.swarfBoardZ > 0)
-        head += line(`swarf board: ${+pr.swarfBoardX.toFixed(2)} x ${+pr.swarfBoardY.toFixed(2)} x ${+pr.swarfBoardZ.toFixed(2)} mm, X 0 Y 0 at its ${pr.camOriginCenter ? 'center' : 'front-left corner'}`);
+        head += one(`swarf board: ${+pr.swarfBoardX.toFixed(2)} x ${+pr.swarfBoardY.toFixed(2)} x ${+pr.swarfBoardZ.toFixed(2)} mm, X 0 Y 0 at its ${pr.camOriginCenter ? 'center' : 'front-left corner'}`);
     return head;
 }
 
@@ -350,7 +363,8 @@ function swarfExportCard(on, { filename, fileext, info, download, downloadBits, 
     let open = [];
     try { open = window.__swarfConcernsNow ? window.__swarfConcernsNow() : []; } catch (e) { /* not ready */ }
     const nothing = gcodeText && !/^\s*(G0?1|G0?2|G0?3|M[23XYZ]|C[WC])\b/m.test(gcodeText);
-    const big = open.some(c => /bigger than the/.test(c.title));
+    // a job the machine cannot do is refused here too, in the concern's own words
+    const big = open.find(c => c.block);
     // a machine that takes one bit a file: a job with several bits saves one file per bit, in a .zip
     const perBit = info.swarfBitFiles && info.swarfBitFiles.length > 1 ? info.swarfBitFiles : null;
     const saveExt = perBit ? 'zip' : ext;
@@ -358,10 +372,10 @@ function swarfExportCard(on, { filename, fileext, info, download, downloadBits, 
     card = document.createElement('div');
     card.className = 'swarf-x-card';
     card.innerHTML = `<h3>Save the ${esc(machine)} file</h3>`
-        + `<p class="swarf-x-why">${shopbot ? '<b>control</b> runs it on the ShopBot.' : perBit ? `${perBit.length} files, one for each bit, run in order: zero Z again for each bit.` : `The file the ${esc(machine)} runs: take it to the machine.`}</p>`
+        + `<p class="swarf-x-why">${shopbot ? 'To cut now, press <b>control</b>: it needs no file. Save this to cut later or on another computer.' : perBit ? `${perBit.length} files, one for each bit, run in order: zero Z again for each bit.` : `The file the ${esc(machine)} runs: take it to the machine.`}</p>`
         + `<label class="swarf-x-name"><span>name</span><input type="text" spellcheck="false" autocomplete="off"/><em>.${esc(saveExt)}</em></label>`
         + `<p class="swarf-x-facts">${esc(facts)}</p>`
-        + (nothing ? `<p class="swarf-x-nothing">This file cuts nothing: every step is empty or left out. Check the steps and the ticks in objects.</p>` : sayOpen)
+        + (big ? `<p class="swarf-x-nothing">${esc(big.title)}: ${esc(big.body)}</p>` : nothing ? `<p class="swarf-x-nothing">This file cuts nothing: every step is empty or left out. Check the steps and the ticks in objects.</p>` : sayOpen)
         + `<div class="swarf-x-row"><button class="swarf-x-proj" type="button" title="parts, steps and settings to reopen in swarf; not the machine file">save the project too (.swarf)</button>`
         + (expert && sections ? `<button class="swarf-x-zip" type="button" title="a separate file for each step, in one .zip">one file per step (.zip)</button>` : '')
         + `<span class="grow"></span><button class="swarf-x-go" type="button"></button></div>`;
@@ -370,8 +384,8 @@ function swarfExportCard(on, { filename, fileext, info, download, downloadBits, 
     const go = card.querySelector('.swarf-x-go');
     const kiriName = $('print-filename');
     const clean = v => String(v || '').trim().replace(/\.(sbp|nc|gcode|tap|txt)$/i, '').replace(/[\\/:*?"<>|]+/g, '-') || filename;
-    const paint = () => { go.textContent = `${open.length ? 'save anyway' : 'save'} ${clean(name.value)}.${saveExt}`; };
-    go.disabled = !!nothing;
+    const paint = () => { go.textContent = big ? 'too big to save' : `${open.length ? 'save anyway' : 'save'} ${clean(name.value)}.${saveExt}`; };
+    go.disabled = !!(nothing || big);
     name.value = filename;
     paint();
     name.addEventListener('input', paint);
@@ -380,12 +394,13 @@ function swarfExportCard(on, { filename, fileext, info, download, downloadBits, 
     // card and save only the project, or a student could reach the machine without the machine file)
     let projSaved = '';
     go.onclick = () => {
+        if (go.disabled) return;
         if (kiriName) kiriName.value = clean(name.value);
         if (perBit) downloadBits(swarfFileNote(gcodeText, open, ext));
         else download(swarfFileNote(gcodeText, open, ext));
         api.modal.hide();
         const both = projSaved ? ` and the project ${projSaved}` : '';
-        api.show.alert(`Saved ${clean(name.value)}.${saveExt}${both}${shopbot ? (big ? ': control refuses it until it fits the bed.' : ': open it in control to cut it.') : '.'}`, 6);
+        api.show.alert(`Saved ${clean(name.value)}.${saveExt}${both}${shopbot ? ': open it in control to cut it.' : '.'}`, 6);
     };
     const proj = card.querySelector('.swarf-x-proj');
     proj.onclick = () => {

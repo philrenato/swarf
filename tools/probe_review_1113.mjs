@@ -54,15 +54,25 @@ try {
 
   // #3, #4: export with the no-tabs concern open; the project button keeps the card; the file carries the concern
   const paths = () => page.evaluate(() => new Promise(res => { window.kiri.api.event.on('preview.end', () => res('ok')); document.getElementById('act-paths')?.click(); setTimeout(() => res('timeout'), 60000); }));
+  // a bit named with a degree sign goes into the tool line as plain words
+  const bitWas = await page.evaluate(() => { const a = window.kiri.api, op = a.conf.get().process.ops.find(o => o.type === 'outline'), t = a.conf.get().tools.find(t => t.id == op.tool), was = t.name; t.name = was + ' 90°'; a.conf.save(); return was; });
   check(await paths() === 'ok', 'toolpaths (no tabs)');
   await page.evaluate(() => document.getElementById('act-export').click());
   await page.waitForFunction(() => { const c = document.querySelector('#mod-x-any.swarf-x .swarf-x-card'); return c && c.offsetParent; }, { timeout: 60000 }).catch(() => {});
   await page.evaluate(() => document.querySelector('.swarf-x-card .swarf-x-proj').click()); await wait(300);
   const card = await page.evaluate(() => { const c = document.querySelector('#mod-x-any .swarf-x-card'); const p = c && c.querySelector('.swarf-x-proj'); return { open: !!(c && c.offsetParent), proj: p && p.textContent, dl: window.__dl.map(d => d.name) }; });
   check(card.open && /project saved/.test(card.proj || '') && card.dl.some(n => /\.swarf$/.test(n)), `the project saves and the card stays open (${JSON.stringify(card)})`);
+  const why = await page.evaluate(() => document.querySelector('.swarf-x-card .swarf-x-why')?.textContent || '');
+  check(/^To cut now, press control: it needs no file\. Save this to cut later or on another computer\.$/.test(why), `the card says control needs no file (${why})`);
   await page.evaluate(() => document.querySelector('.swarf-x-card .swarf-x-go').click()); await wait(500);
   const file = await page.evaluate(() => window.__dl.find(d => /\.sbp$/.test(d.name)));
-  const head = file ? file.data.split('\n').slice(0, 4) : [];
+  const lines = file ? file.data.split('\n') : [];
+  const head = lines.slice(0, 6).map(l => l.replace(/\r$/, ''));
+  // one line ending through the whole file, swarf's notes too; every byte ASCII; a concern's hint whole on its own line
+  check(lines.length > 10 && lines.slice(0, -1).every(l => /\r$/.test(l)), `every line ends CRLF, the notes too (${lines.slice(0, -1).filter(l => !/\r$/.test(l)).length} do not)`);
+  check(!!file && /^[\x00-\x7f]*$/.test(file.data) && /^&Tool.* 90 deg\s*$/m.test(file.data.replace(/\r/g, '')), `the file is plain ASCII, the bit's degree sign in words (${(file?.data.match(/^&Tool.*$/m) || [''])[0]})`);
+  await page.evaluate(was => { const a = window.kiri.api, op = a.conf.get().process.ops.find(o => o.type === 'outline'); a.conf.get().tools.find(t => t.id == op.tool).name = was; a.conf.save(); }, bitWas);
+  check(head.some(l => /^' swarf hint: tabs > auto tabs holds it, or screw it down clear of the bit$/.test(l)) && !head.some(l => /\.\.\.$/.test(l)), `the hint is whole on its own line, nothing cut short (${JSON.stringify(head)})`);
   check(!!file && /^' swarf saved: \d{4}-\d\d-\d\d, \d+ concerns? open/.test(head[0]) && head.some(l => /^' swarf concern: .*no tabs/.test(l)), `the file's head carries the concern (${JSON.stringify(head)})`);
   check(head.filter(l => /^' swarf /.test(l)).every(l => /^[\x20-\x7e]*$/.test(l) && l.length <= 130), 'the swarf lines are short plain ASCII');
 
@@ -77,7 +87,7 @@ try {
   check(/^bit's path /.test(pl0.facts) && /the part itself is smaller/.test(pl0.plan), `#1 the facts say the bit's path ("${pl0.facts}")`);
   await page.evaluate(t => window.__swarfRun.loadProgram('handed-over.sbp', t, 'file'), file.data); await wait(400);
   const pl1 = await plan();
-  check(/When this file was saved, swarf said: .*no tabs/.test(pl1.plan), '#3 a file opened alone shows the concern it was saved with');
+  check(/When this file was saved, swarf said: .*no tabs - tabs > auto tabs holds it, or screw it down clear of the bit/.test(pl1.plan), '#3 a file opened alone shows the concern it was saved with, and its hint whole');
   const bare = file.data.split('\n').filter(l => !/^' swarf /.test(l)).join('\n');
   await page.evaluate(t => window.__swarfRun.loadProgram('other-software.sbp', t, 'file'), bare); await wait(400);
   const pl2 = await plan();

@@ -13,6 +13,7 @@ import { space } from '../../../moto/space.js';
 import { THREE } from '../../../ext/three.js';
 import { VIEWS } from '../consts.js';
 import * as view_tools from '../face-tool.js';
+import { env as camEnv, opAdd as camOpAdd, opRender as camOpRender } from '../../mode/cam/app/init-ui.js';
 
 const { SETUP, LOCAL } = api.const;
 const { catalog, client, platform, selection, stats, ui } = api;
@@ -929,6 +930,32 @@ function setup_keybd_nav() {
                 api.doit.push(() => mv(-dx, -dy), () => mv(dx, dy), { undo: `${nameOf(w)}: back where it was`, redo: `${nameOf(w)}: on the bed` });
                 return `${nameOf(w)} moved onto the bed. Undo puts it back`;
             } },
+            // a shaped edge needs a contour step: one goes in before the first outline (that cuts the part free)
+            contour: { verb: 'add contour', title: 'add a contour step that shapes the edge', run: () => {
+                const proc = camEnv.current && camEnv.current.process;
+                if (!proc || !camEnv.isCamMode || !camEnv.popOp || !camEnv.popOp.contour) return null;
+                if ((proc.ops || []).some(o => o && o.type === 'contour' && !o.disabled)) return null;
+                const rec = camEnv.popOp.contour.new();
+                rec.axis = 'X';
+                const put = () => {
+                    if (camEnv.current.process.ops.includes(rec)) return;
+                    camOpAdd(rec);
+                    // read again: a save can hand the process a new list
+                    const ops = camEnv.current.process.ops;
+                    const at = ops.findIndex(o => o && o.type === 'outline'), was = ops.indexOf(rec);
+                    if (at >= 0 && at < was) { ops.splice(was, 1); ops.splice(at, 0, rec); api.conf.save(); camOpRender(); }
+                };
+                const take = () => {
+                    const ops = camEnv.current.process.ops, at = ops.indexOf(rec);
+                    if (at < 0) return;
+                    ops.splice(at, 1);
+                    api.conf.save();
+                    camOpRender();
+                };
+                put();
+                api.doit.push(take, put, { undo: 'the contour step: taken out', redo: 'the contour step: back in' });
+                return 'a contour step was added before the outline: it shapes the edge. Undo takes it out';
+            } },
         };
         // the pill docks under the right rail, never inside its panels: its top
         // follows the rail's bottom as panels open, close and scroll; with no rail it keeps its corner
@@ -1126,10 +1153,12 @@ function setup_keybd_nav() {
                 for (const w of api.widgets.all()) {
                     const b = geoBox(w), p = w.track.pos, name = api.platform.part_name(w);
                     const sx = b.max.x - b.min.x, sy = b.max.y - b.min.y, sz = b.max.z - b.min.z;
+                    // block: toolpaths and export refuse while it stands (function.js, export.js)
                     if (bw && bd && (sx > bw + 0.5 || sy > bd + 0.5)) warnings.push({
                         title: `${name} is bigger than the ${mach}'s bed`,
                         body: `${pair(sx, sy)}; the bed is ${pair(bw, bd)}. The machine cannot cut it as it is.`,
-                        hint: 'make it smaller, or choose the other machine (setup › machine)' });
+                        hint: 'make it smaller, or choose the other machine (setup › machine)',
+                        block: !w.meta.disabled });
                     else if (bw && bd && (p.x + b.min.x < -bw / 2 - 0.5 || p.x + b.max.x > bw / 2 + 0.5 || p.y + b.min.y < -bd / 2 - 0.5 || p.y + b.max.y > bd / 2 + 0.5)) {
                         // the least slide that puts it on the bed; offered only for a part on its own that
                         // lands clear of every other part (a slide onto another part is not always right)
@@ -1182,8 +1211,11 @@ function setup_keybd_nav() {
                 const through = !(proc.camZBottom > 0) && !proc.camStockIndexed;
                 const audit = window.__swarfAutoTabs && window.__swarfAutoTabs.audit;
                 if (outl.length && through && audit) {
-                    // a rough down to the part's bottom frees it as an outline does (a rough-only circle)
-                    const outer = outl.some(o => !o.inside), holes = outl.some(o => !o.omitthru && !o.omitvoid);
+                    // a rough down to the part's bottom frees it as an outline does (a rough-only circle).
+                    // Inside a hole a rough clears the whole piece to chips: only an outline cuts it loose,
+                    // and only when no rough has cleared the hole already
+                    const outer = outl.some(o => !o.inside);
+                    const holes = outl.some(o => o.type === 'outline' && !o.omitthru && !o.omitvoid) && !outl.some(o => o.type === 'rough' && !o.omitthru);
                     for (const w of api.widgets.all()) {
                         if (w.track.synth) continue;
                         const name = api.platform.part_name(w);
@@ -1212,6 +1244,20 @@ function setup_keybd_nav() {
                     }
                 }
             } catch (e) { /* tabs not ready yet */ }
+            // a chamfer or round top edge (shape card, draw) is cut only by a contour step:
+            // outline and rough cut straight down, so with no contour the edge stays square
+            try {
+                const ops = (api.conf.get().process.ops || []).filter(o => o && !o.disabled);
+                if (!ops.some(o => o.type === 'contour')) for (const w of api.widgets.all()) {
+                    const e = w.meta && w.meta.edge;
+                    if (w.track.synth || w.meta.disabled || !e || e.kind === 'straight') continue;
+                    warnings.push({
+                        title: `${api.platform.part_name(w)} has a ${e.kind} edge and no contour step: it stays square`,
+                        body: 'outline and rough cut straight down. Only a contour step shapes the edge.',
+                        hint: 'add a step › contour',
+                        fix: 'contour', arg: [w.id] });
+                }
+            } catch (e) { /* no process yet */ }
             // an outline only goes where its bit fits: a smaller hole is left out of the file
             try {
                 const proc = api.conf.get().process || {}, audit = window.__swarfAutoTabs && window.__swarfAutoTabs.audit;
@@ -1552,24 +1598,38 @@ function setup_keybd_nav() {
             { kind:'coach', name:'how to keep the part in place', body:'add tabs in the outline operation, or use double-sided tape, vacuum hold-down, or screw clamps for soft sheet stock.', tags:'workholding tabs clamping fixture' }
         ];
         function render(query) {
-            const q = (query || '').trim().toLowerCase();
-            // a name match beats a tag match beats a body match ("tex" never lists
-            // draw first, "tab" table corners); ties keep the index's order
-            // a whole-word name match beats a part-word one ("tab" lists table
-            // corners second); an advanced-only entry gives way to a student's tag match ("first"
+            const raw = (query || '').trim().toLowerCase();
+            // the small words of a question ("how deep", "what bit") are dropped before matching
+            const STOP = new Set(['my', 'the', 'a', 'an', 'to', 'is', 'it', 'of', 'in', 'on', 'how', 'do', 'does', 'i', 'why', 'what', 'all', 'and', 'or', 'mm', 'for', 'with', 'can', 'cant', "can't", 'wont', "won't"]);
+            const kept = raw.split(/\s+/).filter(w => w && !STOP.has(w.replace(/[^a-z0-9'-]/g, ''))).join(' ');
+            const q = kept || raw;
+            // the phrase as typed counts too, for a name with a small word in it ("add a step")
+            const phrases = kept && kept !== raw ? [raw, kept] : [q];
+            // what students also ask an entry as, in their own words
+            const ASKED = { 'carving words': 'text words letters sign', 'material': 'plywood wood mdf acrylic',
+                'import a part': 'too big wrong size 25.4 tiny huge', 'inches': 'too big wrong size 25.4',
+                'feeds and speeds': 'burn burns burning burnt tearout tear-out grain fuzzy', 'right-click': 'two sides flip turn over back side',
+                'bits': 'broken snapped dull' };
+            const askedOf = e => ` ${ASKED[e.name] || ''} `;
+            // a name match beats a also-asked match beats a tag match beats a body match ("tex" never lists
+            // draw first, "tab" table corners); whole words before parts of words; ties keep the index's order.
+            // An advanced-only entry gives way to a student's tag match ("first"
             // gives the quick start before depth first) unless its name is the whole query
             const wordIn = (s, w) => ` ${s.replace(/[^a-z0-9.'-]+/g, ' ')} `.includes(` ${w} `);
-            const score = e => {
+            const score = e => Math.max(...phrases.map(p => scoreAs(e, p)));
+            const scoreAs = (e, q) => {
                 const n = e.name.toLowerCase();
-                if (n === q) return 100;
+                if (n === q || n === q + 's') return 100;
                 const adv = e.body.startsWith('advanced') ? 45 : 0;
                 if (wordIn(n, q)) return (n.startsWith(q) ? 85 : 75) - adv;
+                if (askedOf(e).includes(` ${q} `)) return 70;
                 if (n.startsWith(q)) return 60 - adv;
                 if (n.includes(q)) return 50 - adv;
                 const t = ` ${e.tags.toLowerCase()} `;
                 if (t.includes(` ${q} `)) return 40;
                 if (t.includes(q)) return 20;
-                return e.body.toLowerCase().includes(q) ? 1 : 0;
+                const b = e.body.toLowerCase();
+                return wordIn(b, q) ? 2 : b.includes(q) ? 1 : 0;
             };
             // a student's own words ("my part moved", "stuck", "mm to inches" find
             // something): when the phrase is in no entry, each word counts, read as the app says it
@@ -1578,12 +1638,12 @@ function setup_keybd_nav() {
                 undo: 'undo', back: 'undo', clamp: 'tabs', hold: 'tabs', loose: 'tabs', fly: 'tabs', speed: 'feed', fast: 'feed', slow: 'feed',
                 deep: 'depth', depth: 'step-down', zero: 'zero', origin: 'zero', start: 'zero', save: 'save', bend: 'pierce', kerf: 'pierce', plug: 'inlay', ignore: 'leave a part out', skip: 'leave a part out', exclude: 'leave a part out',
                 pattern: 'texture', carve: 'carve', engrave: 'engrave', text: 'text', letters: 'text', bit: 'bit', router: 'router', estop: 'e-stop' };
-            const STOP = new Set(['my', 'the', 'a', 'an', 'to', 'is', 'it', 'of', 'in', 'on', 'how', 'do', 'i', 'why', 'what', 'and', 'or', 'mm', 'for', 'with', 'can', 'cant', "can't", 'wont', "won't"]);
-            const words = q.split(/[^a-z0-9-]+/).filter(w => w.length > 1 && !STOP.has(w)).map(w => SAY[w] || w);
+            const words = raw.split(/[^a-z0-9.-]+/).filter(w => w.length > 1 && !STOP.has(w)).map(w => SAY[w] || w);
             const scoreAll = e => score(e) || (words.length > 1 || words[0] !== q ? words.reduce((t, w) => t + (q === w ? 0 : scoreWord(e, w)), 0) : 0);
+            // whole words first: a word in the name, then also-asked, then the tags, then the parts of words
             const scoreWord = (e, w) => {
-                const n = e.name.toLowerCase(), t = ` ${e.tags.toLowerCase()} `;
-                return n.includes(w) ? 30 : t.includes(` ${w} `) ? 20 : t.includes(w) ? 8 : e.body.toLowerCase().includes(w) ? 1 : 0;
+                const n = e.name.toLowerCase(), t = e.tags.toLowerCase(), b = e.body.toLowerCase();
+                return wordIn(n, w) ? 30 : askedOf(e).includes(` ${w} `) ? 25 : wordIn(t, w) ? 20 : n.includes(w) ? 12 : t.includes(w) ? 8 : wordIn(b, w) ? 2 : b.includes(w) ? 1 : 0;
             };
             const matches = !q ? INDEX : INDEX.map((e, i) => ({ e, i, s: scoreAll(e) })).filter(x => x.s > 0)
                 .sort((a, b) => b.s - a.s || a.i - b.i).map(x => x.e);
@@ -1699,7 +1759,7 @@ function setup_keybd_nav() {
         const FOR = [[/cut free with no tabs/, 'auto tabs'], [/loose piece/, 'loose pieces'], [/stepover/, 'stepover'], [/plunge/, 'plunge rate'],
             [/step-down/, 'step-down'], [/ bottom is /, 'z top / z bottom'], [/spindle/, 'spindle speed'], [/^rapids/, 'z clearance'],
             [/ thick$/, 'your board'], [/deeper than/, 'board thickness'], [/drill step|hole/, 'drill step'], [/last pass/, 'last pass'],
-            [/pocket/, 'pocket'], [/bed$/, 'size card']];
+            [/pocket/, 'pocket'], [/bed$/, 'size card'], [/no contour step/, 'contour']];
         const forConcern = w => { const t = String(w && w.title || ''); const f = FOR.find(([re]) => re.test(t)); return f && INDEX.some(e => e.name === f[1]) ? f[1] : (w && w.help) || ''; };
         window.__swarfHelp = { open, close, isOpen, forConcern };
         // the concerns drew before help was here: again, with their help buttons

@@ -135,6 +135,18 @@ try {
   const hang = c.find(x => /ring hangs off the bed/.test(x.t));
   check(hang && !hang.fix, `the slide would land on the puck: no button, the hint stays (${hang?.t}, "${hang?.fix}")`);
 
+  // a chamfered edge with no contour step: said, and one press adds contour before the outline
+  await page.evaluate(() => { const a = window.kiri.api; a.platform.clear(); });
+  await wait(400);
+  await page.evaluate(() => window.kiri.api.platform.load_svg(window.__swarfShape.svgFor('circle', { d: 120 }), 'disc', { depth: 19.05, resolution: 2, segmin: 48, soup: true, dpi: 0, edge: { kind: 'chamfer', size: 3 } }));
+  await page.waitForFunction(() => window.kiri.api.widgets.all().length === 1, { timeout: 10000 });
+  await wait(600);
+  c = await list();
+  check(has(c, /^disc has a chamfer edge and no contour step: it stays square$/), `a chamfer edge with no contour is said [${c.map(x => x.t)}]`);
+  await round('add contour', /chamfer edge and no contour step/, 'add contour');
+  const order = await page.evaluate(() => window.kiri.api.conf.get().process.ops.filter(o => o && !o.disabled).map(o => o.type).join(','));
+  check(/contour,.*outline/.test(order), `the contour step goes in before the outline (${order})`);
+
   // a concern that needs the student's value has no button
   await page.evaluate(() => { const a = window.kiri.api, o = a.conf.get().process.ops.find(o => o.type === 'outline'); o.down = 12; a.conf.save(); });
   c = await list();
