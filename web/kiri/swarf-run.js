@@ -524,6 +524,39 @@ body.swarf-run-open { filter: none !important; }
 #swarf-run .sr-needrow button { border-radius: 8px; padding: 6px 10px; background: var(--swarf-bg-3, #1c1817); border: 1px solid var(--swarf-line-2, #3a1e18); }
 #swarf-run .sr-jog .sr-zrow button.next, #swarf-run .sr-conn button.next { border-color: #f2ede4 !important; color: #fff; box-shadow: 0 0 0 2px rgba(242,237,228,.25); }
 html[data-skin] #swarf-run .sr-jog .sr-zrow button.next, html[data-skin] #swarf-run .sr-conn button.next { border-color: rgb(var(--sk-acc)) !important; box-shadow: 0 0 0 3px rgb(var(--sk-acc) / .25) !important; }
+@media (max-height: 760px) {
+  #swarf-run.open .sr-top { /* ---- a short window (a 768-high laptop inside its browser, ~620 px) ----
+     the jog column fits without scrolling: readouts, rows and pad a size smaller;
+     while a program runs the locked pad folds away so the readouts and the lock line show whole;
+     the program box keeps pause, stop and feed in sight, the view takes what is left */
+    padding-bottom: 4px; }
+  #swarf-run.open .sr-top .sr-say { font-size: 13px; }
+  #swarf-run.open .sr-grid { padding-bottom: 26px !important; gap: 8px; }
+  #swarf-run.open .sr-col { gap: 8px; }
+  #swarf-run.open .sr-box h3 { padding-top: 8px !important; padding-bottom: 2px !important; }
+  #swarf-run.open .sr-jog { padding-bottom: 8px; }
+  #swarf-run.open .sr-jog .sr-next { padding-bottom: 2px; }
+  #swarf-run.open .sr-jog .sr-dro { gap: 3px; }
+  #swarf-run.open .sr-jog .sr-axis { padding: 1px 12px 1px 12px; }
+  #swarf-run.open .sr-jog .sr-axis .v, #swarf-run.open .sr-jog .sr-axis input.v { font-size: 20px !important; line-height: 30px; }
+  #swarf-run.open .sr-jog .sr-zrow { margin-top: 6px; }
+  #swarf-run.open .sr-jog .sr-zrow > button { padding: 5px 0; }
+  #swarf-run.open .sr-jog .sr-keepzero { margin-top: 4px; padding: 4px 0; }
+  #swarf-run.open .sr-jog .sr-modes { margin-top: 5px; }
+  #swarf-run.open .sr-jog .sr-modes button, #swarf-run.open .sr-jog .sr-modes input { height: 28px; }
+  #swarf-run.open .sr-jog .sr-pad { grid-template-rows: repeat(3, 40px); gap: 4px; margin-top: 6px; }
+  #swarf-run.open .sr-jog .sr-keyrow { margin-top: 4px; }
+  #swarf-run.open .sr-jog .sr-goto { margin-top: 6px; }
+  #swarf-run.open .sr-jog .sr-goto > button { padding: 5px 6px; }
+  #swarf-run.open .sr-jog.locked .sr-zrow, #swarf-run.open .sr-jog.locked .sr-keepzero, #swarf-run.open .sr-jog.locked .sr-modes,
+  #swarf-run.open .sr-jog.locked .sr-pad, #swarf-run.open .sr-jog.locked .sr-keyrow, #swarf-run.open .sr-jog.locked .sr-goto { display: none !important; }
+  #swarf-run.open .sr-jog.locked .sr-lock { margin-top: 6px; }
+  #swarf-run.open .sr-col > .sr-view { flex: 1 1 0; min-height: 150px; }
+  #swarf-run.open .sr-col > .sr-prog { flex: 0 1 auto; max-height: 52%; }
+  #swarf-run.open .sr-prog .sr-plan { min-height: 34px; padding-top: 6px; padding-bottom: 6px; }
+  #swarf-run.open .sr-actions { padding-top: 6px; }
+  #swarf-run.open .sr-actions button { padding: 10px 0 !important; }
+}
 `;
 
   // ------------------------------------------------------------ dom
