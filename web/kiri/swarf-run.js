@@ -378,7 +378,6 @@ body.swarf-run-open { filter: none !important; }
 /* ---- swarf skin ----
    swarf's own panel language: the scene glows through, plates with a red edge
    stripe and a slate header bar, bone text, red section labels, lighter controls. */
-#swarf-run { background: rgba(10,8,8,.62); backdrop-filter: blur(2px) saturate(1.1); font-size: 14px; }
 .sr-head { background: #13100f; border-bottom: 1px solid var(--swarf-line-2, #3a1e18); padding: 8px 16px; }
 .sr-title { color: var(--swarf-text, #d8d2c6); text-transform: none; letter-spacing: 0.02em; font-size: 12px; }
 .sr-title b { color: var(--swarf-accent-hi, #ff3a2a); }
@@ -431,7 +430,6 @@ body.swarf-run-open { filter: none !important; }
 /* ---- calm ----
    quiet surfaces, small gray labels, lowercase like swarf's own tiles; red only for
    the current step, cut and stop; one border weight; no stripes, bars or chamfers. */
-#swarf-run .sr-box { background: var(--c-surf) !important; border: 1px solid var(--c-line) !important; border-radius: 8px !important; clip-path: none !important; box-shadow: 0 8px 28px rgba(0,0,0,.45) !important; }
 #swarf-run .sr-box h3 { background: none !important; border: 0 !important; color: var(--c-dim) !important; font-size: 11px !important; font-weight: 500 !important; letter-spacing: 0.02em !important; padding: 12px 14px 4px !important; margin: 0 0 4px !important; }
 #swarf-run button { text-transform: none !important; letter-spacing: .02em !important; }
 #swarf-run .sr-top .sr-step { background: none !important; border: 1px solid transparent !important; color: var(--c-dim) !important; text-transform: none !important; letter-spacing: .02em !important; padding: 4px 8px !important; border-radius: 999px !important; }
@@ -458,7 +456,6 @@ body.swarf-run-open { filter: none !important; }
 #swarf-run .sr-board-say { min-height: 1.4em; margin: 6px 0 0; font-size: 12px; line-height: 1.4; }
 #swarf-run .sr-board-say.warn { color: var(--swarf-amber, #d09020); font-weight: 600; }
 #swarf-run .sr-actions .stop { grid-column: span 2; }   /* while a job runs, stop is the biggest target */
-#swarf-run .sr-actions button { padding: 14px 0 !important; font-size: 14px !important; }
 #swarf-run .sr-actions .cut:not(:disabled) { background: var(--c-red) !important; border-color: var(--c-red) !important; color: #fff !important; }
 #swarf-run .sr-actions .cut:disabled, #swarf-run .sr-actions .cut.wait { background: var(--c-btn) !important; border-color: var(--c-bline) !important; }
 #swarf-run .sr-actions .cut.wait { color: var(--c-text) !important; }
@@ -479,8 +476,8 @@ body.swarf-run-open { filter: none !important; }
 #swarf-run .sr-view { border-radius: 8px !important; }
 #swarf-run .sr-col > .sr-box { border: 1px solid var(--c-line) !important; box-shadow: 0 8px 28px rgba(0,0,0,.45) !important; }
 #swarf-run .sr-jog .sr-modes button.on, #swarf-run .sr-jog .sr-modes.sr-steprow button.on { background: #45403c !important; border-color: #b3aaa0 !important; color: #fff !important; }
-/* one look for "on" in control: the sim speed chip, the view chips and the keep-zero offer match the jog chips */
-#swarf-run .sr-sim button.on, #swarf-run .sr-vtools button.on { background: #45403c !important; border-color: #b3aaa0 !important; color: #fff !important; }
+/* one look for "on" in control: the view chips and the keep-zero offer match the jog chips */
+#swarf-run .sr-vtools button.on { background: #45403c !important; border-color: #b3aaa0 !important; color: #fff !important; }
 #swarf-run .sr-keepzero { background: #2a2523; border-color: #4f4642; color: #f2ede4; border-radius: 6px; }
 #swarf-run .sr-keepzero:hover { border-color: #a39a90; }
 #swarf-run .sr-actions .cut.quiet { /* cut, plain: a finished cut, or the ladder's step is not cut yet */ background: var(--swarf-bg-3, #1c1817) !important; color: inherit !important; border-color: var(--swarf-line-2, #3a1e18) !important; box-shadow: none !important; }
@@ -523,13 +520,12 @@ body.swarf-run-open { filter: none !important; }
 #swarf-run .sr-needrow button, #swarf-run .sr-card .row button { flex: none; }
 #swarf-run .sr-needrow button { border-radius: 8px; padding: 6px 10px; background: var(--swarf-bg-3, #1c1817); border: 1px solid var(--swarf-line-2, #3a1e18); }
 #swarf-run .sr-jog .sr-zrow button.next, #swarf-run .sr-conn button.next { border-color: #f2ede4 !important; color: #fff; box-shadow: 0 0 0 2px rgba(242,237,228,.25); }
-html[data-skin] #swarf-run .sr-jog .sr-zrow button.next, html[data-skin] #swarf-run .sr-conn button.next { border-color: rgb(var(--sk-acc)) !important; box-shadow: 0 0 0 3px rgb(var(--sk-acc) / .25) !important; }
+/* ---- a short window (a 768-high laptop inside its browser, ~620 px) ----
+   the jog column fits without scrolling: readouts, rows and pad a size smaller;
+   while a program runs the locked pad folds away so the readouts and the lock line show whole;
+   the program box keeps pause, stop and feed in sight, the view takes what is left */
 @media (max-height: 760px) {
-  #swarf-run.open .sr-top { /* ---- a short window (a 768-high laptop inside its browser, ~620 px) ----
-     the jog column fits without scrolling: readouts, rows and pad a size smaller;
-     while a program runs the locked pad folds away so the readouts and the lock line show whole;
-     the program box keeps pause, stop and feed in sight, the view takes what is left */
-    padding-bottom: 4px; }
+  #swarf-run.open .sr-top { padding-bottom: 4px; }
   #swarf-run.open .sr-top .sr-say { font-size: 13px; }
   #swarf-run.open .sr-grid { padding-bottom: 26px !important; gap: 8px; }
   #swarf-run.open .sr-col { gap: 8px; }
@@ -537,7 +533,7 @@ html[data-skin] #swarf-run .sr-jog .sr-zrow button.next, html[data-skin] #swarf-
   #swarf-run.open .sr-jog { padding-bottom: 8px; }
   #swarf-run.open .sr-jog .sr-next { padding-bottom: 2px; }
   #swarf-run.open .sr-jog .sr-dro { gap: 3px; }
-  #swarf-run.open .sr-jog .sr-axis { padding: 1px 12px 1px 12px; }
+  #swarf-run.open .sr-jog .sr-axis { padding: 1px 12px; }
   #swarf-run.open .sr-jog .sr-axis .v, #swarf-run.open .sr-jog .sr-axis input.v { font-size: 20px !important; line-height: 30px; }
   #swarf-run.open .sr-jog .sr-zrow { margin-top: 6px; }
   #swarf-run.open .sr-jog .sr-zrow > button { padding: 5px 0; }
@@ -549,7 +545,7 @@ html[data-skin] #swarf-run .sr-jog .sr-zrow button.next, html[data-skin] #swarf-
   #swarf-run.open .sr-jog .sr-goto { margin-top: 6px; }
   #swarf-run.open .sr-jog .sr-goto > button { padding: 5px 6px; }
   #swarf-run.open .sr-jog.locked .sr-zrow, #swarf-run.open .sr-jog.locked .sr-keepzero, #swarf-run.open .sr-jog.locked .sr-modes,
-  #swarf-run.open .sr-jog.locked .sr-pad, #swarf-run.open .sr-jog.locked .sr-keyrow, #swarf-run.open .sr-jog.locked .sr-goto { display: none !important; }
+  #swarf-run.open .sr-jog.locked .sr-pad, #swarf-run.open .sr-jog.locked .sr-keyrow, #swarf-run.open .sr-jog.locked .sr-goto { display: none; }
   #swarf-run.open .sr-jog.locked .sr-lock { margin-top: 6px; }
   #swarf-run.open .sr-col > .sr-view { flex: 1 1 0; min-height: 150px; }
   #swarf-run.open .sr-col > .sr-prog { flex: 0 1 auto; max-height: 52%; }
@@ -579,8 +575,9 @@ html[data-skin] #swarf-run .sr-jog .sr-zrow button.next, html[data-skin] #swarf-
 
   // Prefix every selector with #swarf-run (rules naming #swarf-run itself, the
   // menubar entry, or body are left as written).
+  // (comments are dropped first: one in front of a selector or an @media would be read as part of it)
   function scoped(css) {
-    return css.replace(/(?<=^|[{}])([^{}]+)\{/g, (m, sel) => {
+    return css.replace(/\/\*[\s\S]*?\*\//g, '').replace(/(?<=^|[{}])([^{}]+)\{/g, (m, sel) => {
       if (/^\s*(@|from\b|to\b|\d+%)/.test(sel)) return m;
       return sel.split(',').map(x => {
         const t = x.trim();

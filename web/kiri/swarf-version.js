@@ -14,7 +14,7 @@
  */
 (function () {
     // single source of truth for the version string: the About panel (src/kiri/app/help.js) reads it
-    window.SWARF_VERSION = 'v00000-150';
+    window.SWARF_VERSION = 'v00000-151';
     window.SWARF_BUILD = '__SWARF_BUILD__';   // stamped by the deploy, as is every machine-control file
 
     const ver = document.createElement('button');
