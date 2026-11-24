@@ -61,7 +61,7 @@ try {
     return { note: m.state.note, confirmed: m.plateCfg.confirmed, go: g && { t: g.textContent, d: g.disabled }, circ: c && c.textContent, why: w && w.style.display !== 'none' ? w.textContent : '', sheet: !!document.querySelector('#swarf-run .sr-sheet.on') }; });
   const wait = ms => new Promise(r => setTimeout(r, ms));
   check(await page.evaluate(() => !localStorage.getItem('swarf-shopbot-plate')), 'a fresh browser: no plate saved');
-  await page.evaluate(() => { const st = window.__stub.state; st.switches = [{ port: 0, bit: 0, axis: 2, at: st.pos[2] - 300, hit: 1 }]; });
+  await page.evaluate(() => { const st = window.__stub.state; st.switches = [{ port: 0, bit: 4, axis: 2, at: st.pos[2] - 300, hit: 0 }]; });
   await wait(600);
   await page.evaluate(() => [...document.querySelectorAll('#swarf-run button')].find(b => b.textContent === 'z plate').click());
   await wait(300);

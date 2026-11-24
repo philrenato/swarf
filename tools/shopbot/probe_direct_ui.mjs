@@ -99,13 +99,13 @@ try {
   await take(2, "that's Y home");
   const homeText = await page.evaluate(() => [...document.querySelectorAll('#swarf-run .sr-card p')].map(p => p.textContent).find(t => t.startsWith('X home')));
   check(homeText === 'X home: input 2 · Y home: input 3', `home sensors: "${homeText}"`);
-  // Z plate: touching it raises input 1
-  await page.evaluate(() => { window.__stub.state.inputs[0] = 0x7F; });
-  await page.waitForFunction(() => [...document.querySelectorAll('#swarf-run .sr-dots i.on')].map(d => d.textContent).join() === '1', { timeout: 3000 });
+  // Z plate: touching it pulls input 5 low, as on the shop's box
+  await page.evaluate(() => { window.__stub.state.inputs[0] = 0x6E; });
+  await page.waitForFunction(() => [...document.querySelectorAll('#swarf-run .sr-dots i.on')].map(d => d.textContent).join() === '5', { timeout: 3000 });
   await page.evaluate(() => [...document.querySelectorAll('#swarf-run .sr-card button')].find(b => b.textContent === "that's the Z plate").click());
   await page.evaluate(() => { window.__stub.state.inputs[0] = 0x7E; });
   const plateText = await page.evaluate(() => [...document.querySelectorAll('#swarf-run .sr-card p')].map(p => p.textContent).find(t => t.startsWith('Z plate')));
-  check(plateText === 'Z plate: input 1', `Z plate: "${plateText}"`);
+  check(plateText === 'Z plate: input 5', `Z plate: "${plateText}"`);
   const seen = [];
   const watch = setInterval(async () => seen.push(await page.evaluate(() => window.__stub.state.outs).catch(() => -1)), 100);
   await page.evaluate(() => document.querySelector('#swarf-run .sr-card .sr-out').click());
@@ -219,7 +219,7 @@ try {
   await new Promise(r => setTimeout(r, 300));
   await pick(0, '10'); await pick(1, 'max');
   // Z zero on the plate: contact 300 steps below here
-  const zat = await page.evaluate(() => { const st = window.__stub.state; st.switches = [{ port: 0, bit: 0, axis: 2, at: st.pos[2] - 300, hit: 1 }]; return st.pos[2] - 300; });
+  const zat = await page.evaluate(() => { const st = window.__stub.state; st.switches = [{ port: 0, bit: 4, axis: 2, at: st.pos[2] - 300, hit: 0 }]; return st.pos[2] - 300; });
   // the plate card (10-27): thickness, three checks, a touch proves the circuit, then touch off, then put away
   const sheetGo = () => page.evaluate(() => { const g = document.querySelector('#swarf-run .sr-sheet.on .go'); const t = g.textContent; g.click(); return t; });
   const goState = () => page.evaluate(() => { const g = document.querySelector('#swarf-run .sr-sheet.on .go'); return { t: g.textContent, d: g.disabled }; });

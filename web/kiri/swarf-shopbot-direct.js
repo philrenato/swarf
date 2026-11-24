@@ -53,7 +53,8 @@
     pressed: 'the e-stop reads pressed: release the red e-stop on the floor first',
     unread: 'swarf could not read the e-stop just now: check the USB cable and that the box is on, then try again'
   };
-  // the Z plate on the shop machine: clip on input 1, reading 1 on contact;
+  // the Z plate on the shop machine: input 5, reading 0 on contact (1 at rest), as the touch in machine
+  // setup recorded it at the shop's ShopBot;
   // plate 0.121 in; first plunge 0.5 in/s, second 0.25 in/s, lift 1.0 in
   // between and after.
   // travel: swarf stops after 60 mm (search down on the plate card raises it). The guide
@@ -61,7 +62,7 @@
   // that still misses contact ends at most ~35 mm below the board's top, not 230.
   // A fresh browser takes the shop's plate as known (a student never has to touch the plate
 // to the bit on purpose); machine setup still sets another box's plate.
-const PLATE = { input: 1, hit: 1, thickness: 3.0734, fast: 12.7, slow: 6.35, lift: 25.4, travel: 60, confirmed: true };
+const PLATE = { input: 5, hit: 0, thickness: 3.0734, fast: 12.7, slow: 6.35, lift: 25.4, travel: 60, confirmed: true };
 
   class DirectMachine extends M.Base {
     constructor(cfg = {}) {
@@ -118,6 +119,9 @@ const PLATE = { input: 1, hit: 1, thickness: 3.0734, fast: 12.7, slow: 6.35, lif
       for (const k of ['fast', 'slow', 'backOff', 'block']) if (!num(H[k], v => v > 0)) H[k] = HOME[k];
       if (typeof H.confirmed !== 'boolean') H.confirmed = false;
       const P = this.plateCfg;
+      // input 1 reading 1 was an earlier build's guess at the shop's plate, never what the shop's box
+      // reads (there input 1 reads 1 at rest): a browser that saved it takes the shop's plate
+      if (P.input === 1 && P.hit === 1) { P.input = PLATE.input; P.hit = PLATE.hit; }
       if (!input(P.input) || !level(P.hit)) { P.input = PLATE.input; P.hit = PLATE.hit; P.confirmed = false; }
       // a plate on the e-stop's input or a home sensor's is a misread, not a plate: the card asks for a touch again
       if (this.plateClash()) P.confirmed = false;
