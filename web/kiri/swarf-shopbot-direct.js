@@ -41,6 +41,9 @@
   // moment's work on the page never lets it run dry (two stop and start the bit); a
   // stop ramps down from the last block sent, about 2 mm later than with two. Homing keeps two.
   const WINDOW = 3;
+  // steady speeds an axis roars at, mm/s (measured at the shop machine 11-17, docs/shopbot-motion.md):
+  // X, the gantry, from about 16 to 30. Y is milder at every speed; Z is not measured.
+  const ROUGH = { x: [16, 30] };
   const PLATE_KEY = 'swarf-shopbot-plate';
   const UNKNOWN = 'not now: swarf can\'t tell whether the router is on. Press the red e-stop on the floor, then all clear';
   // a pressed e-stop and an e-stop swarf could not read are two different things
@@ -543,11 +546,28 @@ const PLATE = { input: 1, hit: 1, thickness: 3.0734, fast: 12.7, slow: 6.35, lif
       if (p) this.set(p);
     }
 
+    // A jog's, a go-to's or a rapid's speed, moved out of an axis's rough band (ROUGH): a slanted move
+    // at 2500 mm/min puts X at about 30 mm/s, where the gantry roars. Faster when that stays within the
+    // rapid speed, else slower. Moves with Z in them, cuts, air cuts and seeks keep their speed.
+    smooth(a, b, v) {
+      if (!a || !(v > 0) || Math.abs(b.z - a.z) > 1e-6) return v;
+      const L = Math.hypot(b.x - a.x, b.y - a.y);
+      if (!(L > 1e-6)) return v;
+      const top = Math.max(v, (this.cfg.rapid && this.cfg.rapid.xy) || v);
+      for (const k of Object.keys(ROUGH)) {
+        const f = Math.abs(b[k] - a[k]) / L, [lo, hi] = ROUGH[k], vk = v * f;
+        if (vk > lo && vk < hi) v = hi / f <= top ? hi / f : lo / f;
+      }
+      return v;
+    }
+
     move(targets, speed, wanted) {
       if (this.busy()) return;
       if (this.state.routerUnknown) { this.set({ note: UNKNOWN }); return; }
-      for (let i = 0, a = this.state.pos; i < targets.length; a = targets[i++]) { const why = root.SwarfRunPlan.segProblem(a, targets[i], speed(targets[i]), this.planCfg()); if (why) { this.set({ note: `not moved: that move ${why}` }); return; } }
-      const ops = targets.map(t => Object.assign(this.machine(t), { feed: speed(t), line: 0 }));
+      const feeds = [];
+      for (let i = 0, a = this.state.pos; i < targets.length; a = targets[i++]) feeds.push(this.smooth(a, targets[i], speed(targets[i])));
+      for (let i = 0, a = this.state.pos; i < targets.length; a = targets[i++]) { const why = root.SwarfRunPlan.segProblem(a, targets[i], feeds[i], this.planCfg()); if (why) { this.set({ note: `not moved: that move ${why}` }); return; } }
+      const ops = targets.map((t, i) => Object.assign(this.machine(t), { feed: feeds[i], line: 0 }));
       this.stack(ops, null, wanted).catch(e => this.set({ moving: false, note: e.halted ? 'stopped' : e.message })).finally(() => { if (!this.state.running) this.halted = null; });
     }
 
@@ -859,6 +879,8 @@ const PLATE = { input: 1, hit: 1, thickness: 3.0734, fast: 12.7, slow: 6.35, lif
           const down = a !== null && b.z < a.z - 1e-6;
           const air = plan.kind === 'air', worked = s.phase === 'program' && !(s.work && s.work.rapid);
           const op = Object.assign(this.machine(b), { feed: s.feed, line: s.line, si, cut: !air && worked && !down, rehearse: air && worked, ...(s.work ? { work: s.work } : {}) });
+          // a rapid or the way in to the job (nothing cutting, nothing rehearsed): out of the rough band
+          if (!op.cut && !op.rehearse) op.feed = this.smooth(a || this.state.pos, b, op.feed);
           // the override stays inside what the plan checked : at most the XY
           // speed and the Z speed along this move's slope, at least the card's slowest step for it
           if ((op.cut || op.rehearse) && a) {

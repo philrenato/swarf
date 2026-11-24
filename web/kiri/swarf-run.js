@@ -1857,11 +1857,9 @@ body.swarf-run-open { filter: none !important; }
 
   // Z plate (the auto Z depth with the touch-off tool, as the SB
   // software has it, more tightly integrated): one card, not five. The plate's
-  // thickness; three checks (bit over the board, clip on, plate under the bit); the
-  // circuit proved by touching the plate to the bit, which also tells swarf which
-  // input the plate is on; then touch off (C2: two touches, Z = the plate's
-  // thickness, lift). After it, the card asks for the plate and clip back.
-  // The simulator does all of it, with a button standing in for the touch.
+  // thickness; three checks (bit over the board, clip on, plate under the bit); then
+  // touch off (C2: two touches, Z = the plate's thickness, lift). After it, the card
+  // asks for the plate and clip back. The simulator runs the same card.
   function plateWizard() {
     const m = S.machine;
     if (!m || !m.zZero || m.state.running || (isDirect() && !m.state.connected)) return;
@@ -1890,7 +1888,10 @@ body.swarf-run-open { filter: none !important; }
     const go = h('button', { class: 'go' });
     const back = h('button', { text: 'cancel', onclick: () => { S.plateWatch = null; S.afterZero = null; el.sheet.classList.remove('on'); refresh(); } });
     const put = h('input', { type: 'checkbox' });
-    const pic = plateView();
+    // the picture is a help, never a gate: a laptop whose browser can't give it a WebGL context (or a
+    // model that fails to build) still gets the card, without the picture
+    let pic = null;
+    try { pic = plateView(); } catch (e) { console.warn('swarf: the plate picture could not be drawn', e); }
     // the board as measured, against the job (optional): the machine knows the top of the board and
     // not the spoilboard, so only calipers can tell
     const measured = h('input', { type: 'text', inputmode: 'decimal', class: 'sr-board-in', title: `Optional: your board's calipered thickness, to compare with the job` });

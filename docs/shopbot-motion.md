@@ -26,6 +26,11 @@ Steady travel on the shop machine (no load):
 - Ramps pass through the rough band in a fraction of a second. Steady moves in it are the loud
   ones: homing's slow seek (25.4 mm/s) and cut feeds of about 1000–1800 mm/min. Jog speeds skip the
   band: 250, 500, 700, 2500 (the default) and 5000 mm/min.
+- **Slanted moves** share the speed between the axes: a go-to at 2500 mm/min on a 45° slant puts X
+  at about 30 mm/s. Jogs, go-tos, rapids and the way into a job (not cuts, not air cuts, not moves
+  with Z in them, not seeks) take a speed that keeps X's share out of 16–30 mm/s: a little faster
+  when that stays within the rapid speed (100 mm/s), else slower (`smooth`, ROUGH in
+  swarf-shopbot-direct.js; tools/shopbot/test-rough-band.mjs).
 
 ## Measuring
 The tuning page (branch `shopbot-tune`, web/kiri/tune/, never deployed) runs fixed test moves
