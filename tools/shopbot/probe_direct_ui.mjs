@@ -48,8 +48,12 @@ try {
   await page.evaluateOnNewDocument(stub + fakeUsb);
   await page.goto(PAGE, { waitUntil: 'networkidle2', timeout: 60000 });
   await page.waitForFunction(() => window.__swarfRun && window.kiri && window.kiri.api, { timeout: 60000 });
+  // the ShopBot picked, and a moment for the page to settle on it, before control opens (on the live
+  // site an open straight after load sometimes found no machine yet)
+  await page.evaluate(() => window.kiri.api.devices.select('ShopBot.Basic'));
+  await new Promise(r => setTimeout(r, 1500));
   await page.evaluate(() => window.__swarfRun.open());
-  await page.waitForFunction(() => { const m = window.__swarfRun.state.machine; return m && m.state.connected; }, { timeout: 10000 });
+  await page.waitForFunction(() => { const m = window.__swarfRun.state.machine; return m && m.state.connected; }, { timeout: 30000 });
   const conn = await page.evaluate(() => ({ cls: window.__swarfRun.state.machine.constructor.name, note: window.__swarfRun.state.machine.state.note, text: document.querySelector('.sr-conn').textContent }));
   check(conn.cls === 'DirectMachine', `machine: ${conn.cls} — ${conn.note} — "${conn.text.trim()}"`);
   // review 10-27: first-timer defaults, go-to hidden until zero is set this session
