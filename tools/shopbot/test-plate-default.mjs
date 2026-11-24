@@ -1,7 +1,6 @@
 // The Z plate on a browser new to the shop's ShopBot: the shop's plate is input 5, reading 0 on
-// contact and 1 at rest (what the touch in machine setup recorded there). An earlier default, input 1
-// reading 1, matched the box at rest, so a new browser refused "the plate already reads contact" and
-// never moved; only a browser that had done the touch worked. Saved input 1 / 1 takes the shop's plate.
+// contact and 1 at rest. Input 1 reading 1 matches the box at rest, so touch off with it refuses
+// ("the plate already reads contact") before any motion; a saved input 1 / 1 takes the shop's plate.
 import fs from 'node:fs'; import vm from 'node:vm'; import assert from 'node:assert/strict'; import { createRequire } from 'node:module';
 import { FakeCP210x, fakeUSB } from './fake-cp210x.mjs';
 const StubCard = createRequire(import.meta.url)('./stub-card.cjs');

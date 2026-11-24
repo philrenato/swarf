@@ -1,7 +1,7 @@
 // Jogs, go-tos and the moves into a job never hold X steady in its rough band (16-30 mm/s on the
-// shop machine, docs/shopbot-motion.md). A slanted go-to at 2500 mm/min put X at about 30 mm/s; now
-// it runs a little faster, or slower when faster would pass the rapid speed. Cuts, air cuts and
-// moves with Z in them keep their own speed.
+// shop machine, docs/shopbot-motion.md). A slanted move whose X share lands in the band goes to the
+// nearer band edge, slower when faster would pass the rapid speed. Cuts, air cuts and moves with Z
+// in them keep their own speed.
 import fs from 'node:fs'; import vm from 'node:vm'; import assert from 'node:assert/strict'; import { createRequire } from 'node:module';
 import { FakeCP210x, fakeUSB } from './fake-cp210x.mjs';
 const StubCard = createRequire(import.meta.url)('./stub-card.cjs');

@@ -41,8 +41,8 @@
   // moment's work on the page never lets it run dry (two stop and start the bit); a
   // stop ramps down from the last block sent, about 2 mm later than with two. Homing keeps two.
   const WINDOW = 3;
-  // steady speeds an axis roars at, mm/s (measured at the shop machine 11-17, docs/shopbot-motion.md):
-  // X, the gantry, from about 16 to 30. Y is milder at every speed; Z is not measured.
+  // steady speeds an axis roars at, mm/s (docs/shopbot-motion.md): X, the gantry, from about 16 to 30.
+  // Y is milder at every speed; Z is not measured.
   const ROUGH = { x: [16, 30] };
   const LEAD_MIN = 2500 / 60;   // mm/s: the lead-in into a job is never slower (a 250 mm/min jog row would crawl)
   const PLATE_KEY = 'swarf-shopbot-plate';
@@ -53,16 +53,12 @@
     pressed: 'the e-stop reads pressed: release the red e-stop on the floor first',
     unread: 'swarf could not read the e-stop just now: check the USB cable and that the box is on, then try again'
   };
-  // the Z plate on the shop machine: input 5, reading 0 on contact (1 at rest), as the touch in machine
-  // setup recorded it at the shop's ShopBot;
-  // plate 0.121 in; first plunge 0.5 in/s, second 0.25 in/s, lift 1.0 in
-  // between and after.
-  // travel: swarf stops after 60 mm (search down on the plate card raises it). The guide
-  // starts the bit 25-50 mm over the board and proves the clip circuit first, so a seek
-  // that still misses contact ends at most ~35 mm below the board's top, not 230.
-  // A fresh browser takes the shop's plate as known (a student never has to touch the plate
-// to the bit on purpose); machine setup still sets another box's plate.
-const PLATE = { input: 5, hit: 0, thickness: 3.0734, fast: 12.7, slow: 6.35, lift: 25.4, travel: 60, confirmed: true };
+  // the Z plate on the shop machine: input 5, reading 0 on contact (1 at rest); plate 0.121 in;
+  // first plunge 0.5 in/s, second 0.25 in/s, lift 1.0 in between and after.
+  // travel: swarf stops after 60 mm (search down on the plate card raises it). The card asks for
+  // the bit less than that over the plate, so a seek that misses contact stops short of the spoilboard.
+  // A fresh browser takes the shop's plate as known; machine setup sets another box's plate.
+  const PLATE = { input: 5, hit: 0, thickness: 3.0734, fast: 12.7, slow: 6.35, lift: 25.4, travel: 60, confirmed: true };
 
   class DirectMachine extends M.Base {
     constructor(cfg = {}) {
@@ -119,17 +115,16 @@ const PLATE = { input: 5, hit: 0, thickness: 3.0734, fast: 12.7, slow: 6.35, lif
       for (const k of ['fast', 'slow', 'backOff', 'block']) if (!num(H[k], v => v > 0)) H[k] = HOME[k];
       if (typeof H.confirmed !== 'boolean') H.confirmed = false;
       const P = this.plateCfg;
-      // input 1 reading 1 was an earlier build's guess at the shop's plate, never what the shop's box
-      // reads (there input 1 reads 1 at rest): a browser that saved it takes the shop's plate
+      // input 1 reading 1 is not a plate on the shop's box (input 1 reads 1 at rest): saved, it takes the shop's
       if (P.input === 1 && P.hit === 1) { P.input = PLATE.input; P.hit = PLATE.hit; }
       if (!input(P.input) || !level(P.hit)) { P.input = PLATE.input; P.hit = PLATE.hit; P.confirmed = false; }
-      // a plate on the e-stop's input or a home sensor's is a misread, not a plate: the card asks for a touch again
+      // a plate on the e-stop's input or a home sensor's is a misread, not a plate: machine setup sets it again
       if (this.plateClash()) P.confirmed = false;
       if (!num(P.thickness, v => v > 0 && v < 50)) P.thickness = PLATE.thickness;     // setPlateThickness's range
       if (!num(P.travel, v => v >= 10 && v <= 150)) P.travel = PLATE.travel;          // setPlateTravel's
       for (const k of ['fast', 'slow', 'lift']) if (!num(P[k], v => v > 0)) P[k] = PLATE[k];
       if (typeof P.confirmed !== 'boolean') P.confirmed = false;
-      // the shop's own plate (input 1, contact reads 1) is known even where an earlier build saved it unproved
+      // the shop's own plate is known even where it was saved unconfirmed
       if (P.input === PLATE.input && P.hit === PLATE.hit && !this.plateClash()) P.confirmed = true;
     }
 
@@ -553,7 +548,8 @@ const PLATE = { input: 5, hit: 0, thickness: 3.0734, fast: 12.7, slow: 6.35, lif
 
     // A jog's, a go-to's or a rapid's speed, moved out of an axis's rough band (ROUGH): a slanted move
     // at 2500 mm/min puts X at about 30 mm/s, where the gantry roars. To the nearer edge of the band
-    // (faster only within the rapid speed), so the speed asked for changes as little as it can. Moves with Z in them, cuts, air cuts and seeks keep their speed.
+    // (faster only within the rapid speed), so the speed asked for changes as little as it can.
+    // A move with Z in it keeps its speed; callers leave cuts, air cuts and seeks alone.
     smooth(a, b, v) {
       if (!a || !(v > 0) || Math.abs(b.z - a.z) > 1e-6) return v;
       const L = Math.hypot(b.x - a.x, b.y - a.y);
@@ -569,9 +565,12 @@ const PLATE = { input: 5, hit: 0, thickness: 3.0734, fast: 12.7, slow: 6.35, lif
     move(targets, speed, wanted) {
       if (this.busy()) return;
       if (this.state.routerUnknown) { this.set({ note: UNKNOWN }); return; }
-      const feeds = [];
-      for (let i = 0, a = this.state.pos; i < targets.length; a = targets[i++]) feeds.push(this.smooth(a, targets[i], speed(targets[i])));
-      for (let i = 0, a = this.state.pos; i < targets.length; a = targets[i++]) { const why = root.SwarfRunPlan.segProblem(a, targets[i], feeds[i], this.planCfg()); if (why) { this.set({ note: `not moved: that move ${why}` }); return; } }
+      const feeds = [], pc = this.planCfg();
+      for (let i = 0, a = this.state.pos; i < targets.length; a = targets[i++]) {
+        feeds.push(this.smooth(a, targets[i], speed(targets[i])));
+        const why = root.SwarfRunPlan.segProblem(a, targets[i], feeds[i], pc);
+        if (why) { this.set({ note: `not moved: that move ${why}` }); return; }
+      }
       const ops = targets.map((t, i) => Object.assign(this.machine(t), { feed: feeds[i], line: 0 }));
       this.stack(ops, null, wanted).catch(e => this.set({ moving: false, note: e.halted ? 'stopped' : e.message })).finally(() => { if (!this.state.running) this.halted = null; });
     }
@@ -841,7 +840,7 @@ const PLATE = { input: 5, hit: 0, thickness: 3.0734, fast: 12.7, slow: 6.35, lif
     // The job plan (swarf-run-plan.js) holds every move and switch; the driver only turns it into
     // the card's machine millimeters and output words. A plan that asks to be armed runs only armed.
     // the way into a job (up, over, down) goes over at the jog row's speed, never under 2500 mm/min and
-    // never over the rapid: at the full rapid (100 mm/s) the gantry shook through the lead-in
+    // never over the rapid (100 mm/s shakes the gantry through the lead-in)
     leadXY() { const r = this.cfg.rapid.xy, j = this.cfg.jog && this.cfg.jog.xy; return Math.min(r, Math.max(LEAD_MIN, j > 0 ? j : LEAD_MIN)); }
     planCfg() { return { safeZ: this.cfg.safeZ, rapid: this.cfg.rapid, lead: { xy: this.leadXY() }, move: this.cfg.move, jog: this.cfg.jog, spinUp: this.cfg.spinUp, changeZ: this.cfg.changeZ, unit: this.cfg.unit, tickHz: root.ShopBotCard.TICK_HZ }; }
     // what a plan is for: this zero, on this link (a reconnect or a new zero makes a new plan)
