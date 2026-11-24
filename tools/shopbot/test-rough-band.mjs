@@ -28,7 +28,7 @@ for (const r of rows) for (let deg = 0; deg <= 90; deg += 0.25) {
   assert.ok(!inBand(s * fx), `${r} mm/min at ${deg}°: X at ${(s * fx).toFixed(2)} mm/s`);
   assert.ok(s <= Math.max(v, TOP) + 1e-9, `${r} mm/min at ${deg}°: no faster than the rapid (${s})`);
   if (!inBand(v * fx)) assert.equal(s, v, `${r} mm/min at ${deg}°: a speed outside the band is kept`);
-  else if (s > v) raised++; else lowered++;
+  else { const other = (s > v ? LO : HI) / fx; assert.ok(other > Math.max(v, TOP) + 1e-9 || Math.abs(s - v) <= Math.abs(other - v) + 1e-9, `${r} mm/min at ${deg}°: the nearer edge (${s.toFixed(1)} from ${v.toFixed(1)})`); if (s > v) raised++; else lowered++; }
 }
 assert.ok(raised > 0 && lowered > 0, `both ways used (${raised} faster, ${lowered} slower)`);
 // Z in the move: kept
@@ -47,7 +47,7 @@ m.goTo({ x: 300, y: 300 }); await idle();
 const f = sent.at(-1)[0];
 assert.ok(!inBand(f * Math.SQRT1_2), `go to x y on a 45° slant: X at ${(f * Math.SQRT1_2).toFixed(2)} mm/s`);
 // a job: the way in and its rapids are smoothed, its cuts are not
-const P = win.SwarfRunParse, prog = P.parse(["'UNITS:MM", 'C9', 'TR,12000', 'C6', 'MS,20,10', 'J3,260,100,5', 'M3,260,100,-1', 'M3,310,0,-1', 'J3,250,400,5', 'C7', 'END'].join('\n'), { machineUnits: 'mm' });
+const P = win.SwarfRunParse, prog = P.parse(["'UNITS:MM", 'C9', 'TR,12000', 'C6', 'MS,20,10', 'J3,260,100,5', 'M3,260,100,-1', 'M3,310,0,-1', 'J3,250,400,5', 'J3,250,40,5', 'C7', 'END'].join('\n'), { machineUnits: 'mm' });
 const plan = m.plan({ ...prog, name: 't', sbp: '' });
 const ops = m.opsOf(plan, 0).filter(o => o.x !== undefined);
 let at = m.machine(m.state.pos);
@@ -57,6 +57,18 @@ for (const o of ops) {
   if (o.cut) assert.equal(o.feed, 20, 'a cut keeps the file\'s feed');
   at = o;
 }
+// the lead-in goes over at the jog row's speed: 2500 mm/min floor, the rapid ceiling
+const lead = ops[1];
+assert.ok(lead && !lead.cut && Math.abs(lead.z - 25.4) < 1e-6, 'the second op is the lead-in over');
+assert.ok(lead.feed <= 2500 / 60 * 1.06 && lead.feed >= 16, `lead-in at ${(lead.feed * 60).toFixed(0)} mm/min, not the 6000 rapid`);
+m.cfg.jog = { xy: 250 / 60, z: 250 / 60 };
+assert.ok(Math.abs(m.leadXY() - 2500 / 60) < 1e-9, 'a 250 mm/min jog row still leads in at 2500');
+m.cfg.jog = { xy: 5000 / 60, z: 1000 / 60 };
+assert.ok(Math.abs(m.leadXY() - 5000 / 60) < 1e-9, 'a 5000 row leads in at 5000');
+m.cfg.jog = { xy: 9000 / 60, z: 1000 / 60 };
+assert.ok(Math.abs(m.leadXY() - m.cfg.rapid.xy) < 1e-9, 'never past the rapid');
+const mid = m.opsOf(m.plan({ ...prog, name: 't', sbp: '' }), 0).filter(o => o.x !== undefined);
+assert.ok(mid.some(o => !o.cut && o.feed > 99), 'the program\'s own rapids keep the rapid speed');
 await m.disconnect?.();
 console.log(`rough band: ok (${raised} slants run faster, ${lowered} slower; go-to ${(f * 60).toFixed(0)} mm/min)`);
 process.exit(0);

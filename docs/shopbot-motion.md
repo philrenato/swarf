@@ -28,8 +28,8 @@ Steady travel on the shop machine (no load):
   band: 250, 500, 700, 2500 (the default) and 5000 mm/min.
 - **Slanted moves** share the speed between the axes: a go-to at 2500 mm/min on a 45° slant puts X
   at about 30 mm/s. Jogs, go-tos, rapids and the way into a job (not cuts, not air cuts, not moves
-  with Z in them, not seeks) take a speed that keeps X's share out of 16–30 mm/s: a little faster
-  when that stays within the rapid speed (100 mm/s), else slower (`smooth`, ROUGH in
+  with Z in them, not seeks) take a speed that keeps X's share out of 16–30 mm/s: the nearer edge
+  of the band, faster only within the rapid speed (100 mm/s) (`smooth`, ROUGH in
   swarf-shopbot-direct.js; tools/shopbot/test-rough-band.mjs).
 
 ## Measuring
@@ -38,3 +38,9 @@ inside a ±12 in box with the spindle locked off, logs every move, and
 tools/tune/analyse.mjs lines the log up with a phone accelerometer recording (phyphox CSV) to
 rank settings by ringing after a stop. Its speed sweep runs steady passes from 8 to 100 mm/s.
 A phone samples at about 100 Hz: it sees frame shake, not the motor buzz; record sound for that.
+
+## Lead-in
+The way into a job (up to safe Z, over to the start, slowly down) goes over at the jog row's
+speed, never under 2500 mm/min and never over the rapid (`leadXY`, swarf-shopbot-direct.js). At the
+full rapid (100 mm/s) the gantry shook through the lead-in (Phil, 11-24). The program's own rapids
+keep the rapid speed.

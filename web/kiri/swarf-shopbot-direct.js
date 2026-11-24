@@ -44,6 +44,7 @@
   // steady speeds an axis roars at, mm/s (measured at the shop machine 11-17, docs/shopbot-motion.md):
   // X, the gantry, from about 16 to 30. Y is milder at every speed; Z is not measured.
   const ROUGH = { x: [16, 30] };
+  const LEAD_MIN = 2500 / 60;   // mm/s: the lead-in into a job is never slower (a 250 mm/min jog row would crawl)
   const PLATE_KEY = 'swarf-shopbot-plate';
   const UNKNOWN = 'not now: swarf can\'t tell whether the router is on. Press the red e-stop on the floor, then all clear';
   // a pressed e-stop and an e-stop swarf could not read are two different things
@@ -547,8 +548,8 @@ const PLATE = { input: 1, hit: 1, thickness: 3.0734, fast: 12.7, slow: 6.35, lif
     }
 
     // A jog's, a go-to's or a rapid's speed, moved out of an axis's rough band (ROUGH): a slanted move
-    // at 2500 mm/min puts X at about 30 mm/s, where the gantry roars. Faster when that stays within the
-    // rapid speed, else slower. Moves with Z in them, cuts, air cuts and seeks keep their speed.
+    // at 2500 mm/min puts X at about 30 mm/s, where the gantry roars. To the nearer edge of the band
+    // (faster only within the rapid speed), so the speed asked for changes as little as it can. Moves with Z in them, cuts, air cuts and seeks keep their speed.
     smooth(a, b, v) {
       if (!a || !(v > 0) || Math.abs(b.z - a.z) > 1e-6) return v;
       const L = Math.hypot(b.x - a.x, b.y - a.y);
@@ -556,7 +557,7 @@ const PLATE = { input: 1, hit: 1, thickness: 3.0734, fast: 12.7, slow: 6.35, lif
       const top = Math.max(v, (this.cfg.rapid && this.cfg.rapid.xy) || v);
       for (const k of Object.keys(ROUGH)) {
         const f = Math.abs(b[k] - a[k]) / L, [lo, hi] = ROUGH[k], vk = v * f;
-        if (vk > lo && vk < hi) v = hi / f <= top ? hi / f : lo / f;
+        if (vk > lo && vk < hi) { const up = hi / f, down = lo / f; v = up <= top && up - v < v - down ? up : down; }
       }
       return v;
     }
@@ -835,7 +836,10 @@ const PLATE = { input: 1, hit: 1, thickness: 3.0734, fast: 12.7, slow: 6.35, lif
     // and resumeLine says where "cut from line" picks up.
     // The job plan (swarf-run-plan.js) holds every move and switch; the driver only turns it into
     // the card's machine millimeters and output words. A plan that asks to be armed runs only armed.
-    planCfg() { return { safeZ: this.cfg.safeZ, rapid: this.cfg.rapid, move: this.cfg.move, jog: this.cfg.jog, spinUp: this.cfg.spinUp, changeZ: this.cfg.changeZ, unit: this.cfg.unit, tickHz: root.ShopBotCard.TICK_HZ }; }
+    // the way into a job (up, over, down) goes over at the jog row's speed, never under 2500 mm/min and
+    // never over the rapid: at the full rapid (100 mm/s) the gantry shook through the lead-in
+    leadXY() { const r = this.cfg.rapid.xy, j = this.cfg.jog && this.cfg.jog.xy; return Math.min(r, Math.max(LEAD_MIN, j > 0 ? j : LEAD_MIN)); }
+    planCfg() { return { safeZ: this.cfg.safeZ, rapid: this.cfg.rapid, lead: { xy: this.leadXY() }, move: this.cfg.move, jog: this.cfg.jog, spinUp: this.cfg.spinUp, changeZ: this.cfg.changeZ, unit: this.cfg.unit, tickHz: root.ShopBotCard.TICK_HZ }; }
     // what a plan is for: this zero, on this link (a reconnect or a new zero makes a new plan)
     planCtx() { const o = this.origin; return { machine: 'shopbot', link: this.linkNo || 0, origin: [Math.round(o.x), Math.round(o.y), Math.round(o.z)] }; }
     plan(prog) {

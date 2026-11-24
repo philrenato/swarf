@@ -83,7 +83,7 @@
       if (E.skipFirst) moves = moves.slice(1);
       for (const x of E) {
         if (x.routerHere && live) say(true, 0);
-        if (x.move) move(x.move, x.move.kind === 'down' ? Math.min(10, cfg.move.z) : x.move.kind === 'up' ? cfg.rapid.z : cfg.rapid.xy, x.move.line, 'entry');
+        if (x.move) move(x.move, x.move.kind === 'down' ? Math.min(10, cfg.move.z) : x.move.kind === 'up' ? cfg.rapid.z : (cfg.lead || cfg.rapid).xy, x.move.line, 'entry');
       }
     }
     let started = !lifting;
@@ -94,7 +94,7 @@
       // (the lift-first move itself), the router on there, then slowly down to the line's start
       if (m.liftFirst) {
         move({ x: at.x, y: at.y, z: Math.max(at.z, m.z) }, cfg.rapid.z, m.line, 'entry');
-        move({ x: m.x, y: m.y, z: Math.max(at.z, m.z) }, cfg.rapid.xy, m.line, 'entry');
+        move({ x: m.x, y: m.y, z: Math.max(at.z, m.z) }, (cfg.lead || cfg.rapid).xy, m.line, 'entry');
         at = { x: m.x, y: m.y, z: Math.max(at.z, m.z) };
         continue;
       }
